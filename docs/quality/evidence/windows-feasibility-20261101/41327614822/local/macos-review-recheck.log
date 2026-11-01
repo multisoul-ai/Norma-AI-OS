@@ -1,0 +1,71 @@
+   Compiling once_cell v1.21.4
+   Compiling serde v1.0.228
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.3
+   Compiling tempfile v3.27.0
+   Compiling zerovec v0.11.6
+   Compiling zerotrie v0.2.4
+   Compiling tinystr v0.8.3
+   Compiling potential_utf v0.1.5
+   Compiling icu_collections v2.2.0
+   Compiling icu_locale_core v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling git2 v0.20.4
+   Compiling workspace v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/workspace)
+    Finished `test` profile [optimized + debuginfo] target(s) in 7.55s
+     Running unittests src/lib.rs (target/debug/deps/workspace-8822f8ed8dbb6aab)
+
+running 24 tests
+test git_clone::failure_tests::git_failure_classifier_groups_https_and_ssh_authentication_errors ... ok
+test git_clone::failure_tests::git_failure_classifier_separates_repository_host_and_network_failures ... ok
+test git_clone::progress_tests::git_progress_parser_handles_remote_prefix_and_ignores_unknown_noise ... ok
+test git_clone::progress_tests::git_progress_parser_discards_out_of_range_or_malformed_percentages ... ok
+test git_clone::progress_tests::git_progress_parser_maps_clone_stages_and_percentages ... ok
+test git_clone::remote_tests::github_remote_normalizes_supported_https_and_ssh_forms ... ok
+test git_clone::remote_tests::github_remote_rejects_ambiguous_or_unsafe_addresses ... ok
+test git_clone::remote_tests::github_remote_trims_outer_whitespace_without_accepting_invalid_names ... ok
+test git_clone::destination_tests::clone_destination_accepts_new_direct_child_without_creating_it ... ok
+test git_clone::destination_tests::clone_destination_rejects_path_traversal_and_non_segment_names ... ok
+test git_clone::destination_tests::clone_destination_rejects_existing_target_and_missing_parent ... ok
+test content::atomic::tests::exchange_preserves_external_edit_arriving_before_replace ... ok
+test recent::tests::test_recent_workspaces_retains_latest_fifty_records ... ok
+test recent::tests::test_record_opened_sorts_by_latest_and_dedupes_path ... ok
+test recent::tests::test_remove_path_removes_only_the_requested_recent_workspace ... ok
+test git_clone::runner_tests::git_clone_runner_cancels_running_child_and_cleans_owned_target ... ok
+test git_clone::security_tests::cloned_workspace_rejects_non_git_directory_without_creating_metadata ... ok
+test git_clone::runner_tests::git_clone_runner_cleans_owned_target_after_git_failure ... ok
+test git_clone::security_tests::cloned_workspace_blocks_tracked_norma_state_without_deleting_repository ... ok
+test git_clone::security_tests::cloned_workspace_adds_norma_to_local_exclude_idempotently ... ok
+test git_clone::runner_tests::git_clone_runner_honors_preflight_cancellation_without_side_effects ... ok
+test git_clone::runner_tests::git_clone_runner_completes_local_clone_and_security_finalize ... ok
+test git_clone::runner_tests::git_clone_runner_preserves_clone_but_blocks_tracked_norma_workspace_state ... ok
+test git_clone::cleanup_tests::git_clone_cleanup_preserves_target_replaced_by_symlink ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+     Running tests/project_review.rs (target/debug/deps/project_review-83abb3eb2d07cf48)
+
+running 8 tests
+test capture_rejects_external_filters_and_submodules_without_executing_them ... ok
+test capture_does_not_follow_links_or_silently_truncate ... ok
+test capture_keeps_full_before_after_and_current_changes ... ok
+test baseline::saved_baseline_rejects_git_arguments_and_unsafe_paths ... ok
+test baseline::ignored_index_flags_cannot_hide_task_changes ... ok
+test capture_scopes_nested_projects_and_handles_unborn_head ... ok
+test baseline::delivery_compares_saved_dirty_state_and_includes_committed_changes ... ok
+test baseline::nested_task_includes_commits_without_escaping_scope ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
+
+     Running tests/review_platform.rs (target/debug/deps/review_platform-358108d305540207)
+
+running 1 test
+test native_review_captures_current_bytes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+

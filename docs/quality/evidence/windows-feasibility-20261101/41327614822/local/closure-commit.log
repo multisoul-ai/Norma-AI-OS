@@ -1,0 +1,7 @@
+OK: codesign readiness check passed
+[pre-commit] running cargo check...
+[pre-commit] running cargo fmt --check...
+[codex/windows-feasibility-20261101 f2838b21] fix(windows): preserve open readers and own Review descendant processes
+ 12 files changed, 280 insertions(+), 22 deletions(-)
+ create mode 100644 crates/workspace/src/review/process_windows.rs
+ create mode 100644 crates/workspace/tests/unit/review_process_windows.rs

@@ -1,0 +1,8 @@
+OK: codesign readiness check passed
+[pre-commit] running cargo check...
+[pre-commit] running cargo fmt --check...
+[codex/windows-feasibility-20261101 fbe37cf7] test(windows): reproduce storage Review and A1 platform boundaries
+ 4 files changed, 156 insertions(+), 1 deletion(-)
+ create mode 100644 crates/asr/tests/a1_platform.rs
+ create mode 100644 crates/storage/tests/memory_platform.rs
+ create mode 100644 crates/workspace/tests/review_platform.rs

@@ -1,0 +1,88 @@
+     Locking 18 packages to latest compatible versions
+      Adding bitflags v2.13.0
+      Adding cfg-if v1.0.4
+      Adding errno v0.3.14
+      Adding fastrand v2.4.1
+      Adding getrandom v0.4.3
+      Adding libc v0.2.186
+      Adding linux-raw-sys v0.12.1
+      Adding once_cell v1.21.4
+      Adding proc-macro2 v1.0.106
+      Adding quote v1.0.46
+      Adding r-efi v6.0.0
+      Adding rustix v1.1.4
+      Adding serde v1.0.228
+      Adding serde_core v1.0.228
+      Adding serde_derive v1.0.228
+      Adding syn v2.0.118
+      Adding tempfile v3.27.0
+      Adding unicode-ident v1.0.24
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.46
+   Compiling unicode-ident v1.0.24
+   Compiling getrandom v0.4.3
+   Compiling serde_core v1.0.228
+   Compiling serde v1.0.228
+    Checking cfg-if v1.0.4
+    Checking once_cell v1.21.4
+    Checking fastrand v2.4.1
+    Checking tempfile v3.27.0
+   Compiling syn v2.0.118
+   Compiling serde_derive v1.0.228
+    Checking norma-scoped-fs-check v0.0.0 (/private/tmp/norma-scoped-fs-check)
+warning: struct `ProcessControl` is never constructed
+ --> src/lib.rs:6:23
+  |
+6 |     pub(super) struct ProcessControl { child: Arc<Mutex<Child>>, job: Arc<OwnedHandle> }
+  |                       ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `terminate` is never used
+ --> src/lib.rs:7:30
+  |
+7 |     impl ProcessControl { fn terminate(&self) {
+  |     -------------------      ^^^^^^^^^
+  |     |
+  |     method in this implementation
+
+warning: type alias `WriteRequest` is never used
+  --> /private/tmp/norma-windows-feasibility-20261101/crates/asr/src/providers/local/a1/transport/windows.rs:33:6
+   |
+33 | type WriteRequest = (Vec<u8>, SyncSender<io::Result<usize>>);
+   |      ^^^^^^^^^^^^
+
+warning: struct `Pipe` is never constructed
+  --> /private/tmp/norma-windows-feasibility-20261101/crates/asr/src/providers/local/a1/transport/windows.rs:34:19
+   |
+34 | pub(super) struct Pipe {
+   |                   ^^^^
+
+warning: function `would_block` is never used
+  --> /private/tmp/norma-windows-feasibility-20261101/crates/asr/src/providers/local/a1/transport/windows.rs:42:4
+   |
+42 | fn would_block() -> io::Error {
+   |    ^^^^^^^^^^^
+
+warning: function `spawn` is never used
+  --> /private/tmp/norma-windows-feasibility-20261101/crates/asr/src/providers/local/a1/transport/windows.rs:46:15
+   |
+46 | pub(super) fn spawn(mut command: Command) -> io::Result<(ProcessControl, Pipe)> {
+   |               ^^^^^
+
+warning: associated function `new` is never used
+   --> /private/tmp/norma-windows-feasibility-20261101/crates/asr/src/providers/local/a1/transport/windows.rs:110:8
+    |
+109 | impl Pipe {
+    | --------- associated function in this implementation
+110 |     fn new(control: &ProcessControl) -> io::Result<Self> {
+    |        ^^^
+
+warning: function `NtResumeProcess` is never used
+  --> /private/tmp/norma-windows-feasibility-20261101/crates/asr/src/providers/local/a1/transport/windows.rs:30:8
+   |
+30 |     fn NtResumeProcess(process: HANDLE) -> i32;
+   |        ^^^^^^^^^^^^^^^
+
+warning: `norma-scoped-fs-check` (lib) generated 8 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.02s

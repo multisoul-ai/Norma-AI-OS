@@ -1,0 +1,24 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling cc v1.2.66
+   Compiling security-framework-sys v2.17.0
+   Compiling url v2.5.8
+   Compiling security-framework v3.7.0
+   Compiling rustls-native-certs v0.8.4
+   Compiling ring v0.17.14
+   Compiling libsqlite3-sys v0.30.1
+   Compiling rustls v0.23.41
+   Compiling rustls-webpki v0.103.13
+   Compiling rcgen v0.13.2
+   Compiling mobile_pairing v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/mobile_pairing)
+   Compiling ureq v3.3.0
+   Compiling tungstenite v0.28.0
+   Compiling rusqlite v0.32.1
+   Compiling norma v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/norma)
+    Finished `test` profile [optimized + debuginfo] target(s) in 5m 17s
+     Running tests/opencode_question_transport.rs (target/debug/deps/opencode_question_transport-519a86188247e79b)
+
+running 1 test
+test opencode_replies_only_through_own_instance_and_original_request ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+

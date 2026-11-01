@@ -1,0 +1,6 @@
+Verified isolated idle cache: /private/tmp/norma-windows-feasibility-20261101/target
+     Removed 71652 files, 21.5GiB total
+Removed only owned target: /private/tmp/norma-windows-feasibility-20261101/target
+Verified isolated idle cache: /private/tmp/norma-scoped-fs-check/target
+     Removed 297 files, 70.5MiB total
+Removed only owned target: /private/tmp/norma-scoped-fs-check/target

@@ -6,7 +6,7 @@ title: Norma OS Windows 适配计划
 subtitle: 先交付核心工作流，再补齐浏览器、语音与系统集成
 日期: 2026-11-01
 代码基准: f0740f6c；探针分支 codex/windows-feasibility-20261101
-状态: VAD 原 5 错误已消除；App storage 与 ASR/A1 阻塞未通过
+状态: storage/语音回归已通过；App 当前被 runtime/Codex 六条诊断阻塞
 ---
 
 这是一次中到大型平台移植。保留现有 Rust、GPUI 和域层，在系统能力边界增加 Windows 实现。
@@ -28,15 +28,25 @@ GPUI 示例绘图与 OS 键盘关闭通过；产品编译失败。
 源码为 `dae96214474474dffe6e0fc96efabb9d2e14990f`。
 norma 编译与 43 项平台回归通过；App 检查仍失败，完整迁移尚未通过。
 
-最新复验：[41312790317](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41312790317)，源码 `e29f676e6fce66894b87a8ab7fb1e23e3538d8b0`。
-整体 failure；voice_input 默认 check 通过，原 5 个 VAD 错误消除。
-norma/CLI/helper、43 项平台回归及 canvas 52 项无回退。
-App 在 storage 有 25 条诊断；语音测试在 A1 工厂引用处编译失败，实际未执行。
+本批首轮修复：[41325043580](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41325043580)。
+源码 `f2838b21e04f7eb5c7ccecfc45271ec521ebe186`，整体 failure。
+原 storage 25 条诊断与 A1 工厂错误消除；语音实际 89 通过、0 失败、16 既有忽略。
+原生文件回归 4 项、记忆发布 1 项、Review 中文 capture 与进程收口均通过。
+App 默认检查仍在 runtime/Codex 的六项 Unix socket/relay 引用处失败。
 
-前批 macOS norma 为 340 通过、0 失败、1 既有忽略。
-本批 Mac 语音测试为 90 通过、4 项内存压力护栏失败、17 既有忽略，未新增忽略。
-Mac workspace check 通过；i18n 仍有原有 GPT-Live 文案失败。
-真实 Norma 图形、真实 Agent 和候选包仍为 NOT_RUN。
+Git 路径修复后复验：[41327614822](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41327614822)。
+源码 `747777db081a4f06005ee3b8b617de91db29fe8c`，已结束，整体 failure。
+平台回归 30/0/0、语音 89/0/16、原 43/52 项无回退；App 仍被 runtime/Codex 六项阻塞。
+
+Mac 定向语音 96 通过、0 失败、17 既有忽略；storage/workspace 338 通过、0 失败。
+Mac 原 4 项压力失败在本批基线复现；修复夹具资源输入，生产阈值保持不变。
+
+A1 模型引擎仍要求 Apple Silicon macOS。
+本轮 Windows 测试只验证工厂与管道。
+
+完整 workspace 为 3415 通过、15 失败、52 既有忽略，仍为 FAIL。
+隔离对话 38 项、提议 1 项和 OpenCode 1 项通过，不能覆盖原完整失败。
+i18n 的既有 GPT-Live 文案失败保留；真实 Norma GUI、Agent 与候选包均未验。
 
 ## A 改动量与投入
 
@@ -218,32 +228,30 @@ UI 实施前加载 apple-design 与对应 gpui 技能。
 
 ## H 下一步与执行边界
 
-1. 保留已修复的 Sherpa 默认依赖，补 ASR/A1 的 Windows host/transport，并复验默认语音测试。
-2. 再验证 storage 与 workspace 的目录句柄、安全路径和原子保存语义。
+1. 适配 runtime/Codex 的真实 Windows 控制传输与 relay，保留提问、取消、恢复及 session 归属。
+2. 在已通过的原生文件基础上，补齐 storage/workspace 的冲突、恢复和完整安全矩阵。
 3. 适配 Runtime 的 PowerShell、ConPTY、hook 和进程树收口。
 4. 在已验证的 runner 图形条件下验收真实 Norma 窗口。
 5. 安全接入 Agent 凭据与调用预算，执行真实控制场景。
 6. 产出同一源码版本的候选包，再进行新 job 下载复验。
 
 已经执行 Windows runner 编译探针，Windows 11 用户设备尚未验收。
-原 14 个 norma 错误已消除，Windows lib 与默认 CLI/helper 编译检查通过。
-`norma` 平台回归 43 项通过；`canvas` 52 项通过，两组均无失败与忽略。
+原 14 个 norma 错误、5 个 VAD 错误及 25 个 storage 诊断已消除。
+norma 默认 CLI/helper 编译、43 项平台回归与 canvas 52 项通过，无新增失败或忽略。
 
-本批将 voice_input、asr、voice_sherpa 的 Sherpa 依赖移入 normal 段。
-锁定版本 1.13.3 和产品 Rust 实现均未改动；依赖图六个子用例通过。
-未禁用 VAD、A1 或其他产品能力，也未增加测试忽略。
+Windows 默认语音测试已实际执行，不再停于 A1 工厂编译。
+Win32/NT 文件能力保留防 reparse、硬链接、ADS、目录身份和真实刷盘；并发旧读者不阻塞指针替换。
+Unix 文件适配、原有 VAD、A1 模型运行边界与既有忽略保持不变。
+没有通过禁用产品能力消除错误，也没有按局部通过下调工作量。
 
-两轮修复运行 41312023075、41312790317 的 voice_input 默认 check 均通过，原 5 个错误消除。
-同轮 norma/CLI/helper、43 项平台回归与 canvas 52 项无回退。
-App 在 storage 编译失败，出现 25 条 Unix 文件 API/Review 模块诊断。
-默认语音测试在 A1 工厂引用处编译失败，实际测试尚未执行。
-这些是当前失败前沿，不能视作全部适配工作量。
+App 尚未通过，当前编译前沿是 runtime/Codex 六项传输引用错误。
+下一批需真实 Windows Codex 控制实现，不能只删导入或关闭 Agent 入口。
 
 基础图形前置已经实测通过，P0 的 ConPTY、文件语义和真实 Agent 仍待验。
 P0/G1 尚未完成，不下调现有估算，也不冻结两个 Agent 的产品支持矩阵。
 原图、日志与哈希索引位于 `docs/quality/evidence/windows-feasibility-20261101/README.md`。
 
-前批已修复 norma 平台边界；本批修复三处 Sherpa 依赖，保留现有 GPUI 版本与产品能力。
+前批修复 norma 与 Sherpa 依赖；本批适配 NT 文件和 A1 管道/进程边界，保留既有 GPUI 版本与产品能力。
 没有新增通用平台框架。
 构建与验收日志保存到任务证据目录后，再定向回收缓存。
 现有缓存清理脚本依赖 POSIX 工具，不能直接照搬到 Windows。

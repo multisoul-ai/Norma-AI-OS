@@ -1,0 +1,81 @@
+   Compiling getrandom v0.2.17
+   Compiling ring v0.17.14
+   Compiling rand_core v0.6.4
+   Compiling curve25519-dalek v4.1.3
+   Compiling spake2 v0.4.0
+   Compiling ed25519-dalek v2.2.0
+   Compiling license v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/license)
+   Compiling rustls-webpki v0.103.13
+   Compiling rcgen v0.13.2
+   Compiling mobile_pairing v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/mobile_pairing)
+   Compiling rustls v0.23.41
+   Compiling tokio-rustls v0.26.4
+   Compiling tungstenite v0.28.0
+   Compiling ureq v3.3.0
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling hyper-rustls v0.27.9
+   Compiling reqwest v0.13.4
+   Compiling zed-reqwest v0.12.15-zed
+   Compiling tokio-tungstenite v0.28.0
+   Compiling norma v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/norma)
+   Compiling tts v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/tts)
+   Compiling analytics v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/analytics)
+   Compiling gpui_http_client v0.2.2
+   Compiling rig-core v0.40.0
+   Compiling gpui v0.2.2 (/private/tmp/norma-windows-feasibility-20261101/vendor/gpui-0.2.2)
+   Compiling asr v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/asr)
+   Compiling live_voice v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/live_voice)
+   Compiling dialogue v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/dialogue)
+   Compiling brain v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/brain)
+   Compiling voice_sherpa v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/voice_sherpa)
+   Compiling gpui-component v0.5.1
+   Compiling agent v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/agent)
+   Compiling ui v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/ui)
+   Compiling storage v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/storage)
+   Compiling runtime v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/runtime)
+   Compiling app v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/app)
+    Finished `test` profile [optimized + debuginfo] target(s) in 4m 45s
+     Running unittests src/lib.rs (target/debug/deps/app-5cf6eee05d55312c)
+
+running 38 tests
+test app::dialogue::agent_report_queue_tests::test_agent_terminal_report_waits_for_listening_then_enters_playback_flow ... ok
+test app::dialogue::agent_report_queue_tests::test_single_voice_silent_queue_reply_does_not_starve_dispatch_report ... ok
+test app::dialogue::app_dialogue_shell_tests::test_dialogue_default_maps_bottom_bar_to_voice ... ok
+test app::dialogue::app_dialogue_shell_tests::test_dialogue_echo_turn_reply_text_reaches_speaking ... ok
+test app::dialogue::app_dialogue_shell_tests::test_dialogue_final_transcript_moves_to_thinking ... ok
+test app::dialogue::app_dialogue_shell_tests::test_dialogue_listening_maps_bottom_label_to_continuous_listening ... ok
+test app::dialogue::app_dialogue_shell_tests::test_dialogue_start_does_not_require_openai_api_key ... ok
+test app::dialogue::app_dialogue_shell_tests::test_dialogue_start_fails_cleanly_when_mic_permission_denied ... ok
+test app::dialogue::app_dialogue_shell_tests::test_dialogue_stop_returns_idle_but_models_remain_resident ... ok
+test app::dialogue::app_dialogue_shell_tests::test_dialogue_unclassified_speech_does_not_truncate_assistant_reply ... ok
+test app::dialogue::app_dialogue_shell_tests::test_final_speech_transcript_is_logged_at_info_with_text ... ok
+test app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_error_shortcut_dismisses_feedback_without_stopping ... ok
+test app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_shortcut_stops_an_active_session ... ok
+test app::dialogue::app_dialogue_shortcut_tests::test_dialogue_settings_resolve_continuous_listening_mode ... ok
+test app::dialogue::app_dialogue_shortcut_tests::test_dialogue_turn_failure_recovers_for_next_utterance ... ok
+test app::dialogue::app_dialogue_shortcut_tests::test_voice_shortcut_interrupts_assistant_reply_during_speaking ... ok
+test app::dialogue::app_dialogue_shortcut_tests::test_voice_shortcut_routes_to_dialogue_in_continuous_listening_mode ... ok
+test app::dialogue::chat::dialogue_asr_echo_gate_tests::test_tts_echo_final_is_rejected_after_phase_returns_to_listening ... ok
+test app::dialogue::chat::dialogue_vad_integrity_tests::corrupt_shared_vad_is_rejected_before_provider_or_microphone_start ... ok
+test app::dialogue::preview::tests::test_tts_preview_cancel_removes_undrained_positive_events ... ok
+test app::dialogue::preview::tests::test_tts_preview_emits_actual_pcm_playback_events_in_order ... ok
+test app::dialogue::preview::tests::test_tts_preview_synchronizes_external_control_cancellation ... ok
+test app::dialogue::reply_stream::pcm::tests::test_backpressured_pcm_send_exits_when_stream_is_cancelled ... ok
+test app::dialogue::reply_stream::pcm::tests::test_minimax_pcm_burst_backpressures_until_receiver_drains ... ok
+test app::dialogue::reply_stream::trace::tests::default_info_logging_records_only_first_pcm_chunk ... ok
+test app::dialogue::reply_stream_backlog_tests::test_active_capacity_exhaustion_preserves_visible_reply_and_drains_accepted_prefix ... ok
+test app::dialogue::reply_stream_backlog_tests::test_one_delta_with_nine_segments_does_not_fail_bounded_reply_queue ... ok
+test app::dialogue::reply_stream_backlog_tests::test_slow_provider_drains_forty_segments_before_finish_without_truncation ... ok
+test app::dialogue::reply_stream_cancellation_tests::test_provider_failure_overrides_capacity_warning_and_cleans_up ... ok
+test app::dialogue::reply_stream_cancellation_tests::test_user_interruption_discards_unsent_backlog_and_queued_pcm_together ... ok
+test app::dialogue::reply_stream_scheduler_tests::test_closed_command_channel_rejects_finish_instead_of_stalling_reply ... ok
+test app::dialogue::reply_stream_tests::test_dialogue_and_agent_announcement_share_one_resident_tts_client ... ok
+test app::dialogue::reply_stream_tests::test_pcm_capture_writes_playable_wav_without_duplicate_samples ... ok
+test app::dialogue::reply_stream_tests::test_pcm_trace_fingerprint_is_stable_and_distinguishes_changed_audio ... ok
+test app::dialogue::reply_stream_tests::test_silent_queued_reply_returns_to_listening_without_tts_or_pcm ... ok
+test app::dialogue::reply_stream_tests::test_stream_playback_buffer_flushes_short_final_audio_without_fake_silence ... ok
+test app::dialogue::reply_stream_tests::test_stream_playback_buffer_waits_for_120ms_then_releases_in_order ... ok
+test app::dialogue::reply_stream_tests::test_tts_configuration_change_invalidates_generation_and_preview ... ok
+
+test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 1699 filtered out; finished in 2.65s
+

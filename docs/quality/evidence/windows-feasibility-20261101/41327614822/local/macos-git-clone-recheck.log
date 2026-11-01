@@ -1,0 +1,29 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling workspace v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/workspace)
+    Finished `test` profile [optimized + debuginfo] target(s) in 3m 40s
+     Running unittests src/lib.rs (target/debug/deps/workspace-8822f8ed8dbb6aab)
+
+running 20 tests
+test git_clone::failure_tests::git_failure_classifier_groups_https_and_ssh_authentication_errors ... ok
+test git_clone::failure_tests::git_failure_classifier_separates_repository_host_and_network_failures ... ok
+test git_clone::progress_tests::git_progress_parser_maps_clone_stages_and_percentages ... ok
+test git_clone::progress_tests::git_progress_parser_discards_out_of_range_or_malformed_percentages ... ok
+test git_clone::progress_tests::git_progress_parser_handles_remote_prefix_and_ignores_unknown_noise ... ok
+test git_clone::remote_tests::github_remote_normalizes_supported_https_and_ssh_forms ... ok
+test git_clone::remote_tests::github_remote_rejects_ambiguous_or_unsafe_addresses ... ok
+test git_clone::remote_tests::github_remote_trims_outer_whitespace_without_accepting_invalid_names ... ok
+test git_clone::destination_tests::clone_destination_rejects_path_traversal_and_non_segment_names ... ok
+test git_clone::destination_tests::clone_destination_accepts_new_direct_child_without_creating_it ... ok
+test git_clone::destination_tests::clone_destination_rejects_existing_target_and_missing_parent ... ok
+test git_clone::runner_tests::git_clone_runner_cancels_running_child_and_cleans_owned_target ... ok
+test git_clone::security_tests::cloned_workspace_rejects_non_git_directory_without_creating_metadata ... ok
+test git_clone::runner_tests::git_clone_runner_cleans_owned_target_after_git_failure ... ok
+test git_clone::security_tests::cloned_workspace_adds_norma_to_local_exclude_idempotently ... ok
+test git_clone::security_tests::cloned_workspace_blocks_tracked_norma_state_without_deleting_repository ... ok
+test git_clone::runner_tests::git_clone_runner_honors_preflight_cancellation_without_side_effects ... ok
+test git_clone::runner_tests::git_clone_runner_completes_local_clone_and_security_finalize ... ok
+test git_clone::runner_tests::git_clone_runner_preserves_clone_but_blocks_tracked_norma_workspace_state ... ok
+test git_clone::cleanup_tests::git_clone_cleanup_preserves_target_replaced_by_symlink ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.42s
+

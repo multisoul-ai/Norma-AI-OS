@@ -1,0 +1,57 @@
+{
+  "task": "speech",
+  "source_sha": "f2838b21e04f7eb5c7ccecfc45271ec521ebe186",
+  "checks": [
+    {
+      "id": "voice_input_compile",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "voice_input",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc",
+        "--message-format=short"
+      ],
+      "log": "voice_input_compile.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 188.72
+    },
+    {
+      "id": "speech_tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "voice_input",
+        "-p",
+        "asr",
+        "-p",
+        "voice_sherpa",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "log": "speech_tests.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 442.7
+    }
+  ],
+  "metadata": {
+    "target": "x86_64-pc-windows-msvc",
+    "features": "default",
+    "scope": "Native backend compilation and default tests, not physical audio acceptance",
+    "microphone_and_real_model_acceptance": "NOT_RUN"
+  },
+  "timestamp": "2026-11-01T16:22:55.399027+00:00",
+  "os": "Windows-2025Server-10.0.26100-SP0",
+  "run_id": "41325043580",
+  "run_attempt": "1",
+  "image_version": "20261021.278.1",
+  "disk_free_bytes": 153844740096
+}
