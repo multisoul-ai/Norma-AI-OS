@@ -4,12 +4,13 @@ subtitle: 合并本地识别入口，明确画布目标，统一提交后再评�
 template: doc
 theme: paper
 lang: zh
-source: 2026-11-01 · 已实施与验收 · 源码 c752adfc
+source: 2026-11-01 · 设置原型对齐通过 · 源码 243c66a9 · 真实麦克风验收阻塞
 ---
 
 用户已选定分组列表，生产设置与单次语义提交已实施。
-源码、独立审查与双语真实窗口验收已完成。
-最新 release 与正常提交钩子均通过，源码已提交。
+首轮实现与审查为 c752adfc / b5f27c88；本轮原型对齐修正为 243c66a9。
+设置页的中英文、宽窄窗口与本地规则预览已通过真实 App 定向验收。
+真实麦克风全链路仍阻塞，不能据此宣布整个语音工作分支验收完成或具备合并条件。
 Jev 先做合成文本契约验证和旁路比较。
 生产接入取决于部署、准确率和时延证据。
 
@@ -430,3 +431,90 @@ UI crate的22项测试使用Cargo默认测试线程数；workspace与voice_使�
 验收与源码提交完成后，已按任务缓存工具回收本任务独占缓存13.4GiB。
 工作树、默认target/debug、release程序和全部结果证据保留。
 回收日志：`artifacts/voice-command-redesign-20261031/cache-finish.log`。
+
+
+### 2026-11-01 真实麦克风前置核查与原型对齐修正
+
+用户要求继续两个提交 `c752adfc` / `b5f27c88` 的真实麦克风全链路验收，随后指出设置页与选定的分组列表原型不一致，要求先优化并验收。不合并 dev，不替换用户 App，准确率 Goal 继续停止，Jev 生产入口继续禁用。
+
+本轮核验110个源码清单项与提交一致；14个A1模型文件的长度和SHA256全匹配，Python完整性匹配。
+被测debug SHA256：`a1c5274a2e1977411c9743fc470f24e7f15b85708d96be831afad37a773dce00`。
+本机A1 runtime.json SHA256：`a1aa0f8de28e645fa0a806b8b2eb3ff5cdfda6f2500d1df1b4b788842fb4bb36`。
+
+按仓库 E2EKit Preflight / Session 启动隔离debug窗口（数据、socket独立，允许用户真实按住/松键；未设置音频夹具或注入转写）。用户 App PID83621未结束、未替换。
+13:06:05Z A1准备被取消，13:06:28Z A1准备报 `system memory pressure is elevated`；系统压力达到WARN（2），未绕过保护、未反复加载。
+本机Ollama 11434端口无服务，未改成未经确认的云端模型；未录音、未派发。
+为响应设置页修正已停止本轮隔离测试进程。六环节均仍阻塞，不能把启动与模型文件核验写成声学链路通过。
+私有证据：`/Users/openclawd/.norma/acceptance/voice-command-20261101T130523Z/`；其中 `preflight.json`、`driver.log`、运行目录内 `app.log` 和截图可核验。
+
+原型差异与验收映射：
+
+| 标准 | 验证边界 | 状态 |
+|---|---|---|
+| 未就绪/就绪均为四组列表；不切换为另一套向导 | 公开设置入口布局回归、就绪状态回归 + 真实App未配置页面看图 | 通过；就绪页面本轮仅有单测，未加载真实A1 |
+| 桌面右侧预览，窄窗口顺序堆叠，无横向溢出 | 1280×850 / 640×700边界测试 + 两条定向E2E | 通过 |
+| 预览只做本地规则检查，使用真实画布成员，无模型调用/派发 | 预览输入、焦点、失效定向测试 + 实屏空画布交互 | 通过所列范围；成员来自实际名单，本轮未实屏验证有成员画布 |
+| 来源/触发/连接/声音沿用真实配置与后台保存 | 语音184项回归 + 浏览配置不改变provider和mode的硬断言 | 通过；不是模型连接或声音播放证据 |
+| 双语与当前主题可读，交互状态清楚 | i18n、真实App中文Sapphire Night/英文Ink Black | 所列两种深色主题通过；无浅色实屏证据 |
+
+设计采用 apple-design 的层级、平台键盘与即时反馈，Material 的紧凑分组、语义状态与渐进展示；沿用 GPUI0.2.2 / gpui-component0.5.1 和现有组件。当前安装目录没有可读取的 gpui-* skill 文件，API以仓库钉死版本与邻近实现核对。
+测试沿用用户已要求的公开设置渲染/交互边界，遵守TDD；headless边界只作补充，最终以定向desktop-e2e真实窗口为准。
+
+#### 本轮实施与失败后修复
+
+语音指令页面按原型拆为01语音输入、02理解与目标、03任务派发、04语音回复。
+本地/云端来源合并呈现，引擎诊断渐进展开；保留真实触发、设备、声音和配置入口。
+宽屏增加右侧本地规则预览，窄屏放到分组下方；不复制原型中的Bruno/Henry与模拟回执。
+预览复用生产纯解析/校验函数，仅展示候选；接入当前项目真实名单，不持有执行或模型调用入口。
+
+先用公开设置入口布局测试复现分组缺失，再实现布局，红灯见 `artifacts/voice-command-redesign-20261031/prototype-red.log`。
+实屏输入失败后，补焦点回归，实际输入为空而预期为probe；修复为复用设置编辑器的焦点与冒泡处理。
+该有效红灯见 `artifacts/voice-command-redesign-20261031/prototype-focus-red.log`。
+模型空白行先由测试复现，再补双语“未配置”；红灯见 `artifacts/voice-command-redesign-20261031/prototype-model-label-red.log`。
+窄屏空输入框在实屏暴露宽度塌缩，再为组件Input补完整宽度；最终双语空编辑器逐项看图通过。
+早期 `prototype-preview-red.log` 因测试主题未初始化而失败，只是测试环境错误，不计为功能红灯。
+全部历史失败日志和截图保留。
+
+#### 提交、配置与工程验证
+
+源码提交：243c66a97ec101f043c2fcb0925f3a4748f4ed72，分支 `codex/voice-command-redesign-20261031`。
+20个变更源码/测试/语言包/场景文件均与验收源码清单一致。
+配置：`artifacts/voice-command-redesign-20261031/prototype-configuration.json`。
+配置SHA256：1cf2820f3dc014bfa6b9965ccaa21fe6043339fc6304cd19b1f47c0bfd72b27b。
+源码清单：`artifacts/voice-command-redesign-20261031/prototype-source-manifest.json`；SHA256：a162a3771ccda80a13c6d7b60622f083395af2ed9143debe0cc6733b670abeb9。
+被测debug SHA256：d35a4811a05acb8aeecbb14a2407357130206a8c031b35ffd7730f8d346bbb28。
+
+`CARGO_BUILD_JOBS=2 CARGO_PROFILE_TEST_OPT_LEVEL=0 cargo test -p app --lib -- --test-threads=2`：退出0，1738 passed、0 failed、10 ignored，128.42秒。
+日志：`artifacts/voice-command-redesign-20261031/prototype-app-tests-final.log`。
+其中语音定向184/184、设置输入2/2；复用同一语言包的UI crate 22/22记录。
+正常提交钩子的 `cargo check --workspace` 与 `cargo fmt --check` 通过，无绕过。
+i18n共2086个双语键，行数、no-allow、性能、Storage边界、Agent指南行数及diff空白检查通过。
+工程汇总：`artifacts/voice-command-redesign-20261031/prototype-tests-summary-final.json`。
+提交日志：`artifacts/voice-command-redesign-20261031/prototype-commit-code.log`。
+
+最终 `CARGO_BUILD_JOBS=2 cargo build -p app --release` 退出0，标准release profile，耗时12分04秒。
+Release SHA256：48b730c1f74c7ca22b03f71c3de0b95f98b00e88189bc17af7e5e5026a4c60a2。
+构建记录：`artifacts/voice-command-redesign-20261031/prototype-release-build-final.log`；索引：`artifacts/voice-command-redesign-20261031/prototype-release-summary-final.json`。
+最终工程与页面证据总索引：`artifacts/voice-command-redesign-20261031/prototype-verification-final.json`。
+这些编译与测试用时均不是语音时延指标。
+
+#### 真实 App 结果
+
+以下均使用本工作树debug程序、隔离数据/socket及私有虚拟显示器；用户App PID83621持续运行，未替换、未结束。
+
+| 命令 | 结果 | 用时 | 证据目录（本工作树） |
+|---|---|---|---|
+| `bash scripts/desktop-e2e.sh settings-voice-command-grouped --visual` | 退出0，场景1/1、双语步骤2/2，8次视觉检查 | 613.286秒 | `artifacts/desktop-workspace-e2e/2026-11-01T14-55-19Z/` |
+| `bash scripts/desktop-e2e.sh settings-voice-command-sections --visual` | 退出0，场景1/1、双语步骤2/2，6次视觉检查 | 499.140秒 | `artifacts/desktop-workspace-e2e/2026-11-01T14-46-10Z/` |
+
+合计21个当前截图请求逐项响应，25个pass判据（含定位），14次视觉检查。
+核验四组结构、宽窄布局、空模型状态、04声音与真实偏好控件、禁用/焦点/选中状态，以及输入后预览与编辑后失效。
+SQLite硬断言确认浏览和预览未改变识别provider或对话模式。
+这些耗时含Agent看图等待，不是产品响应时延或ASR性能。
+汇总：`artifacts/voice-command-redesign-20261031/prototype-desktop-summary-final.json`。
+
+此前同一sections场景在 `artifacts/desktop-workspace-e2e/2026-11-01T14-16-15Z/report.json` 因300秒看图响应超时退出3，归ENV且保留；未计入通过。恢复响应后重跑同一场景，没有换用其他工具绕过。
+
+本轮设置页优化验收通过所列范围。真实录音、松键、A1终稿、目标澄清后的真实派发及回执均仍未通过或阻塞，详见本节前置核查与私有证据。
+真实A1就绪、有成员画布、浅色主题和完整语音链路未由这些页面证据覆盖。
+原定量实验继续停止、Jev生产禁用、未合并dev；语音工作分支尚不满足用户要求的全链路合并门槛。
