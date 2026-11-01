@@ -54,7 +54,7 @@ pub(crate) fn recognition_detail(
         })
 }
 
-fn microphone_detail(
+pub(in crate::settings::voice::view) fn microphone_detail(
     theme: Theme,
     state: VoiceRequirementState,
     cx: &mut Context<MultisoulApp>,
@@ -93,7 +93,7 @@ fn microphone_detail(
     )
 }
 
-fn source_selector(
+pub(in crate::settings::voice::view) fn source_selector(
     theme: Theme,
     state: &VoiceSettingsState,
     source: asr::AsrProviderId,
@@ -252,7 +252,7 @@ fn local_detail(
         })
 }
 
-fn azure_detail(
+pub(in crate::settings::voice::view) fn azure_detail(
     theme: Theme,
     state: &VoiceSettingsState,
     inputs: &VoiceSettingsInputs,

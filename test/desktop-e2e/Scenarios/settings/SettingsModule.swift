@@ -13,6 +13,8 @@ public enum SettingsModule {
             SettingsGlobalAppearance.name,
             SettingsLiveConfiguration.name,
             SettingsA1Configuration.name,
+            SettingsVoiceCommandsPrototype.name,
+            SettingsVoiceCommandsPrototype.sectionsName,
             SettingsShortcutCustomize.name,
             SettingsShortcutDefaults.name,
             SettingsOrchestrationPathConvention.name,
@@ -21,7 +23,7 @@ public enum SettingsModule {
             SettingsDispatchEffects.name,
             SettingsRunEffects.name,
         ],
-        visualScenarioNames: [SettingsThemeConsistency.name, SettingsA1Configuration.name],
+        visualScenarioNames: [SettingsThemeConsistency.name, SettingsA1Configuration.name, SettingsVoiceCommandsPrototype.name, SettingsVoiceCommandsPrototype.sectionsName],
         run: { scenario, session in
             switch scenario {
             case SettingsThemeConsistency.name:
@@ -38,6 +40,10 @@ public enum SettingsModule {
                 try await SettingsGlobalAppearance.run(session)
             case SettingsA1Configuration.name:
                 try await SettingsA1Configuration.run(session)
+            case SettingsVoiceCommandsPrototype.sectionsName:
+                try await SettingsVoiceCommandsPrototype.runSections(session)
+            case SettingsVoiceCommandsPrototype.name:
+                try await SettingsVoiceCommandsPrototype.run(session)
             case SettingsLiveConfiguration.name:
                 try await SettingsLiveConfiguration.run(session)
             case SettingsShortcutCustomize.name:

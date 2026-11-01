@@ -2,7 +2,7 @@ use crate::app::MultisoulApp;
 use crate::settings::voice::DesktopVoiceMode;
 use gpui::{px, size, AppContext, Modifiers, TestAppContext};
 
-/// 语音页面以状态概览和完整宽度的任务卡片组织，模式切换仍写入真实设置存储。
+/// 分组列表可打开配置详情，完整宽度的配置卡片与模式保存仍可用。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   隔离空数据库，语音能力未配置；窗口 1280×800px，为桌面基准。
@@ -55,6 +55,26 @@ fn voice_redesign_task_layout_and_mode_persistence() {
         cx.debug_bounds("voice-setup-finish").is_none(),
         "未就绪时不能展示没有操作的完成按钮"
     );
+    // 从分组列表的真实配置入口进入详情编辑器，再验证既有配置控件。
+    let details = cx
+        .debug_bounds("voice-command-recognition-details")
+        .expect("分组列表的引擎配置入口");
+    let viewport = cx
+        .debug_bounds("settings-content-scroll")
+        .expect("内容视口");
+    let shift = (details.center().y - viewport.center().y).max(px(0.0));
+    host.update(cx, |app, _| {
+        app.settings_viewport
+            .content_scroll
+            .set_offset(gpui::point(px(0.0), -shift))
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let details = cx
+        .debug_bounds("voice-command-recognition-details")
+        .expect("滚动后的配置入口");
+    cx.simulate_click(details.center(), Modifiers::none());
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
     let recognition = cx
         .debug_bounds("voice-setup-requirement-asr")
         .expect("应保留识别卡片");
@@ -267,7 +287,7 @@ fn voice_redesign_task_layout_and_mode_persistence() {
 ///   ASR = Zipformer Bilingual；TTS = Matcha Chinese-English 的 default 音色。
 ///   滚动距离由实际 max_offset.height 推导，不假设卡片高度。
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 打开 Voice 并建立四项就绪 → 从概览点击声音 Change。
+///   1. 打开 Voice 并建立四项就绪 → 滚动到语音回复分组，点击更换声音。
 ///   2. 声音选择器滚入视口 → 点击 Cancel → 检查当前音色和草稿状态。
 ///   3. 点击任务播报开关 → 等待后台持久化 → 检查开关与数据库值。
 ///
@@ -321,8 +341,20 @@ fn voice_redesign_ready_voice_change_cancel_and_preferences() {
         cx.debug_bounds("settings-voice-mode-continuous").is_some(),
         "日常页面必须保留连续聆听模式"
     );
+    let reply = cx
+        .debug_bounds("voice-command-group-reply")
+        .expect("四组列表的声音分组");
+    let viewport = cx
+        .debug_bounds("settings-content-scroll")
+        .expect("内容视口");
+    let scroll = host.read_with(cx, |app, _| app.settings_viewport.content_scroll.clone());
+    scroll.set_offset(gpui::point(
+        px(0.0),
+        (viewport.top() + px(8.0) - reply.top()).max(-scroll.max_offset().height),
+    ));
+    cx.update(|window, cx| window.draw(cx).clear());
     let change = cx
-        .debug_bounds("voice-ready-change-tts")
+        .debug_bounds("settings-tts-change-voice")
         .expect("应保留声音更改入口");
     cx.simulate_click(change.center(), Modifiers::none());
     cx.run_until_parked();

@@ -39,6 +39,8 @@ fn create_input(
 }
 
 pub(crate) struct VoiceSettingsInputs {
+    pub(in crate::settings::voice::view) command_preview:
+        Option<Entity<super::super::command_preview::CommandPreview>>,
     base_url: Entity<VoiceTextInput>,
     model: Entity<VoiceTextInput>,
     pub(super) api_key: Entity<VoiceTextInput>,
@@ -206,6 +208,7 @@ impl VoiceSettingsInputs {
             cx,
         );
         Self {
+            command_preview: None,
             base_url,
             model,
             api_key,

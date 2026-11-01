@@ -13,8 +13,25 @@ pub(super) fn interaction_group(
     voice_shortcut_label: &str,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
+    settings_group(theme, ui::i18n::text("shortcuts.voice_interaction")).child(interaction_rows(
+        theme,
+        state,
+        voice_shortcut_label,
+        cx,
+    ))
+}
+
+pub(super) fn interaction_rows(
+    theme: Theme,
+    state: &VoiceSettingsState,
+    voice_shortcut_label: &str,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
     let mode = state.values().interaction_mode();
-    settings_group(theme, ui::i18n::text("shortcuts.voice_interaction"))
+    div()
+        .w_full()
+        .flex()
+        .flex_col()
         .child(compact_interaction_row(
             theme,
             ui::i18n::text("voice.mode"),

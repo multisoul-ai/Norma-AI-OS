@@ -17,6 +17,7 @@ use gpui::{App, AppContext, Context, Entity, EventEmitter, Subscription, Window}
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use ui::component::input::{InputEvent, InputState};
+pub(crate) use view::editor as settings_editor;
 
 pub(crate) struct MemoryContextInvalidated;
 impl EventEmitter<MemoryContextInvalidated> for MemoryView {}

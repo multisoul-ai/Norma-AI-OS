@@ -19,10 +19,12 @@ use ui::Theme;
 
 mod asr_provider;
 mod command_policy;
+pub(crate) mod command_preview;
 mod components;
 mod doubao;
 mod editable;
 mod gpt_live;
+mod grouped;
 mod input_device;
 mod interaction;
 mod model_catalog;
@@ -43,6 +45,11 @@ pub(crate) fn voice_settings(
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
+    if view.state.values().desktop_mode() == super::DesktopVoiceMode::Legacy
+        && !view.state.reviewing_setup()
+    {
+        return grouped::grouped_settings(view, cx);
+    }
     let VoiceSettingsView {
         live_call,
         theme,
@@ -51,6 +58,7 @@ pub(crate) fn voice_settings(
         content_scroll,
         setup_scroll_target,
         voice_shortcut_label,
+        available_width: _,
     } = view;
     let page = div()
         .w_full()
@@ -455,3 +463,7 @@ pub(super) fn setting_label(theme: Theme, title: &'static str, hint: &'static st
 pub(super) fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_prototype_tests.rs"]
+mod prototype_tests;
