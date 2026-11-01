@@ -83,6 +83,7 @@ jobs:
         if: always()
         shell: pwsh
         run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-windows-probe-target'
           cargo check --locked -p norma --target x86_64-pc-windows-msvc
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p norma --lib --test client_platform --test codex_question --test cursor_questions --test client_tests --test protocol_tests --target x86_64-pc-windows-msvc
