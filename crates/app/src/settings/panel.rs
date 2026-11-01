@@ -243,6 +243,12 @@ impl MultisoulApp {
             let project = self.workspace_state.current_root.clone();
             self.voice_settings_inputs
                 .prepare_command_preview(self.theme, project, roster, window, cx);
+            self.voice_settings_inputs.prepare_capabilities(
+                &self.voice_settings,
+                self.theme,
+                window,
+                cx,
+            );
         }
         debug_assert!(
             layout.content_width() > 0.0,

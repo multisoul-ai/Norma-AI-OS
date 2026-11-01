@@ -46,6 +46,10 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
                 state.requirement_state(VoiceRequirement::Microphone),
                 cx,
             ))
+            .when(
+                state.setup_asr_source() != asr::AsrProviderId::CloudAzure,
+                |rows| rows.child(super::setup::a1::a1_detail(theme, state, inputs, cx)),
+            )
             .child(detail_row(
                 theme,
                 "voice.local_engine_details",
@@ -82,6 +86,7 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
                 "voice.command_current_model",
                 state.values().active_provider_profile().model().to_string(),
             ))
+            .when_some(inputs.jev_panel.clone(), |rows, panel| rows.child(panel))
             .child(value_row(
                 theme,
                 "voice.command_targets",

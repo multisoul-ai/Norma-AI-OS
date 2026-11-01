@@ -9,6 +9,7 @@ mod a1;
 mod announcements;
 mod asr_provider;
 mod builders;
+mod capabilities;
 mod credentials;
 mod doubao_voice;
 #[cfg(feature = "e2e-test-support")]
@@ -105,6 +106,7 @@ pub(crate) struct VoiceSettingsState {
     a1_preparation_cancellation: asr::RecognitionCancellation,
     a1_validation_generation: u64,
     a1_validation_error: Option<String>,
+    a1_setup: capabilities::A1SetupSnapshot,
     tts_model_manager: TtsModelManagerState,
     zipvoice_reference: ZipVoiceReferenceSettings,
     microphone_requirement: super::VoiceRequirementState,
@@ -120,15 +122,12 @@ pub(crate) struct VoiceSettingsState {
     advanced_expanded: bool,
 }
 impl VoiceSettingsState {
-    pub(crate) fn credential_store(&self) -> Option<SettingsStore> {
-        self.storage.clone()
-    }
-
     pub(crate) fn load_from_store(store: SettingsStore) -> Self {
         match SavedVoiceSettings::load(&store) {
             Ok(saved) => {
                 let mut state = Self::from_sources(saved, EnvVoiceSettings::from_env());
                 state.storage = Some(store);
+                state.initialize_capabilities();
                 state.queue_legacy_single_voice_command_migration();
                 state.queue_legacy_api_key_migrations();
                 state
@@ -204,6 +203,7 @@ impl VoiceSettingsState {
             a1_preparation_cancellation: asr::RecognitionCancellation::new(),
             a1_validation_generation: 0,
             a1_validation_error: None,
+            a1_setup: capabilities::A1SetupSnapshot::default(),
             tts_model_manager,
             zipvoice_reference: ZipVoiceReferenceSettings::default(),
             microphone_requirement: super::VoiceRequirementState::Missing,

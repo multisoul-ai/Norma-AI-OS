@@ -18,6 +18,7 @@ use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Window};
 use ui::Theme;
 
 mod asr_provider;
+pub(crate) mod capabilities;
 mod command_policy;
 pub(crate) mod command_preview;
 mod components;

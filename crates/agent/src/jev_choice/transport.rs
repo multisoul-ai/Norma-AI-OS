@@ -41,7 +41,7 @@ impl JevChoiceClient {
             .map_err(|_| JevError::Network)?;
         Ok(Self {
             client,
-            endpoint: "https://api.typesafe.ai/v1/systemone".into(),
+            endpoint: super::JEV_ENDPOINT.into(),
         })
     }
 

@@ -33,7 +33,7 @@ pub(crate) fn recognition_detail(
             detail.child(local_detail(theme, state, cx))
         })
         .when(source != asr::AsrProviderId::CloudAzure, |detail| {
-            detail.child(local_diagnostics(theme, state, cx))
+            detail.child(local_diagnostics(theme, state, inputs, cx))
         })
         .when(
             source == asr::AsrProviderId::LocalA1
@@ -144,6 +144,7 @@ pub(in crate::settings::voice::view) fn source_selector(
 fn local_diagnostics(
     theme: Theme,
     state: &VoiceSettingsState,
+    inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let expanded = state.advanced_expanded();
@@ -201,7 +202,7 @@ fn local_diagnostics(
                 )
                 .when(
                     state.setup_asr_source() == asr::AsrProviderId::LocalA1,
-                    |detail| detail.child(super::a1::a1_detail(theme, state, cx)),
+                    |detail| detail.child(super::a1::a1_detail(theme, state, inputs, cx)),
                 )
         })
 }

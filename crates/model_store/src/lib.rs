@@ -1,6 +1,12 @@
 //! Shared, UI-free installation primitives for curated local model packages.
 
 mod installation;
+mod verified_files;
+pub use verified_files::{install_verified_files, validate_verified_files, VerifiedFile};
+
+#[cfg(test)]
+#[path = "../tests/unit/verified_files_tests.rs"]
+mod verified_files_tests;
 
 /// Immutable archive metadata pinned by an application release catalog.
 #[derive(Clone, Debug, Eq, PartialEq)]

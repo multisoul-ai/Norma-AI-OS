@@ -4,6 +4,8 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 mod transport;
 pub use transport::JevChoiceClient;
+pub const JEV_ENDPOINT: &str = "https://api.typesafe.ai/v1/systemone";
+pub const JEV_MODEL: &str = "jev-latest";
 
 #[derive(Clone, Debug, PartialEq, thiserror::Error)]
 pub enum JevError {
@@ -70,7 +72,7 @@ impl JevChoiceRequest {
     }
 
     pub fn body(&self) -> Value {
-        json!({"model":"jev-latest","state":self.state,"questions":{"plan":{
+        json!({"model":JEV_MODEL,"state":self.state,"questions":{"plan":{
             "type":"choice", "instructions":"Choose one complete action and target plan authorized by the user. Distinguish the executor from people mentioned. Choose CLARIFY when no plan is unambiguous.",
             "criteria":self.criteria
         }}})

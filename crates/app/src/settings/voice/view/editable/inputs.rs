@@ -39,6 +39,10 @@ fn create_input(
 }
 
 pub(crate) struct VoiceSettingsInputs {
+    pub(in crate::settings::voice::view) a1_panel:
+        Option<Entity<super::super::capabilities::A1Panel>>,
+    pub(in crate::settings::voice::view) jev_panel:
+        Option<Entity<super::super::capabilities::JevPanel>>,
     pub(in crate::settings::voice::view) command_preview:
         Option<Entity<super::super::command_preview::CommandPreview>>,
     base_url: Entity<VoiceTextInput>,
@@ -208,6 +212,8 @@ impl VoiceSettingsInputs {
             cx,
         );
         Self {
+            a1_panel: None,
+            jev_panel: None,
             command_preview: None,
             base_url,
             model,
@@ -284,6 +290,9 @@ impl VoiceSettingsInputs {
     }
 
     pub(crate) fn is_focused(&self, window: &Window, cx: &App) -> bool {
+        if self.capabilities_focused(window, cx) {
+            return true;
+        }
         [
             &self.base_url,
             &self.model,

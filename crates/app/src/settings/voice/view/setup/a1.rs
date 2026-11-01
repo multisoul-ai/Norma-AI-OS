@@ -6,9 +6,10 @@ use crate::{
 use gpui::{div, prelude::*, px, ClickEvent, Context, Div, Window};
 use ui::Theme;
 
-pub(super) fn a1_detail(
+pub(in crate::settings::voice::view) fn a1_detail(
     theme: Theme,
     state: &VoiceSettingsState,
+    inputs: &super::VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let active = state.values().asr_provider() == asr::AsrProviderId::LocalA1;
@@ -51,9 +52,10 @@ pub(super) fn a1_detail(
         .flex()
         .flex_col()
         .gap(px(8.0))
+        .when_some(inputs.a1_panel.clone(), |detail, panel| detail.child(panel))
         .child(compact_setup_row(
             theme,
-            ui::i18n::text("voice.a1_name"),
+            ui::i18n::text("voice.a1_readiness"),
             ui::i18n::text(if allowed {
                 "voice.a1_description"
             } else {
@@ -61,8 +63,8 @@ pub(super) fn a1_detail(
             }),
             action,
         ))
-        .when_some(state.a1_validation_error(), |detail, _error| {
-            detail.child(ui::i18n::text("voice.a1_prepare_failed"))
+        .when_some(state.a1_validation_error(), |detail, error| {
+            detail.child(super::super::capabilities::a1_preparation_failure(error))
         })
         .when(!ready && !checking, |detail| {
             detail.child(ui::i18n::text("voice.a1_setup_required"))

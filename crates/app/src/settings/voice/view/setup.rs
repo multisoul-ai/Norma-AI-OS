@@ -20,7 +20,7 @@ mod keyboard_tests;
 mod redesign_tests;
 
 #[path = "setup/a1.rs"]
-mod a1;
+pub(super) mod a1;
 #[path = "setup/components.rs"]
 mod components;
 #[path = "setup/models.rs"]

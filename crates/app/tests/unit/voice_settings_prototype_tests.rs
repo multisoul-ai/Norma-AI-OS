@@ -75,3 +75,47 @@ fn voice_settings_match_grouped_prototype_before_setup() {
         "窄屏内容不能横向溢出"
     );
 }
+
+/// 场景：分组列表必须提供A1完整安装和Jev配置入口，不能只显示诊断或未接入提示。
+/// 构造：隔离App与默认语音模式，1280×850采用原有桌面验收基准。
+/// 执行：从公开语音设置入口绘制，查找Python输入、安装操作及Jev密钥/保存/验证操作。
+/// 预期：所有真实配置入口存在，空输入不能虚构已连接或Jev生产已启用。
+#[test]
+fn voice_settings_expose_a1_install_and_jev_configuration() {
+    let temp = tempfile::tempdir().expect("隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(temp.path());
+    let store = storage::AppStore::initialize(&paths).expect("隔离设置");
+    let mut test = TestAppContext::single();
+    let mut host = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        host = Some(entity.clone());
+        ui::component::Root::new(entity, window, cx)
+    });
+    cx.simulate_resize(size(px(1280.0), px(850.0)));
+    host.expect("宿主")
+        .update_in(cx, |app, window, cx| app.open_voice_settings(window, cx));
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+    for selector in [
+        "voice-a1-python",
+        "voice-a1-download-install",
+        "voice-jev-api-key",
+        "voice-jev-save",
+        "voice-jev-verify",
+        "voice-jev-production-disabled",
+    ] {
+        assert!(
+            cx.debug_bounds(selector).is_some(),
+            "用户应能找到真实配置入口：{selector}"
+        );
+    }
+    assert!(
+        cx.debug_bounds("voice-jev-connected").is_none(),
+        "未经真实校验不能声称连接成功"
+    );
+    assert!(
+        cx.debug_bounds("voice-jev-production-enabled").is_none(),
+        "配置页不能开启生产入口"
+    );
+}
