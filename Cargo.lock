@@ -9657,6 +9657,7 @@ name = "workspace"
 version = "0.1.77"
 dependencies = [
  "dirs 6.0.0",
+ "dunce",
  "git2",
  "libc",
  "serde",

@@ -184,11 +184,15 @@ impl GitCloneRunner {
             target: target.clone(),
         });
 
+        #[cfg(windows)]
+        let git_target = dunce::simplified(&target);
+        #[cfg(not(windows))]
+        let git_target = &target;
         let mut command = Command::new(&self.git_binary);
         command
             .args(["clone", "--progress", "--"])
             .arg(&request.remote_url)
-            .arg(&target)
+            .arg(git_target)
             .env("GIT_TERMINAL_PROMPT", "0")
             .stdin(Stdio::null())
             .stdout(Stdio::null())
