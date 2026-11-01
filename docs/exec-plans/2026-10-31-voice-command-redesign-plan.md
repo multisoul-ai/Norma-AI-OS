@@ -518,3 +518,74 @@ SQLite硬断言确认浏览和预览未改变识别provider或对话模式。
 本轮设置页优化验收通过所列范围。真实录音、松键、A1终稿、目标澄清后的真实派发及回执均仍未通过或阻塞，详见本节前置核查与私有证据。
 真实A1就绪、有成员画布、浅色主题和完整语音链路未由这些页面证据覆盖。
 原定量实验继续停止、Jev生产禁用、未合并dev；语音工作分支尚不满足用户要求的全链路合并门槛。
+
+### 2026-11-01 补齐A1安装与Jev配置（实现已提交，真实App验收阻塞）
+
+继续原独立分支，基线为412f4fc9。用户要求从页面完成A1下载安装/配置，以及可持久保存、重新加载、真实验证的Jev配置；沿用四组列表，不合并dev、不替换当前App、不恢复定量实验。
+
+已核对的契约与实施边界：
+
+| 能力 | 实际字段和存储 | 可用性与验收边界 |
+|---|---|---|
+| A1 | Python运行环境路径；模型使用内置14文件目录，应用管理下载和安装位置，原runtime.json协议v1保持不变 | 固定版本Python依赖、Python可执行文件SHA256、全部模型字节数/SHA256均通过后才保存manifest；模型安装与真正准备成功分别显示 |
+| A1下载 | Zipformer修订98590b7ed6443e77b714204da2757d75e1a642f4；Qwen修订89e96d92ba34aca20b3e29fb10cc284097d1219f；均来自发布者仓库API核对，仍必须匹配既有artifacts.json | 下载失败、损坏与取消不得替换旧配置；完整校验后原子提升，允许重试 |
+| Jev | API Key为唯一可编辑连接字段；固定https://api.typesafe.ai/v1/systemone与jev-latest只读显示，不虚构模型列表或可选端点 | 密钥进macOS钥匙串，SQLite只存非敏感引用；使用人工合成Choice请求验证HTTP/响应契约，显示实际返回模型 |
+| Jev生产 | 配置和连通测试均不产生生产执行权 | 原生产入口继续禁用，不上传真人录音、真人转写或画布内容 |
+
+当前语音credentials辅助函数实际上写SQLite；旧测试中的Keychain注释不能当作安全存储证据。本轮Jev不复用这条明文路径，也不迁移其他供应商凭据。
+测试边界沿用用户明确要求的模型安装接口、配置持久化接口、真实传输与公开设置页；TDD逐条推进。
+安装原语已先出现缺失接口红灯，随后“损坏拒绝→正确内容重试→安装后损坏再校验”聚焦测试通过；记录在 `artifacts/voice-settings-capabilities-20261101/`。
+后续仍须完成应用接线、真实网络/钥匙串验证、中英文定向desktop-e2e与增量检查；未完成前不声明功能验收通过。
+
+#### 本轮收尾检查点
+
+A1失败候选包所有权回收、运行环境缓存原子替换均先出现缺失接口红灯，再实现；最终A1聚焦6/6通过。model_store全量7/7通过。Jev旧凭据清理采用可恢复journal，并对配置跨存储操作串行化，避免多窗口覆盖清理记录。
+
+2138个双语键、行数、no-allow、Storage/性能边界、Agent指南行数和diff空白检查通过。正在重建debug并执行两条真实App配置场景；此检查点不表示真实页面或真人麦克风链路已通过。红绿日志和后续结果保存在 `artifacts/voice-settings-capabilities-20261101/`。
+
+首轮A1真实窗口在无效Python失败反馈通过后，因Agent看图响应超过300秒退出3（ENV），证据保留于 `artifacts/desktop-workspace-e2e/2026-11-01T17-35-54Z/`。重跑同一场景至真实基础Python依赖安装中，未以模拟文件替代。独立只读复核确认原5项发现已修复、未发现新的正常单进程配置流程阻塞反例。
+
+全仓首轮在既有OpenCode传输测试出现WouldBlock，定向复跑1/1通过；全仓第二轮在系统内存压力升高时出现4项A1 host测试失败（均为生产内存保护拒绝），暂不宣称全仓通过。等待本次release构建释放资源后复核，不绕过保护或终止用户进程。
+
+#### 最终实现、验证与未通过项
+
+源码提交：`d80b673e6325be964d0d85a68ffbdb3e51c363f5`。42个源码、测试、语言包与场景文件均已提交；正常hook通过codesign readiness、workspace类型检查与格式检查，没有绕过。独立只读对抗复核确认原5项问题均修复，未发现新的正常单进程配置流程阻塞反例；这不是桌面验收通过证据。
+
+配置SHA256：`fafdf286e86b70670ba7154e1b623a3fffeebb641e76169190f898f2a46a756d`；配置文件为 `artifacts/voice-settings-capabilities-20261101/configuration.json`。
+源码清单SHA256：`dc3e9ff137d73805908786d6f9d54db187fb2157af4f94c414d473e440afcb4b`；清单为 `artifacts/voice-settings-capabilities-20261101/source-manifest.json`。
+Debug SHA256：`dc77852f17b827d870aa313e0b7b2c4c96a677ac3efd766d3981d9478428e2f0`。
+Release SHA256：`26f5f2a24629c3af3375ad5258d468e7805e40cff5ced41145bd5ae192c411e7`，标准release构建退出0、耗时8分37秒。
+结果总索引：`artifacts/voice-settings-capabilities-20261101/verification-summary.json`；所有下述日志均在同一结果目录。
+
+| 验收范围 | 实际结果 | 证据与限制 |
+|---|---|---|
+| A1安装基础能力 | 工程测试通过 | model_store 7/7；完整性损坏拒绝、正确重试、manifest保留名保护；A1聚焦6/6含真实本机HTTP、取消后清理及原配置保留 |
+| A1新建Python环境 | 真实App通过此子阶段 | 从基础Python 3.12.13创建专用venv，57项固定依赖版本全部匹配，缓存指针实际保存；`fresh-runtime-evidence.json`；未加载声学模型 |
+| A1从页面完成全部模型下载与登记 | 未通过 | 真实HF下载已开始并显示字节进度；依赖准备占用旧900秒预算，场景超时前尚未形成runtime.json；不能说安装成功 |
+| A1失败与恢复入口 | 中文子步骤通过 | 无效Python明确报错、路径可编辑、可重试且无runtime.json；两轮均完成该步骤；其他安装故障仅有工程测试 |
+| Jev配置持久化、安全失败恢复 | 工程测试通过 | 覆盖保存重开、拒绝替换、清除补偿、退休条目journal与重开清理；API Key仅进Keychain，SQLite只存引用 |
+| Jev真实服务与Keychain | 真实接口测试通过1/1 | `jev-real-final.log`：实际返回jev-1.14.0、5215ms；真Keychain保存重读清除；人工无效Key被真实401/403拒绝；固定合成Choice，无生产派发 |
+| Jev真实页面有效/无效、保存后重开、清除 | 阻塞，未通过 | 场景两次因看图响应超过300秒退出3，尚未完成真实连接或页面持久化验收；不得以接口测试替代 |
+| 中英文真实配置页面 | 未通过完整验收 | 本轮只完成中文部分定位与A1无效Python反馈；英文重开与新增英文失败场景尚未执行；2138双语键静态检查通过不能代替实屏 |
+| 生产语音与真人全链路 | 继续禁用/未通过 | Jev生产开关恒false；未恢复定量实验；没有录音、松键、A1终稿、澄清后派发与真实回执的新证据 |
+
+受影响测试：agent单元14/14、App单元1748 passed/0 failed/11 ignored、ASR单元31 passed/0 failed/1 ignored、model_store 7/7、UI 22/22。主要来源 `workspace-tests-serial-final.log` 与 `model-ui-tests-final.log`；App耗时270.58秒，ASR耗时3.01秒。真实Jev忽略测试另行显式运行1/1通过，不把它与普通套件混算。
+
+完整workspace三轮均未全部通过：首轮在未修改的OpenCode传输测试出现WouldBlock；第二轮4项A1 host测试被系统内存压力保护拒绝；第三轮ASR已全通过，但在未修改的OpenCode foreground时序测试失败。两个OpenCode失败分别定向重跑通过，ASR在资源恢复后31/31通过。保留 `workspace-tests-final.log`、`workspace-tests-recheck.log`、`workspace-tests-serial-final.log`、`workspace-unrelated-recheck.log` 与 `workspace-foreground-recheck.log`；不把这些定向复跑写成全仓绿灯，也不直接把未改动测试的失败归因给本次语音改动。
+
+2138双语键、Rust行数、no-allow、Storage/性能边界、Agent指南行数及diff空白检查通过。密钥审计200个本次源码、日志、JSON和SQLite相关文件，明文命中0；结果 `secret-audit.json`。未提交密钥、模型文件、二进制、真人录音或转写。
+
+#### 真实桌面执行记录与继续条件
+
+| 场景 | 结果 | 耗时 | 本工作树证据目录 |
+|---|---|---|---|
+| A1安装第一轮 | ENV退出3，中文无效Python子步骤通过；后续看图响应超时 | 429.978秒 | `artifacts/desktop-workspace-e2e/2026-11-01T17-35-54Z/` |
+| A1安装第二轮 | ENV退出3，中文无效Python子步骤通过；真实依赖安装成功，全部模型下载未完成 | 1354.473秒 | `artifacts/desktop-workspace-e2e/2026-11-01T17-46-39Z/` |
+| Jev配置第一轮 | ENV退出3，看图响应超过300秒 | 415.840秒 | `artifacts/desktop-workspace-e2e/2026-11-01T18-09-43Z/` |
+| Jev配置第二轮 | ENV退出3，看图响应超过300秒 | 309.218秒 | `artifacts/desktop-workspace-e2e/2026-11-01T18-19-18Z/` |
+
+所有运行均为本工作树debug程序、隔离数据/socket及虚拟显示器；用户App PID83621未结束、未替换。截图、请求、响应、app.log与report.json均保留。上述耗时含Agent看图等待及首次安装，不是ASR或路由延迟。超时后补写的响应不追认为通过，报告结果保持ENV。
+
+后续须先恢复300秒内可响应的模型看图通道，再运行三条已登记场景：`settings-voice-a1-install`、`settings-voice-jev-configuration`、`settings-voice-capability-errors-en`。提交中的A1场景已将依赖+1.21GB模型的安装预算扩为2700秒，但该新预算版本尚未实际运行。可选择第二轮App已准备并验证的专用Python继续，路径与57项依赖证据见 `fresh-runtime-evidence.json`；这不替代14个模型文件的真实下载、逐项SHA256和配置保存验收。模型下载使用实际可访问的固定HF地址，不以模拟文件形成成功证据。
+
+完整A1安装、配置重开、Jev页面真实验证及英文失败反馈仍是未完成项；真人麦克风全链路延续此前阻塞，不由本轮配置工作代替。当前不满足完整设置验收或语音分支合并门槛；未合并dev、未替换用户App、未启用Jev生产入口、未恢复准确率实验。
