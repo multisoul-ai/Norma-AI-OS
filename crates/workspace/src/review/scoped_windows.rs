@@ -33,7 +33,7 @@ impl Root {
             children.push(child);
         }
         let parent = children.last().unwrap_or(&self.0);
-        let file = match parent.open_entry(parts.last().ok_or(ReviewError::UnsafePath)?) {
+        let file = match parent.open_pinned_entry(parts.last().ok_or(ReviewError::UnsafePath)?) {
             Ok(file) => file,
             Err(error) => return missing_or_unsafe(error),
         };

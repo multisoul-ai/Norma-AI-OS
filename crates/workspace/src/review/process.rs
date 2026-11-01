@@ -1,3 +1,6 @@
+#[cfg(windows)]
+#[path = "process_windows.rs"]
+mod process_windows;
 use super::{check_deadline, ReviewError};
 use std::{
     io::Read,
@@ -107,7 +110,10 @@ pub(super) fn run(
         use std::os::unix::process::CommandExt;
         command.process_group(0);
     }
+    #[cfg(unix)]
     let mut child = command.spawn().map_err(|_| ReviewError::Unavailable)?;
+    #[cfg(windows)]
+    let (mut child, job) = process_windows::spawn(&mut command)?;
     let stdout = child
         .stdout
         .take()
@@ -156,18 +162,15 @@ pub(super) fn run(
                 libc::kill(-(child.id() as i32), libc::SIGKILL);
             }
         }
-        #[cfg(windows)]
-        {
-            let _ = Command::new("taskkill.exe")
-                .args(["/PID", &child.id().to_string(), "/T", "/F"])
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
-        }
         let _ = child.kill();
     }
+    #[cfg(windows)]
+    job.terminate();
     let _ = child.wait();
     let _ = reader.join();
     outcome
 }
+
+#[cfg(all(test, windows))]
+#[path = "../../tests/unit/review_process_windows.rs"]
+mod windows_tests;

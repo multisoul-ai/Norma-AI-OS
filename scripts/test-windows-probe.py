@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Behavior tests for the public feasibility report CLI; no Windows behavior is mocked as passed."""
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -7,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 PROBE = Path(__file__).parent / "windows/probe.py"
 REQUIRED = ["environment", "compile", "graphics", "agents", "speech"]
@@ -38,6 +40,20 @@ class FeasibilityReportTests(unittest.TestCase):
     def reports(self):
         return {name: [{"id": name, "status": "PASS", "detail": "fixture observation"}]
                 for name in REQUIRED}
+
+    def test_app_check_includes_default_binary_targets(self):
+        """场景：App 默认构建包含主程序和 helper；采集命令计划；
+        预期不只检查 lib，也不靠禁用默认能力或额外 feature 换取通过。
+        """
+        spec = importlib.util.spec_from_file_location("windows_probe", PROBE)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with patch.object(module, "command", return_value={"status": "NOT_RUN"}) as command:
+            module.compile_probe(Path("unused-test-evidence"))
+        args = next(call.args[2] for call in command.call_args_list if call.args[1] == "app_compile")
+        self.assertNotIn("--lib", args, "App evidence must cover the default main/helper targets")
+        self.assertNotIn("--no-default-features", args, "Product capabilities must not be disabled")
+        self.assertNotIn("--features", args, "Default product evidence cannot use a test-support feature")
 
     def test_missing_reports_never_pass(self):
         """场景：runner 未产生任何证据；执行 summary；预期非零并列出五类缺失报告。"""

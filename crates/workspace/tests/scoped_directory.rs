@@ -110,3 +110,26 @@ fn windows_aliases_and_junction_never_escape_scope() {
         "拒绝不能触碰外部目录"
     );
 }
+
+/// 场景：读取活动指针时另一个线程发布新版本；数据为 old/new 两个完整指针。
+/// 执行：保持旧 CURRENT 文件句柄打开，在同一目录替换 CURRENT，然后分别读取旧/新句柄。
+/// 预期：发布不被普通读者阻塞，旧句柄仍读旧内容，新打开的句柄只读新内容。
+#[test]
+fn open_pointer_reader_does_not_block_atomic_publication() {
+    use std::io::Read;
+    let temp = tempfile::tempdir().expect("隔离根");
+    let root = Directory::open(temp.path(), true).expect("目录能力");
+    root.write_new("CURRENT", b"old").expect("旧指针");
+    let mut old = root.open_entry("CURRENT").expect("保持读句柄");
+    root.write_new("next", b"new").expect("候选指针");
+    root.rename("next", "CURRENT")
+        .expect("普通读者不能阻塞原子发布");
+    let mut previous = Vec::new();
+    old.read_to_end(&mut previous).expect("旧句柄内容");
+    assert_eq!(previous, b"old", "打开的句柄必须保持原文件身份");
+    assert_eq!(
+        root.read("CURRENT", 3).expect("新指针"),
+        b"new",
+        "新读取必须见到完整新指针"
+    );
+}

@@ -117,7 +117,7 @@ jobs:
           $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-platform-target'
           cargo test --locked -p storage --test memory_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/platform-boundaries/memory_platform.log
           $memory = $LASTEXITCODE
-          cargo test --locked -p workspace --test review_platform --test scoped_directory --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/platform-boundaries/review_platform.log
+          cargo test --locked --no-fail-fast -p workspace --lib --test review_platform --test scoped_directory --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/platform-boundaries/review_platform.log
           $review = $LASTEXITCODE
           cargo test --locked -p asr --test a1_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/platform-boundaries/a1_platform.log
           $a1 = $LASTEXITCODE

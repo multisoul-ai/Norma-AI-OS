@@ -17,9 +17,10 @@ use windows_sys::{
     Wdk::{
         Foundation::OBJECT_ATTRIBUTES,
         Storage::FileSystem::{
-            FileRenameInformation, NtCreateFile, NtFlushBuffersFile, NtSetInformationFile,
+            FileRenameInformationEx, NtCreateFile, NtFlushBuffersFile, NtSetInformationFile,
             FILE_CREATE, FILE_DIRECTORY_FILE, FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_IF,
-            FILE_OPEN_REPARSE_POINT, FILE_RENAME_INFORMATION, FILE_SYNCHRONOUS_IO_NONALERT,
+            FILE_OPEN_REPARSE_POINT, FILE_RENAME_INFORMATION, FILE_RENAME_POSIX_SEMANTICS,
+            FILE_RENAME_REPLACE_IF_EXISTS, FILE_SYNCHRONOUS_IO_NONALERT,
         },
     },
     Win32::{
@@ -28,8 +29,8 @@ use windows_sys::{
             GetFileInformationByHandle, GetFinalPathNameByHandleW, BY_HANDLE_FILE_INFORMATION,
             DELETE, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
             FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_READ,
-            FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE,
-            SYNCHRONIZE,
+            FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_READ,
+            FILE_SHARE_WRITE, SYNCHRONIZE,
         },
         System::IO::IO_STATUS_BLOCK,
     },
@@ -161,6 +162,7 @@ impl Directory {
             access,
             if create { FILE_OPEN_IF } else { FILE_OPEN },
             FILE_DIRECTORY_FILE,
+            false,
         )?;
         let info = information(&file)?;
         if info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
@@ -181,6 +183,7 @@ impl Directory {
             FILE_GENERIC_READ | FILE_GENERIC_WRITE,
             FILE_CREATE,
             FILE_DIRECTORY_FILE,
+            false,
         )?;
         let mut ancestors = self.ancestors.clone();
         ancestors.push(self.file.clone());
@@ -191,7 +194,10 @@ impl Directory {
         })
     }
     pub fn open_entry(&self, name: &str) -> io::Result<File> {
-        self.open_relative(name, FILE_GENERIC_READ, FILE_OPEN, 0)
+        self.open_relative(name, FILE_GENERIC_READ, FILE_OPEN, 0, true)
+    }
+    pub fn open_pinned_entry(&self, name: &str) -> io::Result<File> {
+        self.open_relative(name, FILE_GENERIC_READ, FILE_OPEN, 0, false)
     }
     fn open_relative(
         &self,
@@ -199,6 +205,7 @@ impl Directory {
         access: u32,
         disposition: u32,
         options: u32,
+        share_delete: bool,
     ) -> io::Result<File> {
         validate_component(name)?;
         let mut name = name.encode_utf16().collect::<Vec<_>>();
@@ -232,7 +239,9 @@ impl Directory {
                 &mut io_status,
                 null(),
                 FILE_ATTRIBUTE_NORMAL,
-                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                FILE_SHARE_READ
+                    | FILE_SHARE_WRITE
+                    | if share_delete { FILE_SHARE_DELETE } else { 0 },
                 disposition,
                 options | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT,
                 null(),
@@ -264,6 +273,7 @@ impl Directory {
             FILE_GENERIC_READ | FILE_GENERIC_WRITE,
             FILE_CREATE,
             FILE_NON_DIRECTORY_FILE,
+            false,
         )?;
         require_regular(&file)?;
         file.write_all(bytes)?;
@@ -276,6 +286,7 @@ impl Directory {
             FILE_GENERIC_READ | FILE_GENERIC_WRITE,
             FILE_OPEN_IF,
             FILE_NON_DIRECTORY_FILE,
+            false,
         )?;
         require_regular(&file)?;
         Ok(file)
@@ -288,6 +299,7 @@ impl Directory {
             DELETE | FILE_READ_ATTRIBUTES,
             FILE_OPEN,
             FILE_NON_DIRECTORY_FILE,
+            false,
         )?;
         require_regular(&file)?;
         let name = to.encode_utf16().collect::<Vec<_>>();
@@ -297,7 +309,7 @@ impl Directory {
         let info = buffer.as_mut_ptr().cast::<FILE_RENAME_INFORMATION>();
         // Aligned storage includes the complete variable-length UTF-16 name; RootDirectory pins both sides.
         unsafe {
-            (*info).Anonymous.ReplaceIfExists = true;
+            (*info).Anonymous.Flags = FILE_RENAME_REPLACE_IF_EXISTS | FILE_RENAME_POSIX_SEMANTICS;
             (*info).RootDirectory = self.file.as_raw_handle();
             (*info).FileNameLength = (name.len() * 2) as u32;
             std::ptr::copy_nonoverlapping(
@@ -311,7 +323,7 @@ impl Directory {
                 &mut io_status,
                 info.cast(),
                 length as u32,
-                FileRenameInformation,
+                FileRenameInformationEx,
             ))
         }
     }

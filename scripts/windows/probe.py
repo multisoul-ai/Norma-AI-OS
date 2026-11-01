@@ -87,8 +87,11 @@ def compile_probe(folder):
     checks = [command(folder, "canvas_tests", ["cargo", "test", "--locked", "-p", "canvas",
                "--lib", "--target", TARGET], 600)]
     for package in ("norma", "app"):
-        checks.append(command(folder, f"{package}_compile", ["cargo", "check", "--locked", "-p",
-                      package, "--lib", "--target", TARGET, "--message-format=short"], 900))
+        args = ["cargo", "check", "--locked", "-p", package]
+        if package == "norma":
+            args.append("--lib")
+        checks.append(command(folder, f"{package}_compile", [*args,
+                      "--target", TARGET, "--message-format=short"], 900))
     checks.append(command(folder, "norma_platform_tests", [
         "cargo", "test", "--locked", "-p", "norma", "--lib",
         "--test", "client_platform", "--test", "codex_question", "--test", "cursor_questions",
