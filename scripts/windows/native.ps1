@@ -7,6 +7,29 @@ $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force -Path $Output | Out-Null
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
+
+function Get-ProbePixelChannel([System.Drawing.Color]$Pixel) {
+    if ($Pixel.R -gt 170 -and $Pixel.G -lt 100 -and $Pixel.B -lt 100) { return 'red' }
+    # GPUI 0.2.2 green() is CSS green (0,128,0), not lime (0,255,0).
+    if ($Pixel.G -gt 100 -and $Pixel.R -lt 100 -and $Pixel.B -lt 100) { return 'green' }
+    if ($Pixel.B -gt 170 -and $Pixel.R -lt 100 -and $Pixel.G -lt 100) { return 'blue' }
+    return ''
+}
+
+# 场景：固定 RGB 色样与灰背景；执行同一像素分类接口；预期 CSS green 被识别，灰背景不算颜色。
+$colorCases = @(
+    @{ pixel = [System.Drawing.Color]::FromArgb(255, 0, 0); expected = 'red' },
+    @{ pixel = [System.Drawing.Color]::FromArgb(0, 128, 0); expected = 'green' },
+    @{ pixel = [System.Drawing.Color]::FromArgb(0, 0, 255); expected = 'blue' },
+    @{ pixel = [System.Drawing.Color]::FromArgb(80, 80, 80); expected = '' },
+    @{ pixel = [System.Drawing.Color]::FromArgb(0, 0, 0); expected = '' }
+)
+foreach ($case in $colorCases) {
+    if ((Get-ProbePixelChannel $case.pixel) -ne $case.expected) {
+        throw "Fixed-color classifier self-test failed: $($case.expected)"
+    }
+}
+
 Add-Type -TypeDefinition @'
 using System;
 using System.Collections.Generic;
@@ -108,6 +131,7 @@ $data = [ordered]@{
     adapters = @(Get-CimInstance Win32_VideoController | Select-Object Name, DriverVersion)
     directx_hardware = [NormaProbe.Native]::DirectX(1)
     directx_warp = [NormaProbe.Native]::DirectX(5)
+    pixel_classifier_self_test = 'PASS'
 }
 $checks.Add(@{ id = 'native_environment'; status = 'PASS'; detail = 'OS, displays and D3D11 device creation were queried' })
 foreach ($kind in @('hardware', 'warp')) {
@@ -152,19 +176,18 @@ if ($Mode -eq 'graphics') {
         try {
             $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $bitmap.Size)
             $bitmap.Save((Join-Path $Output 'gpui-window.png'), [System.Drawing.Imaging.ImageFormat]::Png)
-            $red = 0; $green = 0; $blue = 0
+            $samples = @{ red = 0; green = 0; blue = 0 }
             for ($y = 0; $y -lt $height; $y += 3) {
                 for ($x = 0; $x -lt $width; $x += 3) {
                     $pixel = $bitmap.GetPixel($x, $y)
-                    if ($pixel.R -gt 170 -and $pixel.G -lt 100 -and $pixel.B -lt 100) { $red++ }
-                    if ($pixel.G -gt 130 -and $pixel.R -lt 100 -and $pixel.B -lt 100) { $green++ }
-                    if ($pixel.B -gt 170 -and $pixel.R -lt 100 -and $pixel.G -lt 100) { $blue++ }
+                    $channel = Get-ProbePixelChannel $pixel
+                    if ($channel) { $samples[$channel]++ }
                 }
             }
         } finally { $graphics.Dispose(); $bitmap.Dispose() }
         $data['window'] = @{ pid = $process.Id; width = $width; height = $height; foreground = ([NormaProbe.Native]::GetForegroundWindow() -eq $window) }
-        $data['color_samples'] = @{ red = $red; green = $green; blue = $blue }
-        if ($red -lt 20 -or $green -lt 20 -or $blue -lt 20) {
+        $data['color_samples'] = $samples
+        if ($samples.red -lt 20 -or $samples.green -lt 20 -or $samples.blue -lt 20) {
             throw 'Expected red/green/blue GPUI sample pixels were not rendered'
         }
         $checks.Add(@{ id = 'gpui_window'; status = 'PASS'; detail = 'Owned Zed::Window and expected GPUI RGB pixels captured'; screenshot = 'gpui-window.png' })
