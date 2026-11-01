@@ -1,0 +1,28 @@
+{
+  "baseline_commit": "938356a6",
+  "implementation_commit": "e0e75071fb431d9ff93d432f7f95f899802f57a4",
+  "report_validation_commit": "e29f676e6fce66894b87a8ab7fb1e23e3538d8b0",
+  "product_rust_changes": [],
+  "files": [
+    {
+      "path": "Cargo.lock",
+      "unchanged": true,
+      "sha256": "8ad9080756b05a2023b63607e28a62f1a91755c142fe86c229ee073d076fede5"
+    },
+    {
+      "path": "crates/voice_input/src/vad.rs",
+      "unchanged": true,
+      "sha256": "2fda83d5e6d0148213ad8d0878c10eaf7959655861fada5da3abf6503dd99b00"
+    },
+    {
+      "path": "crates/asr/src/providers/local/a1/resources.rs",
+      "unchanged": true,
+      "sha256": "6051e1135f1fd680f319291515b4e0f953785d5c55212bd82ecd895c5c34157c"
+    },
+    {
+      "path": "crates/app/src/settings/voice/view/gpt_live.rs",
+      "unchanged": true,
+      "sha256": "fc653fa8cc582812517566de742c63cbcfb342cf180714761f0683ee1cc850c2"
+    }
+  ]
+}

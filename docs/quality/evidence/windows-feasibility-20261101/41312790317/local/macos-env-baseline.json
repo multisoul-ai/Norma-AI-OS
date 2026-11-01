@@ -1,0 +1,10 @@
+{
+  "baseline_commit": "938356a6",
+  "unchanged_resource_guard": "crates/asr/src/providers/local/a1/resources.rs",
+  "sha256": "6051e1135f1fd680f319291515b4e0f953785d5c55212bd82ecd895c5c34157c",
+  "observed_memory_pressure_level": 2,
+  "normal_level_required": 1,
+  "test_failures": 4,
+  "retry_count": 1,
+  "new_ignored_tests": 0
+}

@@ -1,0 +1,32 @@
+
+======================================================================
+FAIL: test_default_consumers_keep_native_sherpa_on_windows_and_macos (__main__.SherpaPlatformDependencies) (target='x86_64-pc-windows-msvc', package='voice_input')
+场景：三个公开 Sherpa 消费者默认构建；数据为 Windows/MSVC 与 macOS/ARM64；
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/norma-windows-feasibility-20261101/scripts/test-sherpa-platform-dependencies.py", line 25, in test_default_consumers_keep_native_sherpa_on_windows_and_macos
+    self.assertTrue(
+AssertionError: False is not true : voice_input must retain the native Sherpa dependency on x86_64-pc-windows-msvc: ['async-channel v2.5.0', 'audio v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/audio)', 'crossbeam-channel v0.5.16', 'hound v3.5.1', 'thiserror v2.0.18', 'tracing v0.1.44']
+
+======================================================================
+FAIL: test_default_consumers_keep_native_sherpa_on_windows_and_macos (__main__.SherpaPlatformDependencies) (target='x86_64-pc-windows-msvc', package='asr')
+场景：三个公开 Sherpa 消费者默认构建；数据为 Windows/MSVC 与 macOS/ARM64；
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/norma-windows-feasibility-20261101/scripts/test-sherpa-platform-dependencies.py", line 25, in test_default_consumers_keep_native_sherpa_on_windows_and_macos
+    self.assertTrue(
+AssertionError: False is not true : asr must retain the native Sherpa dependency on x86_64-pc-windows-msvc: ['async-channel v2.5.0', 'audio v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/audio)', 'bzip2 v0.5.2', 'dirs v6.0.0', 'libc v0.2.186', 'reqwest v0.13.4', 'serde v1.0.228', 'serde_json v1.0.150', 'sha2 v0.10.9', 'tar v0.4.46', 'tempfile v3.27.0', 'thiserror v2.0.18', 'tokio v1.52.3', 'tokio-util v0.7.18']
+
+======================================================================
+FAIL: test_default_consumers_keep_native_sherpa_on_windows_and_macos (__main__.SherpaPlatformDependencies) (target='x86_64-pc-windows-msvc', package='voice_sherpa')
+场景：三个公开 Sherpa 消费者默认构建；数据为 Windows/MSVC 与 macOS/ARM64；
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/norma-windows-feasibility-20261101/scripts/test-sherpa-platform-dependencies.py", line 25, in test_default_consumers_keep_native_sherpa_on_windows_and_macos
+    self.assertTrue(
+AssertionError: False is not true : voice_sherpa must retain the native Sherpa dependency on x86_64-pc-windows-msvc: ['asr v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/asr)', 'async-channel v2.5.0', 'audio v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/audio)', 'crossbeam-channel v0.5.16', 'dialogue v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/dialogue)', 'serde_json v1.0.150', 'thiserror v2.0.18', 'tracing v0.1.44', 'tts v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/tts)', 'voice_input v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/voice_input)']
+
+----------------------------------------------------------------------
+Ran 1 test in 10.025s
+
+FAILED (failures=3)

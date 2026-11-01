@@ -1,6 +1,6 @@
 # Windows runner 最小可行性验证证据
 
-本批 norma 编译入口验收已达成；App 仍未编译通过，完整 Windows 迁移未通过。
+本批已修复 Sherpa/VAD 平台依赖；原 5 个 VAD 错误已消除，完整迁移未通过。
 范围包含 norma 编译修复、OS 资源回归、GPUI 基础图形与无认证 CLI 条件。
 真实 Norma 图形、真实模型任务和候选包验收均未执行。
 标准 runner 的实测 OS 为 Windows Server 2025，不能视作 Windows 11 设备验收。
@@ -14,6 +14,8 @@
 | [41297206819 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41297206819) | `58fe7ebdaee43f1e3cd6b12725e3f947282dcaa4` | failure | PASS：固定色样校准后，窗口原图与 OS Alt+F4 关闭通过 |
 | [41306097667 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41306097667) | `bf03d7ef434a77dc5268d7ef257a4290c45cb031` | failure | 新增独立 norma 编译 gate，先复现原 14 个错误；GPUI 示例 PASS |
 | [41307703559 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41307703559) | `dae96214474474dffe6e0fc96efabb9d2e14990f` | failure | norma 编译/43 项回归通过，canvas 52 项通过；App 出现 voice_input 的 5 个错误；GPUI 示例 PASS |
+| [41312023075 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41312023075) | `e0e75071fb431d9ff93d432f7f95f899802f57a4` | failure | VAD 原 5 错误消除；43/52 项无回退；App storage 25 条诊断；语音测试 A1 编译失败 |
+| [41312790317 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41312790317) | `e29f676e6fce66894b87a8ab7fb1e23e3538d8b0` | failure | 报告测试 9 项通过；VAD/43/52 无回退；App storage 与语音 A1 阻塞仍在；GPUI 示例 PASS |
 
 前三次运行之间均有探针代码修正，不以无改动重跑覆盖断言失败。
 新增回归门槛与产品修复分别提交，保留先失败、再通过的执行记录。
@@ -37,8 +39,9 @@
 图形示例使用 `test/windows-probe/Cargo.lock` 的独立依赖图。
 它复用 vendor 的示例源码，未改变产品 Rust 代码，也不证明产品依赖图已适配。
 模型已读取首轮收束原图，核验记录见 `docs/quality/evidence/windows-feasibility-20261101/41297206819/visual-observation.md`。
+本批最终原图也已读取，记录见 `docs/quality/evidence/windows-feasibility-20261101/41312790317/visual-observation.md`。
 
-## norma 编译入口修复（本批）
+## norma 编译入口修复（前批，41307703559）
 
 先建立独立编译失败门槛，再修复产品代码。
 失败基线为 [41306097667](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41306097667)，源码 `bf03d7ef434a77dc5268d7ef257a4290c45cb031`。
@@ -89,6 +92,81 @@ App 日志另有 workspace 的既有 unused metadata 警告，未用 allow 压�
 本批公开源码和 native OS 夹具未使用模型凭据，模型调用数仍为 0。
 Windows Installer 的 /dev/urandom 随机数来源与 Cursor 的 Unix 项目路径编码仍待后续运行适配。
 
+## Sherpa/VAD 依赖边界修复（本批）
+
+原运行 41307703559 在 voice_input 的 VAD 中暴露 5 个 sherpa_onnx E0433。
+同一依赖声明错误也存在于 asr 和 voice_sherpa：三者使用无条件 Sherpa 实现，却只为 macOS 声明依赖。
+本批仅将三处现有依赖移入 normal 段，保持锁内 Sherpa 1.13.3 和所有产品 Rust 实现不变。
+没有禁用 VAD、A1 或其他产品能力，没有引入 test-support 构建替代。
+
+### 先失败、后修复
+
+- 依赖图回归：修复前 Windows 三个子用例 FAIL、macOS 三个 PASS；修复后六个全部 PASS。
+- 报告回归：采集先上传，gate 只读本次源码/run/attempt；汇总与 gate 共用检查，非零退出码不能显示 PASS。
+- 新增状态/退出码矛盾回归先失败后修复，最终报告 CLI 测试 9 项通过。
+
+首轮修复：[41312023075](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41312023075)。
+源码 `e0e75071fb431d9ff93d432f7f95f899802f57a4`，已结束，整体 failure。
+voice_input 默认 Windows check PASS、exit 0、116.39 秒，原 5 个 VAD 错误消除。
+原生语音测试命令 FAIL、exit 101、151.64 秒，编译时被 ASR 的 A1 工厂引用阻塞，尚未实际执行测试。
+
+准确位置为 `crates/asr/src/providers/mod.rs:114`。
+该处使用 A1RecognizerFactory，但 `crates/asr/src/providers/local/a1/mod.rs:8` 的 cfg(unix) 在 Windows 排除了其定义。
+这是新暴露的产品编译边界；未删除该分支、关闭能力或将失败标为跳过。
+同轮 norma lib 与默认 CLI/helper gate 通过；norma 43 项、canvas 52 项均通过且无忽略。
+App check FAIL、退出 101、879.12 秒，实际首个失败依赖为 storage，共 25 条诊断。
+其中 2 条为 workspace::review 被 cfg(unix) 排除后仍被 storage 引用。
+其余 23 条来自 memory/fs 的 Unix 目录、文件描述符、openat/renameat 与硬链接 API。
+完整诊断见 `docs/quality/evidence/windows-feasibility-20261101/41312023075/compiler-blockers.json`。
+并行编译只暴露当前失败前沿，不能声称其他下游均正常。
+
+最终报告一致性复验：[41312790317](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41312790317)。
+源码 `e29f676e6fce66894b87a8ab7fb1e23e3538d8b0`，attempt 1，运行已结束，整体 failure。
+该版只补强报告退出码校验，产品依赖修复相同。
+
+| 最终复验项 | 实际结果 | 日志与边界 |
+|---|---|---|
+| 原 5 个 VAD 错误 | 全部消除；voice_input 默认 check PASS，退出 0，117.0 秒 | speech/voice_input_compile.log；未禁用 VAD |
+| norma Windows lib | PASS，退出 0，187.72 秒 | compile/norma_compile.log |
+| norma 默认 CLI/helper | PASS，独立编译 gate success | workflow.log；不代表 helper 已启动 |
+| norma 平台回归 | 43 passed、0 failed、0 ignored，149.73 秒 | compile/norma_platform_tests.log |
+| canvas | 52 passed、0 failed、0 ignored，48.47 秒 | compile/canvas_tests.log |
+| App 默认 check | FAIL，退出 101，866.02 秒；storage 25 条诊断 | compile/app_compile.log；不是完整下游清单 |
+| 默认语音测试 | 命令 FAIL，退出 101，149.92 秒；A1 编译阻塞 | speech/speech_tests.log；实际测试 NOT_RUN，不填通过数 |
+| GPUI 示例 | PASS，窗口、像素、前台与 OS 键盘关闭通过 | graphics/ 原始日志与 PNG；已看图，非真实 Norma |
+| 真实产品能力 | 真实 Norma 图形、Agent、候选包、物理录音与模型 VAD 均 NOT_RUN | 未用示例、夹具或编译代替产品验收 |
+
+原始证据与校验清单：`docs/quality/evidence/windows-feasibility-20261101/41312790317/manifest.json`。
+App 的 2 条 Review 错误位于两个 mobile_task store 导入；根因是 workspace 的 cfg(unix)。
+其余 23 条位于 memory/fs 的 POSIX 目录和文件句柄实现。
+语音的 A1 错误位于 `crates/asr/src/providers/mod.rs:114`。
+`crates/asr/src/providers/local/a1/mod.rs:8` 在 Windows 排除了该工厂定义。
+两轮均保留失败日志，没有删除产品分支或绕过必验门槛。
+
+当前五个探针门槛：1 PASS、2 FAIL、2 NOT_RUN，goal_complete=false。
+当前 AC 矩阵：0 PASS、1 FAIL、1 ENV_UNSUPPORTED、10 NOT_RUN。
+G1、G2 与整体 Goal 均未完成。
+
+原始失败记录与各 SHA 证据分别保存，不跨 run 拼接通过结果。
+
+### 本机验证及限制
+
+Mac workspace check 与 fmt check 通过，边界、性能、代理和依赖图检查通过。
+默认三个 crate 的首次测试止于 ASR 的 4 项 A1 host 失败；仅重试一次并使用 no-fail-fast 收齐其他目标。
+重试合计 90 passed、4 failed、17 个既有 ignored，命令退出 101。
+
+- ASR：37 passed、4 failed、2 ignored。
+- voice_input：26 passed、0 failed、6 ignored。
+- voice_sherpa：27 passed、0 failed、9 ignored。
+
+四项失败均在未修改的 A1 资源护栏报 system memory pressure elevated。
+实测 kern.memorystatus_vm_pressure_level=2（WARN），实现要求 1（NORMAL）。
+保留两次日志、内核查询与未修改源码的 SHA；没有放宽护栏或新增忽略。
+本批证据入口：`docs/quality/evidence/windows-feasibility-20261101/41312790317/local/local-validation.json`。
+同目录包含两轮原生测试日志、内核查询与 `unchanged-product-sources.json`。
+i18n 护栏仍在未改动的 `crates/app/src/settings/voice/view/gpt_live.rs:70` 失败。
+物理录音、模型 VAD、真实 Norma 图形、真实 Agent 和候选包仍为 NOT_RUN。
+
 ## 实测环境
 
 - runner label：`windows-2025`；实际镜像 `win25-vs2026`，版本 `20261021.278.1`。
@@ -112,7 +190,7 @@ Windows Installer 的 /dev/urandom 随机数来源与 Cursor 的 Unix 项目路�
 - `graphics/report.json`、`graphics/native.json`：构建、窗口、像素和输入结果；有图像时保存 PNG 原图。
 - `agents/report.json`：固定 CLI 版本、无认证检查及明确的 NOT_RUN 项；同目录保存帮助、版本和握手日志。
 - `feasibility.json`、`summary.md`：当前源码和 attempt 的汇总结论。
-- `compiler-blockers.json`：从该轮日志提取的错误与测试计数，是派生索引；初始为 norma 14 个，本批为 norma 0 个、App 5 个。
+- `compiler-blockers.json`：从各轮日志提取错误与测试计数；包含初始 norma 14 个、前批 App 5 个及本批的新阻塞。
 
 上述布局中的短文件名用于说明各 run 目录内部结构。
 首轮收束汇总入口为 `docs/quality/evidence/windows-feasibility-20261101/41297206819/feasibility.json`。
@@ -125,18 +203,20 @@ CI 临时产物有 3–7 天留存期，本目录持久保存小报告、日志�
 未复制本机登录信息，未启用付费 runner、签名、发布或机器采购。
 真实 Agent 的后续验收需要受保护环境与已授权调用预算，缺失时继续保持 NOT_RUN。
 
-迁移顺序为 voice_input 的 Sherpa/VAD 编译边界 → App 后续编译阻塞 → storage/workspace 安全语义 → PowerShell/ConPTY/进程树 → 真实 Norma 窗口 → 真实 Agent → 同版本候选包复验。
+迁移顺序为 ASR/A1 的 Windows host/transport → storage/workspace 安全实现与 App 复验 → PowerShell/ConPTY/进程树 → 真实 Norma 窗口 → 真实 Agent → 同版本候选包复验。
 原 14 个错误只代表已观察到的编译前沿，不能视作全部适配工作，也不能据此下调估算。
 G1 尚未完成，两个 Agent 的产品支持矩阵尚未冻结。
 
-本机聚焦验证通过：报告语义 6 项、契约检查 4 项、域契约检查与 actionlint。
-Windows environment job 也运行了这两组 Python 测试和契约检查。
+本批聚焦验证通过：报告语义 9 项、依赖图 6 个子用例、契约检查 4 项、域契约检查与 actionlint。
+Windows environment job 执行依赖图与契约检查；首轮报告测试 8 项，第二轮新增退出码回归后为 9 项。
+受影响的原生语音测试另列失败状态。
 首轮未重建本机 App/workspace；本批已按正常 hook 执行 workspace check，未运行真实 App 或 release 构建。
 
 现行计划：`docs/exec-plans/2026-11-01-windows-github-runner-goal.md`。
 HTML 展示：`docs/exec-plans/2026-11-01-windows-github-runner-goal.html`。
 
-最新结果入口：`docs/quality/evidence/windows-feasibility-20261101/41307703559/feasibility.json`。
-最新校验清单：`docs/quality/evidence/windows-feasibility-20261101/41307703559/manifest.json`。
+最新结果入口：`docs/quality/evidence/windows-feasibility-20261101/41312790317/feasibility.json`。
+最新校验清单：`docs/quality/evidence/windows-feasibility-20261101/41312790317/manifest.json`。
 
-本机独立任务缓存已按归属回收：8881 个文件，1.8 GiB；清理日志保存于最新运行的 local 子目录。
+前批独立任务缓存已回收 1.8 GiB。
+本批已按登记归属回收独立任务缓存；清理日志在最终运行的 local 子目录。

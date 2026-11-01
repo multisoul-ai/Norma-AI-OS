@@ -1,0 +1,14 @@
+.......
+======================================================================
+FAIL: test_speech_gate_requires_current_successful_zero_exit_checks (__main__.FeasibilityReportTests) (variant='pass')
+场景：采集已完成后 gate 只读报告；构造成功、非零退出码、失败及旧 attempt；
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/norma-windows-feasibility-20261101/scripts/test-windows-probe.py", line 160, in test_speech_gate_requires_current_successful_zero_exit_checks
+    self.assertEqual(result.returncode == 0, variant == "pass",
+AssertionError: False != True : gate must preserve the captured result for pass: 
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.489s
+
+FAILED (failures=1)

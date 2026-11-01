@@ -1,0 +1,220 @@
+任务缓存：/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.81s
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target/debug/deps/asr-d1dcf8ac230b82e0)
+
+running 29 tests
+test installation_tests::test_model_installation_root_is_stable_under_application_data ... ok
+test catalog_tests::test_zipformer_catalog_entry_pins_official_artifact_without_recommendation ... ok
+test catalog_tests::test_builtin_catalog_finds_paraformer_and_rejects_unknown_id ... ok
+test catalog_tests::test_zipformer_ctc_catalog_entry_pins_official_ctc_artifact ... ok
+test catalog_tests::test_zipformer_bilingual_catalog_entry_pins_official_transducer_artifact ... ok
+test providers::cloud::azure::azure_tests::azure_config_derives_public_stt_endpoint_and_redacts_secret ... ok
+test model_id_tests::test_model_id_round_trips_and_rejects_blank_values ... ok
+test installation_tests::test_validate_installation_requires_matching_manifest_and_all_model_files ... ok
+test installation_tests::test_legacy_bilingual_installation_reports_recoverable_update ... ok
+test installation_tests::test_remove_installation_protects_selected_model_then_removes_unselected_model ... ok
+test installer_tests::test_install_archive_missing_required_file_never_becomes_ready ... ok
+test installer_tests::test_install_archive_confines_traversal_entry_to_managed_root ... ok
+test installer_tests::test_install_archive_is_atomic_and_rejects_hash_mismatch ... ok
+test providers::cloud::azure::azure_tests::azure_auth_failure_maps_http_status_without_secret ... ok
+test providers::local::a1::host::tests::cancelled_startup_never_acquires_the_host ... FAILED
+test providers::local::a1::host::tests::preparation_waits_for_cancelled_reservation_to_unwind ... FAILED
+test providers::local::a1::host::tests::shared_host_has_one_session_and_reuses_successful_workers ... FAILED
+test providers::local::a1::host::tests::shutdown_reaps_active_workers_without_waiting_for_more_pcm ... FAILED
+test support_tests::test_silero_vad_install_rejects_wrong_hash_without_ready_file ... ok
+test support_tests::test_silero_vad_support_artifact_is_pinned_and_shared ... ok
+test providers::cloud::azure::azure_tests::azure_credential_validation_accepts_authenticated_silence_response ... ok
+test providers::cloud::azure::azure_tests::azure_success_with_empty_display_text_returns_none ... ok
+test providers::cloud::azure::azure_tests::azure_non_success_status_is_explicit_and_secret_free ... ok
+test providers::local::a1::transport::tests::worker_roundtrip_reuses_process_and_reaps_on_drop ... ok
+test providers::cloud::azure::azure_tests::azure_recognizer_buffers_pcm_as_wav_and_returns_final_text ... ok
+test providers::local::a1::transport::tests::deadline_bounds_a_hung_worker ... ok
+test providers::local::a1::transport::tests::cancellation_interrupts_waiting_and_reaps_worker ... ok
+test providers::local::a1::transport::tests::invalid_or_degraded_responses_never_become_final_text ... ok
+test providers::cloud::azure::azure_tests::azure_inflight_request_is_cancelled_before_server_response ... ok
+
+failures:
+
+---- providers::local::a1::host::tests::cancelled_startup_never_acquires_the_host stdout ----
+
+thread 'providers::local::a1::host::tests::cancelled_startup_never_acquires_the_host' (8683697) panicked at crates/asr/src/providers/local/a1/../../../../tests/unit/a1_host_tests.rs:102:5:
+assertion `left == right` failed: 旧准备任务必须被拦截
+  left: Err(Provider("A1: system memory pressure is elevated"))
+ right: Err(SessionClosed)
+
+---- providers::local::a1::host::tests::preparation_waits_for_cancelled_reservation_to_unwind stdout ----
+
+thread 'providers::local::a1::host::tests::preparation_waits_for_cancelled_reservation_to_unwind' (8683698) panicked at crates/asr/src/providers/local/a1/../../../../tests/unit/a1_host_tests.rs:119:36:
+called `Result::unwrap()` on an `Err` value: Provider("A1: system memory pressure is elevated")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- providers::local::a1::host::tests::shared_host_has_one_session_and_reuses_successful_workers stdout ----
+
+thread 'providers::local::a1::host::tests::shared_host_has_one_session_and_reuses_successful_workers' (8683701) panicked at crates/asr/src/providers/local/a1/../../../../tests/unit/a1_host_tests.rs:43:38:
+第一会话应启动: Provider("A1: system memory pressure is elevated")
+
+---- providers::local::a1::host::tests::shutdown_reaps_active_workers_without_waiting_for_more_pcm stdout ----
+
+thread 'providers::local::a1::host::tests::shutdown_reaps_active_workers_without_waiting_for_more_pcm' (8683703) panicked at crates/asr/src/providers/local/a1/../../../../tests/unit/a1_host_tests.rs:70:40:
+called `Result::unwrap()` on an `Err` value: Provider("A1: system memory pressure is elevated")
+
+
+failures:
+    providers::local::a1::host::tests::cancelled_startup_never_acquires_the_host
+    providers::local::a1::host::tests::preparation_waits_for_cancelled_reservation_to_unwind
+    providers::local::a1::host::tests::shared_host_has_one_session_and_reuses_successful_workers
+    providers::local::a1::host::tests::shutdown_reaps_active_workers_without_waiting_for_more_pcm
+
+test result: FAILED. 25 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.13s
+
+error: test failed, to rerun pass `-p asr --lib`
+     Running tests/a1_eval.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target/debug/deps/a1_eval-0b3928a690bd9084)
+
+running 7 tests
+test evaluate_production_a0 ... ignored, 需要 Apple Silicon、本机固定 A1 模型和空闲机器
+test wav_input_checks_format_and_preserves_pcm ... ok
+test audit::tests::completed_run_keeps_its_terminal_status ... ok
+test existing_manifest_cannot_be_replaced_by_a_new_run ... ok
+test audit::tests::early_exit_marks_the_run_failed_instead_of_running ... ok
+test audit::tests::pressure_changes_are_recorded_without_controlling_the_host ... ok
+test file_replay_can_skip_wall_clock_pacing_without_changing_pcm ... ok
+
+test result: ok. 6 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.01s
+
+     Running tests/azure_real.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target/debug/deps/azure_real-392bee201219c4f1)
+
+running 1 test
+test real_m4a_is_recognized_through_public_pipeline ... ignored, requires Azure credentials, ffmpeg, network access, and the real user M4A
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/provider_registry.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target/debug/deps/provider_registry-b1aa0868f80f903c)
+
+running 3 tests
+test a1_is_a_distinct_bounded_local_provider ... ok
+test builtin_factory_registry_resolves_azure_without_app_vendor_branch ... ok
+test builtin_registry_exposes_local_sherpa_and_cloud_azure_capabilities ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/recognition_pipeline.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target/debug/deps/recognition_pipeline-60a5134a897804b5)
+
+running 3 tests
+test recognition_pipeline_cancellation_wins_over_late_provider_error ... ok
+test recognition_pipeline_auto_finishes_at_sixty_second_limit ... ok
+test recognition_pipeline_emits_partial_input_end_and_one_final ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target/debug/deps/voice_input-3c04f119e5b6c634)
+
+running 32 tests
+test audio_capture::audio_tests::test_audio_capture_on_blocked_owner_thread_still_sends_pcm_chunks ... ignored, requires microphone hardware and permission
+test audio_capture::audio_tests::test_audio_capture_sends_pcm_chunks ... ignored, requires microphone hardware and permission
+test audio_capture::audio_tests::test_pcm_stream_session_is_send ... ok
+test audio_capture::audio_tests::test_empty_samples_do_not_create_pcm_stream_chunk ... ok
+test fixture::tests::test_chunks_are_100ms_with_a_short_tail ... ok
+test audio_capture::audio_tests::test_macos_audio_capture_avoids_unstable_voice_processing_path ... ok
+test permissions::tests::test_microphone_authorization_from_raw_maps_all_variants ... ok
+test audio_capture::audio_tests::test_pcm16_conversion_uses_little_endian_saturation ... ok
+test audio_capture::audio_tests::test_macos_audio_capture_does_not_use_aborting_audio_unit_selector ... ok
+test audio_capture::audio_tests::test_pcm_stream_chunk_uses_dialogue_capture_metadata ... ok
+test fixture::tests::test_fixture_path_requires_a_non_empty_value ... ok
+test resample::tests::test_downsample_constant_signal_preserves_value ... ok
+test resample::tests::test_empty_input_is_safe ... ok
+test fixture::tests::test_decode_fixture_reports_missing_file ... ok
+test resample::tests::test_identity_rate_maps_one_to_one ... ok
+test resample::tests::test_split_input_matches_single_pass ... ok
+test samples::samples_tests::test_pcm16_chunk_to_f32_samples_even_byte_length ... ok
+test samples::samples_tests::test_pcm16_chunk_to_f32_samples_rejects_non_16khz ... ok
+test stream::stream_tests::test_duplex_pcm_stream_restarts_with_live_audio ... ignored, requires microphone hardware and permission
+test stream::stream_tests::test_pcm_stream_session_forwards_microphone_chunks ... ignored, requires microphone hardware and permission
+test stream::stream_tests::test_voice_processing_capture_restarts_without_raw_fallback ... ignored, requires microphone hardware and permission
+test stream::stream_tests::test_duplex_pcm_queue_discards_stale_audio_when_network_lags ... ok
+test stream::stream_tests::test_voice_processing_timeout_rejects_unprotected_capture ... ok
+test vad::vad_tests::test_sherpa_vad_client_creates_with_real_model ... ignored, requires silero VAD model assets on disk
+test vad::vad_tests::test_fake_energy_vad_detects_start_and_end ... ok
+test stream::stream_tests::test_cancel_consumes_session_and_stops_capture_once ... ok
+test stream::stream_tests::test_start_pcm_stream_requires_microphone_authorization_without_recognizer ... ok
+test vad::vad_tests::test_fake_energy_vad_silence_emits_no_events ... ok
+test stream::stream_tests::test_drop_pcm_stream_session_stops_capture_and_closes_stream ... ok
+test vad::vad_tests::test_pcm16_chunk_to_f32_samples_decodes_le_bytes ... ok
+test fixture::tests::test_decode_fixture_downmixes_and_resamples_to_16khz ... ok
+test fixture::tests::test_fixture_stream_plays_audio_then_silence_in_real_time ... ok
+
+test result: ok. 26 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/timed_vad.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target/debug/deps/timed_vad-b18fac760e931e42)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target/debug/deps/voice_sherpa-6daa455b19af17d1)
+
+running 34 tests
+test listening_pipeline::listening_pipeline_tests::test_real_wav_reaches_final_transcript_and_thinking ... ignored, requires downloaded Paraformer and Silero models; run model download scripts first
+test listening_pipeline::listening_pipeline_tests::test_zipformer_real_wav_produces_partial_and_final_transcripts ... ignored, requires downloaded Zipformer, Silero VAD and official test WAV assets
+test asr_stream::asr_stream_tests::continuous_adapter_cancels_current_recognizer_after_reset ... ok
+test asr_stream::asr_stream_tests::continuous_adapter_returns_provider_failure_to_event_loop ... ok
+test asr_stream::asr_stream_tests::continuous_adapter_uses_shared_pipeline_duration_limit ... ok
+test recognizer_config::recognizer_config_hotword_tests::test_non_transducer_model_rejects_hotwords_explicitly ... ok
+test recognizer_config::recognizer_config_tests::test_zipformer_bilingual_defaults_to_developer_hotwords ... ok
+test recognizer_config::recognizer_config_hotword_tests::test_custom_hotword_parameters_are_forwarded_to_sherpa ... ok
+test recognizer_config::recognizer_config_tests::test_paraformer_available_model_builds_only_paraformer_config ... ok
+test recognizer_config::recognizer_config_tests::test_zipformer_ctc_available_model_builds_only_ctc_config ... ok
+test session::finalize_tests::test_backlog_and_timeout_constants_are_bounded_and_adequate ... ok
+test session::finalize_tests::test_finalize_consumes_all_samples_before_final_decode ... ok
+test recognizer_config::recognizer_config_hotword_tests::test_bilingual_hotwords_reject_each_invalid_boundary ... ok
+test session::finalize_tests::test_speech_finalizer_is_send_for_background_executor ... ok
+test listening_pipeline::listening_pipeline_tests::test_listening_pipeline_start_reports_missing_models_before_spawning ... ok
+test session_state::session_state_tests::test_session_state_double_finish_is_error ... ok
+test session_state::session_state_tests::test_session_state_duplicate_start_returns_already_finished ... ok
+test tts::tts_tests::test_default_real_tts_synthesizes_chinese_with_matcha ... ignored, requires downloaded Matcha Chinese TTS model; run scripts/download-matcha-tts-model.sh first
+test tts::tts_tests::test_real_available_matcha_zh_en_synthesizes_chinese_and_english ... ignored, requires downloaded Matcha zh-en candidate artifacts under target/tts-candidates
+test tts::tts_tests::test_real_matcha_stream_adapter_forwards_one_complete_pcm_chunk ... ignored, requires downloaded Matcha Chinese TTS model; run scripts/download-matcha-tts-model.sh first
+test tts::tts_tests::test_real_matcha_tts_client_accepts_official_22050hz_output ... ignored, requires downloaded Matcha Chinese TTS model; run scripts/download-matcha-tts-model.sh first
+test tts::tts_tests::test_real_matcha_tts_long_reply_is_not_truncated_to_okay ... ignored, requires downloaded Matcha Chinese TTS model; run scripts/download-matcha-tts-model.sh first
+test recognizer_config::recognizer_config_tests::test_zipformer_bilingual_available_model_builds_versioned_transducer_config ... ok
+test session_state::session_state_tests::test_session_state_finish_without_start_is_error ... ok
+test session_state::session_state_tests::test_session_state_normal_flow ... ok
+test tts::tts_stream_tests::local_adapter_handles_two_segments_in_one_reply_stream ... ok
+test recognizer_config::recognizer_config_tests::test_zipformer_available_model_builds_only_transducer_config ... ok
+test tts::tts_tests::test_fake_tts_returns_valid_pcm_chunk ... ok
+test tts::tts_tests::test_tts_empty_text_returns_error ... ok
+test tts::zipvoice_real_tts_tests::test_real_zipvoice_int8_synthesizes_cloned_chinese_and_english ... ignored, requires official ZipVoice archive and Vocos under target/tts-candidates
+test tts::tts_tests::test_zipvoice_builder_uses_distill_int8_and_reference_generation_contract ... ok
+test session::finalize_tests::test_finalize_timeout_returns_best_transcript ... ok
+test session::finalize_tests::test_abort_exits_without_graceful_finalization ... ok
+test session::finalize_tests::test_speech_finalizer_sends_end_of_audio_after_drain_wait ... ok
+
+test result: ok. 26 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/tts_demo.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target/debug/deps/tts_demo-8a36c889dcf02568)
+
+running 2 tests
+test test_sherpa_offline_tts_chinese_demo_prints_latency ... ignored, requires downloaded Matcha Chinese TTS model; run scripts/download-matcha-tts-model.sh first
+test test_tts_demo_texts_cover_short_medium_long ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests asr
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests voice_input
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests voice_sherpa
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: 1 target failed:
+    `-p asr --lib`

@@ -1,0 +1,23 @@
+.F..F..
+======================================================================
+FAIL: test_missing_reports_never_pass (__main__.FeasibilityReportTests)
+场景：runner 未产生任何证据；执行 summary；预期非零并列出五类缺失报告。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/norma-windows-feasibility-20261101/scripts/test-windows-probe.py", line 46, in test_missing_reports_never_pass
+    self.assertEqual(len(report["missing_reports"]), 5, "all five report classes are required")
+AssertionError: 4 != 5 : all five report classes are required
+
+======================================================================
+FAIL: test_speech_test_failure_is_preserved_after_voice_input_compiles (__main__.FeasibilityReportTests)
+场景：VAD 默认构建通过，但相关原生测试失败；经 CLI 汇总；
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/norma-windows-feasibility-20261101/scripts/test-windows-probe.py", line 132, in test_speech_test_failure_is_preserved_after_voice_input_compiles
+    self.assertEqual(report["goal_gates"].get("speech_default_checks"), "FAIL",
+AssertionError: None != 'FAIL' : speech runtime test failures must remain visible
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.299s
+
+FAILED (failures=2)
