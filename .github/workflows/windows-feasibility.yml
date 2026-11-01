@@ -79,6 +79,10 @@ jobs:
       - name: Test canvas and record real Windows compiler failures
         shell: pwsh
         run: python scripts/windows/probe.py compile
+      - name: Require norma Windows compilation without feature overrides
+        if: always()
+        shell: pwsh
+        run: cargo check --locked -p norma --lib --target x86_64-pc-windows-msvc
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
