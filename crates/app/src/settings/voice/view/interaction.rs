@@ -36,6 +36,7 @@ pub(super) fn interaction_group(
                         cx,
                     )
                     .on_activate(cx.listener(|app, _, _, cx| {
+                        app.invalidate_single_voice_commands();
                         app.stop_continuous_listening(cx);
                         app.voice_settings
                             .select_interaction_mode(VoiceInteractionMode::SingleVoiceCommand);
@@ -56,6 +57,7 @@ pub(super) fn interaction_group(
                         cx,
                     )
                     .on_activate(cx.listener(|app, _, _, cx| {
+                        app.invalidate_single_voice_commands();
                         app.voice.stop_for_model_switch();
                         app.release_a1_runtime(cx);
                         app.voice_settings

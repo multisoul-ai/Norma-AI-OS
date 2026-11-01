@@ -21,7 +21,7 @@ public enum SettingsModule {
             SettingsDispatchEffects.name,
             SettingsRunEffects.name,
         ],
-        visualScenarioNames: [SettingsThemeConsistency.name],
+        visualScenarioNames: [SettingsThemeConsistency.name, SettingsA1Configuration.name],
         run: { scenario, session in
             switch scenario {
             case SettingsThemeConsistency.name:

@@ -22,15 +22,14 @@ fn reply_agent(
     message: String,
 ) -> Result<AdapterResult, AdapterError> {
     let definition = app
-        .agent_definitions
-        .definition_by_address(&agent)
+        .voice_bound_definition(&agent)
         .ok_or_else(|| AdapterError::Rejected(format!("未找到 Agent：{agent}")))?;
     if !definition.enabled {
         return Err(AdapterError::Rejected(format!("Agent 已禁用：{agent}")));
     }
     let definition_id = definition.id;
     let name = definition.name.clone();
-    let node_id = app
+    let node_id = app.voice_bound_node(definition_id).or_else(|| app
         .runtime
         .document
         .nodes()
@@ -40,7 +39,7 @@ fn reply_agent(
                 return None;
             };
             (spec.definition_id == Some(definition_id)).then_some(node.id)
-        })
+        }))
         .ok_or_else(|| {
             AdapterError::Rejected(format!(
                 "{name} 画布上还没有卡片；若定义已启用，请用 assign_agent_task 自动打开唯一卡片后再对话"

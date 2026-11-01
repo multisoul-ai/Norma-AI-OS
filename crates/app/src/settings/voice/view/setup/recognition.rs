@@ -11,7 +11,7 @@ use crate::settings::voice::{
 use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful};
 use ui::Theme;
 
-pub(super) fn recognition_detail(
+pub(crate) fn recognition_detail(
     theme: Theme,
     microphone: VoiceRequirementState,
     state: &VoiceSettingsState,
@@ -24,14 +24,31 @@ pub(super) fn recognition_detail(
         .flex()
         .flex_col()
         .gap(px(10.0))
+        .child(super::super::input_device::input_device_row(
+            theme, state, cx,
+        ))
         .child(microphone_detail(theme, microphone, cx))
         .child(source_selector(theme, state, source, cx))
         .when(source == asr::AsrProviderId::LocalSherpa, |detail| {
             detail.child(local_detail(theme, state, cx))
         })
-        .when(source == asr::AsrProviderId::LocalA1, |detail| {
-            detail.child(super::a1::a1_detail(theme, state, cx))
+        .when(source != asr::AsrProviderId::CloudAzure, |detail| {
+            detail.child(local_diagnostics(theme, state, cx))
         })
+        .when(
+            source == asr::AsrProviderId::LocalA1
+                && state.values().asr_provider() == asr::AsrProviderId::CloudAzure,
+            |detail| {
+                detail.child(setup_action_button(
+                    theme,
+                    "voice-source-restore-local",
+                    ui::i18n::text("voice.local_recognition"),
+                    SetupButtonTone::Accent,
+                    cx,
+                    cx.listener(MultisoulApp::on_voice_settings_activate_local_asr),
+                ))
+            },
+        )
         .when(source == asr::AsrProviderId::CloudAzure, |detail| {
             detail.child(azure_detail(theme, state, inputs, cx))
         })
@@ -94,40 +111,25 @@ fn source_selector(
             .child(setup_action_button(
                 theme,
                 "voice-setup-asr-source-local",
-                if active == asr::AsrProviderId::LocalSherpa {
-                    ui::i18n::text("voice.on_device_selected")
+                if active != asr::AsrProviderId::CloudAzure {
+                    ui::i18n::text("voice.local_recognition_selected")
                 } else {
-                    ui::i18n::text("voice.on_device")
+                    ui::i18n::text("voice.local_recognition")
                 },
                 source_tone(
-                    active == asr::AsrProviderId::LocalSherpa,
-                    source == asr::AsrProviderId::LocalSherpa,
+                    active != asr::AsrProviderId::CloudAzure,
+                    source != asr::AsrProviderId::CloudAzure,
                 ),
                 cx,
                 cx.listener(MultisoulApp::on_voice_setup_show_local_asr),
             ))
             .child(setup_action_button(
                 theme,
-                "voice-setup-asr-source-a1",
-                ui::i18n::text(if active == asr::AsrProviderId::LocalA1 {
-                    "voice.a1_selected"
-                } else {
-                    "voice.a1_name"
-                }),
-                source_tone(
-                    active == asr::AsrProviderId::LocalA1,
-                    source == asr::AsrProviderId::LocalA1,
-                ),
-                cx,
-                cx.listener(MultisoulApp::on_voice_setup_show_a1),
-            ))
-            .child(setup_action_button(
-                theme,
                 "voice-setup-asr-source-azure",
                 if active == asr::AsrProviderId::CloudAzure {
-                    ui::i18n::text("voice.azure_speech")
+                    ui::i18n::text("voice.cloud_recognition_selected")
                 } else {
-                    "Azure Speech"
+                    ui::i18n::text("voice.cloud_recognition")
                 },
                 source_tone(
                     active == asr::AsrProviderId::CloudAzure,
@@ -137,6 +139,71 @@ fn source_selector(
                 cx.listener(MultisoulApp::on_voice_setup_show_azure_asr),
             )),
     )
+}
+
+fn local_diagnostics(
+    theme: Theme,
+    state: &VoiceSettingsState,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    let expanded = state.advanced_expanded();
+    div()
+        .w_full()
+        .flex()
+        .flex_col()
+        .gap(px(10.0))
+        .child(compact_setup_row(
+            theme,
+            ui::i18n::text("voice.local_engine_details"),
+            ui::i18n::text("voice.local_engine_preserved"),
+            setup_action_button(
+                theme,
+                "voice-local-diagnostics-toggle",
+                ui::i18n::text(if expanded { "voice.hide" } else { "voice.show" }),
+                SetupButtonTone::Default,
+                cx,
+                cx.listener(MultisoulApp::on_voice_settings_toggle_advanced),
+            ),
+        ))
+        .when(expanded, |detail| {
+            detail
+                .child(
+                    div()
+                        .flex()
+                        .flex_wrap()
+                        .gap(px(8.0))
+                        .child(setup_action_button(
+                            theme,
+                            "voice-engine-compatibility",
+                            ui::i18n::text("voice.compatibility_engine"),
+                            source_tone(
+                                state.values().asr_provider() == asr::AsrProviderId::LocalSherpa,
+                                state.setup_asr_source() == asr::AsrProviderId::LocalSherpa,
+                            ),
+                            cx,
+                            cx.listener(|app, _, _, cx| {
+                                app.voice_settings
+                                    .open_setup_destination(VoiceSetupDestination::AsrModels);
+                                cx.notify();
+                            }),
+                        ))
+                        .child(setup_action_button(
+                            theme,
+                            "voice-engine-a1",
+                            ui::i18n::text("voice.a1_engine"),
+                            source_tone(
+                                state.values().asr_provider() == asr::AsrProviderId::LocalA1,
+                                state.setup_asr_source() == asr::AsrProviderId::LocalA1,
+                            ),
+                            cx,
+                            cx.listener(MultisoulApp::on_voice_setup_show_a1),
+                        )),
+                )
+                .when(
+                    state.setup_asr_source() == asr::AsrProviderId::LocalA1,
+                    |detail| detail.child(super::a1::a1_detail(theme, state, cx)),
+                )
+        })
 }
 
 fn source_tone(active: bool, viewed: bool) -> SetupButtonTone {
@@ -179,7 +246,7 @@ fn local_detail(
                     ui::i18n::text("voice.use_on_device"),
                     SetupButtonTone::Accent,
                     cx,
-                    cx.listener(MultisoulApp::on_voice_settings_activate_local_asr),
+                    cx.listener(MultisoulApp::on_voice_settings_activate_compatibility_asr),
                 ),
             ))
         })

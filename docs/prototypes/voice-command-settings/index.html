@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark light"><title>语音指令 · 交互原型</title><style>:root{color-scheme:dark;--back:#111318;--surface:#1b1e24;--surface-low:#171a20;--surface-high:#252931;--surface-top:#2c313b;--text:#e7e9ee;--muted:#a6aeba;--faint:#7c8796;--line:#353b46;--line-soft:#2b3039;--primary:#b3c9f5;--primary-ink:#123663;--primary-bg:#273e60;--primary-soft:#222f43;--green:#94d4ac;--green-bg:#253b30;--amber:#e6c180;--amber-bg:#3c3325;--hover:rgba(193,210,240,.08);--pressed:rgba(193,210,240,.15);--shadow:0 28px 100px #0005,0 2px 12px #0003;--ease:cubic-bezier(.23,1,.32,1)}
+:root[data-theme=light]{color-scheme:light;--back:#e9edf3;--surface:#fff;--surface-low:#f5f7fa;--surface-high:#edf1f7;--surface-top:#e7ecf4;--text:#202833;--muted:#596575;--faint:#748092;--line:#c9d1dd;--line-soft:#e5e9f0;--primary:#315e9e;--primary-ink:#fff;--primary-bg:#e0eafa;--primary-soft:#f0f5fd;--green:#346747;--green-bg:#e5f2e9;--amber:#886024;--amber-bg:#fff2dc;--hover:rgba(49,94,158,.06);--pressed:rgba(49,94,158,.12);--shadow:0 28px 100px #253d5820,0 2px 12px #253d5810}
+*{box-sizing:border-box}body{margin:0;background:var(--back);color:var(--text);font:13px/1.5 'Avenir Next','PingFang SC','Microsoft YaHei',sans-serif;-webkit-font-smoothing:antialiased}button,input,textarea{font:inherit}button,a,input,textarea{-webkit-tap-highlight-color:transparent}button{color:inherit;cursor:pointer}button{border:0;background:none}button:disabled{cursor:not-allowed;opacity:.4}button:active:not(:disabled){transform:scale(.98)}a{color:var(--primary);text-decoration:none}a:hover{text-decoration:underline}svg{width:20px;height:20px;flex:none;stroke:currentColor;stroke-width:1.65;fill:none;stroke-linecap:round;stroke-linejoin:round}h1,h2,h3,p{margin:0}h1{font-size:29px;line-height:1.25;font-weight:600;letter-spacing:-.8px}h2{font-size:16px;font-weight:600;letter-spacing:-.2px}h3{font-size:13px;font-weight:600}small{font-size:11px}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--primary);outline-offset:3px}button[aria-pressed=true]{color:var(--primary)}.muted{color:var(--muted)}.faint{color:var(--faint)}.grow{flex:1;min-width:0}.nowrap{white-space:nowrap}.mono,kbd{font-family:'SFMono-Regular',Consolas,monospace;font-size:11px}.inline{display:flex;align-items:center;gap:10px}.badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;line-height:1.3;border-radius:6px;padding:5px 8px;color:var(--muted);background:var(--surface-high)}.badge.green{background:var(--green-bg);color:var(--green)}.badge.amber{background:var(--amber-bg);color:var(--amber)}.dot{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}.harness{max-width:1340px;margin:0 auto;padding:20px 10px 14px;display:flex;align-items:center;gap:12px;min-height:62px}.harness-label{font-size:12px;font-weight:600;letter-spacing:.3px}.harness-axis{color:var(--muted);font-size:12px}.harness-controls{margin-left:auto;display:flex;align-items:center;gap:8px}.harness-controls button,.harness-controls a{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:7px;color:var(--muted);font-size:12px;white-space:nowrap}.harness-controls button:hover,.harness-controls a:hover{background:var(--hover);color:var(--text);text-decoration:none}.harness-controls svg{width:16px;height:16px}.prototype-note{max-width:1340px;margin:12px auto 94px;padding:0 12px;text-align:center;font-size:11px;color:var(--faint)}
+.window{max-width:1340px;height:min(890px,calc(100vh - 146px));min-height:690px;margin:0 auto;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}.window-bar{height:39px;min-height:39px;background:var(--surface-low);border-bottom:1px solid var(--line-soft);display:flex;align-items:center;padding:0 16px;position:relative}.traffic{display:flex;gap:7px}.traffic span{width:10px;height:10px;border-radius:50%;background:#ef6c66}.traffic span:nth-child(2){background:#e6bc55}.traffic span:nth-child(3){background:#69b77c}.window-name{position:absolute;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;color:var(--muted)}.window-main{display:flex;flex:1;min-height:0}.sidebar{width:198px;min-width:198px;background:var(--surface-low);border-right:1px solid var(--line-soft);padding:22px 12px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:650;letter-spacing:-.4px;padding:0 10px 24px}.brand-symbol{width:24px;height:24px;color:var(--primary)}.sidebar-group{font-size:10px;color:var(--faint);padding:16px 12px 7px;letter-spacing:1px}.nav-item{display:flex;align-items:center;gap:11px;min-height:40px;padding:0 13px;color:var(--faint);font-size:12px;border-radius:30px;margin:2px 0}.nav-item svg{width:17px;height:17px}.nav-item.active{background:var(--primary-bg);color:var(--primary);font-weight:600}.sidebar-foot{margin-top:auto;padding:12px 10px 0;color:var(--faint);font-size:10px;line-height:1.8}.sidebar-project{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:11px;margin-bottom:7px}.project-square{width:21px;height:21px;display:grid;place-items:center;border:1px solid var(--line);border-radius:6px;font-size:10px}.page{flex:1;min-width:0;overflow:auto;padding:30px 34px 36px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}.page-head{display:flex;align-items:flex-start;gap:18px;margin-bottom:24px}.eyebrow{font-size:11px;color:var(--faint);margin-bottom:10px}.subtitle{font-size:13px;color:var(--muted);margin-top:10px}.page-tools{margin-left:auto;display:flex;gap:8px;padding-top:22px}.icon-button{width:32px;height:32px;display:grid;place-items:center;border-radius:50%;color:var(--muted)}.icon-button:hover{background:var(--hover);color:var(--text)}.icon-button svg{width:18px;height:18px}.mode-caption{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:11px;margin:0 0 18px}.mode-caption strong{color:var(--text);font-weight:500}.mode-caption kbd{margin-left:auto;border:1px solid var(--line);border-radius:5px;padding:3px 7px;font-size:10px;color:var(--muted)}
+.settings-layout{display:grid;grid-template-columns:minmax(340px,1fr) 282px;gap:30px;align-items:start}.settings-column{min-width:0}.setting-section{margin-bottom:22px}.section-title{color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.3px;display:flex;align-items:center;gap:8px;margin:0 0 9px 5px}.section-title .section-number{font-size:10px;opacity:.5}.section-box{border:1px solid var(--line-soft);border-radius:14px;overflow:hidden;background:var(--surface-low)}.setting-row{display:flex;align-items:center;gap:14px;min-height:66px;padding:14px 16px}.setting-row+.setting-row{border-top:1px solid var(--line-soft)}.setting-row.tall{align-items:flex-start}.row-title{font-size:12px;font-weight:500;line-height:1.4}.row-desc{color:var(--faint);font-size:10.5px;margin-top:5px;line-height:1.65;max-width:330px}.row-value{font-size:11px;color:var(--muted)}.row-control{margin-left:auto;flex:none;max-width:62%;display:flex;align-items:center;gap:8px}.select-control{display:inline-flex;align-items:center;gap:12px;justify-content:space-between;border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-height:34px;font-size:11px;background:var(--surface)}.select-control:hover{background:var(--hover);border-color:var(--faint)}.select-control svg{width:13px;height:13px;color:var(--faint)}.text-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;color:var(--primary);font-size:11px;font-weight:600;min-height:32px;border-radius:18px;padding:5px 11px;white-space:nowrap}.text-button:hover{background:var(--hover)}.text-button svg{width:15px;height:15px}.filled-button{background:var(--primary);color:var(--primary-ink);border-radius:22px;min-height:37px;padding:9px 17px;font-weight:600;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.filled-button:hover:not(:disabled){filter:brightness(1.06)}.filled-button svg{width:16px;height:16px}.outline-button{min-height:34px;padding:7px 13px;border:1px solid var(--line);border-radius:20px;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:8px}.outline-button:hover{background:var(--hover)}.outline-button svg{width:15px;height:15px}.segmented{display:inline-flex;border:1px solid var(--line);border-radius:22px;overflow:hidden;background:var(--surface)}.segmented button{font-size:11px;min-height:33px;padding:6px 15px;display:flex;align-items:center;gap:6px;white-space:nowrap}.segmented button+button{border-left:1px solid var(--line)}.segmented button:hover{background:var(--hover)}.segmented button[aria-pressed=true]{background:var(--primary-bg);color:var(--primary)}.segmented svg{width:13px;height:13px}.switch{position:relative;width:41px;height:25px;border:1.5px solid var(--faint);border-radius:16px;background:var(--surface-high);padding:0;flex:none}.switch::after{content:'';position:absolute;left:4px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--muted);transform:translateX(0);transition:transform 140ms var(--ease)}.switch[aria-checked=true]{border-color:var(--primary);background:var(--primary)}.switch[aria-checked=true]::after{width:17px;height:17px;top:2.5px;left:2.5px;background:var(--primary-ink);transform:translateX(16px)}.switch:hover::after{box-shadow:0 0 0 6px var(--hover)}.locked{font-size:10px;color:var(--green);display:flex;gap:5px;align-items:center;white-space:nowrap}.locked svg{width:13px;height:13px}.engine-note{display:flex;align-items:center;gap:9px;padding:0 16px 14px;font-size:10px;color:var(--faint)}.engine-note svg{width:13px;height:13px}.status-strip{display:flex;align-items:center;gap:11px;padding:12px 15px;border-radius:11px;background:var(--green-bg);color:var(--green);margin-bottom:23px}.status-strip svg{width:18px;height:18px}.status-strip strong{font-size:11px;font-weight:600;display:block}.status-strip small{display:block;opacity:.85;font-size:10px;margin-top:2px}.status-strip.warn{background:var(--amber-bg);color:var(--amber)}.status-strip .text-button{color:inherit;margin-left:auto}.advanced-link{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;padding:9px 4px;border-radius:6px}.advanced-link:hover{color:var(--primary)}.advanced-link svg{width:15px;height:15px}.mini-avatars{display:flex;align-items:center;gap:4px;margin-right:4px}.avatar{width:26px;height:26px;border-radius:9px;display:inline-grid;place-items:center;font-size:11px;font-weight:600;color:var(--primary);background:var(--primary-bg);flex:none}.avatar.green{color:var(--green);background:var(--green-bg)}.avatar.large{width:36px;height:36px;border-radius:12px;font-size:14px}.mini-avatars .avatar{width:22px;height:22px;border:2px solid var(--surface-low);border-radius:50%;font-size:8px}.mini-avatars .avatar+.avatar{margin-left:-7px}.volume{accent-color:var(--primary);width:115px;height:18px;cursor:pointer}.percent{font-size:10px;color:var(--faint);min-width:28px;text-align:right}
+.demo-panel{border:1px solid var(--line-soft);border-radius:16px;background:var(--surface-low);overflow:hidden;position:sticky;top:0}.demo-top{padding:18px 18px 13px}.demo-top h2{font-size:14px}.demo-top p{color:var(--faint);font-size:10.5px;margin-top:6px;line-height:1.7}.demo-badge{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);margin-bottom:13px;display:flex;gap:6px;align-items:center}.demo-input-wrap{padding:0 14px 16px}.demo-textarea{width:100%;height:84px;resize:vertical;min-height:70px;max-height:160px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:11px;line-height:1.9}.demo-presets{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0 13px}.example-chip{padding:4px 7px;min-height:25px;border:1px solid var(--line);border-radius:6px;font-size:9px;color:var(--muted)}.example-chip:hover{border-color:var(--primary);color:var(--primary);background:var(--hover)}.demo-input-wrap>.filled-button{width:100%}.demo-result{padding:16px 18px;border-top:1px solid var(--line-soft);background:var(--surface)}.result-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:11px}.result-row:last-child{margin-bottom:0}.result-label{font-size:10px;color:var(--faint);width:48px;flex:none}.result-value{display:flex;align-items:center;gap:7px;font-weight:500}.result-value .avatar{width:22px;height:22px;font-size:9px;border-radius:7px}.result-note{font-size:10px;color:var(--muted);line-height:1.8;border-radius:7px;background:var(--surface-low);padding:9px 11px;margin-top:12px}.result-note.warn{color:var(--amber);background:var(--amber-bg)}.clarify-actions{display:flex;gap:7px;margin-top:9px}.clarify-actions button{flex:1}.demo-submit{padding:0 18px 16px;background:var(--surface)}.demo-submit button{width:100%}.demo-canvas{border-top:1px solid var(--line-soft);padding:14px 18px}.demo-canvas-heading{font-size:9px;color:var(--faint);display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}.canvas-agent{display:flex;align-items:center;gap:9px;width:100%;padding:8px 0;text-align:left;border-radius:7px}.canvas-agent:hover{background:var(--hover)}.canvas-agent .name{font-size:11px;font-weight:600}.canvas-agent .task{font-size:9px;color:var(--faint);margin-top:2px}.canvas-agent .dot{margin-left:auto;background:var(--green);width:5px;height:5px}.demo-foot{color:var(--faint);font-size:9px;line-height:1.7;padding:0 18px 15px}.receipt-note{display:flex;gap:8px;padding:10px 12px;font-size:10px;color:var(--green);background:var(--green-bg);border-radius:8px;margin-top:12px}.receipt-note svg{width:15px;height:15px}
+.flow-layout{display:grid;grid-template-columns:144px minmax(300px,1fr) 272px;gap:22px;align-items:start}.step-rail{padding:10px 0}.step-item{width:100%;display:flex;align-items:flex-start;gap:10px;text-align:left;padding:12px 9px;border-radius:11px;color:var(--muted);margin-bottom:6px}.step-item:hover{background:var(--hover)}.step-item.active{background:var(--primary-bg);color:var(--primary)}.step-index{width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;font-size:10px;flex:none;margin-top:1px}.step-item.active .step-index{background:var(--primary);color:var(--primary-ink);border-color:transparent}.step-item strong{font-size:11px;font-weight:600;display:block;margin-top:3px}.step-rail-note{margin:26px 10px 0;font-size:10px;line-height:1.8;color:var(--faint)}.step-heading{padding:12px 0 22px}.step-heading h2{font-size:22px;font-weight:500}.step-heading p{font-size:11px;color:var(--muted);line-height:1.8;margin-top:8px}.flow-layout .section-box{background:var(--surface);border-color:var(--line-soft)}.flow-layout .setting-row{padding:18px 13px;flex-wrap:wrap;gap:13px}.flow-layout .row-control{max-width:100%}.step-buttons{margin-top:22px;display:flex;justify-content:space-between;gap:10px}.flow-layout .demo-panel{margin-top:10px}
+.overview-layout{display:grid;grid-template-columns:minmax(350px,1fr) 310px;gap:34px;align-items:start}.overview-kicker{margin:3px 0 20px;color:var(--muted);font-size:12px}.overview-card{background:var(--surface-low);border-radius:17px;border:1px solid var(--line-soft);overflow:hidden}.overview-row{display:flex;align-items:center;gap:17px;padding:23px 20px;width:100%;text-align:left}.overview-row+.overview-row{border-top:1px solid var(--line-soft)}.overview-row:hover{background:var(--hover)}.overview-icon{width:42px;height:42px;border-radius:14px;background:var(--surface-high);color:var(--primary);display:grid;place-items:center;flex:none}.overview-row strong{font-size:13px;font-weight:600;display:block}.overview-row p{color:var(--muted);font-size:11px;margin-top:6px}.overview-row>.chevron{margin-left:auto;color:var(--faint);width:17px}.overview-footer{display:flex;align-items:center;justify-content:space-between;margin-top:16px}.overview-footer .badge{font-size:10px}
+dialog{color:var(--text);border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);border-radius:20px;padding:0;max-width:min(540px,calc(100vw - 32px));width:520px;max-height:calc(100vh - 60px)}dialog::backdrop{background:#050b1680}dialog .dialog-head{display:flex;align-items:flex-start;gap:14px;padding:25px 25px 18px}.dialog-head h2{font-size:21px;font-weight:500;line-height:1.4}.dialog-head p{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.9}.dialog-body{padding:0 25px 24px}.dialog-body .setting-section{margin-bottom:15px}.dialog-body .row-control{max-width:60%}.dialog-body .row-desc{max-width:230px}.dialog-footer{display:flex;justify-content:flex-end;gap:8px;padding:16px 25px;border-top:1px solid var(--line-soft)}dialog.drawer{margin:0 0 0 auto;height:100dvh;max-height:100dvh;border-radius:20px 0 0 20px;width:490px;max-width:100vw;border-right:0;display:none;flex-direction:column}dialog.drawer[open]{display:flex}.drawer .dialog-body{overflow:auto;flex:1}.dialog-copy{font-size:12px;line-height:1.9;color:var(--muted)}.dialog-copy p+p{margin-top:12px}.dialog-copy a{display:inline-flex;gap:7px;margin-top:16px}.dialog-copy svg{width:16px;height:16px}.agent-detail{border:1px solid var(--line-soft);border-radius:12px;padding:13px;margin-bottom:10px;display:flex;gap:12px;align-items:center}.agent-detail strong{font-size:12px}.agent-detail small{display:block;font-size:10px;color:var(--muted);margin-top:4px}.role-annotation{font-size:11px;color:var(--muted);line-height:1.8;padding:13px;background:var(--surface-low);border-radius:10px;margin-top:15px}.wave{height:100px;display:flex;justify-content:center;align-items:center;gap:5px;margin:10px 0 24px}.wave span{width:4px;border-radius:3px;background:var(--primary);opacity:.7}.shortcut-capture{padding:36px 20px;text-align:center;background:var(--surface-low);border:1px dashed var(--line);border-radius:14px}.shortcut-capture kbd{font-size:28px;color:var(--primary)}.shortcut-capture p{margin-top:12px;color:var(--muted);font-size:11px}.cloud-fake-field{border:1px solid var(--line);padding:12px 13px;border-radius:8px;color:var(--faint);font-size:12px;margin:8px 0 17px}.popover{position:fixed;z-index:5000;width:292px;border:1px solid var(--line);border-radius:11px;background:var(--surface-high);box-shadow:0 12px 40px #0004;overflow:hidden}.popover[hidden]{display:none}.popover-search{padding:11px;border-bottom:1px solid var(--line)}.popover-search input{width:100%;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px 9px;font-size:12px}.popover-list{max-height:260px;overflow:auto;padding:5px}.menu-option{height:48px;width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 12px;border-radius:6px;font-size:12px;text-align:left}.menu-option:hover,.menu-option[data-browse]{background:var(--hover)}.menu-option[aria-selected=true]{color:var(--primary)}.menu-option svg{width:16px;height:16px}.empty-menu{padding:20px 12px;text-align:center;color:var(--muted);font-size:12px}.snackbar{position:fixed;left:50%;bottom:82px;transform:translateX(-50%);background:var(--text);color:var(--surface);border:1px solid var(--line);border-radius:9px;padding:11px 16px;font-size:12px;box-shadow:0 6px 25px #0003;z-index:10000;max-width:calc(100vw - 30px);pointer-events:none}.snackbar:empty{display:none}.inspector-line{display:flex;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid var(--line-soft);font-size:11px}.inspector-line strong{font-weight:500;text-align:right}.inspector-line span{color:var(--muted)}
+@media(max-width:1250px){.harness{padding-left:20px;padding-right:20px}.window{margin-left:16px;margin-right:16px}.sidebar{width:174px;min-width:174px}.page{padding:26px}.settings-layout{gap:22px;grid-template-columns:minmax(300px,1fr) 258px}.flow-layout{grid-template-columns:132px minmax(280px,1fr)}.flow-layout>.demo-panel{grid-column:1/-1;position:static}.overview-layout{grid-template-columns:minmax(300px,1fr) 270px;gap:22px}.row-control{max-width:58%}.row-desc{font-size:10px}}
+@media(max-width:1000px){.sidebar{width:66px;min-width:66px;padding-left:8px;padding-right:8px}.brand{padding-left:12px}.brand>span,.nav-item>span,.sidebar-group,.sidebar-foot{display:none}.nav-item{justify-content:center;padding:0}.settings-layout{grid-template-columns:minmax(300px,1fr) 258px}.row-control{max-width:65%}.overview-layout{grid-template-columns:1fr 260px}.harness-axis{display:none}}
+@media(max-width:760px){.harness{padding:12px 16px;flex-wrap:wrap}.harness-controls{gap:2px}.harness-controls a{padding:7px;font-size:11px}.window{min-height:720px;height:auto;margin:0 8px;border-radius:12px}.sidebar{display:none}.window-main{display:block}.page{padding:22px 18px}.page-head{margin-bottom:20px}.settings-layout,.overview-layout{grid-template-columns:1fr}.demo-panel{position:static}.flow-layout{grid-template-columns:1fr}.step-rail{display:flex;gap:4px}.step-item{flex-direction:column;align-items:center;text-align:center;padding:9px 3px;gap:4px}.step-item strong{font-size:10px}.step-rail-note{display:none}.step-heading{padding-top:0}.harness-label{font-size:11px}.row-control{max-width:68%}.row-desc{max-width:220px}.overview-row{padding:19px 17px}.page-tools{padding-top:20px}.harness-controls button{padding:7px}.harness-controls button span{display:none}.prototype-note{padding:0 20px}.setting-row{gap:10px}.segmented button{padding:6px 12px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+.proto-picker {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.82);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 8px 24px rgba(0, 0, 0, 0.24),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.proto-picker-highlight {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  will-change: transform;
+}
+
+/* The slide is enabled only after first paint (data-ready), so load doesn't animate. */
+.proto-picker[data-ready] .proto-picker-highlight {
+  transition:
+    transform 250ms cubic-bezier(0.23, 1, 0.32, 1),
+    width 250ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proto-picker[data-ready] .proto-picker-highlight { transition: none; }
+}
+
+.proto-picker-item {
+  position: relative; /* sits above the highlight */
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+
+.proto-picker-item:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.proto-picker-item:active {
+  transform: scale(0.97);
+}
+
+.proto-picker-item:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+}
+
+.proto-picker-item[data-active] {
+  color: #fff;
+}
+
+.proto-picker-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.proto-picker-replay {
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+.proto-picker[data-position="top"] {
+  bottom: auto;
+  top: 24px;
+}
+</style></head>
+<body><header class="harness" id="harness"></header><div id="stage"></div><p class="prototype-note" id="prototype-note"></p><nav class="proto-picker" aria-label="Prototype variants">
+  <span class="proto-picker-highlight" aria-hidden="true"></span>
+  <button class="proto-picker-item" data-active aria-current="true">分组列表</button>
+  <button class="proto-picker-item">流程分步</button>
+  <button class="proto-picker-item">概览与抽屉</button>
+</nav>
+
+<dialog id="editor" aria-labelledby="dialog-title"></dialog><div class="popover" id="popover" hidden></div><div class="snackbar" id="snackbar" role="status" aria-live="polite"></div>
+<script type="module">const DEFAULT_SETTINGS = Object.freeze({
+  source: 'local', interaction: 'single', trigger: 'hold', microphone: 'builtin',
+  spokenReply: true, volume: 72, status: 'ready', cloudConfigured: false,
+  clarify: 'target', shortcut: '⌘ E',
+});
+
+const DEMO_AGENTS = Object.freeze([
+  {id: 'bruno', name: 'Bruno', alias: '布鲁诺', node: 'demo-node-bruno', task: 'login', color: 'blue'},
+  {id: 'henry', name: 'Henry', alias: '亨利', node: 'demo-node-henry', task: 'review', color: 'green'},
+]);
+
+function deriveRuntime(settings) {
+  return {
+    ready: settings.status === 'ready' && (settings.source === 'local' || settings.cloudConfigured),
+    engine: settings.source === 'cloud' ? 'azure' : settings.interaction === 'continuous' ? 'sherpa' : 'a1',
+    source: settings.source,
+  };
+}
+
+function interpretDemo(text, clarifiedTarget = null) {
+  const normalized = text.toLowerCase().replace(/[\s，、：:,!！?？。.]/g, '');
+  const base = {target: null, targetKind: 'canvas', mentioned: [], constraint: null, route: 'demo', input: text};
+  const fixtures = [
+    [['Bruno，继续刚才的登录任务', 'Bruno, continue the login task'], {kind: 'reply', target: 'bruno'}],
+    [['给 Bruno 新建一个任务，检查登录报错', 'Create a task for Bruno: check the login error'], {kind: 'assign', target: 'bruno'}],
+    [['Henry，帮我检查 Bruno 写的方案', "Henry, review Bruno's proposal"], {kind: 'handoff', target: 'henry', mentioned: ['bruno'], route: 'main'}],
+    [['Bruno，不要新建，继续刚才的登录任务', 'Bruno, continue the login task, do not create a new one'], {kind: 'reply', target: 'bruno', constraint: 'no-new-task', route: 'main'}],
+    [['Henry 修登录的任务做完了吗？', 'Has Henry finished the login task?'], {kind: 'status', target: 'henry'}],
+    [['你帮我解释一下这段代码', 'Explain this code to me'], {kind: 'answer', targetKind: 'self'}],
+    [['让 Alice 来做', 'Ask Alice to do it'], {kind: 'clarify', targetKind: 'outside'}],
+    [['继续刚才那个', 'Continue the previous task'], DEMO_AGENTS.some(a => a.id === clarifiedTarget)
+      ? {kind: 'reply', target: clarifiedTarget, route: 'clarified'} : {kind: 'clarify'}],
+  ];
+  for (const [phrases, result] of fixtures) {
+    if (phrases.some(phrase => phrase.toLowerCase().replace(/[\s，、：:,!！?？。.]/g, '') === normalized)) return {...base, ...result};
+  }
+  return {...base, kind: 'unsupported', targetKind: 'unknown', route: 'main'};
+}
+
+function canSubmit(proposal, settings, currentInput = proposal.input) {
+  if (currentInput !== proposal.input) return false;
+  if (!deriveRuntime(settings).ready || proposal.route === 'main') return false;
+  if (!['reply', 'assign', 'status', 'answer'].includes(proposal.kind)) return false;
+  if (proposal.constraint === 'no-new-task' && proposal.kind === 'assign') return false;
+  return proposal.targetKind === 'self' || DEMO_AGENTS.some(agent => agent.id === proposal.target);
+}
+
+const COPY = {
+  prototype: ['交互原型', 'Interactive prototype'], settings: ['设置', 'Settings'], voice: ['语音与对话', 'Voice & conversation'],
+  title: ['语音指令', 'Voice commands'], subtitle: ['说出想做的事，交给对的人。', 'Say what you need. Reach the right person.'],
+  prototypeNote: ['仅演示 · 不录音、不调用模型、不派发真实任务', 'Demo only · No recording, model calls, or real tasks'],
+  grouped: ['分组列表', 'Grouped'], workflow: ['流程分步', 'Workflow'], overview: ['概览与抽屉', 'Overview'],
+  axis0: ['直接修改 · 常用设置集中在一页', 'Direct editing · Everyday controls on one page'],
+  axis1: ['按流程理解 · 一次专注一个环节', 'Follow the flow · Focus on one step'],
+  axis2: ['渐进展示 · 从当前配置展开', 'Progressive disclosure · Start from the summary'],
+  theme: ['切换浅色 / 深色', 'Switch light / dark'], language: ['English', '中文'], plan: ['实施计划', 'Implementation plan'],
+  general: ['通用', 'General'], appearance: ['外观', 'Appearance'], workspace: ['工作空间', 'Workspace'],
+  assistant: ['Norma', 'Norma'], memory: ['记忆', 'Memory'], agents: ['智能体', 'Agents'], keyboard: ['快捷键', 'Keyboard'],
+  navNote: ['本轮原型仅开放语音指令', 'This prototype covers voice commands'],
+  input: ['语音输入', 'Voice input'], understanding: ['理解与目标', 'Understanding & targets'], dispatch: ['任务派发', 'Task dispatch'], reply: ['语音回复', 'Spoken reply'],
+  inputDesc: ['选择说话方式与识别来源', 'Choose how you speak and where recognition runs'],
+  understandingDesc: ['区分要做什么，以及交给谁', 'Understand the action and the intended recipient'],
+  dispatchDesc: ['在当前画布找到明确的执行对象', 'Resolve a clear destination on the current canvas'],
+  replyDesc: ['沿用已有声音与播报配置', 'Keep the current voice and playback settings'],
+  source: ['识别来源', 'Recognition source'], sourceHint: ['语音在此 Mac 上识别', 'Speech is recognized on this Mac'],
+  local: ['本地', 'On-device'], cloud: ['云端', 'Cloud'], cloudHint: ['使用已配置的云端识别服务', 'Use a configured cloud recognition service'],
+  ready: ['已就绪', 'Ready'], preparing: ['准备中', 'Preparing'], failed: ['资源不足', 'Low resources'], unconfigured: ['尚未配置', 'Not configured'],
+  readyHint: ['本地识别已准备好，可以开始说话', 'On-device recognition is ready'],
+  preparingHint: ['识别环境正在准备，完成后可使用', 'Preparing recognition. Available when ready.'],
+  failedHint: ['当前资源不足。可重试，或稍后再开始。', 'Not enough resources. Retry or try again later.'],
+  cloudReadyHint: ['云端配置已就绪（演示状态）', 'Cloud configuration is ready (demo)'],
+  statusDemo: ['状态演示', 'Demo state'], retry: ['重试', 'Retry'], manage: ['查看详情', 'Details'],
+  interaction: ['使用方式', 'Interaction'], single: ['单次指令', 'Single command'], continuous: ['持续聆听', 'Continuous listening'],
+  trigger: ['开始与结束', 'Start & stop'], hold: ['按住说话，松开结束', 'Hold to speak, release to finish'], toggle: ['按一下开始，再按结束', 'Press to start, press again to finish'],
+  continuousHint: ['使用支持持续聆听的本地引擎', 'Uses an on-device engine that supports continuous listening'],
+  shortcut: ['快捷键', 'Shortcut'], microphone: ['麦克风', 'Microphone'], builtin: ['Mac 内建麦克风', 'Mac built-in microphone'],
+  airpods: ['AirPods Pro', 'AirPods Pro'], system: ['跟随系统默认', 'System default'], micHint: ['已授权 · 输入音频', 'Permission granted · Audio input'],
+  testMic: ['测试输入', 'Test input'], model: ['理解模型', 'Understanding model'], modelValue: ['当前配置模型', 'Current configured model'],
+  modelHint: ['模型负责理解指令，程序校验后执行', 'The model proposes; the app validates before execution'],
+  target: ['识别对象', 'Addressable targets'], targetValue: ['当前画布 · 2 位成员', 'Current canvas · 2 agents'],
+  targetHint: ['明确点名优先，不确定时只问目标', 'Explicit names take priority. Ask when unclear.'],
+  targetDialogHint: ['成员来自当前画布。提到某个人，不等于把任务交给他。', 'Members come from the current canvas. A mention is not an assignment.'],
+  clarify: ['目标不明确时', 'When the target is unclear'], targetOnly: ['只询问目标', 'Ask for the target'], wholeCommand: ['确认整条指令', 'Confirm the whole command'],
+  scope: ['派发范围', 'Dispatch scope'], scopeValue: ['当前项目的画布', 'Current project canvas'],
+  scopeHint: ['不会用在场成员替代画布外的人', 'Never substitute a present member for an absent one'],
+  noNew: ['继续任务时保留原会话', 'Keep the session when continuing'], noNewHint: ['找不到现有会话时先询问，不自动新建', 'Ask if the session is missing. Do not create one automatically.'],
+  guarded: ['始终检查', 'Always checked'], spokenReply: ['播报处理结果', 'Speak the result'], spokenHint: ['收到实际回执后反馈处理状态', 'Report status after receiving an actual receipt'],
+  volume: ['播报音量', 'Playback volume'], currentVoice: ['回复声音', 'Reply voice'], followVoice: ['沿用已有配置', 'Use existing configuration'],
+  advanced: ['高级与诊断', 'Advanced & diagnostics'], advancedHint: ['实际引擎、模型与快速理解方案', 'Engines, models, and fast intent selection'],
+  engine: ['当前引擎', 'Current engine'], previewFinal: ['Zipformer 预览 · Qwen 终稿', 'Zipformer preview · Qwen final'], compatibility: ['本地兼容识别链路', 'Compatible on-device recognition'],
+  engineHint: ['内部按场景管理，主页面无需二选一', 'Managed internally. No duplicate local source choice.'],
+  jevStatus: ['Jev 快速判断', 'Jev fast selection'], notIntegrated: ['尚未接入', 'Not integrated'],
+  jevHint: ['计划在合法候选中选择动作与画布目标', 'Planned: choose an action and canvas target from valid candidates'],
+  latencyHint: ['模型耗时计入路由时延，不承诺 5 ms', 'Model time counts toward routing. No 5 ms claim.'],
+  cloudConfigure: ['配置云端识别', 'Configure cloud recognition'], cloudConfigNote: ['此原型不填写真实密钥，只演示配置完成状态。', 'No real credentials here. This only simulates configuration.'],
+  simulateConfig: ['模拟配置完成', 'Simulate configured'], region: ['服务区域', 'Service region'], placeholderSecret: ['原型中不输入密钥', 'Do not enter a key in this prototype'],
+  testTitle: ['试一句指令', 'Try a command'], testHint: ['先看理解结果，再看会交给谁', 'See what is understood and who receives it'],
+  demoLabel: ['固定示例模拟', 'Fixture-based demo'], analyze: ['查看理解结果', 'Preview understanding'],
+  sample1: ['点名继续', 'Continue'], sample2: ['区分角色', 'Distinguish roles'], sample3: ['目标不明', 'Unclear target'],
+  sample4: ['画布外的人', 'Outside canvas'], sample5: ['状态查询', 'Status query'],
+  command1: ['Bruno，继续刚才的登录任务', 'Bruno, continue the login task'],
+  command2: ['Henry，帮我检查 Bruno 写的方案', "Henry, review Bruno's proposal"],
+  command3: ['继续刚才那个', 'Continue the previous task'],
+  command4: ['让 Alice 来做', 'Ask Alice to do it'],
+  command5: ['Henry 修登录的任务做完了吗？', 'Has Henry finished the login task?'],
+  action: ['做什么', 'Action'], destination: ['交给谁', 'Destination'], body: ['内容', 'Content'],
+  action_reply: ['继续现有任务', 'Continue existing task'], action_assign: ['新建任务', 'Create a task'],
+  action_status: ['查询任务状态', 'Read task status'], action_answer: ['由 Norma 回答', 'Norma answers'],
+  action_clarify: ['需要澄清', 'Clarification needed'], action_handoff: ['交主模型理解', 'Use the main model'],
+  action_unsupported: ['此句未预设演示结果', 'No fixture for this sentence'],
+  unknown: ['尚不确定', 'Unresolved'], outside: ['Alice · 不在当前画布', 'Alice · Outside this canvas'],
+  chooseTarget: ['这句话交给 Bruno 还是 Henry？', 'Is this for Bruno or Henry?'],
+  roleHint: ['Henry 是执行者；Bruno 是被提及的人', 'Henry acts. Bruno is the person mentioned.'],
+  outsideHint: ['先确认目标与创建授权，不替换成在场成员', 'Resolve the target and creation authority. Do not substitute.'],
+  unsupportedHint: ['这是固定示例演示，不会调用模型猜测结果', 'This demo uses fixtures and will not call a model to guess'],
+  pendingPreview: ['原话已修改，请重新查看理解结果', 'The command changed. Preview it again before continuing.'],
+  routeHint: ['预期语义已展示；复杂指令仍交主模型', 'Expected meaning shown. The main model handles complex instructions.'],
+  simulateSend: ['模拟派发', 'Simulate dispatch'], simulatedReceipt: ['模拟回执已生成，未创建真实任务', 'Demo receipt generated. No real task was created.'],
+  receipt: ['演示回执', 'Demo receipt'], currentCanvas: ['当前画布', 'Current canvas'], project: ['Norma 网站', 'Norma website'],
+  taskBruno: ['登录与身份验证', 'Login & authentication'], taskHenry: ['方案评审', 'Proposal review'], idle: ['可接收指令', 'Available'],
+  selectedHint: ['选中卡片只作上下文，不自动成为派发目标', 'Selection is context, not automatic dispatch authority'],
+  close: ['关闭', 'Close'], done: ['完成', 'Done'], edit: ['修改', 'Edit'], cancel: ['取消', 'Cancel'],
+  changed: ['已更新原型设置', 'Prototype setting updated'], simulatedOnly: ['仅在原型中生效', 'Applies only to this prototype'],
+  micTestNote: ['模拟输入，不访问真实麦克风', 'Simulated input. The real microphone is not accessed.'],
+  heard: ['模拟听到声音', 'Simulate audio received'], testPassed: ['模拟输入检查完成', 'Simulated input check complete'],
+  recordShortcut: ['按下一个组合键', 'Press a key combination'], shortcutHint: ['只修改原型显示，不注册系统快捷键', 'Changes this prototype only, not system shortcuts'],
+  reset: ['重置原型', 'Reset prototype'], resetHint: ['只恢复本页演示设置', 'Only reset this page’s demo settings'],
+  help: ['设计说明', 'Design notes'], helpText: ['来源合并、渐进展示、明确目标、真实回执。', 'One local source, progressive disclosure, clear targets, real receipts.'],
+  noResults: ['没有匹配的选项', 'No matching options'], search: ['搜索选项', 'Search options'],
+  stepPrev: ['上一步', 'Previous'], stepNext: ['下一步', 'Next'], editSettings: ['编辑设置', 'Edit settings'],
+  summary: ['当前配置', 'Current configuration'], summaryHint: ['常用信息一眼可见，需要时再展开。', 'The essentials at a glance. Details when needed.'],
+};
+
+function t(key) { return COPY[key]?.[ui.lang === 'en' ? 1 : 0] ?? key; }
+function esc(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const ICONS = {
+  mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>',
+  sliders:'<path d="M4 6h5m4 0h7M4 12h10m4 0h2M4 18h3m4 0h9"/><circle cx="11" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="9" cy="18" r="2"/>',
+  brain:'<path d="M12 5a3 3 0 0 0-6-1 4 4 0 0 0-3 6 4 4 0 0 0 1 7 4 4 0 0 0 8 2V5Zm0 0a3 3 0 0 1 6-1 4 4 0 0 1 3 6 4 4 0 0 1-1 7 4 4 0 0 1-8 2M7 7l2 2M5 13h4M8 18l1-3M17 7l-2 2M19 13h-4M16 18l-1-3"/>',
+  arrow:'<path d="m5 12 14 0m-5-5 5 5-5 5"/>', chevron:'<path d="m9 5 7 7-7 7"/>', down:'<path d="m6 9 6 6 6-6"/>',
+  check:'<path d="m5 12 4 4L19 6"/>', checkCircle:'<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+  cloud:'<path d="M6 18a5 5 0 0 1-1-10 7 7 0 0 1 13-1 5.5 5.5 0 0 1 0 11Z"/>',
+  laptop:'<rect x="4" y="3" width="16" height="13" rx="2"/><path d="m4 16-2 5h20l-2-5M9 19h6"/>',
+  speaker:'<path d="m11 4-6 5H2v6h3l6 5V4ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  help:'<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 4M12 17h.01"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="m9 3-1 3-3 1-2 5 2 5 3 1 1 3h6l1-3 3-1 2-5-2-5-3-1-1-3Z"/>',
+  moon:'<path d="M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z"/>', sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1 1M18 18l1 1M5 19l1-1M18 6l1-1"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',
+  close:'<path d="m6 6 12 12M6 18 18 6"/>', reset:'<path d="M4 10a8 8 0 1 1 2 8M4 4v6h6"/>',
+  lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4"/>',
+  file:'<path d="M13 2H5v20h14V8Z M13 2v6h6M8 13h8M8 17h6"/>',
+};
+function icon(name, cls='') { return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ICONS.grid}</svg>`; }
+function avatar(agent, large=false) { return `<span class="avatar ${agent.color === 'green' ? 'green' : ''} ${large ? 'large' : ''}">${agent.name[0]}</span>`; }
+function selectControl(field, label, menu=field) { return `<button class="select-control" data-action="menu" data-field="${field}" data-menu="${menu}" aria-haspopup="listbox" aria-expanded="false">${esc(label)}${icon('down')}</button>`; }
+function row(title, desc, control) { return `<div class="setting-row"><div class="grow"><div class="row-title">${t(title)}</div>${desc ? `<div class="row-desc">${desc}</div>` : ''}</div><div class="row-control">${control}</div></div>`; }
+function section(key, number, body) { return `<section class="setting-section"><h2 class="section-title"><span class="section-number">0${number}</span>${t(key)}</h2><div class="section-box">${body}</div></section>`; }
+function sourceButtons() { return `<div class="segmented" aria-label="${t('source')}">${['local','cloud'].map(value=>`<button data-action="set" data-field="source" data-value="${value}" aria-pressed="${settings.source===value}">${settings.source===value?icon('check'):''}${t(value)}</button>`).join('')}</div>`; }
+function switchControl(field, label) { return `<button class="switch" role="switch" aria-label="${t(label)}" aria-checked="${settings[field]}" data-action="toggle" data-field="${field}"></button>`; }
+function inputRows() {
+  return row('source',t(settings.source==='local'?'sourceHint':'cloudHint'),sourceButtons())
+    +(settings.source==='cloud' ? row('cloudConfigure',t(settings.cloudConfigured?'cloudReadyHint':'unconfigured'),`<button class="text-button" data-action="open" data-panel="cloud">${t('edit')}${icon('chevron')}</button>`) : '')
+    +row('interaction','',selectControl('interaction',t(settings.interaction)))
+    +(settings.interaction==='single'?row('trigger','',selectControl('trigger',t(settings.trigger))):`<div class="engine-note">${icon('checkCircle')}${t('continuousHint')}</div>`)
+    +row('microphone',t('micHint'),selectControl('microphone',t(settings.microphone))+`<button class="icon-button" data-action="open" data-panel="mic-test" aria-label="${t('testMic')}" title="${t('testMic')}">${icon('mic')}</button>`)
+    +row('shortcut','',`<button class="select-control" data-action="open" data-panel="shortcut"><kbd>${esc(settings.shortcut)}</kbd>${icon('chevron')}</button>`);
+}
+function understandingRows() {
+  return row('model',t('modelHint'),`<button class="text-button" data-action="open" data-panel="model">${t('modelValue')}${icon('chevron')}</button>`)
+    +row('target',t('targetHint'),`<button class="text-button" data-action="open" data-panel="targets"><span class="mini-avatars">${DEMO_AGENTS.map(a=>avatar(a)).join('')}</span>${t('targetValue')}${icon('chevron')}</button>`);
+}
+function dispatchRows() {
+  return row('scope',t('scopeHint'),`<span class="row-value">${t('scopeValue')}</span>`)
+    +row('clarify','',selectControl('clarify',t(settings.clarify==='target'?'targetOnly':'wholeCommand')))
+    +row('noNew',t('noNewHint'),`<span class="locked">${icon('lock')}${t('guarded')}</span>`);
+}
+function replyRows() {
+  return row('spokenReply',t('spokenHint'),switchControl('spokenReply','spokenReply'))
+    +(settings.spokenReply ? row('currentVoice','',`<span class="row-value">${t('followVoice')}</span>`)
+      +row('volume','',`<input class="volume" data-field="volume" data-action="range" type="range" min="0" max="100" value="${settings.volume}" aria-label="${t('volume')}"><output class="percent">${settings.volume}%</output>`) : '');
+}
+const GROUPS=['input','understanding','dispatch','reply'];
+function groupRows(name) { return ({input:inputRows,understanding:understandingRows,dispatch:dispatchRows,reply:replyRows})[name](); }
+function statusStrip() {
+  const runtime=deriveRuntime(settings);
+  const stateKey=settings.source==='cloud'&&!settings.cloudConfigured?'unconfigured':settings.status;
+  const hint=stateKey==='unconfigured'?'cloudConfigNote':stateKey==='ready'?(settings.source==='local'?'readyHint':'cloudReadyHint'):stateKey==='preparing'?'preparingHint':'failedHint';
+  return `<div class="status-strip ${runtime.ready?'':'warn'}">${icon(runtime.ready?'checkCircle':'help')}<div class="grow"><strong>${t(settings.source)}${ui.lang==='zh'?'识别 · ':' recognition · '}${t(stateKey)}</strong><small>${t(hint)}</small></div><button class="text-button" data-action="${stateKey==='failed'?'retry':'open'}" data-panel="advanced">${t(stateKey==='failed'?'retry':'manage')}</button></div>`;
+}
+function advancedLink() { return `<button class="advanced-link" data-action="open" data-panel="advanced">${icon('sliders')}${t('advanced')}${icon('chevron')}</button>`; }
+function renderResult() {
+  const proposal=ui.demo.proposal;
+  if(proposal.input!==ui.demo.input)return `<div class="demo-result"><div class="result-note warn">${t('pendingPreview')}</div></div>`;
+  let target=t('unknown');
+  const agent=DEMO_AGENTS.find(a=>a.id===proposal.target);
+  if(agent) target=avatar(agent)+esc(agent.name);
+  else if(proposal.targetKind==='self') target='Norma';
+  else if(proposal.targetKind==='outside') target=t('outside');
+  const note=proposal.kind==='handoff'?t('roleHint'):proposal.targetKind==='outside'?t('outsideHint'):proposal.kind==='unsupported'?t('unsupportedHint'):proposal.route==='main'?t('routeHint'):'';
+  return `<div class="demo-result"><div class="result-row"><span class="result-label">${t('action')}</span><span class="result-value">${t('action_'+proposal.kind)}</span></div><div class="result-row"><span class="result-label">${t('destination')}</span><span class="result-value">${target}</span></div>${proposal.kind==='clarify'&&proposal.targetKind!=='outside'?`<div class="result-note warn">${t('chooseTarget')}<div class="clarify-actions">${DEMO_AGENTS.map(a=>`<button class="outline-button" data-action="clarify" data-target="${a.id}">${a.name}</button>`).join('')}</div></div>`:''}${note?`<div class="result-note ${proposal.targetKind==='outside'?'warn':''}">${note}</div>`:''}${ui.demo.receipt?`<div class="receipt-note">${icon('checkCircle')}<span>${t('simulatedReceipt')}</span></div>`:''}</div>`;
+}
+function renderDemo() {
+  return `<aside class="demo-panel"><div class="demo-top"><div class="demo-badge"><span class="dot"></span>${t('demoLabel')}</div><h2>${t('testTitle')}</h2><p>${t('testHint')}</p></div><div class="demo-input-wrap"><textarea class="demo-textarea" data-demo-input aria-label="${t('testTitle')}" spellcheck="false">${esc(ui.demo.input)}</textarea><div class="demo-presets">${[1,2,3,4,5].map(i=>`<button class="example-chip" data-action="sample" data-index="${i}">${t('sample'+i)}</button>`).join('')}</div><button class="filled-button" data-action="analyze">${icon('brain')}${t('analyze')}</button></div>${renderResult()}<div class="demo-submit"><button class="outline-button" data-action="demo-submit" ${canSubmit(ui.demo.proposal,settings,ui.demo.input)?'':'disabled'}>${icon('arrow')}${t('simulateSend')}</button></div><div class="demo-canvas"><div class="demo-canvas-heading"><span>${t('currentCanvas')}</span><span>${t('project')}</span></div>${DEMO_AGENTS.map(a=>`<button class="canvas-agent" data-action="open" data-panel="agent-${a.id}">${avatar(a)}<span><span class="name">${a.name}</span><span class="task" style="display:block">${t(a.id==='bruno'?'taskBruno':'taskHenry')}</span></span><span class="dot"></span></button>`).join('')}</div><p class="demo-foot">${t('selectedHint')}</p></aside>`;
+}
+function pageShell(body) {
+  return `<div class="window"><div class="window-bar"><div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div><span class="window-name">Norma · ${t('settings')}</span></div><div class="window-main"><aside class="sidebar"><div class="brand">${icon('brain','brand-symbol')}<span>Norma</span></div><div class="sidebar-group">${t('general')}</div>${[['settings','settings'],['sun','appearance'],['grid','workspace']].map(([i,k])=>`<div class="nav-item" aria-disabled="true">${icon(i)}<span>${t(k)}</span></div>`).join('')}<div class="sidebar-group">${t('assistant')}</div>${[['mic','voice'],['brain','memory'],['target','agents'],['sliders','keyboard']].map(([i,k])=>`<div class="nav-item ${k==='voice'?'active':''}" ${k==='voice'?'aria-current="page"':'aria-disabled="true"'}>${icon(i)}<span>${t(k)}</span></div>`).join('')}<div class="sidebar-foot"><div class="sidebar-project"><span class="project-square">N</span>${t('project')}</div>${t('navNote')}</div></aside><main class="page"><header class="page-head"><div class="grow"><div class="eyebrow">${t('settings')} / ${t('voice')}</div><h1>${t('title')}</h1><p class="subtitle">${t('subtitle')}</p></div><div class="page-tools"><button class="icon-button" data-action="open" data-panel="help" title="${t('help')}" aria-label="${t('help')}">${icon('help')}</button><button class="icon-button" data-action="reset" title="${t('reset')}" aria-label="${t('reset')}">${icon('reset')}</button></div></header><div class="mode-caption">${icon('mic')}<strong>${t('title')}</strong><span>·</span><span>${t(settings.interaction)}</span><kbd>${esc(settings.shortcut)}</kbd></div>${body}</main></div></div>`;
+}
+function renderGrouped() {
+  return pageShell(`${statusStrip()}<div class="settings-layout"><div class="settings-column">${GROUPS.map((name,i)=>section(name,i+1,groupRows(name))).join('')}${advancedLink()}</div>${renderDemo()}</div>`);
+}
+function renderWorkflow() {
+  const index=GROUPS.indexOf(ui.step), name=GROUPS[index];
+  return pageShell(`<div class="flow-layout"><nav class="step-rail" aria-label="${t('title')}">${GROUPS.map((key,i)=>`<button class="step-item ${key===name?'active':''}" data-action="step" data-step="${key}" ${key===name?'aria-current="step"':''}><span class="step-index">${i+1}</span><strong>${t(key)}</strong></button>`).join('')}<p class="step-rail-note">${t('simulatedOnly')}<br>${t('targetHint')}</p></nav><div><div class="step-heading"><div class="eyebrow">0${index+1} / 04</div><h2>${t(name)}</h2><p>${t(name+'Desc')}</p></div>${name==='input'?statusStrip():''}<div class="section-box">${groupRows(name)}</div>${advancedLink()}<div class="step-buttons"><button class="outline-button" data-action="step" data-step="${GROUPS[Math.max(0,index-1)]}" ${index===0?'disabled':''}>${t('stepPrev')}</button><button class="filled-button" data-action="step" data-step="${GROUPS[Math.min(3,index+1)]}" ${index===3?'disabled':''}>${t('stepNext')}${icon('arrow')}</button></div></div>${renderDemo()}</div>`);
+}
+function renderOverview() {
+  const summaries=[`${t(settings.source)} · ${t(settings.interaction)} · ${t(settings.microphone)}`,`${t('modelValue')} · Bruno / Henry`,`${t('scopeValue')} · ${t(settings.clarify==='target'?'targetOnly':'wholeCommand')}`,settings.spokenReply?`${t('followVoice')} · ${settings.volume}%`:t('spokenReply')+' · '+(ui.lang==='zh'?'关闭':'Off')];
+  return pageShell(`${statusStrip()}<div class="overview-layout"><div><div class="overview-kicker">${t('summaryHint')}</div><div class="overview-card">${GROUPS.map((key,i)=>`<button class="overview-row" data-action="open" data-panel="${key}"><span class="overview-icon">${icon(['mic','brain','target','speaker'][i])}</span><span class="grow"><strong>${t(key)}</strong><p>${esc(summaries[i])}</p></span>${icon('chevron','chevron')}</button>`).join('')}</div><div class="overview-footer">${advancedLink()}<span class="badge">${t('simulatedOnly')}</span></div></div>${renderDemo()}</div>`);
+}
+function dialogContents(name) {
+  if(GROUPS.includes(name)) return {title:t(name),desc:t(name+'Desc'),body:`<div class="section-box">${groupRows(name)}</div>`,drawer:true};
+  if(name==='targets') return {title:t('target'),desc:t('targetDialogHint'),body:DEMO_AGENTS.map(a=>`<div class="agent-detail">${avatar(a,true)}<div class="grow"><strong>${a.name}</strong><small>${a.alias} · ${t(a.id==='bruno'?'taskBruno':'taskHenry')}</small></div><span class="badge green">${t('idle')}</span></div>`).join('')+`<div class="role-annotation">${t('targetHint')}<br>${t('scopeHint')}<br>${t('selectedHint')}</div>`};
+  if(name.startsWith('agent-')) {const agent=DEMO_AGENTS.find(a=>a.id===name.slice(6));return {title:agent.name,desc:t('currentCanvas')+' · '+t('project'),body:`<div class="agent-detail">${avatar(agent,true)}<div><strong>${t(agent.id==='bruno'?'taskBruno':'taskHenry')}</strong><small>${t('idle')}</small></div></div><p class="dialog-copy">${t('selectedHint')}</p>`};}
+  if(name==='advanced'||name==='model') {const runtime=deriveRuntime(settings);return {title:t(name==='model'?'model':'advanced'),desc:t('engineHint'),body:`<div class="inspector-line"><span>${t('engine')}</span><strong>${settings.source==='cloud'?'Azure Speech':t(runtime.engine==='a1'?'previewFinal':'compatibility')}</strong></div><div class="inspector-line"><span>${t('model')}</span><strong>${t('modelValue')} <span>(${t('demoLabel')})</span></strong></div><div class="inspector-line"><span>${t('jevStatus')}</span><strong>${t('notIntegrated')}</strong></div><div class="role-annotation">${t('jevHint')}<br>${t('latencyHint')}</div><button class="text-button" data-action="open" data-panel="targets">${t('target')}${icon('arrow')}</button>`};}
+  if(name==='cloud') return {title:t('cloudConfigure'),desc:t('cloudConfigNote'),body:`<div class="row-title">${t('region')}</div><div class="cloud-fake-field">East Asia · ${t('demoLabel')}</div><div class="row-title">API Key</div><div class="cloud-fake-field">${t('placeholderSecret')}</div><button class="filled-button" data-action="configure-cloud">${t('simulateConfig')}</button>`};
+  if(name==='mic-test') return {title:t('testMic'),desc:t('micTestNote'),body:`<div class="wave" aria-hidden="true">${Array.from({length:31},(_,i)=>`<span style="height:${9+Math.round((Math.sin(i*.9)+1)*11+(i%7)*2)}px"></span>`).join('')}</div><p class="dialog-copy" style="text-align:center">${t(settings.microphone)} · ${t('demoLabel')}</p><div style="text-align:center;margin-top:20px"><button class="filled-button" data-action="heard">${t('heard')}</button></div>`};
+  if(name==='shortcut') return {title:t('shortcut'),desc:t('shortcutHint'),body:`<div class="shortcut-capture"><kbd>${esc(settings.shortcut)}</kbd><p>${t('recordShortcut')}</p></div>`};
+  return {title:t('help'),desc:t('prototype'),body:`<div class="dialog-copy"><p>${t('helpText')}</p><p>${t('prototypeNote')}</p><a href="../../exec-plans/2026-10-31-voice-command-redesign-plan.html" target="_blank" rel="noopener">${icon('file')}${t('plan')}</a></div>`};
+}
+
+let settings={...DEFAULT_SETTINGS};
+const ui={lang:'zh',theme:'dark',step:'input',dialog:null,toastTimer:null,demo:{input:'Bruno，继续刚才的登录任务',proposal:interpretDemo('Bruno，继续刚才的登录任务'),receipt:false}};
+try {ui.theme=localStorage.getItem('voice-prototype-theme')==='light'?'light':'dark';ui.lang=localStorage.getItem('voice-prototype-lang')==='en'?'en':'zh';} catch {}
+if(ui.lang==='en'){ui.demo.input='Bruno, continue the login task';ui.demo.proposal=interpretDemo(ui.demo.input);}
+document.documentElement.dataset.theme=ui.theme;
+document.documentElement.lang=ui.lang==='en'?'en':'zh-CN';
+const variants=[renderGrouped,renderWorkflow,renderOverview];
+const editor=document.getElementById('editor');
+const popover=document.getElementById('popover');
+let menuState=null;
+let restoreFocus=null;
+
+function repaint(){closeMenu(false);mount(current);updateHarness();}
+function updateHarness(){
+  const host=document.getElementById('harness');
+  host.innerHTML=`<span class="badge">${t('prototype')}</span><span class="harness-label">Material · Norma</span><span class="harness-axis">${t('axis'+current)}</span><div class="harness-controls"><a href="../../exec-plans/2026-10-31-voice-command-redesign-plan.html" target="_blank" rel="noopener">${icon('file')}${t('plan')}</a><button data-action="language" title="${t('language')}">${icon('globe')}<span>${t('language')}</span></button><button data-action="theme" title="${t('theme')}" aria-label="${t('theme')}">${icon(ui.theme==='dark'?'sun':'moon')}</button><label class="status-demo"><span class="faint">${t('statusDemo')}</span> <select id="demo-status" aria-label="${t('statusDemo')}" style="background:var(--surface-high);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:11px">${['ready','preparing','failed'].map(key=>`<option value="${key}" ${key===settings.status?'selected':''}>${t(key)}</option>`).join('')}</select></label></div>`;
+  document.getElementById('prototype-note').textContent=t('prototypeNote');
+  document.querySelectorAll('.proto-picker-item:not(.proto-picker-replay)').forEach((item,i)=>item.textContent=t(['grouped','workflow','overview'][i]));
+  document.title=t('title')+' · '+t('prototype');
+  requestAnimationFrame(()=>moveHighlight());
+}
+function notify(key){
+  const host=document.getElementById('snackbar');
+  host.textContent=t(key);clearTimeout(ui.toastTimer);
+  ui.toastTimer=setTimeout(()=>{host.textContent='';},2200);
+}
+function populateDialog(){
+  closeMenu(false);
+  const info=dialogContents(ui.dialog);
+  editor.className=info.drawer?'drawer':'';
+  editor.innerHTML=`<header class="dialog-head"><div class="grow"><h2 id="dialog-title">${info.title}</h2><p>${info.desc}</p></div><button class="icon-button" data-action="close" aria-label="${t('close')}">${icon('close')}</button></header><div class="dialog-body">${info.body}</div><footer class="dialog-footer"><span class="grow faint" style="font-size:10px;align-self:center">${t('simulatedOnly')}</span><button class="text-button" data-action="close">${t('done')}</button></footer>`;
+}
+function openDialog(name){
+  ui.dialog=name;
+  populateDialog();
+  if(!editor.open)editor.showModal();
+  editor.querySelector('button')?.focus();
+}
+function closeDialog(){
+  const previousPanel=ui.dialog;closeMenu(false);ui.dialog=null;editor.close();
+  restoreFocus=`[data-action="open"][data-panel="${previousPanel}"]`;repaint();
+}
+function menuOptions(field){
+  return ({interaction:[['single','single'],['continuous','continuous']],trigger:[['hold','hold'],['toggle','toggle']],microphone:[['builtin','builtin'],['airpods','airpods'],['system','system']],clarify:[['target','targetOnly'],['whole','wholeCommand']]})[field] || [];
+}
+function closeMenu(focus=true){
+  if(!menuState)return;
+  const anchor=menuState.anchor;anchor.setAttribute('aria-expanded','false');
+  menuState=null;popover.hidden=true;document.body.appendChild(popover);
+  if(focus&&anchor.isConnected)anchor.focus();
+}
+function renderOptions(){
+  const all=menuOptions(menuState.field);
+  const query=popover.querySelector('input').value.toLowerCase();
+  menuState.filtered=all.filter(([,label])=>t(label).toLowerCase().includes(query));
+  menuState.index=Math.max(0,Math.min(menuState.index,menuState.filtered.length-1));
+  const list=popover.querySelector('.popover-list');
+  list.innerHTML=menuState.filtered.length?menuState.filtered.map(([value,label],index)=>`<button role="option" id="choice-${index}" class="menu-option" data-action="choose" data-value="${value}" aria-selected="${settings[menuState.field]===value}" ${index===menuState.index?'data-browse':''}>${t(label)}${settings[menuState.field]===value?icon('check'):''}</button>`).join(''):`<div class="empty-menu">${t('noResults')}</div>`;
+  const input=popover.querySelector('input');
+  if(menuState.filtered.length)input.setAttribute('aria-activedescendant','choice-'+menuState.index);else input.removeAttribute('aria-activedescendant');
+  list.querySelector('[data-browse]')?.scrollIntoView({block:'nearest'});
+}
+function openMenu(anchor){
+  if(menuState?.anchor===anchor){closeMenu();return;}
+  closeMenu(false);
+  const field=anchor.dataset.field;
+  menuState={anchor,field,index:Math.max(0,menuOptions(field).findIndex(([value])=>value===settings[field])),filtered:[]};
+  (anchor.closest('dialog')||document.body).appendChild(popover);
+  popover.innerHTML=`<div class="popover-search"><input aria-label="${t('search')}" role="combobox" aria-controls="voice-options" aria-expanded="true" placeholder="${t('search')}" autocomplete="off"></div><div class="popover-list" id="voice-options" role="listbox" aria-label="${t(field)}"></div>`;
+  const rect=anchor.getBoundingClientRect();
+  const width=Math.min(292,innerWidth-24);
+  popover.style.width=width+'px';
+  popover.style.left=Math.max(12,Math.min(innerWidth-width-12,rect.right-width))+'px';
+  popover.style.top=Math.max(12,Math.min(innerHeight-310,rect.bottom+7))+'px';
+  popover.hidden=false;anchor.setAttribute('aria-expanded','true');renderOptions();popover.querySelector('input').focus();
+}
+function changeSetting(field,value,focusKey=null){
+  if(!Object.hasOwn(DEFAULT_SETTINGS,field))return;
+  settings[field]=value;ui.demo.receipt=false;
+  if(ui.dialog){populateDialog();} else {restoreFocus=focusKey;repaint();}
+  notify('changed');
+}
+function choose(value){
+  const field=menuState.field;
+  if(!menuOptions(field).some(([candidate])=>candidate===value))return;
+  closeMenu();changeSetting(field,value,`button[data-action="menu"][data-field="${field}"]`);
+  if(editor.open)editor.querySelector(`button[data-field="${field}"]`)?.focus();
+}
+
+document.addEventListener('pointerdown',event=>{
+  if(menuState&&!popover.contains(event.target)&&!menuState.anchor.contains(event.target))closeMenu(false);
+});
+document.addEventListener('input',event=>{
+  if(event.target.matches('[data-demo-input]')){
+    ui.demo.input=event.target.value;ui.demo.receipt=false;
+    const panel=event.target.closest('.demo-panel');
+    panel.querySelector('[data-action="demo-submit"]').disabled=true;
+    panel.querySelector('.demo-result').innerHTML=`<div class="result-note warn">${t('pendingPreview')}</div>`;
+  }
+  if(menuState&&event.target===popover.querySelector('input')){menuState.index=0;renderOptions();}
+  if(event.target.matches('input[data-action="range"]')){settings.volume=Number(event.target.value);event.target.nextElementSibling.textContent=settings.volume+'%';}
+});
+document.addEventListener('change',event=>{
+  if(event.target.id==='demo-status'){settings.status=event.target.value;ui.demo.receipt=false;repaint();}
+  if(event.target.matches('input[data-action="range"]'))notify('changed');
+});
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-action]');if(!button||button.disabled)return;
+  const {action}=button.dataset;
+  if(action==='open')openDialog(button.dataset.panel);
+  else if(action==='close')closeDialog();
+  else if(action==='menu')openMenu(button);
+  else if(action==='choose')choose(button.dataset.value);
+  else if(action==='set')changeSetting(button.dataset.field,button.dataset.value,`[data-action="set"][data-field="${button.dataset.field}"][data-value="${button.dataset.value}"]`);
+  else if(action==='toggle')changeSetting(button.dataset.field,!settings[button.dataset.field],`[data-action="toggle"][data-field="${button.dataset.field}"]`);
+  else if(action==='step'){ui.step=button.dataset.step;repaint();}
+  else if(action==='sample'){ui.demo.input=t('command'+button.dataset.index);ui.demo.proposal=interpretDemo(ui.demo.input);ui.demo.receipt=false;repaint();}
+  else if(action==='analyze'){ui.demo.proposal=interpretDemo(ui.demo.input);ui.demo.receipt=false;repaint();}
+  else if(action==='clarify'){ui.demo.proposal=interpretDemo(ui.demo.input,button.dataset.target);ui.demo.receipt=false;repaint();}
+  else if(action==='demo-submit'){if(canSubmit(ui.demo.proposal,settings,ui.demo.input)){ui.demo.receipt=true;repaint();notify('simulatedReceipt');}}
+  else if(action==='configure-cloud'){settings.cloudConfigured=true;settings.status='ready';closeDialog();notify('changed');}
+  else if(action==='heard')notify('testPassed');
+  else if(action==='retry'){settings.status='ready';repaint();notify('simulatedOnly');}
+  else if(action==='reset'){settings={...DEFAULT_SETTINGS};ui.demo={input:t('command1'),proposal:interpretDemo(t('command1')),receipt:false};repaint();notify('resetHint');}
+  else if(action==='theme'){ui.theme=ui.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=ui.theme;try{localStorage.setItem('voice-prototype-theme',ui.theme);}catch{}updateHarness();}
+  else if(action==='language'){ui.lang=ui.lang==='zh'?'en':'zh';document.documentElement.lang=ui.lang==='zh'?'zh-CN':'en';ui.demo={input:t('command1'),proposal:interpretDemo(t('command1')),receipt:false};try{localStorage.setItem('voice-prototype-lang',ui.lang);}catch{}repaint();if(editor.open)populateDialog();}
+});
+editor.addEventListener('cancel',event=>{event.preventDefault();closeDialog();});
+editor.addEventListener('click',event=>{if(event.target===editor){const box=editor.getBoundingClientRect();if(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom)closeDialog();}});
+document.addEventListener('keydown',event=>{
+  if(menuState){
+    if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeMenu();return;}
+    if(event.key==='Tab'){closeMenu();return;}
+    if(['ArrowDown','ArrowUp','Enter'].includes(event.key)){
+      event.preventDefault();event.stopImmediatePropagation();
+      if(event.key==='Enter'){const option=menuState.filtered[menuState.index];if(option)choose(option[0]);}
+      else {const size=menuState.filtered.length;if(size){menuState.index=(menuState.index+(event.key==='ArrowDown'?1:-1)+size)%size;renderOptions();}}
+      return;
+    }
+  }
+  if(editor.open){
+    if(ui.dialog==='shortcut'&&(event.metaKey||event.ctrlKey||event.altKey)&&event.key.length===1){
+      event.preventDefault();event.stopImmediatePropagation();
+      settings.shortcut=[event.metaKey?'⌘':'',event.ctrlKey?'⌃':'',event.altKey?'⌥':'',event.shiftKey?'⇧':'',event.key.toUpperCase()].filter(Boolean).join(' ');populateDialog();return;
+    }
+    if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeDialog();return;}
+    if(!/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName))event.stopImmediatePropagation();
+    return;
+  }
+  if(event.key==='ArrowDown'&&event.target.matches('button[data-action="menu"]')){event.preventDefault();event.stopImmediatePropagation();openMenu(event.target);}
+},true);
+window.addEventListener('resize',()=>closeMenu(false));
+new MutationObserver(()=>{
+  if(restoreFocus){document.querySelector('#stage '+restoreFocus)?.focus({preventScroll:true});restoreFocus=null;}
+  updateHarness();
+}).observe(document.getElementById('stage'),{childList:true});
+
+// `variants` is an array of render functions, one per variant, in picker order.
+const stage = document.getElementById('stage');
+const picker = document.querySelector('.proto-picker');
+const highlight = picker.querySelector('.proto-picker-highlight');
+const items = [...picker.querySelectorAll('.proto-picker-item:not(.proto-picker-replay)')];
+const replay = picker.querySelector('.proto-picker-replay');
+let current = 0;
+
+function moveHighlight() {
+  const el = items[current];
+  highlight.style.width = el.offsetWidth + 'px';
+  highlight.style.transform = `translateX(${el.offsetLeft}px)`;
+}
+
+function mount(i) {
+  stage.innerHTML = '';
+  // Clear first, render next frame, so entrance animations re-run.
+  requestAnimationFrame(() => { stage.innerHTML = variants[i](); });
+}
+
+function setActive(i) {
+  if (i < 0 || i >= variants.length) return;
+  current = i;
+  items.forEach((el, j) => {
+    el.toggleAttribute('data-active', j === i);
+    if (j === i) el.setAttribute('aria-current', 'true');
+    else el.removeAttribute('aria-current');
+  });
+  moveHighlight();
+  const url = new URL(location);
+  url.searchParams.set('v', i + 1);
+  history.replaceState(null, '', url);
+  mount(i);
+}
+
+items.forEach((el, i) => el.addEventListener('click', () => setActive(i)));
+replay?.addEventListener('click', () => mount(current));
+window.addEventListener('resize', moveHighlight);
+
+document.addEventListener('keydown', (e) => {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const num = parseInt(e.key, 10);
+  if (num >= 1 && num <= variants.length) setActive(num - 1);
+  else if (e.key === 'ArrowRight') setActive((current + 1) % variants.length);
+  else if (e.key === 'ArrowLeft') setActive((current - 1 + variants.length) % variants.length);
+  else if (e.key === 'r' || e.key === 'R') mount(current);
+});
+
+setActive((parseInt(new URLSearchParams(location.search).get('v'), 10) || 1) - 1);
+// Enable the slide only after first paint, so load doesn't animate.
+requestAnimationFrame(() => requestAnimationFrame(() => picker.setAttribute('data-ready', '')));
+</script></body></html>

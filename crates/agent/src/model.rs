@@ -3,6 +3,10 @@ pub type TaskId = u64;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum AgentInputSource {
     Voice,
+    /// A single finalized desktop recording, bound to its host reply generation.
+    SingleVoiceCommand {
+        generation: u64,
+    },
     /// Only the local desktop Doubao session may use this source.
     DoubaoVoice,
     /// GPT-Live delegation; authorization uses only the observed user transcript.

@@ -161,6 +161,7 @@ async fn warm_memory_revision_check_does_not_read_topic_bodies() {
         turn_id: "s:read".into(),
         user_input: "查偏好".into(),
         input_source: agent::AgentInputSource::Other,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "read".into(),
         operation_id: None,

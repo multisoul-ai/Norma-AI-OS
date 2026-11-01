@@ -4,7 +4,6 @@ mod diagnostics;
 use self::asr_provider::asr_provider_group;
 use self::doubao::{desktop_mode_picker, doubao_settings};
 pub(crate) use self::editable::VoiceSettingsInputs;
-use self::input_device::input_device_row;
 use self::interaction::{doubao_interaction_group, interaction_group};
 use self::model_catalog::model_catalog_row;
 use self::provider::{agent_provider_advanced_rows, agent_provider_group};
@@ -19,6 +18,7 @@ use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Window};
 use ui::Theme;
 
 mod asr_provider;
+mod command_policy;
 mod components;
 mod doubao;
 mod editable;
@@ -91,6 +91,7 @@ pub(crate) fn voice_settings(
     }
     if !matches!(state.readiness(), super::VoiceEntryState::Ready) || state.reviewing_setup() {
         return page
+            .child(interaction_group(theme, state, voice_shortcut_label, cx))
             .child(voice_setup(
                 theme,
                 state,
@@ -104,12 +105,9 @@ pub(crate) fn voice_settings(
     }
     page.child(voice_ready_overview(theme, voice_shortcut_label, cx))
         .child(interaction_group(theme, state, voice_shortcut_label, cx))
-        .child(
-            settings_group(theme, ui::i18n::text("voice.input"))
-                .child(input_device_row(theme, state, cx)),
-        )
-        .child(spoken_reply_group(theme, state, inputs, cx))
         .child(asr_provider_group(theme, state, inputs, cx))
+        .child(command_policy::command_policy_group(theme))
+        .child(spoken_reply_group(theme, state, inputs, cx))
         .child(advanced_group(theme, state, inputs, cx))
         .children(status_message(theme, state))
 }

@@ -17,8 +17,7 @@ pub(super) fn dispatch_agent_task(
     manual: bool,
 ) -> Result<AdapterResult, AdapterError> {
     let definition_id = app
-        .agent_definitions
-        .definition_by_address(&agent)
+        .voice_bound_definition(&agent)
         .map(|definition| definition.id)
         .ok_or_else(|| AdapterError::Rejected(format!("未找到 Agent：{agent}")))?;
     // 用户亲手派发（拖拽想法）按“手动”来源入队，不再叠加 Norma 指令栏的飞行效果。

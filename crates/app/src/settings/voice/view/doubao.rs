@@ -1,6 +1,7 @@
 use super::components::VoiceAction;
 use super::{settings_group, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
+use crate::settings::spacing::CARD_PADDING_COMPACT;
 use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::{
     DesktopVoiceMode, VoiceRequirement, VoiceRequirementState, VoiceSettingsField,
@@ -13,6 +14,10 @@ mod catalog;
 mod item;
 mod menu_state;
 mod voices;
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/voice_mode_layout_tests.rs"]
+mod mode_layout_tests;
 
 pub(super) fn desktop_mode_picker(
     theme: Theme,
@@ -76,7 +81,7 @@ fn mode_card(
         ),
         DesktopVoiceMode::GptLive => (
             "settings-voice-desktop-mode-gpt-live",
-            "GPT-Live",
+            ui::i18n::text("voice.live_name"),
             ui::i18n::text("voice.have_a_real_time_conversation_with_norma"),
         ),
     };
@@ -106,46 +111,55 @@ fn mode_card(
     div()
         .id(selector)
         .debug_selector(move || selector.to_string())
+        .relative()
         .flex_1()
         .min_w(px(160.0))
+        .min_h(px(88.0))
         .flex()
         .flex_col()
         .child(
             Button::new(selector)
                 .debug_selector(move || format!("{selector}-button"))
+                .absolute()
+                .inset_0()
+                .size_full()
                 .custom(variant)
-                .w_full()
-                .h(px(88.0))
-                .justify_start()
-                .child(
-                    div()
-                        .w_full()
-                        .flex()
-                        .flex_col()
-                        .gap(px(6.0))
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .justify_between()
-                                .settings_font(TextRole::RowTitle)
-                                .child(title)
-                                .child(
-                                    div()
-                                        .text_color(rgba(theme.accent_blue))
-                                        .child(if selected { "✓" } else { "" }),
-                                ),
-                        )
-                        .child(
-                            div()
-                                .whitespace_normal()
-                                .settings_text(TextRole::Helper, theme)
-                                .child(hint),
-                        ),
-                )
+                .tooltip(title)
                 .on_activate(cx.listener(move |app, _, _, cx| {
                     app.select_desktop_voice_mode(mode, cx);
                 })),
+        )
+        .child(
+            // Button's intrinsic label row does not constrain wrapping children.
+            div()
+                .relative()
+                .min_w(px(0.0))
+                .p(px(CARD_PADDING_COMPACT))
+                .flex()
+                .flex_col()
+                .gap(px(6.0))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .justify_between()
+                        .settings_font(TextRole::RowTitle)
+                        .child(title)
+                        .child(
+                            div()
+                                .text_color(rgba(theme.accent_blue))
+                                .child(if selected { "✓" } else { "" }),
+                        ),
+                )
+                .child(
+                    div()
+                        .debug_selector(move || format!("{selector}-hint"))
+                        .w_full()
+                        .min_w(px(0.0))
+                        .whitespace_normal()
+                        .settings_text(TextRole::Helper, theme)
+                        .child(hint),
+                ),
         )
 }
 

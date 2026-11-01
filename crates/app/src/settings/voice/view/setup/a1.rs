@@ -97,7 +97,10 @@ impl MultisoulApp {
         }
         self.prepare_or_validate_a1(false, cx);
     }
-    fn prepare_or_validate_a1(&mut self, activate: bool, cx: &mut Context<Self>) {
+    pub(crate) fn prepare_or_validate_a1(&mut self, activate: bool, cx: &mut Context<Self>) {
+        if activate {
+            self.invalidate_single_voice_commands();
+        }
         let prepare = activate
             || (self.voice_settings.values().asr_provider() == asr::AsrProviderId::LocalA1
                 && self

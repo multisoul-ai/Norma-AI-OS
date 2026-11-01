@@ -26,6 +26,7 @@ mod persistence;
 mod provider_discovery;
 mod provider_values;
 mod readiness_state;
+mod recognition_source;
 mod resync;
 pub(crate) use resync::{provider_configuration_differs, tts_configuration_differs};
 mod tts_picker;

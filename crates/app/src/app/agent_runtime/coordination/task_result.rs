@@ -34,18 +34,51 @@ impl MultisoulApp {
             return false;
         };
         if matches!(runtime_state, Some(runtime::AgentTaskState::Ended)) {
-            let coordinator_changed = self
+            let ids = self.agent_task_coordinator.as_ref().map(|coordinator| {
+                coordinator
+                    .tasks()
+                    .into_iter()
+                    .filter(|task| {
+                        task.definition_id == definition_id
+                            && task.target_node_id == node_id
+                            && matches!(task.state, "running" | "queued" | "cancel_requested")
+                    })
+                    .map(|task| task.task_id)
+                    .collect::<Vec<_>>()
+            });
+            let (closed, next) = self
                 .agent_task_coordinator
                 .as_mut()
-                .and_then(|coordinator| {
-                    coordinator.finish_all_with_state(definition_id, "interrupted")
+                .map(|coordinator| {
+                    coordinator.finish_node_with_state(definition_id, node_id, "interrupted")
                 })
-                .is_some_and(|(was_busy, cancelled_queued)| was_busy || cancelled_queued > 0);
+                .unwrap_or_default();
             self.pending_agent_submissions.remove_node(node_id);
             if let Some(writer) = self.persistence.agent_dispatch_writer() {
-                writer.interrupt_definition(definition_id);
+                if let Some(ids) = ids {
+                    for id in ids {writer.finish_task(id,storage::AgentDispatchTaskState::Interrupted,None);}
+                } else if !self.runtime.document.nodes().iter().any(|node|node.id != node_id && matches!(&node.kind,CanvasNodeKind::Agent(spec) if spec.definition_id==Some(definition_id))) {
+                    writer.interrupt_definition(definition_id);
+                }
             }
-            return coordinator_changed;
+            if let Some(next) = next {
+                self.pending_agent_submissions.enqueue_immediate(next);
+            }
+            return closed > 0;
+        }
+        // A same-name instance may emit a late hook for a different captured task target.
+        if self
+            .agent_task_coordinator
+            .as_ref()
+            .is_some_and(|coordinator| {
+                coordinator.tasks().iter().any(|task| {
+                    task.definition_id == definition_id
+                        && matches!(task.state, "running" | "cancel_requested")
+                        && task.target_node_id != node_id
+                })
+            })
+        {
+            return false;
         }
         let cancel_requested = self
             .agent_task_coordinator

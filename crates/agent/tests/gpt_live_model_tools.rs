@@ -28,6 +28,7 @@ fn context(input: &str) -> ToolContext {
         turn_id: "live:model:r1".into(),
         user_input: input.into(),
         input_source: AgentInputSource::GptLiveVoice,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "fixture-call".into(),
         operation_id: None,

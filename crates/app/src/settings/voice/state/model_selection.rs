@@ -31,9 +31,8 @@ impl VoiceSettingsState {
 
     pub(crate) fn setup_asr_source(&self) -> asr::AsrProviderId {
         match self.setup_destination {
-            VoiceSetupDestination::AsrOnDevice | VoiceSetupDestination::AsrModels => {
-                asr::AsrProviderId::LocalSherpa
-            }
+            VoiceSetupDestination::AsrOnDevice => self.preferred_local_provider(),
+            VoiceSetupDestination::AsrModels => asr::AsrProviderId::LocalSherpa,
             VoiceSetupDestination::AsrA1 => asr::AsrProviderId::LocalA1,
             VoiceSetupDestination::AsrAzure => asr::AsrProviderId::CloudAzure,
             VoiceSetupDestination::Overview

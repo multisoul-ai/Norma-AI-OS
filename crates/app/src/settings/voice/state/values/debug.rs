@@ -17,6 +17,7 @@ impl fmt::Debug for SavedVoiceSettings {
             .field("dictation_trigger", &self.dictation_trigger)
             .field("asr_model_id", &self.asr_model_id)
             .field("asr_provider", &self.asr_provider)
+            .field("local_asr_provider", &self.local_asr_provider)
             .field("azure_asr_region", &self.azure_asr_region)
             .field("azure_asr_locale", &self.azure_asr_locale)
             .field(

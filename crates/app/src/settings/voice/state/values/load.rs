@@ -48,6 +48,11 @@ impl SavedVoiceSettings {
                 .get_string(KEY_ASR_PROVIDER)?
                 .as_deref()
                 .and_then(asr::AsrProviderId::from_stored),
+            local_asr_provider: store
+                .get_string(KEY_LOCAL_ASR_PROVIDER)?
+                .as_deref()
+                .and_then(asr::AsrProviderId::from_stored)
+                .filter(|id| *id != asr::AsrProviderId::CloudAzure),
             azure_asr_region: non_empty_option(store.get_string(KEY_ASR_AZURE_REGION)?),
             azure_asr_locale: non_empty_option(store.get_string(KEY_ASR_AZURE_LOCALE)?),
             azure_asr_credential_ref: non_empty_option(

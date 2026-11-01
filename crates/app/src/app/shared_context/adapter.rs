@@ -40,7 +40,9 @@ impl ContextAdapter {
         let source = context;
         let context = context.clone();
         let origin = match context.input_source {
-            agent::AgentInputSource::Voice => ContextOrigin::Voice,
+            agent::AgentInputSource::Voice | agent::AgentInputSource::SingleVoiceCommand { .. } => {
+                ContextOrigin::Voice
+            }
             agent::AgentInputSource::DoubaoVoice => ContextOrigin::DoubaoVoice,
             agent::AgentInputSource::GptLiveVoice => ContextOrigin::GptLiveVoice,
             agent::AgentInputSource::Other => ContextOrigin::Dock,
