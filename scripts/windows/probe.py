@@ -108,6 +108,20 @@ def speech(folder):
                     "microphone_and_real_model_acceptance": "NOT_RUN"}
 
 
+def speech_check_status(rows):
+    checks = {row["id"]: row for row in rows}
+    if len(checks) != len(rows):
+        return "FAIL"
+    if set(checks) != {"voice_input_compile", "speech_tests"}:
+        return "NOT_RUN"
+    if any(row["status"] == "FAIL" or (row["status"] == "PASS" and row.get("exit_code") != 0)
+           for row in rows):
+        return "FAIL"
+    if any(row["status"] == "ENV_UNSUPPORTED" for row in rows):
+        return "ENV_UNSUPPORTED"
+    return "PASS" if all(row["status"] == "PASS" for row in rows) else "NOT_RUN"
+
+
 def speech_gate(output):
     try:
         data = json.loads((output / "speech/report.json").read_text(encoding="utf-8-sig"))
@@ -117,11 +131,7 @@ def speech_gate(output):
         for field, variable in (("run_id", "GITHUB_RUN_ID"), ("run_attempt", "GITHUB_RUN_ATTEMPT")):
             if os.environ.get(variable) and str(data.get(field)) != os.environ[variable]:
                 raise ValueError("speech report belongs to another run or attempt")
-        rows = data["checks"]
-        checks = {row["id"]: row for row in rows}
-        if len(rows) != 2 or set(checks) != {"voice_input_compile", "speech_tests"}:
-            raise ValueError("speech checks are missing or duplicated")
-        if any(row["status"] != "PASS" or row.get("exit_code") != 0 for row in rows):
+        if speech_check_status(data["checks"]) != "PASS":
             raise ValueError("native speech compilation or tests did not pass")
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f"Speech gate FAIL: {error}")
@@ -249,16 +259,13 @@ def summary(output):
     graphics_status = statuses.get("gpui_window", "NOT_RUN")
     if graphics_status == "PASS":
         graphics_status = statuses.get("gpui_os_keyboard_close", "NOT_RUN")
-    speech_statuses = [statuses.get(name, "NOT_RUN") for name in ("voice_input_compile", "speech_tests")]
+    speech_rows = [row for row in checks if row["task"] == "speech"]
     goal_gates = {
         "product_compile": "PASS" if all(statuses.get(f"{p}_compile") == "PASS" for p in ("norma", "app"))
                            else "FAIL" if "FAIL" in [statuses.get(f"{p}_compile") for p in ("norma", "app")]
                            else "NOT_RUN",
         "gpui_graphics": graphics_status,
-        "speech_default_checks": "PASS" if all(s == "PASS" for s in speech_statuses)
-                                 else "FAIL" if "FAIL" in speech_statuses
-                                 else "ENV_UNSUPPORTED" if "ENV_UNSUPPORTED" in speech_statuses
-                                 else "NOT_RUN",
+        "speech_default_checks": speech_check_status(speech_rows),
         "live_agents": "NOT_RUN", "candidate_package": "NOT_RUN",
     }
     data = {"kind": "feasibility_only", "source_shas": sorted(shas),

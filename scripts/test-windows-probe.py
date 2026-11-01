@@ -160,6 +160,17 @@ class FeasibilityReportTests(unittest.TestCase):
                 self.assertEqual(result.returncode == 0, variant == "pass",
                                  f"gate must preserve the captured result for {variant}: {result.stdout}")
 
+    def test_summary_rejects_speech_pass_with_nonzero_exit_code(self):
+        """场景：语音报告出现 PASS 与非零退出码矛盾；构造 exit=101 的 PASS；
+        执行汇总；预期与只读 gate 一致显示 FAIL，不能只相信状态标签。
+        """
+        reports = self.reports()
+        reports["speech"] = [{"id": "voice_input_compile", "status": "PASS", "exit_code": 0},
+                             {"id": "speech_tests", "status": "PASS", "exit_code": 101}]
+        _, report = self.invoke(reports)
+        self.assertEqual(report["goal_gates"]["speech_default_checks"], "FAIL",
+                         "nonzero exit codes must not be shown as a passed speech sub-gate")
+
 
 if __name__ == "__main__":
     unittest.main()
