@@ -1,0 +1,91 @@
+info: syncing channel updates for 1.91.1-x86_64-pc-windows-msvc
+info: latest update on 2025-11-10 for version 1.91.1 (ed61e7d7e 2025-11-07)
+info: downloading 2 components
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded unicode-ident v1.0.24
+  Downloaded serde_derive v1.0.228
+  Downloaded zmij v1.0.21
+  Downloaded thiserror v2.0.18
+  Downloaded quote v1.0.46
+  Downloaded serde_core v1.0.228
+  Downloaded serde v1.0.228
+  Downloaded memchr v2.8.2
+  Downloaded thiserror-impl v2.0.18
+  Downloaded proc-macro2 v1.0.106
+  Downloaded itoa v1.0.18
+  Downloaded serde_json v1.0.150
+  Downloaded syn v2.0.118
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.46
+   Compiling serde_core v1.0.228
+   Compiling syn v2.0.118
+   Compiling zmij v1.0.21
+   Compiling serde v1.0.228
+   Compiling thiserror v2.0.18
+   Compiling serde_json v1.0.150
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.2
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling canvas v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\canvas)
+    Finished `test` profile [optimized + debuginfo] target(s) in 49.45s
+     Running unittests src\lib.rs (D:\a\_temp\norma-windows-probe-target\x86_64-pc-windows-msvc\debug\deps\canvas-0a7459bfce9cad60.exe)
+
+running 52 tests
+test delete::tests::test_next_neighbor_after_delete_last_returns_previous ... ok
+test delete::tests::test_next_neighbor_after_delete_first_returns_second ... ok
+test delete::tests::test_next_neighbor_after_delete_middle_returns_next ... ok
+test delete::tests::test_next_neighbor_after_delete_only_node_returns_none ... ok
+test delete::tests::test_next_neighbor_after_delete_unknown_id_returns_none ... ok
+test document::tests::test_add_node_assigns_incrementing_id_and_zindex ... ok
+test document::tests::test_from_snapshot_restores_document_and_allocates_next_id_after_max ... ok
+test document::tests::test_move_node_translates_origin_keeps_size ... ok
+test document::tests::test_node_lookup_missing_returns_none ... ok
+test document::tests::test_remove_node_deletes_target_and_preserves_others ... ok
+test document::tests::test_set_node_bounds_updates_target_and_leaves_other_node_unchanged ... ok
+test document::tests::test_swap_node_order_self_swap_returns_false_and_leaves_order_unchanged ... ok
+test document::tests::test_swap_node_order_swaps_two_nodes_and_returns_true ... ok
+test document::tests::test_swap_node_order_unknown_id_returns_false_and_leaves_order_unchanged ... ok
+test geometry::tests::test_canvas_screen_roundtrip_under_pan_zoom ... ok
+test geometry::tests::test_default_viewport_is_identity ... ok
+test geometry::tests::test_rect_contains_inside_and_outside ... ok
+test geometry::tests::test_rect_inset_shrinks_and_clamps_tiny_rect ... ok
+test geometry::tests::test_rect_intersects_partial_overlap_but_not_touching_or_separated ... ok
+test hit_test::tests::test_hit_only_covering_node ... ok
+test hit_test::tests::test_hit_returns_topmost_in_overlap ... ok
+test hit_test::tests::test_miss_returns_none ... ok
+test layout::configurable_grid_tests::test_configurable_grid_column_first_grows_right_with_fixed_rows ... ok
+test layout::configurable_grid_tests::test_configurable_grid_fit_viewport_constrains_both_axes ... ok
+test layout::configurable_grid_tests::test_configurable_grid_row_first_grows_down_with_fixed_columns ... ok
+test layout::configurable_grid_tests::test_configurable_grid_shrinks_fixed_cards_to_keep_all_rows_inside_viewport ... ok
+test layout::master_detail_tests::test_master_detail_layout_keeps_detail_order_when_master_is_middle_node ... ok
+test layout::master_detail_tests::test_master_detail_layout_missing_master_returns_empty_assignments ... ok
+test layout::master_detail_tests::test_master_detail_layout_places_master_left_and_details_right_column ... ok
+test layout::responsive_tests::test_responsive_grid_empty_ids_returns_no_assignments ... ok
+test layout::responsive_tests::test_responsive_grid_medium_area_uses_two_columns ... ok
+test layout::responsive_tests::test_responsive_grid_narrow_area_uses_one_column ... ok
+test layout::responsive_tests::test_responsive_grid_wide_area_uses_three_columns_and_safe_area ... ok
+test layout::tiled_tests::test_default_card_aspect_ratio_reduces_current_height_by_ten_percent ... ok
+test layout::tiled_tests::test_tiled_grid_empty_ids_returns_no_assignments ... ok
+test layout::tiled_tests::test_tiled_grid_fourth_node_wraps_to_next_row_without_filling_tail_row ... ok
+test layout::tiled_tests::test_tiled_grid_single_node_uses_full_row_width_with_aspect_ratio ... ok
+test layout::tiled_tests::test_tiled_grid_three_nodes_use_three_columns ... ok
+test layout::tiled_tests::test_tiled_grid_two_nodes_share_one_row_equally ... ok
+test navigation::tests::test_navigate_card_invalid_selection_falls_back_to_visible_center_anchor ... ok
+test navigation::tests::test_navigate_card_returns_none_when_direction_has_no_candidate ... ok
+test navigation::tests::test_navigate_card_selects_spatial_neighbor_in_each_direction ... ok
+test navigation::tests::test_navigate_card_without_selection_uses_visible_center_anchor ... ok
+test node::tests::test_agent_alias_defaults_for_legacy_snapshot_and_overrides_title ... ok
+test node::tests::test_agent_kind_is_description_only_and_exposes_profile_title ... ok
+test node::tests::test_browser_kind_preserves_url_title_and_serializes_without_page_state ... ok
+test node::tests::test_browser_title_falls_back_to_host_then_browser_label ... ok
+test node::tests::test_node_type_and_titles_for_term_and_rect_nodes ... ok
+test node::tests::test_preview_kind_preserves_path_type_and_serializes_without_content ... ok
+test selection::tests::test_add_and_toggle ... ok
+test selection::tests::test_deselect_and_clear ... ok
+test selection::tests::test_select_only_replaces_previous ... ok
+
+test result: ok. 52 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

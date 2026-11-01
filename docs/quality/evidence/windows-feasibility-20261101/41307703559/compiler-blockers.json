@@ -1,0 +1,40 @@
+{
+  "run_id": "41307703559",
+  "run_attempt": 1,
+  "source_sha": "dae96214474474dffe6e0fc96efabb9d2e14990f",
+  "baseline_run_id": "41306097667",
+  "original_norma_errors": 14,
+  "current_norma_errors": 0,
+  "original_errors_eliminated": true,
+  "norma_default_and_bins_check": "PASS (standalone regression gate)",
+  "canvas_tests": {
+    "passed": 52,
+    "failed": 0,
+    "ignored": 0
+  },
+  "norma_platform_tests": {
+    "passed": 43,
+    "failed": 0,
+    "ignored": 0
+  },
+  "app": {
+    "status": "FAIL",
+    "exit_code": 101,
+    "rust_error_count": 5,
+    "errors": [
+      "crates\\voice_input\\src\\vad.rs:45:21: error[E0433]: failed to resolve: use of unresolved module or unlinked crate `sherpa_onnx`: use of unresolved module or unlinked crate `sherpa_onnx`",
+      "crates\\voice_input\\src\\vad.rs:31:12: error[E0433]: failed to resolve: use of unresolved module or unlinked crate `sherpa_onnx`: use of unresolved module or unlinked crate `sherpa_onnx`",
+      "crates\\voice_input\\src\\vad.rs:64:43: error[E0433]: failed to resolve: use of unresolved module or unlinked crate `sherpa_onnx`: use of unresolved module or unlinked crate `sherpa_onnx`",
+      "crates\\voice_input\\src\\vad.rs:65:5: error[E0433]: failed to resolve: use of unresolved module or unlinked crate `sherpa_onnx`: use of unresolved module or unlinked crate `sherpa_onnx`",
+      "crates\\voice_input\\src\\vad.rs:66:21: error[E0433]: failed to resolve: use of unresolved module or unlinked crate `sherpa_onnx`: use of unresolved module or unlinked crate `sherpa_onnx`"
+    ],
+    "root_cause": "voice_input::vad references sherpa_onnx on Windows, but that dependency is declared only for macOS.",
+    "scope": "First failed downstream dependency, not a complete inventory of App porting errors."
+  },
+  "unverified": [
+    "real_norma_graphics",
+    "real_agents",
+    "candidate_package"
+  ],
+  "goal_complete": false
+}

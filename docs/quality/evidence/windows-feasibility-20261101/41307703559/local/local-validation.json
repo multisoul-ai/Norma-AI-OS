@@ -1,0 +1,30 @@
+{
+  "code_commit": "2195d060",
+  "current_workflow_commit": "dae96214474474dffe6e0fc96efabb9d2e14990f",
+  "macos_norma_tests": {
+    "passed": 340,
+    "failed": 0,
+    "ignored": 1,
+    "ignored_test": "real_grok_discovers_installed_skills_and_hooks (unchanged from baseline; requires installed Grok Build)",
+    "verified_at_final_source": true
+  },
+  "macos_workspace_hook": {
+    "cargo_check_workspace": "PASS",
+    "cargo_fmt_check": "PASS",
+    "hook_bypassed": false
+  },
+  "i18n": {
+    "status": "FAIL",
+    "scope": "pre-existing, file unchanged",
+    "path": "crates/app/src/settings/voice/view/gpt_live.rs:70"
+  },
+  "new_ignored_tests": 0,
+  "implementation_commit": "2195d060406342dbe0e2d7b0af955a430f9a5c4a",
+  "head_sha": "dae96214474474dffe6e0fc96efabb9d2e14990f",
+  "task_cache_cleanup": {
+    "status": "PASS",
+    "files_removed": 8881,
+    "size_removed": "1.8 GiB",
+    "scope": "owned task cache only"
+  }
+}

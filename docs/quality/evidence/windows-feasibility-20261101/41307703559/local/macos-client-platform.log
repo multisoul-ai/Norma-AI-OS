@@ -1,0 +1,11 @@
+任务缓存：/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target
+   Compiling norma v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/norma)
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.65s
+     Running tests/client_platform.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/client_platform-f3e52be501d13945)
+
+running 2 tests
+test local_socket_client_rejects_a_response_for_another_request ... ok
+test local_socket_client_round_trips_the_existing_wire_protocol ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

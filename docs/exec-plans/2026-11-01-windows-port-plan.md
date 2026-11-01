@@ -6,7 +6,7 @@ title: Norma OS Windows 适配计划
 subtitle: 先交付核心工作流，再补齐浏览器、语音与系统集成
 日期: 2026-11-01
 代码基准: f0740f6c；探针分支 codex/windows-feasibility-20261101
-状态: 最小 CI 探针已实跑，产品迁移尚未实施
+状态: norma Windows 编译与回归通过；App 首个阻塞为 voice_input
 ---
 
 这是一次中到大型平台移植。保留现有 Rust、GPUI 和域层，在系统能力边界增加 Windows 实现。
@@ -19,10 +19,17 @@ subtitle: 先交付核心工作流，再补齐浏览器、语音与系统集成
 实测环境与图形、编译、Agent 条件分开记录，未通过项保持未通过。
 运行链接、日志索引与阶段状态见 Goal 任务书的本轮验证记录。
 
-最终轮：[41297206819](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41297206819)，整体为 failure。
+首轮收束：[41297206819](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41297206819)，整体为 failure。
 源码版本为 `58fe7ebdaee43f1e3cd6b12725e3f947282dcaa4`。
 GPUI 示例绘图与 OS 键盘关闭通过；产品编译失败。
 真实 Agent 和候选包均未执行，不能据此宣布预览版就绪。
+
+最新复验：[41307703559](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41307703559)，整体仍为 failure。
+源码为 `dae96214474474dffe6e0fc96efabb9d2e14990f`。
+norma 编译与 43 项平台回归通过；App 检查仍失败，完整迁移尚未通过。
+
+macOS norma 为 340 项通过、0 失败、1 项既有 Grok 实机测试忽略；未新增忽略。
+真实 Norma 图形、真实 Agent 和候选包仍为 NOT_RUN。
 
 ## A 改动量与投入
 
@@ -204,7 +211,7 @@ UI 实施前加载 apple-design 与对应 gpui 技能。
 
 ## H 下一步与执行边界
 
-1. 先修复 norma 的 Unix 导入、权限操作和模块引用，恢复 Windows 编译入口。
+1. 适配 voice_input 的 Windows Sherpa/VAD 依赖，再复验 App，继续分类新阻塞。
 2. 再验证 storage 与 workspace 的目录句柄、安全路径和原子保存语义。
 3. 适配 Runtime 的 PowerShell、ConPTY、hook 和进程树收口。
 4. 在已验证的 runner 图形条件下验收真实 Norma 窗口。
@@ -212,13 +219,19 @@ UI 实施前加载 apple-design 与对应 gpui 技能。
 6. 产出同一源码版本的候选包，再进行新 job 下载复验。
 
 已经执行 Windows runner 编译探针，Windows 11 用户设备尚未验收。
-`canvas` 的 52 项测试通过；产品 Windows 编译被 norma 的 14 个错误阻塞。
-这些错误来自当前首个失败依赖，不能视作全部适配工作量。
+原 14 个 norma 错误已消除，Windows lib 与默认 CLI/helper 编译检查通过。
+`norma` 平台回归 43 项通过；`canvas` 52 项通过，两组均无失败与忽略。
+App 退出 101，当前被 voice_input 的 5 个 Sherpa 依赖引用错误阻塞。
+
+该依赖只在 macOS 声明，但 VAD 在 Windows 仍引用它，需适配原生依赖与构建路径。
+本批保留产品能力，没有通过关闭 VAD 或跳过测试换取通过。
+这些是当前首个失败依赖的错误，不能视作全部适配工作量。
 
 基础图形前置已经实测通过，P0 的 ConPTY、文件语义和真实 Agent 仍待验。
 P0/G1 尚未完成，不下调现有估算，也不冻结两个 Agent 的产品支持矩阵。
 原图、日志与哈希索引位于 `docs/quality/evidence/windows-feasibility-20261101/README.md`。
 
-尚未修改产品 Rust 实现，没有升级 GPUI，也未新增通用平台框架。
+本批已修改 norma 的平台边界，保留现有 GPUI 版本和产品能力。
+没有新增通用平台框架。
 构建与验收日志保存到任务证据目录后，再定向回收缓存。
 现有缓存清理脚本依赖 POSIX 工具，不能直接照搬到 Windows。
