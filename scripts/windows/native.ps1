@@ -9,7 +9,9 @@ Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -TypeDefinition @'
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 namespace NormaProbe {
     public static class Native {
         [DllImport("d3d11.dll")] static extern int D3D11CreateDevice(
@@ -29,6 +31,12 @@ namespace NormaProbe {
         [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
         [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr window);
         [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+        [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr window);
+        [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int w, int h, uint flags);
+        [DllImport("user32.dll")] static extern bool AttachThreadInput(uint first, uint second, bool attach);
+        [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr window, StringBuilder text, int count);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr window, StringBuilder text, int count);
         [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr window, int x, int y, int w, int h, bool repaint);
         [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr window, out Rect rect);
@@ -36,11 +44,41 @@ namespace NormaProbe {
         [DllImport("kernel32.dll")] public static extern uint WTSGetActiveConsoleSessionId();
         [DllImport("user32.dll")] static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
         [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
+        public static string ClassName(IntPtr window) {
+            var text = new StringBuilder(256); GetClassName(window, text, text.Capacity); return text.ToString();
+        }
+        public static string Describe(IntPtr window) {
+            uint pid; GetWindowThreadProcessId(window, out pid);
+            var text = new StringBuilder(512); GetWindowText(window, text, text.Capacity);
+            return String.Format("hwnd={0};pid={1};class={2};title={3}", window, pid, ClassName(window), text);
+        }
+        public static string[] VisibleWindows(int process) {
+            var windows = new List<string>();
+            EnumWindows((window, extra) => {
+                uint pid; GetWindowThreadProcessId(window, out pid);
+                if (pid == process && IsWindowVisible(window)) windows.Add(Describe(window));
+                return true;
+            }, IntPtr.Zero);
+            return windows.ToArray();
+        }
+        public static string Activate(IntPtr window) {
+            uint pid;
+            uint other = GetWindowThreadProcessId(GetForegroundWindow(), out pid);
+            uint own = GetCurrentThreadId();
+            bool attached = other != 0 && other != own && AttachThreadInput(own, other, true);
+            try {
+                ShowWindow(window, 9); BringWindowToTop(window);
+                bool activated = SetForegroundWindow(window);
+                return String.Format("attached={0};activated={1};foreground={2}", attached, activated, Describe(GetForegroundWindow()));
+            } finally { if (attached) AttachThreadInput(own, other, false); }
+        }
         public static IntPtr FindWindow(int process) {
             IntPtr found = IntPtr.Zero;
             EnumWindows((window, extra) => {
                 uint pid; GetWindowThreadProcessId(window, out pid);
-                if (pid == process && IsWindowVisible(window)) { found = window; return false; }
+                if (pid == process && IsWindowVisible(window) && ClassName(window) == "Zed::Window") {
+                    found = window; return false;
+                }
                 return true;
             }, IntPtr.Zero);
             return found;
@@ -98,14 +136,12 @@ if ($Mode -eq 'graphics') {
             Start-Sleep -Milliseconds 250
         }
         if ($window -eq [IntPtr]::Zero) { throw 'No visible top-level GPUI window within 35 seconds' }
-        [void][NormaProbe.Native]::ShowWindow($window, 9)
+        $data['visible_windows'] = @([NormaProbe.Native]::VisibleWindows($process.Id))
+        $data['foreground_before'] = [NormaProbe.Native]::Describe([NormaProbe.Native]::GetForegroundWindow())
         [void][NormaProbe.Native]::MoveWindow($window, 60, 60, 640, 560, $true)
-        [void][NormaProbe.Native]::SetForegroundWindow($window)
+        [void][NormaProbe.Native]::SetWindowPos($window, [IntPtr]::new(-1), 0, 0, 0, 0, 0x13)
+        $data['activation'] = [NormaProbe.Native]::Activate($window)
         Start-Sleep -Seconds 2
-        if ([NormaProbe.Native]::GetForegroundWindow() -ne $window) {
-            $failureStatus = 'ENV_UNSUPPORTED'
-            throw 'Cannot establish foreground ownership; no keyboard event sent'
-        }
         $rect = [NormaProbe.Native+Rect]::new()
         if (-not [NormaProbe.Native]::GetWindowRect($window, [ref]$rect)) { throw 'GetWindowRect failed' }
         $width = $rect.Right - $rect.Left
@@ -126,12 +162,12 @@ if ($Mode -eq 'graphics') {
                 }
             }
         } finally { $graphics.Dispose(); $bitmap.Dispose() }
-        $data['window'] = @{ pid = $process.Id; width = $width; height = $height; foreground = $true }
+        $data['window'] = @{ pid = $process.Id; width = $width; height = $height; foreground = ([NormaProbe.Native]::GetForegroundWindow() -eq $window) }
         $data['color_samples'] = @{ red = $red; green = $green; blue = $blue }
         if ($red -lt 20 -or $green -lt 20 -or $blue -lt 20) {
             throw 'Expected red/green/blue GPUI sample pixels were not rendered'
         }
-        $checks.Add(@{ id = 'gpui_window'; status = 'PASS'; detail = 'Owned foreground window and expected GPUI RGB pixels captured'; screenshot = 'gpui-window.png' })
+        $checks.Add(@{ id = 'gpui_window'; status = 'PASS'; detail = 'Owned Zed::Window and expected GPUI RGB pixels captured'; screenshot = 'gpui-window.png' })
         if ([NormaProbe.Native]::GetForegroundWindow() -ne $window) {
             $failureStatus = 'ENV_UNSUPPORTED'
             throw 'Foreground ownership changed after capture; no keyboard event sent'
@@ -146,6 +182,17 @@ if ($Mode -eq 'graphics') {
     } catch {
         $failedId = if (@($checks | Where-Object { $_.id -eq 'gpui_window' }).Count -gt 0) { 'gpui_os_keyboard_close' } else { 'gpui_window' }
         $checks.Add(@{ id = $failedId; status = $failureStatus; detail = ($_ | Out-String) })
+        $data['foreground_after'] = [NormaProbe.Native]::Describe([NormaProbe.Native]::GetForegroundWindow())
+        if ($null -ne $process) { $data['visible_windows'] = @([NormaProbe.Native]::VisibleWindows($process.Id)) }
+        try {
+            $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $snapshot = [System.Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
+            $capture = [System.Drawing.Graphics]::FromImage($snapshot)
+            try {
+                $capture.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $snapshot.Size)
+                $snapshot.Save((Join-Path $Output 'desktop-diagnostic.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+            } finally { $capture.Dispose(); $snapshot.Dispose() }
+        } catch { $data['diagnostic_screenshot_error'] = ($_ | Out-String) }
     } finally {
         if ($null -ne $process -and -not $process.HasExited) {
             $process.Kill($true)

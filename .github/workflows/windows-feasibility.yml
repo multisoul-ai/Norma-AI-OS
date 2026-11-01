@@ -3,6 +3,18 @@ name: Windows feasibility probe
 on:
   push:
     branches: ['codex/windows-feasibility-*']
+    paths:
+      - '.github/workflows/windows-feasibility.yml'
+      - 'scripts/windows/**'
+      - 'scripts/test-windows-probe.py'
+      - 'scripts/check-domain-contracts.py'
+      - 'scripts/test-check-domain-contracts.py'
+      - 'test/windows-probe/**'
+      - 'vendor/gpui-0.2.2/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
   workflow_dispatch:
 
 permissions:
