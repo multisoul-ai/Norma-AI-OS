@@ -10,9 +10,9 @@ use super::super::ideas_rows::IdeasTab;
 use super::super::overview_rows::overview_feedback;
 use super::ideas_row::idea_send_button;
 use super::ideas_tabs::{clear_row, tab_empty};
+use super::overview_parts::content_tooltip;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, KeyDownEvent, Stateful};
-use ui::component::button::{Button, ButtonVariants};
 use ui::component::input::{Input, Paste};
 use ui::component::Sizable;
 
@@ -186,6 +186,7 @@ impl MultisoulApp {
                                     .id(ElementId::Name(
                                         format!("desktop-idea-done-{}", row.id).into(),
                                     ))
+                                    .tooltip(content_tooltip(row.body.clone()))
                                     .min_h(px(36.0))
                                     .px(px(12.0))
                                     .flex()
@@ -329,27 +330,47 @@ impl MultisoulApp {
                         div()
                             .id("desktop-ideas-undo")
                             .mx(px(12.0))
-                            .mb(px(10.0))
-                            .px(px(10.0))
+                            .mt(px(4.0))
+                            .mb(px(12.0))
+                            .pl(px(12.0))
+                            .pr(px(4.0))
                             .h(px(36.0))
                             .flex()
                             .items_center()
                             .justify_between()
                             .gap(px(8.0))
-                            .rounded(px(8.0))
-                            .bg(rgba(ui::icons::with_alpha(theme.accent, 0x1f)))
+                            .rounded(px(4.0))
+                            .bg(rgba(theme.text_primary))
+                            .shadow_md()
                             .text_size(px(12.0))
-                            .text_color(rgba(theme.text_primary))
+                            .text_color(rgba(theme.panel))
                             .child(
                                 div()
                                     .flex_1()
                                     .min_w(px(0.0))
                                     .overflow_hidden()
+                                    .whitespace_nowrap()
+                                    .text_ellipsis()
                                     .child(undo.message()),
                             )
                             .child(
-                                Button::new("desktop-ideas-undo-button")
-                                    .ghost()
+                                div()
+                                    .id("desktop-ideas-undo-button")
+                                    .h(px(28.0))
+                                    .px(px(12.0))
+                                    .flex()
+                                    .items_center()
+                                    .rounded(px(4.0))
+                                    .text_size(px(12.0))
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .text_color(rgba(theme.panel))
+                                    .cursor_pointer()
+                                    .hover(|style| {
+                                        style.bg(rgba(ui::icons::with_alpha(theme.panel, 0x14)))
+                                    })
+                                    .active(|style| {
+                                        style.bg(rgba(ui::icons::with_alpha(theme.panel, 0x1f)))
+                                    })
                                     .child(ui::i18n::text("drawers.undo"))
                                     .on_click(cx.listener(|app, _, _, cx| {
                                         cx.stop_propagation();

@@ -1,7 +1,8 @@
 use super::execute_agent_card_command;
 use gpui::TestAppContext;
 use norma::protocol::{
-    AgentProfile, AgentTaskAssignment, AgentTaskReceiptStatus, CardCommand, CardCommandResult,
+    AgentProfile, AgentTaskAssignment, AgentTaskReceiptStatus, AgentTaskResult,
+    AgentTaskResultAvailability, CardCommand, CardCommandResult,
 };
 use std::sync::{Arc, Mutex};
 use terminal::{PtyBackend, PtyError};
@@ -197,5 +198,158 @@ fn test_session_end_clears_waiting_tasks_before_next_norma_dispatch() {
     assert!(
         !actual_writes.iter().any(|bytes| bytes == b"task-2"),
         "已终止会话的等待任务 task-2 不得被提升或写入 PTY"
+    );
+}
+
+/// 同一轮先 Done 再 Ended 时，已发布的 Done 仍按成功结算。
+///
+/// 数据构造：Alan 当前 task-1，等待 task-2。先把 runtime 写成 Done，再写成 Ended。
+/// 结算按发布顺序：第一条用 Done 和结果文本 "shipped"，第二条用 Ended。
+///
+/// 执行过程：
+///   1. 派发并提交 task-1，task-2 进入等待队列。
+///   2. 注入 Stop 与 SessionEnd，使实时状态停在 Ended。
+///   3. 用发布当时的 Done 结算，再用 Ended 结算。
+///
+/// 预期结果：
+///   - 正断言：task-1 状态是 succeeded，结果文本是 shipped。
+///   - 正断言：task-2 状态是 interrupted。
+///   - 负断言：task-1 不得变成 interrupted，也不得丢掉结果。
+#[test]
+fn published_done_stays_succeeded_when_live_state_is_already_ended() {
+    let writes = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
+    let factory_writes = Arc::clone(&writes);
+    let factory: runtime::PtyFactory = Box::new(move |_cmd, _cols, _rows, _tx| {
+        Ok(Box::new(RecordingPtyBackend {
+            writes: Arc::clone(&factory_writes),
+        }) as Box<dyn PtyBackend>)
+    });
+    let mut gpui = TestAppContext::single();
+    let workspace = tempfile::TempDir::new().expect("发布状态结算测试应创建临时 workspace");
+    let (app, cx) = gpui
+        .add_window_view(|_window, cx| crate::app::MultisoulApp::new_with_pty_factory(cx, factory));
+    app.update(cx, |app, cx| {
+        app.enter_canvas_for_test(workspace.path(), cx)
+    });
+    let created = cx.update(|window, app_cx| {
+        app.update(app_cx, |app, _cx| {
+            execute_agent_card_command(
+                app,
+                window,
+                CardCommand::CreateAgent {
+                    name: Some("Alan".to_string()),
+                    profile: AgentProfile::Codex,
+                    activate: true,
+                },
+            )
+        })
+    });
+    let node_id = match &created {
+        Ok(CardCommandResult::AgentCreated {
+            node_id: Some(node_id),
+            ..
+        }) => *node_id,
+        other => panic!("测试前置必须创建活跃 Alan，实际：{other:?}"),
+    };
+    let marked_ready = app.update(cx, |app, _cx| {
+        app.pending_agent_submissions.mark_ready(node_id)
+    });
+    assert!(
+        marked_ready,
+        "发布状态结算测试必须先把 Alan 标记为 CLI Ready"
+    );
+    let first = dispatch(&app, cx, "task-1");
+    let first_submitted = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
+    });
+    let second = dispatch(&app, cx, "task-2");
+    assert!(
+        matches!(
+            first,
+            Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
+                if receipts.len() == 1 && receipts[0].status == AgentTaskReceiptStatus::Queued
+        ),
+        "task-1 应先入队，实际：{first:?}"
+    );
+    assert!(first_submitted, "task-1 必须已经提交，才能成为当前任务");
+    assert!(
+        matches!(
+            second,
+            Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
+                if receipts.len() == 1 && receipts[0].status == AgentTaskReceiptStatus::Queued
+        ),
+        "task-1 忙碌时 task-2 必须在等待队列，实际：{second:?}"
+    );
+
+    for name in ["Stop", "SessionEnd"] {
+        let event = norma::agent_hook::parse_hook_event(
+            norma::agent_hook::HookSource::Codex,
+            node_id,
+            serde_json::json!({"hook_event_name": name, "session_id": "terminated-session"}),
+        )
+        .expect("结算测试 hook 应可解析");
+        app.update(cx, |app, _cx| {
+            crate::settings::agent_hooks::apply_agent_hook_event(&mut app.runtime, event);
+        });
+    }
+    let live = app.update(cx, |app, _cx| app.runtime.agent_task_state(node_id));
+    assert_eq!(
+        live,
+        Some(runtime::AgentTaskState::Ended),
+        "两条 hook 都应用后，实时状态必须已经是 Ended，才能证明结算没有读它"
+    );
+    let succeeded = app.update(cx, |app, _cx| {
+        app.advance_published_agent_task(
+            node_id,
+            runtime::AgentTaskState::Done,
+            AgentTaskResult {
+                availability: AgentTaskResultAvailability::Available,
+                text: Some("shipped".to_string()),
+                truncated: false,
+                background_unsettled: false,
+            },
+        )
+    });
+    let interrupted = app.update(cx, |app, _cx| {
+        app.advance_published_agent_task(
+            node_id,
+            runtime::AgentTaskState::Ended,
+            AgentTaskResult {
+                availability: AgentTaskResultAvailability::Unavailable,
+                text: None,
+                truncated: false,
+                background_unsettled: false,
+            },
+        )
+    });
+    let tasks = app.update(cx, |app, _cx| {
+        app.agent_task_coordinator
+            .as_ref()
+            .expect("结算测试应有任务协调器")
+            .tasks()
+    });
+    let task1 = tasks.iter().find(|task| task.task == "task-1");
+    let task2 = tasks.iter().find(|task| task.task == "task-2");
+    assert!(succeeded, "发布的 Done 必须结算当前任务");
+    assert!(interrupted, "随后的 Ended 必须结束剩余队列");
+    assert_eq!(
+        task1.map(|task| task.state),
+        Some("succeeded"),
+        "实时状态虽是 Ended，task-1 仍须按发布当时的 Done 记成功，实际 {tasks:?}"
+    );
+    assert_eq!(
+        task1.and_then(|task| task.result.as_ref().and_then(|result| result.text.clone())),
+        Some("shipped".to_string()),
+        "成功结果必须留下发布当时的文本"
+    );
+    assert_ne!(
+        task1.map(|task| task.state),
+        Some("interrupted"),
+        "后到的 SessionEnd 不得把已成功的 task-1 改成中断"
+    );
+    assert_eq!(
+        task2.map(|task| task.state),
+        Some("interrupted"),
+        "等待中的 task-2 应在 Ended 结算时中断，实际 {tasks:?}"
     );
 }

@@ -178,13 +178,6 @@ pub(super) fn settings_content(
                         width - padding * 2.0,
                         cx,
                     ),
-                    SettingsSection::Effects => crate::settings::effects::effects_settings(
-                        theme,
-                        &effects,
-                        width - padding * 2.0,
-                        window,
-                        cx,
-                    ),
                     SettingsSection::NormaBrain => {
                         crate::settings::brain::settings(theme, &brain, cx)
                     }

@@ -59,7 +59,7 @@ public enum BrainFixture {
 
     private static let scriptedAdapter = """
     #!/usr/bin/env python3
-    import json, os, re, subprocess, sys
+    import json, os, re, shlex, subprocess, sys
     def send(o): sys.stdout.write(json.dumps(o) + "\\n"); sys.stdout.flush()
     def read():
         line = sys.stdin.readline()
@@ -93,9 +93,9 @@ public enum BrainFixture {
                 marker = os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "proposed.once")
                 if mode == "propose" and not os.path.exists(marker):
                     for args in (["Bella", "--title", "补登录页测试", "--task", "补上登录页的测试，cargo test 通过即完成", "--why", "登录页还没有测试"],
-                                 ["Alan", "--title", "写登录接口文档", "--task", "为登录接口写使用文档", "--why", "接口刚改过"]):
+                                 ["Alan", "--title", "写登录接口文档", "--task", "目标：为登录接口写使用文档\\n1. **核对协议**：确认参数和错误码。\\n2) **整理示例**：补充成功和失败请求。\\n3. **补充说明**：保留兼容限制，不得推送。\\n验收：文档包含可运行示例和兼容说明。", "--why", "接口刚改过"]):
                         argv = [exe, "brain", "propose"] + args
-                        if permission("scripted", " ".join(argv)):
+                        if permission("scripted", shlex.join(argv)):
                             result = subprocess.run(argv, env=os.environ, timeout=30, capture_output=True, text=True)
                             with open(os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "propose.out"), "a") as f:
                                 f.write(result.stdout + result.stderr + "\\n")
@@ -171,6 +171,7 @@ public enum BrainFixture {
     post("UserPromptSubmit", {"prompt": "实现登录页并补测试"})
     time.sleep(6)
     post("Stop", {"last_assistant_message": "__FINAL__"})
+    open(os.path.join(os.environ["NORMA_BRAIN_DIR"], "agent-finished-1"), "w").write("done")
     time.sleep(3600)
     """
 }

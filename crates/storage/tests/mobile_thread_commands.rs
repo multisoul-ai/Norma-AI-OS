@@ -210,6 +210,7 @@ fn thread_execution_events_are_durable_bound_and_monotonic() {
     done.result = Some(storage::StoredAgentDispatchResult {
         text: Some("导航已修复".into()),
         truncated: false,
+        background_unsettled: false,
     });
     let finished = store
         .record_thread_execution(&bound, &done)

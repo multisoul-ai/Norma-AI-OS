@@ -40,7 +40,11 @@ impl QuestionEditor {
                     InputState::new(window, cx)
                         .default_value(text)
                         .masked(item.secret)
-                        .placeholder(ui::i18n::text("chrome.question_custom_placeholder"))
+                        .placeholder(ui::i18n::input_placeholder(
+                            "chrome.question_custom_placeholder",
+                            window,
+                            cx,
+                        ))
                 })
             })
             .collect();
@@ -88,6 +92,7 @@ impl MultisoulApp {
             return None;
         }
         let enabled = row.available;
+        let theme = self.desktop_theme();
         let mut body = div().flex().flex_col().gap(px(8.));
         for (index, item) in editor.draft.question.items.iter().enumerate() {
             let mut group = div()
@@ -113,7 +118,7 @@ impl MultisoulApp {
                         div()
                             .pl(px(20.))
                             .text_size(px(11.))
-                            .text_color(rgba(0xa9c0d5ff))
+                            .text_color(rgba(theme.text_secondary))
                             .child(description.clone()),
                     );
                 }
@@ -183,10 +188,11 @@ impl MultisoulApp {
             }
             cx.stop_propagation();
         });
+        let theme = self.desktop_theme();
         let color = rgba(if row.available {
-            0xeef6ffff
+            theme.text_primary
         } else {
-            0x8ea8bfff
+            theme.text_tertiary
         });
         if multiple {
             Checkbox::new(id)
@@ -197,8 +203,8 @@ impl MultisoulApp {
                 .text_color(color)
                 .p(px(6.))
                 .rounded(px(6.))
-                .hover(|s| s.bg(rgba(0x58adff2e)))
-                .active(|s| s.bg(rgba(0x58adff55)))
+                .hover(|s| s.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x18))))
+                .active(|s| s.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x30))))
                 .on_click(click)
                 .into_any_element()
         } else {
@@ -210,8 +216,8 @@ impl MultisoulApp {
                 .text_color(color)
                 .p(px(6.))
                 .rounded(px(6.))
-                .hover(|s| s.bg(rgba(0x58adff2e)))
-                .active(|s| s.bg(rgba(0x58adff55)))
+                .hover(|s| s.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x18))))
+                .active(|s| s.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x30))))
                 .on_click(click)
                 .into_any_element()
         }

@@ -1,0 +1,77 @@
+{
+  "version": "voice-roster-v1",
+  "agents": [
+    {
+      "definition_id": 1,
+      "name": "Daisy",
+      "speech_alias": "黛西",
+      "enabled": true,
+      "active_node_id": 1,
+      "task_state": "ready",
+      "profile": "codex"
+    },
+    {
+      "definition_id": 2,
+      "name": "Alan",
+      "speech_alias": "艾伦",
+      "enabled": true,
+      "active_node_id": 2,
+      "task_state": "ready",
+      "profile": "codex"
+    },
+    {
+      "definition_id": 3,
+      "name": "Dana",
+      "speech_alias": "戴娜",
+      "enabled": true,
+      "active_node_id": 3,
+      "task_state": "ready",
+      "profile": "codex"
+    },
+    {
+      "definition_id": 4,
+      "name": "Diana",
+      "speech_alias": "戴安娜",
+      "enabled": true,
+      "active_node_id": 4,
+      "task_state": "ready",
+      "profile": "codex"
+    },
+    {
+      "definition_id": 5,
+      "name": "Simon",
+      "speech_alias": "西蒙",
+      "enabled": true,
+      "active_node_id": 5,
+      "task_state": "ready",
+      "profile": "codex"
+    },
+    {
+      "definition_id": 6,
+      "name": "Haocen",
+      "speech_alias": "浩辰",
+      "enabled": true,
+      "active_node_id": 6,
+      "task_state": "ready",
+      "profile": "codex"
+    },
+    {
+      "definition_id": 7,
+      "name": "Rowan",
+      "speech_alias": null,
+      "enabled": true,
+      "active_node_id": 7,
+      "task_state": "ready",
+      "profile": "codex"
+    },
+    {
+      "definition_id": 8,
+      "name": "Quinn",
+      "speech_alias": null,
+      "enabled": true,
+      "active_node_id": 8,
+      "task_state": "ready",
+      "profile": "codex"
+    }
+  ]
+}

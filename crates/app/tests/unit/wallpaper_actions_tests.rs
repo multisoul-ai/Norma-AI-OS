@@ -1,5 +1,5 @@
 use crate::app::{AppScreen, MultisoulApp};
-use crate::settings::wallpaper::{scoped::WallpaperContext, state::WallpaperSelection};
+use crate::settings::wallpaper::state::WallpaperSelection;
 use gpui::{AppContext, TestAppContext};
 
 fn fixture() -> (tempfile::TempDir, storage::DatabasePaths, storage::AppStore) {
@@ -9,14 +9,12 @@ fn fixture() -> (tempfile::TempDir, storage::DatabasePaths, storage::AppStore) {
     (temp, paths, store)
 }
 
-/// WP-06：项目发起保存后立即切换工作空间，迟到请求仍只写原区域。
-///
-/// 数据构造：同项目目录 1，工作空间 2，区域 2；甲和乙初始壁纸分别为默认和 nebula。
-///   项目请求覆盖 Aurora 后，在同一前台轮次立即切到乙，后台请求尚未处理。
-/// 执行过程：项目捕获甲范围 → 宿主切乙 → 执行异步写入 → 检查存储和宿主实际背景。
-/// 预期结果：甲项目保存 Aurora；乙项目无覆盖，乙背景保持 nebula；全局选择不变。
+/// 全局壁纸：项目发起保存并立即切换空间，所有已打开视图仍收到同一个选择。
+/// 数据构造：两个空间保留不同旧壁纸，一个已打开项目，选择 Aurora。
+/// 执行过程：项目请求保存 → 宿主切换空间 → 等待后台完成 → 检查全局存储和两个视图。
+/// 预期结果：全局值持久化为 Aurora，宿主和项目一致，旧项目字段没有新覆盖。
 #[test]
-fn deferred_project_save_stays_with_original_workspace_after_navigation() {
+fn global_wallpaper_save_survives_navigation_and_updates_open_project() {
     let (temp, paths, store) = fixture();
     let project = temp.path().join("project");
     std::fs::create_dir(&project).expect("应创建项目");
@@ -45,13 +43,26 @@ fn deferred_project_save_stays_with_original_workspace_after_navigation() {
         MultisoulApp::new_with_database_context(cx, paths.clone(), store.clone())
     });
     cx.run_until_parked();
+    let settings = storage::SettingsStore::new(paths.app_db_path().to_owned());
+    let second_host =
+        cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths.clone(), store.clone()));
+    cx.update(|window, cx| {
+        crate::workspace::desktop::sessions::register(
+            settings.path().to_owned(),
+            window.window_handle(),
+            host.clone(),
+            cx,
+        );
+        crate::workspace::desktop::sessions::register(
+            settings.path().to_owned(),
+            window.window_handle(),
+            second_host.clone(),
+            cx,
+        );
+    });
     let session = cx.new(|cx| {
         let mut app = MultisoulApp::new_with_database_context(cx, paths, store);
         app.desktop_host = Some(host.downgrade());
-        app.wallpaper_settings.scoped.bind(Some(WallpaperContext {
-            workspace: alpha.clone(),
-            area: Some(first.clone()),
-        }));
         app
     });
     host.update(cx, |app, cx| {
@@ -75,37 +86,57 @@ fn deferred_project_save_stays_with_original_workspace_after_navigation() {
     cx.run_until_parked();
     assert_eq!(
         catalog.list_projects(&alpha.id).expect("应读甲项目")[0].wallpaper,
-        Some(aurora.reference()),
-        "迟到保存必须写入原甲区域"
+        None,
+        "全局保存不得再写项目覆盖"
     );
     assert_eq!(
         catalog.list_projects(&beta.id).expect("应读乙项目")[0].wallpaper,
         None,
         "迟到保存不得写入乙区域"
     );
-    host.update(cx, |app, _| {
+    assert_eq!(
+        settings.get_string("wallpaper.value").expect("应读设置"),
+        Some("wallpapers/1350954.webp".into()),
+        "壁纸应保存到全局设置"
+    );
+    session.update(cx, |app, _| {
         assert_eq!(
-            app.wallpaper_settings.selection, nebula,
-            "乙应保持自己的壁纸"
+            app.wallpaper_settings.selection, aurora,
+            "已打开项目应同步全局壁纸"
         );
+    });
+    second_host.update(cx, |app, _| {
         assert_eq!(
-            app.wallpaper_settings.scoped.global, default,
-            "项目保存不得污染全局背景"
+            app.wallpaper_settings.selection, aurora,
+            "另一个顶层窗口也必须同步"
         );
         assert!(
-            !app.wallpaper_settings.scoped.busy,
+            !app.wallpaper_settings.preferences.busy,
+            "另一个窗口应解除保存状态"
+        );
+    });
+    host.update(cx, |app, _| {
+        assert_eq!(
+            app.wallpaper_settings.selection, aurora,
+            "切换后的空间也应显示全局选择"
+        );
+        assert_eq!(
+            app.wallpaper_settings.preferences.global, aurora,
+            "项目发起的选择应更新全局背景"
+        );
+        assert!(
+            !app.wallpaper_settings.preferences.busy,
             "保存完成必须解除等待状态"
         );
     });
 }
 
-/// WP-07：数据库拒绝保存后恢复原范围，不能回滚用户后来切到的空间。
-///
-/// 数据构造：工作空间 2，触发器 1，拒绝所有壁纸更新；甲默认，乙 Aurora。
-/// 执行过程：甲请求 Nebula → 切乙 → 后台触发器拒绝写入 → 检查甲存档和乙背景。
-/// 预期结果：甲恢复默认，乙仍 Aurora；没有遗留 saving 状态和未保存的 Nebula。
+/// 场景：全局壁纸保存失败且用户已切换空间，回滚到最后全局值。
+/// 数据构造：两个空间保存不同旧壁纸；settings 触发器拒绝壁纸写入。
+/// 执行过程：请求 Nebula → 切到另一个空间 → 等待失败 → 检查存档和渲染。
+/// 预期结果：两个空间旧数据不变，当前背景恢复全局默认，并结束保存状态。
 #[test]
-fn failed_save_restores_original_scope_without_touching_new_workspace() {
+fn failed_global_save_restores_selection_after_navigation() {
     let (_temp, paths, store) = fixture();
     let catalog = store.desktop_workspace_store();
     let default = WallpaperSelection::default();
@@ -119,7 +150,7 @@ fn failed_save_restores_original_scope_without_touching_new_workspace() {
         .create_with_wallpaper("Beta", &aurora.reference())
         .expect("应创建乙");
     let connection = rusqlite::Connection::open(paths.app_db_path()).expect("应打开故障注入连接");
-    connection.execute_batch("CREATE TRIGGER reject_wallpaper BEFORE UPDATE OF wallpaper_json ON desktop_workspaces BEGIN SELECT RAISE(FAIL,'simulated storage failure'); END;").expect("应注入写入故障");
+    connection.execute_batch("CREATE TRIGGER reject_wallpaper BEFORE INSERT ON settings WHEN NEW.key='wallpaper.value' BEGIN SELECT RAISE(FAIL,'simulated storage failure'); END;").expect("应注入写入故障");
     drop(connection);
     let mut test = TestAppContext::single();
     let (host, cx) =
@@ -151,8 +182,8 @@ fn failed_save_restores_original_scope_without_touching_new_workspace() {
     );
     host.update(cx, |app, _| {
         assert_eq!(
-            app.wallpaper_settings.selection, aurora,
-            "失败不能回滚乙背景"
+            app.wallpaper_settings.selection, default,
+            "失败必须回滚到原全局背景"
         );
         assert_eq!(
             app.desktop_workspace
@@ -165,7 +196,7 @@ fn failed_save_restores_original_scope_without_touching_new_workspace() {
             "甲的乐观预览应恢复"
         );
         assert!(
-            !app.wallpaper_settings.scoped.busy,
+            !app.wallpaper_settings.preferences.busy,
             "失败必须结束 saving 状态"
         );
     });
@@ -174,15 +205,15 @@ fn failed_save_restores_original_scope_without_touching_new_workspace() {
 /// WP-10：在素材库底部请求删除，确认对话框仍位于窗口可见范围，取消不改引用。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   两个工作空间 Alpha/Beta 同时引用 shared.webp；项目覆盖为 0。
+///   两个工作空间保留旧 shared.webp 引用，设置删除同一个素材。
 ///   设置内容滚动到 y = -1000px，模拟浏览到长素材库底部；窗口对话框独立于该滚动范围。
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 请求删除素材，后台查询两个工作空间的引用。
-///   2. 查询完成后检查窗口的对话框层与受影响范围。
+///   1. 请求删除素材，打开窗口级确认。
+///   2. 检查窗口的对话框层与文件名。
 ///   3. 取消确认，等待前台状态同步，再读取两个工作空间。
 ///
 /// 预期结果：
-///   - 正断言：窗口有活动确认对话框，Alpha/Beta 均列为受影响范围。
+///   - 正断言：窗口有活动确认对话框，待删除文件为 shared.webp。
 ///   - 负断言：取消后对话框和 pending prompt 均消失，两个引用均不得改变。
 #[test]
 fn wallpaper_delete_confirmation_is_window_scoped_and_cancel_preserves_references() {
@@ -225,19 +256,14 @@ fn wallpaper_delete_confirmation_is_window_scoped_and_cancel_preserves_reference
     host.update(cx, |app, _| {
         let prompt = app
             .wallpaper_settings
-            .scoped
+            .preferences
             .delete_prompt
             .as_ref()
             .expect("应查询到引用");
-        assert!(
-            prompt.usage.workspaces.contains(&"Alpha".into()),
-            "确认必须列出甲引用"
+        assert_eq!(
+            prompt.filename, "shared.webp",
+            "确认应针对所选文件，不再列出旧项目范围"
         );
-        assert!(
-            prompt.usage.workspaces.contains(&"Beta".into()),
-            "确认必须列出乙引用"
-        );
-        assert!(prompt.usage.projects.is_empty(), "无项目时不能虚构项目引用");
     });
     cx.update(|window, cx| window.draw(cx).clear());
     let bounds = cx
@@ -250,7 +276,7 @@ fn wallpaper_delete_confirmation_is_window_scoped_and_cancel_preserves_reference
     });
     host.update(cx, |app, _| {
         assert!(
-            app.wallpaper_settings.scoped.delete_prompt.is_none(),
+            app.wallpaper_settings.preferences.delete_prompt.is_none(),
             "取消后不得锁住素材库"
         );
     });

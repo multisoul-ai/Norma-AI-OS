@@ -5,6 +5,7 @@
 
 use super::super::overview_layout::OverviewGroup;
 use super::super::overview_rows::overview_feedback;
+use super::overview_parts::content_tooltip;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, KeyDownEvent};
 use ui::component::StyledExt;
@@ -67,6 +68,7 @@ impl MultisoulApp {
                         div()
                             .id(ElementId::Name(id.clone().into()))
                             .debug_selector(move || id.clone())
+                            .tooltip(content_tooltip(format!("{label} {count}")))
                             .flex_1()
                             .min_w(px(0.0))
                             .px(px(14.0))
@@ -118,7 +120,7 @@ impl MultisoulApp {
                                     .line_height(px(LABEL_LINE))
                                     .text_size(px(12.0))
                                     .text_color(rgba(theme.text_secondary))
-                                    .overflow_hidden()
+                                    .truncate()
                                     .child(label),
                             )
                     }),

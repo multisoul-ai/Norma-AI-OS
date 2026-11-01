@@ -47,7 +47,7 @@ impl TaskClock {
         match event.provider_event.as_str() {
             "SessionStart" => *self = Self::default(),
             "UserPromptSubmit" => self.start(event.turn_id.as_deref()),
-            "Stop" | "StopFailure" | "SessionEnd" => self.finish(),
+            "Stop" | "StopFailure" | "SessionEnd" | "turn/completed" => self.finish(),
             _ => {}
         }
     }

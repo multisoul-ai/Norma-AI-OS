@@ -14,16 +14,7 @@ impl Runtime {
 
     /// Automatic task paste must not overwrite a human draft after control returns or expires.
     pub fn send_agent_task_text(&mut self, node_id: NodeId, text: &str) -> Result<(), NodeError> {
-        if self.native_question_host_pending(node_id) {
-            return self.fail_node_operation(
-                Some(node_id),
-                "input",
-                NodeError::Pty(terminal::PtyError::Io(std::io::Error::new(
-                    std::io::ErrorKind::WouldBlock,
-                    "Agent 正在准备，请稍候",
-                ))),
-            );
-        }
+        self.reject_while_native_host_pending(node_id)?;
         if self.has_pending_question(node_id) {
             return self.fail_node_operation(
                 Some(node_id),
@@ -47,6 +38,33 @@ impl Runtime {
             );
         }
         self.send_node_input(node_id, NodeInput::Paste(text.into()))
+    }
+
+    /// The native host is not verified yet, so the screen may be a launch prompt (e.g. update menu)
+    /// where one stray Enter confirms the default item.
+    fn reject_while_native_host_pending(&mut self, node_id: NodeId) -> Result<(), NodeError> {
+        if !self.native_question_host_pending(node_id) {
+            return Ok(());
+        }
+        self.fail_node_operation(
+            Some(node_id),
+            "input",
+            NodeError::Pty(terminal::PtyError::Io(std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                "Agent 正在准备，请稍候",
+            ))),
+        )
+    }
+
+    /// Non-keyboard writers (task submit/clear/cancel) must never type into a screen the host
+    /// has not verified. Human keyboard input keeps using [`Self::send_node_input`].
+    pub fn send_automated_input(
+        &mut self,
+        node_id: NodeId,
+        input: NodeInput,
+    ) -> Result<(), NodeError> {
+        self.reject_while_native_host_pending(node_id)?;
+        self.send_node_input(node_id, input)
     }
 
     pub(super) fn native_question_host_pending(&self, node: NodeId) -> bool {
@@ -115,3 +133,7 @@ impl Runtime {
         self.finish_node_operation(Some(node_id), "input", result)
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/automated_input_guard_tests.rs"]
+mod automated_input_guard_tests;

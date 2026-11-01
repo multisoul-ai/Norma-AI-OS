@@ -9,6 +9,14 @@ impl Runtime {
     ) -> Result<Vec<ApprovalSnapshot>, &'static str> {
         self.drain_mobile_codex();
         self.drain_mobile_claude();
+        self.cached_mobile_approval_snapshots(node)
+    }
+
+    /// Memory-only projection after the normal runtime drain; does not poll Providers or write audits.
+    pub fn cached_mobile_approval_snapshots(
+        &mut self,
+        node: NodeId,
+    ) -> Result<Vec<ApprovalSnapshot>, &'static str> {
         let card = self
             .mobile_card_snapshots()
             .into_iter()
@@ -69,7 +77,7 @@ impl Runtime {
                     });
                 }
                 for approval in self
-                    .mobile_codex_approvals(node)
+                    .cached_mobile_codex_approvals(node)
                     .map_err(|_| "approval_unavailable")?
                 {
                     let decisions = [ApprovalDecision::Allow, ApprovalDecision::Deny]

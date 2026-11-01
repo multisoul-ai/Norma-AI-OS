@@ -29,10 +29,7 @@ pub(crate) fn options(source: Source) -> Vec<Option<&'static str>> {
 }
 
 fn saved(data: &EffectsPageData, source: Source) -> Option<String> {
-    let pref = data
-        .target
-        .as_ref()
-        .and_then(|target| data.state.effective_for(target));
+    let pref = data.state.global.as_ref();
     pref.and_then(|pref| match source {
         Source::Voice => pref.voice.clone(),
         Source::Idea => pref.idea.clone(),
@@ -63,11 +60,7 @@ pub(super) fn sources_section(
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let enabled = data.target.is_some()
-        && data
-            .target
-            .as_ref()
-            .is_some_and(|t| !data.state.follows_workspace(t));
+    let enabled = !data.state.busy;
     div()
         .flex()
         .flex_col()
@@ -147,11 +140,7 @@ fn picker(
     let current = saved(data, source);
     let list = options(source);
     let cursor = data.menu_cursor.min(list.len() - 1);
-    let followed = data
-        .target
-        .as_ref()
-        .map(|t| data.state.selected_style(t).to_owned())
-        .unwrap_or_default();
+    let followed = data.state.selected_style().to_owned();
     let app = cx.weak_entity();
     let key_app = app.clone();
     let open_app = app.clone();

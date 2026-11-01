@@ -144,7 +144,10 @@ impl Runtime {
             .mobile_runs
             .get(&current.node_id)
             .ok_or("terminal_unavailable")?;
-        if !run.native || !terminal_input_ready(run) {
+        if !run.native
+            || !terminal_input_ready(run)
+            || self.native_question_host_pending(current.node_id)
+        {
             return Err("state_not_ready");
         }
         let NodeView::Term { status, .. } = self

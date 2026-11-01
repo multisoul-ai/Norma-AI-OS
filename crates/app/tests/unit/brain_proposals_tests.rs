@@ -10,6 +10,39 @@ fn draft(agent: &str, title: &str) -> Draft {
     }
 }
 
+/// 场景：超长的新建议不能先删掉同 Agent 已经等待用户处理的建议。
+/// 构造：先存一条有效提议，再提交 51 字符标题；另构造旧版长文案快照。
+/// 执行：使用生产 add/from_json，而非 UI 字符截取。
+/// 预期：新文案被拒，旧提议与编号不变；历史长数据仍完整兼容读取。
+#[test]
+fn invalid_decision_copy_preserves_pending_proposals_and_legacy_data() {
+    let mut proposals = Proposals::default();
+    let id = proposals
+        .add(draft("Henry", "补回归测试"), SystemTime::UNIX_EPOCH)
+        .unwrap();
+    let before = proposals.to_json();
+    assert!(
+        proposals
+            .add(draft("Henry", &"字".repeat(51)), SystemTime::UNIX_EPOCH)
+            .is_err(),
+        "51 字符标题必须在替换前拒绝"
+    );
+    assert_eq!(
+        proposals.to_json(),
+        before,
+        "校验失败不能删除旧建议或消耗编号"
+    );
+    assert_eq!(proposals.items()[0].id, id, "待处理提议的身份必须保持");
+    let mut legacy: Value = serde_json::from_str(&before).unwrap();
+    legacy["items"][0]["title"] = json!("字".repeat(80));
+    let restored = Proposals::from_json(&legacy.to_string()).unwrap();
+    assert_eq!(
+        restored.items()[0].title.chars().count(),
+        80,
+        "历史长数据不能被删除或截断"
+    );
+}
+
 fn entry(name: &str, card: bool, busy: bool) -> RosterLite {
     RosterLite {
         name: name.into(),

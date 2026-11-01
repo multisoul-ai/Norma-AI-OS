@@ -137,6 +137,165 @@ async fn default_window_sends_attributed_shared_data() {
     );
 }
 
+/// 场景：桌面项目画布的单次语音输入不能在组装共享资料时耗尽默认预算。
+/// 构造：默认 16,384 token 窗口、空项目画布、真实桌面工具集和最小共享状态。
+/// 执行：通过与语音回合一致的 turn_streaming(Voice) 入口发送一条简短问句。
+/// 预期：只发一个模型请求，保留当前输入、共享资料和桌面工具，不报 available 0。
+/// 数值：默认输入预算为 (16,384 - 2,048 回复 token) × 2 保守字节/token。
+#[tokio::test]
+async fn desktop_voice_command_sends_shared_context_in_default_window() {
+    let (endpoint, server) = sse::serve(vec![
+        serde_json::json!({"role":"assistant","content":"当前没有待处理事项。"}),
+    ])
+    .await;
+    let config = ProviderConfig::new(
+        ProviderProtocol::OpenAiCompatible,
+        endpoint,
+        "fixture",
+        Some("fixture".into()),
+    );
+    let mut session = NormaSession::new("project", &config, Arc::new(Host)).unwrap();
+    session.update_desktop_context(Some(agent::DesktopContext::ProjectCanvas {
+        workspace_id: "w".into(),
+        workspace_name: "工作空间".into(),
+        area_id: "a".into(),
+        project_name: "项目".into(),
+    }));
+    let (deltas, _received) = tokio::sync::mpsc::channel(16);
+    let result = session
+        .turn_streaming(
+            "当前项目有什么进展？",
+            deltas,
+            agent::AgentInputSource::Voice,
+        )
+        .await;
+    assert!(
+        result.is_ok(),
+        "桌面语音请求应有足够的共享资料预算：{result:?}"
+    );
+    let requests = server.await.unwrap();
+    assert_eq!(requests.len(), 1, "单次语音输入只能产生一个模型请求");
+    let body = &requests[0];
+    let messages = body["messages"].to_string();
+    assert!(
+        messages.contains("当前项目有什么进展？"),
+        "当前语音输入必须保留"
+    );
+    assert!(messages.contains("shared_context_data"), "必须保留共享资料");
+    assert!(
+        body["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|tool| tool["function"]["name"] == "workspace_snapshot"),
+        "不能靠删除桌面状态工具规避预算错误"
+    );
+    assert!(
+        body.to_string().len() + 512 <= (16_384 - 2048) * 2,
+        "实际请求加 512 字节协议余量必须满足已预留回复的输入预算"
+    );
+}
+
+struct DesktopToolHost;
+impl AgentCardAdapter for DesktopToolHost {
+    fn shared_context<'a>(
+        &'a self,
+        context: &'a ToolContext,
+    ) -> BoxFuture<'a, Result<Option<ContextFrame>, AdapterError>> {
+        Box::pin(async move {
+            let mut frame = Host.shared_context(context).await?.unwrap();
+            // 320 × 6 UTF-8 bytes makes the required goal 1,920 bytes, so the
+            // fixture covers a few-KiB state like the reported 2,850-byte error.
+            frame.snapshot.state.goal = Some(ContextFact {
+                reference: frame.input.clone(),
+                text: "目标".repeat(320),
+            });
+            Ok(Some(frame))
+        })
+    }
+    fn execute<'a>(
+        &'a self,
+        command: AdapterCommand,
+        context: &'a ToolContext,
+    ) -> BoxFuture<'a, Result<AdapterResult, AdapterError>> {
+        Box::pin(async move {
+            assert_eq!(
+                context.input_source,
+                agent::AgentInputSource::Voice,
+                "保留语音来源"
+            );
+            assert!(
+                matches!(
+                    command,
+                    AdapterCommand::WorkspaceSnapshot {
+                        scope: agent::WorkspaceSnapshotScope::CurrentProject,
+                        area_id: None
+                    }
+                ),
+                "只执行当前项目的只读状态查询"
+            );
+            Ok(AdapterResult::succeeded("当前项目暂无待办")
+                .with_snapshot(serde_json::json!({"proof":"BUDGET_FIX_RECEIPT"})))
+        })
+    }
+}
+
+/// 场景：桌面语音请求携带数 KiB 必需状态时，仍可调用工具并基于真实回执回复。
+/// 构造：默认 16k 窗口、1,920 字节目标、一次 workspace_snapshot 调用及小型回执。
+/// 执行：调用公开语音流入口，回环服务器先要求工具，再返回最终回答。
+/// 预期：工具只执行一次，第二次请求保留目标和回执，不被未发生的下一次工具结果挤出。
+#[tokio::test]
+async fn desktop_voice_tool_roundtrip_retains_required_state_and_receipt() {
+    let (endpoint, server) = sse::serve(vec![
+        serde_json::json!({"role":"assistant","tool_calls":[{"index":0,"id":"snapshot-1",
+            "type":"function","function":{"name":"workspace_snapshot",
+            "arguments":"{\"scope\":\"current_project\"}"}}]}),
+        serde_json::json!({"role":"assistant","content":"当前项目暂无待办"}),
+    ])
+    .await;
+    let config = ProviderConfig::new(
+        ProviderProtocol::OpenAiCompatible,
+        endpoint,
+        "fixture",
+        Some("fixture".into()),
+    );
+    let mut session = NormaSession::new("project", &config, Arc::new(DesktopToolHost)).unwrap();
+    session.update_desktop_context(Some(agent::DesktopContext::ProjectCanvas {
+        workspace_id: "w".into(),
+        workspace_name: "工作空间".into(),
+        area_id: "a".into(),
+        project_name: "项目".into(),
+    }));
+    let (deltas, _received) = tokio::sync::mpsc::channel(16);
+    let result = session
+        .turn_streaming(
+            "当前项目有什么进展？",
+            deltas,
+            agent::AgentInputSource::Voice,
+        )
+        .await
+        .expect("桌面语音工具回合不能因预留预算而失败");
+    assert_eq!(result.tool_calls, 1, "只能执行一次状态查询");
+    assert_eq!(
+        result.final_text, "当前项目暂无待办",
+        "返回模型基于回执生成的回答"
+    );
+    let requests = server.await.unwrap();
+    assert_eq!(requests.len(), 2, "一个工具回合应包含初始请求和回执续轮");
+    let continuation = requests[1]["messages"].to_string();
+    assert!(continuation.contains("目标目标"), "续轮必须保留必需目标");
+    assert!(
+        continuation.contains("BUDGET_FIX_RECEIPT"),
+        "续轮必须保留实际工具回执"
+    );
+    assert!(
+        !requests[0]["messages"]
+            .to_string()
+            .contains("BUDGET_FIX_RECEIPT"),
+        "首轮不能提前存在尚未执行的工具回执"
+    );
+}
+
 struct LargeReceiptHost;
 impl AgentCardAdapter for LargeReceiptHost {
     fn shared_context<'a>(

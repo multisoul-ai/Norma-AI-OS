@@ -148,7 +148,7 @@ public enum WorkspaceIdeasShortcuts {
         try await session.step("按住 ⌃：卡片左上角浮出序号；按住 ⌃⇧：出现新建类型提示；松开后都消失") {
             let frame = try await session.capture()
             let width = Double(frame.windowFrame.width)
-            let drawer = min(438, max(366, width * 0.31))
+            let drawer = (min(438, max(366, width * 0.31)) - 150)
             let size = frame.windowFrame.size
             let corner = CGRect(x: drawer + 22 - 12, y: 72 - 17, width: 36, height: 36)
             let baseline = try await session.snapshot()

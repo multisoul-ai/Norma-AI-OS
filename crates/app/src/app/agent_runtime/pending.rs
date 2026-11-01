@@ -50,6 +50,10 @@ impl PendingAgentSubmissions {
     }
 
     fn mark_starting_at(&mut self, node_id: NodeId, started_at: Instant) {
+        tracing::info!(
+            node_id,
+            "[ask-diag] card starting: tasks wait for ready signal or 30s grace"
+        );
         self.ready_after
             .insert(node_id, started_at + AGENT_STARTUP_GRACE);
     }
@@ -92,6 +96,13 @@ impl PendingAgentSubmissions {
     #[cfg(any(test, feature = "e2e-test-support"))]
     pub(crate) fn is_waiting(&self, node_id: NodeId) -> bool {
         self.ready_after.contains_key(&node_id)
+    }
+
+    /// 诊断用：卡片是否仍在启动宽限内。
+    pub(crate) fn is_waiting_for_start(&self, node_id: NodeId) -> bool {
+        self.ready_after
+            .get(&node_id)
+            .is_some_and(|at| *at > Instant::now())
     }
 
     pub(crate) fn mark_ready(&mut self, node_id: NodeId) -> bool {
@@ -217,6 +228,14 @@ impl MultisoulApp {
         node_id: NodeId,
         cx: &mut gpui::Context<Self>,
     ) -> bool {
+        tracing::info!(
+            node_id,
+            has_pending = self
+                .pending_agent_submissions
+                .submissions
+                .contains_key(&node_id),
+            "[ask-diag] ready/due: trying to submit pending task"
+        );
         if self.runtime.agent_task_input_held(node_id)
             || matches!(
                 self.runtime.agent_task_state(node_id),
@@ -231,14 +250,28 @@ impl MultisoulApp {
                 .get(&node_id)
                 .is_some_and(|pending| pending.stage == PendingSubmissionStage::RecoveryRequired)
         {
+            tracing::info!(
+                node_id,
+                input_held = self.runtime.agent_task_input_held(node_id),
+                task_state = ?self.runtime.agent_task_state(node_id),
+                "[ask-diag] submit skipped: input held, waiting for user, or recovery required"
+            );
             return false;
         }
         let Some(pending) = self.pending_agent_submissions.take_ready(node_id) else {
+            tracing::info!(
+                node_id,
+                "[ask-diag] submit skipped: no pending submission for node"
+            );
             return false;
         };
         if self.mobile_delivery_pending(node_id)
             || !self.prepare_realtime_submission(pending.receipt.task_id, cx)
         {
+            tracing::info!(
+                node_id,
+                "[ask-diag] submission deferred: delivery capture or mobile delivery in progress"
+            );
             // Keep the exact stage: a task already pasted must not be pasted a second time.
             self.pending_agent_submissions
                 .submissions
@@ -249,9 +282,20 @@ impl MultisoulApp {
             return false;
         }
         let receipt = pending.receipt;
+        tracing::info!(
+            node_id,
+            task_id = receipt.task_id,
+            stage = ?pending.stage,
+            "[ask-diag] submitting pending task"
+        );
         if pending.stage == PendingSubmissionStage::TypeTask {
             return match type_agent_task(&mut self.runtime, receipt.node_id, &receipt.task) {
                 Ok(()) => {
+                    tracing::info!(
+                        node_id,
+                        task_id = receipt.task_id,
+                        "[ask-diag] task typed, enter scheduled"
+                    );
                     self.pending_agent_submissions.schedule_enter(receipt);
                     true
                 }
@@ -271,6 +315,11 @@ impl MultisoulApp {
         }
         match submit_agent_enter(&mut self.runtime, receipt.node_id) {
             Ok(()) => {
+                tracing::info!(
+                    node_id,
+                    task_id = receipt.task_id,
+                    "[ask-diag] enter submitted"
+                );
                 self.realtime_submission_sent(receipt.task_id, cx);
                 if let Some(coordinator) = self.agent_task_coordinator.as_mut() {
                     coordinator.mark_task_submitted(receipt.task_id);

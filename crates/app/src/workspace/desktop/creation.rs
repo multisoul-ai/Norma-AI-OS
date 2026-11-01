@@ -208,15 +208,9 @@ impl MultisoulApp {
         self.desktop_workspace.error = None;
         cx.notify();
         let store = self.desktop_workspace.store.clone();
-        let wallpaper = if self.wallpaper_settings.scoped.context.is_some() {
-            self.wallpaper_settings.scoped.workspace_selection()
-        } else {
-            self.wallpaper_settings.scoped.global.clone()
-        }
-        .reference();
         let work = cx
             .background_executor()
-            .spawn(async move { store.create_with_wallpaper(&name, &wallpaper) });
+            .spawn(async move { store.create(&name) });
         cx.spawn_in(window, async move |this, cx| {
             let result = work.await;
             this.update_in(cx, |app, window, cx| {

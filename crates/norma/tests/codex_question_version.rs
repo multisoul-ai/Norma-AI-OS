@@ -8,17 +8,21 @@ mod support;
 use support::{read, send, timed};
 
 /// 场景：实验raw协议只对实测版本开放，未知版本仍保持原TUI连接可用。
-/// 构造：真实Unix socket，initialize分别返回0.162.1、未来版本和缺失版本。
+/// 构造：真实Unix socket，initialize分别返回0.162.1、0.166.0、未实测版本和缺失版本。
 /// 执行：原TUI自行initialize/start；核对只在已核验版本注入raw，再由原TUI回复原题。
 /// 预期：已核验版本有原题事件，未知版本无代答事件；全部透传人工答案，无额外请求。
 #[test]
 fn verified_relay_gates_experimental_answers_on_original_initialize() {
     for version in [
         Some("codex-tui/0.162.1 (test)"),
+        Some("codex-tui/0.166.0 (test)"),
         Some("codex-tui/0.163.0 (test)"),
         None,
     ] {
-        let supported = version == Some("codex-tui/0.162.1 (test)");
+        let supported = matches!(
+            version,
+            Some("codex-tui/0.162.1 (test)" | "codex-tui/0.166.0 (test)")
+        );
         let dir = tempfile::Builder::new()
             .prefix("nqv-")
             .tempdir_in("/tmp")
@@ -96,7 +100,7 @@ fn verified_relay_gates_experimental_answers_on_original_initialize() {
             );
             let _ = socket.close(None);
         });
-        let relay = CodexQuestionRelay::connect_verified(bridge, &path).unwrap();
+        let relay = CodexQuestionRelay::connect_verified(bridge, &path, false).unwrap();
         std::thread::sleep(Duration::from_millis(100));
         let questions = relay
             .events()

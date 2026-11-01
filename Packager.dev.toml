@@ -3,7 +3,7 @@
 # 真实发版走 Packager.toml（阶段 0 启用 signing-identity 后）。
 name = "app"
 product-name = "Norma OS"
-version = "0.1.73"
+version = "0.1.77"
 identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
@@ -17,6 +17,7 @@ resources = [
   { src = "packaging/macos/en.lproj", target = "en.lproj" },
   { src = "packaging/macos/zh-CN.lproj", target = "zh-CN.lproj" },
   { src = "crates/app/assets/home", target = "home" },
+  { src = "crates/app/assets/boot", target = "boot" },
   { src = "build/release-media/wallpapers", target = "wallpapers" },
   { src = "build/release-media/feature-guide", target = "feature-guide" },
   { src = "build/release-media/wallpaper-previews", target = "wallpaper-previews" },

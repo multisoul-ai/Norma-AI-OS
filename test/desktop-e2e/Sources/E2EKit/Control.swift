@@ -82,6 +82,11 @@ extension Session {
             if let response = try channel.send(payload) {
                 guard response["ok"] as? Bool == true else {
                     let reason = response["error"] as? String ?? "unknown"
+                    // 启动竞态：控制通道先于主窗口开放，窗口建好前重试，直到总 deadline。
+                    if reason == "E2E frame barrier: window unavailable", Date() < deadline {
+                        try await Task.sleep(nanoseconds: 150_000_000)
+                        continue
+                    }
                     if reason.hasPrefix("E2E frame barrier:") {
                         throw E2EError.driver(reason)
                     }

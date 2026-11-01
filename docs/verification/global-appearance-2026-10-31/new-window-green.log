@@ -1,0 +1,37 @@
+Building for debugging...
+[Planning deferred tasks]
+[8 / 23] E2EKit
+[10 / 25] E2EKit
+[14 / 29] Fixtures
+[18 / 35] Fixtures
+[28 / 39] E2EKitTests-product
+[39 / 52] Scenarios
+[41 / 52] Scenarios
+[45 / 52] Scenarios
+[50 / 55] Scenarios
+[51 / 57] Scenarios
+[52 / 58] E2EKitTests-product
+[56 / 61] Scenarios
+[57 / 61] Scenarios
+/Users/openclawd/Documents/code/norma-os/Norma-AI-OS/test/desktop-e2e/Scenarios/workspace/WorkspaceIdeas.swift:263:23: warning: value 'assignButton' was defined but never used; consider replacing with boolean test [#NoUsage]
+261 |             let line = try row(frame, viaMenu)
+262 |             let buttons = frame.texts.filter { $0.value.contains("指派") && $0.center.x < geo.drawer && abs($0.center.y - line.center.y) < 40 && !$0.value.contains("已指派") }
+263 |             guard let assignButton = buttons.max(by: { $0.center.x < $1.center.x }) else {
+    |                       `- warning: value 'assignButton' was defined but never used; consider replacing with boolean test [#NoUsage]
+264 |                 throw E2EError.product("找不到该行的「指派」按钮：\(frame.summary)")
+265 |             }
+
+[#NoUsage]: <https://docs.swift.org/compiler/documentation/diagnostics/no-usage>
+[58 / 61] Scenarios
+[61 / 62] norma-e2e-product
+Build complete! (4.25 sec)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite LayoutShortcutTests started.
+◇ Test layoutShortcutsUseProductionKeyMappings() started.
+◇ Test newWindowShortcutIsAvailable() started.
+✔ Test newWindowShortcutIsAvailable() passed after 0.001 seconds.
+✔ Test layoutShortcutsUseProductionKeyMappings() passed after 0.001 seconds.
+✔ Suite LayoutShortcutTests passed after 0.001 seconds.
+✔ Test run with 2 tests in 1 suite passed after 0.001 seconds.

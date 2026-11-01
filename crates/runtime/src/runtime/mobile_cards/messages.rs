@@ -306,6 +306,9 @@ impl Runtime {
         {
             return Err("session_changed".into());
         }
+        if self.native_question_host_pending(node) {
+            return Err("state_not_ready".into());
+        }
         let now = Instant::now();
         let render = run.codex.is_none().then(|| match self.node_view(node) {
             Some(crate::NodeView::Term { revision, .. }) => (revision, false),

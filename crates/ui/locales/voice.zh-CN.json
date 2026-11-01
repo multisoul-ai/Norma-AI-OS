@@ -340,5 +340,6 @@
   "voice.a1_single_only": "本地精准仅用于本地单次语音指令，请先选择单次模式。豆包混合与 GPT-Live 使用各自的语音链路。",
   "voice.a1_setup_required": "需先准备本地精准运行环境和模型文件，检查通过后可启用。",
   "voice.a1_failed_preview": "精准识别失败，以下仅为预览，未发送：%{error}",
-  "voice.a1_prepare_failed": "本地精准识别暂不可用。请检查运行环境、模型文件和系统内存后重试。"
+  "voice.a1_prepare_failed": "本地精准识别暂不可用。请检查运行环境、模型文件和系统内存后重试。",
+  "voice.background_unsettled": "可能仍有后台任务未结束"
 }

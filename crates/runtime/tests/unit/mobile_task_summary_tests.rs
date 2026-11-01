@@ -24,6 +24,48 @@ fn excerpt(runtime: &Runtime, node: NodeId) -> Value {
     serde_json::to_value(card).expect("正式编码")["task_summary"].clone()
 }
 
+/// 场景：原生 Codex 终态替代 Stop 后，完成摘要仍须按真实结果冻结。
+/// 构造：同一回合先有工具说明，再分别收到 completed/failed/interrupted。
+/// 执行：提交 → 工具说明 → 原生终态，读取既有摘要接口。
+/// 预期：完成取最终回复，失败取原错误，中断清空；不能遗留等待中的工具说明。
+#[test]
+fn native_codex_completion_keeps_the_correct_result_summary() {
+    for (status, expected) in [
+        ("completed", Some("build verified")),
+        ("failed", Some("connection lost")),
+        ("interrupted", None),
+    ] {
+        let mut summary = summary::TaskSummary::default();
+        summary.observe_hook(&hook(
+            1,
+            HookSource::Codex,
+            "UserPromptSubmit",
+            "a",
+            json!({}),
+        ));
+        summary.observe_hook(&hook(
+            1,
+            HookSource::Codex,
+            "PreToolUse",
+            "a",
+            json!({"tool_input":{"description":"waiting for terminal"}}),
+        ));
+        summary.observe_hook(&hook(1, HookSource::Codex, "turn/completed", "a", json!({
+            "turn":{"status":status}, "last_assistant_message":"build verified", "message":"connection lost"
+        })));
+        assert_eq!(
+            summary.snapshot().as_deref(),
+            expected,
+            "{status} 必须保存对应终态摘要"
+        );
+        assert_ne!(
+            summary.snapshot().as_deref(),
+            Some("waiting for terminal"),
+            "终态不得保留过程中的等待说明"
+        );
+    }
+}
+
 /// 原生两类卡片展示当前回合的操作说明与最终回复，新回合清空且旧事件不能污染。
 /// 数据构造：2张原PTY卡使用同一合成session但node不同；每个回合有1次带description的工具及1次Stop。
 ///   240字符为快照摘录上限，后续边界测试单独覆盖；此处短句不截断。

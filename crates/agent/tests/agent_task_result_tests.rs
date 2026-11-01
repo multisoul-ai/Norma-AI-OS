@@ -50,6 +50,7 @@ fn coordinator_binds_terminal_result_to_exact_task_ref() {
         availability: AgentTaskResultAvailability::Available,
         text: Some("修复完成".to_string()),
         truncated: false,
+        background_unsettled: false,
     };
 
     let released = coordinator

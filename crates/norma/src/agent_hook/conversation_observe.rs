@@ -69,6 +69,12 @@ pub fn observe_conversation(event: &AgentHookEvent) -> Option<ConversationObserv
     match event.provider_event.as_str() {
         "UserPromptSubmit" => observe_user_message(event),
         "Stop" => observe_complete_agent_reply(event),
+        "turn/completed"
+            if event.profile == AgentProfile::Codex
+                && event.raw_json["turn"]["status"] == "completed" =>
+        {
+            observe_complete_agent_reply(event)
+        }
         _ => None,
     }
 }

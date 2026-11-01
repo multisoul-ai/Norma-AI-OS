@@ -1,4 +1,4 @@
-use super::path_ref::{parse_path_ref, PathTier};
+use super::path_ref::{cut_at_fullwidth_punct, fullwidth_segments, parse_path_ref, PathTier};
 use super::{Cell, GridSnapshot};
 
 struct BareWebUrl {
@@ -141,7 +141,7 @@ impl GridSnapshot {
                 if path.len() > 4096 {
                     break;
                 }
-                let target = trim_url_trailing_punctuation(&path);
+                let target = cut_at_fullwidth_punct(trim_url_trailing_punctuation(&path));
                 if next_row >= row
                     && is_preview_path_candidate(target)
                     && !candidates.iter().any(|candidate| candidate == target)
@@ -172,6 +172,9 @@ fn path_row_token(row: &[Cell], last: bool) -> Option<PathRowToken> {
     let (start, end) = if last {
         let end = row.iter().rposition(|cell| !is_space(cell))? + 1;
         let start = row[..end].iter().rposition(is_space).map_or(0, |i| i + 1);
+        let start = fullwidth_segments(row, start, end)
+            .first()
+            .map_or(start, |&(segment_start, _)| segment_start);
         (start, end)
     } else {
         let start = row.iter().position(|cell| !is_space(cell))?;

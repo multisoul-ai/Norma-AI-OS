@@ -73,12 +73,9 @@ public enum WorkspaceHandoffEffects {
                     }
                     let db = try session.databaseURL()
                     try Catalog.seedSetting(database: db, key: "appearance.theme.v1", value: themeID)
-                    // 迁移后壁纸按工作空间存取，旧的 wallpaper.* 设置行不再生效。
-                    try SQLRaw.execute(database: db, statements: [(
-                        sql: "UPDATE desktop_workspaces SET wallpaper_json=?1 WHERE name=?2",
-                        bindings: ["{\"kind\":\"builtin\",\"rel\":\"\(wallpaper)\"}", workspace]
-                    )])
-                    try Catalog.seedWorkspaceDispatchEffect(database: db, workspaceName: workspace, json: branch.json ?? "") // 空串解码失败，等同未设置
+                    try Catalog.seedSetting(database: db, key: "wallpaper.kind", value: "builtin")
+                    try Catalog.seedSetting(database: db, key: "wallpaper.value", value: wallpaper)
+                    try Catalog.seedSetting(database: db, key: "effects.dispatch.v1", value: branch.json ?? "")
                     try session.launch(language: "zh-Hans", homeDirectory: fake)
                     try await session.resize(width: 1440, height: 840)
                     try await openProject(session)

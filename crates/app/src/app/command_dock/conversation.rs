@@ -14,6 +14,15 @@ impl MultisoulApp {
         if input.is_empty() {
             return;
         }
+        if let Some(ask) = super::ask::parse(&input) {
+            self.submit_dock_ask(ask, window, cx);
+            return;
+        }
+        // 普通对话直接交给幕僚；幕僚没有运行时退回 Norma 前台对话。
+        if self.handoff_to_brain(input.clone()).is_ok() {
+            self.finish_brain_handoff(window, cx);
+            return;
+        }
         let response = match self.submit_project_agent(
             agent::AgentCommand::UserTurn {
                 input: input.clone(),
@@ -88,5 +97,36 @@ impl MultisoulApp {
         })
         .detach();
         cx.notify();
+    }
+
+    pub(super) fn finish_brain_handoff(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(state) = self.command_dock.as_mut() else {
+            return;
+        };
+        state.reply = Some(ui::i18n::LocalizedText::new("chrome.brain_handed_off"));
+        state.awaiting_brain_reply = true;
+        state.error = None;
+        state.draft.clear();
+        state.set_visible(false);
+        let input = state.input.clone();
+        input.update(cx, |input, cx| input.set_value(String::new(), window, cx));
+        cx.notify();
+    }
+
+    /// 幕僚的 report 到达：若是 Dock 交接后的第一条，显示为 Dock 回复（不依赖语音播报）。
+    pub(crate) fn deliver_dock_brain_reply(&mut self, text: &str, cx: &mut Context<Self>) -> bool {
+        let Some(state) = self
+            .command_dock
+            .as_mut()
+            .filter(|state| state.awaiting_brain_reply)
+        else {
+            return false;
+        };
+        state.awaiting_brain_reply = false;
+        state.reply = Some(text.to_owned().into());
+        // 回复区只在 Dock 展开时绘制；交接时已收起且草稿为空，set_visible 会拒绝，故直接展开。
+        state.visible = true;
+        cx.notify();
+        true
     }
 }

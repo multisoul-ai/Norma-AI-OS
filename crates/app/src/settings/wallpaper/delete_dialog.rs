@@ -1,7 +1,7 @@
 //! Destructive library actions live in the window's dialog layer, outside the scrolled page.
 use crate::settings::typography::{control_label, SettingsText, TextRole};
 
-use super::{action::WallpaperAction, scoped::WallpaperDeletePrompt};
+use super::{action::WallpaperAction, preferences::WallpaperDeletePrompt};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, App, Entity, Window};
 use ui::{
@@ -16,15 +16,10 @@ pub(crate) fn open(
     host: Entity<MultisoulApp>,
     prompt: WallpaperDeletePrompt,
     theme: Theme,
-    directory_uses_wallpaper: bool,
+    uses_wallpaper: bool,
     window: &mut Window,
     cx: &mut App,
 ) {
-    let mut scopes = prompt.usage.workspaces;
-    scopes.extend(prompt.usage.projects);
-    if directory_uses_wallpaper {
-        scopes.push(ui::i18n::text("settings.directory_background").into());
-    }
     let cancel_host = host.clone();
     window.open_dialog(cx, move |dialog, window, _| {
         let cancel = host.clone();
@@ -64,22 +59,11 @@ pub(crate) fn open(
                     .gap(px(12.0))
                     .settings_font(TextRole::Body)
                     .child(ui::i18n::text("settings.removes_shared_file"))
-                    .when(!scopes.is_empty(), |body| {
+                    .when(uses_wallpaper, |body| {
                         body.child(
                             div()
-                                .id("wallpaper-delete-affected")
-                                .max_h(px(180.0))
-                                .overflow_y_scroll()
-                                .flex()
-                                .flex_col()
-                                .gap(px(4.0))
-                                .child(ui::i18n::text("settings.used_by"))
-                                .children(scopes.iter().map(|scope| div().child(scope.clone()))),
-                        )
-                        .child(
-                            div()
                                 .text_color(rgba(theme.text_secondary))
-                                .child(ui::i18n::text("settings.delete_fallback")),
+                                .child(ui::i18n::text("settings.global_wallpaper_delete_fallback")),
                         )
                     }),
             )

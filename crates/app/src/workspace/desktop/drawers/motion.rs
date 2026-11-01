@@ -201,7 +201,7 @@ impl DesktopDrawerLayout {
         right_width: Option<f32>,
     ) -> Self {
         let mut left_width = left_width
-            .unwrap_or((window_width * 0.31).clamp(366.0, 438.0))
+            .unwrap_or((window_width * 0.31).clamp(366.0, 438.0) - 150.0)
             .max(LEFT_MIN_WIDTH);
         let mut right_width = right_width
             .unwrap_or((window_width * 0.37).clamp(RIGHT_MIN_WIDTH, 560.0))

@@ -12,6 +12,7 @@ pub mod persistence;
 pub mod risk;
 pub mod router;
 pub mod service;
+pub mod task_outline;
 pub mod triage;
 
 pub use acp::client::discover_models;

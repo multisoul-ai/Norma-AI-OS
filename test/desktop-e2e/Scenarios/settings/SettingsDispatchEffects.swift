@@ -2,51 +2,37 @@ import CoreGraphics
 import E2EKit
 import Foundation
 
-/// 场景：设置 → 特效。选款式、按来源覆盖、播放选项都能保存，撤销与重启后保持，浅深主题可读。
-/// 构造：空隔离数据库，真实创建一个工作空间并在其中打开设置。
-/// 预期：点击烟花后工作空间行写入 fireworks；撤销回到未设置；声纹 + 语音来源覆盖写入；
+/// 场景：设置 → 特效。选款式、按来源覆盖、播放选项都能保存，撤销与重启后保持，Ink Black 与 Graphite 主题可读。
+/// 构造：空隔离数据库，直接从首页打开设置，无需工作空间。
+/// 预期：点击烟花后全局设置写入 fireworks；撤销回到未设置；声纹 + 语音来源覆盖写入；
 /// 速度写入设置表，播放区不再显示降级开关；重启后选择仍在。
 @MainActor
 public enum SettingsDispatchEffects {
     public nonisolated static let name = "settings-dispatch-effects"
-    private static let workspace = "EFFECTSRUN"
 
     public static func run(_ session: Session) async throws {
         defer { session.stop() }
-        try await session.step("创建工作空间并打开特效设置") {
-            try session.launch()
-            _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace", "Create your first"], timeout: 25))
-            try await session.act("打开创建对话框", attempts: 4, expect: Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 3.5)) {
-                let launch = try await session.capture()
-                try await session.click(local: CGPoint(x: Double(launch.windowFrame.width) / 2, y: 515), on: launch)
-            }
-            let dialog = try await session.capture()
-            guard let input = dialog.pick(["网站改版", "Website redesign"], .bottom) else {
-                throw E2EError.product("找不到工作空间名称输入框：\(dialog.summary)")
-            }
-            try await session.click(local: input.center, on: dialog)
-            try await session.type(workspace)
-            try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
-            _ = try await session.wait(Expectation(allOf: [workspace], timeout: 12))
-            try await session.shortcut(key: 43, modifiers: [0x37])
-            _ = try await session.wait(Expectation(anyOf: ["交流风格", "Communication Style"], timeout: 10))
+        try await session.step("首页直接打开全局特效设置") {
+            try await SettingsSupport.open(session)
             try await SettingsSupport.language(session, label: "English", saved: "en")
-            let page = try await SettingsSupport.select(session, labels: ["Effects"], content: ["Dispatch effects", "Built-in"])
+            _ = try await SettingsSupport.select(session, labels: ["Effects"], content: ["Dispatch effects", "Built-in"])
+            try await session.scroll(xFraction: 0.7, yFraction: 0.5, deltaY: 3000)
+            let page = try await session.wait(Expectation(allOf: ["Applies globally"], absent: ["Follow workspace", "Personalize"]))
             try session.save(page, "01-effects-page-dark.png")
             return "导航“通用”组里出现特效；页面含当前特效、内置特效网格、按派发来源、播放"
         }
-        try await session.step("点击烟花：写入工作空间并显示在当前特效") {
+        try await session.step("点击烟花：写入全局设置并显示在当前特效") {
             try await pick(session, "Fireworks")
             try await proveEffect(session, contains: "\"style\":\"fireworks\"")
             try await session.scroll(xFraction: 0.7, yFraction: 0.5, deltaY: 3000)
             let frame = try await session.wait(Expectation(allOf: ["Current dispatch effect", "Fireworks"]))
             try session.save(frame, "02-fireworks-picked.png")
-            return "desktop_workspaces.dispatch_effect_json 含 fireworks，保存提示出现"
+            return "effects.dispatch.v1 含 fireworks，保存提示出现"
         }
         try await session.step("撤销回到未设置") {
             try await clickScrolling(session, "Undo")
             try await proveEffect(session, contains: nil)
-            return "撤销后 dispatch_effect_json 为 NULL（工作空间原本没有设置）"
+            return "撤销后 effects.dispatch.v1 为空（原本没有全局设置）"
         }
         try await session.step("选声纹并把语音派发改成烟花") {
             try await pick(session, "Voice ribbon")
@@ -60,8 +46,8 @@ public enum SettingsDispatchEffects {
             return "style=ribbon、voice=fireworks；交接不再固定为离子，未单独设置时跟随当前款式"
         }
         try await session.step("播放速度保留，脉冲降级选项已移除") {
-            try await session.scroll(xFraction: 0.7, yFraction: 0.5, deltaY: -3000)
-            try await session.click(matching: ["Relaxed"], pick: .bottom)
+            // 派发播放选项之后还有运行特效；按可见标签定位，不能把页面底部当成播放区。
+            try await clickScrolling(session, "Relaxed")
             try await SettingsSupport.prove(session, key: "effects.speed", value: "relaxed")
             let frame = try await session.wait(Expectation(
                 allOf: ["Playback", "Playback speed"],
@@ -70,13 +56,13 @@ public enum SettingsDispatchEffects {
             try session.save(frame, "04-playback.png")
             return "effects.speed=relaxed；播放区只保留速度，不再提供脉冲降级开关"
         }
-        try await session.step("浅色主题下页面可读") {
-            _ = try await SettingsSupport.select(session, labels: ["Themes"], content: ["Paper Blue", "aper Blue", "Bright palettes"])
-            try await session.click(matching: ["Paper Blue", "aper Blue"], pick: .right)
-            try await SettingsSupport.prove(session, key: "appearance.theme.v1", value: "paper-blue")
+        try await session.step("Graphite 主题下页面可读") {
+            _ = try await SettingsSupport.select(session, labels: ["Themes"], content: ["Graphite", "Graphite", "Focused palettes"])
+            try await session.click(matching: ["Graphite", "Graphite"], pick: .right)
+            try await SettingsSupport.prove(session, key: "appearance.theme.v1", value: "graphite")
             let page = try await SettingsSupport.select(session, labels: ["Effects"], content: ["Dispatch effects", "Built-in"])
-            try session.save(page, "05-effects-page-light.png")
-            return "Paper Blue 下特效页对比度正常"
+            try session.save(page, "05-effects-page-graphite.png")
+            return "Graphite 下特效页对比度正常"
         }
         try await session.step("窗口缩小后特效页自适应") {
             var notes: [String] = []
@@ -100,9 +86,15 @@ public enum SettingsDispatchEffects {
         try await session.step("重启后保持选择") {
             session.stop()
             try session.launch()
-            _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
+            try await session.resize(width: 1280, height: 800)
+            _ = try await session.wait(Expectation(anyOf: ["Create Workspace", "创建工作空间"], timeout: 20))
             try await proveEffect(session, contains: "\"style\":\"ribbon\"")
             try await SettingsSupport.prove(session, key: "effects.speed", value: "relaxed")
+            try await session.shortcut(key: 43, modifiers: [0x37])
+            try await SettingsSupport.language(session, label: "中文", saved: "zh-CN")
+            _ = try await SettingsSupport.select(session, labels: ["特效"], content: ["当前派发特效"])
+            let chinese = try await session.wait(Expectation(allOf: ["全局生效"], absent: ["跟随工作空间", "仅此项目"]))
+            try session.save(chinese, "07-global-effects-chinese.png")
             return "重启后数据库中的选择与播放选项仍在"
         }
     }
@@ -160,7 +152,7 @@ public enum SettingsDispatchEffects {
         let deadline = Date().addingTimeInterval(6)
         var last: String?
         while Date() < deadline {
-            last = try session.workspaceDispatchEffect(named: workspace)
+            last = try session.setting("effects.dispatch.v1")
             if let fragment { if last?.contains(fragment) == true { return } } else if last == nil { return }
             try await Task.sleep(nanoseconds: 120_000_000)
         }

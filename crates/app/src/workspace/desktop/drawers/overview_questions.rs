@@ -122,7 +122,32 @@ impl MultisoulApp {
         {
             return;
         }
-        self.desktop_question_editor = Some(QuestionEditor::new(row, window, cx));
+        let target = &row.snapshot.question.target;
+        if self
+            .desktop_question_editor
+            .as_ref()
+            .is_none_or(|editor| editor.target() != target)
+        {
+            if let Some(editor) = self.desktop_question_editor.take() {
+                self.desktop_question_drafts.push(editor);
+            }
+            self.desktop_question_editor = Some(
+                match self
+                    .desktop_question_drafts
+                    .iter()
+                    .position(|editor| editor.target() == target)
+                {
+                    Some(index) => self.desktop_question_drafts.remove(index),
+                    None => QuestionEditor::new(row, window, cx),
+                },
+            );
+        }
+        self.desktop_workspace.attention.open =
+            Some(super::overview_details::DetailKey::Question {
+                area_id: row.area_id.clone(),
+                target: Box::new(target.clone()),
+            });
+        self.desktop_workspace.attention.original_open = false;
         cx.notify();
     }
 
@@ -134,6 +159,8 @@ impl MultisoulApp {
     ) {
         if self.release_overview_question(&row.area_id, &row.snapshot.question.target, cx) {
             self.desktop_question_editor = None;
+            self.desktop_question_drafts
+                .retain(|editor| editor.target() != &row.snapshot.question.target);
             self.locate_desktop_agent(
                 &row.area_id,
                 row.snapshot.question.target.node_id,

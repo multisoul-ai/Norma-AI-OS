@@ -1,0 +1,175 @@
+{
+  "dataRoot" : "\/Users\/openclawd\/Documents\/code\/norma-os\/Norma-AI-OS\/artifacts\/desktop-workspace-e2e\/2026-10-31T07-52-11Z\/data",
+  "driverEvents" : [
+    {
+      "category" : "window",
+      "detail" : "窗口就绪后才发送 resize",
+      "seconds" : 5.6607609987258911,
+      "stage" : "ready"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=6CCECBBE-3881-4B2D-B314-9CDD99B11582 phase=move x=640.0 y=515.0",
+      "seconds" : 7.0538859367370605,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=6CCECBBE-3881-4B2D-B314-9CDD99B11582 phase=move x=640.0 y=515.0",
+      "seconds" : 7.0870659351348877,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=6CCECBBE-3881-4B2D-B314-9CDD99B11582 phase=down x=640.0 y=515.0",
+      "seconds" : 7.2568339109420776,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=6CCECBBE-3881-4B2D-B314-9CDD99B11582 phase=down x=640.0 y=515.0",
+      "seconds" : 7.2870949506759644,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=6CCECBBE-3881-4B2D-B314-9CDD99B11582 phase=up x=640.0 y=515.0",
+      "seconds" : 7.3278229236602783,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=6CCECBBE-3881-4B2D-B314-9CDD99B11582 phase=up x=640.0 y=515.0",
+      "seconds" : 7.3536549806594849,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=6CCECBBE-3881-4B2D-B314-9CDD99B11582 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 7.3536639213562012,
+      "stage" : "completed"
+    },
+    {
+      "category" : "action",
+      "detail" : "打开创建对话框 attempt=1: 动作已完成，开始核对后置状态",
+      "seconds" : 7.3541929721832275,
+      "stage" : "action-completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F4EE13B9-4F09-4902-8F23-4E69F4259347 phase=move x=512.5581380673605 y=424.1860462030799",
+      "seconds" : 8.0866869688034058,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F4EE13B9-4F09-4902-8F23-4E69F4259347 phase=move x=512.5581380673605 y=424.1860462030799",
+      "seconds" : 8.1202869415283203,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F4EE13B9-4F09-4902-8F23-4E69F4259347 phase=down x=512.5581380673605 y=424.1860462030799",
+      "seconds" : 8.2890819311141968,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F4EE13B9-4F09-4902-8F23-4E69F4259347 phase=down x=512.5581380673605 y=424.1860462030799",
+      "seconds" : 8.3204180002212524,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F4EE13B9-4F09-4902-8F23-4E69F4259347 phase=up x=512.5581380673605 y=424.1860462030799",
+      "seconds" : 8.3644570112228394,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F4EE13B9-4F09-4902-8F23-4E69F4259347 phase=up x=512.5581380673605 y=424.1860462030799",
+      "seconds" : 8.3871079683303833,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F4EE13B9-4F09-4902-8F23-4E69F4259347 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 8.3871159553527832,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=38946814-944D-4345-8D0E-651C3ED38AD0 phase=move x=760.9415329079072 y=520.3878320305809",
+      "seconds" : 8.8879719972610474,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=38946814-944D-4345-8D0E-651C3ED38AD0 phase=move x=760.9415329079072 y=520.3878320305809",
+      "seconds" : 8.9204119443893433,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=38946814-944D-4345-8D0E-651C3ED38AD0 phase=down x=760.9415329079072 y=520.3878320305809",
+      "seconds" : 9.0890929698944092,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=38946814-944D-4345-8D0E-651C3ED38AD0 phase=down x=760.9415329079072 y=520.3878320305809",
+      "seconds" : 9.1204229593276978,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=38946814-944D-4345-8D0E-651C3ED38AD0 phase=up x=760.9415329079072 y=520.3878320305809",
+      "seconds" : 9.1644099950790405,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=38946814-944D-4345-8D0E-651C3ED38AD0 phase=up x=760.9415329079072 y=520.3878320305809",
+      "seconds" : 9.1870030164718628,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=38946814-944D-4345-8D0E-651C3ED38AD0 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 9.1870499849319458,
+      "stage" : "completed"
+    },
+    {
+      "category" : "window",
+      "detail" : "窗口就绪后才发送 resize",
+      "seconds" : 10.015873908996582,
+      "stage" : "ready"
+    }
+  ],
+  "failureLayer" : "environment",
+  "kind" : "env",
+  "message" : "[ENV] 隔离 Norma 因 socket 或端口冲突退出。未结束用户已有的 Norma。\n2026-10-31T07:52:21.362446Z  INFO app::logging: disk logging initialized retention_days=14 rotation=\"daily\"\n2026-10-31T07:52:21.428619Z  WARN app::updater: Sparkle updater unavailable; update checks are disabled reason=Sparkle.framework is absent from this development build\n2026-10-31T07:52:21.431521Z  WARN app::e2e_control: desktop E2E control channel enabled socket=\/tmp\/norma-e2e-ctl-5df1252dd32d4a79a8e62e36.sock\n2026-10-31T07:52:21.486912Z  INFO app::boot_splash::view: boot animation skipped reduce_motion=false e2e_controlled=true e2e_opt_in=false\n2026-10-31T07:52:21.609102Z  INFO app::app::browser::wry_backend: browser_warmup_created build_ms=63.01066600000001\n2026-10-31T07:52:21.695536Z  WARN app::mobile::controller: Mobile operation failed error=Unable to enable mobile connection: Address already in use (os error 48)\n",
+  "output" : "\/Users\/openclawd\/Documents\/code\/norma-os\/Norma-AI-OS\/artifacts\/desktop-workspace-e2e\/2026-10-31T07-52-11Z",
+  "result" : "fail",
+  "scenario" : "workspace-dispatch-effects",
+  "screenshots" : [
+
+  ],
+  "seconds" : 17.151925921440125,
+  "steps" : [
+    {
+      "detail" : "已写入 3 条想法与 {style:fireworks}",
+      "name" : "建立含项目、三条想法并预置烟花的工作空间",
+      "passed" : true,
+      "seconds" : 10.899720072746277
+    },
+    {
+      "detail" : "[ENV] 隔离 Norma 因 socket 或端口冲突退出。未结束用户已有的 Norma。\n2026-10-31T07:52:21.362446Z  INFO app::logging: disk logging initialized retention_days=14 rotation=\"daily\"\n2026-10-31T07:52:21.428619Z  WARN app::updater: Sparkle updater unavailable; update checks are disabled reason=Sparkle.framework is absent from this development build\n2026-10-31T07:52:21.431521Z  WARN app::e2e_control: desktop E2E control channel enabled socket=\/tmp\/norma-e2e-ctl-5df1252dd32d4a79a8e62e36.sock\n2026-10-31T07:52:21.486912Z  INFO app::boot_splash::view: boot animation skipped reduce_motion=false e2e_controlled=true e2e_opt_in=false\n2026-10-31T07:52:21.609102Z  INFO app::app::browser::wry_backend: browser_warmup_created build_ms=63.01066600000001\n2026-10-31T07:52:21.695536Z  WARN app::mobile::controller: Mobile operation failed error=Unable to enable mobile connection: Address already in use (os error 48)\n",
+      "name" : "进入项目并创建一个智能体，打开想法栏",
+      "passed" : false,
+      "seconds" : 6.2296090126037598
+    }
+  ],
+  "verification" : "ocr-scripted",
+  "visualChecks" : 0
+}

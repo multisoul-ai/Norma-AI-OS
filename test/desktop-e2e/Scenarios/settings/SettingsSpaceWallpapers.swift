@@ -1,8 +1,8 @@
 import E2EKit
 
-/// 场景：五款内置太空壁纸在深浅主题下可预览、选择，并在重启后恢复。
+/// 场景：五款内置太空壁纸在Ink Black 与 Graphite 主题下可预览、选择，并在重启后恢复。
 /// 构造：空隔离数据库，五条交付资源路径；逐项由真实设置页选择，读取 SQLite 核对。
-/// 预期：每次保存正确资源，中文名称与浅色预览可见，重启保留最后一款且不要求下载。
+/// 预期：每次保存正确资源，中文名称与Graphite 预览可见，重启保留最后一款且不要求下载。
 @MainActor
 public enum SettingsSpaceWallpapers {
     public nonisolated static let name = "settings-space-wallpapers"
@@ -22,7 +22,10 @@ public enum SettingsSpaceWallpapers {
             _ = try await SettingsSupport.select(
                 session, labels: ["Wallpaper"], content: ["Wallpaper Library"]
             )
-            return "使用现有内置网格与选择反馈，不增加额外交互"
+            try await session.scroll(xFraction: 0.7, yFraction: 0.5, deltaY: 3000)
+            let page = try await session.wait(Expectation(allOf: ["Applies globally"], absent: ["Follow workspace", "Directory background"]))
+            try session.save(page, "00-global-wallpaper.png")
+            return "全局壁纸，页面不再有范围切换或跟随开关"
         }
         for (index, wallpaper) in wallpapers.enumerated() {
             try await session.step("选择 \(wallpaper.0)") {
@@ -36,22 +39,22 @@ public enum SettingsSpaceWallpapers {
                 return "SQLite wallpaper.value=wallpapers/norma-\(wallpaper.1).png；静态原图无需下载"
             }
         }
-        try await session.step("浅色主题与中文素材库") {
-            _ = try await SettingsSupport.select(session, labels: ["Themes"], content: ["Paper Blue"])
-            try await session.click(matching: ["Paper Blue"], pick: .right)
-            try await SettingsSupport.prove(session, key: "appearance.theme.v1", value: "paper-blue")
-            try await SettingsSupport.language(session, label: "简体中文", saved: "zh-CN")
+        try await session.step("Graphite 主题与中文素材库") {
+            _ = try await SettingsSupport.select(session, labels: ["Themes"], content: ["Graphite"])
+            try await session.click(matching: ["Graphite"], pick: .right)
+            try await SettingsSupport.prove(session, key: "appearance.theme.v1", value: "graphite")
+            try await SettingsSupport.language(session, label: "中文", saved: "zh-CN")
             _ = try await SettingsSupport.select(session, labels: ["壁纸"], content: ["壁纸素材库"])
             try await selectWallpaper(session, name: "蔚蓝地平线")
             try await proveWallpaper(session, slug: "blue-horizon")
             try await session.scroll(xFraction: 0.7, yFraction: 0.5, deltaY: 1800)
             try await session.scroll(xFraction: 0.7, yFraction: 0.5, deltaY: -540)
-            // Vision 会把「鎏」识别为「整」；其余名称与「金星环」定位，原字由看图确认。
+            // Vision 偶尔混淆「鎏」和「白」；用唯一的「金星环」「月境」定位，完整名称由看图确认。
             let library = try await session.wait(Expectation(anyOf: ["金星环"], allOf: [
-                "蔚蓝地平线", "紫色星云", "翡翠极光", "银白月境",
+                "蔚蓝地平线", "紫色星云", "翡翠极光", "月境",
             ]))
-            try session.save(library, "06-space-library-light.png")
-            return "Paper Blue 下五款中文名称和缩略图可见，蔚蓝地平线已保存"
+            try session.save(library, "06-space-library-graphite.png")
+            return "Graphite 下五款中文名称和缩略图可见，蔚蓝地平线已保存"
         }
         try await session.step("重启恢复太空壁纸") {
             session.stop()
@@ -62,7 +65,7 @@ public enum SettingsSpaceWallpapers {
             try await proveWallpaper(session, slug: "blue-horizon")
             let current = try await session.wait(Expectation(allOf: ["蔚蓝地平线"]))
             try session.save(current, "07-restored-space-wallpaper.png")
-            return "重启保留内置选择、中文与浅色主题"
+            return "重启保留内置选择、中文与Graphite 主题"
         }
     }
 

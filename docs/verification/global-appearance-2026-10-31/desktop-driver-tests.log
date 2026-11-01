@@ -1,0 +1,115 @@
+Building for debugging...
+[2 / 17] E2EKit
+[4 / 18] E2EKit
+[9 / 22] Fixtures
+[11 / 23] Fixtures
+[17 / 28] E2EKitTests-product
+[22 / 28] E2EKitTests-product
+[29 / 33] norma-e2e-product
+[32 / 33] norma-e2e-product
+Build complete! (3.11 sec)
+Test Suite 'All tests' started at 2026-10-31 00:53:23.997.
+Test Suite 'E2EKitTests.xctest' started at 2026-10-31 00:53:24.000.
+Test Suite 'ActionRecoveryTests' started at 2026-10-31 00:53:24.000.
+Test Case '-[E2EKitTests.ActionRecoveryTests testCompletedInputStillRequiresProductPostcondition]' started.
+Test Case '-[E2EKitTests.ActionRecoveryTests testCompletedInputStillRequiresProductPostcondition]' passed (0.002 seconds).
+Test Case '-[E2EKitTests.ActionRecoveryTests testObservationFailureRecordsActionNotStarted]' started.
+Test Case '-[E2EKitTests.ActionRecoveryTests testObservationFailureRecordsActionNotStarted]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.ActionRecoveryTests testUnsentClickKeepsOriginalActionFailure]' started.
+Test Case '-[E2EKitTests.ActionRecoveryTests testUnsentClickKeepsOriginalActionFailure]' passed (0.000 seconds).
+Test Suite 'ActionRecoveryTests' passed at 2026-10-31 00:53:24.002.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'CaptureRecoveryTests' started at 2026-10-31 00:53:24.002.
+Test Case '-[E2EKitTests.CaptureRecoveryTests testAccurateSuccessDoesNotInvokeFallbacks]' started.
+Test Case '-[E2EKitTests.CaptureRecoveryTests testAccurateSuccessDoesNotInvokeFallbacks]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.CaptureRecoveryTests testBothAccurateFailuresRetainEveryCause]' started.
+Test Case '-[E2EKitTests.CaptureRecoveryTests testBothAccurateFailuresRetainEveryCause]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.CaptureRecoveryTests testIncompleteFastRecognitionCannotBecomeProductEvidence]' started.
+Test Case '-[E2EKitTests.CaptureRecoveryTests testIncompleteFastRecognitionCannotBecomeProductEvidence]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.CaptureRecoveryTests testProcessIsolationRecoversWithoutLosingInProcessFailures]' started.
+Test Case '-[E2EKitTests.CaptureRecoveryTests testProcessIsolationRecoversWithoutLosingInProcessFailures]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.CaptureRecoveryTests testSocketPathStaysShortForDeepWorktree]' started.
+Test Case '-[E2EKitTests.CaptureRecoveryTests testSocketPathStaysShortForDeepWorktree]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.CaptureRecoveryTests testTransientCaptureFailureRetriesAndReturnsNextFrame]' started.
+Test Case '-[E2EKitTests.CaptureRecoveryTests testTransientCaptureFailureRetriesAndReturnsNextFrame]' passed (0.121 seconds).
+Test Case '-[E2EKitTests.CaptureRecoveryTests testVisionDoubleFailureReportsEnvironment]' started.
+Test Case '-[E2EKitTests.CaptureRecoveryTests testVisionDoubleFailureReportsEnvironment]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.CaptureRecoveryTests testVisionFailureRecoversAccurateTextOnCPUAndRetainsCause]' started.
+Test Case '-[E2EKitTests.CaptureRecoveryTests testVisionFailureRecoversAccurateTextOnCPUAndRetainsCause]' passed (0.000 seconds).
+Test Suite 'CaptureRecoveryTests' passed at 2026-10-31 00:53:24.125.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.123 (0.123) seconds
+Test Suite 'VisualReviewTests' started at 2026-10-31 00:53:24.125.
+Test Case '-[E2EKitTests.VisualReviewTests testChangedWindowInvalidatesLocation]' started.
+Test Case '-[E2EKitTests.VisualReviewTests testChangedWindowInvalidatesLocation]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.VisualReviewTests testFailureAndUncertaintyRemainDistinct]' started.
+Test Case '-[E2EKitTests.VisualReviewTests testFailureAndUncertaintyRemainDistinct]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.VisualReviewTests testLoadingRequestsAnotherObservation]' started.
+Test Case '-[E2EKitTests.VisualReviewTests testLoadingRequestsAnotherObservation]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.VisualReviewTests testLocationRequiresInBoundsWindowPoint]' started.
+Test Case '-[E2EKitTests.VisualReviewTests testLocationRequiresInBoundsWindowPoint]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.VisualReviewTests testMissingResponseTimesOut]' started.
+Test Case '-[E2EKitTests.VisualReviewTests testMissingResponseTimesOut]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.VisualReviewTests testModelModeRejectsImplicitOCRAndEmptySuccess]' started.
+Test Case '-[E2EKitTests.VisualReviewTests testModelModeRejectsImplicitOCRAndEmptySuccess]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.VisualReviewTests testObservationBudgetAndFailure]' started.
+Test Case '-[E2EKitTests.VisualReviewTests testObservationBudgetAndFailure]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.VisualReviewTests testRejectsResponseForDifferentFrame]' started.
+Test Case '-[E2EKitTests.VisualReviewTests testRejectsResponseForDifferentFrame]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.VisualReviewTests testRequiresEveryCriterionExactlyOnceWithObservation]' started.
+Test Case '-[E2EKitTests.VisualReviewTests testRequiresEveryCriterionExactlyOnceWithObservation]' passed (0.000 seconds).
+Test Suite 'VisualReviewTests' passed at 2026-10-31 00:53:24.128.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'WindowReadyTests' started at 2026-10-31 00:53:24.128.
+Test Case '-[E2EKitTests.WindowReadyTests testMissingWindowHasBoundedFailure]' started.
+Test Case '-[E2EKitTests.WindowReadyTests testMissingWindowHasBoundedFailure]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.WindowReadyTests testOtherRejectionsAreNotRetried]' started.
+Test Case '-[E2EKitTests.WindowReadyTests testOtherRejectionsAreNotRetried]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.WindowReadyTests testProcessDeathPropagatesImmediately]' started.
+Test Case '-[E2EKitTests.WindowReadyTests testProcessDeathPropagatesImmediately]' passed (0.000 seconds).
+Test Case '-[E2EKitTests.WindowReadyTests testWaitsForWindowAfterSocketOpens]' started.
+Test Case '-[E2EKitTests.WindowReadyTests testWaitsForWindowAfterSocketOpens]' passed (0.000 seconds).
+Test Suite 'WindowReadyTests' passed at 2026-10-31 00:53:24.128.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'E2EKitTests.xctest' passed at 2026-10-31 00:53:24.128.
+	 Executed 24 tests, with 0 failures (0 unexpected) in 0.127 (0.129) seconds
+Test Suite 'All tests' passed at 2026-10-31 00:53:24.129.
+	 Executed 24 tests, with 0 failures (0 unexpected) in 0.127 (0.131) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite HomeDesignFixtureTests started.
+◇ Suite ClickDeliveryTests started.
+◇ Suite LayoutShortcutTests started.
+◇ Suite OCRProcessTests started.
+◇ Test repeatedHomeFixtureInstallClearsWorkspaceDependents() started.
+◇ Test frozenEffectCannotPassClearance() started.
+◇ Test lostResponseIsUnknownDeliveryAndReportRetainsCause() started.
+◇ Test layoutShortcutsUseProductionKeyMappings() started.
+◇ Test newWindowShortcutIsAvailable() started.
+◇ Test workerFailureRetainsOriginalStderrAndExitStatus() started.
+◇ Test successfulClickRecordsEachAcknowledgement() started.
+◇ Test malformedOutputCannotBecomeEmptyTextEvidence() started.
+◇ Test unresolvedTargetNeverSendsInput() started.
+◇ Test productCrashDuringInputKeepsProductClassification() started.
+◇ Test workerTimeoutIsBounded() started.
+✔ Test layoutShortcutsUseProductionKeyMappings() passed after 0.001 seconds.
+✔ Test newWindowShortcutIsAvailable() passed after 0.001 seconds.
+✔ Suite LayoutShortcutTests passed after 0.001 seconds.
+DRIVER click dispatch-attempted: phase=move x=12.0 y=34.0
+DRIVER click acknowledged: phase=move x=12.0 y=34.0
+DRIVER click dispatch-attempted: phase=down x=12.0 y=34.0
+DRIVER click delivery-unknown: phase=down x=12.0 y=34.0 delivery=unknown acknowledged=["move"]；原始错误：Error Domain=ControlResponseLost Code=408 "(null)"
+FAIL input-regression: [ENV] 点击控制通道未确认，不能判断本次请求是否已送达；phase=down x=12.0 y=34.0 delivery=unknown acknowledged=["move"]；原始错误：Error Domain=ControlResponseLost Code=408 "(null)"
+✔ Test lostResponseIsUnknownDeliveryAndReportRetainsCause() passed after 0.006 seconds.
+✔ Test malformedOutputCannotBecomeEmptyTextEvidence() passed after 0.006 seconds.
+✔ Test successfulClickRecordsEachAcknowledgement() passed after 0.006 seconds.
+✔ Test unresolvedTargetNeverSendsInput() passed after 0.006 seconds.
+✔ Test productCrashDuringInputKeepsProductClassification() passed after 0.006 seconds.
+✔ Suite ClickDeliveryTests passed after 0.006 seconds.
+✔ Test workerFailureRetainsOriginalStderrAndExitStatus() passed after 0.008 seconds.
+✔ Test frozenEffectCannotPassClearance() passed after 0.018 seconds.
+✔ Test repeatedHomeFixtureInstallClearsWorkspaceDependents() passed after 0.028 seconds.
+✔ Suite HomeDesignFixtureTests passed after 0.029 seconds.
+✔ Test workerTimeoutIsBounded() passed after 0.055 seconds.
+✔ Suite OCRProcessTests passed after 0.055 seconds.
+✔ Test run with 11 tests in 4 suites passed after 0.056 seconds.

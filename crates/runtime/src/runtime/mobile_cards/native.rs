@@ -241,11 +241,15 @@ impl Runtime {
                     run.native_input.acknowledge();
                 }
             }
-            "Stop" | "StopFailure" if event.turn_id == run.prompt_id => {
+            "Stop" | "StopFailure" | "turn/completed" if event.turn_id == run.prompt_id => {
                 let status = if event.provider_event == "Stop" {
                     "completed"
-                } else {
+                } else if event.provider_event == "StopFailure" {
                     "failed"
+                } else {
+                    event.raw_json["turn"]["status"]
+                        .as_str()
+                        .unwrap_or("failed")
                 };
                 run.finish_terminal_interrupt(Ok(
                     serde_json::json!({"turnId":event.turn_id,"status":status}),
@@ -328,7 +332,7 @@ impl Runtime {
             .filter(|run| run.native && run.session_id == event.session_id)?;
         if !matches!(
             event.provider_event.as_str(),
-            "SessionStart" | "UserPromptSubmit" | "Stop" | "StopFailure"
+            "SessionStart" | "UserPromptSubmit" | "Stop" | "StopFailure" | "turn/completed"
         ) {
             return None;
         }
@@ -336,7 +340,10 @@ impl Runtime {
         let CanvasNodeKind::Agent(spec) = &node.kind else {
             return None;
         };
-        let outcome = if matches!(event.provider_event.as_str(), "Stop" | "StopFailure") {
+        let outcome = if matches!(
+            event.provider_event.as_str(),
+            "Stop" | "StopFailure" | "turn/completed"
+        ) {
             let key = self.mobile_latest_turn_key(event.node_id)?;
             if event.turn_id.as_deref() != Some(&key.turn_id) {
                 return None;
@@ -344,10 +351,16 @@ impl Runtime {
             Some(storage::MobileTurnOutcome {
                 summary: run.task_summary.snapshot(),
                 key,
-                state: if event.provider_event == "Stop" {
+                state: if event.provider_event == "Stop"
+                    || event.raw_json["turn"]["status"] == "completed"
+                {
                     storage::MobileTurnState::Completed
-                } else {
+                } else if event.provider_event == "StopFailure"
+                    || event.raw_json["turn"]["status"] == "failed"
+                {
                     storage::MobileTurnState::Failed
+                } else {
+                    storage::MobileTurnState::Interrupted
                 },
             })
         } else {

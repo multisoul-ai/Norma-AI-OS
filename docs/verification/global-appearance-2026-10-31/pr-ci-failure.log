@@ -1,0 +1,29 @@
+rust checks	Domain contract consistency	﻿2026-10-31T08:13:47.7493120Z ##[group]Run python3 scripts/test-check-domain-contracts.py
+rust checks	Domain contract consistency	2026-10-31T08:13:47.7493750Z [36;1mpython3 scripts/test-check-domain-contracts.py[0m
+rust checks	Domain contract consistency	2026-10-31T08:13:47.7494120Z [36;1mpython3 scripts/check-domain-contracts.py[0m
+rust checks	Domain contract consistency	2026-10-31T08:13:47.7536080Z shell: /bin/bash -e {0}
+rust checks	Domain contract consistency	2026-10-31T08:13:47.7536390Z env:
+rust checks	Domain contract consistency	2026-10-31T08:13:47.7536620Z   CARGO_HOME: /Users/runner/.cargo
+rust checks	Domain contract consistency	2026-10-31T08:13:47.7536920Z   CARGO_INCREMENTAL: 0
+rust checks	Domain contract consistency	2026-10-31T08:13:47.7537280Z   CARGO_TERM_COLOR: always
+rust checks	Domain contract consistency	2026-10-31T08:13:47.7537500Z   CACHE_ON_FAILURE: false
+rust checks	Domain contract consistency	2026-10-31T08:13:47.7537970Z ##[endgroup]
+rust checks	Domain contract consistency	2026-10-31T08:13:47.9591940Z ..
+rust checks	Domain contract consistency	2026-10-31T08:13:47.9603980Z ----------------------------------------------------------------------
+rust checks	Domain contract consistency	2026-10-31T08:13:47.9604550Z Ran 2 tests in 0.006s
+rust checks	Domain contract consistency	2026-10-31T08:13:47.9604870Z
+rust checks	Domain contract consistency	2026-10-31T08:13:47.9605540Z OK
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0221960Z Traceback (most recent call last):
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0224990Z   File "/Users/runner/work/Norma-AI-OS/Norma-AI-OS/scripts/check-domain-contracts.py", line 160, in <module>
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0225750Z     raise SystemExit(main())
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0226040Z                      ~~~~^^
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0226470Z   File "/Users/runner/work/Norma-AI-OS/Norma-AI-OS/scripts/check-domain-contracts.py", line 151, in main
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0227040Z     failures.extend(check_agent_profile_contract(root))
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0227420Z                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0228030Z   File "/Users/runner/work/Norma-AI-OS/Norma-AI-OS/scripts/check-domain-contracts.py", line 106, in check_agent_profile_contract
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0229440Z     schema_profiles = create_agent_schema_profiles(schema.read_text())
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0230020Z   File "/Users/runner/work/Norma-AI-OS/Norma-AI-OS/scripts/check-domain-contracts.py", line 57, in create_agent_schema_profiles
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0230740Z     create_agent = source.split('"create_agent"', 1)[1].split("definition(", 1)[0]
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0231210Z                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0231590Z IndexError: list index out of range
+rust checks	Domain contract consistency	2026-10-31T08:13:48.0286260Z ##[error]Process completed with exit code 1.

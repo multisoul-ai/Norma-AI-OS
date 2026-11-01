@@ -71,9 +71,7 @@
   "effects.chip1_vortex": "宇宙感",
   "effects.chip2_vortex": "沉浸",
   "effects.chip1_random": "新鲜感",
-  "effects.chip2_random": "",
   "effects.chip1_ion": "交接",
-  "effects.chip2_ion": "",
   "effects.run_title": "卡片运行特效",
   "effects.run_hint": "智能体卡片在思考、调用工具、等你批准、完成或失败时的表现。所有项目共用，更改立即作用于画布上的卡片。",
   "effects.run_current": "当前",
@@ -95,5 +93,6 @@
   "effects.run_line_underline": "只动标题下的分隔线：思考时光段游走，切换工具时轻闪，完成时绿色铺满。",
   "effects.run_line_aura": "卡片边缘一圈缓慢流转的光谱柔光，颜色即状态。",
   "effects.run_line_ferrofluid": "一层液态金属包裹卡片：工作时竖起尖刺，等你时液滴跳动，失败时下垂滴落。",
-  "effects.run_saved": "运行特效已切换为「%{style}」"
+  "effects.run_saved": "运行特效已切换为「%{style}」",
+  "effects.global_hint": "全局生效，所有工作空间和项目使用相同的特效设置。"
 }

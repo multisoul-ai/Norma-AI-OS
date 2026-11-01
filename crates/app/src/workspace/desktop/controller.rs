@@ -10,20 +10,13 @@ mod creation_tests;
 impl MultisoulApp {
     pub(crate) fn refresh_desktop_previews(&mut self, cx: &mut Context<Self>) {
         let store = self.desktop_workspace.store.clone();
-        let wallpaper_revision = self.wallpaper_settings.scoped.revision;
         let work = cx.background_executor().spawn(async move {
             Ok::<_, storage::StorageError>((store.list()?, store.list_previews()?))
         });
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| match result {
-                Ok((mut workspaces, previews)) => {
-                    app.preserve_wallpaper_snapshot(
-                        &mut workspaces,
-                        &mut [],
-                        wallpaper_revision,
-                        cx,
-                    );
+                Ok((workspaces, previews)) => {
                     app.desktop_workspace.workspaces = workspaces;
                     app.desktop_workspace.previews = previews;
                     app.bind_desktop_wallpaper(cx);
@@ -220,7 +213,6 @@ impl MultisoulApp {
         let area_status =
             storage::DesktopAreaStatusStore::new(self.database_paths.app_db_path().to_owned());
         let load_id = id.clone();
-        let wallpaper_revision = self.wallpaper_settings.scoped.revision;
         let work = cx.background_executor().spawn(async move {
             store.touch(&load_id)?;
             let areas = store.list_projects(&load_id)?;
@@ -258,13 +250,7 @@ impl MultisoulApp {
                     return;
                 }
                 match result {
-                    Ok((mut workspaces, mut areas, tabs, statuses, unavailable, content_state)) => {
-                        app.preserve_wallpaper_snapshot(
-                            &mut workspaces,
-                            &mut areas,
-                            wallpaper_revision,
-                            cx,
-                        );
+                    Ok((workspaces, areas, tabs, statuses, unavailable, content_state)) => {
                         app.desktop_workspace.workspaces = workspaces;
                         app.desktop_workspace.areas = areas;
                         app.desktop_workspace.workbench.saved = content_state

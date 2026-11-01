@@ -49,7 +49,7 @@ impl RunStyle {
             .unwrap_or_default()
     }
 
-    /// 外缘类风格画在所有卡片之下，外扩部分不会盖住相邻卡片（布局间距只有 8px）。
+    /// 外缘类风格画在所有卡片之下，外扩部分不会盖住相邻卡片（布局间距 24px）。
     pub(crate) fn draws_under_cards(self) -> bool {
         matches!(self, Self::Aura | Self::Ferrofluid)
     }
@@ -121,7 +121,7 @@ pub(crate) fn build(
 
 /// 减少动态效果：卡片底边外 2px 处一条 3px 状态色细条，没有位移和节奏。
 /// 灵光、磁流体画在卡片之下，细条若在卡片内会被不透明的正文挡住，所以放在卡片外、
-/// 落在 8px 的布局间距里（固定屏幕像素，不随缩放变粗）。
+/// 落在布局间距里（固定屏幕像素，不随缩放变粗）。
 pub(crate) const REDUCED_BAR_GAP_PX: f32 = 2.0;
 pub(crate) const REDUCED_BAR_HEIGHT_PX: f32 = 3.0;
 

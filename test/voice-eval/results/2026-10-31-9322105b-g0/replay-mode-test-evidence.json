@@ -1,0 +1,18 @@
+{
+  "commit": "780b09fa5dda07c0cf18eb2cd2d162be026573ca",
+  "runner_sha256": "a620ce6d8b2bff8abac2b0e604b7e9194fd28190b3e6861f8a205503f31d1319",
+  "configuration_sha256": "a835face938192dd6fdd4f07e5f1266bfd572108d7cec0506fed3ed8b6a5cbfc",
+  "command": [
+    "cargo",
+    "test",
+    "-p",
+    "asr",
+    "-j",
+    "2"
+  ],
+  "passed": 38,
+  "failed": 0,
+  "ignored": 2,
+  "log_sha256": "4690193694af8fd75a9b84e172cd0f69c737347a209ef170829dc19f883a133d",
+  "scope": "crate tests; hardware/model test explicitly ignored; not recognition accuracy evidence"
+}

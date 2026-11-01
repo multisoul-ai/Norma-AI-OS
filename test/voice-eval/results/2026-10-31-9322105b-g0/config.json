@@ -1,0 +1,17 @@
+{
+  "stage": "G0",
+  "groups": [
+    "A0-R0-L0"
+  ],
+  "hotwords": [],
+  "system_prompt": null,
+  "repeats": 3,
+  "normalization": "nfkc-casefold-cjkchar-word-v1",
+  "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+  "candidates": [
+    "Qwen3-ASR-1.7B",
+    "Fun-ASR-Nano",
+    "Apple-SpeechAnalyzer",
+    "Whisper-large-v3-turbo"
+  ]
+}

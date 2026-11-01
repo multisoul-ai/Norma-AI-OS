@@ -13,9 +13,11 @@ use super::{RunFill, RunMotion, RunPrim, RunState};
 pub(super) const INITIAL: [f32; 4] = [0.8, 0.0, 0.0, 0.0];
 pub(crate) const SAMPLES: usize = 240;
 const SPIKES: usize = 16;
+const SPIKE_STACK_CAP: f32 = 1.2;
 /// 膜离卡片边缘的最远距离（缩放前像素），小于 `RunStyle::Ferrofluid.margin()`。
 pub(crate) const MAX_REACH: f32 = 52.0;
-pub(crate) const MAX_DRIP: f32 = 34.0;
+/// 滴落长度上限：底边基础起伏 + 滴落 + 肩部仍落在 24px 布局间距内。
+pub(crate) const MAX_DRIP: f32 = 16.0;
 
 pub(super) fn targets(motion: &RunMotion) -> Targets {
     let state = motion.input.state;
@@ -28,7 +30,7 @@ pub(super) fn targets(motion: &RunMotion) -> Targets {
     };
     let spike = match state {
         RunState::Thinking => 9.0,
-        RunState::Tool => 18.0,
+        RunState::Tool => 8.0,
         _ => 0.0,
     };
     let on = |active: bool| if active { 1.0 } else { 0.0 };
@@ -66,13 +68,14 @@ pub(crate) fn offsets(motion: &RunMotion, frame: &CardFrame, base: &[EdgePoint])
                 let mut height =
                     0.35 + 0.65 * (0.5 + 0.5 * (t * 0.004 * (1.0 + hash(kf)) + kf * 1.7).sin());
                 if tool {
-                    height *= if p.ny < -0.5 { 1.2 } else { 0.25 } * (1.0 + 0.9 * ping);
+                    height *= if p.ny < -0.5 { 1.2 } else { 0.25 } * (1.0 + 0.5 * ping);
                 }
                 spikes += gaussian(ring_distance(u, hash(kf + 3.0)), 0.0055) * height;
             }
-            d += spike * spikes;
+            // 相邻尖刺叠加会翻倍，封顶让外扩留在 24px 布局间距内。
+            d += spike * spikes.min(SPIKE_STACK_CAP);
             let db = ring_distance(u, bottom);
-            d = d * (1.0 - 0.55 * drop) + drop * (12.0 + 9.0 * heartbeat(t)) * gaussian(db, 0.045);
+            d = d * (1.0 - 0.55 * drop) + drop * (10.0 + 7.0 * heartbeat(t)) * gaussian(db, 0.045);
             if sag > 0.0 {
                 if p.ny > 0.5 {
                     for k in 0..3 {

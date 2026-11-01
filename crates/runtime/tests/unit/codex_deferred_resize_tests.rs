@@ -23,6 +23,7 @@ fn resize_during_attachment_reaches_original_pty_after_lock_releases() {
             output.push_str(&String::from_utf8_lossy(&bytes));
         }
     }
+    slot.mark_screen_visible(); // 生产中由启动线程在首个输出时标记
     let lock = slot.pty.lock().unwrap();
     backend.resize(100, 30).unwrap();
     let worker_slot = slot.clone();

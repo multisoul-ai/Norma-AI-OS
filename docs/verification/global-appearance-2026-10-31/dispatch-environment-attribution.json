@@ -1,0 +1,51 @@
+{
+  "recorded_at_utc": "2026-10-31T07:57:12.089419+00:00",
+  "failed_report": {
+    "path": "artifacts/desktop-workspace-e2e/2026-10-31T07-52-11Z/report.json",
+    "scenario": "workspace-dispatch-effects",
+    "result": "fail",
+    "kind": "env",
+    "seconds": 17.151925921440125,
+    "failureLayer": "environment",
+    "screenshots": []
+  },
+  "concurrent_other_task_report": {
+    "path": "artifacts/desktop-workspace-e2e/2026-10-31T07-52-28Z/report.json",
+    "scenario": "brain-dock-chat",
+    "result": "pass",
+    "kind": null,
+    "seconds": 90.5746660232544,
+    "failureLayer": null,
+    "screenshots": [
+      "dock-chat-ask-hint.png",
+      "dock-chat-unknown.png",
+      "dock-chat-brain-reply.png"
+    ]
+  },
+  "isolated_processes": {
+    "our_initial_pid": 6724,
+    "our_restart_pid": 6843,
+    "other_task_pid_from_app_log": 7092
+  },
+  "shared_ownership_path": "artifacts/desktop-workspace-e2e/owned.json",
+  "shared_ownership_exists_at_read": false,
+  "successful_runs_also_contain_port_warning": {
+    "artifacts/desktop-workspace-e2e/2026-10-31T07-47-50Z/app.log": [
+      "2026-10-31T07:49:35.172051Z  WARN app::mobile::controller: Mobile operation failed error=Unable to enable mobile connection: Address already in use (os error 48)"
+    ],
+    "artifacts/desktop-workspace-e2e/2026-10-31T07-50-05Z/app.log": [
+      "2026-10-31T07:51:02.012732Z  WARN app::mobile::controller: Mobile operation failed error=Unable to enable mobile connection: Address already in use (os error 48)"
+    ]
+  },
+  "norma_process_snapshot": [
+    "76747     1 Fri Oct 30 23:51:38 2026     /Applications/Norma OS.app/Contents/MacOS/norma-os",
+    "94142     1 Sat Oct 31 00:39:09 2026     /Users/openclawd/Documents/code/norma-os/Norma-AI-OS/target/debug/Norma OS Dev.app/Contents/MacOS/norma-os"
+  ],
+  "attribution": "ENV confirmed. Concurrent E2E reclaim is a supported hypothesis, not a proven kill attribution. Port warning alone is not proof of termination cause. No recorded terminating signal/caller.",
+  "recovery_conditions": [
+    "exclusive E2E run ownership",
+    "isolated optional service ports or disabled optional service in test fixture",
+    "test PID survives window readiness and scene entry"
+  ],
+  "action": "Stopped GUI after exit 3; no retry or manual fallback."
+}

@@ -145,16 +145,10 @@ impl MultisoulApp {
     }
 
     pub(crate) fn brain_proposal_open(&self) -> Option<&(String, u64)> {
-        self.brain.proposal_open.as_ref()
-    }
-
-    /// 展开或收起概览里的一条提议；同一时间只展开一条。
-    pub(crate) fn toggle_brain_proposal(&mut self, key: (String, u64)) {
-        self.brain.proposal_open = if self.brain.proposal_open.as_ref() == Some(&key) {
-            None
-        } else {
-            Some(key)
-        };
+        match &self.desktop_workspace.attention.open {
+            Some(crate::workspace::desktop::DetailKey::Proposal(key)) => Some(key),
+            _ => None,
+        }
     }
 
     /// 目标 Agent 还没有卡片：派发会新建一张。
@@ -215,6 +209,8 @@ impl MultisoulApp {
         draft: Draft,
         cx: &mut Context<Self>,
     ) -> Result<u64, String> {
+        norma::protocol::validate_proposal_copy(&draft.title, &draft.why)
+            .map_err(super::decision_copy::format_error)?;
         check_target(&self.proposal_roster(), &draft.agent)?;
         self.load_brain_proposals(cx);
         if !self.brain.proposals_ready {

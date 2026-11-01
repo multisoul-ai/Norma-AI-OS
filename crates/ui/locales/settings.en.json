@@ -275,5 +275,14 @@
   "settings.brain_activity_clear": "Clear brain activity log",
   "settings.brain_activity_clear_hint": "The log is kept on this Mac for 7 days. Clearing cannot be undone.",
   "settings.brain_activity_clear_button": "Clear",
-  "settings.brain_activity_clear_confirm": "Confirm clear"
+  "settings.brain_activity_clear_confirm": "Confirm clear",
+  "settings.global_wallpaper_hint": "Applies globally to all workspaces and projects.",
+  "settings.global_wallpaper_delete_fallback": "Deleting this wallpaper restores the default for all workspaces and projects.",
+  "settings.wallpaper_save_failed": "Couldn't save wallpaper. The previous selection has been restored.",
+  "settings.wallpaper_importing": "Importing…",
+  "settings.wallpaper_import_failed": "Couldn't import wallpaper: %{error}",
+  "settings.wallpaper_import_cancelled": "Import cancelled",
+  "settings.wallpaper_deleted": "Wallpaper deleted",
+  "settings.wallpaper_file_delete_failed": "Wallpaper reset, but the file couldn't be deleted: %{error}",
+  "settings.wallpaper_delete_failed": "Couldn't delete wallpaper: %{error}"
 }

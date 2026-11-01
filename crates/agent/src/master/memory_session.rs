@@ -149,8 +149,10 @@ impl NormaSession {
         self.memory_enabled = enabled;
         self.memory_epoch = epoch;
         self.memory_revisions = revisions;
+        let mut canvas = self.canvas.clone();
+        let conversation_tails = std::mem::take(&mut canvas.conversation_tails);
         let mut preamble = crate::norma_system_prompt_base_with_desktop(
-            &self.canvas,
+            &canvas,
             &self.roster,
             self.desktop_context.as_ref(),
         );
@@ -160,7 +162,8 @@ impl NormaSession {
             .unwrap_or_default();
         preamble.push_str(&persona.prompt());
         preamble.push_str(crate::NORMA_MEMORY_RULES);
-        // Reserve reply(2048 tokens) + one bounded tool envelope(8192 bytes).
+        // Reserve reply tokens; a future tool receipt is optional headroom, not
+        // part of the current request. Required state must fit before headroom.
         // Conservative serialized bytes/token=2 matches the existing history estimator.
         let total = super::request_budget::input_bytes(self.context_window_tokens);
         let shared = frame.is_some();
@@ -181,7 +184,7 @@ impl NormaSession {
         let input_bytes = serde_json::to_string(input)
             .expect("input serialization")
             .len();
-        let reserved = definitions + input_bytes + crate::MEMORY_TOOL_BYTES + 768;
+        let reserved = definitions + input_bytes + 768;
         self.history_char_budget = total.saturating_sub(
             serde_json::to_string(&preamble)
                 .expect("preamble serialization")
@@ -193,8 +196,14 @@ impl NormaSession {
         if shared {
             preamble.push_str(crate::context::SHARED_CONTEXT_RULES);
         }
+        self.append_conversation_context(&mut preamble, conversation_tails);
         if let Some(memory) = memory.filter(|memory| memory.preferences.recall) {
-            let available = self.history_char_budget.min(crate::MEMORY_CATALOG_BYTES);
+            // Optional catalog yields tool-result headroom; conversation history
+            // can use the actual remaining window and is pruned by whole turns.
+            let available = self
+                .history_char_budget
+                .saturating_sub(crate::MEMORY_TOOL_BYTES)
+                .min(crate::MEMORY_CATALOG_BYTES);
             let mut raw_budget = available;
             while raw_budget > 0 {
                 let Ok((catalog, next)) = crate::memory_text_chunk(&memory.catalog, 0, raw_budget)

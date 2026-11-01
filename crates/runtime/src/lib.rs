@@ -1,4 +1,5 @@
 //! runtime — 域层（零 gpui）：节点生命周期、焦点、输入路由。
+mod agent_descendants;
 pub mod agent_hooks;
 mod agent_install_hint;
 mod agent_session_bindings;
@@ -11,6 +12,7 @@ pub mod events;
 pub mod focus;
 pub mod live;
 pub(crate) mod macos_proc;
+pub use agent_descendants::{agent_process_alive, has_agent_turn_descendant};
 pub mod nodes;
 mod pi_launch;
 mod preview;

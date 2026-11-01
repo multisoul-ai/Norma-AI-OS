@@ -34,7 +34,10 @@ impl TaskSummary {
                             .as_str()
                             .and_then(bounded_excerpt);
                     }
-                    "Stop" => {
+                    "turn/completed" if event.raw_json["turn"]["status"] == "failed" => {
+                        self.text = event.message.as_deref().and_then(bounded_excerpt);
+                    }
+                    "Stop" | "turn/completed" => {
                         self.text = observe_conversation(event)
                             .filter(|o| o.kind == ConversationObservationKind::CompleteAgentReply)
                             .and_then(|o| o.text)

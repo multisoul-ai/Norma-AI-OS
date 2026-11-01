@@ -44,6 +44,11 @@ impl AgentSessionReplyQueue {
         interrupted
     }
 
+    pub(crate) fn interrupt_node(&mut self, node_id: NodeId) {
+        self.entries
+            .retain(|entry| entry.receipt.node_id != node_id);
+    }
+
     pub(crate) fn peek_reply(&self, reply_id: u64) -> Option<&AgentReplyReceipt> {
         self.entries
             .iter()
@@ -258,15 +263,16 @@ fn session_reply_input_ready(state: Option<&AgentTaskState>) -> bool {
             | AgentTaskState::Done
             | AgentTaskState::Failed { .. }
             | AgentTaskState::Thinking
-            | AgentTaskState::RunningTool { .. },
-        ) => true,
-        Some(
-            AgentTaskState::WaitingApproval { .. }
-            | AgentTaskState::WaitingQuestion
+            | AgentTaskState::RunningTool { .. }
             | AgentTaskState::Ended,
-        ) => false,
+        ) => true,
+        Some(AgentTaskState::WaitingApproval { .. } | AgentTaskState::WaitingQuestion) => false,
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/agent_manual_interrupt_reply_tests.rs"]
+mod manual_interrupt_reply_tests;
 
 #[cfg(test)]
 mod tests {
@@ -328,13 +334,13 @@ mod tests {
         );
     }
 
-    /// 运行中的会话可接收消息，审批和已结束状态仍禁止输入。
+    /// 运行或手动中断的任务均可接收消息；审批与问题仍禁止自动输入。
     ///
     /// 数据构造：无状态、Ready、Thinking、RunningTool、WaitingApproval、Ended。
     /// 执行过程：逐一判断会话是否允许写入正文与 Enter。
-    /// 预期结果：Thinking/RunningTool 交给 CLI 接收；审批与结束状态不得写入。
+    /// 预期结果：Thinking/RunningTool/Ended 交给 CLI 接收；审批与问题不得写入。
     #[test]
-    fn input_ready_accepts_running_but_excludes_approval_and_ended_states() {
+    fn input_ready_accepts_interrupted_tasks_but_excludes_approval_and_questions() {
         assert!(session_reply_input_ready(None), "无状态应视为可输入");
         assert!(
             session_reply_input_ready(Some(&AgentTaskState::Ready)),
@@ -357,8 +363,12 @@ mod tests {
             "审批期间不得把消息和 Enter 当作批准输入"
         );
         assert!(
-            !session_reply_input_ready(Some(&AgentTaskState::Ended)),
-            "Ended 不得立即发送"
+            session_reply_input_ready(Some(&AgentTaskState::Ended)),
+            "Ended 仅表示任务中断，仍应允许活着的 CLI 接收新指令"
+        );
+        assert!(
+            !session_reply_input_ready(Some(&AgentTaskState::WaitingQuestion)),
+            "待回答的问题不得被自动提交的消息覆盖"
         );
     }
 }

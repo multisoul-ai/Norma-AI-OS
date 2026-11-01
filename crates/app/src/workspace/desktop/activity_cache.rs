@@ -362,7 +362,15 @@ impl MultisoulApp {
                     projects,
                 },
                 observed: true,
-                approvals: Vec::new(),
+                approvals: self
+                    .brain_overview()
+                    .approvals
+                    .iter()
+                    .map(|(area, approval)| norma::mobile::ActivityApprovalFact {
+                        area_id: area.clone(),
+                        approval: approval.clone(),
+                    })
+                    .collect(),
                 reviews: Vec::new(),
             },
         })

@@ -12,6 +12,16 @@ use ui::{
     ThemeId,
 };
 
+/// 深色下 Command Dock 与其浮层约 68% 不透明：尽量透出壁纸，同时让白壁纸上
+/// 次要/第三级文字仍达 4.5:1（各主题下限 0xa1–0xa9）。
+pub(crate) fn command_dock_surface(theme: ui::Theme) -> u32 {
+    if theme.is_light() {
+        theme.dock
+    } else {
+        with_alpha(theme.dock, 0xad)
+    }
+}
+
 // Six themes is the longest list. 40px heading + 6 × 54px rows + 8px inset = 372px.
 const HEADER: f32 = 40.0;
 const ROW: f32 = 54.0;
@@ -415,7 +425,7 @@ impl MultisoulApp {
                 .border_1()
                 .border_b_0()
                 .border_color(rgba(theme.dock_line))
-                .bg(rgba(theme.dock))
+                .bg(rgba(command_dock_surface(theme)))
                 .text_color(rgba(theme.text_primary))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_mouse_down_out(cx.listener(|app, _, window, cx| {
@@ -451,6 +461,13 @@ fn suggestion_title(item: &runtime::command::CommandSuggestion) -> String {
         Some(DockCommand::Theme(_) | DockCommand::AddProject(_)) => item.title.clone(),
         Some(DockCommand::BrowseProject) => ui::i18n::text("chrome.command.browse_project").into(),
         Some(DockCommand::Help) => ui::i18n::text("chrome.command.help").into(),
+        None if item.group == CommandGroup::Ask && item.completion == "ask " => {
+            ui::i18n::text("chrome.command.ask").into()
+        }
+        None if item.group == CommandGroup::Ask => ui::i18n::format(
+            "chrome.command.ask_agent",
+            &[("profile", item.title.clone())],
+        ),
         None if item.completion.starts_with("/new") => ui::i18n::text("chrome.new_agent").into(),
         None => ui::i18n::text("chrome.command.theme").into(),
     }
@@ -463,6 +480,7 @@ fn group_label(group: CommandGroup) -> &'static str {
         CommandGroup::Project => ui::i18n::text("shortcuts.add_project"),
         CommandGroup::Theme => ui::i18n::text("chrome.apply_theme"),
         CommandGroup::Help => ui::i18n::text("chrome.command.help"),
+        CommandGroup::Ask => ui::i18n::text("chrome.ask_group"),
     }
 }
 

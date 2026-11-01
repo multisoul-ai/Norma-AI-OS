@@ -1,0 +1,715 @@
+{
+  "dataRoot" : "\/Users\/openclawd\/Documents\/code\/norma-os\/Norma-AI-OS\/artifacts\/desktop-workspace-e2e\/2026-10-31T07-50-05Z\/data",
+  "driverEvents" : [
+    {
+      "category" : "window",
+      "detail" : "窗口就绪后才发送 resize",
+      "seconds" : 6.2336080074310303,
+      "stage" : "ready"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=075A4FFF-7F34-4B6C-BCCC-15A8B405D2A9 phase=move x=279.99999924252495 y=240.959302365629",
+      "seconds" : 27.101747989654541,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=075A4FFF-7F34-4B6C-BCCC-15A8B405D2A9 phase=move x=279.99999924252495 y=240.959302365629",
+      "seconds" : 27.134694933891296,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=075A4FFF-7F34-4B6C-BCCC-15A8B405D2A9 phase=down x=279.99999924252495 y=240.959302365629",
+      "seconds" : 27.300745010375977,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=075A4FFF-7F34-4B6C-BCCC-15A8B405D2A9 phase=down x=279.99999924252495 y=240.959302365629",
+      "seconds" : 27.318076968193054,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=075A4FFF-7F34-4B6C-BCCC-15A8B405D2A9 phase=up x=279.99999924252495 y=240.959302365629",
+      "seconds" : 27.360629916191101,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=075A4FFF-7F34-4B6C-BCCC-15A8B405D2A9 phase=up x=279.99999924252495 y=240.959302365629",
+      "seconds" : 27.385592937469482,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=075A4FFF-7F34-4B6C-BCCC-15A8B405D2A9 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 27.385605931282043,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=E9135B75-28A7-4022-A8DE-7DE011D2C9B6 phase=move x=520.9302324615045 y=374.8837209004778",
+      "seconds" : 28.185166954994202,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=E9135B75-28A7-4022-A8DE-7DE011D2C9B6 phase=move x=520.9302324615045 y=374.8837209004778",
+      "seconds" : 28.217142939567566,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=E9135B75-28A7-4022-A8DE-7DE011D2C9B6 phase=down x=520.9302324615045 y=374.8837209004778",
+      "seconds" : 28.386505961418152,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=E9135B75-28A7-4022-A8DE-7DE011D2C9B6 phase=down x=520.9302324615045 y=374.8837209004778",
+      "seconds" : 28.418095946311951,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=E9135B75-28A7-4022-A8DE-7DE011D2C9B6 phase=up x=520.9302324615045 y=374.8837209004778",
+      "seconds" : 28.463201999664307,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=E9135B75-28A7-4022-A8DE-7DE011D2C9B6 phase=up x=520.9302324615045 y=374.8837209004778",
+      "seconds" : 28.486194014549255,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=E9135B75-28A7-4022-A8DE-7DE011D2C9B6 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 28.486202001571655,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=CD7F521D-46C5-4730-AF19-9E544832207D phase=move x=279.0162698132825 y=330.63971946346595",
+      "seconds" : 29.135291934013367,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=CD7F521D-46C5-4730-AF19-9E544832207D phase=move x=279.0162698132825 y=330.63971946346595",
+      "seconds" : 29.168218970298767,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=CD7F521D-46C5-4730-AF19-9E544832207D phase=down x=279.0162698132825 y=330.63971946346595",
+      "seconds" : 29.330608010292053,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=CD7F521D-46C5-4730-AF19-9E544832207D phase=down x=279.0162698132825 y=330.63971946346595",
+      "seconds" : 29.351645946502686,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=CD7F521D-46C5-4730-AF19-9E544832207D phase=up x=279.0162698132825 y=330.63971946346595",
+      "seconds" : 29.396790981292725,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=CD7F521D-46C5-4730-AF19-9E544832207D phase=up x=279.0162698132825 y=330.63971946346595",
+      "seconds" : 29.418291926383972,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=CD7F521D-46C5-4730-AF19-9E544832207D move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 29.418299913406372,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=7192BCD4-B100-435B-9F5E-92B36C2DAEC3 phase=move x=656.7441859224807 y=656.7500001013098",
+      "seconds" : 32.90412700176239,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=7192BCD4-B100-435B-9F5E-92B36C2DAEC3 phase=move x=656.7441859224807 y=656.7500001013098",
+      "seconds" : 32.937258958816528,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=7192BCD4-B100-435B-9F5E-92B36C2DAEC3 phase=down x=656.7441859224807 y=656.7500001013098",
+      "seconds" : 33.101992964744568,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=7192BCD4-B100-435B-9F5E-92B36C2DAEC3 phase=down x=656.7441859224807 y=656.7500001013098",
+      "seconds" : 33.12064790725708,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=7192BCD4-B100-435B-9F5E-92B36C2DAEC3 phase=up x=656.7441859224807 y=656.7500001013098",
+      "seconds" : 33.165771007537842,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=7192BCD4-B100-435B-9F5E-92B36C2DAEC3 phase=up x=656.7441859224807 y=656.7500001013098",
+      "seconds" : 33.190153956413269,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=7192BCD4-B100-435B-9F5E-92B36C2DAEC3 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 33.190163016319275,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=5EAFC1AE-187B-4DF4-A84D-E80913B42A54 phase=move x=811.162790604651 y=656.7500001064777",
+      "seconds" : 35.805615901947021,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=5EAFC1AE-187B-4DF4-A84D-E80913B42A54 phase=move x=811.162790604651 y=656.7500001064777",
+      "seconds" : 35.838764905929565,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=5EAFC1AE-187B-4DF4-A84D-E80913B42A54 phase=down x=811.162790604651 y=656.7500001064777",
+      "seconds" : 36.009349942207336,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=5EAFC1AE-187B-4DF4-A84D-E80913B42A54 phase=down x=811.162790604651 y=656.7500001064777",
+      "seconds" : 36.038478970527649,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=5EAFC1AE-187B-4DF4-A84D-E80913B42A54 phase=up x=811.162790604651 y=656.7500001064777",
+      "seconds" : 36.081744909286499,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=5EAFC1AE-187B-4DF4-A84D-E80913B42A54 phase=up x=811.162790604651 y=656.7500001064777",
+      "seconds" : 36.108128905296326,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=5EAFC1AE-187B-4DF4-A84D-E80913B42A54 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 36.108137011528015,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8E97D224-8795-40B5-A96E-1668C57EF8C7 phase=move x=966.5116278115055 y=656.7500001072938",
+      "seconds" : 38.639991998672485,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8E97D224-8795-40B5-A96E-1668C57EF8C7 phase=move x=966.5116278115055 y=656.7500001072938",
+      "seconds" : 38.67248797416687,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8E97D224-8795-40B5-A96E-1668C57EF8C7 phase=down x=966.5116278115055 y=656.7500001072938",
+      "seconds" : 38.839367985725403,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8E97D224-8795-40B5-A96E-1668C57EF8C7 phase=down x=966.5116278115055 y=656.7500001072938",
+      "seconds" : 38.856652975082397,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8E97D224-8795-40B5-A96E-1668C57EF8C7 phase=up x=966.5116278115055 y=656.7500001072938",
+      "seconds" : 38.901762962341309,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8E97D224-8795-40B5-A96E-1668C57EF8C7 phase=up x=966.5116278115055 y=656.7500001072938",
+      "seconds" : 38.926301002502441,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8E97D224-8795-40B5-A96E-1668C57EF8C7 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 38.926308989524841,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=798685A3-C44C-476C-AD49-ADBC6F279F6B phase=move x=509.7674416899225 y=651.1220928613845",
+      "seconds" : 42.207427978515625,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=798685A3-C44C-476C-AD49-ADBC6F279F6B phase=move x=509.7674416899225 y=651.1220928613845",
+      "seconds" : 42.241285920143127,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=798685A3-C44C-476C-AD49-ADBC6F279F6B phase=down x=509.7674416899225 y=651.1220928613845",
+      "seconds" : 42.407673954963684,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=798685A3-C44C-476C-AD49-ADBC6F279F6B phase=down x=509.7674416899225 y=651.1220928613845",
+      "seconds" : 42.441322922706604,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=798685A3-C44C-476C-AD49-ADBC6F279F6B phase=up x=509.7674416899225 y=651.1220928613845",
+      "seconds" : 42.483585953712463,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=798685A3-C44C-476C-AD49-ADBC6F279F6B phase=up x=509.7674416899225 y=651.1220928613845",
+      "seconds" : 42.510932922363281,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=798685A3-C44C-476C-AD49-ADBC6F279F6B move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 42.510985970497131,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8A8F7F0B-8648-46F3-A485-0219797B6AB8 phase=move x=670.697673627907 y=651.1220927916171",
+      "seconds" : 45.742313981056213,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8A8F7F0B-8648-46F3-A485-0219797B6AB8 phase=move x=670.697673627907 y=651.1220927916171",
+      "seconds" : 45.775467991828918,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8A8F7F0B-8648-46F3-A485-0219797B6AB8 phase=down x=670.697673627907 y=651.1220927916171",
+      "seconds" : 45.943296909332275,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8A8F7F0B-8648-46F3-A485-0219797B6AB8 phase=down x=670.697673627907 y=651.1220927916171",
+      "seconds" : 45.975268959999084,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8A8F7F0B-8648-46F3-A485-0219797B6AB8 phase=up x=670.697673627907 y=651.1220927916171",
+      "seconds" : 46.020373940467834,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8A8F7F0B-8648-46F3-A485-0219797B6AB8 phase=up x=670.697673627907 y=651.1220927916171",
+      "seconds" : 46.044975996017456,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=8A8F7F0B-8648-46F3-A485-0219797B6AB8 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 46.044993996620178,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=A9EB3851-1736-4868-8B52-D3B31D86C33B phase=move x=262.325580405462 y=284.6511622949563",
+      "seconds" : 47.442790985107422,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=A9EB3851-1736-4868-8B52-D3B31D86C33B phase=move x=262.325580405462 y=284.6511622949563",
+      "seconds" : 47.475904941558838,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=A9EB3851-1736-4868-8B52-D3B31D86C33B phase=down x=262.325580405462 y=284.6511622949563",
+      "seconds" : 47.63911497592926,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=A9EB3851-1736-4868-8B52-D3B31D86C33B phase=down x=262.325580405462 y=284.6511622949563",
+      "seconds" : 47.659250974655151,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=A9EB3851-1736-4868-8B52-D3B31D86C33B phase=up x=262.325580405462 y=284.6511622949563",
+      "seconds" : 47.703572988510132,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=A9EB3851-1736-4868-8B52-D3B31D86C33B phase=up x=262.325580405462 y=284.6511622949563",
+      "seconds" : 47.725968956947327,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=A9EB3851-1736-4868-8B52-D3B31D86C33B move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 47.725978970527649,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F7E82D59-BC95-4CC9-8EE0-2B7D3D5C5A8D phase=move x=741.3953487440624 y=462.3255811332953",
+      "seconds" : 48.393207907676697,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F7E82D59-BC95-4CC9-8EE0-2B7D3D5C5A8D phase=move x=741.3953487440624 y=462.3255811332953",
+      "seconds" : 48.426111936569214,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F7E82D59-BC95-4CC9-8EE0-2B7D3D5C5A8D phase=down x=741.3953487440624 y=462.3255811332953",
+      "seconds" : 48.591614961624146,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F7E82D59-BC95-4CC9-8EE0-2B7D3D5C5A8D phase=down x=741.3953487440624 y=462.3255811332953",
+      "seconds" : 48.609460949897766,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F7E82D59-BC95-4CC9-8EE0-2B7D3D5C5A8D phase=up x=741.3953487440624 y=462.3255811332953",
+      "seconds" : 48.652653932571411,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F7E82D59-BC95-4CC9-8EE0-2B7D3D5C5A8D phase=up x=741.3953487440624 y=462.3255811332953",
+      "seconds" : 48.676182985305786,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=F7E82D59-BC95-4CC9-8EE0-2B7D3D5C5A8D move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 48.676192998886108,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=54F47250-B725-43A2-8842-B0CBAABF8700 phase=move x=279.9999996686047 y=240.95930241795458",
+      "seconds" : 49.242222905158997,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=54F47250-B725-43A2-8842-B0CBAABF8700 phase=move x=279.9999996686047 y=240.95930241795458",
+      "seconds" : 49.276287913322449,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=54F47250-B725-43A2-8842-B0CBAABF8700 phase=down x=279.9999996686047 y=240.95930241795458",
+      "seconds" : 49.44230592250824,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=54F47250-B725-43A2-8842-B0CBAABF8700 phase=down x=279.9999996686047 y=240.95930241795458",
+      "seconds" : 49.459670901298523,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=54F47250-B725-43A2-8842-B0CBAABF8700 phase=up x=279.9999996686047 y=240.95930241795458",
+      "seconds" : 49.504779934883118,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=54F47250-B725-43A2-8842-B0CBAABF8700 phase=up x=279.9999996686047 y=240.95930241795458",
+      "seconds" : 49.525404930114746,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=54F47250-B725-43A2-8842-B0CBAABF8700 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 49.525416016578674,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=2372F71B-C4F3-4D67-B2FA-3B60A542ECD4 phase=move x=523.7209301365931 y=331.1627906669869",
+      "seconds" : 50.327206015586853,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=2372F71B-C4F3-4D67-B2FA-3B60A542ECD4 phase=move x=523.7209301365931 y=331.1627906669869",
+      "seconds" : 50.359793901443481,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=2372F71B-C4F3-4D67-B2FA-3B60A542ECD4 phase=down x=523.7209301365931 y=331.1627906669869",
+      "seconds" : 50.530605912208557,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=2372F71B-C4F3-4D67-B2FA-3B60A542ECD4 phase=down x=523.7209301365931 y=331.1627906669869",
+      "seconds" : 50.558910012245178,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=2372F71B-C4F3-4D67-B2FA-3B60A542ECD4 phase=up x=523.7209301365931 y=331.1627906669869",
+      "seconds" : 50.604054927825928,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=2372F71B-C4F3-4D67-B2FA-3B60A542ECD4 phase=up x=523.7209301365931 y=331.1627906669869",
+      "seconds" : 50.655277013778687,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=2372F71B-C4F3-4D67-B2FA-3B60A542ECD4 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 50.655285000801086,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=0A83AF7B-6336-4BB1-B4B1-FF672D2B6C7E phase=move x=250.23255804651166 y=329.3023255516279",
+      "seconds" : 51.306980967521667,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=0A83AF7B-6336-4BB1-B4B1-FF672D2B6C7E phase=move x=250.23255804651166 y=329.3023255516279",
+      "seconds" : 51.340052008628845,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=0A83AF7B-6336-4BB1-B4B1-FF672D2B6C7E phase=down x=250.23255804651166 y=329.3023255516279",
+      "seconds" : 51.508863925933838,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=0A83AF7B-6336-4BB1-B4B1-FF672D2B6C7E phase=down x=250.23255804651166 y=329.3023255516279",
+      "seconds" : 51.541111946105957,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=0A83AF7B-6336-4BB1-B4B1-FF672D2B6C7E phase=up x=250.23255804651166 y=329.3023255516279",
+      "seconds" : 51.586225986480713,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=0A83AF7B-6336-4BB1-B4B1-FF672D2B6C7E phase=up x=250.23255804651166 y=329.3023255516279",
+      "seconds" : 51.624161005020142,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=0A83AF7B-6336-4BB1-B4B1-FF672D2B6C7E move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 51.624169945716858,
+      "stage" : "completed"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=58319700-1785-472C-B84F-73F7A36398D8 phase=move x=650.2325573009044 y=490.23255768961934",
+      "seconds" : 54.924417018890381,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=58319700-1785-472C-B84F-73F7A36398D8 phase=move x=650.2325573009044 y=490.23255768961934",
+      "seconds" : 54.957520961761475,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=58319700-1785-472C-B84F-73F7A36398D8 phase=down x=650.2325573009044 y=490.23255768961934",
+      "seconds" : 55.123040914535522,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=58319700-1785-472C-B84F-73F7A36398D8 phase=down x=650.2325573009044 y=490.23255768961934",
+      "seconds" : 55.158443927764893,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=58319700-1785-472C-B84F-73F7A36398D8 phase=up x=650.2325573009044 y=490.23255768961934",
+      "seconds" : 55.203573942184448,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=58319700-1785-472C-B84F-73F7A36398D8 phase=up x=650.2325573009044 y=490.23255768961934",
+      "seconds" : 55.241734981536865,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=58319700-1785-472C-B84F-73F7A36398D8 move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 55.241742014884949,
+      "stage" : "completed"
+    },
+    {
+      "category" : "window",
+      "detail" : "窗口就绪后才发送 resize",
+      "seconds" : 56.520131945610046,
+      "stage" : "ready"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=1E7AD7A2-ACF3-4DB8-9F95-A1FF25BFCA5E phase=move x=250.21456887196018 y=329.24335016533496",
+      "seconds" : 58.127980947494507,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=1E7AD7A2-ACF3-4DB8-9F95-A1FF25BFCA5E phase=move x=250.21456887196018 y=329.24335016533496",
+      "seconds" : 58.16109299659729,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=1E7AD7A2-ACF3-4DB8-9F95-A1FF25BFCA5E phase=down x=250.21456887196018 y=329.24335016533496",
+      "seconds" : 58.324838995933533,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=1E7AD7A2-ACF3-4DB8-9F95-A1FF25BFCA5E phase=down x=250.21456887196018 y=329.24335016533496",
+      "seconds" : 58.343454003334045,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=1E7AD7A2-ACF3-4DB8-9F95-A1FF25BFCA5E phase=up x=250.21456887196018 y=329.24335016533496",
+      "seconds" : 58.388569951057434,
+      "stage" : "dispatch-attempted"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=1E7AD7A2-ACF3-4DB8-9F95-A1FF25BFCA5E phase=up x=250.21456887196018 y=329.24335016533496",
+      "seconds" : 58.411123991012573,
+      "stage" : "acknowledged"
+    },
+    {
+      "category" : "click",
+      "detail" : "id=1E7AD7A2-ACF3-4DB8-9F95-A1FF25BFCA5E move\/down\/up 均获控制通道确认；仍须核对产品后置状态",
+      "seconds" : 58.411136984825134,
+      "stage" : "completed"
+    }
+  ],
+  "message" : "场景通过",
+  "output" : "\/Users\/openclawd\/Documents\/code\/norma-os\/Norma-AI-OS\/artifacts\/desktop-workspace-e2e\/2026-10-31T07-50-05Z",
+  "result" : "pass",
+  "scenario" : "settings-space-wallpapers",
+  "screenshots" : [
+    "00-global-wallpaper.png",
+    "01-blue-horizon-dark.png",
+    "02-golden-orbit-dark.png",
+    "03-violet-nebula-dark.png",
+    "04-emerald-aurora-dark.png",
+    "05-silver-moonscape-dark.png",
+    "06-space-library-graphite.png",
+    "wallpaper-sidebar-anchor.png",
+    "07-restored-space-wallpaper.png"
+  ],
+  "seconds" : 60.450304985046387,
+  "steps" : [
+    {
+      "detail" : "全局壁纸，页面不再有范围切换或跟随开关",
+      "name" : "打开内置太空壁纸库",
+      "passed" : true,
+      "seconds" : 31.038065910339355
+    },
+    {
+      "detail" : "SQLite wallpaper.value=wallpapers\/norma-blue-horizon.png；静态原图无需下载",
+      "name" : "选择 Blue Horizon",
+      "passed" : true,
+      "seconds" : 2.9344780445098877
+    },
+    {
+      "detail" : "SQLite wallpaper.value=wallpapers\/norma-golden-orbit.png；静态原图无需下载",
+      "name" : "选择 Golden Orbit",
+      "passed" : true,
+      "seconds" : 2.8887690305709839
+    },
+    {
+      "detail" : "SQLite wallpaper.value=wallpapers\/norma-violet-nebula.png；静态原图无需下载",
+      "name" : "选择 Violet Nebula",
+      "passed" : true,
+      "seconds" : 2.845041036605835
+    },
+    {
+      "detail" : "SQLite wallpaper.value=wallpapers\/norma-emerald-aurora.png；静态原图无需下载",
+      "name" : "选择 Emerald Aurora",
+      "passed" : true,
+      "seconds" : 3.5699180364608765
+    },
+    {
+      "detail" : "SQLite wallpaper.value=wallpapers\/norma-silver-moonscape.png；静态原图无需下载",
+      "name" : "选择 Silver Moonscape",
+      "passed" : true,
+      "seconds" : 3.5398409366607666
+    },
+    {
+      "detail" : "Graphite 下五款中文名称和缩略图可见，蔚蓝地平线已保存",
+      "name" : "Graphite 主题与中文素材库",
+      "passed" : true,
+      "seconds" : 9.2231709957122803
+    },
+    {
+      "detail" : "重启保留内置选择、中文与Graphite 主题",
+      "name" : "重启恢复太空壁纸",
+      "passed" : true,
+      "seconds" : 4.2734960317611694
+    }
+  ],
+  "verification" : "ocr-scripted",
+  "visualChecks" : 0
+}

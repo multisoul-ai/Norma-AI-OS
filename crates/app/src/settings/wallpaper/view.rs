@@ -1,4 +1,4 @@
-//! Wallpaper page: target → current preview → shared library.
+//! Wallpaper page: current preview → shared library.
 use crate::settings::typography::{control_label, SettingsText, TextRole};
 
 use super::action::WallpaperAction;
@@ -18,29 +18,18 @@ pub(crate) fn wallpaper_settings(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let layout = WallpaperLayout::for_width(available_width);
-    let selected = super::scope_view::selected_state(state);
-    let state = &selected;
-    let busy = state.scoped.busy || state.scoped.delete_prompt.is_some();
+    let busy = state.preferences.busy || state.preferences.delete_prompt.is_some();
     let builtins = builtin_wallpapers();
-    let customs = state.scoped.customs.clone();
+    let customs = state.preferences.customs.clone();
     div()
         .w(px(layout.width))
         .flex()
         .flex_col()
         .gap(px(24.0))
         .text_color(rgba(theme.text_primary))
-        .child(super::scope_view::scope_controls(
-            theme,
-            &state.scoped,
-            layout.stacked_preview,
-            cx,
-        ))
         .child(super::current::current_wallpaper(
             theme, state, previews, &layout, cx,
         ))
-        .when(state.scoped.has_missing_selection(), |page| {
-            page.child(super::scope_view::notices(theme, &state.scoped))
-        })
         .child(
             div()
                 .flex()

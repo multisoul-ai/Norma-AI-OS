@@ -259,3 +259,46 @@ fn test_preview_candidates_keep_multiline_paths_and_semantic_boundaries() {
         "直接命中也不得绕过语义目标"
     );
 }
+
+/// Agent 把路径紧贴在全角「：」后输出：候选与高亮区间都不得带中文前缀。
+///
+/// 数据构造：52 列网格，第 0 行 `SHA-256 和完整验证记录：artifacts/dev-local-package-`（恰好占满），
+/// 第 1 行 `20261030-102859/verification.md`，二者之间为 CLI 硬换行；
+/// 另有单行 `验证记录：docs/a.md`。
+///
+/// 预期结果：
+///   - 正断言：折行候选包含不带前缀的完整路径，点击两行都能得到。
+///   - 正断言：单行路径的区间起点在「：」之后。
+///   - 负断言：任何候选都不含「：」。
+#[test]
+fn test_preview_candidates_strip_fullwidth_prefix() {
+    let mut grid = TerminalGrid::new(52, 4);
+    grid.advance(
+        "SHA-256 和完整验证记录：artifacts/dev-local-package-\r\n20261030-102859/verification.md"
+            .as_bytes(),
+    );
+    let snapshot = grid.snapshot();
+    let full = "artifacts/dev-local-package-20261030-102859/verification.md".to_string();
+    for (row, col) in [(0, 40), (1, 3)] {
+        let candidates = snapshot.preview_path_candidates_at(row, col);
+        assert!(
+            candidates.contains(&full),
+            "({row},{col}) 应恢复完整路径: {candidates:?}"
+        );
+        assert!(
+            candidates.iter().all(|c| !c.contains('：')),
+            "候选不得带全角前缀: {candidates:?}"
+        );
+    }
+
+    let mut single = TerminalGrid::new(40, 2);
+    single.advance("验证记录：docs/a.md".as_bytes());
+    let snapshot = single.snapshot();
+    let spans = snapshot.path_ref_spans_for_row(0);
+    assert_eq!(spans.len(), 1, "{spans:?}");
+    assert_eq!(spans[0].path_ref.raw, "docs/a.md");
+    assert_eq!(
+        snapshot.rows[0][spans[0].start].c, 'd',
+        "区间应从路径首字符开始"
+    );
+}

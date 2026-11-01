@@ -43,19 +43,7 @@ fn drain_reports_session_binding_change_when_task_state_stays_ready() {
         CanvasRect::new(0.0, 0.0, 640.0, 400.0),
     );
     let (sender, receiver) = unbounded();
-    #[cfg(feature = "e2e-test-support")]
-    let event_sender = sender.clone();
-    let server = AgentHookServer {
-        #[cfg(feature = "e2e-test-support")]
-        event_tap: None,
-        approvals: crossbeam_channel::bounded(1).1,
-        questions: crossbeam_channel::bounded(1).1,
-        receiver,
-        #[cfg(feature = "e2e-test-support")]
-        event_sender,
-        endpoint: None,
-        token: None,
-    };
+    let server = hook_server_for_test(receiver);
 
     sender
         .send(session_start(node_id, "session-a"))
@@ -119,17 +107,7 @@ fn drain_reports_progress_without_task_state_change() {
         )
         .expect("原卡");
     let (sender, receiver) = unbounded();
-    let server = AgentHookServer {
-        #[cfg(feature = "e2e-test-support")]
-        event_tap: None,
-        #[cfg(feature = "e2e-test-support")]
-        event_sender: sender.clone(),
-        approvals: crossbeam_channel::bounded(1).1,
-        questions: crossbeam_channel::bounded(1).1,
-        receiver,
-        endpoint: None,
-        token: None,
-    };
+    let server = hook_server_for_test(receiver);
     let event = |name: &str, id: &str| {
         norma::agent_hook::parse_hook_event(
         norma::agent_hook::HookSource::Claude, node, serde_json::json!({

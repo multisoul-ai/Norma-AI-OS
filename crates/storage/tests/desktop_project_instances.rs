@@ -172,20 +172,21 @@ fn project_canvas_rename_is_scoped_validated_and_persistent() {
     );
 }
 
-/// 旧版项目去重数据库升级后支持重复添加，并保留已有画布、壁纸和配置修订触发器。
+/// 旧版项目去重数据库升级后支持重复添加，并保留已有画布、壁纸、派发特效和配置修订触发器。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   旧空间“legacy”、旧画布“original”、added_at=2（固定的历史时间）；旧配置 revision=7。
+///   项目派发特效为 ribbon，语音来源覆盖为 fireworks。
 ///   升级不应计为编辑；新增画布后 revision = 7 + 1 = 8，改名后 = 8 + 1 = 9。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建带 UNIQUE 的旧表、配置修订和插入触发器 → 写入旧画布后将修订还原为 7。
-///   2. 新 Store 读取 → 移除项目去重约束，复制数据并重建原触发器。
+///   2. 新 Store 读取 → 移除项目去重约束，保留特效列并重建原触发器，再迁移全局偏好。
 ///   3. 重复添加同项目 → 新 ID，修订变为 8；重命名新画布 → 修订变为 9。
 ///   4. 重开目录 → 保留两张画布，修订仍为 9。
 ///
 /// 预期结果：
-///   - 正断言：旧 ID、名称、时间、壁纸和展开视角保留，原触发器继续生效。
+///   - 正断言：旧 ID、名称、时间、壁纸、派发特效及来源覆盖和展开视角保留，特效迁为全局，原触发器继续生效。
 ///   - 负断言：新画布不复用旧 ID；迁移不递增修订，重开不合并或删除画布。
 #[test]
 fn legacy_project_catalog_migration_preserves_data_and_revision_triggers() {
@@ -207,7 +208,7 @@ fn legacy_project_catalog_migration_preserves_data_and_revision_triggers() {
             id TEXT PRIMARY KEY NOT NULL,
             desktop_workspace_id TEXT NOT NULL REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
             project_key TEXT NOT NULL, root_path TEXT NOT NULL, display_name TEXT NOT NULL,
-            added_at_unix_ms INTEGER NOT NULL, wallpaper_json TEXT,
+            added_at_unix_ms INTEGER NOT NULL, wallpaper_json TEXT, dispatch_effect_json TEXT,
             UNIQUE(desktop_workspace_id, project_key));
          CREATE TABLE desktop_configuration_revisions (
             workspace_id TEXT PRIMARY KEY REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
@@ -220,10 +221,11 @@ fn legacy_project_catalog_migration_preserves_data_and_revision_triggers() {
         .expect("应构造旧版表和修订记录");
     connection
         .execute(
-            "INSERT INTO desktop_project_areas VALUES('original','legacy',?1,?1,'原画布',2,?2)",
+            "INSERT INTO desktop_project_areas VALUES('original','legacy',?1,?1,'原画布',2,?2,?3)",
             params![
                 root.to_string_lossy(),
-                r#"{"kind":"builtin","rel":"wallpapers/legacy.png"}"#
+                r#"{"kind":"builtin","rel":"wallpapers/legacy.png"}"#,
+                r#"{"style":"ribbon","voice":"fireworks"}"#
             ],
         )
         .expect("应写入旧画布");
@@ -234,6 +236,23 @@ fn legacy_project_catalog_migration_preserves_data_and_revision_triggers() {
     drop(connection);
     let store = DesktopWorkspaceStore::new(path.clone());
     let before = store.list_projects("legacy").expect("应升级并读取旧画布");
+    let effect = store
+        .project_dispatch_effect("legacy", "original")
+        .expect("旧特效仍可读取")
+        .expect("旧特效应保留");
+    assert_eq!(effect.style, "ribbon", "项目表重建不得丢掉派发特效列");
+    assert_eq!(
+        effect.voice.as_deref(),
+        Some("fireworks"),
+        "来源覆盖必须保留"
+    );
+    assert_eq!(
+        storage::SettingsStore::new(path.clone())
+            .get_string("effects.dispatch.v1")
+            .expect("全局特效"),
+        Some(serde_json::to_string(&effect).expect("JSON")),
+        "老项目重建后仍应迁移成全局特效"
+    );
     assert_eq!(before[0].id, "original", "升级不能换掉旧画布 ID");
     assert_eq!(before[0].display_name, "原画布", "升级不能重置旧名");
     assert_eq!(before[0].added_at_unix_ms, 2, "升级不能重置添加时间");

@@ -54,14 +54,14 @@ pub(crate) struct WallpaperSettingsState {
     pub(crate) selection: WallpaperSelection,
     pub(super) transition: Option<super::transition::WallpaperTransition>,
     storage: Option<SettingsStore>,
-    pub(crate) scoped: super::scoped::ScopedWallpaperState,
+    pub(crate) preferences: super::preferences::WallpaperPreferences,
 }
 
 impl WallpaperSettingsState {
     pub(crate) fn load_from_store(store: SettingsStore) -> Self {
         let mut state = Self::load_from(Some(store));
-        state.scoped.customs = state.list_custom();
-        state.scoped.global = state.selection.clone();
+        state.preferences.customs = state.list_custom();
+        state.preferences.global = state.selection.clone();
         state
     }
 
@@ -75,7 +75,7 @@ impl WallpaperSettingsState {
         match saved {
             Some(loaded) if selection_resolves(&loaded.selection) => {
                 let mut state = Self {
-                    scoped: super::scoped::ScopedWallpaperState::new(
+                    preferences: super::preferences::WallpaperPreferences::new(
                         loaded.selection.clone(),
                         Vec::new(),
                     ),
@@ -108,7 +108,7 @@ impl WallpaperSettingsState {
             },
             transition: None,
             storage,
-            scoped: super::scoped::ScopedWallpaperState::new(
+            preferences: super::preferences::WallpaperPreferences::new(
                 WallpaperSelection::default(),
                 Vec::new(),
             ),
@@ -357,6 +357,7 @@ struct LoadedSelection {
 }
 
 fn load_saved_selection(store: &SettingsStore) -> storage::StorageResult<Option<LoadedSelection>> {
+    super::migration::finish(store)?;
     let kind: Option<String> = store.get_string(KEY_WALLPAPER_KIND)?;
     let value: Option<String> = store.get_string(KEY_WALLPAPER_VALUE)?;
     let (Some(kind), Some(value)) = (kind, value) else {
@@ -426,7 +427,7 @@ pub(crate) fn resolve_selection_path(selection: &WallpaperSelection) -> Option<P
 /// Registered builtin choices remain valid while optional media is offline;
 /// custom entries need the file present in the custom dir. Used at load time to discard
 /// stale persisted selections (e.g. user deleted a custom file out of band).
-fn selection_resolves(sel: &WallpaperSelection) -> bool {
+pub(super) fn selection_resolves(sel: &WallpaperSelection) -> bool {
     match sel {
         WallpaperSelection::Builtin { rel } => canonical_builtin_wallpaper(rel).is_some(),
         WallpaperSelection::Custom { filename } => custom_wallpapers_dir()

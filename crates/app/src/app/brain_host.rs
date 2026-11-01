@@ -7,6 +7,7 @@ mod approvals;
 mod away;
 mod config;
 mod context;
+mod decision_copy;
 mod history;
 mod lifecycle;
 mod log;
@@ -50,6 +51,10 @@ mod brain_host_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/brain_dispatch_tests.rs"]
 mod brain_dispatch_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/brain_decision_copy_tests.rs"]
+mod decision_copy_tests;
 
 const APPROVAL_POLL: Duration = Duration::from_millis(500);
 const START_RETRY: Duration = Duration::from_secs(10);
@@ -127,8 +132,6 @@ pub(crate) struct BrainHostState {
     proposals_dirty: bool,
     proposals_save: Option<Receiver<Result<(), String>>>,
     proposal_writer: proposals::Writer,
-    /// 概览里展开的提议：（项目区域 id，提议 id）。
-    pub(crate) proposal_open: Option<(String, u64)>,
     pub(crate) proposal_feedback: HashMap<(String, u64), proposals::ProposalFeedback>,
 }
 
@@ -171,7 +174,6 @@ impl BrainHostState {
             proposals_dirty: false,
             proposals_save: None,
             proposal_writer: brain::persistence::shared_writer().clone(),
-            proposal_open: None,
             proposal_feedback: HashMap::new(),
         }
     }

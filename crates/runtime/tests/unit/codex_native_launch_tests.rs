@@ -9,10 +9,10 @@ fn original() -> PtyCommand {
         .env(norma::agent_hook::ENV_CONTROL_RUN_ID, "owned-process")
 }
 
-/// 场景：宿主接入只改原TUI传输位置，不能改权限、cwd、resume身份或创建额外任务。
-/// 构造：原生Codex恢复命令带已有默认权限、Hook身份及带空格cwd，私有socket路径含单引号。
+/// 场景：宿主接入只改原TUI传输位置，不能改权限语义、cwd、resume身份或创建额外任务。
+/// 构造：原生Codex恢复命令带YOLO权限、Hook身份及带空格cwd，私有socket路径含单引号。
 /// 执行：构造server/TUI两条命令并检查保留的原参数与shell引用。
-/// 预期：原参数完整保留、原进程身份一致；server不创建thread/turn，不输入额外任务。
+/// 预期：YOLO从远程TUI移交relay（TUI带权限覆盖时Codex拒绝/resume与fork）；其余原参数完整保留。
 #[test]
 fn native_relay_launch_preserves_original_command_policy_and_identity() {
     let command = original();
@@ -21,17 +21,25 @@ fn native_relay_launch_preserves_original_command_policy_and_identity() {
         Some((7, "owned-process".into())),
         "只受控原生Codex命令可使用宿主"
     );
-    let (server, tui) = launch_commands(
+    let (server, tui, full_access) = launch_commands(
         &command,
         Path::new("/tmp/private/server.sock"),
         Path::new("/tmp/private/q'uote.sock"),
     )
     .unwrap();
+    assert!(
+        full_access,
+        "YOLO权限由relay在thread/start|resume|fork上携带"
+    );
     assert_eq!(tui.cwd, command.cwd, "恢复保持原cwd，不规范化符号链接");
     assert_eq!(server.cwd, command.cwd, "同一受控server使用同cwd");
     assert_eq!(tui.env, command.env, "保留原进程Hook身份");
     assert_eq!(server.env, command.env, "server Hook沿用同一拥有者");
-    assert_eq!(tui.args[1], "exec codex --remote 'unix:///tmp/private/q'\\''uote.sock' -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust resume 'original-session'", "仅在原命令前补私有remote端点");
+    assert_eq!(tui.args[1], "exec codex --remote 'unix:///tmp/private/q'\\''uote.sock' -c disable_paste_burst=true --dangerously-bypass-hook-trust resume 'original-session'", "补私有remote端点并移除远程TUI不接受的权限覆盖");
+    assert!(
+        !server.args[1].contains("approval") && !server.args[1].contains("sandbox"),
+        "server只设默认值不足以保证沙箱（TUI会发本地sandbox），不在server重复设置"
+    );
     assert!(
         server.args[1].contains("app-server --listen"),
         "只启动私有协议服务"
@@ -46,6 +54,38 @@ fn native_relay_launch_preserves_original_command_policy_and_identity() {
         owned_identity(&external).is_none(),
         "无拥有者身份不能静默接管"
     );
+}
+
+/// 场景：非YOLO原命令接入宿主时，不能被升级成YOLO。
+/// 构造：不带跳过审批参数的原生Codex命令，以及参数名只是前缀相近的命令。
+/// 执行：构造server/TUI两条命令。
+/// 预期：不开启relay全权限注入；TUI参数仅补remote端点，原审批与沙箱交由用户配置。
+#[test]
+fn native_relay_launch_never_escalates_non_yolo_command() {
+    for script in [
+        "exec codex -c disable_paste_burst=true resume 'original-session'",
+        "exec codex --dangerously-bypass-approvals-and-sandbox-later",
+    ] {
+        let mut command = original();
+        command.args[1] = script.into();
+        let (server, tui, full_access) = launch_commands(
+            &command,
+            Path::new("/tmp/private/server.sock"),
+            Path::new("/tmp/private/native.sock"),
+        )
+        .unwrap();
+        assert!(!full_access, "{script} 不能被升级为YOLO");
+        assert_eq!(
+            tui.args[1],
+            script.replacen(
+                "exec codex ",
+                "exec codex --remote 'unix:///tmp/private/native.sock' ",
+                1
+            ),
+            "非YOLO命令原样保留"
+        );
+        assert!(!server.args[1].contains("approval") && !server.args[1].contains("sandbox"));
+    }
 }
 
 /// 场景：异步准备尚未附着时，输入不能排队到未知界面；关闭阻止迟到进程进入。
@@ -82,7 +122,12 @@ fn preparing_native_terminal_rejects_input_and_cancels_late_spawn() {
 fn unsupported_codex_preserves_original_tui_and_resume() {
     use crate::LiveNode;
     use std::os::unix::fs::PermissionsExt;
-    for version in ["codex-cli 0.100.0", "codex-cli 99.0.0", "probe-failed"] {
+    for version in [
+        "codex-cli 0.100.0",
+        "codex-cli 0.163.0",
+        "codex-cli 99.0.0",
+        "probe-failed",
+    ] {
         let dir = tempfile::tempdir().unwrap();
         let binary = dir.path().join("codex");
         let shell = dir.path().join("shell");
@@ -197,6 +242,8 @@ fn native_codex_real_launch_and_cleanup() {
     let deadline = Instant::now() + Duration::from_secs(25);
     let mut host = None;
     let mut screen = String::new();
+    let mut skipped = 0u8;
+    let mut last_down = None;
     while Instant::now() < deadline {
         live.drain();
         if host.is_none() {
@@ -205,6 +252,7 @@ fn native_codex_real_launch_and_cleanup() {
         if let Some(crate::NodeView::Term { snapshot, .. }) = live.view() {
             screen = snapshot.rows.iter().flatten().map(|cell| cell.c).collect();
         }
+        skip_update_prompt(&mut live, &screen, &mut skipped, &mut last_down);
         if host.is_some() && (screen.contains("Ask Codex") || screen.contains("model:")) {
             break;
         }
@@ -253,6 +301,8 @@ fn native_codex_real_session_picker_after_startup() {
     let mut host = None;
     let mut screen = String::new();
     let mut stage = 0;
+    let mut skipped = 0u8;
+    let mut last_down = None;
     let deadline = Instant::now() + Duration::from_secs(25);
     while Instant::now() < deadline {
         live.drain();
@@ -262,6 +312,7 @@ fn native_codex_real_session_picker_after_startup() {
         if let Some(crate::NodeView::Term { snapshot, .. }) = live.view() {
             screen = snapshot.rows.iter().flatten().map(|cell| cell.c).collect();
         }
+        skip_update_prompt(&mut live, &screen, &mut skipped, &mut last_down);
         if screen.contains("Failed to start TUI session picker") {
             break;
         }
@@ -313,4 +364,59 @@ fn native_codex_real_session_picker_after_startup() {
     assert!(available, "关闭辅助选择器不能使原问答宿主失效");
     assert!(!input_held, "Esc 返回原会话后不能遗留选择器输入锁");
     assert!(control.is_cancelled(), "测试必须回收自有 server/TUI");
+}
+
+/// 场景：非 Codex 的延迟后端（OpenCode/Cursor）装入后立即可输入，不依赖「首屏可见」门控。
+/// 构造：`DeferredPty::new` + 真实 /bin/cat。预期：装入后第一次 write 成功。
+#[test]
+fn non_codex_deferred_backend_accepts_input_once_installed() {
+    let control = Arc::new(LaunchControl::default());
+    let mut backend = deferred::DeferredPty::new(control.clone(), 80, 24);
+    let (sender, _receiver) = crossbeam_channel::unbounded();
+    backend
+        .preparation()
+        .install(
+            control
+                .spawn_pty(PtyCommand::new("/bin/cat"), 80, 24, sender)
+                .unwrap(),
+        )
+        .unwrap();
+    assert!(backend.write(b"hi\n").is_ok(), "装入后应可输入");
+    backend.kill();
+}
+
+/// 真实 Codex 若弹出「Update available」菜单（握手前），用 ↓ 选到 Skip 再回车。
+/// 绝不盲按回车：只有屏幕确认光标已在「2. Skip」才回车，否则会真的执行 `npm install -g`。
+/// ↓ 可能恰好落在 TUI 进入原始模式之前而丢失，所以光标仍在第 1 项时每 500ms 重发一次。
+/// `stage`：0 未处理，1 已发 ↓，2 已回车；`last_down` 为上次发 ↓ 的时刻。
+fn skip_update_prompt(
+    live: &mut TermLive,
+    screen: &str,
+    stage: &mut u8,
+    last_down: &mut Option<Instant>,
+) {
+    use crate::{LiveNode, NodeInput};
+    let key = |key| {
+        NodeInput::Key(terminal::KeyInput {
+            key,
+            ctrl: false,
+            alt: false,
+            shift: false,
+        })
+    };
+    match *stage {
+        0 | 1 if screen.contains("Update available") && screen.contains("› 1.") => {
+            let due = last_down.is_none_or(|at| at.elapsed() >= Duration::from_millis(500));
+            if due && live.input(key(terminal::Key::Down)).is_ok() {
+                *stage = 1;
+                *last_down = Some(Instant::now());
+            }
+        }
+        1 if screen.contains("› 2.") => {
+            if live.input(key(terminal::Key::Enter)).is_ok() {
+                *stage = 2;
+            }
+        }
+        _ => {}
+    }
 }

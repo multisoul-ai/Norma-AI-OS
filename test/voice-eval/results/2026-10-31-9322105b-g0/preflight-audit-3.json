@@ -1,0 +1,23 @@
+{
+  "commit": "d83d824e869a637d27b0fc350e382d2d2eab2676",
+  "configuration": {
+    "required_pressure": 1,
+    "maximum_load1": 5,
+    "human_samples_required": 50,
+    "order": [
+      "G0",
+      "G0.5",
+      "G1/G2",
+      "G3",
+      "G4"
+    ]
+  },
+  "config_sha256": "0e70421b0aa69cdbe170cfd61b69755bf1f9b720981c3e77966d759cd35ad804",
+  "pressure": 2,
+  "load1": 109.33251953125,
+  "confirmed_human_references": 0,
+  "consecutive_blocked_goal_turns": 3,
+  "previous_batch": "run3: failed-incomplete at 437/912, not usable for gate",
+  "gate_jobs": "fast1 and fast2 terminal exit 75, no model started",
+  "recorded_at": "2026-10-31T14:01:52.078884+00:00"
+}

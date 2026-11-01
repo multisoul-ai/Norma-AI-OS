@@ -9,6 +9,7 @@ use terminal::TerminalStatus;
 mod claude;
 mod claude_receipts;
 mod codex_host;
+mod codex_turns;
 mod cursor_host;
 mod delivery;
 mod fallback;
@@ -33,6 +34,10 @@ pub(super) struct Questions {
     entries: Vec<Entry>,
     history: history::QuestionHistory,
     provider_states: HashMap<NodeId, crate::AgentTaskState>,
+    native_task_updates: Vec<(
+        norma::agent_hook::AgentHookEvent,
+        crate::AgentTaskUpdateOutcome,
+    )>,
 }
 
 /// The App supplies a synchronous, in-memory context gate; it stays locked through one PTY step.
@@ -329,6 +334,9 @@ impl Runtime {
     }
 
     pub(super) fn remove_node_questions(&mut self, node: NodeId) {
+        self.questions
+            .native_task_updates
+            .retain(|(event, _)| event.node_id != node);
         self.questions.native_hosts.remove(&node);
         self.questions.opencode_hosts.remove(&node);
         self.questions.cursor_hosts.remove(&node);

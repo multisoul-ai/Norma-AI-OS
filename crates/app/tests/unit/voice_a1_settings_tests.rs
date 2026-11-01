@@ -91,7 +91,7 @@ fn missing_a1_models_do_not_block_cloud_voice_readiness() {
             ("voice.desktop.mode", mode.as_str()),
             ("voice.asr.provider", "local_a1"),
             ("voice.doubao.credential_ref", "fixture-doubao"),
-            ("voice.gpt_live.credential_ref", "fixture-live"),
+            ("voice.gpt_live.credential_ref", "gpt-live-desktop-fixture"),
         ] {
             store.set_string(key, value).expect("隔离设置应可写入");
         }

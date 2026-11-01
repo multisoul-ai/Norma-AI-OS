@@ -178,7 +178,7 @@ fn project_entry_and_exit_never_rewrite_left_drawer_state() {
 }
 
 /// 场景：用户在总览打开左栏（Run Overview / Chat）后进入 agent 画布，左栏不得被强制收起。
-/// 数据构造：窗口 1280×800；展开左栏的目标宽 = 1280×0.31 = 396.8px，画布宽 = 1280 − 396.8 = 883.2px。
+/// 数据构造：窗口 1280×800；展开左栏的目标宽 = 1280×0.31−150 = 246.8px，画布宽 = 1280 − 246.8 = 1033.2px。
 /// 执行过程：
 ///   1. 总览中展开左栏并落稳（motion 展开度 1.0）。
 ///   2. 展开项目并完成缩放：检查逻辑状态、动效展开度、画布可用宽度。
@@ -186,7 +186,7 @@ fn project_entry_and_exit_never_rewrite_left_drawer_state() {
 /// 预期结果：
 ///   - 进入项目后 `left_open` 仍为 true（旧实现会改为 false）；
 ///   - 动效展开度仍为 1.0 且仍渲染左栏（旧实现会收起到 0.0）；
-///   - 项目内画布宽度仍扣除左栏（约 883.2px），不是整窗 1280px；
+///   - 项目内画布宽度仍扣除左栏（约 1033.2px），不是整窗 1280px；
 ///   - 返回总览后三者保持不变。
 #[test]
 fn project_entry_keeps_open_left_drawer_with_matching_canvas_width() {
@@ -235,8 +235,8 @@ fn project_entry_keeps_open_left_drawer_with_matching_canvas_width() {
         );
         let canvas_width = app.desktop_assistant_layout(window).canvas_width;
         assert!(
-            (canvas_width - 883.2).abs() < 1.0,
-            "左栏展开时项目画布宽度应扣除左栏（≈883.2px），实际 {canvas_width}"
+            (canvas_width - 1033.2).abs() < 1.0,
+            "左栏展开时项目画布宽度应扣除左栏（≈1033.2px），实际 {canvas_width}"
         );
         app.collapse_desktop_project_area(window, cx);
         assert!(

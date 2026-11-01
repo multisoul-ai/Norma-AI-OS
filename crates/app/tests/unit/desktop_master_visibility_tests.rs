@@ -2,8 +2,8 @@ use super::*;
 use canvas::{CanvasNodeKind, TermSpec};
 
 /// 场景：桌面可见终端作为 Master 时，旧 Browser 不得占据 detail 格子。
-/// 数据构造：1454×925 画布、8px 间距，两张终端和一张隐藏 Browser；
-/// 唯一可见 detail 高度应为 925−2×8=909，而非被隐藏 Browser 再分一半。
+/// 数据构造：1454×925 画布、24px 间距，两张终端和一张隐藏 Browser；
+/// 唯一可见 detail 高度应为 925−2×24=877，而非被隐藏 Browser 再分一半。
 /// 执行过程：通过生产 enter_master_layout_for_area 应用主次布局并读取文档边界。
 /// 预期结果：合法 Master 保持有效，detail 占满可用高度，隐藏节点边界不变。
 #[test]
@@ -42,7 +42,7 @@ fn desktop_master_ignores_hidden_detail_nodes() {
             .bounds
             .size
             .y,
-        909.0,
+        877.0,
         "隐藏 Browser 不得分走可见 detail 的高度"
     );
     assert_eq!(
@@ -284,7 +284,7 @@ fn desktop_master_pending_snapshot_preserves_visible_master() {
     assert_eq!(restored.master_id(), Some(master), "必须保留合法 Master");
     assert_eq!(
         runtime.document.node(detail).expect("detail").bounds.size.y,
-        909.0,
+        877.0,
         "隐藏 detail 不得占位"
     );
     assert!(

@@ -1,0 +1,24 @@
+Building for debugging...
+[1 / 18]
+[3 / 15] E2EKitTests-product
+[7 / 19] E2EKitTests-product
+[18 / 22] Scenarios
+[19 / 22] Scenarios
+[20 / 22] E2EKitTests-product
+[23 / 23] norma-e2e-product
+Build complete! (2.01 sec)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite LayoutShortcutTests started.
+◇ Test newWindowShortcutIsAvailable() started.
+✘ Test newWindowShortcutIsAvailable() recorded an issue at LayoutShortcutTests.swift:9:6: Caught error: [ENV] 控制通道还不支持虚拟键码 45，请在 keystroke(key:modifiers:) 中补充映射。
+✘ Test newWindowShortcutIsAvailable() failed after 0.001 seconds with 1 issue.
+↳ /// 场景：全局外观验收同时保留两扇真实窗口。
+↳ /// 构造：macOS N=45 与 Command/Shift 修饰键。
+↳ /// 执行：通过 GPUI 和 AppKit 两条生产驱动编码。
+↳ /// 预期：两条路径都能发送“新建窗口”，不会因键码缺失产生 ENV。
+✘ Suite LayoutShortcutTests failed after 0.001 seconds with 1 issue.
+✘ Test run with 1 test in 1 suite failed after 0.001 seconds with 1 issue.
+Note: Some test targets reported failures:
+  - E2EKitTests (Swift Testing)

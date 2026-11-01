@@ -28,12 +28,6 @@ impl MultisoulApp {
             self.refresh_voice_microphone_requirement(cx);
         }
         if section == SettingsSection::Wallpaper {
-            self.wallpaper_settings.scoped.edit_project = self
-                .wallpaper_settings
-                .scoped
-                .context
-                .as_ref()
-                .is_some_and(|context| context.area.is_some());
             self.refresh_wallpaper_library(cx);
         }
         if section == SettingsSection::NormaBrain {
@@ -98,12 +92,6 @@ impl MultisoulApp {
         tracing::info!(target: "norma::input", open = self.settings_panel.open,
             "settings input scope changed");
         if !was_open && self.settings_panel.active_section == SettingsSection::Wallpaper {
-            self.wallpaper_settings.scoped.edit_project = self
-                .wallpaper_settings
-                .scoped
-                .context
-                .as_ref()
-                .is_some_and(|context| context.area.is_some());
             self.refresh_wallpaper_library(cx);
         }
         if was_open {

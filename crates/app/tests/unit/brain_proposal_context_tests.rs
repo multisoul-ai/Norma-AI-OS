@@ -39,6 +39,8 @@ fn proposal_acceptance_fixture(fail_receipt: bool) {
             paths,
         )
     });
+    // 应用构造时会按系统语言重设界面语言，所以必须在实体创建之后再固定。
+    let _locale = crate::pinned_locale::PinnedLocale::zh_cn();
     let (service, id) = source.update(cx, |app, cx| {
         app.enter_canvas_for_test(dir.path(), cx);
         app.shared_context_scope = Some(ContextScope {

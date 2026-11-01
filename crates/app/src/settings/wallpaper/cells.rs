@@ -72,7 +72,7 @@ pub(super) fn builtin_cell(
         .gap(px(6.0))
         .cursor_pointer()
         .tab_index(
-            if state.scoped.busy || state.scoped.delete_prompt.is_some() {
+            if state.preferences.busy || state.preferences.delete_prompt.is_some() {
                 -1
             } else {
                 0
@@ -92,8 +92,8 @@ pub(super) fn builtin_cell(
         })
         .on_key_down(cx.listener(move |app, event: &gpui::KeyDownEvent, _, cx| {
             if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                if !app.wallpaper_settings.scoped.busy
-                    && app.wallpaper_settings.scoped.delete_prompt.is_none()
+                if !app.wallpaper_settings.preferences.busy
+                    && app.wallpaper_settings.preferences.delete_prompt.is_none()
                 {
                     app.request_wallpaper_selection(
                         super::state::WallpaperSelection::Builtin { rel },
@@ -104,7 +104,7 @@ pub(super) fn builtin_cell(
             }
         }))
         .on_click(cx.listener(move |app, _: &ClickEvent, _window, cx| {
-            super::scope_view::request_builtin(app, rel, cx);
+            super::action::request_builtin(app, rel, cx);
         }))
         .child(thumbnail_box(
             ThumbnailBoxContent {
@@ -170,7 +170,7 @@ pub(super) fn custom_cell(
         .gap(px(6.0))
         .cursor_pointer()
         .tab_index(
-            if state.scoped.busy || state.scoped.delete_prompt.is_some() {
+            if state.preferences.busy || state.preferences.delete_prompt.is_some() {
                 -1
             } else {
                 0
@@ -190,8 +190,8 @@ pub(super) fn custom_cell(
         })
         .on_key_down(cx.listener(move |app, event: &gpui::KeyDownEvent, _, cx| {
             if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                if !app.wallpaper_settings.scoped.busy
-                    && app.wallpaper_settings.scoped.delete_prompt.is_none()
+                if !app.wallpaper_settings.preferences.busy
+                    && app.wallpaper_settings.preferences.delete_prompt.is_none()
                 {
                     app.request_wallpaper_selection(
                         super::state::WallpaperSelection::Custom {
@@ -204,8 +204,8 @@ pub(super) fn custom_cell(
             }
         }))
         .on_click(cx.listener(move |app, _: &ClickEvent, _window, cx| {
-            if !app.wallpaper_settings.scoped.busy
-                && app.wallpaper_settings.scoped.delete_prompt.is_none()
+            if !app.wallpaper_settings.preferences.busy
+                && app.wallpaper_settings.preferences.delete_prompt.is_none()
             {
                 app.request_wallpaper_selection(
                     super::state::WallpaperSelection::Custom {
@@ -230,7 +230,7 @@ pub(super) fn custom_cell(
                 delete: Some((
                     idx,
                     delete_filename,
-                    state.scoped.busy || state.scoped.delete_prompt.is_some(),
+                    state.preferences.busy || state.preferences.delete_prompt.is_some(),
                 )),
             },
             cx,

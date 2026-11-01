@@ -218,6 +218,9 @@ impl Drop for ClaudeApprovals {
 
 impl Runtime {
     pub fn accepts_mobile_hook(&self, event: &norma::agent_hook::AgentHookEvent) -> bool {
+        if self.native_codex_turn_blocks_hook(event) {
+            return false;
+        }
         if self
             .mobile_runs
             .get(&event.node_id)

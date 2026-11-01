@@ -4,7 +4,11 @@ use super::super::overview_rows::{
     OVERVIEW_TEXT_COPY, OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY,
 };
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful};
+use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId};
+use ui::component::{
+    button::{Button, ButtonCustomVariant, ButtonVariants},
+    Disableable, Sizable,
+};
 
 impl MultisoulApp {
     /// 概览审批行上的“允许 / 拒绝”：不经过大脑，直接在拥有该卡片的项目里处理。
@@ -17,13 +21,60 @@ impl MultisoulApp {
         allow: bool,
         cx: &mut Context<Self>,
     ) {
-        let applied = self.with_overview_session(area_id, cx, |app, _| {
-            app.decide_approval_by_user(node_id, run_id, request_id, allow)
+        let key = super::overview_details::DetailKey::Approval {
+            area_id: area_id.into(),
+            node_id,
+            run_id: run_id.into(),
+            request_id: request_id.into(),
+        };
+        if self.desktop_workspace.attention.pending.contains(&key)
+            || self
+                .desktop_workspace
+                .attention
+                .decided
+                .iter()
+                .any(|(done, _)| done == &key)
+        {
+            return;
+        }
+        let applied = self.with_overview_session(area_id, cx, |app, cx| {
+            app.decide_approval_by_user(node_id, run_id, request_id, allow, cx)
+                .map(|receipt| (receipt, cx.entity().entity_id()))
         });
-        if applied != Some(true) {
+        let Some(Ok((receipt, owner))) = applied else {
             self.desktop_workspace.error =
                 Some(ui::i18n::LocalizedText::new("chrome.brain_approval_closed"));
-        }
+            cx.notify();
+            return;
+        };
+        self.desktop_workspace.attention.pending.push(key.clone());
+        self.desktop_workspace.error = None;
+        let workspace = self.desktop_workspace.active_id.clone();
+        let area = area_id.to_owned();
+        cx.spawn(async move |this, cx| {
+            let result = receipt.recv().await;
+            let _ = this.update(cx, |app, cx| {
+                if app.desktop_workspace.active_id != workspace
+                    || app.with_overview_session(&area, cx, |_, cx| cx.entity().entity_id())
+                        != Some(owner)
+                {
+                    return;
+                }
+                app.desktop_workspace
+                    .attention
+                    .pending
+                    .retain(|pending| pending != &key);
+                if matches!(&result, Ok(Ok(value)) if super::overview_details::approval_receipt_confirmed(value)) {
+                    app.desktop_workspace.attention.decided.push((key, allow));
+                } else {
+                    app.desktop_workspace.error = Some(ui::i18n::LocalizedText::new(
+                        "chrome.brain_approval_unconfirmed",
+                    ));
+                }
+                cx.notify();
+            });
+        })
+        .detach();
         cx.notify();
     }
 
@@ -140,24 +191,27 @@ pub(super) fn pill(
     id: impl Into<ElementId>,
     label: &'static str,
     style: PillStyle,
-) -> Stateful<Div> {
+    cx: &gpui::App,
+) -> Button {
     let (fill, hover, pressed, text) = pill_colors(theme, style);
-    div()
-        .id(id)
-        .h(px(22.0))
-        .px(px(8.0))
-        .flex()
-        .items_center()
-        .justify_center()
-        .flex_none()
-        .rounded(px(6.0))
-        .bg(rgba(fill))
-        .text_size(px(OVERVIEW_TEXT_SECONDARY))
-        .text_color(rgba(text))
-        .when(style != PillStyle::Disabled, |pill| {
-            pill.cursor_pointer()
-                .hover(move |s| s.bg(rgba(hover)))
-                .active(move |s| s.bg(rgba(pressed)))
-        })
-        .child(label)
+    let id = id.into();
+    let selector = match &id {
+        ElementId::Name(name) => name.to_string(),
+        _ => format!("{id:?}"),
+    };
+    Button::new(id)
+        .debug_selector(move || selector)
+        .label(label)
+        .small()
+        .h(px(22.))
+        .px(px(7.))
+        .custom(
+            ButtonCustomVariant::new(cx)
+                .color(rgba(fill).into())
+                .foreground(rgba(text).into())
+                .border(rgba(0).into())
+                .hover(rgba(hover).into())
+                .active(rgba(pressed).into()),
+        )
+        .disabled(style == PillStyle::Disabled)
 }

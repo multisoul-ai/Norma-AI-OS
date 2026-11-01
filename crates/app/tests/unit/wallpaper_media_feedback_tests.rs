@@ -67,7 +67,7 @@ fn wallpaper_library_exposes_download_before_selection() {
     app.update(cx, |app, cx| {
         let selected = crate::settings::wallpaper::state::WallpaperSelection::Builtin { rel: TIDE };
         app.wallpaper_settings.selection = selected.clone();
-        app.wallpaper_settings.scoped.global = selected;
+        app.wallpaper_settings.preferences.global = selected;
         cx.notify();
     });
     cx.update(|window, cx| {
@@ -87,7 +87,7 @@ fn wallpaper_library_exposes_download_before_selection() {
     // 构造 Missing + 非空保存失败状态，重绘实际页面并检查保存反馈区域。
     // 预期：异常仍可见；清除异常后不虚构普通自动保存成功提示。
     app.update(cx, |app, _| {
-        app.wallpaper_settings.scoped.status = Some("Couldn't save wallpaper".into())
+        app.wallpaper_settings.preferences.status = Some("Couldn't save wallpaper".into())
     });
     cx.update(|window, cx| {
         cx.refresh_windows();
@@ -97,7 +97,9 @@ fn wallpaper_library_exposes_download_before_selection() {
         cx.debug_bounds("wallpaper-save-feedback").is_some(),
         "待下载不能掩盖保存失败"
     );
-    app.update(cx, |app, _| app.wallpaper_settings.scoped.status = None);
+    app.update(cx, |app, _| {
+        app.wallpaper_settings.preferences.status = None
+    });
     cx.update(|window, cx| {
         cx.refresh_windows();
         window.draw(cx).clear();

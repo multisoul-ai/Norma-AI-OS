@@ -92,18 +92,8 @@ fn app_hook_drain_adopts_native_questions_and_reports_session_changes() {
             .unwrap(),
         )
         .unwrap();
-    let (_sender, receiver) = unbounded();
-    let server = AgentHookServer {
-        receiver,
-        approvals: crossbeam_channel::bounded(1).1,
-        questions: crossbeam_channel::bounded(1).1,
-        endpoint: None,
-        token: None,
-        #[cfg(feature = "e2e-test-support")]
-        event_sender: _sender,
-        #[cfg(feature = "e2e-test-support")]
-        event_tap: None,
-    };
+    let (_, receiver) = unbounded();
+    let server = hook_server_for_test(receiver);
     let deadline = Instant::now() + Duration::from_secs(3);
     let mut changed = false;
     let mut session_changed = false;

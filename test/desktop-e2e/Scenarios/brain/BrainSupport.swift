@@ -32,10 +32,14 @@ enum BrainSupport {
             throw E2EError.product("三次点击后仍没有弹出创建工作空间对话框")
         }
         let dialog = try await session.capture()
-        guard let input = dialog.pick(["网站改版", "Website redesign"], .bottom) else {
+        if let input = dialog.pick(["网站改版", "Website redesign"], .bottom) {
+            try await session.click(local: input.center, on: dialog)
+        } else if let label = dialog.pick(["工作空间名称", "Workspace name"], .bottom) {
+            // 首帧浅色占位符可能未被 OCR 识别，输入框位于当前标签下方。
+            try await session.click(local: CGPoint(x: label.center.x + 110, y: label.center.y + 30), on: dialog)
+        } else {
             throw E2EError.product("找不到工作空间名称输入框：\(dialog.summary)")
         }
-        try await session.click(local: input.center, on: dialog)
         try await session.type(name)
         try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
         _ = try await session.wait(Expectation(allOf: [name], timeout: 12))
@@ -66,13 +70,13 @@ enum BrainSupport {
 
     /// 从启动页进入“E2E Project”，用 `/new claude` 建 `count` 个智能体。
     static func openProjectWithAgents(_ session: Session, count: Int) async throws {
-        // 重启后首帧可能仍为空白；必须等启动页可操作，不能把预览里的项目名当成已进入画布。
-        let launch = try await session.wait(Expectation(anyOf: ["搜索工作空间", "Search workspaces"], timeout: 20))
-        if launch.contains("搜索工作空间") || launch.contains("Search workspaces") {
-            try await session.click(
-                local: CGPoint(x: Double(launch.windowFrame.width) - 111, y: 540), on: launch)
-            _ = try await session.wait(Expectation(absent: ["搜索工作空间", "Search workspaces"], timeout: 12))
+        // 以当前目录中的真实空间名进入，避免依赖旧首页占位符与固定坐标。
+        guard let workspace = try session.catalog().names.first else {
+            throw E2EError.product("隔离目录里没有工作空间")
         }
+        try await session.shortcut(key: 53, modifiers: [])
+        _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
+        try await session.click(matching: [workspace], pick: .bottom)
         _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 12))
         try await session.click(matching: ["E2E Project"], pick: .bottom)
         try await dismissGuide(session)
@@ -96,7 +100,8 @@ enum BrainSupport {
         for _ in 0..<3 {
             try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
             try await Task.sleep(nanoseconds: 1_200_000_000)
-            if try await session.capture().contains("运行概览") { return }
+            let frame = try await session.capture()
+            if frame.contains("运行概览") || frame.contains("Run Overview") { return }
         }
     }
 
@@ -105,10 +110,10 @@ enum BrainSupport {
         for _ in 0..<4 {
             try await Task.sleep(nanoseconds: 1_500_000_000)
             let frame = try await session.capture()
-            let showing = ["Feature Guide", "功能引导", "功能引号", "Skip Guide", "跳过引导"].contains { frame.contains($0) }
+            let showing = ["Feature Guide", "功能引导", "功能引号", "Skip Guide", "跳过"].contains { frame.contains($0) }
             guard showing else { return }
-            if frame.contains("跳过引导") || frame.contains("Skip Guide") {
-                try await session.click(matching: ["跳过引导", "Skip Guide"], pick: .bottom)
+            if frame.contains("跳过") || frame.contains("Skip Guide") {
+                try await session.click(matching: ["跳过", "Skip Guide"], pick: .bottom)
             } else {
                 try await session.shortcut(key: 53, modifiers: [])
             }

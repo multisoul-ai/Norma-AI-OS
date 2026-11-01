@@ -340,5 +340,6 @@
   "voice.a1_single_only": "Accurate is available for local single voice commands. Doubao and GPT-Live keep their own voice pipelines.",
   "voice.a1_setup_required": "Prepare the local Accurate runtime and models, then check the files to enable it.",
   "voice.a1_failed_preview": "Accurate recognition failed. Preview only; not sent: %{error}",
-  "voice.a1_prepare_failed": "Accurate is unavailable. Check the local runtime, model files and available memory, then retry."
+  "voice.a1_prepare_failed": "Accurate is unavailable. Check the local runtime, model files and available memory, then retry.",
+  "voice.background_unsettled": "A background task may still be running"
 }

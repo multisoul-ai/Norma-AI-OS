@@ -80,6 +80,7 @@ pub(super) fn dispatch(
                 {
                     return None;
                 }
+                app.deliver_dock_brain_reply(&text, cx);
                 // A saved report whose delivery qualification lapsed is Skipped, not an error.
                 if !app.brain_report_ticket_valid(ticket) {
                     tracker.cancel();

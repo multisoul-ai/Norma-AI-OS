@@ -9,7 +9,8 @@ use canvas::{
 };
 use runtime::Runtime;
 
-const LAYOUT_GAP_SCREEN_PX: f32 = 8.0;
+// 磁流体、灵光画在卡片之下，外扩部分要落在间距里才不被相邻卡片挡住。
+const LAYOUT_GAP_SCREEN_PX: f32 = 24.0;
 const FIXED_CARD_WIDTH_SCREEN_PX: f32 = 360.0;
 const WORKSPACE_SAFE_LEFT_PX: f32 = 96.0;
 const WORKSPACE_SAFE_TOP_PX: f32 = 86.0;

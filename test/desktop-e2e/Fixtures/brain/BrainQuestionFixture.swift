@@ -29,7 +29,7 @@ public enum BrainQuestionFixture {
         raw = dict(raw, hook_event_name=name, session_id=sid)
         output = None
         for group in settings['hooks'].get(name, []):
-            if group.get('matcher') and group['matcher'] != raw.get('tool_name'): continue
+            if group.get('matcher') not in (None, '', '*', raw.get('tool_name')): continue
             for item in group['hooks']:
                 result = subprocess.run(shlex.split(item['command']), input=json.dumps(raw),
                     capture_output=True, text=True, timeout=130)

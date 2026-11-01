@@ -1,0 +1,16 @@
+{
+  "commit": "d83d824e869a637d27b0fc350e382d2d2eab2676",
+  "configuration": {
+    "require_pressure": 1,
+    "maximum_load1": 5,
+    "human_holdout_required": 50,
+    "source": "plan-v4-G0; conservative idle threshold recorded in section 6"
+  },
+  "config_sha256": "ef28e7e2c0f8986436a63b80f871a3363c8f018cbb864d0a98948f4f32731889",
+  "pressure": 1,
+  "load1": 47.4638671875,
+  "confirmed_human_references": 0,
+  "blocked_audit_turn": 2,
+  "checked_at": "2026-10-31T13:52:03.181488+00:00",
+  "model_started": false
+}

@@ -66,6 +66,7 @@ pub(super) struct TodoRow {
 pub(super) struct AssignedRow {
     pub(super) id: String,
     pub(super) title: String,
+    pub(super) body: String,
     pub(super) status: IdeaStatus,
     pub(super) area_id: Option<String>,
     pub(super) node_id: Option<u64>,
@@ -77,6 +78,7 @@ pub(super) struct AssignedRow {
 pub(super) struct DoneRow {
     pub(super) id: String,
     pub(super) title: String,
+    pub(super) body: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -133,6 +135,7 @@ pub(super) fn ideas_screen(
                 screen.assigned.push(AssignedRow {
                     id: idea.id.clone(),
                     title: title_of(idea),
+                    body: idea.body.clone(),
                     status,
                     area_id: idea.assignee_area_id.clone(),
                     node_id: idea.assignee_node_id,
@@ -143,6 +146,7 @@ pub(super) fn ideas_screen(
             IdeaState::Done => screen.done.push(DoneRow {
                 id: idea.id.clone(),
                 title: title_of(idea),
+                body: idea.body.clone(),
             }),
             IdeaState::Dismissed => {}
         }

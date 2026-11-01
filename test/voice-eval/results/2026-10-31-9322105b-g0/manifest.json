@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "commit": "9322105b375234f4408e8e726576a99b9658398d",
+  "dirty": true,
+  "config_sha256": "68c4f73f3f8c05d38061d63b78cc46446b2904736d6a38cbb897a53d4c15ece6",
+  "status": "blocked-G0",
+  "started_at": "2026-10-31T12:02:30.921200+00:00",
+  "corpus": {
+    "synthetic_texts": 120,
+    "synthetic_audio": 480,
+    "synthetic_voices": 4,
+    "human_required": 50,
+    "human_imported_files": 10,
+    "human_labeled_samples": 0
+  },
+  "metrics": null,
+  "updated_at": "2026-10-31T14:01:52.078884+00:00",
+  "source_sha256": {
+    "scripts/voice-eval/synthesize.sh": "893a3b04d7d0c19579792851e1bc4be276a59d0b6cf0d8664144aca79cbcff4c",
+    "scripts/voice-eval/report.py": "7af6bbb49330052f52c84cbbdf9b72a304dd65a3641c624826a8d5a5139a8bdc",
+    "crates/asr/tests/a1_eval.rs": "280570bf220298761180f8b5e9a90ba1404de404f176246ac0782c7a465f55ac",
+    "crates/agent/tests/voice_eval_route.rs": "76e54e4da675905353b088cc07039e1249ef37d4a406040ab589100a3a59b1e7",
+    "test/voice-eval/roster.json": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+    "test/voice-eval/synthetic-texts.jsonl": "ec5f7f3ebc333bb40a8c71d69952371b11ea8cb1e8b554be48b7bc6daaffe736",
+    "test/voice-eval/annotation-template.json": "ba547fd9d093b7541ba9e47e260c23ad3d271e092894c480b5c8d7f1c9a8f138",
+    "test/voice-eval/test_report.py": "e97142fdc52a6ce99d1cb093d41c588020100195bd0a83a0cfa2638d9e1065ef",
+    "test/voice-eval/test_synthesize.py": "db302edd7a14a656dc616a9174dc3072a89f12ad7002df44f6119c61a4b8859d",
+    "crates/asr/tests/support/a1_eval_audit.rs": "2e8d696ad5e81ab39cc826d2b69064ebe2effcf93fd693294302f3558fad853e"
+  },
+  "machine": "Mac16,10",
+  "active_run": {
+    "directory": "/Users/openclawd/.norma/voice-eval/results/2026-10-31-9322105b-g0-304-run3",
+    "commit": "780b09fa5dda07c0cf18eb2cd2d162be026573ca",
+    "config_sha256": "a835face938192dd6fdd4f07e5f1266bfd572108d7cec0506fed3ed8b6a5cbfc",
+    "status": "failed-incomplete"
+  },
+  "tool_revision_commit": "780b09fa5dda07c0cf18eb2cd2d162be026573ca",
+  "gate_outcome": {
+    "exit_code": 75,
+    "model_started": false
+  },
+  "blocking_evidence": "preflight-audit-3.json"
+}

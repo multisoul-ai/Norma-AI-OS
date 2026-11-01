@@ -1,0 +1,6 @@
+base=bec4d2133df8b714ee51094a9c30850b7990491e, exit=1
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-i18n-baseline-a_q8s72_/crates/ui/locales/effects.en.json: empty or non-string value for effects.chip2_random
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-i18n-baseline-a_q8s72_/crates/ui/locales/effects.en.json: empty or non-string value for effects.chip2_ion
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-i18n-baseline-a_q8s72_/crates/ui/locales/effects.zh-CN.json: empty or non-string value for effects.chip2_random
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-i18n-baseline-a_q8s72_/crates/ui/locales/effects.zh-CN.json: empty or non-string value for effects.chip2_ion
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-i18n-baseline-a_q8s72_/crates/app/src/settings/voice/view/gpt_live.rs:70: hardcoded UI copy 'GPT-Live'

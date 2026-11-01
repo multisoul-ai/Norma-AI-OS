@@ -16,6 +16,7 @@ use norma::mobile::{
 ///   - 负断言：过期待审不能定位；思考中不需要审批；行任务不含「已运行」。
 #[test]
 fn overview_rows_follow_existing_locate_approval_and_ego_rules() {
+    let _locale = crate::pinned_locale::PinnedLocale::zh_cn();
     let mut view = WorkspaceActivityView {
         agents: vec![],
         pending: vec![],

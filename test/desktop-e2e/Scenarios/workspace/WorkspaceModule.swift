@@ -17,12 +17,15 @@ public enum WorkspaceModule {
             WorkspaceTitlebarBrand.name,
             WorkspaceIdeas.name,
             WorkspaceIdeasShortcuts.name,
+            WorkspaceIdeasProjectFocus.name,
             WorkspaceIdeasCompose.name,
+            WorkspaceIdeasDeleteUndo.name,
             WorkspaceFeatureGuide.name,
             WorkspaceDispatchEffects.name,
             WorkspaceHandoffEffects.name,
             WorkspaceSwitchShortcuts.name,
         ],
+        visualScenarioNames: [WorkspaceIdeasDeleteUndo.name, WorkspaceDrawerTabs.name],
         run: { scenario, session in
             switch scenario {
             case WorkspaceHomePreview.name:
@@ -61,8 +64,14 @@ public enum WorkspaceModule {
             case WorkspaceIdeasShortcuts.name:
                 try await WorkspaceIdeasShortcuts.run(session)
                 return true
+            case WorkspaceIdeasProjectFocus.name:
+                try await WorkspaceIdeasProjectFocus.run(session)
+                return true
             case WorkspaceIdeasCompose.name:
                 try await WorkspaceIdeasCompose.run(session)
+                return true
+            case WorkspaceIdeasDeleteUndo.name:
+                try await WorkspaceIdeasDeleteUndo.run(session)
                 return true
             case WorkspaceDispatchEffects.name:
                 try await WorkspaceDispatchEffects.run(session)

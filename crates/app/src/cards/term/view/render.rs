@@ -80,7 +80,8 @@ pub(crate) fn render_terminal_node(
                             .left(px(TERM_PADDING_PX))
                             .right(px(TERM_PADDING_PX))
                             .bottom(px(TERM_PADDING_PX))
-                            .bg(rgba(terminal_surface_bg(theme)))
+                            // 标签压在终端文字上，用不透明阅读面挡住下层文字。
+                            .bg(rgba(theme.term_bg))
                             .text_color(rgba(theme.term_exit_fg))
                             .child(process_exit_label(code)),
                     );
