@@ -1,9 +1,9 @@
 //! One native TUI and its own app-server socket. Automation failure leaves native frames flowing.
 use super::questions::{CodexQuestion, CodexQuestionChange, CodexQuestions};
+use super::UnixStream;
 use crate::protocol::QuestionAnswer;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use serde_json::Value;
-use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -141,6 +141,10 @@ impl CodexQuestionRelay {
         let owner = crate::agent_hook::fresh_control_id().map_err(|error| error.to_string())?;
         let upstream = UnixStream::connect(server).map_err(|error| error.to_string())?;
         for stream in [&native, &upstream] {
+            // An accepted stream may inherit nonblocking mode; handshakes run off-thread.
+            stream
+                .set_nonblocking(false)
+                .map_err(|error| error.to_string())?;
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
                 .map_err(|error| error.to_string())?;

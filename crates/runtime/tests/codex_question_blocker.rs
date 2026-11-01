@@ -1,8 +1,8 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::codex::{native_questions::CodexQuestionHost, relay::CodexQuestionRelay};
+use norma::codex::{UnixListener, UnixStream};
 use runtime::{AgentHookRuntimeConfig, Runtime};
 use serde_json::{json, Value};
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Duration, Instant};
 #[path = "support/codex_relay.rs"]
 mod support;
@@ -17,7 +17,11 @@ fn unverified_native_request_blocks_tasks_without_becoming_answerable() {
     for connector in [false, true] {
         let dir = tempfile::Builder::new()
             .prefix("nqb-")
-            .tempdir_in("/tmp")
+            .tempdir_in(if cfg!(windows) {
+                std::env::temp_dir()
+            } else {
+                "/tmp".into()
+            })
             .unwrap();
         let path = dir.path().join("s.sock");
         let listener = UnixListener::bind(&path).unwrap();

@@ -1,8 +1,8 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::codex::relay::{CodexQuestionRelay, CodexRelayEvent};
+use norma::codex::{UnixListener, UnixStream};
 use norma::protocol::QuestionAnswer;
 use serde_json::json;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::Duration;
 #[path = "support/codex_relay.rs"]
 mod support;
@@ -18,7 +18,11 @@ fn a_question_lease_cannot_cross_relay_instances() {
     for index in 0..2 {
         let dir = tempfile::Builder::new()
             .prefix("nqr-")
-            .tempdir_in("/tmp")
+            .tempdir_in(if cfg!(windows) {
+                std::env::temp_dir()
+            } else {
+                "/tmp".into()
+            })
             .unwrap();
         let path = dir.path().join("server.sock");
         let listener = UnixListener::bind(&path).unwrap();

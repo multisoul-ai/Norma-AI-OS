@@ -1,8 +1,8 @@
 //! Background ownership of a private app-server, transparent relay and original native TUI.
 use super::*;
 use crate::runtime::LaunchControl;
+use norma::codex::UnixListener;
 use norma::codex::{native_questions::CodexQuestionHost, relay::CodexQuestionRelay};
-use std::os::unix::net::UnixListener;
 use std::sync::Arc;
 use std::time::Duration;
 #[cfg(test)]

@@ -72,7 +72,7 @@ jobs:
 
   compile:
     runs-on: windows-2025
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -117,10 +117,12 @@ jobs:
           $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-codex-control-target'
           cargo test --locked -p norma --test control_identity_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/codex-control/identity.log
           $identity = $LASTEXITCODE
-          cargo test --locked -p norma --test codex_control_platform --test codex_control_handshake --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/codex-control/control.log
+          cargo test --locked --no-fail-fast -p norma --test codex_control_platform --test codex_control_handshake --test codex_control_shutdown --test codex_connection --test codex_question_relay --test codex_question_host --test codex_question_connections --test codex_question_version --test codex_question_relay_permissions --test codex_question_relay_identity --test codex_question_relay_backpressure --test codex_question_relay_partial --test codex_question_relay_ephemeral --test codex_question_relay_large --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/codex-control/control.log
           $control = $LASTEXITCODE
-          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; control_exit = $control; identity_exit = $identity } | ConvertTo-Json | Set-Content artifacts/codex-control/report.json
-          if ($control -ne 0 -or $identity -ne 0) { exit 1 }
+          cargo test --locked --no-fail-fast -p runtime --test codex_question_host --test codex_question_blocker --test codex_turn_lifecycle --test codex_questions --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/codex-control/runtime.log
+          $runtime = $LASTEXITCODE
+          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; control_exit = $control; identity_exit = $identity; runtime_exit = $runtime } | ConvertTo-Json | Set-Content artifacts/codex-control/report.json
+          if ($control -ne 0 -or $identity -ne 0 -or $runtime -ne 0) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

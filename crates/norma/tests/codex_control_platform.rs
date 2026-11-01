@@ -248,9 +248,26 @@ fn platform_control_errors_and_drop_resolve_pending_requests_without_replay() {
         );
         assert_ne!(pending["id"], denied["id"], "请求 ID 不能复用");
         received.send(()).unwrap();
+        let closed = socket.read().expect_err("drop 后不能收到重复请求");
+        let really_closed = match &closed {
+            tungstenite::Error::ConnectionClosed
+            | tungstenite::Error::AlreadyClosed
+            | tungstenite::Error::Protocol(
+                tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
+            ) => true,
+            tungstenite::Error::Io(error) => matches!(
+                error.kind(),
+                std::io::ErrorKind::UnexpectedEof
+                    | std::io::ErrorKind::BrokenPipe
+                    | std::io::ErrorKind::ConnectionReset
+                    | std::io::ErrorKind::ConnectionAborted
+                    | std::io::ErrorKind::NotConnected
+            ),
+            _ => false,
+        };
         assert!(
-            socket.read().is_err(),
-            "drop 必须关闭对端，不能重放在途请求"
+            really_closed,
+            "必须收到明确关闭；WouldBlock/TimedOut 不能冒充 EOF：{closed:?}"
         );
     });
     let client = norma::codex::CodexConnection::connect(&path).unwrap();

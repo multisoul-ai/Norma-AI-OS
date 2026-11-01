@@ -1,10 +1,10 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::codex::native_questions::CodexQuestionHost;
 use norma::codex::relay::CodexQuestionRelay;
+use norma::codex::{UnixListener, UnixStream};
 use norma::protocol::{QuestionAnswer, QuestionState};
 use runtime::{AgentHookRuntimeConfig, Runtime};
 use serde_json::json;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Duration, Instant};
 #[path = "support/codex_relay.rs"]
 mod support;
@@ -19,7 +19,11 @@ fn runtime_adopts_owned_host_and_completes_original_question() {
     for cancel in [false, true] {
         let dir = tempfile::Builder::new()
             .prefix("nqh-")
-            .tempdir_in("/tmp")
+            .tempdir_in(if cfg!(windows) {
+                std::env::temp_dir()
+            } else {
+                "/tmp".into()
+            })
             .unwrap();
         let path = dir.path().join("s.sock");
         let listener = UnixListener::bind(&path).unwrap();
@@ -184,7 +188,11 @@ fn observer_failure_keeps_original_question_blocking_before_and_after_registrati
     {
         let dir = tempfile::Builder::new()
             .prefix("nqh-")
-            .tempdir_in("/tmp")
+            .tempdir_in(if cfg!(windows) {
+                std::env::temp_dir()
+            } else {
+                "/tmp".into()
+            })
             .unwrap();
         let path = dir.path().join("s.sock");
         let listener = UnixListener::bind(&path).unwrap();

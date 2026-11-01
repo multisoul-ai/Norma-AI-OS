@@ -1,9 +1,9 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::agent_hook::QuestionHookStatus;
 use norma::codex::native_questions::{CodexNativeEvent, CodexQuestionHost};
 use norma::codex::relay::CodexQuestionRelay;
+use norma::codex::{UnixListener, UnixStream};
 use serde_json::{json, Value};
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Duration, Instant};
 use tungstenite::WebSocket;
 #[path = "support/codex_relay.rs"]
@@ -27,7 +27,11 @@ fn connection_mode(
 ) {
     let dir = tempfile::Builder::new()
         .prefix("nqc-")
-        .tempdir_in("/tmp")
+        .tempdir_in(if cfg!(windows) {
+            std::env::temp_dir()
+        } else {
+            "/tmp".into()
+        })
         .unwrap();
     let path = dir.path().join("server.sock");
     let listener = UnixListener::bind(&path).unwrap();

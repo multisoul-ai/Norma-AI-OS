@@ -1,8 +1,14 @@
 //! Bounded socket IO and readiness waits, independent of question observation.
 use super::Socket;
+#[cfg(unix)]
 use std::os::fd::AsRawFd;
 use tungstenite::{Error, Message};
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+pub(super) use windows::wait_ready;
 
+#[cfg(unix)]
 pub(super) fn wait_ready(
     native: &Socket,
     server: &Socket,

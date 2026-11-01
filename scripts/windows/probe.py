@@ -91,7 +91,7 @@ def compile_probe(folder):
         if package == "norma":
             args.append("--lib")
         checks.append(command(folder, f"{package}_compile", [*args,
-                      "--target", TARGET, "--message-format=short"], 900))
+                      "--target", TARGET, "--message-format=short"], 1500 if package == "app" else 900))
     checks.append(command(folder, "norma_platform_tests", [
         "cargo", "test", "--locked", "-p", "norma", "--lib",
         "--test", "client_platform", "--test", "codex_question", "--test", "cursor_questions",

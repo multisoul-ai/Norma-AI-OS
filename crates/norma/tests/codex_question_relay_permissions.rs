@@ -1,7 +1,7 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::codex::relay::CodexQuestionRelay;
+use norma::codex::{UnixListener, UnixStream};
 use serde_json::{json, Value};
-use std::os::unix::net::{UnixListener, UnixStream};
 #[path = "support/codex_relay.rs"]
 mod support;
 use support::{read, send, timed};
@@ -20,7 +20,11 @@ fn session_requests() -> Vec<Value> {
 fn forwarded(full_access: bool, initialize_agent: &str) -> Vec<Value> {
     let dir = tempfile::Builder::new()
         .prefix("nqp-")
-        .tempdir_in("/tmp")
+        .tempdir_in(if cfg!(windows) {
+            std::env::temp_dir()
+        } else {
+            "/tmp".into()
+        })
         .unwrap();
     let path = dir.path().join("s.sock");
     let listener = UnixListener::bind(&path).unwrap();

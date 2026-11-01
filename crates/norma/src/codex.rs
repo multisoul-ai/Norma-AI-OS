@@ -3,20 +3,18 @@ use crossbeam_channel::{bounded, Receiver, Sender};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 #[cfg(unix)]
-use std::os::unix::net::UnixStream;
+pub use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tungstenite::{protocol::WebSocketConfig, Error, Message, WebSocket};
 #[cfg(windows)]
-use uds_windows::UnixStream;
+pub use uds_windows::{UnixListener, UnixStream};
 
 mod approvals;
-#[cfg(unix)]
 pub mod native_questions;
 pub mod questions;
-#[cfg(unix)]
 pub mod relay;
 pub use approvals::{CodexApproval, CodexApprovalChange, CodexApprovalState, CodexApprovals};
 

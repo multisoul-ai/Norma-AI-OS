@@ -1,7 +1,7 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::codex::relay::CodexQuestionRelay;
+use norma::codex::{UnixListener, UnixStream};
 use serde_json::json;
-use std::os::unix::net::{UnixListener, UnixStream};
 use tungstenite::{protocol::WebSocketConfig, Message};
 #[path = "support/codex_relay.rs"]
 mod support;
@@ -15,7 +15,11 @@ use support::{read, send, timed};
 fn native_large_configuration_frame_does_not_break_original_connection() {
     let dir = tempfile::Builder::new()
         .prefix("nql-")
-        .tempdir_in("/tmp")
+        .tempdir_in(if cfg!(windows) {
+            std::env::temp_dir()
+        } else {
+            "/tmp".into()
+        })
         .unwrap();
     let path = dir.path().join("s.sock");
     let listener = UnixListener::bind(&path).unwrap();

@@ -1,8 +1,8 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::codex::relay::{CodexQuestionRelay, CodexRelayEvent};
+use norma::codex::{UnixListener, UnixStream};
 use norma::protocol::{QuestionAnswer, QuestionState};
 use serde_json::json;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::Duration;
 
 #[path = "support/codex_relay.rs"]
@@ -17,7 +17,11 @@ use support::{read, send, timed};
 fn native_relay_preserves_session_and_answers_original_rpc_without_extra_turn() {
     let dir = tempfile::Builder::new()
         .prefix("nqr-")
-        .tempdir_in("/tmp")
+        .tempdir_in(if cfg!(windows) {
+            std::env::temp_dir()
+        } else {
+            "/tmp".into()
+        })
         .unwrap();
     let upstream_path = dir.path().join("server.sock");
     let listener = UnixListener::bind(&upstream_path).unwrap();
@@ -168,7 +172,11 @@ fn native_answer_and_observer_disable_keep_the_original_tui_usable() {
     for disable in [false, true] {
         let dir = tempfile::Builder::new()
             .prefix("nqr-")
-            .tempdir_in("/tmp")
+            .tempdir_in(if cfg!(windows) {
+                std::env::temp_dir()
+            } else {
+                "/tmp".into()
+            })
             .unwrap();
         let path = dir.path().join("server.sock");
         let listener = UnixListener::bind(&path).unwrap();
@@ -290,7 +298,11 @@ fn native_answer_and_observer_disable_keep_the_original_tui_usable() {
 fn resumed_same_rpc_requires_the_new_attachment_identity() {
     let dir = tempfile::Builder::new()
         .prefix("nqr-")
-        .tempdir_in("/tmp")
+        .tempdir_in(if cfg!(windows) {
+            std::env::temp_dir()
+        } else {
+            "/tmp".into()
+        })
         .unwrap();
     let path = dir.path().join("server.sock");
     let listener = UnixListener::bind(&path).unwrap();

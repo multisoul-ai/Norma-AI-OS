@@ -1,7 +1,7 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::codex::relay::CodexQuestionRelay;
+use norma::codex::{UnixListener, UnixStream};
 use serde_json::json;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::Duration;
 #[path = "support/codex_relay.rs"]
 mod support;
@@ -17,7 +17,11 @@ use tungstenite::Message;
 fn slow_server_applies_backpressure_without_closing_the_native_connection() {
     let dir = tempfile::Builder::new()
         .prefix("nqr-")
-        .tempdir_in("/tmp")
+        .tempdir_in(if cfg!(windows) {
+            std::env::temp_dir()
+        } else {
+            "/tmp".into()
+        })
         .unwrap();
     let path = dir.path().join("server.sock");
     let listener = UnixListener::bind(&path).unwrap();

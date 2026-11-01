@@ -1,9 +1,9 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::agent_hook::{AgentHookEvent, HookQuestion, HookQuestionRequest, NativeSendStatus};
 use norma::codex::relay::{CodexQuestionRelay, CodexRelayEvent};
+use norma::codex::{UnixListener, UnixStream};
 use norma::protocol::{AgentProfile, QuestionAnswer, QuestionState};
 use serde_json::{json, Value};
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Duration, Instant};
 use tungstenite::Message;
 #[path = "support/codex_relay.rs"]
@@ -19,7 +19,11 @@ fn partial_answer_ping_and_disconnect_keep_transport_ownership_accurate() {
     for mode in ["drop", "tui-close", "complete"] {
         let dir = tempfile::Builder::new()
             .prefix("nqp-")
-            .tempdir_in("/tmp")
+            .tempdir_in(if cfg!(windows) {
+                std::env::temp_dir()
+            } else {
+                "/tmp".into()
+            })
             .unwrap();
         let path = dir.path().join("s.sock");
         let listener = UnixListener::bind(&path).unwrap();
