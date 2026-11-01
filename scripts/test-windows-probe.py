@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 PROBE = Path(__file__).parent / "windows/probe.py"
-REQUIRED = ["environment", "compile", "graphics", "agents"]
+REQUIRED = ["environment", "compile", "graphics", "agents", "speech"]
 
 
 def summary_env(**values):
@@ -40,10 +40,10 @@ class FeasibilityReportTests(unittest.TestCase):
                 for name in REQUIRED}
 
     def test_missing_reports_never_pass(self):
-        """场景：runner 未产生任何证据；执行 summary；预期非零并列出四类缺失报告。"""
+        """场景：runner 未产生任何证据；执行 summary；预期非零并列出五类缺失报告。"""
         code, report = self.invoke({})
         self.assertNotEqual(code, 0, "empty evidence must fail the gate")
-        self.assertEqual(len(report["missing_reports"]), 4, "all four report classes are required")
+        self.assertEqual(len(report["missing_reports"]), 5, "all five report classes are required")
 
     def test_unconfigured_live_agents_and_candidate_remain_not_run(self):
         """场景：环境探针均成功但未提供模型凭据和产品包；执行 summary；
@@ -119,6 +119,18 @@ class FeasibilityReportTests(unittest.TestCase):
         _, report = self.invoke(reports)
         self.assertEqual(report["goal_gates"]["gpui_graphics"], "FAIL",
                          "visible pixels alone do not prove OS input support")
+
+    def test_speech_test_failure_is_preserved_after_voice_input_compiles(self):
+        """场景：VAD 默认构建通过，但相关原生测试失败；经 CLI 汇总；
+        预期单独保留语音检查 FAIL，不能只看编译或已有图形结果。
+        """
+        reports = self.reports()
+        reports["speech"] = [{"id": "voice_input_compile", "status": "PASS"},
+                             {"id": "speech_tests", "status": "FAIL"}]
+        code, report = self.invoke(reports)
+        self.assertNotEqual(code, 0, "failed speech tests must not produce green acceptance")
+        self.assertEqual(report["goal_gates"].get("speech_default_checks"), "FAIL",
+                         "speech runtime test failures must remain visible")
 
 
 if __name__ == "__main__":
