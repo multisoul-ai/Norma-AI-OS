@@ -31,8 +31,8 @@ def asr_catalog_model_ids(source: str) -> set[str]:
 def check_asr_release_gate(root: Path) -> list[str]:
     catalog = root / "crates/asr/src/catalog.rs"
     release_gate = root / "docs/quality/asr-model-release-gate.md"
-    model_ids = asr_catalog_model_ids(catalog.read_text())
-    documented = release_gate.read_text()
+    model_ids = asr_catalog_model_ids(catalog.read_text(encoding="utf-8"))
+    documented = release_gate.read_text(encoding="utf-8")
     if not model_ids:
         return [f"{catalog}: could not find any built-in ASR model IDs"]
     return [
@@ -54,7 +54,7 @@ def rust_enum_variants(source: str, enum_name: str) -> set[str]:
 
 
 def create_agent_schema_profiles(source: str) -> set[str]:
-    create_agent = source.split('"create_agent"', 1)[1].split("definition(", 1)[0]
+    create_agent = source.partition('"create_agent"')[2].split("definition(", 1)[0]
     profile = re.search(
         r'"profile"\s*:\s*\{[^{}]*"enum"\s*:\s*\[(?P<values>[^]]+)\]',
         create_agent,
@@ -96,16 +96,18 @@ def storage_profile_mappings(source: str) -> tuple[dict[str, str], dict[str, str
 def check_agent_profile_contract(root: Path) -> list[str]:
     protocol = root / "crates/norma/src/protocol.rs"
     canvas = root / "crates/canvas/src/node/agent_profile.rs"
-    schema = root / "crates/agent/src/adapter.rs"
+    schema = root / "crates/agent/src/adapter/definitions.rs"
+    if not schema.exists():
+        schema = root / "crates/agent/src/adapter.rs"
     parser = root / "crates/agent/src/adapter/commands.rs"
     storage = root / "crates/storage/src/agent_definition_store.rs"
 
-    protocol_variants = rust_enum_variants(protocol.read_text(), "AgentProfile")
-    canvas_variants = rust_enum_variants(canvas.read_text(), "AgentProfile")
+    protocol_variants = rust_enum_variants(protocol.read_text(encoding="utf-8"), "AgentProfile")
+    canvas_variants = rust_enum_variants(canvas.read_text(encoding="utf-8"), "AgentProfile")
     expected = {variant.lower(): variant for variant in protocol_variants}
-    schema_profiles = create_agent_schema_profiles(schema.read_text())
-    parser_profiles = agent_profile_parser_mappings(parser.read_text())
-    encoded_profiles, decoded_profiles = storage_profile_mappings(storage.read_text())
+    schema_profiles = create_agent_schema_profiles(schema.read_text(encoding="utf-8"))
+    parser_profiles = agent_profile_parser_mappings(parser.read_text(encoding="utf-8"))
+    encoded_profiles, decoded_profiles = storage_profile_mappings(storage.read_text(encoding="utf-8"))
 
     failures: list[str] = []
     if not protocol_variants:

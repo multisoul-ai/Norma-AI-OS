@@ -1,0 +1,125 @@
+name: Windows feasibility probe
+
+on:
+  push:
+    branches: ['codex/windows-feasibility-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-feasibility-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: '1'
+  CARGO_INCREMENTAL: '0'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_TERM_COLOR: never
+  RUST_BACKTRACE: '1'
+
+jobs:
+  environment-and-agents:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - name: Test report semantics and baseline contracts
+        shell: pwsh
+        run: |
+          python scripts/test-windows-probe.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-check-domain-contracts.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/check-domain-contracts.py
+          exit $LASTEXITCODE
+      - name: Observe runner and DirectX capabilities
+        shell: pwsh
+        run: python scripts/windows/probe.py environment
+      - name: Probe pinned CLIs without credentials or model tasks
+        if: always()
+        shell: pwsh
+        run: python scripts/windows/probe.py agents
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-environment-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          retention-days: 7
+          if-no-files-found: error
+
+  compile:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - name: Test canvas and record real Windows compiler failures
+        shell: pwsh
+        run: python scripts/windows/probe.py compile
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-compile-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          retention-days: 7
+          if-no-files-found: error
+
+  graphics:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - name: Build and observe the vendored GPUI sample
+        shell: pwsh
+        run: python scripts/windows/probe.py graphics
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-graphics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          retention-days: 3
+          if-no-files-found: error
+
+  feasibility-verdict:
+    if: always()
+    needs: [environment-and-agents, compile, graphics]
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: windows-feasibility-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          merge-multiple: true
+      - name: Preserve FAIL and NOT_RUN gates; never claim migration complete
+        if: always()
+        shell: pwsh
+        run: python scripts/windows/probe.py summary
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-verdict-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/windows-feasibility/feasibility.json
+            artifacts/windows-feasibility/summary.md
+          retention-days: 7
+          if-no-files-found: error
