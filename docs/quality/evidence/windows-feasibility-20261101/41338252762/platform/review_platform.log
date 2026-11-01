@@ -1,0 +1,125 @@
+   Compiling syn v2.0.118
+   Compiling smallvec v1.15.2
+   Compiling windows-sys v0.61.2
+   Compiling synstructure v0.13.2
+   Compiling percent-encoding v2.3.2
+   Compiling serde_core v1.0.228
+   Compiling form_urlencoded v1.2.2
+   Compiling serde v1.0.228
+   Compiling dirs-sys v0.5.0
+   Compiling once_cell v1.21.4
+   Compiling tempfile v3.27.0
+   Compiling dirs v6.0.0
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.3
+   Compiling displaydoc v0.2.6
+   Compiling zerovec v0.11.6
+   Compiling zerotrie v0.2.4
+   Compiling tinystr v0.8.3
+   Compiling potential_utf v0.1.5
+   Compiling icu_locale_core v2.2.0
+   Compiling icu_collections v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling serde_derive v1.0.228
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling git2 v0.20.4
+   Compiling workspace v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace)
+warning: unused variable: `metadata`
+   --> crates\workspace\src\git_clone\runner.rs:408:13
+    |
+408 |         let metadata = fs::symlink_metadata(&path)?;
+    |             ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_metadata`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::sync::mpsc`
+ --> crates\workspace\src\git_clone\..\..\tests\unit\git_clone_runner_tests.rs:7:5
+  |
+7 | use std::sync::mpsc;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `Duration` and `Instant`
+ --> crates\workspace\src\git_clone\..\..\tests\unit\git_clone_runner_tests.rs:8:17
+  |
+8 | use std::time::{Duration, Instant};
+  |                 ^^^^^^^^  ^^^^^^^
+
+warning: associated function `with_binary_for_test` is never used
+   --> crates\workspace\src\git_clone\runner.rs:146:19
+    |
+138 | impl GitCloneRunner {
+    | ------------------- associated function in this implementation
+...
+146 |     pub(crate) fn with_binary_for_test(git_binary: PathBuf) -> Self {
+    |                   ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `workspace` (lib) generated 1 warning
+warning: `workspace` (lib test) generated 4 warnings (1 duplicate) (run `cargo fix --lib -p workspace --tests` to apply 2 suggestions)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1m 14s
+     Running unittests src\lib.rs (D:\a\_temp\norma-platform-target\x86_64-pc-windows-msvc\debug\deps\workspace-61d241669d5ea959.exe)
+
+running 23 tests
+test git_clone::failure_tests::git_failure_classifier_groups_https_and_ssh_authentication_errors ... ok
+test git_clone::failure_tests::git_failure_classifier_separates_repository_host_and_network_failures ... ok
+test git_clone::progress_tests::git_progress_parser_discards_out_of_range_or_malformed_percentages ... ok
+test git_clone::destination_tests::clone_destination_rejects_path_traversal_and_non_segment_names ... ok
+test git_clone::progress_tests::git_progress_parser_handles_remote_prefix_and_ignores_unknown_noise ... ok
+test git_clone::progress_tests::git_progress_parser_maps_clone_stages_and_percentages ... ok
+test git_clone::remote_tests::github_remote_normalizes_supported_https_and_ssh_forms ... ok
+test git_clone::destination_tests::clone_destination_accepts_new_direct_child_without_creating_it ... ok
+test git_clone::remote_tests::github_remote_rejects_ambiguous_or_unsafe_addresses ... ok
+test git_clone::remote_tests::github_remote_trims_outer_whitespace_without_accepting_invalid_names ... ok
+test git_clone::destination_tests::clone_destination_rejects_existing_target_and_missing_parent ... ok
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+test git_clone::runner_tests::git_clone_runner_cleans_owned_target_after_git_failure ... ok
+test git_clone::runner_tests::git_clone_runner_honors_preflight_cancellation_without_side_effects ... ok
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+raw verbatim clone: status=exit code: 128 stderr=fatal: could not create work tree dir '\\?\C:\Users\runneradmin\AppData\Local\Temp\.tmpeXqurs\中文 projects\raw-probe': Invalid argument
+
+test git_clone::security_tests::cloned_workspace_adds_norma_to_local_exclude_idempotently ... ok
+test git_clone::runner_tests::git_clone_runner_completes_local_clone_and_security_finalize ... ok
+ordinary clone: status=exit code: 0 stderr=Cloning into 'C:\Users\runneradmin\AppData\Local\Temp\.tmpeXqurs\中文 projects\ordinary-probe'...
+done.
+
+test git_clone::security_tests::cloned_workspace_rejects_non_git_directory_without_creating_metadata ... ok
+test recent::tests::test_recent_workspaces_retains_latest_fifty_records ... ok
+test recent::tests::test_record_opened_sorts_by_latest_and_dedupes_path ... ok
+test recent::tests::test_remove_path_removes_only_the_requested_recent_workspace ... ok
+test git_clone::security_tests::cloned_workspace_blocks_tracked_norma_state_without_deleting_repository ... ok
+test git_clone::runner_tests::git_clone_runner_preserves_clone_but_blocks_tracked_norma_workspace_state ... ok
+test git_clone::runner_tests::git_clone_runner_accepts_verbatim_destination_with_unicode_and_spaces ... ok
+test review::process::windows_tests::expired_parent_with_inherited_stdout_reaps_descendant_and_returns ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.23s
+
+     Running tests\review_platform.rs (D:\a\_temp\norma-platform-target\x86_64-pc-windows-msvc\debug\deps\review_platform-9678fc0467f4a291.exe)
+
+running 1 test
+test native_review_captures_current_bytes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
+
+     Running tests\scoped_directory.rs (D:\a\_temp\norma-platform-target\x86_64-pc-windows-msvc\debug\deps\scoped_directory-a14bd7bfb0c7fa40.exe)
+
+running 4 tests
+test read_only_root_pins_root_and_every_ancestor ... ok
+native parent directory flush: Ok(())
+test windows_aliases_and_junction_never_escape_scope ... ok
+test open_pointer_reader_does_not_block_atomic_publication ... ok
+test native_directory_flush_and_relative_rename_are_real ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+

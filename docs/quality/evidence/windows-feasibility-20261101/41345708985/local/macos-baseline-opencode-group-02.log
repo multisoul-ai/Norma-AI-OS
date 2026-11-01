@@ -1,0 +1,20 @@
+
+running 6 tests
+test missing_foreground_evidence_keeps_ordinary_input_blocked ... ok
+test foreground_switch_revokes_old_question_and_follows_current_session ... ok
+test reconnect_reconciles_pending_before_restoring_unsent_question ... ok
+test foreground_change_during_pending_query_cannot_unlock_input ... ok
+test foreground_return_does_not_reopen_an_uncertain_original_delivery ... ok
+
+thread 'final_send_gate_rechecks_after_slow_prepare_get' (9817254) panicked at crates/norma/tests/opencode_foreground.rs:437:9:
+拒绝不能永久Submitting
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test final_send_gate_rechecks_after_slow_prepare_get ... FAILED
+
+failures:
+
+failures:
+    final_send_gate_rechecks_after_slow_prepare_get
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.01s
+

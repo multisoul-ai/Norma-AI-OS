@@ -1,0 +1,11 @@
+
+running 6 tests
+test missing_foreground_evidence_keeps_ordinary_input_blocked ... ok
+test final_send_gate_rechecks_after_slow_prepare_get ... ok
+test foreground_switch_revokes_old_question_and_follows_current_session ... ok
+test foreground_change_during_pending_query_cannot_unlock_input ... ok
+test reconnect_reconciles_pending_before_restoring_unsent_question ... ok
+test foreground_return_does_not_reopen_an_uncertain_original_delivery ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.57s
+

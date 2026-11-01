@@ -1,0 +1,13 @@
+{
+  "baseline_sha": "457e5823e0e79b8c3f6df76edb09f7f4eaeb78b6",
+  "binary": "/private/tmp/norma-baseline-opencode-foreground-preserved",
+  "scope": "all six original foreground tests; bounded diagnostic seeks same Unsent/Unknown failure, not a passing retry",
+  "attempts": [
+    {
+      "iteration": 3,
+      "exit_code": 101,
+      "same_uncertain_delivery_failure": true,
+      "log": "macos-baseline-opencode-group-03.log"
+    }
+  ]
+}

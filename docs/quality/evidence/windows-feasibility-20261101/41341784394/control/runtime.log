@@ -1,0 +1,374 @@
+ Downloading crates ...
+  Downloaded try-lock v0.2.5
+  Downloaded unicase v2.9.0
+  Downloaded winreg v0.10.1
+  Downloaded windows-targets v0.52.6
+  Downloaded tokio-macros v2.7.0
+  Downloaded vte v0.15.0
+  Downloaded tower v0.5.3
+  Downloaded tokio-util v0.7.18
+  Downloaded tower-http v0.6.11
+  Downloaded hyper-util v0.1.20
+  Downloaded rand v0.10.2
+  Downloaded reqwest v0.13.4
+  Downloaded h2 v0.4.15
+  Downloaded futures-util v0.3.32
+  Downloaded aho-corasick v1.1.4
+  Downloaded hyper v1.10.1
+  Downloaded git2 v0.20.4
+  Downloaded nix v0.28.0
+  Downloaded quinn-proto v0.11.16
+  Downloaded aws-lc-rs v1.17.3
+  Downloaded tokio v1.52.3
+  Downloaded regex-syntax v0.8.11
+  Downloaded tracing-subscriber v0.3.23
+  Downloaded nom v7.1.3
+  Downloaded mio v1.2.1
+  Downloaded unicode-width v0.2.2
+  Downloaded alacritty_terminal v0.26.0
+  Downloaded schemars v1.2.1
+  Downloaded quinn v0.11.11
+  Downloaded pin-project v1.1.13
+  Downloaded futures v0.3.32
+  Downloaded arrayvec v0.7.8
+  Downloaded uuid v1.23.4
+  Downloaded tinyvec v1.11.0
+  Downloaded piper v0.2.5
+  Downloaded num-traits v0.2.19
+  Downloaded minimal-lexical v0.2.1
+  Downloaded regex-automata v0.4.14
+  Downloaded glob v0.3.3
+  Downloaded futures-channel v0.3.32
+  Downloaded chacha20 v0.10.1
+  Downloaded thread_local v1.1.9
+  Downloaded thiserror-impl v1.0.69
+  Downloaded slab v0.4.12
+  Downloaded rig-core v0.40.0
+  Downloaded serial2 v0.2.37
+  Downloaded serde_derive_internals v0.29.1
+  Downloaded schemars_derive v1.2.1
+  Downloaded portable-pty v0.9.0
+  Downloaded pin-project-internal v1.1.13
+  Downloaded parking_lot_core v0.9.12
+  Downloaded ordered-float v5.3.0
+  Downloaded libz-sys v1.1.29
+  Downloaded miow v0.6.1
+  Downloaded lock_api v0.4.14
+  Downloaded jobserver v0.1.35
+  Downloaded windows_x86_64_msvc v0.52.6
+  Downloaded hyper-rustls v0.27.9
+  Downloaded http-body-util v0.1.3
+  Downloaded futures-timer v3.0.4
+  Downloaded futures-sink v0.3.32
+  Downloaded futures-io v0.3.32
+  Downloaded fs_extra v1.3.0
+  Downloaded filetime v0.2.29
+  Downloaded dunce v1.0.5
+  Downloaded cursor-icon v1.2.0
+  Downloaded cpufeatures v0.3.0
+  Downloaded concurrent-queue v2.5.0
+  Downloaded cmake v0.1.58
+  Downloaded cfg_aliases v0.2.1
+  Downloaded bitflags v1.3.2
+  Downloaded async-stream-impl v0.3.6
+  Downloaded as-any v0.3.2
+  Downloaded windows-strings v0.4.2
+  Downloaded windows-link v0.1.3
+  Downloaded want v0.3.1
+  Downloaded tokio-tungstenite v0.28.0
+  Downloaded encoding_rs v0.8.35
+  Downloaded tinyvec_macros v0.1.1
+  Downloaded thiserror v1.0.69
+  Downloaded shell-words v1.1.1
+  Downloaded shared_library v0.1.9
+  Downloaded rustc-hash v2.1.3
+  Downloaded lru-slab v0.1.2
+  Downloaded lazy_static v1.5.0
+  Downloaded home v0.5.12
+  Downloaded futures-task v0.3.32
+  Downloaded futures-macro v0.3.32
+  Downloaded futures-core v0.3.32
+  Downloaded fnv v1.0.7
+  Downloaded filedescriptor v0.8.3
+  Downloaded eventsource-stream v0.2.3
+  Downloaded dyn-clone v1.0.20
+  Downloaded downcast-rs v1.2.1
+  Downloaded cfg_aliases v0.1.1
+  Downloaded atomic-waker v1.1.2
+  Downloaded async-stream v0.3.6
+  Downloaded windows-result v0.3.4
+  Downloaded windows-registry v0.5.3
+  Downloaded webpki-roots v0.26.11
+  Downloaded tracing-log v0.2.0
+  Downloaded tower-layer v0.3.3
+  Downloaded tokio-rustls v0.26.4
+  Downloaded sync_wrapper v1.0.2
+  Downloaded socket2 v0.6.4
+  Downloaded sharded-slab v0.1.7
+  Downloaded scopeguard v1.2.0
+  Downloaded libgit2-sys v0.18.5+1.9.4
+  Downloaded rustls-platform-verifier v0.7.0
+  Downloaded ref-cast-impl v1.0.25
+  Downloaded ref-cast v1.0.25
+  Downloaded rand_pcg v0.10.2
+  Downloaded polling v3.11.0
+  Downloaded parking_lot v0.12.5
+  Downloaded matchers v0.2.0
+  Downloaded http-body v1.0.1
+  Downloaded tracing-futures v0.2.5
+  Downloaded tower-service v0.3.3
+  Downloaded rand_core v0.10.1
+  Downloaded quinn-udp v0.5.15
+  Downloaded nu-ansi-term v0.50.3
+  Downloaded mime_guess v2.0.5
+  Downloaded mime v0.3.17
+  Downloaded ipnet v2.12.0
+  Downloaded futures-executor v0.3.32
+  Downloaded windows-sys v0.59.0
+  Downloaded aws-lc-sys v0.43.0
+   Compiling getrandom v0.4.3
+   Compiling windows-sys v0.61.2
+   Compiling cfg-if v1.0.4
+   Compiling jobserver v0.1.35
+   Compiling cc v1.2.66
+   Compiling memchr v2.8.2
+   Compiling serde_core v1.0.228
+   Compiling smallvec v1.15.2
+   Compiling futures-core v0.3.32
+   Compiling log v0.4.33
+   Compiling libc v0.2.186
+   Compiling cmake v0.1.58
+   Compiling dunce v1.0.5
+   Compiling fs_extra v1.3.0
+   Compiling ring v0.17.14
+   Compiling aws-lc-sys v0.43.0
+   Compiling futures-sink v0.3.32
+   Compiling futures-io v0.3.32
+   Compiling aws-lc-rs v1.17.3
+   Compiling bitflags v2.13.0
+   Compiling tracing-core v0.1.36
+   Compiling slab v0.4.12
+   Compiling serde v1.0.228
+   Compiling futures-channel v0.3.32
+   Compiling mio v1.2.1
+   Compiling socket2 v0.6.4
+   Compiling tokio-macros v2.7.0
+   Compiling tracing v0.1.44
+   Compiling tokio v1.52.3
+   Compiling futures-macro v0.3.32
+   Compiling futures-task v0.3.32
+   Compiling rustls v0.23.41
+   Compiling futures-util v0.3.32
+   Compiling icu_normalizer v2.2.0
+   Compiling winapi v0.3.9
+   Compiling atomic-waker v1.1.2
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling http-body v1.0.1
+   Compiling serde_json v1.0.150
+   Compiling windows-link v0.1.3
+   Compiling equivalent v1.0.2
+   Compiling hashbrown v0.17.1
+   Compiling indexmap v2.14.0
+   Compiling url v2.5.8
+   Compiling tokio-util v0.7.18
+   Compiling try-lock v0.2.5
+   Compiling tower-service v0.3.3
+   Compiling fnv v1.0.7
+   Compiling h2 v0.4.15
+   Compiling want v0.3.1
+   Compiling windows-strings v0.4.2
+   Compiling windows-result v0.3.4
+   Compiling libz-sys v1.1.29
+   Compiling unicase v2.9.0
+   Compiling anstyle-wincon v3.0.11
+   Compiling mime_guess v2.0.5
+   Compiling windows-registry v0.5.3
+   Compiling hyper v1.10.1
+   Compiling num-traits v0.2.19
+   Compiling libsqlite3-sys v0.30.1
+   Compiling sync_wrapper v1.0.2
+   Compiling anstyle-query v1.1.5
+   Compiling windows_x86_64_msvc v0.52.6
+   Compiling tower-layer v0.3.3
+   Compiling ref-cast v1.0.25
+   Compiling ipnet v2.12.0
+   Compiling dirs-sys v0.5.0
+   Compiling anstream v1.0.0
+   Compiling hyper-util v0.1.20
+   Compiling tower v0.5.3
+   Compiling tempfile v3.27.0
+   Compiling futures-executor v0.3.32
+   Compiling libgit2-sys v0.18.5+1.9.4
+   Compiling aho-corasick v1.1.4
+   Compiling schannel v0.1.29
+   Compiling pin-project-internal v1.1.13
+   Compiling rustls-webpki v0.103.13
+   Compiling tokio-rustls v0.26.4
+   Compiling serde_derive_internals v0.29.1
+   Compiling ref-cast-impl v1.0.25
+   Compiling lazy_static v1.5.0
+   Compiling thiserror v1.0.69
+   Compiling parking_lot_core v0.9.12
+   Compiling regex-syntax v0.8.11
+   Compiling mime v0.3.17
+   Compiling cfg_aliases v0.1.1
+   Compiling minimal-lexical v0.2.1
+   Compiling nom v7.1.3
+   Compiling regex-automata v0.4.14
+   Compiling nix v0.28.0
+   Compiling clap_builder v4.6.0
+   Compiling socks v0.3.4
+   Compiling schemars_derive v1.2.1
+   Compiling hyper-rustls v0.27.9
+   Compiling pin-project v1.1.13
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling rustls-native-certs v0.8.4
+   Compiling futures v0.3.32
+   Compiling tower-http v0.6.11
+   Compiling dirs v6.0.0
+   Compiling http-body-util v0.1.3
+   Compiling ureq-proto v0.6.0
+   Compiling async-stream-impl v0.3.6
+   Compiling thiserror-impl v1.0.69
+   Compiling encoding_rs v0.8.35
+   Compiling scopeguard v1.2.0
+   Compiling dyn-clone v1.0.20
+   Compiling winreg v0.10.1
+   Compiling tungstenite v0.28.0
+   Compiling rusqlite v0.32.1
+   Compiling schemars v1.2.1
+   Compiling ureq v3.3.0
+   Compiling lock_api v0.4.14
+   Compiling reqwest v0.13.4
+   Compiling async-stream v0.3.6
+   Compiling rcgen v0.13.2
+   Compiling windows-targets v0.52.6
+   Compiling uds_windows v1.2.1
+   Compiling ordered-float v5.3.0
+   Compiling mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+   Compiling tracing-futures v0.2.5
+   Compiling clap v4.6.1
+   Compiling eventsource-stream v0.2.3
+   Compiling concurrent-queue v2.5.0
+   Compiling as-any v0.3.2
+   Compiling futures-timer v3.0.4
+   Compiling arrayvec v0.7.8
+   Compiling glob v0.3.3
+   Compiling cursor-icon v1.2.0
+   Compiling vte v0.15.0
+   Compiling rig-core v0.40.0
+   Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+   Compiling polling v3.11.0
+   Compiling parking_lot v0.12.5
+   Compiling windows-sys v0.59.0
+   Compiling git2 v0.20.4
+   Compiling filedescriptor v0.8.3
+   Compiling shared_library v0.1.9
+   Compiling uuid v1.23.4
+   Compiling piper v0.2.5
+   Compiling miow v0.6.1
+   Compiling home v0.5.12
+   Compiling serial2 v0.2.37
+   Compiling unicode-width v0.2.2
+   Compiling shell-words v1.1.1
+   Compiling downcast-rs v1.2.1
+   Compiling bitflags v1.3.2
+   Compiling portable-pty v0.9.0
+   Compiling alacritty_terminal v0.26.0
+   Compiling workspace v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace)
+warning: unused variable: `metadata`
+   --> crates\workspace\src\git_clone\runner.rs:408:13
+    |
+408 |         let metadata = fs::symlink_metadata(&path)?;
+    |             ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_metadata`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling agent v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\agent)
+warning: `workspace` (lib) generated 1 warning
+   Compiling canvas v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\canvas)
+   Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+   Compiling terminal v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\terminal)
+warning: unused variable: `root`
+  --> crates\terminal\src\process_tree.rs:49:5
+   |
+49 |     root: ManagedProcess,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_root`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling matchers v0.2.0
+   Compiling sharded-slab v0.1.7
+   Compiling tracing-log v0.2.0
+   Compiling nu-ansi-term v0.50.3
+   Compiling thread_local v1.1.9
+   Compiling tracing-subscriber v0.3.23
+warning: `terminal` (lib) generated 1 warning
+   Compiling runtime v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\runtime)
+warning: unused imports: `HashSet` and `VecDeque`
+ --> crates\runtime\src\agent_descendants.rs:4:24
+  |
+4 | use std::collections::{HashSet, VecDeque};
+  |                        ^^^^^^^  ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `MAX_DEPTH` is never used
+ --> crates\runtime\src\agent_descendants.rs:6:7
+  |
+6 | const MAX_DEPTH: u8 = 8;
+  |       ^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `MAX_VISITS` is never used
+ --> crates\runtime\src\agent_descendants.rs:7:7
+  |
+7 | const MAX_VISITS: usize = 64;
+  |       ^^^^^^^^^^
+
+warning: constant `MAX_CHILDREN` is never used
+ --> crates\runtime\src\agent_descendants.rs:8:7
+  |
+8 | const MAX_CHILDREN: usize = 64;
+  |       ^^^^^^^^^^^^
+
+   Compiling filetime v0.2.29
+warning: `runtime` (lib) generated 4 warnings (run `cargo fix --lib -p runtime` to apply 1 suggestion)
+    Finished `test` profile [optimized + debuginfo] target(s) in 10m 42s
+     Running tests\codex_question_blocker.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_blocker-4d2f93a8a5d749ff.exe)
+
+running 1 test
+test unverified_native_request_blocks_tasks_without_becoming_answerable ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests\codex_question_host.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_host-1f53bf2e1b95b31c.exe)
+
+running 2 tests
+test runtime_adopts_owned_host_and_completes_original_question ... ok
+test observer_failure_keeps_original_question_blocking_before_and_after_registration ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+     Running tests\codex_questions.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_questions-c7fda1bf3edf8509.exe)
+
+running 6 tests
+test codex_takeover_revokes_answer_after_http_before_rpc_write ... ok
+test codex_http_response_does_not_own_an_identical_native_answer ... ok
+test codex_question_ticket_is_bound_to_original_run_connection_and_consumption ... ok
+test codex_session_end_revokes_pending_question_and_late_ticket ... ok
+test delayed_question_cannot_rebind_the_current_native_connection ... ok
+test native_navigation_survives_sent_and_unknown_answers ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\codex_turn_lifecycle.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_turn_lifecycle-dbe270976297a3b6.exe)
+
+running 2 tests
+test background_terminal_wait_stays_active_until_native_turn_completes ... ok
+test native_failure_and_interrupt_do_not_become_success ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+

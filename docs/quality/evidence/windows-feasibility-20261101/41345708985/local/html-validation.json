@@ -1,0 +1,36 @@
+[
+  {
+    "file": "docs/exec-plans/2026-11-01-windows-github-runner-goal.html",
+    "embedded_source_matches": true,
+    "panels": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H"
+    ],
+    "javascript_checked": true,
+    "mermaid_blocks": 0,
+    "sha256": "1fc707982900193391d2404d1a1f47fb1d6fc3da19e8df9d25ab199f11c2c5bb"
+  },
+  {
+    "file": "docs/exec-plans/2026-11-01-windows-port-plan.html",
+    "embedded_source_matches": true,
+    "panels": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H"
+    ],
+    "javascript_checked": true,
+    "mermaid_blocks": 0,
+    "sha256": "a654d91e7836b73253b0b438e68468c9c01771d73fcb776801a1bf354dfa4467"
+  }
+]

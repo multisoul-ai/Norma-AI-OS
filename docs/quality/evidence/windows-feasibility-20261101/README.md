@@ -1,6 +1,6 @@
 # Windows runner 最小可行性验证证据
 
-本批 storage/Review 与 A1 平台修复已实测；App 仍被 runtime/Codex 六项诊断阻塞，未达到 App 编译通过门槛。
+原Runtime/Codex六条诊断已消除；App新暴露116条平台诊断，Windows关闭清理与Mac时序仍有阻塞，迁移未验收。
 范围包含 norma 编译修复、OS 资源回归、GPUI 基础图形与无认证 CLI 条件。
 真实 Norma 图形、真实模型任务和候选包验收均未执行。
 标准 runner 的实测 OS 为 Windows Server 2025，不能视作 Windows 11 设备验收。
@@ -19,6 +19,10 @@
 | [41322579276 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41322579276) | `fbe37cf7a3aeddd36c34a4b72aa3eb321255bcbe` | failure | 新增三类平台回归，原样复现 storage 25 条、Review 入口和 A1 工厂失败 |
 | [41325043580 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41325043580) | `f2838b21e04f7eb5c7ccecfc45271ec521ebe186` | failure | 语音 89/0/16；NT 文件 4 项通过；Git clone 2 项失败；App 新暴露 runtime/Codex 6 条 |
 | [41327614822 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41327614822) | `747777db081a4f06005ee3b8b617de91db29fe8c` | failure | Git 修复后平台 30/0/0；语音 89/0/16；43/52 无回退；App 仍有 Codex 6 条阻塞 |
+| [41335774179 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41335774179) | `c71b8e9f2327e6f8edf2735b030fd1406bb4d34e` | failure | 先复现6错、Windows随机身份与控制模块缺失 |
+| [41338252762 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41338252762) | `9b9a4e0030714097f14cdd91fbe00e248410452c` | failure | 原6错消除；App116条；partial未进入Writing |
+| [41341784394 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41341784394) | `15b284ce770a70d8b42ef6b6b2f8d4fa10bd398c` | failure | App116条；控制48/2/0；真实背压关闭失败 |
+| [41345708985 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41345708985) | `e7a7a78a9a871748f28becf1a6de32702ce41cd9` | failure | App116条；控制50/0/0；平台47/0/0；语音89/0/16 |
 
 前三次运行之间均有探针代码修正，不以无改动重跑覆盖断言失败。
 新增回归门槛与产品修复分别提交，保留先失败、再通过的执行记录。
@@ -43,7 +47,7 @@
 它复用 vendor 的示例源码，未改变产品 Rust 代码，也不证明产品依赖图已适配。
 模型已读取首轮收束原图，核验记录见 `docs/quality/evidence/windows-feasibility-20261101/41297206819/visual-observation.md`。
 前批 Sherpa 修复原图也已读取，记录见 `docs/quality/evidence/windows-feasibility-20261101/41312790317/visual-observation.md`。
-本批最终原图见 `docs/quality/evidence/windows-feasibility-20261101/41327614822/visual-observation.md`。
+本批最终原图见 `docs/quality/evidence/windows-feasibility-20261101/41345708985/visual-observation.md`。
 
 ## norma 编译入口修复（前批，41307703559）
 
@@ -171,7 +175,7 @@ Mac workspace check 与 fmt check 通过，边界、性能、代理和依赖图�
 i18n 护栏仍在未改动的 `crates/app/src/settings/voice/view/gpt_live.rs:70` 失败。
 物理录音、模型 VAD、真实 Norma 图形、真实 Agent 和候选包仍为 NOT_RUN。
 
-## storage/Review 与 A1 平台边界修复（本批）
+## storage/Review 与 A1 平台边界修复（前批）
 
 失败基线：[41322579276](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41322579276)。
 源码 `fbe37cf7a3aeddd36c34a4b72aa3eb321255bcbe`，已结束，整体 failure。
@@ -230,7 +234,7 @@ i18n 仍在未修改的 `crates/app/src/settings/voice/view/gpt_live.rs:70` 失�
 App 新失败位置包括 `crates/runtime/src/nodes/agent/codex.rs:4` 与 UnixStream 导入。
 `codex_host`、`codex_turns` 与 `live` 也引用 Windows 未开放的 native_questions/relay。
 这需要 Codex 控制传输的真实 Windows 实现；不删除 Agent 入口或把 cfg 去掉后假报支持。
-准确六条诊断保存在本轮 `compile/app_compile.log`，是当前编译前沿，不是下游完整清单。
+该历史运行的六条诊断保存在其 `compile/app_compile.log`，是当时的编译前沿。
 
 ### Git clone 路径修复与复验
 
@@ -278,6 +282,53 @@ App 日志出现中英文期望差异及锁中毒连锁失败；OpenCode 夹具�
 
 
 
+## Runtime/Codex 平台边界与最终复验（本批）
+
+原六条 Runtime/Codex 编译错误已消除；App 仍未达到编译通过门槛。
+最新运行：[41345708985](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41345708985)，源码 `e7a7a78a9a871748f28becf1a6de32702ce41cd9`，attempt 1，整体为 failure。
+
+| Windows 实测项目 | 结果（通过/失败/忽略） | 证据与边界 |
+|---|---|---|
+| norma 库、CLI/helper 编译 | PASS | 默认 feature，MSVC check；不代表 App/release/启动通过 |
+| 原平台回归及 relay lib | 47/0/0 | 原43项执行覆盖以本轮 `compiler-blockers.json` 为准；新增激活3项旧单测及1项partial单测 |
+| canvas | 52/0/0 | 实际执行，无新增忽略 |
+| 随机控制身份 | 1/0/0 | Windows OS CSPRNG；Unix保留原行为 |
+| 控制传输及 relay | 50/0/0 | 本轮实际通过；历史关闭失败未因本轮通过被判定修复 |
+| Runtime Codex 集成 | 11/0/0 | session、提问、输入阻塞与turn生命周期 |
+| 语音 | 89/0/16 | 16项既有忽略，原Sherpa/VAD/A1错误未复发；非物理音频或真实模型验收 |
+| storage/Review/A1独立平台回归 | 30/0/0 | 原生OS文件与进程夹具，不是完整产品场景 |
+| App默认检查 | FAIL：116条诊断 | 全部位于App；原6条Runtime诊断未复发 |
+
+各测试组包含重叠的lib用例，不能相加为唯一测试总数。
+
+先提交失败测试：[41335774179](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41335774179)。
+首轮实现：[41338252762](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41338252762)，原6条消除，App新暴露116条。
+中间复验：[41341784394](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41341784394)，partial缓冲假设与真实背压关闭均失败。
+保留各轮失败，不把新增夹具修正追写成旧运行通过。
+
+partial单测现在真实写出4KiB后注入WouldBlock。
+它保留Writing→Unknown/Sent、完整RPC及禁止重发断言。
+它是确定性故障注入，不能替代真实OS背压关闭集成测试。
+
+本轮关闭测试实际PASS，但前轮FAIL仍未关闭，readiness生产代码未改。
+测试只确认外部writer的瞬时WouldBlock，未确定relay输出已背压；本轮绿色不能作为修复证明。
+关闭可靠性记UNRESOLVED；不能用超时杀慢连接或有限预读冒充等价修复。
+
+Mac完整基线为3427/3/52，首轮改后3418/17/52，修正Codex回执等待后3419/16/52，均退出101。
+原15项在基线与改后逐项隔离均15/0/0；完整运行中的既有失败继续保留。
+本轮观察到的Codex历史回执竞态已修正：原3秒内同时等Attached身份与SessionUsed历史；原断言保留。
+最后仅替换partial故障注入后，norma/runtime实际687/0/12，退出0。
+
+Mac使用Homebrew Rust1.93.1；Windows使用固定Rust1.91.1，环境区别已记录。
+
+最终完整Mac另有OpenCode输入锁断言失败；未改基线额外20次中18次通过、2次失败于另一条状态断言。
+最终输入锁症状未在基线复现，归因未收束，不能宣布Mac无新增回归或全仓通过。
+i18n既有GPT-Live失败、52项全仓既有忽略和全部原始日志保留；没有新增ignore/allow或关闭默认feature。
+
+逐项六错、Mac15项前后表、验收映射与剩余阻塞见 `docs/quality/evidence/windows-feasibility-20261101/runtime-codex-audit.md`。
+完整日志及SHA-256清单位于 `docs/quality/evidence/windows-feasibility-20261101/41345708985/manifest.json`。
+真实Norma图形、真实Agent、候选包仍为NOT_RUN；迁移Goal未完成。
+
 ## 实测环境
 
 - runner label：`windows-2025`；实际镜像 `win25-vs2026`，版本 `20261021.278.1`。
@@ -314,7 +365,7 @@ CI 临时产物有 3–7 天留存期，本目录持久保存小报告、日志�
 未复制本机登录信息，未启用付费 runner、签名、发布或机器采购。
 真实 Agent 的后续验收需要受保护环境与已授权调用预算，缺失时继续保持 NOT_RUN。
 
-迁移顺序为 runtime/Codex 真实控制传输与 App 复验 → 完整存储/恢复矩阵与 Mac 测试隔离 → PowerShell/ConPTY/进程树 → 真实 Norma 窗口 → 真实 Agent → 同版本候选包复验。
+迁移顺序为 Windows背压关闭 → App IPC与生命周期及其余原生后端 → Mac时序与存储恢复矩阵 → PowerShell/ConPTY/进程树 → 真实Norma → 真实Agent → 同版本候选包。
 原 14 个错误只代表已观察到的编译前沿，不能视作全部适配工作，也不能据此下调估算。
 G1 尚未完成，两个 Agent 的产品支持矩阵尚未冻结。
 
@@ -326,9 +377,9 @@ G1 尚未完成，两个 Agent 的产品支持矩阵尚未冻结。
 现行计划：`docs/exec-plans/2026-11-01-windows-github-runner-goal.md`。
 HTML 展示：`docs/exec-plans/2026-11-01-windows-github-runner-goal.html`。
 
-最新结果入口：`docs/quality/evidence/windows-feasibility-20261101/41327614822/feasibility.json`。
-最新校验清单：`docs/quality/evidence/windows-feasibility-20261101/41327614822/manifest.json`。
+最新结果入口：`docs/quality/evidence/windows-feasibility-20261101/41345708985/compiler-blockers.json`。
+最新校验清单：`docs/quality/evidence/windows-feasibility-20261101/41345708985/manifest.json`。
 
 前两批已分别回收独立缓存 1.8 GiB 与 2.1 GiB。
-本批确认独立 target 无进程使用后，回收 Cargo 报告的 21.5 GiB，以及 API 检查缓存 70.5 MiB。
+前批确认独立target无进程使用后，回收21.5GiB及API检查缓存70.5MiB。
 主工作区缓存未动；日志见最终运行的 local 子目录。

@@ -1,0 +1,31 @@
+{
+  "command": [
+    "/opt/homebrew/bin/rustc",
+    "--edition=2021",
+    "--test",
+    "/private/tmp/norma-codex-regression-draft/codex_control_handshake.rs",
+    "-L",
+    "dependency=/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps",
+    "-o",
+    "/private/tmp/norma-codex-handshake-red",
+    "--extern",
+    "norma=/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/libnorma-08e41691dc8b5c7c.rlib",
+    "--extern",
+    "serde_json=/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/libserde_json-1575c140a9199968.rlib",
+    "--extern",
+    "crossbeam_channel=/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/libcrossbeam_channel-a3383affafd4e379.rlib",
+    "--extern",
+    "tungstenite=/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/libtungstenite-055162acafb359d6.rlib",
+    "--extern",
+    "tempfile=/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/libtempfile-d98a7a0f7443a6fc.rlib"
+  ],
+  "read_only_baseline_dependencies": {
+    "norma": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/libnorma-08e41691dc8b5c7c.rlib",
+    "serde_json": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/libserde_json-1575c140a9199968.rlib",
+    "crossbeam_channel": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/libcrossbeam_channel-a3383affafd4e379.rlib",
+    "tungstenite": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/libtungstenite-055162acafb359d6.rlib",
+    "tempfile": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/libtempfile-d98a7a0f7443a6fc.rlib"
+  },
+  "source_sha": "457e5823e0e79b8c3f6df76edb09f7f4eaeb78b6",
+  "exit_code": 0
+}

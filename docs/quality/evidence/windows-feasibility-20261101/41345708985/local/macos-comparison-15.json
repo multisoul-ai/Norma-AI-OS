@@ -1,0 +1,297 @@
+{
+  "baseline_sha": "457e5823e0e79b8c3f6df76edb09f7f4eaeb78b6",
+  "case_count": 15,
+  "cases": [
+    {
+      "index": 1,
+      "test": "app::brain_host::context::proposal_tests::brain_proposal_context_failed_save_does_not_restore_or_redispatch",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "全局语言隔离/文案断言",
+      "before_log": "macos-before-case-01.log",
+      "after_log": "macos-final-case-01.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 2,
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_listening_maps_bottom_label_to_continuous_listening",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "全局语言隔离/文案断言",
+      "before_log": "macos-before-case-02.log",
+      "after_log": "macos-final-case-02.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 3,
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_start_fails_cleanly_when_mic_permission_denied",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-03.log",
+      "after_log": "macos-final-case-03.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 4,
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_stop_returns_idle_but_models_remain_resident",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-04.log",
+      "after_log": "macos-final-case-04.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 5,
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_unclassified_speech_does_not_truncate_assistant_reply",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-05.log",
+      "after_log": "macos-final-case-05.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 6,
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_error_shortcut_dismisses_feedback_without_stopping",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-06.log",
+      "after_log": "macos-final-case-06.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 7,
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_shortcut_stops_an_active_session",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-07.log",
+      "after_log": "macos-final-case-07.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 8,
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_dialogue_turn_failure_recovers_for_next_utterance",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-08.log",
+      "after_log": "macos-final-case-08.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 9,
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_voice_shortcut_interrupts_assistant_reply_during_speaking",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-09.log",
+      "after_log": "macos-final-case-09.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 10,
+      "test": "app::dialogue::reply_stream_backlog_tests::test_active_capacity_exhaustion_preserves_visible_reply_and_drains_accepted_prefix",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-10.log",
+      "after_log": "macos-final-case-10.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 11,
+      "test": "app::dialogue::reply_stream_backlog_tests::test_one_delta_with_nine_segments_does_not_fail_bounded_reply_queue",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-11.log",
+      "after_log": "macos-final-case-11.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 12,
+      "test": "app::dialogue::reply_stream_backlog_tests::test_slow_provider_drains_forty_segments_before_finish_without_truncation",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-12.log",
+      "after_log": "macos-final-case-12.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 13,
+      "test": "app::dialogue::reply_stream_cancellation_tests::test_provider_failure_overrides_capacity_warning_and_cleans_up",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-13.log",
+      "after_log": "macos-final-case-13.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 14,
+      "test": "app::dialogue::reply_stream_cancellation_tests::test_user_interruption_discards_unsent_backlog_and_queued_pcm_together",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "DIALOGUE_SHELL_TEST_LOCK 锁中毒连锁",
+      "before_log": "macos-before-case-14.log",
+      "after_log": "macos-final-case-14.log",
+      "baseline_workspace": "PASS"
+    },
+    {
+      "index": 15,
+      "test": "opencode_replies_only_through_own_instance_and_original_request",
+      "previous_workspace": "FAIL",
+      "baseline_isolated": "PASS",
+      "modified_isolated": "PASS",
+      "modified_workspace": "FAIL",
+      "classification": "既有失败",
+      "cause": "Mac accepted socket继承非阻塞，HTTP夹具读到errno35",
+      "before_log": "macos-before-case-15.log",
+      "after_log": "macos-final-case-15.log",
+      "baseline_workspace": "FAIL"
+    }
+  ],
+  "workspace": {
+    "before": {
+      "source_sha": "457e5823e0e79b8c3f6df76edb09f7f4eaeb78b6",
+      "exit_code": 101,
+      "counts": {
+        "passed": 3427,
+        "failed": 3,
+        "ignored": 52
+      },
+      "failed_tests": [
+        "workspace::persistence::tests::background_flush_preserves_inactive_checkpoints_and_removes_deleted_nodes",
+        "opencode_replies_only_through_own_instance_and_original_request",
+        "runtime_tracks_foreground_and_settles_retired_original_receipt"
+      ],
+      "log": "macos-before-workspace.log"
+    },
+    "after": {
+      "source_sha": "9b9a4e0030714097f14cdd91fbe00e248410452c",
+      "exit_code": 101,
+      "counts": {
+        "passed": 3418,
+        "failed": 17,
+        "ignored": 52
+      },
+      "failed_tests": [
+        "app::brain_host::context::proposal_tests::brain_proposal_context_failed_save_does_not_restore_or_redispatch",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_listening_maps_bottom_label_to_continuous_listening",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_start_fails_cleanly_when_mic_permission_denied",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_stop_returns_idle_but_models_remain_resident",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_unclassified_speech_does_not_truncate_assistant_reply",
+        "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_error_shortcut_dismisses_feedback_without_stopping",
+        "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_shortcut_stops_an_active_session",
+        "app::dialogue::app_dialogue_shortcut_tests::test_dialogue_turn_failure_recovers_for_next_utterance",
+        "app::dialogue::app_dialogue_shortcut_tests::test_voice_shortcut_interrupts_assistant_reply_during_speaking",
+        "app::dialogue::reply_stream_backlog_tests::test_active_capacity_exhaustion_preserves_visible_reply_and_drains_accepted_prefix",
+        "app::dialogue::reply_stream_backlog_tests::test_one_delta_with_nine_segments_does_not_fail_bounded_reply_queue",
+        "app::dialogue::reply_stream_backlog_tests::test_slow_provider_drains_forty_segments_before_finish_without_truncation",
+        "app::dialogue::reply_stream_cancellation_tests::test_provider_failure_overrides_capacity_warning_and_cleans_up",
+        "app::dialogue::reply_stream_cancellation_tests::test_user_interruption_discards_unsent_backlog_and_queued_pcm_together",
+        "opencode_replies_only_through_own_instance_and_original_request",
+        "unverified_native_request_blocks_tasks_without_becoming_answerable",
+        "owned_opencode_host_routes_current_question_through_runtime"
+      ],
+      "log": "macos-after-workspace.log"
+    },
+    "final": {
+      "source_sha": "15b284ce770a70d8b42ef6b6b2f8d4fa10bd398c",
+      "exit_code": 101,
+      "counts": {
+        "passed": 3419,
+        "failed": 16,
+        "ignored": 52
+      },
+      "failed_tests": [
+        "app::brain_host::context::proposal_tests::brain_proposal_context_failed_save_does_not_restore_or_redispatch",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_listening_maps_bottom_label_to_continuous_listening",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_start_fails_cleanly_when_mic_permission_denied",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_stop_returns_idle_but_models_remain_resident",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_unclassified_speech_does_not_truncate_assistant_reply",
+        "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_error_shortcut_dismisses_feedback_without_stopping",
+        "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_shortcut_stops_an_active_session",
+        "app::dialogue::app_dialogue_shortcut_tests::test_dialogue_turn_failure_recovers_for_next_utterance",
+        "app::dialogue::app_dialogue_shortcut_tests::test_voice_shortcut_interrupts_assistant_reply_during_speaking",
+        "app::dialogue::reply_stream_backlog_tests::test_active_capacity_exhaustion_preserves_visible_reply_and_drains_accepted_prefix",
+        "app::dialogue::reply_stream_backlog_tests::test_one_delta_with_nine_segments_does_not_fail_bounded_reply_queue",
+        "app::dialogue::reply_stream_backlog_tests::test_slow_provider_drains_forty_segments_before_finish_without_truncation",
+        "app::dialogue::reply_stream_cancellation_tests::test_provider_failure_overrides_capacity_warning_and_cleans_up",
+        "app::dialogue::reply_stream_cancellation_tests::test_user_interruption_discards_unsent_backlog_and_queued_pcm_together",
+        "opencode_replies_only_through_own_instance_and_original_request",
+        "owned_opencode_host_routes_current_question_through_runtime"
+      ],
+      "log": "macos-final-workspace.log"
+    }
+  },
+  "affected_final": {
+    "passed": 687,
+    "failed": 0,
+    "ignored": 12
+  },
+  "source_note": "最后完整workspace为15b；随后仅替换unit故障注入，并重跑norma/runtime687/0/12；未把隔离测试覆盖完整失败。",
+  "remaining_macos_input_unlock": {
+    "classification": "UNRESOLVED_ATTRIBUTION",
+    "final_workspace_failure": "owned_opencode_host_routes_current_question_through_runtime:215 消费后输入锁解除",
+    "baseline_exact_symptom_reproduced": false,
+    "baseline_additional_attempts": 20,
+    "baseline_passed_attempts": 18,
+    "baseline_other_state_failure_attempts": 2,
+    "affected_norma_runtime_passed": 687,
+    "affected_norma_runtime_failed": 0,
+    "no_new_regression_acceptance": "NOT_CONFIRMED",
+    "logs": [
+      "macos-final-workspace.log",
+      "macos-baseline-input-unlock.json",
+      "macos-budget-norma-runtime.log"
+    ]
+  }
+}

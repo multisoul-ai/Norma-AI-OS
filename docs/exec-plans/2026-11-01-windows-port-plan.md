@@ -5,8 +5,8 @@ lang: zh
 title: Norma OS Windows 适配计划
 subtitle: 先交付核心工作流，再补齐浏览器、语音与系统集成
 日期: 2026-11-01
-代码基准: f0740f6c；探针分支 codex/windows-feasibility-20261101
-状态: storage/语音回归已通过；App 当前被 runtime/Codex 六条诊断阻塞
+代码基准: e7a7a78a；探针分支 codex/windows-feasibility-20261101
+状态: 原Codex六错消除；App116条与Windows关闭/Mac时序仍阻塞
 ---
 
 这是一次中到大型平台移植。保留现有 Rust、GPUI 和域层，在系统能力边界增加 Windows 实现。
@@ -28,7 +28,7 @@ GPUI 示例绘图与 OS 键盘关闭通过；产品编译失败。
 源码为 `dae96214474474dffe6e0fc96efabb9d2e14990f`。
 norma 编译与 43 项平台回归通过；App 检查仍失败，完整迁移尚未通过。
 
-本批首轮修复：[41325043580](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41325043580)。
+前批首轮修复：[41325043580](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41325043580)。
 源码 `f2838b21e04f7eb5c7ccecfc45271ec521ebe186`，整体 failure。
 原 storage 25 条诊断与 A1 工厂错误消除；语音实际 89 通过、0 失败、16 既有忽略。
 原生文件回归 4 项、记忆发布 1 项、Review 中文 capture 与进程收口均通过。
@@ -47,6 +47,19 @@ A1 模型引擎仍要求 Apple Silicon macOS。
 完整 workspace 为 3415 通过、15 失败、52 既有忽略，仍为 FAIL。
 隔离对话 38 项、提议 1 项和 OpenCode 1 项通过，不能覆盖原完整失败。
 i18n 的既有 GPT-Live 文案失败保留；真实 Norma GUI、Agent 与候选包均未验。
+
+最新复验：[41345708985](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41345708985)，源码`e7a7a78a9a871748f28becf1a6de32702ce41cd9`，整体failure。
+原Runtime/Codex六条已消除；App当前116条按域为Browser59、IPC13、手机23、Preview11、生命周期/brain10。
+Windows控制50/0/0、Runtime11/0/0、平台47/0/0、canvas52/0/0、语音89/0/16。
+
+本轮关闭测试PASS，但旧FAIL尚无修复证据；外部瞬时背压未确定relay输出背压。
+partial写额度为测试故障注入，不能代表OS关闭可靠性已验收。
+
+Mac原15项前后逐项通过；最后完整3419/16/52，norma/runtime后续687/0/12。
+OpenCode输入锁症状尚未归因，不能宣称Mac无新增回归。
+
+完整逐项表与日志索引见 `docs/quality/evidence/windows-feasibility-20261101/runtime-codex-audit.md`。
+真实Norma、真实Agent与候选包仍NOT_RUN；未新增忽略或禁用能力。
 
 ## A 改动量与投入
 
@@ -228,7 +241,7 @@ UI 实施前加载 apple-design 与对应 gpui 技能。
 
 ## H 下一步与执行边界
 
-1. 适配 runtime/Codex 的真实 Windows 控制传输与 relay，保留提问、取消、恢复及 session 归属。
+1. 先解决Windows真实背压关闭，再逐域适配App IPC/生命周期、手机、Preview与Browser；保留提问、取消、恢复及session归属。
 2. 在已通过的原生文件基础上，补齐 storage/workspace 的冲突、恢复和完整安全矩阵。
 3. 适配 Runtime 的 PowerShell、ConPTY、hook 和进程树收口。
 4. 在已验证的 runner 图形条件下验收真实 Norma 窗口。
@@ -244,8 +257,8 @@ Win32/NT 文件能力保留防 reparse、硬链接、ADS、目录身份和真实
 Unix 文件适配、原有 VAD、A1 模型运行边界与既有忽略保持不变。
 没有通过禁用产品能力消除错误，也没有按局部通过下调工作量。
 
-App 尚未通过，当前编译前沿是 runtime/Codex 六项传输引用错误。
-下一批需真实 Windows Codex 控制实现，不能只删导入或关闭 Agent 入口。
+App尚未通过，原Runtime/Codex六条已消除，当前前沿为116条App原生平台诊断。
+Windows未读积压关闭与Mac输入锁时序仍阻塞；不能删导入、关闭Agent或放宽断言。
 
 基础图形前置已经实测通过，P0 的 ConPTY、文件语义和真实 Agent 仍待验。
 P0/G1 尚未完成，不下调现有估算，也不冻结两个 Agent 的产品支持矩阵。
