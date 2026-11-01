@@ -132,6 +132,34 @@ class FeasibilityReportTests(unittest.TestCase):
         self.assertEqual(report["goal_gates"].get("speech_default_checks"), "FAIL",
                          "speech runtime test failures must remain visible")
 
+    def test_speech_gate_requires_current_successful_zero_exit_checks(self):
+        """场景：采集已完成后 gate 只读报告；构造成功、非零退出码、失败及旧 attempt；
+        执行公共 CLI；预期仅本轮两个检查均零退出成功时通过，不重跑命令掩盖原结果。
+        """
+        for variant in ("pass", "nonzero", "failed", "stale", "missing_check"):
+            with self.subTest(variant=variant), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                folder = root / "speech"
+                folder.mkdir()
+                checks = [{"id": name, "status": "PASS", "exit_code": 0}
+                          for name in ("voice_input_compile", "speech_tests")]
+                if variant == "nonzero":
+                    checks[1]["exit_code"] = 101
+                if variant == "failed":
+                    checks[1]["status"] = "FAIL"
+                if variant == "missing_check":
+                    checks.pop()
+                (folder / "report.json").write_text(json.dumps({
+                    "task": "speech", "source_sha": "fixture-sha", "run_id": "123",
+                    "run_attempt": "0" if variant == "stale" else "1", "checks": checks,
+                }))
+                result = subprocess.run([
+                    sys.executable, str(PROBE), "speech-gate", "--output", str(root)],
+                    capture_output=True, text=True,
+                    env=summary_env(GITHUB_SHA="fixture-sha", GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="1"))
+                self.assertEqual(result.returncode == 0, variant == "pass",
+                                 f"gate must preserve the captured result for {variant}: {result.stdout}")
+
 
 if __name__ == "__main__":
     unittest.main()

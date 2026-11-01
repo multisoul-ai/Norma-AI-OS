@@ -9,6 +9,7 @@ default = []
 test-support = []
 
 [dependencies]
+sherpa-onnx = "1.13"
 async-channel.workspace = true
 audio.workspace = true
 bzip2 = "0.5"
@@ -26,6 +27,3 @@ tokio-util.workspace = true
 
 [dev-dependencies]
 sha2 = "0.10"
-
-[target.'cfg(target_os = "macos")'.dependencies]
-sherpa-onnx = "1.13"

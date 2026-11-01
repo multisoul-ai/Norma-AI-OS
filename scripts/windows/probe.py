@@ -16,7 +16,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET = "x86_64-pc-windows-msvc"
-REQUIRED = ("environment", "compile", "graphics", "agents")
+REQUIRED = ("environment", "compile", "graphics", "agents", "speech")
 STATUSES = {"PASS", "FAIL", "ENV_UNSUPPORTED", "NOT_RUN", "NOT_IN_SCOPE"}
 
 
@@ -94,6 +94,40 @@ def compile_probe(folder):
         "--test", "client_platform", "--test", "codex_question", "--test", "cursor_questions",
         "--test", "client_tests", "--test", "protocol_tests", "--target", TARGET], 900))
     return checks, {"target": TARGET, "release_build": "NOT_RUN"}
+
+
+def speech(folder):
+    checks = [command(folder, "voice_input_compile", [
+        "cargo", "check", "--locked", "-p", "voice_input", "--lib", "--target", TARGET,
+        "--message-format=short"], 900)]
+    checks.append(command(folder, "speech_tests", [
+        "cargo", "test", "--locked", "-p", "voice_input", "-p", "asr", "-p", "voice_sherpa",
+        "--target", TARGET], 1500))
+    return checks, {"target": TARGET, "features": "default",
+                    "scope": "Native backend compilation and default tests, not physical audio acceptance",
+                    "microphone_and_real_model_acceptance": "NOT_RUN"}
+
+
+def speech_gate(output):
+    try:
+        data = json.loads((output / "speech/report.json").read_text(encoding="utf-8-sig"))
+        expected_sha = os.environ.get("GITHUB_SHA") or source_sha()
+        if data["task"] != "speech" or data["source_sha"] != expected_sha:
+            raise ValueError("speech report source identity does not match")
+        for field, variable in (("run_id", "GITHUB_RUN_ID"), ("run_attempt", "GITHUB_RUN_ATTEMPT")):
+            if os.environ.get(variable) and str(data.get(field)) != os.environ[variable]:
+                raise ValueError("speech report belongs to another run or attempt")
+        rows = data["checks"]
+        checks = {row["id"]: row for row in rows}
+        if len(rows) != 2 or set(checks) != {"voice_input_compile", "speech_tests"}:
+            raise ValueError("speech checks are missing or duplicated")
+        if any(row["status"] != "PASS" or row.get("exit_code") != 0 for row in rows):
+            raise ValueError("native speech compilation or tests did not pass")
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(f"Speech gate FAIL: {error}")
+        return 1
+    print("Speech gate PASS: current captured checks succeeded; no commands were repeated")
+    return 0
 
 
 def graphics(folder):
@@ -215,11 +249,16 @@ def summary(output):
     graphics_status = statuses.get("gpui_window", "NOT_RUN")
     if graphics_status == "PASS":
         graphics_status = statuses.get("gpui_os_keyboard_close", "NOT_RUN")
+    speech_statuses = [statuses.get(name, "NOT_RUN") for name in ("voice_input_compile", "speech_tests")]
     goal_gates = {
         "product_compile": "PASS" if all(statuses.get(f"{p}_compile") == "PASS" for p in ("norma", "app"))
                            else "FAIL" if "FAIL" in [statuses.get(f"{p}_compile") for p in ("norma", "app")]
                            else "NOT_RUN",
         "gpui_graphics": graphics_status,
+        "speech_default_checks": "PASS" if all(s == "PASS" for s in speech_statuses)
+                                 else "FAIL" if "FAIL" in speech_statuses
+                                 else "ENV_UNSUPPORTED" if "ENV_UNSUPPORTED" in speech_statuses
+                                 else "NOT_RUN",
         "live_agents": "NOT_RUN", "candidate_package": "NOT_RUN",
     }
     data = {"kind": "feasibility_only", "source_shas": sorted(shas),
@@ -242,11 +281,13 @@ def summary(output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("task", choices=[*REQUIRED, "summary"])
+    parser.add_argument("task", choices=[*REQUIRED, "summary", "speech-gate"])
     parser.add_argument("--output", type=Path, default=ROOT / "artifacts/windows-feasibility")
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    if args.task == "speech-gate":
+        return speech_gate(output)
     if args.task == "summary":
         return summary(output)
     if os.environ.get("RUNNER_TEMP"):

@@ -28,7 +28,7 @@ class SherpaPlatformDependencies(unittest.TestCase):
                     )
                     self.assertFalse(
                         any(line.startswith("gpui v") for line in dependencies),
-                        f"{package} must remain independent of GPUI",
+                        f"{package} must not directly depend on GPUI",
                     )
 
 

@@ -9,6 +9,7 @@ default = []
 test-support = ["voice_input/test-support"]
 
 [dependencies]
+sherpa-onnx = "1.13"
 thiserror.workspace = true
 crossbeam-channel.workspace = true
 tracing.workspace = true
@@ -23,6 +24,3 @@ serde_json.workspace = true
 [dev-dependencies]
 hound = "3.5"
 tempfile.workspace = true
-
-[target.'cfg(target_os = "macos")'.dependencies]
-sherpa-onnx = "1.13"
