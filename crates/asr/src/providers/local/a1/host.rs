@@ -27,9 +27,17 @@ struct State {
 }
 
 /// One process pair and one active utterance across all windows; no waiting queue.
-#[derive(Default)]
 pub struct A1EngineHost {
     state: Arc<Mutex<State>>,
+    pressure: fn() -> bool,
+}
+impl Default for A1EngineHost {
+    fn default() -> Self {
+        Self {
+            state: Default::default(),
+            pressure: super::resources::normal_pressure,
+        }
+    }
 }
 static HOST: OnceLock<Arc<A1EngineHost>> = OnceLock::new();
 
@@ -129,7 +137,10 @@ impl A1RecognizerFactory {
         &self,
         cancellation: RecognitionCancellation,
     ) -> Result<(), AsrError> {
-        if !super::resources::normal_pressure() {
+        if cancellation.is_cancelled() {
+            return Err(AsrError::SessionClosed);
+        }
+        if !(self.host.pressure)() {
             return Err(error("system memory pressure is elevated"));
         }
         let deadline = Instant::now() + Duration::from_secs(60);
@@ -197,7 +208,7 @@ impl A1RecognizerFactory {
         if cancellation.is_cancelled() {
             return Err(AsrError::SessionClosed);
         }
-        if !super::resources::normal_pressure() {
+        if !(self.host.pressure)() {
             return Err(error("system memory pressure is elevated"));
         }
         let host_cancel = RecognitionCancellation::new();

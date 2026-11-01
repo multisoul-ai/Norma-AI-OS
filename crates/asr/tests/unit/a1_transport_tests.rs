@@ -1,7 +1,9 @@
+#[path = "../support/a1_python.rs"]
+mod a1_python;
 use super::*;
 
 fn worker(mode: &str) -> Transport {
-    let mut command = std::process::Command::new("/usr/bin/python3");
+    let mut command = std::process::Command::new(a1_python::executable());
     command
         .arg("-B")
         .arg(concat!(
@@ -19,6 +21,7 @@ fn worker(mode: &str) -> Transport {
 fn worker_roundtrip_reuses_process_and_reaps_on_drop() {
     let mut worker = worker("ok");
     let pid = worker.child.id();
+    let control = worker.control();
     let first = worker
         .request(
             1,
@@ -42,11 +45,7 @@ fn worker_roundtrip_reuses_process_and_reaps_on_drop() {
     assert_eq!(first, second, "暖会话不得重启模型进程");
     assert_eq!(first, pid.to_string(), "输出应来自真实子进程");
     drop(worker);
-    assert_eq!(
-        unsafe { libc::kill(pid as i32, 0) },
-        -1,
-        "退出后不能遗留 worker"
-    );
+    assert!(control.exited(), "退出后不能遗留 worker");
 }
 
 /// 场景：引擎响应错误、降级或超过长度上限；构造三种真实 worker 响应。
@@ -76,7 +75,7 @@ fn invalid_or_degraded_responses_never_become_final_text() {
 #[test]
 fn cancellation_interrupts_waiting_and_reaps_worker() {
     let mut worker = worker("hang");
-    let pid = worker.child.id();
+    let control = worker.control();
     let guard = Guard::default();
     let token = guard.session.clone();
     let cancel = std::thread::spawn(move || {
@@ -95,11 +94,7 @@ fn cancellation_interrupts_waiting_and_reaps_worker() {
         start.elapsed() < Duration::from_secs(2),
         "不能等卡死推理完成"
     );
-    assert_eq!(
-        unsafe { libc::kill(pid as i32, 0) },
-        -1,
-        "被取消的 worker 必须被回收"
-    );
+    assert!(control.exited(), "被取消的 worker 必须被回收");
 }
 
 /// 场景：无响应也没有取消；构造 30 秒阻塞 worker 和 100ms 故障预算。

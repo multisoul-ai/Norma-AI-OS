@@ -52,14 +52,17 @@ pub(super) fn check_repository(root: &super::Root, deadline: Instant) -> Result<
     Ok(())
 }
 
-#[cfg(unix)]
 pub(super) fn git(
     root: &super::Root,
     args: &[&str],
     deadline: Instant,
     limit: usize,
 ) -> Result<(i32, Vec<u8>), ReviewError> {
-    let mut command = Command::new("/usr/bin/git");
+    let mut command = Command::new(if cfg!(windows) {
+        "git.exe"
+    } else {
+        "/usr/bin/git"
+    });
     // Inherited Git routing/config cannot redirect a read to an unrelated working tree.
     for (key, _) in std::env::vars_os() {
         if key.to_string_lossy().starts_with("GIT_") {
@@ -77,7 +80,10 @@ pub(super) fn git(
             "core.quotePath=false",
         ])
         .args(args)
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env(
+            "GIT_CONFIG_GLOBAL",
+            if cfg!(windows) { "NUL" } else { "/dev/null" },
+        )
         .env("GIT_CONFIG_NOSYSTEM", "1")
         .env("GIT_OPTIONAL_LOCKS", "0")
         .env("GIT_LITERAL_PATHSPECS", "1")
@@ -149,6 +155,15 @@ pub(super) fn run(
             unsafe {
                 libc::kill(-(child.id() as i32), libc::SIGKILL);
             }
+        }
+        #[cfg(windows)]
+        {
+            let _ = Command::new("taskkill.exe")
+                .args(["/PID", &child.id().to_string(), "/T", "/F"])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
         }
         let _ = child.kill();
     }

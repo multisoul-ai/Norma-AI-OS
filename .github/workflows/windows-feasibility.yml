@@ -115,11 +115,11 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force artifacts/platform-boundaries | Out-Null
           $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-platform-target'
-          cargo test --locked -p storage --test memory_platform --target x86_64-pc-windows-msvc 2>&1 | Tee-Object artifacts/platform-boundaries/memory_platform.log
+          cargo test --locked -p storage --test memory_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/platform-boundaries/memory_platform.log
           $memory = $LASTEXITCODE
-          cargo test --locked -p workspace --test review_platform --target x86_64-pc-windows-msvc 2>&1 | Tee-Object artifacts/platform-boundaries/review_platform.log
+          cargo test --locked -p workspace --test review_platform --test scoped_directory --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/platform-boundaries/review_platform.log
           $review = $LASTEXITCODE
-          cargo test --locked -p asr --test a1_platform --target x86_64-pc-windows-msvc 2>&1 | Tee-Object artifacts/platform-boundaries/a1_platform.log
+          cargo test --locked -p asr --test a1_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/platform-boundaries/a1_platform.log
           $a1 = $LASTEXITCODE
           @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; memory_exit = $memory; review_exit = $review; a1_exit = $a1 } | ConvertTo-Json | Set-Content artifacts/platform-boundaries/report.json
           if ($memory -ne 0 -or $review -ne 0 -or $a1 -ne 0) { exit 1 }

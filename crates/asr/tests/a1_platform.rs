@@ -1,5 +1,5 @@
 use asr::{
-    providers::local::a1::{A1Config, A1RecognizerFactory},
+    a1::{A1Config, A1RecognizerFactory},
     RecognizerFactory,
 };
 

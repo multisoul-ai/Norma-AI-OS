@@ -101,7 +101,7 @@ def speech(folder):
         "cargo", "check", "--locked", "-p", "voice_input", "--lib", "--target", TARGET,
         "--message-format=short"], 900)]
     checks.append(command(folder, "speech_tests", [
-        "cargo", "test", "--locked", "-p", "voice_input", "-p", "asr", "-p", "voice_sherpa",
+        "cargo", "test", "--locked", "--no-fail-fast", "-p", "voice_input", "-p", "asr", "-p", "voice_sherpa",
         "--target", TARGET], 1500))
     return checks, {"target": TARGET, "features": "default",
                     "scope": "Native backend compilation and default tests, not physical audio acceptance",
