@@ -24,7 +24,11 @@ const CAPACITY: usize = 128;
 // A native configuration/context response is ~23 MiB on the tested installation.
 // Keep transport at tungstenite's 64 MiB message budget; question ledgers remain 1/8 MiB.
 const MAX_MESSAGE: usize = 64 * 1024 * 1024;
-type Socket = WebSocket<UnixStream>;
+#[cfg(not(test))]
+type RelayStream = UnixStream;
+#[cfg(test)]
+use partial_tests::ControlledStream as RelayStream;
+type Socket = WebSocket<RelayStream>;
 type AnswerResult = Result<(), String>;
 
 #[derive(Clone, Debug)]
@@ -140,7 +144,7 @@ impl CodexQuestionRelay {
     ) -> Result<Self, String> {
         Self::connect_with(
             native,
-            || UnixStream::connect(server),
+            || UnixStream::connect(server).map(Into::into),
             check_version,
             forwarding,
             full_access,
@@ -149,11 +153,12 @@ impl CodexQuestionRelay {
 
     fn connect_with(
         native: UnixStream,
-        connect: impl FnOnce() -> std::io::Result<UnixStream>,
+        connect: impl FnOnce() -> std::io::Result<RelayStream>,
         check_version: bool,
         forwarding: bool,
         full_access: bool,
     ) -> Result<Self, String> {
+        let native = RelayStream::from(native);
         let owner = crate::agent_hook::fresh_control_id().map_err(|error| error.to_string())?;
         let upstream = connect().map_err(|error| error.to_string())?;
         for stream in [&native, &upstream] {

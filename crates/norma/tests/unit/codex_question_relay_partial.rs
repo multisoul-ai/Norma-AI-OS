@@ -4,6 +4,11 @@ use crate::codex::relay::{CodexQuestionRelay, CodexRelayEvent};
 use crate::codex::{UnixListener, UnixStream};
 use crate::protocol::{AgentProfile, QuestionAnswer, QuestionState};
 use serde_json::{json, Value};
+use std::io::{self, Read, Write};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use std::time::{Duration, Instant};
 use tungstenite::Message;
 #[path = "../support/codex_relay.rs"]
@@ -11,7 +16,7 @@ mod support;
 use support::{read, send, timed};
 
 /// 场景：宿主大答案部分写出时遇到Ping或连接关闭，ticket必须反映真正的传输阶段。
-/// 构造：16道自定义题×32768字节=512KiB答案；server先不读，强制Unix socket背压。
+/// 构造：16道自定义题×32768字节=512KiB答案；真实Socket写出4KiB后注入WouldBlock。
 /// 执行：等到Writing，分别Drop relay、关闭TUI，或发送Ping后放开读取并立即回消费结果。
 /// 预期：断连一律Unknown且不能重发；成功flush后才发完成回执，消费携带原delivery身份。
 #[test]
@@ -32,8 +37,7 @@ fn partial_answer_ping_and_disconnect_keep_transport_ownership_accurate() {
         let (finish, finished) = crossbeam_channel::bounded::<bool>(1);
         let (request, source) = large_question();
         let server = std::thread::spawn(move || {
-            let mut socket =
-                tungstenite::accept(timed(bounded_receiver(listener.accept().unwrap().0))).unwrap();
+            let mut socket = tungstenite::accept(timed(listener.accept().unwrap().0)).unwrap();
             read(&mut socket);
             send(
                 &mut socket,
@@ -84,16 +88,15 @@ fn partial_answer_ping_and_disconnect_keep_transport_ownership_accurate() {
             }
             let _ = socket.close(None);
         });
+        let budget = Arc::new(AtomicUsize::new(usize::MAX));
+        let write_budget = budget.clone();
         let relay = CodexQuestionRelay::connect_with(
             bridge,
             || {
-                let upstream = UnixStream::connect(&path)?;
-                #[cfg(windows)]
-                constrain_buffer(
-                    &upstream,
-                    windows_sys::Win32::Networking::WinSock::SO_SNDBUF,
-                );
-                Ok(upstream)
+                Ok(ControlledStream {
+                    stream: UnixStream::connect(&path)?,
+                    budget: write_budget,
+                })
             },
             false,
             true,
@@ -127,6 +130,8 @@ fn partial_answer_ping_and_disconnect_keep_transport_ownership_accurate() {
             .submit_delivery(&answers, "delivery", Instant::now())
             .unwrap();
         ticket.take_response(Instant::now()).unwrap();
+        // Handshakes/session requests used unlimited IO; only the answer is fault-injected.
+        budget.store(4096, Ordering::Release);
         let sent = relay
             .answer_ticket(lease, answers, "delivery".into(), ticket.clone())
             .unwrap();
@@ -136,8 +141,14 @@ fn partial_answer_ping_and_disconnect_keep_transport_ownership_accurate() {
             NativeSendStatus::Writing,
             "{mode}必须实际触发部分写出"
         );
+        assert_eq!(
+            budget.load(Ordering::Acquire),
+            0,
+            "必须真实写出4KiB并耗尽额度，不能在首次IO前伪报部分写出"
+        );
         assert!(sent.try_recv().is_err(), "部分写出不能提前报告完整发送");
         if mode == "complete" {
+            budget.store(usize::MAX, Ordering::Release);
             release.send(true).unwrap();
             sent.recv_timeout(Duration::from_secs(5)).unwrap().unwrap();
             assert_eq!(
@@ -225,53 +236,44 @@ fn large_question() -> (Value, Value) {
     (request, source)
 }
 
-// The unit resource seam constrains both real endpoints; production uses the same
-// constructor with UnixStream::connect and retains the OS default buffer sizes.
-fn bounded_receiver(stream: UnixStream) -> UnixStream {
-    #[cfg(windows)]
-    constrain_buffer(&stream, windows_sys::Win32::Networking::WinSock::SO_RCVBUF);
-    stream
+// Fault injection only: production still uses UnixStream directly. Actual OS backpressure
+// and shutdown are independently covered by codex_control_shutdown's real WouldBlock test.
+pub(super) struct ControlledStream {
+    stream: UnixStream,
+    budget: Arc<AtomicUsize>,
 }
-
-#[cfg(windows)]
-fn constrain_buffer(stream: &UnixStream, option: i32) {
-    use std::os::windows::io::AsRawSocket;
-    use windows_sys::Win32::Networking::WinSock::{
-        getsockopt, setsockopt, WSAGetLastError, SOL_SOCKET,
-    };
-    // 4KiB requested, at most 8KiB with kernel accounting, far below the 512KiB answer.
-    let requested = 4096_i32;
-    let status = unsafe {
-        setsockopt(
-            stream.as_raw_socket() as _,
-            SOL_SOCKET,
-            option,
-            (&requested as *const i32).cast(),
-            std::mem::size_of::<i32>() as i32,
-        )
-    };
-    assert_eq!(status, 0, "必须真实约束 socket 缓冲：{}", unsafe {
-        WSAGetLastError()
-    });
-    let mut actual = 0_i32;
-    let mut length = std::mem::size_of::<i32>() as i32;
-    let status = unsafe {
-        getsockopt(
-            stream.as_raw_socket() as _,
-            SOL_SOCKET,
-            option,
-            (&mut actual as *mut i32).cast(),
-            &mut length,
-        )
-    };
-    assert_eq!(status, 0, "必须读回 OS 实际缓冲容量：{}", unsafe {
-        WSAGetLastError()
-    });
-    assert!(
-        actual > 0 && actual <= 8192,
-        "读回容量必须小于答案，不能凭设置成功假定背压：option={option}, actual={actual}"
-    );
-    eprintln!(
-        "partial fixture socket buffer: option={option}, requested={requested}, actual={actual}"
-    );
+impl From<UnixStream> for ControlledStream {
+    fn from(stream: UnixStream) -> Self {
+        Self {
+            stream,
+            budget: Arc::new(AtomicUsize::new(usize::MAX)),
+        }
+    }
+}
+impl std::ops::Deref for ControlledStream {
+    type Target = UnixStream;
+    fn deref(&self) -> &Self::Target {
+        &self.stream
+    }
+}
+impl Read for ControlledStream {
+    fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+        self.stream.read(bytes)
+    }
+}
+impl Write for ControlledStream {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        let remaining = self.budget.load(Ordering::Acquire);
+        if remaining == 0 {
+            return Err(io::ErrorKind::WouldBlock.into());
+        }
+        let written = self.stream.write(&bytes[..bytes.len().min(remaining)])?;
+        if remaining != usize::MAX {
+            self.budget.fetch_sub(written, Ordering::AcqRel);
+        }
+        Ok(written)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        self.stream.flush()
+    }
 }
