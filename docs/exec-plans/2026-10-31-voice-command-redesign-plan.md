@@ -4,12 +4,12 @@ subtitle: 合并本地识别入口，明确画布目标，统一提交后再评�
 template: doc
 theme: paper
 lang: zh
-source: 2026-11-01 · 已获授权，独立 worktree 实施中
+source: 2026-11-01 · 已实施与验收 · 源码 c752adfc
 ---
 
 用户已选定分组列表，生产设置与单次语义提交已实施。
 源码、独立审查与双语真实窗口验收已完成。
-最新 release 已通过，正在完成正常提交钩子与源码提交记录。
+最新 release 与正常提交钩子均通过，源码已提交。
 Jev 先做合成文本契约验证和旁路比较。
 生产接入取决于部署、准确率和时延证据。
 
@@ -233,7 +233,7 @@ Jev 本机部署能力尚未确认。
 设置迁移 4 项、分组页面交互 1 项已通过；这些数字不是准确率评测。
 
 完整 workspace 测试与独立审查修复已完成。
-真实 App 双语验收与最新 release 已通过，正在记录源码提交。
+真实 App 双语验收、最新 release 与提交钩子均通过，源码已提交。
 
 已按选定布局完成设置、完整目标目录和提交语义。
 Jev 部署范围与时延预算继续受准入门槛控制。
@@ -402,3 +402,31 @@ Release日志：`artifacts/voice-command-redesign-20261031/release-build-verifie
 
 i18n、max-lines、no-allow、Storage边界、性能护栏与Agent指南行数检查均通过。
 UI crate的22项测试使用Cargo默认测试线程数；workspace与voice_使用2线程。
+
+### 交付提交与阶段索引
+
+源码提交：`c752adfceaefe6b82cec005e614751fda4e716c4`。
+分支：`codex/voice-command-redesign-20261031`。
+源码清单逐项对照该提交完全一致；没有音频、真人转写、密钥或结果二进制入库。
+正常钩子通过staged约束、workspace类型检查与格式检查，没有绕过hook。
+
+| 阶段 | 保存源码的提交 | 配置与结果 | 状态 |
+|---|---|---|---|
+| P0 | c752adfc | 用户选定分组列表；本计划与离线原型 | 完成 |
+| P1 | c752adfc | 最终配置8842f949；voice-ui-verified.log、ui-tests-final.log、最终desktop报告 | 181项语音增量、22项UI和现行主题双语窗口通过 |
+| P2 / P3 | c752adfc | 语义12、护栏7、澄清5、模型护栏4、真实worker 3；完整检查点配置bdf09223 | 工程验证通过；不是准确率结果 |
+| P4 | c752adfc | 原探针配置1e7c7022；jev-synthetic-probe.json、jev-rust-smoke.json | 合成文本契约完成，Jev生产禁用 |
+| P5 / P6 | c752adfc | 配置中的jev_production=false | 不启用；缺少准入证据 |
+
+完整测试检查点先于最后的设置展示修复。
+展示修复之后追加181项语音测试、22项UI测试、双语实屏与release构建。
+因此不把3460项历史检查点描述为该提交之后又跑过一次全仓。
+所有结果都位于本工作树的artifacts目录，提交前运行的探针对应源码已保存于上述提交。
+
+最终索引：`artifacts/voice-command-redesign-20261031/verification-summary.json`。
+提交钩子日志：`artifacts/voice-command-redesign-20261031/commit-code.log`。
+原准确率实验继续暂停；A1不升默认，Jev不进入生产路由。
+
+验收与源码提交完成后，已按任务缓存工具回收本任务独占缓存13.4GiB。
+工作树、默认target/debug、release程序和全部结果证据保留。
+回收日志：`artifacts/voice-command-redesign-20261031/cache-finish.log`。
