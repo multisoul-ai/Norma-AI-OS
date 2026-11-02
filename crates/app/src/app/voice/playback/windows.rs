@@ -9,6 +9,13 @@ use device::{Apartment, NativeOutput};
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_QUEUED_BYTES: usize = 8 * 1024 * 1024;
 
+fn scheduling_ack_channel() -> (
+    mpsc::Sender<Result<(), String>>,
+    mpsc::Receiver<Result<(), String>>,
+) {
+    mpsc::channel()
+}
+
 trait OutputDevice {
     fn rate(&self) -> u32;
     fn capacity(&self) -> u32;
@@ -91,7 +98,7 @@ impl AssistantAudioSink for WindowsAssistantAudioSink {
             return Err("Windows audio: cannot play an empty PCM chunk".into());
         }
         let duration = pcm_chunk_duration(&chunk);
-        let (scheduled, result) = mpsc::channel();
+        let (scheduled, result) = scheduling_ack_channel();
         self.send(Command::Play(
             Pending {
                 chunk,
@@ -145,6 +152,12 @@ struct Playback {
 }
 
 impl Playback {
+    fn schedule(&mut self, pending: Pending, result: mpsc::Sender<Result<(), String>>) {
+        let scheduled = self.enqueue(pending);
+        if matches!(result.send(scheduled), Err(mpsc::SendError(Ok(())))) {
+            self.discard_last();
+        }
+    }
     fn enqueue(&mut self, pending: Pending) -> Result<(), String> {
         if let Some(error) = &self.failure {
             return Err(error.clone());
@@ -277,11 +290,7 @@ fn playback_loop(incoming: mpsc::Receiver<Command>) {
     loop {
         match incoming.recv_timeout(Duration::from_millis(5)) {
             Ok(Command::Play(pending, result)) => {
-                let scheduled = playback.enqueue(pending);
-                // A scheduling timeout must not leave late audio queued for playback.
-                if matches!(result.send(scheduled), Err(mpsc::SendError(Ok(())))) {
-                    playback.discard_last();
-                }
+                playback.schedule(pending, result);
             }
             Ok(Command::Stop(result)) => {
                 let _ = result.send(playback.stop());

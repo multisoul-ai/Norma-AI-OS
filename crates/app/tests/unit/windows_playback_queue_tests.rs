@@ -43,18 +43,12 @@ impl super::OutputDevice for ControlledDevice {
 #[test]
 fn a_late_ack_does_not_authorize_audio_after_the_waiter_timed_out() {
     let state = Arc::new(Mutex::new(DeviceState::default()));
-    let mut playback = Playback {
-        device: Some(Box::new(ControlledDevice(Arc::clone(&state)))),
-        ..Default::default()
-    };
+    let device_state = Arc::clone(&state);
     let (mut pending, starts, completions) = pending(1, 3);
     pending.offset = 0;
     pending.first_frame = None;
     pending.last_frame = None;
-    playback
-        .enqueue(pending)
-        .expect("受控设备应能接收尚未确认的调度请求");
-    let (ack, waiter) = mpsc::channel::<Result<(), String>>();
+    let (ack, waiter) = super::scheduling_ack_channel();
     assert!(
         matches!(
             waiter.recv_timeout(std::time::Duration::from_millis(1)),
@@ -62,12 +56,34 @@ fn a_late_ack_does_not_authorize_audio_after_the_waiter_timed_out() {
         ),
         "必须先实际见证ACK等待超时"
     );
-    ack.send(Ok(()))
-        .expect("receiver尚未析构，迟到ACK确实会发送成功");
-    playback.tick().expect("生产tick应安全处理未确认请求");
+    let (prepared, ready) = mpsc::channel();
+    let (advanced, progress) = mpsc::channel();
+    let producer = std::thread::spawn(move || {
+        let mut playback = Playback {
+            device: Some(Box::new(ControlledDevice(device_state))),
+            ..Default::default()
+        };
+        prepared.send(()).expect("必须见证调度所有者线程已就绪");
+        playback.schedule(pending, ack);
+        playback.tick().expect("生产tick应安全处理ACK交接结果");
+        advanced.send(()).expect("必须保留调度是否越过ACK的见证");
+    });
+    ready
+        .recv_timeout(std::time::Duration::from_secs(3))
+        .expect("必须实际运行调度所有者线程");
+    // 50ms只给就绪worker取得执行机会，不模拟音频时长；receiver故意继续存活。
+    let early = progress.recv_timeout(std::time::Duration::from_millis(50));
+    drop(waiter);
+    producer
+        .join()
+        .expect("丢弃超时接收者后调度线程必须完整收口");
+    assert!(
+        matches!(early, Err(mpsc::RecvTimeoutError::Timeout)),
+        "调用方未接收ACK，worker不能越过交接并播放音频"
+    );
     assert!(
         state.lock().expect("受控设备锁应有效").bytes.is_empty(),
-        "ACK发送成功不等于调用方收到确认，不能写入音频"
+        "超时接收者未确认调度，不能写入音频"
     );
     assert!(
         starts.is_empty() && completions.is_empty(),
