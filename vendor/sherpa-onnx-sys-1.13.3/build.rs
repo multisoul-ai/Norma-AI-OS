@@ -103,9 +103,9 @@ fn resolve_lib_dir(
 ) -> Result<PathBuf, DynError> {
     if let Some(path) = env::var_os("SHERPA_ONNX_LIB_DIR") {
         let path = PathBuf::from(path);
-        if !path.is_dir() {
+        if !native_libraries_present(&path, link_mode, target_os) {
             return Err(format!(
-                "SHERPA_ONNX_LIB_DIR does not exist or is not a directory: {}",
+                "SHERPA_ONNX_LIB_DIR does not contain all required native libraries: {}",
                 path.display()
             )
             .into());
@@ -114,6 +114,28 @@ fn resolve_lib_dir(
     }
 
     download_prebuilt_libs(link_mode, target_os, target_arch)
+}
+
+fn native_libraries_present(lib_dir: &Path, link_mode: LinkMode, target_os: &str) -> bool {
+    let names = if link_mode == LinkMode::Static {
+        SHERPA_ONNX_STATIC_LIBS
+    } else {
+        &["sherpa-onnx-c-api", "onnxruntime"]
+    };
+    let (prefix, suffix) = match (target_os, link_mode) {
+        ("windows", _) => ("", ".lib"),
+        ("macos", LinkMode::Shared) => ("lib", ".dylib"),
+        ("linux", LinkMode::Shared) => ("lib", ".so"),
+        _ => ("lib", ".a"),
+    };
+    let nonempty = |path: PathBuf| {
+        path.metadata()
+            .is_ok_and(|metadata| metadata.is_file() && metadata.len() > 0)
+    };
+    names.iter().all(|name| {
+        nonempty(lib_dir.join(format!("{prefix}{name}{suffix}")))
+            || (target_os == "windows" && nonempty(lib_dir.join(format!("lib{name}.lib"))))
+    })
 }
 
 fn download_prebuilt_libs(
@@ -129,7 +151,7 @@ fn download_prebuilt_libs(
     let extracted_dir = cache_root.join(archive_stem);
     let lib_dir = extracted_dir.join("lib");
 
-    if lib_dir.is_dir() {
+    if native_libraries_present(&lib_dir, link_mode, target_os) {
         return Ok(lib_dir);
     }
 
@@ -185,9 +207,9 @@ fn download_prebuilt_libs(
         .into());
     }
 
-    if !lib_dir.is_dir() {
+    if !native_libraries_present(&lib_dir, link_mode, target_os) {
         return Err(format!(
-            "Downloaded archive did not contain a lib directory: {}",
+            "Downloaded archive did not contain all required native libraries: {}",
             lib_dir.display()
         )
         .into());
@@ -235,10 +257,12 @@ fn archive_name(
         (LinkMode::Shared, "windows", "x86_64") => {
             format!("sherpa-onnx-v{version}-win-x64-shared-MT-Release-lib.tar.bz2")
         }
-        _ => return Err(format!(
+        _ => {
+            return Err(format!(
             "Unsupported target for sherpa-onnx prebuilt libs: os={target_os}, arch={target_arch}"
         )
-        .into()),
+            .into())
+        }
     };
 
     Ok(name)
@@ -325,11 +349,7 @@ fn copy_unix_runtime_libs(lib_dir: &Path, target_os: &str) -> Result<(), DynErro
         .collect();
 
     if runtime_libs.is_empty() {
-        return Err(format!(
-            "No shared runtime libraries found in {}",
-            lib_dir.display()
-        )
-        .into());
+        return Err(format!("No shared runtime libraries found in {}", lib_dir.display()).into());
     }
 
     let mut copy_plan = Vec::<(PathBuf, OsString)>::new();
