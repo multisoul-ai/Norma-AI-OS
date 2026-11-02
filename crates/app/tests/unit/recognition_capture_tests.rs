@@ -203,3 +203,68 @@ fn cancelling_capture_does_not_finalize_partial_audio() {
         "取消不能对截断输入调用正常finish"
     );
 }
+
+struct FailingFactory;
+struct FailingRecognizer;
+impl RecognizerFactory for FailingFactory {
+    fn capabilities(&self) -> AsrProviderCapabilities {
+        AsrProviderCapabilities::new(false, None)
+    }
+    fn create(&self) -> Result<Box<dyn Recognizer>, AsrError> {
+        Ok(Box::new(FailingRecognizer))
+    }
+}
+impl Recognizer for FailingRecognizer {
+    fn accept_pcm(&mut self, _: &PcmAudioChunk) -> Result<Vec<String>, AsrError> {
+        Err(AsrError::Provider("sentinel provider failure".into()))
+    }
+    fn finish(&mut self) -> Result<Option<String>, AsrError> {
+        panic!("供应商失败后不得再正常finalize")
+    }
+}
+
+/// 场景：供应商先失败后PCM入队关闭，通用转发错误不能覆盖认证/网络等原始原因。
+/// 构造：队列容量64，发送66块10ms音频；首次accept即返回带sentinel的Provider错误。
+/// 执行：等待生产PCM和事件线程均退出，再取finish结果。
+/// 预期：保留Provider的sentinel，不能被后续SessionClosed或EOF替换。
+#[test]
+fn provider_failure_is_not_overwritten_by_a_closed_pcm_queue() {
+    let _fixture = FIXTURE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    voice_input::install_test_pcm_stream(vec![pcm(160); 66]);
+    let (session, _partials) =
+        AsrRecordingSession::start(None, &FailingFactory, RecognitionCancellation::new())
+            .expect("失败供应商夹具应先成功启动会话");
+    wait_until(|| {
+        session
+            .forward_thread
+            .as_ref()
+            .is_some_and(|thread| thread.is_finished())
+            && session
+                .event_thread
+                .as_ref()
+                .is_some_and(|thread| thread.is_finished())
+    });
+    assert!(
+        session
+            .forward_thread
+            .as_ref()
+            .expect("必须有PCM转发器")
+            .is_finished(),
+        "超过队列容量的输入必须实际见证Provider失败后的通道关闭"
+    );
+    assert!(
+        session
+            .event_thread
+            .as_ref()
+            .expect("必须有事件转发器")
+            .is_finished(),
+        "读取结果前必须已经保存Provider终态"
+    );
+    assert_eq!(
+        session.finish(),
+        Err("ASR provider failed: sentinel provider failure".into()),
+        "原始Provider原因不能被后续转发错误覆盖"
+    );
+}
