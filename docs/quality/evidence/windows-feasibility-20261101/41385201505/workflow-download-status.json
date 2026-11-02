@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stderr": "log not found: 125087239376\n",
+  "scope": "取消运行日志下载不完整，不作为验收证据。"
+}

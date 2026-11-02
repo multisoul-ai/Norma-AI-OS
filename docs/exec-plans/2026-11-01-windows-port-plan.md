@@ -5,8 +5,8 @@ lang: zh
 title: Norma OS Windows 适配计划
 subtitle: 先交付核心工作流，再补齐浏览器、语音与系统集成
 日期: 2026-11-01
-代码基准: e7a7a78a；探针分支 codex/windows-feasibility-20261101
-状态: 原Codex六错消除；App116条与Windows关闭/Mac时序仍阻塞
+代码基准: 120492ca；探针分支 codex/windows-feasibility-20261101
+状态: App18条消除、仍98条；关闭与Mac隔离门槛未关闭
 ---
 
 这是一次中到大型平台移植。保留现有 Rust、GPUI 和域层，在系统能力边界增加 Windows 实现。
@@ -48,7 +48,7 @@ A1 模型引擎仍要求 Apple Silicon macOS。
 隔离对话 38 项、提议 1 项和 OpenCode 1 项通过，不能覆盖原完整失败。
 i18n 的既有 GPT-Live 文案失败保留；真实 Norma GUI、Agent 与候选包均未验。
 
-最新复验：[41345708985](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41345708985)，源码`e7a7a78a9a871748f28becf1a6de32702ce41cd9`，整体failure。
+前批复验：[41345708985](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41345708985)，源码`e7a7a78a9a871748f28becf1a6de32702ce41cd9`，整体failure。
 原Runtime/Codex六条已消除；App当前116条按域为Browser59、IPC13、手机23、Preview11、生命周期/brain10。
 Windows控制50/0/0、Runtime11/0/0、平台47/0/0、canvas52/0/0、语音89/0/16。
 
@@ -60,6 +60,55 @@ OpenCode输入锁症状尚未归因，不能宣称Mac无新增回归。
 
 完整逐项表与日志索引见 `docs/quality/evidence/windows-feasibility-20261101/runtime-codex-audit.md`。
 真实Norma、真实Agent与候选包仍NOT_RUN；未新增忽略或禁用能力。
+
+### App IPC/图片边界与 Mac 16 项复验（本批）
+
+原 116 条诊断已按 12 类根因逐项归档。
+实现复验：[41384140463](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41384140463)，源码 `a53698f635c1501dd37aa4799add30fc4f68b164`，attempt 1，整体 failure。
+先行 RED：[41377422839](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41377422839)，源码 `1d5b8e2441f3a0f9515b589ee4f2bf0fe92b7d51`。
+
+| 项目 | 实测 | 门槛 |
+|---|---|---|
+| App 默认 check | 原 13 条 IPC、5 条图片文件错误消除；仍有 10 类 98 条 | FAIL，未默认编译成功 |
+| 实际 App 适配 | Windows 15/0/0，含请求响应、端点身份、超时、取消、图片边界 | 仅前置通过，不替代 App/权限完整验收 |
+| norma 与原平台 | 47/1/0；原 43 项通过名全部保留 | 新背压 shutdown 见证失败，命令 FAIL |
+| Codex/Runtime 控制 | 控制 49/2/0；Runtime 11/0/0 | 强见证与原 shutdown 契约失败 |
+| 独立平台/canvas/语音 | 30/0/0、52/0/0、89/0/16 | 16 个语音 ignored 为既有项 |
+| Mac 完整 A/B | A 3428/14/52；B 3443/0/52 | A 的 14 项既有语言/锁失败仍保留，不能宣称修复 |
+| Mac 两项 OpenCode | 确定性输入锁 RED、HTTP 非阻塞继承；修复后 A/B 完整均通过 | 原 session、唯一 POST、不重发与门闩均保留 |
+| 真实 Norma GUI/Agent/候选包 | NOT_RUN | 未以图形示例、协议夹具或 CLI version 冒充 |
+
+App IPC 保留 32/64 队列与 4 个 worker，增加可取消的绝对 IO 预算。
+Windows 以 AF_UNIX reparse tag 与 volume/fileIndex 识别端点，通过 pinned HANDLE 删除。
+图片复用私有 DACL，拒绝 reparse；Unix 文件与 Socket 行为保留。
+没有关闭 VAD、Sherpa、Codex、Browser 或默认产品 features，没有新增 ignore/allow。
+
+关闭日志记录 131072 字节未读，mask0 没有事件，RDNORM 只有可读。
+当时 writer 仍持有 source 句柄，只能证明 shutdown 后未在 3 秒退出，不能证明真实退出后的收口。
+强见证已修正为 writer 先 drop 并 ack，join、释放最后 clone 后才开始原 3 秒窗口。
+旧 shutdown 契约继续保留，不能用新测试覆盖旧 FAIL。
+
+最终复验：[41386261217](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41386261217)，源码 `120492ca29ec49b12ed4368eb0d10e01b5d34845`，attempt 1，整体 failure。
+App 默认 check 仍为 98 条，原 18 条消除；norma 库/CLI/helper 编译通过。
+原平台目标为 47/1/0，原 43 项通过名完整保留；失败只有新增的严格 close 见证。
+
+控制 50/1/0、Runtime 11/0/0、identity 1/0/0；两个 OpenCode 目标各 1/0/0。
+实际 App 适配 15/0/0、独立平台 30/0/0、canvas 52/0/0、语音 89/0/16。
+
+强见证记录真实输出 8 次连续 WouldBlock、5 个源帧、全部 source 句柄释放 true，原 3 秒内仍未退出。
+原 shutdown 测试本轮通过，但历史 FAIL 没有生产修复证据，可靠性仍未收束。
+
+当前 AC 为 0 PASS、3 FAIL、9 NOT_RUN；AC01、AC02、AC11 不标完成。
+
+中间运行 41385201505 已因关闭见证前提修正主动取消，不用作通过证据。
+报告 SHA、run/attempt 一致，未缺报告；完整日志和哈希清单保存在对应 run 目录。
+
+
+原 116 与当前 98 逐项对照、Mac 16 项前后与所有日志入口：
+`docs/quality/evidence/windows-feasibility-20261101/app-platform-audit.md`。
+`docs/quality/evidence/windows-feasibility-20261101/app-116-comparison.json`。
+`docs/quality/evidence/windows-feasibility-20261101/app-platform-local/macos-16-comparison.json`。
+本分支提交 Draft PR，不合并；AC01、AC02、AC11 均未关闭，迁移 Goal 未完成。
 
 ## A 改动量与投入
 
@@ -120,7 +169,7 @@ OpenCode输入锁症状尚未归因，不能宣称Mac无新增回归。
 | 工作流 | 项目、画布、终端、保存恢复、文本任务分发 | 扩展设备和系统集成 |
 | Agent | Claude 与 Codex 为候选；P0 验证后冻结两个支持项 | 逐个验证其余 Agent，不批量宣称兼容 |
 | 浏览与预览 | 保留文本和 Markdown 预览；网页先交给系统浏览器 | WebView2 内置 Browser 与 HTML 预览 |
-| 语音与媒体 | 首版关闭未适配入口；使用静态壁纸 | 录音、播报、设备切换后进入 Beta |
+| 语音与媒体 | 保留现有能力，补Windows等价实现；未验收不发布 | 录音、播报、设备切换后进入 Beta |
 | 高级能力 | 暂缓动态视频、Ego、手机连接和自动更新 | 单独通过验收后开放 |
 | 发布 | 可复现的便携包，附功能支持说明 | Beta 使用签名安装包和手动升级 |
 
@@ -241,7 +290,7 @@ UI 实施前加载 apple-design 与对应 gpui 技能。
 
 ## H 下一步与执行边界
 
-1. 先解决Windows真实背压关闭，再逐域适配App IPC/生命周期、手机、Preview与Browser；保留提问、取消、恢复及session归属。
+1. 先区分Windows shutdown与全部source close契约，再适配App生命周期/Brain/内容、手机与Browser；保留提问、取消、恢复及session归属。
 2. 在已通过的原生文件基础上，补齐 storage/workspace 的冲突、恢复和完整安全矩阵。
 3. 适配 Runtime 的 PowerShell、ConPTY、hook 和进程树收口。
 4. 在已验证的 runner 图形条件下验收真实 Norma 窗口。
@@ -257,8 +306,8 @@ Win32/NT 文件能力保留防 reparse、硬链接、ADS、目录身份和真实
 Unix 文件适配、原有 VAD、A1 模型运行边界与既有忽略保持不变。
 没有通过禁用产品能力消除错误，也没有按局部通过下调工作量。
 
-App尚未通过，原Runtime/Codex六条已消除，当前前沿为116条App原生平台诊断。
-Windows未读积压关闭与Mac输入锁时序仍阻塞；不能删导入、关闭Agent或放宽断言。
+App尚未通过，原Runtime/Codex六条与本轮App18条已消除，当前前沿为98条。
+Windows关闭契约与Mac既有语言/锁隔离仍阻塞；不能删导入、关闭Agent或放宽断言。
 
 基础图形前置已经实测通过，P0 的 ConPTY、文件语义和真实 Agent 仍待验。
 P0/G1 尚未完成，不下调现有估算，也不冻结两个 Agent 的产品支持矩阵。

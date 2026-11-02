@@ -1,0 +1,43 @@
+{
+  "run_id": "41385201505",
+  "attempt": 1,
+  "source_sha": "bc8cdc1391abe2c6b87c61aa0fe3d23c740be5c5",
+  "url": "https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41385201505",
+  "files": [
+    {
+      "path": "artifacts.json",
+      "bytes": 3756,
+      "sha256": "e03f946ef26d6b7143798322ad898ff3fc20010012265d88bdef2834a26ad223"
+    },
+    {
+      "path": "cancellation.json",
+      "bytes": 395,
+      "sha256": "1d10e4363160c02a235fd975eec8482da9755556ce6641c43e285c2e8e49a283"
+    },
+    {
+      "path": "jobs.json",
+      "bytes": 16519,
+      "sha256": "1d2e5460e058989ee1a2a04ddb58d819ab2a0720388b0807150df12f4308dcb0"
+    },
+    {
+      "path": "run.json",
+      "bytes": 13074,
+      "sha256": "ec1b3501a50b23d56838fdff48a503e28055e5da8f5382ea577932da867d13a9"
+    },
+    {
+      "path": "workflow-download-status.json",
+      "bytes": 141,
+      "sha256": "a73ee33a5b9c008d6ce98f59275d4aefe36ede08a0ca400b42c98ea864313603"
+    },
+    {
+      "path": "workflow.log",
+      "bytes": 268384,
+      "sha256": "940af79fed297b3e533424aa85c91bb3c2bde783046b71b88b9b815c05fb9fc5"
+    },
+    {
+      "path": "workflow.yml",
+      "bytes": 12778,
+      "sha256": "8714db752002680ba51149b88030b885ceafd7db75aa627f1278e28a34b1d978"
+    }
+  ]
+}

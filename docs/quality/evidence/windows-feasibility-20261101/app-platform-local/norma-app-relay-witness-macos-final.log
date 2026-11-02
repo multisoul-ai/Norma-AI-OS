@@ -1,0 +1,20 @@
+任务缓存：/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/app-transport-20261101/target
+   Compiling norma v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/norma)
+warning: unused variable: `was_running`
+  --> crates/norma/src/codex/../../tests/unit/codex_relay_output_backpressure.rs:83:9
+   |
+83 |     let was_running = relay.is_running();
+   |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_was_running`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `norma` (lib test) generated 1 warning (run `cargo fix --lib -p norma --tests` to apply 1 suggestion)
+    Finished `test` profile [optimized + debuginfo] target(s) in 8.11s
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/app-transport-20261101/target/debug/deps/norma-5a6fd0a2c412bd04)
+
+running 1 test
+relay output pre-close consecutive WouldBlock=8; complete source frames=1
+test codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.05s
+

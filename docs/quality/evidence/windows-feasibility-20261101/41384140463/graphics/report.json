@@ -1,0 +1,125 @@
+{
+  "task": "graphics",
+  "source_sha": "a53698f635c1501dd37aa4799add30fc4f68b164",
+  "checks": [
+    {
+      "id": "gpui_build",
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--manifest-path",
+        "D:\\a\\Norma-AI-OS\\Norma-AI-OS\\test\\windows-probe\\Cargo.toml",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "log": "gpui_build.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 288.63
+    },
+    {
+      "id": "native",
+      "command": [
+        "pwsh",
+        "-NoLogo",
+        "-NoProfile",
+        "-File",
+        "D:\\a\\Norma-AI-OS\\Norma-AI-OS\\scripts\\windows\\native.ps1",
+        "-Mode",
+        "graphics",
+        "-Output",
+        "D:\\a\\Norma-AI-OS\\Norma-AI-OS\\artifacts\\windows-feasibility\\graphics",
+        "-Executable",
+        "D:\\a\\_temp\\norma-windows-probe-target\\x86_64-pc-windows-msvc\\debug\\norma-gpui-probe.exe"
+      ],
+      "log": "native.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 11.78
+    },
+    {
+      "status": "PASS",
+      "detail": "OS, displays and D3D11 device creation were queried",
+      "id": "native_environment"
+    },
+    {
+      "status": "PASS",
+      "detail": "HRESULT=0x00000000;feature_level=0xB000",
+      "id": "d3d11_hardware"
+    },
+    {
+      "status": "PASS",
+      "detail": "HRESULT=0x00000000;feature_level=0xB000",
+      "id": "d3d11_warp"
+    },
+    {
+      "status": "PASS",
+      "screenshot": "gpui-window.png",
+      "detail": "Owned Zed::Window and expected GPUI RGB pixels captured",
+      "id": "gpui_window"
+    },
+    {
+      "status": "PASS",
+      "detail": "Alt+F4 through the OS keyboard path; only the owned foreground sample was targeted",
+      "id": "gpui_os_keyboard_close"
+    }
+  ],
+  "metadata": {
+    "mode": "graphics",
+    "os": [
+      {
+        "Caption": "Microsoft Windows Server 2025 Datacenter",
+        "Version": "10.0.26100",
+        "OSArchitecture": "64-bit"
+      }
+    ],
+    "image_os": "win25-vs2026",
+    "image_version": "20261021.278.1",
+    "user_interactive": true,
+    "process_session": 2,
+    "active_console_session": 2,
+    "displays": [
+      {
+        "primary": true,
+        "device": "\\\\.\\DISPLAY1",
+        "bounds": "{X=0,Y=0,Width=1024,Height=768}"
+      }
+    ],
+    "adapters": [
+      {
+        "Name": "Microsoft Hyper-V Video",
+        "DriverVersion": "10.0.26100.1150"
+      }
+    ],
+    "directx_hardware": "HRESULT=0x00000000;feature_level=0xB000",
+    "directx_warp": "HRESULT=0x00000000;feature_level=0xB000",
+    "pixel_classifier_self_test": "PASS",
+    "visible_windows": [
+      "hwnd=197106;pid=9088;class=Zed::Window;title=",
+      "hwnd=328144;pid=9088;class=PseudoConsoleWindow;title="
+    ],
+    "foreground_before": "hwnd=197106;pid=9088;class=Zed::Window;title=",
+    "activation": "attached=True;activated=True;foreground=hwnd=197106;pid=9088;class=Zed::Window;title=",
+    "window": {
+      "pid": 9088,
+      "width": 640,
+      "foreground": true,
+      "height": 560
+    },
+    "color_samples": {
+      "red": 100,
+      "blue": 267,
+      "green": 100
+    },
+    "sample_sha256": "bdfa941cfc46f28a3715fb3398eac03db6d4d7d29461b5406b6a24c202c57ffd",
+    "sample_source": "vendor/gpui-0.2.2/examples/hello_world.rs",
+    "scope": "Vendored GPUI example, not Norma or a release candidate"
+  },
+  "timestamp": "2026-11-02T03:43:57.187401+00:00",
+  "os": "Windows-2025Server-10.0.26100-SP0",
+  "run_id": "41384140463",
+  "run_attempt": "1",
+  "image_version": "20261021.278.1",
+  "disk_free_bytes": 155193028608
+}

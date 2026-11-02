@@ -1,0 +1,45 @@
+任务缓存：/Users/openclawd/.cache/norma-build/8e0a5c86f37025c2/app-transport-20261101/target
+     Locking 10 packages to latest compatible versions
+      Adding bytemuck v1.25.0
+      Adding byteorder-lite v0.1.0
+      Adding fdeflate v0.3.7
+      Adding image v0.25.10
+      Adding moxcms v0.8.1
+      Adding num-traits v0.2.19
+      Adding png v0.18.1
+      Adding pxfm v0.1.30
+      Adding zune-core v0.5.1
+      Adding zune-jpeg v0.5.15
+   Compiling simd-adler32 v0.3.9
+   Compiling autocfg v1.5.1
+   Compiling miniz_oxide v0.8.9
+   Compiling num-traits v0.2.19
+   Compiling flate2 v1.1.9
+   Compiling fdeflate v0.3.7
+   Compiling zune-core v0.5.1
+   Compiling pxfm v0.1.30
+   Compiling zune-jpeg v0.5.15
+   Compiling ureq v3.3.0
+   Compiling moxcms v0.8.1
+   Compiling png v0.18.1
+   Compiling byteorder-lite v0.1.0
+   Compiling bytemuck v1.25.0
+   Compiling image v0.25.10
+   Compiling norma v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/norma)
+   Compiling app-platform-probe v0.1.0 (/private/tmp/norma-windows-feasibility-20261101/crates/app/tests/platform_probe)
+    Finished `test` profile [optimized + debuginfo] target(s) in 33.55s
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/8e0a5c86f37025c2/app-transport-20261101/target/debug/deps/app_platform_probe-5dab9304da776f31)
+
+running 9 tests
+test transport::tests::transport_failures_preserve_overload_shutdown_and_unknown_outcome_semantics ... ok
+test tests::occupied_regular_file_is_never_removed ... ok
+test transport::binding::tests::inactive_socket_is_rebound_and_owned_cleanup_completes ... ok
+test transport::binding::tests::replaced_path_keeps_user_file_and_moved_socket ... ok
+test image_tests::image_parent_file_is_preserved ... ok
+test image_tests::image_roundtrip_then_tampering_is_rejected ... ok
+test image_tests::oversized_image_file_cannot_bypass_read_limit ... ok
+test tests::duplicate_binding_preserves_live_endpoint_and_cleans_up ... ok
+test tests::segmented_request_keeps_original_identity_and_response ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+

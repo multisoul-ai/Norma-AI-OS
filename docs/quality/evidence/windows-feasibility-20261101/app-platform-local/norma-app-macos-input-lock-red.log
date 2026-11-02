@@ -1,0 +1,102 @@
+任务缓存：/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/app-transport-20261101/target
+   Compiling smallvec v1.15.2
+   Compiling log v0.4.33
+   Compiling getrandom v0.2.17
+   Compiling tokio-macros v2.7.0
+   Compiling ring v0.17.14
+   Compiling tracing v0.1.44
+   Compiling serde v1.0.228
+   Compiling futures-macro v0.3.32
+   Compiling tokio v1.52.3
+   Compiling futures-io v0.3.32
+   Compiling futures-util v0.3.32
+   Compiling icu_normalizer v2.2.0
+   Compiling rustls-webpki v0.103.13
+   Compiling rustls v0.23.41
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling serde_json v1.0.150
+   Compiling rustix v1.1.4
+   Compiling indexmap v2.14.0
+   Compiling url v2.5.8
+   Compiling tokio-util v0.7.18
+   Compiling h2 v0.4.15
+   Compiling num-traits v0.2.19
+   Compiling hyper v1.10.1
+   Compiling rand_core v0.6.4
+   Compiling tower v0.5.3
+   Compiling curve25519-dalek v4.1.3
+   Compiling hyper-util v0.1.20
+   Compiling rand_chacha v0.9.0
+   Compiling tokio-rustls v0.26.4
+   Compiling futures-executor v0.3.32
+   Compiling aho-corasick v1.1.4
+   Compiling ref-cast-impl v1.0.25
+   Compiling serde_derive_internals v0.29.1
+   Compiling pin-project-internal v1.1.13
+   Compiling regex-syntax v0.8.11
+   Compiling pin-project v1.1.13
+   Compiling regex-automata v0.4.14
+   Compiling schemars_derive v1.2.1
+   Compiling ref-cast v1.0.25
+   Compiling futures v0.3.32
+   Compiling hyper-rustls v0.27.9
+   Compiling spake2 v0.4.0
+   Compiling rand v0.9.4
+   Compiling tower-http v0.6.11
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling ureq-proto v0.6.0
+   Compiling thiserror-impl v1.0.69
+   Compiling async-stream-impl v0.3.6
+   Compiling tungstenite v0.28.0
+   Compiling thiserror v1.0.69
+   Compiling rusqlite v0.32.1
+   Compiling ureq v3.3.0
+   Compiling schemars v1.2.1
+   Compiling async-stream v0.3.6
+   Compiling reqwest v0.13.4
+   Compiling rcgen v0.13.2
+   Compiling mobile_pairing v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/mobile_pairing)
+   Compiling ordered-float v5.3.0
+   Compiling tracing-futures v0.2.5
+   Compiling parking_lot_core v0.9.12
+   Compiling vte v0.15.0
+   Compiling rig-core v0.40.0
+   Compiling norma v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/norma)
+   Compiling parking_lot v0.12.5
+   Compiling git2 v0.20.4
+   Compiling filedescriptor v0.8.3
+   Compiling tempfile v3.27.0
+   Compiling uuid v1.23.4
+   Compiling polling v3.11.0
+   Compiling rustix-openpty v0.2.0
+   Compiling alacritty_terminal v0.26.0
+   Compiling portable-pty v0.9.0
+   Compiling agent v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/agent)
+   Compiling workspace v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/workspace)
+   Compiling canvas v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/canvas)
+   Compiling storage v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/storage)
+   Compiling terminal v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/terminal)
+   Compiling matchers v0.2.0
+   Compiling tracing-log v0.2.0
+   Compiling tracing-subscriber v0.3.23
+   Compiling runtime v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/runtime)
+    Finished `test` profile [optimized + debuginfo] target(s) in 2m 25s
+     Running tests/opencode_question_host.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/app-transport-20261101/target/debug/deps/opencode_question_host-5458338766e4699b)
+
+running 1 test
+OpenCode consumption snapshot: held=true, state=Answered, input_pending=true
+
+thread 'owned_opencode_host_routes_current_question_through_runtime' (10391753) panicked at crates/runtime/tests/opencode_question_host.rs:273:13:
+消费后输入锁解除
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test owned_opencode_host_routes_current_question_through_runtime ... FAILED
+
+failures:
+
+failures:
+    owned_opencode_host_routes_current_question_through_runtime
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+
+error: test failed, to rerun pass `-p runtime --test opencode_question_host`

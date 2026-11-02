@@ -1,0 +1,65 @@
+{
+  "implementation_sha": "a53698f635c1501dd37aa4799add30fc4f68b164",
+  "baseline_sha": "1dd8965bb860aab7892c8e733426702bdc2d2408",
+  "package_version_set_unchanged": true,
+  "app_product_features_unchanged": true,
+  "new_ignore_allow_or_feature_override_lines": 0,
+  "i18n_existing_file_unchanged": true,
+  "macos_full_suite": {
+    "passed": 3443,
+    "failed": 0,
+    "ignored": 52,
+    "exit_code": 0,
+    "log": "norma-app-macos-workspace-final.log",
+    "scope_note": "Final production sources; the later test-only pre-close running assertion was additionally rerun 1/0/0."
+  },
+  "macos_snapshot_a": {
+    "passed": 3428,
+    "failed": 14,
+    "ignored": 52,
+    "exit_code": 101,
+    "log": "norma-app-macos-workspace.log"
+  },
+  "macos_app_adapters": {
+    "passed": 15,
+    "failed": 0,
+    "ignored": 0,
+    "log": "norma-app-adapters-final-b.log"
+  },
+  "new_shutdown_assertion": {
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "log": "norma-app-relay-preclose-final.log"
+  },
+  "gui": "NOT_RUN",
+  "agents": "NOT_RUN",
+  "candidate_package": "NOT_RUN",
+  "latest_test_only_sha": "120492ca29ec49b12ed4368eb0d10e01b5d34845",
+  "all_source_close_witness": {
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "all_source_handles_released": true,
+    "deadline_seconds": 3,
+    "log": "norma-app-all-source-close-macos.log",
+    "note": "非阻塞writer先drop并ack，再join和drop最后source clone，计时从此开始；Windows等待独立实测。"
+  },
+  "final_test_sha": "120492ca29ec49b12ed4368eb0d10e01b5d34845",
+  "mac_workspace_product_source_reused": {
+    "from": "a53698f635c1501dd37aa4799add30fc4f68b164",
+    "to": "120492ca29ec49b12ed4368eb0d10e01b5d34845",
+    "scopes": [
+      "crates/app/src",
+      "crates/norma/src",
+      "crates/runtime/src",
+      "Cargo.lock",
+      "Cargo.toml",
+      "crates/app/Cargo.toml",
+      "crates/norma/Cargo.toml",
+      "crates/runtime/Cargo.toml"
+    ],
+    "git_diff_exit": 0,
+    "note": "只新增/修正测试与执行覆盖，未改变上述生产源码、产品manifest或lock。"
+  }
+}

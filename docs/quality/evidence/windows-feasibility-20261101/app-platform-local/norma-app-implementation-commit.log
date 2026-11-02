@@ -1,0 +1,9 @@
+OK: codesign readiness check passed
+[pre-commit] running cargo check...
+[pre-commit] running cargo fmt --check...
+[codex/windows-feasibility-20261101 a53698f6] fix(windows): preserve App socket ownership and bounded attachment IO
+ 20 files changed, 912 insertions(+), 162 deletions(-)
+ create mode 100644 crates/app/src/norma/transport/binding.rs
+ create mode 100644 crates/app/tests/unit/app_transport_binding_tests.rs
+ create mode 100644 crates/app/tests/unit/app_transport_deadline_tests.rs
+ create mode 100644 crates/app/tests/unit/mobile_image_platform_tests.rs

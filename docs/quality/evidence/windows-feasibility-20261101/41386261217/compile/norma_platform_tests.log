@@ -1,0 +1,243 @@
+   Compiling cfg-if v1.0.4
+   Compiling zerofrom v0.1.8
+   Compiling windows-link v0.2.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling windows-sys v0.61.2
+   Compiling yoke v0.8.3
+   Compiling typenum v1.20.1
+   Compiling subtle v2.6.1
+   Compiling generic-array v0.14.7
+   Compiling once_cell v1.21.4
+   Compiling zerovec v0.11.6
+   Compiling getrandom v0.2.17
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling zerocopy v0.8.53
+   Compiling zeroize v1.9.0
+   Compiling rustls-pki-types v1.15.0
+   Compiling tinystr v0.8.3
+   Compiling untrusted v0.9.0
+   Compiling writeable v0.6.3
+   Compiling litemap v0.8.2
+   Compiling icu_locale_core v2.2.0
+   Compiling ring v0.17.14
+   Compiling zerotrie v0.2.4
+   Compiling potential_utf v0.1.5
+   Compiling cpufeatures v0.2.17
+   Compiling utf8_iter v1.0.4
+   Compiling icu_collections v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling smallvec v1.15.2
+   Compiling icu_normalizer_data v2.2.0
+   Compiling icu_properties_data v2.2.0
+   Compiling getrandom v0.3.4
+   Compiling bytes v1.12.0
+   Compiling anstyle v1.0.14
+   Compiling log v0.4.33
+   Compiling utf8parse v0.2.2
+   Compiling once_cell_polyfill v1.70.2
+   Compiling anstyle-wincon v3.0.11
+   Compiling anstyle-parse v1.0.0
+   Compiling http v1.4.2
+   Compiling rand_core v0.9.5
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling ahash v0.8.12
+   Compiling httparse v1.10.1
+   Compiling rustls-webpki v0.103.13
+   Compiling ppv-lite86 v0.2.21
+   Compiling anstyle-query v1.1.5
+   Compiling hmac v0.12.1
+   Compiling rand_core v0.6.4
+   Compiling deranged v0.5.8
+   Compiling powerfmt v0.2.0
+   Compiling colorchoice v1.0.5
+   Compiling num-conv v0.2.2
+   Compiling time-core v0.1.9
+   Compiling adler2 v2.0.1
+   Compiling simd-adler32 v0.3.9
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling percent-encoding v2.3.2
+   Compiling anstream v1.0.0
+   Compiling miniz_oxide v0.8.9
+   Compiling time v0.3.53
+   Compiling curve25519-dalek v4.1.3
+   Compiling hkdf v0.12.4
+   Compiling rand_chacha v0.9.0
+   Compiling rustls v0.23.41
+   Compiling hashbrown v0.14.5
+   Compiling idna_adapter v1.2.2
+   Compiling winapi v0.3.9
+   Compiling crc32fast v1.5.0
+   Compiling getrandom v0.4.3
+   Compiling sha2 v0.10.9
+   Compiling schannel v0.1.29
+   Compiling fastrand v2.4.1
+   Compiling option-ext v0.2.0
+   Compiling strsim v0.11.1
+   Compiling base64 v0.22.1
+   Compiling byteorder v1.5.0
+   Compiling clap_lex v1.1.0
+   Compiling clap_builder v4.6.0
+   Compiling socks v0.3.4
+   Compiling ureq-proto v0.6.0
+   Compiling dirs-sys v0.5.0
+   Compiling tempfile v3.27.0
+   Compiling thiserror v2.0.18
+   Compiling serde v1.0.228
+   Compiling rustls-native-certs v0.8.4
+   Compiling spake2 v0.4.0
+   Compiling libsqlite3-sys v0.30.1
+   Compiling memoffset v0.9.1
+   Compiling flate2 v1.1.9
+   Compiling idna v1.1.0
+   Compiling hashlink v0.9.1
+   Compiling rand v0.9.4
+   Compiling anyhow v1.0.103
+   Compiling yasna v0.5.2
+   Compiling crossbeam-utils v0.8.22
+   Compiling form_urlencoded v1.2.2
+   Compiling sha1 v0.10.7
+   Compiling webpki-roots v1.0.8
+   Compiling tracing-core v0.1.36
+   Compiling pin-project-lite v0.2.17
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling fallible-iterator v0.3.0
+   Compiling utf8-zero v0.8.1
+   Compiling bitflags v2.13.0
+   Compiling utf-8 v0.7.6
+   Compiling data-encoding v2.11.0
+   Compiling rusqlite v0.32.1
+   Compiling tungstenite v0.28.0
+   Compiling ureq v3.3.0
+   Compiling tracing v0.1.44
+   Compiling url v2.5.8
+   Compiling crossbeam-channel v0.5.16
+   Compiling rcgen v0.13.2
+   Compiling mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+   Compiling uds_windows v1.2.1
+   Compiling libc v0.2.186
+   Compiling clap v4.6.1
+   Compiling dirs v6.0.0
+   Compiling md-5 v0.10.6
+   Compiling hex v0.4.3
+   Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+    Finished `test` profile [optimized + debuginfo] target(s) in 2m 44s
+     Running unittests src\lib.rs (D:\a\_temp\norma-windows-probe-target\x86_64-pc-windows-msvc\debug\deps\norma-1e637ab61ae5e130.exe)
+
+running 31 tests
+test agent_hook::event::tests::test_extract_prompt_text_fallback_keys_and_none ... ok
+test agent_hook::event::tests::session_start_from_every_agent_provider_maps_to_ready ... ok
+test agent_hook::event::tests::test_extract_prompt_text_short_and_truncated ... ok
+test agent_hook::session_claim::tests::test_marker_name_distinguishes_sessions_that_sanitize_alike ... ok
+test agent_hook::session_title::session_title_tests::codex_takes_last_thread_name_for_the_session ... ok
+test agent_hook::session_title::session_title_tests::claude_takes_last_non_empty_ai_title ... ok
+test agent_hook::session_title::session_title_tests::claude_title_found_by_session_id_across_project_dirs ... ok
+test agent_hook::session_title::session_title_tests::refresh_events_and_per_profile_dispatch ... ok
+test agent_hook::session_claim::tests::test_claim_is_once_per_session_and_release_reopens_it ... ok
+test agent_hook::session_title::session_title_tests::untrusted_paths_and_ids_are_rejected ... ok
+test agent_hook::zcode::tests::install_refuses_to_overwrite_foreign_or_malformed_config ... ok
+test agent_hook::zcode::tests::install_refuses_when_dormant_user_hooks_would_be_activated ... ok
+test agent_hook::session_title::session_title_tests::title_is_found_when_file_is_larger_than_the_tail_window ... ok
+test agent_hook::zcode::tests::install_writes_seven_verified_events_and_enables_hooks ... ok
+test agent_hook::zcode::tests::real_payload_fixtures_map_to_states ... ok
+test client::tests::debug_build_uses_an_isolated_norma_socket_name ... ok
+test codex::relay::input::tests::completed_question_history_does_not_exhaust_pending_capacity ... ok
+test codex::relay::input::tests::old_turn_outside_history_window_cannot_hold_current_input ... ok
+test codex::relay::input::tests::ordinary_turn_history_never_creates_pending_input ... ok
+test agent_hook::zcode::tests::install_is_idempotent_and_uninstall_keeps_user_data ... ok
+test agent_hook::zcode::tests::installed_requires_enabled_flag ... ok
+test file_identity::tests::file_identity_survives_append ... ok
+test agent_hook::zcode::tests::uninstall_keeps_user_owned_empty_groups_and_events ... ok
+test file_identity::tests::replacement_is_distinct_even_with_equal_length ... ok
+test orchestration::file_ops::tests::credential_permissions_reject_file_symlinks ... ok
+test orchestration::file_ops::tests::managed_credential_detects_and_repairs_broader_permissions ... ok
+test orchestration::file_ops::tests::managed_file_replacement_preserves_content_and_private_permissions ... ok
+test orchestration::file_ops::tests::private_session_directory_is_reusable_without_losing_markers ... ok
+test orchestration::file_ops::tests::private_directory_rejects_junction_instead_of_validating_its_own_acl ... ok
+test codex::relay::partial_tests::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... ok
+test codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown ... FAILED
+
+failures:
+
+---- codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown stdout ----
+relay output pre-close consecutive WouldBlock=8; complete source frames=5
+relay close all source handles released=true
+relay close native FIONREAD: status=0, unread_bytes=131072
+relay close native WSAPoll: interest=0, result=0, revents=0, error=0
+relay close native WSAPoll: interest=256, result=1, revents=256, error=0
+
+thread 'codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown' (4728) panicked at crates\norma\src\codex\..\..\tests\unit\codex_relay_output_backpressure.rs:140:5:
+实际relay输出背压时native关闭必须在3秒内收口
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: norma::codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown
+             at .\tests\unit\codex_relay_output_backpressure.rs:140
+   3: norma::codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown::closure$0
+             at .\tests\unit\codex_relay_output_backpressure.rs:27
+   4: core::ops::function::FnOnce::call_once<norma::codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   5: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+
+failures:
+    codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown
+
+test result: FAILED. 30 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.27s
+
+error: test failed, to rerun pass `-p norma --lib`
+     Running tests\client_platform.rs (D:\a\_temp\norma-windows-probe-target\x86_64-pc-windows-msvc\debug\deps\client_platform-8dbe66b67d3a8e18.exe)
+
+running 2 tests
+test local_socket_client_round_trips_the_existing_wire_protocol ... ok
+test local_socket_client_rejects_a_response_for_another_request ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\client_tests.rs (D:\a\_temp\norma-windows-probe-target\x86_64-pc-windows-msvc\debug\deps\client_tests-dd09ca4388c867b9.exe)
+
+running 2 tests
+test test_response_codec_round_trips_created_result ... ok
+test test_request_codec_uses_single_newline_delimited_json ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\codex_question.rs (D:\a\_temp\norma-windows-probe-target\x86_64-pc-windows-msvc\debug\deps\codex_question-4efdcf3c3194591a.exe)
+
+running 5 tests
+test codex_multiple_questions_preserve_secret_and_custom_capabilities ... ok
+test codex_preserves_option_descriptions_without_changing_answer_labels ... ok
+test codex_question_preserves_rpc_identity_and_confirms_exact_original_consumption ... ok
+test codex_question_maps_free_text_and_rejects_ambiguous_or_partial_answers ... ok
+test codex_question_rejects_connector_approval_unknown_and_mismatched_sources ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\cursor_questions.rs (D:\a\_temp\norma-windows-probe-target\x86_64-pc-windows-msvc\debug\deps\cursor_questions-9cb38015bddd26fa.exe)
+
+running 4 tests
+test native_cursor_rejects_ambiguous_screen_mapping_and_incomplete_answers ... ok
+test native_cursor_preserves_question_identity_and_exact_consumption ... ok
+test cursor_multiselect_consumption_compares_original_ids_without_assuming_click_order ... ok
+test cursor_trailing_other_alias_is_collapsed_like_native_display_options ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\protocol_tests.rs (D:\a\_temp\norma-windows-probe-target\x86_64-pc-windows-msvc\debug\deps\protocol_tests-7732f32c66f3ff57.exe)
+
+running 4 tests
+test wire_request_preserves_workspace_routing_and_decodes_legacy_v1 ... ok
+test test_preview_create_command_round_trips_through_json ... ok
+test test_wire_response_preserves_success_and_error_results ... ok
+test test_list_result_uses_neutral_card_summary ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: 1 target failed:
+    `-p norma --lib`

@@ -1,6 +1,6 @@
 # Windows runner 最小可行性验证证据
 
-原Runtime/Codex六条诊断已消除；App新暴露116条平台诊断，Windows关闭清理与Mac时序仍有阻塞，迁移未验收。
+App 原116条已实测消除18条，仍98条；Windows关闭契约与Mac既有隔离问题未收束，迁移未验收。
 范围包含 norma 编译修复、OS 资源回归、GPUI 基础图形与无认证 CLI 条件。
 真实 Norma 图形、真实模型任务和候选包验收均未执行。
 标准 runner 的实测 OS 为 Windows Server 2025，不能视作 Windows 11 设备验收。
@@ -23,6 +23,10 @@
 | [41338252762 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41338252762) | `9b9a4e0030714097f14cdd91fbe00e248410452c` | failure | 原6错消除；App116条；partial未进入Writing |
 | [41341784394 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41341784394) | `15b284ce770a70d8b42ef6b6b2f8d4fa10bd398c` | failure | App116条；控制48/2/0；真实背压关闭失败 |
 | [41345708985 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41345708985) | `e7a7a78a9a871748f28becf1a6de32702ce41cd9` | failure | App116条；控制50/0/0；平台47/0/0；语音89/0/16 |
+| [41377422839 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41377422839) | `1d5b8e2441f3a0f9515b589ee4f2bf0fe92b7d51` | failure | App116条；独立App探针13条IPC编译RED；真实输出背压shutdown见证失败 |
+| [41384140463 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41384140463) | `a53698f635c1501dd37aa4799add30fc4f68b164` | failure | App98条；App适配15/0/0；原43保留，新增shutdown见证失败 |
+| [41385201505 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41385201505) | `bc8cdc1391abe2c6b87c61aa0fe3d23c740be5c5` | cancelled | 关闭见证前提修正后取消；日志下载缺失如实记录，不作通过证据 |
+| [41386261217 / 1](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41386261217) | `120492ca29ec49b12ed4368eb0d10e01b5d34845` | failure | App98条；控制50/1/0；全部source释放仍未3秒关闭；OpenCode两项目标实际通过 |
 
 前三次运行之间均有探针代码修正，不以无改动重跑覆盖断言失败。
 新增回归门槛与产品修复分别提交，保留先失败、再通过的执行记录。
@@ -260,7 +264,7 @@ OwnedTarget、Started/Completed、清理、安全收口与返回值仍保留原 
 
 运行已结束，整体 failure；源码 `747777db081a4f06005ee3b8b617de91db29fe8c`，attempt 1。
 五个探针门槛为 2 PASS、1 FAIL、2 NOT_RUN；独立平台 job 为 PASS。
-当前 AC 矩阵为 0 PASS、2 FAIL、10 NOT_RUN：AC01 与 AC11 未通过。
+该批 AC 矩阵为 0 PASS、2 FAIL、10 NOT_RUN：AC01 与 AC11 未通过。
 G1、G2、完整 Mac 回归和整体 Goal 均未完成，goal_complete=false。
 
 本轮完整日志与 SHA-256 清单：`docs/quality/evidence/windows-feasibility-20261101/41327614822/manifest.json`。
@@ -282,10 +286,10 @@ App 日志出现中英文期望差异及锁中毒连锁失败；OpenCode 夹具�
 
 
 
-## Runtime/Codex 平台边界与最终复验（本批）
+## Runtime/Codex 平台边界与最终复验（前批）
 
 原六条 Runtime/Codex 编译错误已消除；App 仍未达到编译通过门槛。
-最新运行：[41345708985](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41345708985)，源码 `e7a7a78a9a871748f28becf1a6de32702ce41cd9`，attempt 1，整体为 failure。
+前批运行：[41345708985](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41345708985)，源码 `e7a7a78a9a871748f28becf1a6de32702ce41cd9`，attempt 1，整体为 failure。
 
 | Windows 实测项目 | 结果（通过/失败/忽略） | 证据与边界 |
 |---|---|---|
@@ -328,6 +332,55 @@ i18n既有GPT-Live失败、52项全仓既有忽略和全部原始日志保留；
 逐项六错、Mac15项前后表、验收映射与剩余阻塞见 `docs/quality/evidence/windows-feasibility-20261101/runtime-codex-audit.md`。
 完整日志及SHA-256清单位于 `docs/quality/evidence/windows-feasibility-20261101/41345708985/manifest.json`。
 真实Norma图形、真实Agent、候选包仍为NOT_RUN；迁移Goal未完成。
+
+## App IPC/图片边界与 Mac 16 项复验（本批）
+
+原 116 条诊断已按 12 类根因逐项归档。
+实现复验：[41384140463](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41384140463)，源码 `a53698f635c1501dd37aa4799add30fc4f68b164`，attempt 1，整体 failure。
+先行 RED：[41377422839](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41377422839)，源码 `1d5b8e2441f3a0f9515b589ee4f2bf0fe92b7d51`。
+
+| 项目 | 实测 | 门槛 |
+|---|---|---|
+| App 默认 check | 原 13 条 IPC、5 条图片文件错误消除；仍有 10 类 98 条 | FAIL，未默认编译成功 |
+| 实际 App 适配 | Windows 15/0/0，含请求响应、端点身份、超时、取消、图片边界 | 仅前置通过，不替代 App/权限完整验收 |
+| norma 与原平台 | 47/1/0；原 43 项通过名全部保留 | 新背压 shutdown 见证失败，命令 FAIL |
+| Codex/Runtime 控制 | 控制 49/2/0；Runtime 11/0/0 | 强见证与原 shutdown 契约失败 |
+| 独立平台/canvas/语音 | 30/0/0、52/0/0、89/0/16 | 16 个语音 ignored 为既有项 |
+| Mac 完整 A/B | A 3428/14/52；B 3443/0/52 | A 的 14 项既有语言/锁失败仍保留，不能宣称修复 |
+| Mac 两项 OpenCode | 确定性输入锁 RED、HTTP 非阻塞继承；修复后 A/B 完整均通过 | 原 session、唯一 POST、不重发与门闩均保留 |
+| 真实 Norma GUI/Agent/候选包 | NOT_RUN | 未以图形示例、协议夹具或 CLI version 冒充 |
+
+App IPC 保留 32/64 队列与 4 个 worker，增加可取消的绝对 IO 预算。
+Windows 以 AF_UNIX reparse tag 与 volume/fileIndex 识别端点，通过 pinned HANDLE 删除。
+图片复用私有 DACL，拒绝 reparse；Unix 文件与 Socket 行为保留。
+没有关闭 VAD、Sherpa、Codex、Browser 或默认产品 features，没有新增 ignore/allow。
+
+关闭日志记录 131072 字节未读，mask0 没有事件，RDNORM 只有可读。
+当时 writer 仍持有 source 句柄，只能证明 shutdown 后未在 3 秒退出，不能证明真实退出后的收口。
+强见证已修正为 writer 先 drop 并 ack，join、释放最后 clone 后才开始原 3 秒窗口。
+旧 shutdown 契约继续保留，不能用新测试覆盖旧 FAIL。
+
+最终复验：[41386261217](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41386261217)，源码 `120492ca29ec49b12ed4368eb0d10e01b5d34845`，attempt 1，整体 failure。
+App 默认 check 仍为 98 条，原 18 条消除；norma 库/CLI/helper 编译通过。
+原平台目标为 47/1/0，原 43 项通过名完整保留；失败只有新增的严格 close 见证。
+
+控制 50/1/0、Runtime 11/0/0、identity 1/0/0；两个 OpenCode 目标各 1/0/0。
+实际 App 适配 15/0/0、独立平台 30/0/0、canvas 52/0/0、语音 89/0/16。
+
+强见证记录真实输出 8 次连续 WouldBlock、5 个源帧、全部 source 句柄释放 true，原 3 秒内仍未退出。
+原 shutdown 测试本轮通过，但历史 FAIL 没有生产修复证据，可靠性仍未收束。
+
+当前 AC 为 0 PASS、3 FAIL、9 NOT_RUN；AC01、AC02、AC11 不标完成。
+
+中间运行 41385201505 已因关闭见证前提修正主动取消，不用作通过证据。
+报告 SHA、run/attempt 一致，未缺报告；完整日志和哈希清单保存在对应 run 目录。
+
+
+原 116 与当前 98 逐项对照、Mac 16 项前后与所有日志入口：
+`docs/quality/evidence/windows-feasibility-20261101/app-platform-audit.md`。
+`docs/quality/evidence/windows-feasibility-20261101/app-116-comparison.json`。
+`docs/quality/evidence/windows-feasibility-20261101/app-platform-local/macos-16-comparison.json`。
+本分支提交 Draft PR，不合并；AC01、AC02、AC11 均未关闭，迁移 Goal 未完成。
 
 ## 实测环境
 
@@ -377,8 +430,8 @@ G1 尚未完成，两个 Agent 的产品支持矩阵尚未冻结。
 现行计划：`docs/exec-plans/2026-11-01-windows-github-runner-goal.md`。
 HTML 展示：`docs/exec-plans/2026-11-01-windows-github-runner-goal.html`。
 
-最新结果入口：`docs/quality/evidence/windows-feasibility-20261101/41345708985/compiler-blockers.json`。
-最新校验清单：`docs/quality/evidence/windows-feasibility-20261101/41345708985/manifest.json`。
+逐项最新入口：`docs/quality/evidence/windows-feasibility-20261101/app-platform-audit.md`。
+最终校验清单：`docs/quality/evidence/windows-feasibility-20261101/41386261217/manifest.json`。
 
 前两批已分别回收独立缓存 1.8 GiB 与 2.1 GiB。
 前批确认独立target无进程使用后，回收21.5GiB及API检查缓存70.5MiB。

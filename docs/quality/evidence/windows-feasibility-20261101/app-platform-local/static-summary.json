@@ -1,0 +1,86 @@
+[
+  {
+    "id": "report-tests",
+    "exit_code": 0,
+    "log": "report-tests.log"
+  },
+  {
+    "id": "dependency-tests",
+    "exit_code": 0,
+    "log": "dependency-tests.log"
+  },
+  {
+    "id": "domain-contracts",
+    "exit_code": 0,
+    "log": "domain-contracts.log"
+  },
+  {
+    "id": "contract-tests",
+    "exit_code": 0,
+    "log": "contract-tests.log"
+  },
+  {
+    "id": "max-lines",
+    "exit_code": 0,
+    "log": "max-lines.log"
+  },
+  {
+    "id": "no-allow",
+    "exit_code": 0,
+    "log": "no-allow.log"
+  },
+  {
+    "id": "guide-lines",
+    "exit_code": 0,
+    "log": "guide-lines.log"
+  },
+  {
+    "id": "storage-boundaries",
+    "exit_code": 0,
+    "log": "storage-boundaries.log"
+  },
+  {
+    "id": "tts-boundaries",
+    "exit_code": 0,
+    "log": "tts-boundaries.log"
+  },
+  {
+    "id": "performance",
+    "exit_code": 0,
+    "log": "performance.log"
+  },
+  {
+    "id": "video",
+    "exit_code": 0,
+    "log": "video.log"
+  },
+  {
+    "id": "socks",
+    "exit_code": 0,
+    "log": "socks.log"
+  },
+  {
+    "id": "i18n",
+    "exit_code": 1,
+    "log": "i18n.log"
+  },
+  {
+    "id": "workflow",
+    "exit_code": 0,
+    "log": "workflow.log"
+  },
+  {
+    "id": "final-report-tests",
+    "exit_code": 0,
+    "tests": 10,
+    "log": "norma-app-final-report-tests.log",
+    "source_sha": "120492ca29ec49b12ed4368eb0d10e01b5d34845"
+  },
+  {
+    "id": "i18n-checker-tests",
+    "exit_code": 0,
+    "tests": 6,
+    "log": "norma-app-i18n-checker-tests.log",
+    "scope": "checker unit tests; existing product i18n check remains FAIL"
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "tested_sha": "120492ca29ec49b12ed4368eb0d10e01b5d34845",
+  "run": "41386261217",
+  "original116_accounted": true,
+  "remaining98_exact_original_matches": true,
+  "original43_preserved": true,
+  "mac16_accounted": true,
+  "all_reports_provenance_consistent": true,
+  "raw_artifact_bytes_compared": 878724,
+  "credential_pattern_matches": 0,
+  "files_scanned": 216,
+  "goal_complete": false,
+  "strict_close": "FAIL",
+  "app_compile": "FAIL",
+  "real_gui": "NOT_RUN",
+  "real_agents": "NOT_RUN",
+  "candidate_package": "NOT_RUN"
+}
