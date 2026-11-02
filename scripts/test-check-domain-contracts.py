@@ -35,7 +35,8 @@ class AgentProfileContractTests(unittest.TestCase):
         files = {
             "crates/norma/src/protocol.rs": profile_variants,
             "crates/canvas/src/node/agent_profile.rs": profile_variants,
-            "crates/agent/src/adapter.rs": f'''definition(
+            "crates/agent/src/adapter.rs": "mod definitions;\npub use definitions::norma_tool_definitions;\n",
+            "crates/agent/src/adapter/definitions.rs": f'''definition(
     "create_agent",
     object_schema(json!({{
         "profile": {{"type": "string", "enum": {schema_profiles}}}
@@ -81,8 +82,8 @@ match value {
           parser mappings       = 5（与 variants 一一对应）
 
         执行过程（逐步说明系统如何处理）：
-          1. 在临时仓库创建 adapter.rs schema 与 adapter/commands.rs parser
-          2. checker 分别读取两个 canonical 文件
+          1. 在临时仓库创建 adapter.rs 模块入口、adapter/definitions.rs schema 与 commands.rs parser
+          2. checker 分别读取拆分后的 schema 与 parser canonical 文件
           3. checker 对比 wire、canvas、schema、parser 与 storage 映射
 
         预期结果：
