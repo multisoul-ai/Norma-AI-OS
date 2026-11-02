@@ -66,6 +66,8 @@ jobs:
           $results.relay = $LASTEXITCODE
           cargo test --locked -p terminal --test windows_pty -- --nocapture 2>&1 | Tee-Object artifacts/windows-contracts/conpty.log
           $results.conpty = $LASTEXITCODE
+          cargo test --locked -p terminal --test windows_process_tree -- --nocapture 2>&1 | Tee-Object artifacts/windows-contracts/process-tree.log
+          $results.process_tree = $LASTEXITCODE
           @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; os = [Environment]::OSVersion.VersionString; commands = $results } | ConvertTo-Json -Depth 4 | Set-Content artifacts/windows-contracts/report.json
           if (@($results.Values | Where-Object { $_ -ne 0 }).Count -gt 0) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -94,6 +96,9 @@ jobs:
         with:
           shared-key: windows-port-macos-regression
           cache-on-failure: true
+          cache-directories: target/sherpa-onnx-prebuilt
+      - name: Revalidate Sherpa native link paths after cache restore
+        run: cargo clean -p sherpa-onnx-sys
       - name: Record toolchain and run affected domain regressions
         shell: bash
         run: |
@@ -172,6 +177,9 @@ jobs:
           cache-on-failure: true
           cache-workspace-crates: true
           env-vars: CARGO_PROFILE_TEST_OPT_LEVEL
+          cache-directories: target/sherpa-onnx-prebuilt
+      - name: Revalidate Sherpa native link paths after cache restore
+        run: cargo clean -p sherpa-onnx-sys
       - name: Validate bilingual keys and guard semantics
         run: |
           python3 scripts/test-i18n.py
