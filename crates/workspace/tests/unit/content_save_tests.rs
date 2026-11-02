@@ -15,7 +15,7 @@ fn exchange_preserves_external_edit_arriving_before_replace() {
     let error = replace_checked(draft, &target, &fingerprint(b"before")).expect_err("必须报告冲突");
     assert!(
         matches!(error, ContentError::SaveConflictRestored { .. }),
-        "冲突错误必须保留恢复副本语义"
+        "冲突错误必须保留恢复副本语义，实际为 {error:?}"
     );
     assert_eq!(
         std::fs::read_to_string(&target).expect("磁盘"),

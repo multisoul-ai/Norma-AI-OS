@@ -12,8 +12,9 @@ use windows_sys::Win32::{
 fn expired_parent_with_inherited_stdout_reaps_descendant_and_returns() {
     let temp = tempfile::tempdir().expect("隔离 fixture");
     let pid_file = temp.path().join("child.pid");
+    let progress = temp.path().join("launch-progress.txt");
     let mut command = Command::new("python");
-    command.args(["-c", "import subprocess,sys,pathlib; p=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); pathlib.Path(sys.argv[1]).write_text(str(p.pid))"]).arg(&pid_file);
+    command.args(["-c", "import subprocess,sys,pathlib; pathlib.Path(sys.argv[2]).write_text('launcher running'); p=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); pathlib.Path(sys.argv[1]).write_text(str(p.pid))"]).arg(&pid_file).arg(&progress);
     let start = Instant::now();
     let result = run(command, start + Duration::from_millis(1500), 1024);
     assert_eq!(
@@ -26,7 +27,13 @@ fn expired_parent_with_inherited_stdout_reaps_descendant_and_returns() {
         "超时后不能永久等待 reader 或遗留后代"
     );
     let pid = std::fs::read_to_string(pid_file)
-        .expect("launcher 必须实际启动孙进程")
+        .unwrap_or_else(|error| {
+            panic!(
+                "launcher 必须实际启动孙进程：{error}; elapsed={:?}; progress={:?}",
+                start.elapsed(),
+                std::fs::read_to_string(&progress)
+            )
+        })
         .parse::<u32>()
         .expect("真实 PID");
     let handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };

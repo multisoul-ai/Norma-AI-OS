@@ -99,3 +99,6 @@ G1、G2 的纯协议夹具可以与 G3 的编译调查交错进行；发布包�
 
 - `999b39a7`：计划冻结及 Canvas 门禁回归。GitHub Windows run `41475394387`，attempt 1，job `125379500444` 执行 `python scripts/test-windows-probe.py`：18 tests，三条 Canvas 反例全部如预期暴露错误（missing/FAIL/PASS+101 均被错误判绿）。原始日志保留在该 job，未在本地执行测试。
 - 下一提交将 `canvas_tests` 纳入独立必需门槛；只有本轮明确 PASS 且退出码为 0 才可通过。修复结果等待下一轮 runner，不将红灯提交记成通过。
+
+- `a0616877`：Canvas 汇总修复。Windows run `41475988222`，attempt 1，job `125384598403`：Rust 1.91.1，18 tests 全过；完整 run 仍在执行，不宣称其余原生门槛通过。前一个红灯 run `41475394387` 已取消剩余编译任务，红灯 job 的日志保留。
+- `deae23ec`：独立只读审查未发现 Clippy/fixture 候选中的调用或隔离回归；正常 hook 的 check/fmt 已通过，Windows/macOS runner 仍待执行此提交。下一批增加独立原生契约 workflow，保留冲突恢复和关闭原断言，仅增强失败诊断；Windows App 的配对名称改用系统环境名称，移除未受平台条件保护的 Objective-C 引用。

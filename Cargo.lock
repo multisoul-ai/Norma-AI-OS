@@ -7753,6 +7753,7 @@ dependencies = [
  "crossbeam-channel",
  "libc",
  "portable-pty",
+ "shell-words",
  "thiserror 2.0.18",
  "tracing",
 ]

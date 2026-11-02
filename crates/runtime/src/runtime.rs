@@ -1,5 +1,4 @@
 //! 节点生命周期 + LiveNode 注册表。把 canvas 文档与可运行节点组装在一起。
-
 use crate::agent_session_bindings::AgentSessionBindings;
 use crate::ego::EgoTaskSpaceReplacement;
 use crate::events::RuntimeEvents;
@@ -22,7 +21,6 @@ use storage::{
 #[cfg(test)]
 use terminal::PtyCommand;
 use terminal::{Cell, PtyError, TerminalSessionId};
-
 mod agent_process;
 mod definition_identity;
 mod input;
@@ -38,8 +36,10 @@ pub use mobile_cards::{
     MobileNativeApproval, MobileTerminalInterrupt, NativeAgentLaunch, PreparedMobileAgent,
     TerminalInputLease,
 };
-
+#[cfg(not(windows))]
 pub const DEFAULT_TERMINAL_SHELL: &str = "/bin/zsh";
+#[cfg(windows)]
+pub const DEFAULT_TERMINAL_SHELL: &str = "powershell.exe";
 pub(crate) const DEFAULT_SESSION_COLS: u16 = 80;
 pub(crate) const DEFAULT_SESSION_ROWS: u16 = 24;
 

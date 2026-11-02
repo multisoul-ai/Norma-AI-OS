@@ -105,6 +105,8 @@ impl PtyHandle {
         rows: u16,
         tx: Sender<PtyEvent>,
     ) -> Result<PtyHandle, PtyError> {
+        #[cfg(windows)]
+        let command = crate::windows_launch::prepare(command)?;
         let pty_system = native_pty_system();
         let pair = pty_system
             .openpty(PtySize {

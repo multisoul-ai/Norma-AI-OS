@@ -189,9 +189,16 @@ fn save_push(
 
 pub(super) fn code(server: &MobileServer) -> Result<(Arc<RenderImage>, String, Instant)> {
     let issued = Instant::now();
+    #[cfg(target_os = "macos")]
     let name = objc2_foundation::NSProcessInfo::processInfo()
         .hostName()
         .to_string();
+    #[cfg(not(target_os = "macos"))]
+    let name = std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .ok()
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| "Norma OS".into());
     let qr = server.begin_pairing(&name)?;
     let json = qr.to_json()?;
     let image = qr::pixels(&json)?;

@@ -31,20 +31,33 @@ fn observe(label: &str, socket: &UnixStream) {
     eprintln!("{label}: empty send={result}, error={}", unsafe {
         WSAGetLastError()
     });
+    // A real opposite-direction write distinguishes queued FIN from a stopped peer reader.
+    let result = unsafe { send(fd, b"x".as_ptr(), 1, 0) };
+    eprintln!("{label}: nonempty send={result}, error={}", unsafe {
+        WSAGetLastError()
+    });
 }
 
 /// 场景：Windows AF_UNIX 未读数据不能遮蔽关闭探测，也不能被探测消耗。
-/// 构造：128KiB固定正文，依次记录存活、shutdown和最后句柄释放三态。
+/// 构造：最多2MiB固定正文，非阻塞写到真实背压，依次记录存活、shutdown和最后句柄释放三态。
 /// 执行：只使用非消费型WinSock探测，再通过真实read_to_end校验全部字节。
 /// 预期：完整正文不变；日志明确给出各API在未读关闭时的真实结果。
 #[test]
 fn unread_socket_close_notification_diagnostics_preserve_payload() {
     let (mut source, mut receiver) = UnixStream::pair().unwrap();
-    let bytes = vec![7u8; 128 * 1024];
-    source
-        .set_write_timeout(Some(std::time::Duration::from_secs(3)))
-        .unwrap();
-    source.write_all(&bytes).unwrap();
+    let bytes = vec![7u8; 2 * 1024 * 1024];
+    source.set_nonblocking(true).unwrap();
+    let mut written = 0;
+    while written < bytes.len() {
+        match source.write(&bytes[written..]) {
+            Ok(0) => break,
+            Ok(count) => written += count,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => break,
+            Err(error) => panic!("诊断夹具写入失败：{error}"),
+        }
+    }
+    assert!(written > 0, "诊断必须保留真实未读正文");
+    let bytes = bytes[..written].to_vec();
     receiver.set_nonblocking(true).unwrap();
     observe("alive", &receiver);
     source.shutdown(Shutdown::Both).unwrap();
