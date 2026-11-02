@@ -15,12 +15,13 @@
 
 - 工作树：`/private/tmp/norma-windows-feasibility-20261101`。
 - 分支：`codex/windows-feasibility-20261101`，PR #170。
-- 已推送：`adf9cb21`、`76a21566`。最终 runner 验证尚未完成。
-- `76a21566` 的 feasibility run `41469170895` 已失败：App IPC/附件 16 项通过；workspace lib 22 过/2 败（冲突恢复、子孙进程夹具）；norma lib 30 过/1 败（连续 WouldBlock 后关闭仍超出 3 秒）。
-- 相同提交的 Windows build run `41469171059` 已失败：默认 App 从 98 条诊断缩至 1 条错误，`crates/app/src/mobile/controller/work.rs:192` 无条件引用 `objc2_foundation`；没有 release 包或真实 App 启动证据。
-- macOS CI run `41469184105` 已失败：Brain 测试注释触发两条 Clippy `doc_lazy_continuation`。不能将旧提交的结果拼成新提交通过。
-- 工作树尚有未提交的 Clippy 修复、PowerShell 准备、资源定位和交付脚本。这些属于待核对候选，不作为已通过证据。
-- 重规划时的本地 diff、未跟踪文件哈希和 HEAD 已保存到 `artifacts/pr170-goal-handoff/checkpoint.json` 与 `working-tree.patch`。
+- PR 分支当前已推送 `c26f0071`，标准CI run `41536051278` PASS；Windows build run `41536039634`仍在执行，没有候选ZIP。
+- 上一轮 `7a1a1c4c` 的默认App check PASS，build run `41530644679` 在过滤browser单测前编译整个App测试harness时失败：10条Unix/macOS专用测试夹具编译错误。`c26f0071`把同一生产browser模块及原四项测试接入既有native probe，保留真实storage依赖和锁定版本，等待复验；不宣称整个Windows App单测harness已迁移。
+- Windows原生终端、helper、文件/附件与传输契约已有通过证据，见后续记录；真实App用户流程、WebView2及其余平台能力仍未完成。
+- follow-up分支 `codex/windows-audio-20261102` 在独立worktree `/private/tmp/norma-windows-audio-20261102` 开发音频；只在验证完成后接回PR，避免持续取消长构建。
+- `5399afbd` run `41534211348`：原生麦克风枚举/权限/失效选择3项PASS。`bd4ab0f8` run `41534408042`：新增采集2项RED（仍是unsupported）。`fb66cd17` run `41535530484`：WASAPI实现后5项平台契约、voice_input 24/0/6 PASS；无物理端点，真实录音/AEC为NOT_RUN。
+- `f418389a` run `41536602913` Windows job `125589915321`：新增包解析/线程收口4项PASS，voice_input 28/0/6、voice_sherpa 26/0/8；Clippy唯一失败是capture timer可改成while-let，`1b1ac491`已修待复验。忽略数均来自原有模型/硬件测试，没有新增ignore。
+- 重规划冻结证据仍保留在 `artifacts/pr170-goal-handoff/checkpoint.json` 与 `working-tree.patch`；历史失败不改写为成功。
 
 ## 执行顺序和完成门槛
 
@@ -51,13 +52,10 @@ G1、G2 的纯协议夹具可以与 G3 的编译调查交错进行；发布包�
 
 ## 已知阻塞，按优先级处理
 
-1. **汇总假绿**：当前未提交的 summary 漏掉 `canvas_tests`；已发现 Canvas FAIL 仍可返回 0。先补缺失、FAIL、PASS+非零退出码三个反例，再修改门槛。
-2. **生产 CLI 链未覆盖**：简单 `exec` 到 PowerShell 转换不支持 Codex/OpenCode 的多行版本/等待脚本、Cursor 环境变量；Codex 尚有 `/tmp`。按平台生成实际包装器，保留控制契约，用生产 prepare 路径验证。
-3. **进程树关闭缺口**：PowerShell 不具有 POSIX exec 语义。证明 ConPTY/进程树是否收口；若不足则引入受控 Job Object。父进程退出本身不算子孙退出。
-4. **完整 App 前沿**：已缩至手机截图路径的一处 Objective-C 引用，修复后以 runner 复验默认目标与新暴露错误；另有九条 warning，不能先宣称完整编译通过。
-5. **交付验证不足**：package verify 必须要求 Resources/catalog/CRT，而非只验证已列出的文件；CRT 发现改用明确获取目录；Smoke 要检查并收口遗留子树；补 workflow 触发路径。
-6. **恢复文件保留的既有风险**：两处 `keep()` 失败时错误对象仍会清理 TempPath；极端回滚失败下可能删除唯一被置换的外部版本。需先补真实失败/故障注入回归，禁止仅凭共享句柄修复宣称 G1 关闭。
-7. **Clippy 候选待确认**：自动修复涉及调用签名和共享测试夹具。先审查差异并以 runner 编译/测试验证；恢复无关格式噪音，保持单文件上限与测试语义。
+1. **候选包尚未生成**：跟踪同源默认App、browser/helper探针及release构建；产物上传后在新runner消费同一ZIP并读取原图。窗口检查不能代替核心用户流程。
+2. **采集运行时错误尚未贯穿上层**：独立审查指出PCM断流后App ASR仍可按User完成并返回截断文本。新增生产AsrRecordingSession断流回归，先取得RED再修复；私有WASAPI stop单测不作为该调用链证据。
+3. **Windows播放仍为Noop**：新增原生端点独立枚举和生产默认sink测试；实现WASAPI播放、实际消费完成与停止确认，不用理论时长伪造完成。
+4. **其余默认能力与真实App矩阵未关闭**：WebView2、项目/终端/保存重开、双语主题、媒体/Ego/移动链路按下表逐项实现与验收。硬件例外只限制物理能力结论，不能掩盖软件未实现。
 
 ## 默认能力与验收矩阵（G0 冻结）
 

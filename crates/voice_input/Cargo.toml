@@ -8,6 +8,10 @@ license.workspace = true
 default = []
 test-support = []
 
+[[test]]
+name = "windows_app_audio"
+required-features = ["test-support"]
+
 [dependencies]
 sherpa-onnx = "1.13"
 async-channel.workspace = true
