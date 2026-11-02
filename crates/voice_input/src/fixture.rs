@@ -100,6 +100,7 @@ pub(crate) fn start_fixture_stream(
                     break;
                 }
             }
+            Ok(())
         })
         .map_err(|error| audio_error(path, error))?;
     tracing::warn!(

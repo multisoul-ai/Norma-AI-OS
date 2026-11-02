@@ -252,6 +252,12 @@ impl VoiceControlState {
             .is_some_and(ActiveSpeechSession::reached_duration_limit)
     }
 
+    pub(crate) fn asr_input_has_ended(&self) -> bool {
+        self.speech_session
+            .as_ref()
+            .is_some_and(ActiveSpeechSession::input_has_ended)
+    }
+
     pub(crate) fn clear_speech_task(&mut self) {
         self.speech_task = None;
     }

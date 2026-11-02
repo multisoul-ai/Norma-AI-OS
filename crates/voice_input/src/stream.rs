@@ -21,7 +21,7 @@ const DUPLEX_CAPTURE_READY_TIMEOUT: Duration = Duration::from_millis(800);
 
 pub struct PcmStreamSession {
     stop_tx: Option<mpsc::Sender<()>>,
-    capture_thread: Option<JoinHandle<()>>,
+    capture_thread: Option<JoinHandle<Result<(), VoiceInputError>>>,
     forward_thread: Option<JoinHandle<()>>,
     #[cfg(feature = "test-support")]
     test_hold_tx: Option<async_channel::Sender<PcmAudioChunk>>,
@@ -32,7 +32,10 @@ pub struct PcmStreamSession {
 impl PcmStreamSession {
     /// Session whose capture thread is the debug E2E fixture player.
     #[cfg(debug_assertions)]
-    pub(crate) fn from_fixture(stop_tx: mpsc::Sender<()>, thread: JoinHandle<()>) -> Self {
+    pub(crate) fn from_fixture(
+        stop_tx: mpsc::Sender<()>,
+        thread: JoinHandle<Result<(), VoiceInputError>>,
+    ) -> Self {
         Self {
             stop_tx: Some(stop_tx),
             capture_thread: Some(thread),
@@ -45,30 +48,44 @@ impl PcmStreamSession {
     }
 
     pub fn cancel(mut self) {
-        self.stop_and_join();
+        if let Err(error) = self.stop_and_join() {
+            tracing::warn!(%error, "microphone capture failed during cancellation");
+        }
     }
 
-    fn stop_and_join(&mut self) {
+    pub fn stop(mut self) -> Result<(), VoiceInputError> {
+        self.stop_and_join()
+    }
+
+    fn stop_and_join(&mut self) -> Result<(), VoiceInputError> {
         if let Some(stop_tx) = self.stop_tx.take() {
             let _ = stop_tx.send(());
         }
-        if let Some(capture_thread) = self.capture_thread.take() {
-            let _ = capture_thread.join();
-        }
-        if let Some(forward_thread) = self.forward_thread.take() {
-            let _ = forward_thread.join();
-        }
+        let capture_result = self.capture_thread.take().map_or(Ok(()), |thread| {
+            thread
+                .join()
+                .map_err(|_| VoiceInputError::Audio("microphone capture thread panicked".into()))
+                .and_then(|result| result)
+        });
+        let forward_result = self.forward_thread.take().map_or(Ok(()), |thread| {
+            thread
+                .join()
+                .map_err(|_| VoiceInputError::Audio("microphone forward thread panicked".into()))
+        });
         #[cfg(feature = "test-support")]
         {
             self.test_hold_tx.take();
             self.test_lifecycle_tx.take();
         }
+        capture_result.and(forward_result)
     }
 }
 
 impl Drop for PcmStreamSession {
     fn drop(&mut self) {
-        self.stop_and_join();
+        if let Err(error) = self.stop_and_join() {
+            tracing::warn!(%error, "microphone capture failed during drop");
+        }
     }
 }
 
@@ -250,7 +267,7 @@ fn spawn_capture_thread(
     input_device_id: Option<String>,
     voice_processing: bool,
     stats: Arc<AudioQueueStats>,
-) -> Result<JoinHandle<()>, VoiceInputError> {
+) -> Result<JoinHandle<Result<(), VoiceInputError>>, VoiceInputError> {
     std::thread::Builder::new()
         .name("voice_input_pcm_capture".to_string())
         .spawn(move || {
@@ -266,36 +283,40 @@ fn spawn_capture_thread(
                     Ok(capture) => {
                         tracing::info!(
                             target: "norma_voice",
-                            "AVAudioEngine microphone capture started"
+                            "microphone capture started"
                         );
                         let _ = started_tx.send(Ok(()));
                         let _ = stop_rx.recv();
-                        if let Err(error) = capture.stop() {
-                            tracing::error!(%error, "microphone PCM capture stopped after an audio error");
-                        }
+                        let result = capture.stop();
                         tracing::info!(
                             target: "norma_voice",
                             sent_chunks = stats.sent_chunks(),
                             dropped_chunks = stats.dropped_chunks(),
                             voice_processing,
-                            "AVAudioEngine microphone capture stopped"
+                            "microphone capture stopped"
                         );
+                        result
                     }
                     Err(error) => {
                         tracing::warn!(
                             target: "norma_voice",
                             %error,
-                            "AVAudioEngine microphone capture initialization failed"
+                            "microphone capture initialization failed"
                         );
                         let _ = started_tx.send(Err(error));
+                        Ok(())
                     }
                 }
             };
             // std::thread 没有 Cocoa autorelease pool；必须在会话结束前释放旧 IO 对象。
             #[cfg(target_os = "macos")]
-            objc2::rc::autoreleasepool(|_| run());
+            {
+                objc2::rc::autoreleasepool(|_| run())
+            }
             #[cfg(not(target_os = "macos"))]
-            run();
+            {
+                run()
+            }
         })
         .map_err(|error| {
             VoiceInputError::Audio(format!("could not spawn pcm capture thread: {error}"))

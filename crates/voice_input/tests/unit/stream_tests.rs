@@ -3,6 +3,45 @@ use crate::PcmEvent;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
+/// 场景：capture线程失败时，stop仍须join转发线程并返回原始错误。
+/// 构造：capture持有唯一PCM sender并返回确定Err，forward运行真实PCM转发后设置见证。
+/// 执行：生产PcmStreamSession.stop；预期原始Err精确保留，所有线程与输出通道已收口。
+#[test]
+fn stopping_a_failed_capture_still_joins_the_forwarder() {
+    let (stop_tx, _stop_rx) = std::sync::mpsc::channel();
+    let (pcm_tx, pcm_rx) = crossbeam_channel::bounded(1);
+    let (chunk_tx, chunk_rx) = async_channel::bounded(1);
+    let joined = Arc::new(AtomicBool::new(false));
+    let witness = Arc::clone(&joined);
+    let capture_thread = std::thread::spawn(move || {
+        drop(pcm_tx);
+        Err(crate::VoiceInputError::Audio("device invalidated".into()))
+    });
+    let forward_thread = std::thread::spawn(move || {
+        forward_pcm_events(pcm_rx, chunk_tx, None);
+        witness.store(true, Ordering::SeqCst);
+    });
+    let session = PcmStreamSession {
+        stop_tx: Some(stop_tx),
+        capture_thread: Some(capture_thread),
+        forward_thread: Some(forward_thread),
+        #[cfg(feature = "test-support")]
+        test_hold_tx: None,
+        #[cfg(feature = "test-support")]
+        test_lifecycle_tx: None,
+    };
+    assert_eq!(
+        session.stop(),
+        Err(crate::VoiceInputError::Audio("device invalidated".into())),
+        "stop不能将采集错误伪装成成功"
+    );
+    assert!(
+        joined.load(Ordering::SeqCst),
+        "capture失败不能跳过forward线程join"
+    );
+    assert!(chunk_rx.is_closed(), "返回错误时输出通道也必须完成资源收口");
+}
+
 /// STREAM-1: drop PcmStreamSession 应停止 capture thread 并关闭 chunk stream。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -35,6 +74,7 @@ fn test_drop_pcm_stream_session_stops_capture_and_closes_stream() {
         stop_count_for_thread.fetch_add(1, Ordering::SeqCst);
         stopped_for_thread.store(true, Ordering::SeqCst);
         drop(pcm_tx);
+        Ok(())
     });
     let forward_thread = std::thread::spawn(move || forward_pcm_events(pcm_rx, chunk_tx, None));
 
@@ -90,6 +130,7 @@ fn test_cancel_consumes_session_and_stops_capture_once() {
     let capture_thread = std::thread::spawn(move || {
         let _ = stop_rx.recv();
         stop_count_for_thread.fetch_add(1, Ordering::SeqCst);
+        Ok(())
     });
 
     let session = PcmStreamSession {

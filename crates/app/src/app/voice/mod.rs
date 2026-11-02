@@ -182,12 +182,26 @@ impl MultisoulApp {
             cx.background_executor()
                 .timer(std::time::Duration::from_millis(100))
                 .await;
-            let reached = this
-                .update(cx, |app, _cx| app.voice.asr_duration_limit_reached())
-                .unwrap_or(false);
-            if reached {
+            let (reached, ended) = this
+                .update(cx, |app, _cx| {
+                    (
+                        app.voice.asr_duration_limit_reached(),
+                        app.voice.asr_input_has_ended(),
+                    )
+                })
+                .unwrap_or((false, false));
+            if reached || ended {
                 let _ = this.update_in(cx, |app, window, cx| {
-                    if app.voice.finish_recording_at_duration_limit() {
+                    let finished = if reached {
+                        app.voice.finish_recording_at_duration_limit()
+                    } else {
+                        let trigger = match app.voice.phase() {
+                            VoicePhase::Recording { trigger } => Some(*trigger),
+                            _ => None,
+                        };
+                        trigger.is_some_and(|trigger| app.voice.finish_recording(trigger))
+                    };
+                    if finished {
                         app.process_finished_voice_recording(window, cx);
                         cx.notify();
                     }
