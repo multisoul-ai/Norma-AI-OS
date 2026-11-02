@@ -46,6 +46,9 @@ pub(crate) enum A1InstallProgress {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum A1InstallFailure {
     Cancelled,
+    EngineMissing,
+    EngineIntegrity,
+    EngineIncompatible,
     Python,
     PythonVersion,
     Dependencies,
@@ -68,46 +71,67 @@ fn disk(path: &Path, error: std::io::Error) -> A1InstallFailure {
     }
 }
 
-fn check_cancelled(cancelled: &AtomicBool) -> Result<(), A1InstallFailure> {
-    if cancelled.load(Ordering::Acquire) {
+pub(crate) trait InstallCancellation {
+    fn is_cancelled(&self) -> bool;
+}
+impl InstallCancellation for AtomicBool {
+    fn is_cancelled(&self) -> bool {
+        self.load(Ordering::Acquire)
+    }
+}
+impl InstallCancellation for asr::RecognitionCancellation {
+    fn is_cancelled(&self) -> bool {
+        self.is_cancelled()
+    }
+}
+
+fn check_cancelled(cancelled: &impl InstallCancellation) -> Result<(), A1InstallFailure> {
+    if cancelled.is_cancelled() {
         Err(A1InstallFailure::Cancelled)
     } else {
         Ok(())
     }
 }
 
-pub(crate) fn default_python(root: &Path) -> PathBuf {
-    asr::A1Config::from_model_root(root)
-        .ok()
-        .or_else(|| {
-            asr::default_model_installation_root()
-                .ok()
-                .and_then(|p| asr::A1Config::from_model_root(&p).ok())
-        })
-        .map(|c| c.python)
-        .unwrap_or_else(|| {
-            [
-                "/opt/homebrew/bin/python3.12",
-                "/usr/local/bin/python3.12",
-                "/usr/bin/python3",
-            ]
-            .into_iter()
-            .find(|p| Path::new(p).is_file())
-            .unwrap_or("/usr/bin/python3")
-            .into()
-        })
+/// Explicit setup/activation upgrade: retain verified models and atomically adopt the current App engine.
+pub(crate) fn ensure_runtime(
+    root: &Path,
+    cancelled: &impl InstallCancellation,
+) -> Result<asr::A1Config, asr::AsrError> {
+    let mut config = asr::A1Config::from_model_root(root)?;
+    let python = runtime::prepare(root, &engine_bundle(), cancelled)
+        .map_err(|e| asr::AsrError::Provider(format!("A1 managed engine: {e:?}")))?;
+    if config.python == python {
+        config.validate()?;
+    } else {
+        config.python_sha256 = runtime::file_hash(&python)
+            .map_err(|e| asr::AsrError::Provider(format!("A1 managed engine: {e:?}")))?;
+        config.python = python;
+        config.install_with_gate(root, || {
+            check_cancelled(cancelled).map_err(|_| asr::AsrError::SessionClosed)
+        })?;
+    }
+    check_cancelled(cancelled).map_err(|_| asr::AsrError::SessionClosed)?;
+    Ok(config)
+}
+
+pub(crate) fn engine_bundle() -> PathBuf {
+    if let Some(resources) = crate::app::wallpaper_resolvers::bundle_resources_dir() {
+        return resources.join("a1-engine");
+    }
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/a1-engine")
 }
 
 /// No model loading and no provider switch. Publish runtime.json only after every check.
 pub(crate) fn install_a1(
     root: &Path,
-    python: &Path,
-    cancelled: &AtomicBool,
+    bundle: &Path,
+    cancelled: &impl InstallCancellation,
     mut progress: impl FnMut(A1InstallProgress),
 ) -> Result<asr::A1Config, A1InstallFailure> {
     check_cancelled(cancelled)?;
     progress(A1InstallProgress::Runtime);
-    let python = runtime::prepare(root, python, cancelled)?;
+    let python = runtime::prepare(root, bundle, cancelled)?;
     let artifacts = asr::a1_model_artifacts().map_err(|_| A1InstallFailure::Manifest)?;
     let files: Vec<_> = artifacts
         .iter()
@@ -176,7 +200,7 @@ pub(crate) fn install_a1(
                 .map_err(|_| asr::AsrError::Provider("A1 installation cancelled".into()))
         })
         .map_err(|_| {
-            if cancelled.load(Ordering::Acquire) {
+            if cancelled.is_cancelled() {
                 A1InstallFailure::Cancelled
             } else {
                 A1InstallFailure::Manifest
@@ -191,7 +215,7 @@ pub(crate) fn download_verified_file(
     url: &str,
     file: &VerifiedFile,
     destination: &Path,
-    cancelled: &AtomicBool,
+    cancelled: &impl InstallCancellation,
     mut progress: impl FnMut(u64, u64),
 ) -> Result<PathBuf, A1InstallFailure> {
     check_cancelled(cancelled)?;

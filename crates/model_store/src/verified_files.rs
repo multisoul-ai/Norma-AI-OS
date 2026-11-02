@@ -95,6 +95,18 @@ fn validate_file(root: &Path, file: &VerifiedFile) -> Result<PathBuf, Installati
     Ok(path)
 }
 
+/// Verify curated contents independently of the archive's installation manifest.
+pub fn validate_file_contents(
+    files: &[VerifiedFile],
+    root: &Path,
+) -> Result<(), InstallationError> {
+    artifact(files)?;
+    for file in files {
+        validate_file(root, file)?;
+    }
+    Ok(())
+}
+
 pub fn validate_verified_files(
     model_id: &str,
     files: &[VerifiedFile],
@@ -102,9 +114,7 @@ pub fn validate_verified_files(
 ) -> Result<AvailableModel, InstallationError> {
     let artifact = artifact(files)?;
     let installed = validate_installation(model_id, &artifact, root)?;
-    for file in files {
-        validate_file(root, file)?;
-    }
+    validate_file_contents(files, root)?;
     Ok(installed)
 }
 

@@ -651,3 +651,63 @@ Jev真实页面场景 `settings-voice-jev-configuration --visual` 于 `artifacts
 证据：`opencode-reproduction.json`、`opencode-baseline-reproduction.json`、`opencode-fixture-diagnostic.json`、`opencode-fixture-mode.diff`、`accepted-socket-probe.log`，汇总 `opencode-diagnosis.json`，均位于新增证据根。保留每次单独日志。
 
 这些证据表明存在与本次A1/Jev改动无源码变化关系的基线夹具问题；不把有限样本写成所有OpenCode时序问题均已解决。历史foreground的POST计数为0这一具体断言本轮未原样复现，不能断言唯一根因已全部证明。主工作树未修改OpenCode；全仓此前失败不追认为通过，本轮也没有为追求全仓绿灯扩大生产修改。配置验收已通过，OpenCode夹具稳定性与真人语音链路仍须分别处理。
+
+
+### 2026-11-02 用户验收增量：应用托管 A1 引擎包（本轮安装配置验收通过，未提交）
+
+用户确认不再要求普通用户安装、选择或配置 Python。保留此前提交 `d80b673e`、`9967917e`、`15b3c81a`，在原独立工作区继续修改；本轮基准为 `15b3c81ae52ae4ee1502a3c4db0d8f00093020dd`，差异与配置哈希见本节追溯。此前通过记录适用于旧安装流程，本次安装器和页面变化已重新进行真实 App 验收。
+
+| 本轮验收点 | 测试或实际证据 | 当前状态 |
+| --- | --- | --- |
+| 无系统 Python 的安装 | `voice_a1_managed_engine_installs_without_a_user_python`：真实文件系统、归档与子进程边界夹具 | 聚焦测试、真实 App 完整安装均通过；页面无需 Python 选择器 |
+| 包损坏、取消与重试 | 下载损坏、引擎包损坏、缓存保留、取消不发布的聚焦测试 | A1 10 项聚焦通过；语音受影响测试最终 198 passed、2 ignored |
+| 缓存不得执行清单外文件 | 独立审查发现反例，新增 marker 失败测试实际复现后修复固定解释器路径校验 | 绿灯通过；无执行权限缓存也可自动修复 |
+| 自包含、可搬迁、签名 | 固定 SHA256 的 CPython standalone、57 项 A1 固定依赖及固定 setuptools；App 安装不运行 pip/venv | 真实包 26,974 文件、1,445,314,967 B 展开、406,940,556 B 归档；227 原生文件开发签名。正式签名/公证未验收 |
+| 已有配置与引擎更新 | 显式检查/启用时后台迁移引擎，复用旧模型，成功后原子换配置；失败保留旧配置 | 使用真实旧模型与不存在的旧解释器，迁移测试 1/1 通过，50.57 秒；未加载模型 |
+| 简化设置、中英文重开 | 使用既有 gpui-component 按钮与分组列表；遵循 Apple 的渐进呈现和及时反馈，移除 Python 选择器及主页面长路径 | 2141 双语键检查通过；中文取消/重试、英文重开与重新校验均通过 |
+
+引擎随 App 作为独立资源包提供，模型仍按需下载约 1.21 GB；资源包包含预编译依赖，不把构建机路径或可变环境作为用户配置。正式/开发打包配置及 macOS 开发运行器均接入引擎准备步骤。当前 MLX 固定依赖要求 macOS 26，安装包清单声明最低版本并在不兼容设备上明确拒绝；未声称在旧系统实测。
+
+安装与激活继续分开，安装不静默替换用户当前识别供应商；检查或启用才进行对应校验/准备。Jev 生产入口保持禁用，真实麦克风完整链路仍未通过，定量实验继续暂停。本轮未合并 dev、未替换或结束用户正在使用的正式 App。
+
+#### 本轮最终证据与追溯
+
+本轮尚未新增提交，基准 commit 为 `15b3c81ae52ae4ee1502a3c4db0d8f00093020dd`；保留此前提交历史。源文件清单哈希 `7de08fc69ec11ee73cf58b4948a201aacd9c3cb63f198c239529720e299b6103`。完整配置及结果索引在 `artifacts/a1-managed-engine-20261102/configuration.json`，SHA256 为 `9d0b5ca757cafa253cf665b18e478685ca038de418e9e7c2027ec038ba8ac926`；逐文件源码哈希在 `artifacts/a1-managed-engine-20261102/source-files.json`。
+
+| 实际运行范围 | 结果 | 证据目录或文件 |
+| --- | --- | --- |
+| A1 中文取消/重试、14 个模型文件真实下载、英文重开和复查 | 退出 0，3/3 步骤；1409.39 秒，含下载与人工逐图响应；未加载模型、未切 provider | `artifacts/desktop-workspace-e2e/2026-11-02T15-00-26Z/` |
+| 英文缺失文件与 Jev 真实 HTTP 401 反馈 | 退出 0，2/2 步骤；378.39 秒；原配置保持，未保存无效 Key，生产入口禁用 | `artifacts/desktop-workspace-e2e/2026-11-02T15-24-36Z/` |
+| 语音受影响测试 | 198 passed、0 failed、2 ignored；真实模型迁移另执行 1/1 通过 | `artifacts/a1-managed-engine-20261102/voice-tests.log`、`artifacts/a1-managed-engine-20261102/migration.log` |
+| model_store、UI 测试 | 30 passed、0 failed | `artifacts/a1-managed-engine-20261102/domain-ui-tests.log` |
+| 引擎构建器与开发运行器 | 3 项构建器测试通过；开发运行器契约通过，正式/开发 Packager 资源与前置命令解析通过 | `scripts/test-prepare-a1-engine.py`、`scripts/test-macos-dev-app-runner.sh` |
+| 编译与约束 | app check、debug build、release build、i18n、行数、no-allow、指南行数、存储边界均通过 | `artifacts/a1-managed-engine-20261102/` |
+
+两个真实 App 场景共 5/5 步骤，18 次逐图响应（含 1 次明确等待校验完成后重新取图）；未按截图存在或点击 ACK 冒充验收。14 个模型文件共 1,209,840,003 B，安装配置 SHA256 `2129e8fe605e6e160ac179d18d391ad44968718cb220aed40b2afc3df7ece36b`；新受管解释器 SHA256 `ed7add0afe13f084d7f6e45c46a5c763efacdc0f548bfc6564021e460d94a498`。引擎归档 SHA256 `90a9a4ba0be2030ef18f89421cb671f278c60ffca70ca91bc27926aca7cb8f44`。以上时间为配置/安装场景耗时，不是 T_final 或 T_route。
+
+独立 Standards 审查发现的缓存越界执行、丢失执行权限无法自修复、构建缓存未随解释器/签名配方更新三项均已修复并复核；Spec 审查发现的旧配置迁移、引擎更新和最低系统版本提示已闭环。首轮受影响测试有一条旧原型断言仍强制要求 Python 输入框，已按新需求改成负断言，最终 198 项全部通过。正式 Developer ID 引擎包与公证、旧系统跨版本运行、真人麦克风完整链路及量化性能门槛仍未验收，本轮结果不构成整个语音分支可合并结论；OpenCode 基线关系继续引用上一节，不扩大修改或声称全仓绿灯。
+
+
+### 2026-11-02 用户验收增量：安装完成反馈与 dev 集成
+
+用户反馈“没下载成功”。对用户验收实例只读检查后，实际两次安装均成功（UTC 15:44:55 与 16:00:25）；14/14 模型文件及解释器哈希匹配，配置 SHA256 `4389805cd2eeb1f08fc7de5fe0106490ba093587e25abbf6f781292fe02ab521`。识别 provider 未切为 A1。根因是安装完成后主按钮仍显示“下载安装”，安装与启用的状态反馈不明确；不是本轮下载失败。原始诊断与修复前截图在 `artifacts/a1-installed-feedback-20261102/`，未修改用户验收实例的数据。
+
+先补两条失败回归测试，再将成功主操作改为禁用的“已安装 / Installed”，另设“重新安装 / Reinstall”；已保存配置在文件复查通过后同步为已安装，旧校验不能覆盖正在安装状态。下方明确显示“已安装，尚未启用”及“使用本地精准 / Use Accurate”。遵循 Apple 的明确状态、直接操作与渐进呈现原则，复用既有组件，不自动激活模型。
+
+| 增量验收 | 实际结果 | 证据 |
+| --- | --- | --- |
+| 状态机回归 | 先红后绿；12 passed、1 ignored | `artifacts/a1-installed-feedback-20261102/state-tests.log` |
+| 受影响语音测试 | 200 passed、0 failed、2 ignored，执行10.87秒；编译7分24秒 | `artifacts/a1-installed-feedback-20261102/voice-tests.log` |
+| 中英文真实 App | `settings-voice-a1-installed-actions --visual`，退出0，2/2步骤通过，537.08秒；点击禁用按钮不重复下载，配置、包目录与provider保持 | `artifacts/desktop-workspace-e2e/2026-11-02T16-39-57Z/` |
+| 实际模型来源 | 复用15:00真实下载并验证的完整安装，以APFS克隆进入隔离目录；未用合成模型，未声称再次下载或进行识别 | 同上，含完整性复查与原始看图请求/响应 |
+| 编译/静态检查 | 新debug构建通过；fmt、diff检查、2144个双语键、行数/no-allow/指南约束通过 | `artifacts/a1-installed-feedback-20261102/debug-build.log`、`artifacts/a1-installed-feedback-20261102/i18n.log` |
+
+本轮12次看图请求均实际读取原图并响应，含两次明确等待校验完成后重新取图，未放宽300秒预算。实际主题为中文Sapphire Night、英文Ink Black：旧 `paper-blue` 已被仓库迁移为Ink Black，不能记为浅色主题通过。完整模型下载、取消/重试、Jev真实配置验证、安全存储和原引擎包release结果复用上两节的对应证据；最终反馈UI仅重建debug并实测，没有将旧release结果冒充本次新release。
+
+构建期间曾因ENOSPC失败，属于环境问题，未作为测试通过。确认本次Cargo结束、取得构建锁且lsof无引用后，只回收本工作区9个闲置app增量缓存目录，未动源码、录音、模型、证据或用户App。关闭增量编译重试后debug构建成功（9分11秒），语音测试亦通过。记录 `artifacts/a1-installed-feedback-20261102/cache-recovery.json`，原失败日志保留。
+
+集成前发现旧PR的CI在domain-contract脚本崩溃：schema已拆到 `crates/agent/src/adapter/definitions.rs`，脚本仍读adapter入口。最新dev也有此错误。先将现有两条测试夹具对齐真实拆分结构，复现2条IndexError失败，再只修正schema路径；2条测试及真实仓库契约检查均通过。独立提交 `e5f9ffcd`，未改变Agent行为或放宽契约。红绿日志位于本轮证据根。
+
+追溯：本轮实现基准 `15b3c81ae52ae4ee1502a3c4db0d8f00093020dd`，另保留 `d80b673e`、`9967917e`。新增源码清单 `artifacts/a1-installed-feedback-20261102/source-files.json`，SHA256 `c29af5c118d18d9d85cbc03a124d20f73f8b36993b15b58882f8353a7d407b07`；配置/结果索引 `artifacts/a1-installed-feedback-20261102/configuration.json`，SHA256 `c2d6aa8a8b29b8f81c2df6df2f3065bb448e64f298ea5a110e00e6505b4f53df`。承载实现的提交以本节所在提交及后续集成记录为准，不自引用预生成commit。
+
+用户已明确要求合并到dev，按正常hook和PR检查执行集成、保留历史提交。此授权不改变证据边界：真人麦克风录音/松键/A1终稿/目标澄清/派发/真实回执的完整链路仍未通过；Jev生产入口禁用、定量实验暂停，正式Developer ID包与公证仍未验证。不替换或终止用户当前App，不清理主工作区他人改动。合并结果待实际完成后记录，不能将合并等同全部语音验收完成。

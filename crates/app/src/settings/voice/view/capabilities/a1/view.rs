@@ -3,12 +3,18 @@ use crate::settings::{
     typography::{SettingsText, TextRole},
     voice::view::components::VoiceAction,
 };
-use gpui::{div, prelude::*, px, Render};
+use gpui::{div, prelude::*, px, Context, Render, Window};
 use ui::component::{button::Button, Disableable};
 
 impl Render for A1Panel {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
+        let installed = matches!(self.state, State::Installed);
+        let primary_selector = if installed {
+            "voice-a1-installed"
+        } else {
+            "voice-a1-download-install"
+        };
         let (text, error, selector) = match &self.state {
             State::Idle => (
                 ui::i18n::text("voice.a1_install_idle").to_string(),
@@ -70,39 +76,31 @@ impl Render for A1Panel {
                     .child(ui::i18n::text("voice.a1_name")),
             )
             .child(super::super::helper(theme, "voice.a1_install_hint"))
-            .child(super::super::field(
-                theme,
-                "voice.a1_python",
-                &self.input,
-                "voice-a1-python",
-                self.busy,
-                cx,
-            ))
             .child(
                 div()
                     .flex()
                     .flex_wrap()
                     .gap(px(8.0))
                     .child(
-                        Button::new("voice-a1-choose-python")
-                            .outline()
-                            .label(ui::i18n::text("voice.a1_choose_python"))
-                            .disabled(self.busy)
-                            .on_activate(
-                                cx.listener(|view, _, window, cx| view.choose_python(window, cx)),
-                            ),
-                    )
-                    .child(
                         Button::new("voice-a1-download-install")
-                            .debug_selector(|| "voice-a1-download-install".into())
-                            .label(ui::i18n::text(if matches!(self.state, State::Failed(_)) {
-                                "voice.a1_install_retry"
-                            } else {
-                                "voice.a1_install_action"
-                            }))
-                            .disabled(self.busy || self.input.read(cx).value().trim().is_empty())
-                            .on_activate(cx.listener(|view, _, _, cx| view.install(cx))),
+                            .debug_selector(move || primary_selector.into())
+                            .label(ui::i18n::text(self.state.install_label_key()))
+                            .disabled(self.busy || !self.state.can_install())
+                            .on_activate(cx.listener(|view, _, _, cx| {
+                                if view.state.can_install() {
+                                    view.install(cx);
+                                }
+                            })),
                     )
+                    .when(installed, |row| {
+                        row.child(
+                            Button::new("voice-a1-reinstall")
+                                .outline()
+                                .debug_selector(|| "voice-a1-reinstall".into())
+                                .label(ui::i18n::text("voice.a1_reinstall"))
+                                .on_activate(cx.listener(|view, _, _, cx| view.install(cx))),
+                        )
+                    })
                     .when(self.busy, |row| {
                         row.child(
                             Button::new("voice-a1-cancel-install")
@@ -118,13 +116,5 @@ impl Render for A1Panel {
                     }),
             )
             .child(super::super::status(theme, text, error, selector))
-            .child(
-                div()
-                    .settings_text(TextRole::Helper, theme)
-                    .child(ui::i18n::format(
-                        "voice.a1_install_location",
-                        &[("path", self.root.join("a1").display().to_string())],
-                    )),
-            )
     }
 }

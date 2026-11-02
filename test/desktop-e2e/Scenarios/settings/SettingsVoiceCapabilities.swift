@@ -14,20 +14,37 @@ enum SettingsVoiceCapabilities {
         _ = try await session.capturePixels()
         session.stop()
         try seed(session, theme: "ink-black")
-        try await session.step("英文A1安装失败反馈与恢复入口") {
+        try await session.step("英文A1缺失文件反馈与恢复入口") {
+            guard let data = session.dataRoot else { throw E2EError.env("缺少隔离根目录") }
+            let root = data.appendingPathComponent("models/a1")
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            let invalid: [String: Any] = ["protocol": 1, "python": root.appendingPathComponent("missing-engine").path,
+                "python_sha256": String(repeating: "0", count: 64),
+                "zipformer": root.appendingPathComponent("missing-model").path, "qwen": root.appendingPathComponent("missing-model").path]
+            let manifest = root.appendingPathComponent("runtime.json")
+            let previous = try JSONSerialization.data(withJSONObject: invalid, options: [.sortedKeys])
+            try previous.write(to: manifest)
             try await openVoice(session, language: "en", scroll: -480)
-            try await session.visualClick("点击A1的Python 3.12 runtime路径输入框")
-            try await session.selectAll()
-            try await session.type("/norma-e2e-missing-python")
-            try await session.visualClick("点击A1的Download and install按钮")
-            try session.save(try await session.visualCheck([
-                VisualCriterion(id: "a1-failure-en", text: "英文明确提示Python文件不存在或无法执行、选择Python 3.12后重试，Retry installation和路径输入框可用；没有中文错误、未翻译键或虚假的安装成功")
-            ]), "a1-invalid-python-en.png")
-            guard let data = session.dataRoot,
-                  !FileManager.default.fileExists(atPath: data.appendingPathComponent("models/a1/runtime.json").path) else {
-                throw E2EError.product("失败安装不得生成runtime.json")
+            guard let output = session.output else { throw E2EError.env("缺少证据目录") }
+            let log = output.appendingPathComponent("app.log")
+            let offset = (try? Data(contentsOf: log).count) ?? 0
+            try await session.visualClick("点击A1的Check local files按钮")
+            let deadline = Date().addingTimeInterval(150)
+            while true {
+                try session.ensureRunning()
+                if let bytes = try? Data(contentsOf: log), bytes.count > offset,
+                   let recent = String(data: bytes.dropFirst(offset), encoding: .utf8),
+                   recent.contains("A1 preparation failed") { break }
+                if Date() >= deadline { throw E2EError.env("真实缺失文件检查超过150秒，不能把运行中误记为失败结果") }
+                try await Task.sleep(nanoseconds: 1_000_000_000)
             }
-            return "英文实际无效Python失败，配置未写入，恢复入口可用"
+            try session.save(try await session.visualCheck([
+                VisualCriterion(id: "a1-failure-en", text: "英文明确提示语音引擎或模型文件缺失，并提供下载安装恢复入口；没有要求用户安装或选择Python的字段，没有虚假成功或未翻译键")
+            ]), "a1-missing-files-en.png")
+            guard try Data(contentsOf: manifest) == previous else {
+                throw E2EError.product("失败的文件校验不得覆盖原配置")
+            }
+            return "英文实际文件缺失失败，原配置保留，页面无需Python配置"
         }
         try await session.step("英文Jev真实拒绝反馈与重试入口") {
             try await session.scroll(xFraction: 0.55, yFraction: 0.6, deltaY: -640)
@@ -62,29 +79,37 @@ enum SettingsVoiceCapabilities {
 
     static func runA1(_ session: Session) async throws {
         defer { session.stop() }
-        let python = try VoiceCapabilitiesFixture.preparedPython()
         try session.launch(language: "zh-Hans")
         _ = try await session.capturePixels()
         session.stop()
         try seed(session, theme: "sapphire-night")
         guard let data = session.dataRoot, let output = session.output else { throw E2EError.env("缺少隔离根目录") }
         let manifest = data.appendingPathComponent("models/a1/runtime.json")
-        try await session.step("A1无效Python明确失败并可编辑恢复") {
+        try await session.step("无需Python配置即可安装，取消后可重试") {
             try await openVoice(session, language: "zh-Hans", scroll: -480)
-            try await session.visualClick("点击A1的Python 3.12运行环境路径输入框")
-            try await session.selectAll()
-            try await session.type("/norma-e2e-missing-python")
-            try await session.visualClick("点击A1的下载安装或重试安装按钮，不点检查本地文件或启用A1")
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "failure", text: "A1明确显示Python文件不存在或无法执行，并提示选择Python 3.12后重试；不能声称安装成功。输入框和可重试操作仍可用，未出现未翻译键或文字重叠")
-            ]), "a1-invalid-python.png")
-            guard !FileManager.default.fileExists(atPath: manifest.path) else { throw E2EError.product("失败安装不得保存runtime.json") }
-            return "真实无效运行环境返回失败，未创建安装配置"
+                VisualCriterion(id: "managed-install", text: "A1提供下载安装入口，说明自动准备引擎；不再出现Python路径输入框、选择Python按钮或安装目录长路径；中文分组布局清晰")
+            ]), "a1-managed-install-zh.png")
+            let log = output.appendingPathComponent("app.log")
+            let offset = (try? Data(contentsOf: log).count) ?? 0
+            try await session.visualClick("点击A1的下载安装按钮，不点检查本地文件")
+            try await session.visualClick("点击A1的取消安装按钮")
+            let cancelDeadline = Date().addingTimeInterval(120)
+            while true {
+                try session.ensureRunning()
+                if let bytes = try? Data(contentsOf: log), bytes.count > offset,
+                   let recent = String(data: bytes.dropFirst(offset), encoding: .utf8),
+                   recent.contains("A1 installation failed") { break }
+                if Date() >= cancelDeadline { throw E2EError.env("引擎当前安装操作在取消后超过120秒仍未收口") }
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+            try session.save(try await session.visualCheck([
+                VisualCriterion(id: "cancelled", text: "A1显示安装已取消，原配置未被替换，并有可用的重试安装按钮；没有虚假的安装成功或用户Python配置要求")
+            ]), "a1-cancelled-zh.png")
+            guard !FileManager.default.fileExists(atPath: manifest.path) else { throw E2EError.product("取消不得保存runtime.json") }
+            return "真实安装取消，未创建模型配置，自动运行环境不需要用户输入"
         }
         try await session.step("从页面下载14个固定模型文件并保存配置") {
-            try await session.visualClick("点击A1的Python运行环境输入框以更正路径")
-            try await session.selectAll()
-            try await session.type(python)
             let log = output.appendingPathComponent("app.log")
             let offset = (try? Data(contentsOf: log).count) ?? 0
             try await session.visualClick("点击A1的下载安装或重试安装按钮")
@@ -110,10 +135,10 @@ enum SettingsVoiceCapabilities {
             }
             _ = try VoiceCapabilitiesFixture.verifyA1(dataRoot: data, output: output)
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "installed", text: "A1显示模型文件与运行环境已安装并通过校验；说明启用时才加载模型，下载安装按钮恢复可操作，没有停留在下载中或假装已开始录音；中文状态和路径可读")
+                VisualCriterion(id: "installed", text: "A1显示模型文件与运行环境已安装并通过校验，主按钮明确为禁用的已安装，旁边有重新安装入口；下方提示尚未启用并提供使用本地精准，不出现下载中或已录音的假状态")
             ]), "a1-installed-zh.png")
             try VoiceCapabilitiesFixture.keepLog(output: output, name: "a1-install-zh.log")
-            return "真实网络下载，14个文件逐一复查长度与SHA256，Python哈希匹配，未启用引擎"
+            return "真实模型下载14文件逐项校验，应用自带引擎安装到隔离受管目录，未启用模型"
         }
         try await session.step("英文重开A1配置并复查已有安装") {
             let previous = try Data(contentsOf: manifest)
@@ -121,7 +146,7 @@ enum SettingsVoiceCapabilities {
             try seed(session, theme: "ink-black")
             try await openVoice(session, language: "en", scroll: -480)
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "reload", text: "英文A1配置显示此前保存的Python路径与Saved A1 configuration found，不声称本次已做连接或识别；输入框和安装按钮可见，文案无重叠和未翻译键")
+                VisualCriterion(id: "reload", text: "英文A1配置显示Saved A1 configuration found，没有Python路径输入框、选择Python按钮或长安装路径；安装和检查入口可用，不声称已识别，文案无重叠或未翻译键")
             ]), "a1-reopened-en.png")
             try await session.scroll(xFraction: 0.55, yFraction: 0.6, deltaY: -160)
             try await session.visualClick("点击A1的Check local files检查本地文件按钮，不点Activate A1")

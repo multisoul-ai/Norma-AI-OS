@@ -56,7 +56,9 @@ pub(in crate::settings::voice::view) fn a1_detail(
         .child(compact_setup_row(
             theme,
             ui::i18n::text("voice.a1_readiness"),
-            ui::i18n::text(if allowed {
+            ui::i18n::text(if allowed && ready && !active {
+                "voice.a1_ready_to_activate"
+            } else if allowed {
                 "voice.a1_description"
             } else {
                 "voice.a1_single_only"
@@ -117,7 +119,7 @@ impl MultisoulApp {
             if cancellation.is_cancelled() {
                 return Err("A1 preparation cancelled".to_string());
             }
-            asr::A1Config::from_model_root(&root)
+            crate::settings::voice::a1_install::ensure_runtime(&root, &cancellation)
                 .and_then(|config| {
                     if prepare {
                         asr::A1RecognizerFactory::new(config)

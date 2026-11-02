@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 #[derive(Clone, Default)]
 pub(crate) struct A1SetupSnapshot {
-    pub python: PathBuf,
     pub configured: bool,
 }
 
@@ -20,7 +19,6 @@ impl VoiceSettingsState {
             }
         }
         self.a1_setup = A1SetupSnapshot {
-            python: crate::settings::voice::a1_install::default_python(&self.model_root),
             configured: asr::A1Config::from_model_root(&self.model_root).is_ok(),
         };
     }

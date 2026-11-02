@@ -70,24 +70,20 @@ impl VoiceSettingsInputs {
             let root = state.model_root().to_owned();
             let snapshot = state.a1_setup_snapshot();
             let host = cx.entity().downgrade();
-            self.a1_panel = Some(cx.new(|cx| {
-                A1Panel::new(
-                    root,
-                    snapshot.python,
-                    snapshot.configured,
-                    host,
-                    theme,
-                    window,
-                    cx,
-                )
-            }));
+            self.a1_panel =
+                Some(cx.new(|cx| A1Panel::new(root, snapshot.configured, host, theme, cx)));
         }
         if self.jev_panel.is_none() {
             let store = state.credential_store();
             self.jev_panel = Some(cx.new(|cx| JevPanel::new(store, theme, window, cx)));
         }
         if let Some(view) = &self.a1_panel {
-            view.update(cx, |view, _| view.theme = theme);
+            view.update(cx, |view, cx| {
+                view.theme = theme;
+                if state.a1_requirement() == crate::settings::voice::VoiceRequirementState::Ready {
+                    view.files_verified(cx);
+                }
+            });
         }
         if let Some(view) = &self.jev_panel {
             view.update(cx, |view, _| view.theme = theme);
@@ -99,12 +95,8 @@ impl VoiceSettingsInputs {
         window: &Window,
         cx: &App,
     ) -> bool {
-        self.a1_panel
+        self.jev_panel
             .as_ref()
             .is_some_and(|view| view.read(cx).input.focus_handle(cx).is_focused(window))
-            || self
-                .jev_panel
-                .as_ref()
-                .is_some_and(|view| view.read(cx).input.focus_handle(cx).is_focused(window))
     }
 }

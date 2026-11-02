@@ -5,6 +5,54 @@ use std::{
     sync::atomic::AtomicBool,
 };
 
+/// 场景：已有A1配置引用已删除的外部Python，升级应用应只迁移引擎并复用模型。
+/// 构造：读取本机已校验真实模型，将其只读路径写进隔离配置，解释器设为不存在。
+/// 执行：通过显式运行环境迁移入口准备应用自带引擎并重开配置。
+/// 预期：模型路径完全保留，解释器转入本次受管目录，完整校验通过且无模型下载目录。
+#[test]
+#[ignore = "requires real A1 engine package and previously verified model files"]
+fn voice_a1_real_engine_migration_reuses_existing_models() {
+    let source =
+        PathBuf::from(std::env::var_os("NORMA_A1_ACCEPTANCE_SOURCE_ROOT").expect("真实模型源目录"));
+    let previous = asr::A1Config::from_model_root(&source).expect("真实已安装模型配置");
+    let temp = tempfile::tempdir().expect("隔离迁移目录");
+    fs::create_dir(temp.path().join("a1")).expect("隔离配置目录");
+    let mut legacy = previous.clone();
+    legacy.python = temp.path().join("removed-external-python");
+    legacy.python_sha256 = "0".repeat(64);
+    fs::write(
+        temp.path().join("a1/runtime.json"),
+        serde_json::to_vec(&legacy).expect("旧配置JSON"),
+    )
+    .expect("旧配置");
+    let upgraded = ensure_runtime(temp.path(), &AtomicBool::new(false)).expect("引擎自动迁移");
+    assert_eq!(
+        upgraded.zipformer, previous.zipformer,
+        "升级不能重新下载或移动原预览模型"
+    );
+    assert_eq!(
+        upgraded.qwen, previous.qwen,
+        "升级不能重新下载或移动原终稿模型"
+    );
+    assert!(
+        upgraded.python.starts_with(temp.path().join("a1/engines")),
+        "升级后不得继续依赖外部Python"
+    );
+    assert!(
+        upgraded.validate().is_ok(),
+        "迁移后的完整安装必须通过实际校验"
+    );
+    assert_eq!(
+        asr::A1Config::from_model_root(temp.path()).expect("重开配置"),
+        upgraded,
+        "重开应加载受管引擎"
+    );
+    assert!(
+        !temp.path().join("a1/packages").exists(),
+        "运行环境迁移不应启动模型重下载"
+    );
+}
+
 fn server(body: &'static [u8]) -> (String, std::thread::JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("本机HTTP夹具");
     let url = format!("http://{}/weights", listener.local_addr().expect("地址"));
@@ -66,25 +114,25 @@ fn voice_a1_download_rejects_corrupt_http_and_retry_succeeds() {
     );
 }
 
-/// 场景：用户选择的Python不存在时，安装须在任何模型下载或配置替换前失败。
-/// 构造：隔离模型根保存旧manifest，Python路径指向该目录下不存在的绝对路径。
+/// 场景：应用自带的引擎包不存在时，安装须在任何模型下载或配置替换前失败。
+/// 构造：隔离模型根保存旧manifest，引擎包路径指向该目录下不存在的绝对路径。
 /// 执行：调用完整安装入口，随后检查错误、旧manifest与包目录。
-/// 预期：明确报告Python错误；原配置保持逐字不变，不能形成新模型安装。
+/// 预期：明确报告引擎包缺失；原配置保持逐字不变，不能形成新模型安装。
 #[test]
-fn voice_a1_install_invalid_python_preserves_previous_manifest() {
+fn voice_a1_install_missing_engine_preserves_previous_manifest() {
     let temp = tempfile::tempdir().expect("隔离目录");
     std::fs::create_dir(temp.path().join("a1")).expect("配置目录");
     let manifest = temp.path().join("a1/runtime.json");
     std::fs::write(&manifest, b"previous-installation").expect("原配置");
     let result = install_a1(
         temp.path(),
-        &temp.path().join("missing-python"),
+        &temp.path().join("missing-engine"),
         &AtomicBool::new(false),
         |_| {},
     );
     assert!(
-        matches!(result, Err(A1InstallFailure::Python)),
-        "失效Python路径须给出可恢复的明确原因"
+        matches!(result, Err(A1InstallFailure::EngineMissing)),
+        "缺失引擎包须给出可恢复的明确原因"
     );
     assert_eq!(
         std::fs::read(&manifest).expect("原配置"),
@@ -93,7 +141,7 @@ fn voice_a1_install_invalid_python_preserves_previous_manifest() {
     );
     assert!(
         !temp.path().join("a1/packages").exists(),
-        "Python无效不能启动模型安装"
+        "引擎缺失不能启动模型安装"
     );
 }
 

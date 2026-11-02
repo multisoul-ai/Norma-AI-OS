@@ -3,14 +3,6 @@ import E2EKit
 import Foundation
 
 public enum VoiceCapabilitiesFixture {
-    public static func preparedPython() throws -> String {
-        guard let path = ProcessInfo.processInfo.environment["NORMA_A1_ACCEPTANCE_PYTHON"],
-              FileManager.default.isExecutableFile(atPath: path) else {
-            throw E2EError.env("需要NORMA_A1_ACCEPTANCE_PYTHON指向本机Python 3.12；固定依赖由App检查或准备")
-        }
-        return path
-    }
-
     public static func requireJevCredential() throws {
         guard let secret = ProcessInfo.processInfo.environment["TYPESAFE_API_KEY"], !secret.isEmpty else {
             throw E2EError.env("真实Jev验收需要已授权的TYPESAFE_API_KEY；不会使用假服务代替")
@@ -35,6 +27,10 @@ public enum VoiceCapabilitiesFixture {
         guard URL(fileURLWithPath: zipformer).standardizedFileURL.path.hasPrefix(owned),
               URL(fileURLWithPath: qwen).standardizedFileURL.path.hasPrefix(owned) else {
             throw E2EError.product("测试安装必须写入隔离模型目录，不能替换用户模型配置")
+        }
+        let engineRoot = dataRoot.appendingPathComponent("models/a1/engines").standardizedFileURL.path + "/"
+        guard URL(fileURLWithPath: python).standardizedFileURL.path.hasPrefix(engineRoot) else {
+            throw E2EError.product("解释器必须来自应用自带的受管引擎，不能引用系统Python或实验环境")
         }
         guard try sha256(URL(fileURLWithPath: python)) == pythonHash else {
             throw E2EError.product("已保存的Python完整性不匹配")

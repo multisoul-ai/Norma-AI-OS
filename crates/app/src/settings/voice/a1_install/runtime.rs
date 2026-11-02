@@ -1,4 +1,4 @@
-use super::{check_cancelled, disk, A1InstallFailure};
+use super::{check_cancelled, disk, A1InstallFailure, InstallCancellation};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
@@ -6,7 +6,6 @@ use std::{
     io::Read,
     path::{Path, PathBuf},
     process::{Command, Stdio},
-    sync::atomic::AtomicBool,
     time::{Duration, Instant},
 };
 
@@ -24,14 +23,18 @@ mod tests;
 fn run(
     mut command: Command,
     seconds: u64,
-    cancelled: &AtomicBool,
+    cancelled: &impl InstallCancellation,
 ) -> Result<Vec<u8>, A1InstallFailure> {
     check_cancelled(cancelled)?;
     command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .env_remove("PYTHONPATH")
-        .env_remove("PYTHONHOME");
+        .env_remove("PYTHONHOME")
+        .env_remove("DYLD_LIBRARY_PATH")
+        .env_remove("DYLD_FALLBACK_LIBRARY_PATH")
+        .env("HF_HUB_OFFLINE", "1")
+        .env("TRANSFORMERS_OFFLINE", "1");
     #[cfg(target_os = "macos")]
     {
         use std::os::unix::process::CommandExt;
@@ -118,7 +121,10 @@ fn run(
     Ok(output)
 }
 
-fn packages_match(python: &Path, cancelled: &AtomicBool) -> Result<bool, A1InstallFailure> {
+fn packages_match(
+    python: &Path,
+    cancelled: &impl InstallCancellation,
+) -> Result<bool, A1InstallFailure> {
     if !python.is_absolute() || !python.is_file() {
         return Err(A1InstallFailure::Python);
     }
@@ -127,7 +133,7 @@ fn packages_match(python: &Path, cancelled: &AtomicBool) -> Result<bool, A1Insta
         .filter_map(|l| l.split_once("=="))
         .map(|(name, version)| (name.into(), version.into()))
         .collect();
-    let script="import sys,json,importlib.metadata as m\ndef version(n):\n try:return m.version(n)\n except m.PackageNotFoundError:return None\nnames=json.loads(sys.argv[1]);print(json.dumps({'version':list(sys.version_info[:2]),'packages':{n:version(n) for n in names}}))";
+    let script="import sys,json,importlib.metadata as m\nimport mlx.core,numpy,sherpa_onnx\nfrom mlx_audio.stt.utils import load_model\ndef version(n):\n try:return m.version(n)\n except m.PackageNotFoundError:return None\nnames=json.loads(sys.argv[1]);print(json.dumps({'version':list(sys.version_info[:2]),'packages':{n:version(n) for n in names}}))";
     let mut command = Command::new(python);
     command.args(["-I", "-B", "-c", script]).arg(
         serde_json::to_string(&expected.keys().collect::<Vec<_>>())
@@ -155,55 +161,12 @@ fn save_cache(cached: &Path, python: &Path) -> Result<(), A1InstallFailure> {
     Ok(())
 }
 
+mod managed;
+
 pub(super) fn prepare(
     root: &Path,
-    python: &Path,
-    cancelled: &AtomicBool,
+    bundle: &Path,
+    cancelled: &impl InstallCancellation,
 ) -> Result<PathBuf, A1InstallFailure> {
-    if packages_match(python, cancelled)? {
-        return Ok(python.to_owned());
-    }
-    let a1 = root.join("a1");
-    fs::create_dir_all(&a1).map_err(|e| disk(&a1, e))?;
-    let cached = a1.join("python-runtime.json");
-    if let Ok(bytes) = fs::read(&cached) {
-        if let Ok(path) = serde_json::from_slice::<PathBuf>(&bytes) {
-            if packages_match(&path, cancelled).unwrap_or(false) {
-                return Ok(path);
-            }
-        }
-    }
-    let temporary = tempfile::Builder::new()
-        .prefix("runtime-")
-        .tempdir_in(&a1)
-        .map_err(|e| disk(&a1, e))?;
-    let mut venv = Command::new(python);
-    venv.args(["-I", "-B", "-m", "venv"]).arg(temporary.path());
-    run(venv, 120, cancelled)?;
-    let installed_python = temporary.path().join("bin/python");
-    let lock = temporary.path().join("requirements.lock");
-    fs::write(&lock, asr::A1_REQUIREMENTS).map_err(|e| disk(&lock, e))?;
-    let mut pip = Command::new(&installed_python);
-    pip.args([
-        "-I",
-        "-B",
-        "-m",
-        "pip",
-        "--isolated",
-        "install",
-        "--quiet",
-        "--only-binary=:all:",
-        "--index-url",
-        "https://pypi.org/simple",
-        "--requirement",
-    ])
-    .arg(&lock);
-    run(pip, 900, cancelled)?;
-    if !packages_match(&installed_python, cancelled)? {
-        return Err(A1InstallFailure::DependencyVersions);
-    }
-    // Venv scripts contain absolute paths, so retain this verified directory without renaming.
-    save_cache(&cached, &installed_python)?;
-    let _ = temporary.keep();
-    Ok(installed_python)
+    managed::prepare(root, bundle, cancelled)
 }

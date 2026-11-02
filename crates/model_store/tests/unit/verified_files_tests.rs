@@ -1,6 +1,34 @@
 use crate::{install_verified_files, validate_verified_files, VerifiedFile};
 use std::fs;
 
+/// 场景：归档安装有自己的manifest，仍需独立验证每个引擎文件的实际内容。
+/// 构造：三字节abc与公开SHA256向量；不伪造另一种安装manifest。
+/// 执行：通过内容校验接口检查正确文件，再改为同长度的bad重查。
+/// 预期：正确内容通过，损坏内容拒绝，校验不新增或改写安装记录。
+#[test]
+fn verified_contents_work_without_replacing_archive_manifest() {
+    let temp = tempfile::tempdir().expect("隔离归档目录");
+    fs::write(temp.path().join("library"), b"abc").expect("正确库文件");
+    let files = [VerifiedFile::new(
+        "library",
+        3,
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    )];
+    assert!(
+        crate::validate_file_contents(&files, temp.path()).is_ok(),
+        "独立内容校验应接受正确文件"
+    );
+    fs::write(temp.path().join("library"), b"bad").expect("损坏文件");
+    assert!(
+        crate::validate_file_contents(&files, temp.path()).is_err(),
+        "不能只校验存在或长度"
+    );
+    assert!(
+        !temp.path().join("installation.json").exists(),
+        "只读校验不能生成另一种安装记录"
+    );
+}
+
 /// 场景：下载内容损坏时不得提交安装；同一次请求使用正确内容重试可安装。
 /// 构造：临时下载目录中写入bad；可信目录约定3字节abc及其公开SHA256测试向量。
 /// 执行：安装损坏文件后检查目标不存在，再换成abc重试并篡改安装内容重新校验。

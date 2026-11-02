@@ -2,6 +2,9 @@ use crate::settings::voice::a1_install::A1InstallFailure;
 
 pub(in crate::settings::voice::view) fn failure(error: &A1InstallFailure) -> String {
     let key = match error {
+        A1InstallFailure::EngineMissing => "voice.a1_engine_missing",
+        A1InstallFailure::EngineIntegrity => "voice.a1_engine_integrity",
+        A1InstallFailure::EngineIncompatible => "voice.a1_engine_incompatible",
         A1InstallFailure::Cancelled => "voice.a1_install_cancelled",
         A1InstallFailure::Python => "voice.a1_invalid_python",
         A1InstallFailure::PythonVersion => "voice.a1_python_version",
@@ -37,7 +40,13 @@ pub(in crate::settings::voice::view) fn failure(error: &A1InstallFailure) -> Str
 }
 
 pub(in crate::settings::voice::view) fn preparation_failure(error: &str) -> String {
-    ui::i18n::text(if error.contains("memory pressure") {
+    ui::i18n::text(if error.contains("EngineMissing") {
+        "voice.a1_engine_missing"
+    } else if error.contains("EngineIntegrity") {
+        "voice.a1_engine_integrity"
+    } else if error.contains("EngineIncompatible") {
+        "voice.a1_engine_incompatible"
+    } else if error.contains("memory pressure") {
         "voice.a1_memory_pressure"
     } else if error.contains("No such file") || error.contains("not found") {
         "voice.a1_missing_files"

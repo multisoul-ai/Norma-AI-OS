@@ -2,7 +2,7 @@ use crate::{
     app::MultisoulApp,
     settings::voice::a1_install::{self, A1InstallFailure, A1InstallProgress},
 };
-use gpui::{AppContext, Context, Entity, Subscription, WeakEntity, Window};
+use gpui::{Context, WeakEntity};
 use std::{
     path::PathBuf,
     sync::{
@@ -10,10 +10,7 @@ use std::{
         Arc,
     },
 };
-use ui::{
-    component::input::{InputEvent, InputState},
-    Theme,
-};
+use ui::Theme;
 pub(super) mod messages;
 mod view;
 
@@ -25,6 +22,28 @@ enum State {
     Failed(A1InstallFailure),
 }
 impl State {
+    fn install_label_key(&self) -> &'static str {
+        match self {
+            Self::Installed => "voice.a1_installed",
+            Self::Saved => "voice.a1_reinstall",
+            Self::Failed(_) => "voice.a1_install_retry",
+            _ => "voice.a1_install_action",
+        }
+    }
+
+    fn can_install(&self) -> bool {
+        matches!(self, Self::Idle | Self::Saved | Self::Failed(_))
+    }
+
+    fn files_verified(&mut self) -> bool {
+        if matches!(self, Self::Saved) {
+            *self = Self::Installed;
+            true
+        } else {
+            false
+        }
+    }
+
     fn progress(&mut self, event: A1InstallProgress) {
         if matches!(self, Self::Running(_)) {
             *self = Self::Running(event);
@@ -33,7 +52,6 @@ impl State {
 }
 
 pub(in crate::settings::voice::view) struct A1Panel {
-    pub(super) input: Entity<InputState>,
     pub(super) theme: Theme,
     root: PathBuf,
     host: WeakEntity<MultisoulApp>,
@@ -42,7 +60,6 @@ pub(in crate::settings::voice::view) struct A1Panel {
     cancelling: bool,
     generation: u64,
     cancelled: Arc<AtomicBool>,
-    _subscription: Subscription,
 }
 
 impl Drop for A1Panel {
@@ -52,32 +69,20 @@ impl Drop for A1Panel {
 }
 
 impl A1Panel {
+    pub(super) fn files_verified(&mut self, cx: &mut Context<Self>) {
+        if self.state.files_verified() {
+            cx.notify();
+        }
+    }
+
     pub(super) fn new(
         root: PathBuf,
-        python: PathBuf,
         configured: bool,
         host: WeakEntity<MultisoulApp>,
         theme: Theme,
-        window: &mut Window,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) -> Self {
-        let input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .default_value(python.to_string_lossy().to_string())
-                .placeholder(ui::i18n::input_placeholder(
-                    "voice.a1_python_placeholder",
-                    window,
-                    cx,
-                ))
-        });
-        let subscription = cx.subscribe(&input, |view, _, event: &InputEvent, cx| {
-            if matches!(event, InputEvent::Change) && !view.busy {
-                view.state = State::Idle;
-                cx.notify();
-            }
-        });
         Self {
-            input,
             theme,
             root,
             host,
@@ -90,39 +95,14 @@ impl A1Panel {
             cancelling: false,
             generation: 0,
             cancelled: Arc::new(AtomicBool::new(false)),
-            _subscription: subscription,
         }
-    }
-
-    fn choose_python(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.busy {
-            return;
-        }
-        let picker = cx.prompt_for_paths(gpui::PathPromptOptions {
-            files: true,
-            directories: false,
-            multiple: false,
-            prompt: Some(ui::i18n::text("voice.a1_choose_python").into()),
-        });
-        cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = picker.await {
-                if let Some(path) = paths.first() {
-                    let _ = this.update_in(cx, |view, window, cx| {
-                        view.input.update(cx, |input, cx| {
-                            input.set_value(path.to_string_lossy().to_string(), window, cx)
-                        });
-                    });
-                }
-            }
-        })
-        .detach();
     }
 
     fn install(&mut self, cx: &mut Context<Self>) {
         if self.busy {
             return;
         }
-        let python = PathBuf::from(self.input.read(cx).value().trim());
+        let bundle = a1_install::engine_bundle();
         self.cancelled = Arc::new(AtomicBool::new(false));
         self.busy = true;
         self.cancelling = false;
@@ -140,7 +120,7 @@ impl A1Panel {
         let cancelled = self.cancelled.clone();
         let (sender, receiver) = async_channel::unbounded();
         let work = cx.background_executor().spawn(async move {
-            a1_install::install_a1(&root, &python, &cancelled, |event| {
+            a1_install::install_a1(&root, &bundle, cancelled.as_ref(), |event| {
                 let _ = sender.try_send(event);
             })
         });

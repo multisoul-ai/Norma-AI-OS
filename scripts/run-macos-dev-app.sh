@@ -159,6 +159,7 @@ hydrate_development_media() {
 # shared development bundle. Rebuild from an empty bundle so codesign never
 # sees stale nested code whose sealed Info.plist belongs to another binary.
 if [ "$binary_name" = "norma-os" ]; then
+  python3 "$repo_root/scripts/prepare-a1-engine.py"
   hydrate_development_media
   (cd "$repo_root" && scripts/prepare-release-media.sh --local-test)
 fi
@@ -190,6 +191,7 @@ if [ "$binary_name" = "norma-os" ]; then
     exit 1
   fi
   mkdir -p "$bundle_resources"
+  cp -R "$repo_root/build/a1-engine" "$bundle_resources/"
   cp -R "$repo_root/packaging/macos/en.lproj" "$bundle_resources/"
   cp -R "$repo_root/packaging/macos/zh-CN.lproj" "$bundle_resources/"
   cp -R "$repo_root/crates/app/assets/home" "$bundle_resources/"

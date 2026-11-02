@@ -78,8 +78,8 @@ fn voice_settings_match_grouped_prototype_before_setup() {
 
 /// 场景：分组列表必须提供A1完整安装和Jev配置入口，不能只显示诊断或未接入提示。
 /// 构造：隔离App与默认语音模式，1280×850采用原有桌面验收基准。
-/// 执行：从公开语音设置入口绘制，查找Python输入、安装操作及Jev密钥/保存/验证操作。
-/// 预期：所有真实配置入口存在，空输入不能虚构已连接或Jev生产已启用。
+/// 执行：从公开语音设置入口绘制，查找安装操作及Jev密钥/保存/验证操作。
+/// 预期：安装无需Python输入，真实配置入口存在，不能虚构已连接或Jev生产已启用。
 #[test]
 fn voice_settings_expose_a1_install_and_jev_configuration() {
     let temp = tempfile::tempdir().expect("隔离目录");
@@ -98,7 +98,6 @@ fn voice_settings_expose_a1_install_and_jev_configuration() {
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
     for selector in [
-        "voice-a1-python",
         "voice-a1-download-install",
         "voice-jev-api-key",
         "voice-jev-save",
@@ -110,6 +109,10 @@ fn voice_settings_expose_a1_install_and_jev_configuration() {
             "用户应能找到真实配置入口：{selector}"
         );
     }
+    assert!(
+        cx.debug_bounds("voice-a1-python").is_none(),
+        "应用托管引擎不能再要求普通用户配置Python"
+    );
     assert!(
         cx.debug_bounds("voice-jev-connected").is_none(),
         "未经真实校验不能声称连接成功"

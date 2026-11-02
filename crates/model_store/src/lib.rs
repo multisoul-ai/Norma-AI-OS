@@ -2,7 +2,9 @@
 
 mod installation;
 mod verified_files;
-pub use verified_files::{install_verified_files, validate_verified_files, VerifiedFile};
+pub use verified_files::{
+    install_verified_files, validate_file_contents, validate_verified_files, VerifiedFile,
+};
 
 #[cfg(test)]
 #[path = "../tests/unit/verified_files_tests.rs"]
