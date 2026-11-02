@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/windows-audio-*']
-    paths: ['crates/voice_input/**', 'crates/voice_sherpa/**', 'crates/audio/**', 'crates/app/src/app/voice/playback*', 'crates/app/src/app/voice/playback/**', 'crates/app/tests/unit/windows_playback_tests.rs', 'crates/app/tests/platform_probe/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-audio.yml']
+    paths: ['crates/voice_input/**', 'crates/voice_sherpa/**', 'crates/audio/**', 'crates/app/src/app/voice/**', 'crates/app/tests/unit/windows_playback_tests.rs', 'crates/app/tests/unit/recognition_capture_tests.rs', 'crates/app/tests/platform_probe/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-audio.yml']
 permissions:
   contents: read
 env:
