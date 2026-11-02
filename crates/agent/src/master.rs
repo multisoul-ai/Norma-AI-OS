@@ -6,6 +6,8 @@ mod error;
 pub use error::NormaSessionError;
 mod delegation;
 mod memory_session;
+mod single_voice;
+mod voice_resume;
 use crate::master_history::{history_char_budget, is_human_user_message, protocol_history_chars};
 use crate::rig_tools::{
     AssignAgentTaskTool, CancelAgentReplyTool, CancelAgentTaskTool, CreateAgentTool,
@@ -85,10 +87,32 @@ impl ModelFactory {
 #[derive(Clone)]
 pub struct NormaCancelHandle {
     active_turn: Arc<Mutex<CancellationToken>>,
+    pending_voice_cancellation: Arc<Mutex<CancellationToken>>,
+    active_single_voice: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl NormaCancelHandle {
     pub fn cancel(&self) {
+        self.supersede_turn();
+        self.pending_voice_cancellation
+            .lock()
+            .expect("voice draft cancellation lock")
+            .cancel();
+    }
+    pub fn cancel_voice(&self) {
+        if self
+            .active_single_voice
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            self.supersede_turn();
+        }
+        self.pending_voice_cancellation
+            .lock()
+            .expect("voice draft cancellation lock")
+            .cancel();
+    }
+    /// Replacing a completed turn preserves its pending target clarification.
+    pub fn supersede_turn(&self) {
         self.active_turn
             .lock()
             .expect("Norma active turn lock should not be poisoned")
@@ -104,6 +128,9 @@ pub struct NormaSession {
     canvas: CurrentCanvasContext,
     desktop_context: Option<DesktopContext>,
     roster: Vec<AgentRosterEntry>,
+    pending_voice: Option<single_voice::PendingVoiceCommand>,
+    pending_voice_cancellation: Arc<Mutex<CancellationToken>>,
+    active_single_voice: Arc<std::sync::atomic::AtomicBool>,
     protocol_history: Vec<Message>,
     session_id: String,
     memory_enabled: bool,
@@ -137,6 +164,9 @@ impl NormaSession {
             model_name: config.model().to_owned(),
             tools: NormaToolRuntime::new(adapter),
             roster: Vec::new(),
+            pending_voice: None,
+            pending_voice_cancellation: Arc::new(Mutex::new(CancellationToken::new())),
+            active_single_voice: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             protocol_history: Vec::new(),
             session_id: uuid::Uuid::new_v4().to_string(),
             memory_enabled: false,
@@ -160,6 +190,8 @@ impl NormaSession {
     pub fn cancel_handle(&self) -> NormaCancelHandle {
         NormaCancelHandle {
             active_turn: Arc::clone(&self.active_turn),
+            pending_voice_cancellation: Arc::clone(&self.pending_voice_cancellation),
+            active_single_voice: Arc::clone(&self.active_single_voice),
         }
     }
 
@@ -213,6 +245,22 @@ impl NormaSession {
         if input.is_empty() {
             return Err(NormaSessionError::EmptyInput);
         }
+        let pending_voice = self.pending_voice.take().filter(|_| {
+            matches!(
+                input_source,
+                crate::AgentInputSource::SingleVoiceCommand { .. }
+            ) && crate::voice_command::is_clarification_attempt(input, &self.roster)
+        });
+        let pending_valid = pending_voice
+            .as_ref()
+            .is_none_or(|draft| draft.is_current(&self.roster));
+        self.active_single_voice.store(
+            matches!(
+                input_source,
+                crate::AgentInputSource::SingleVoiceCommand { .. }
+            ),
+            std::sync::atomic::Ordering::Release,
+        );
         let cancellation = self.begin_turn(
             delegation
                 .as_ref()
@@ -224,7 +272,7 @@ impl NormaSession {
                 NormaDelegation::turn_id,
             );
             self.next_turn_id = self.next_turn_id.saturating_add(1);
-            let model_input = delegation
+            let mut model_input = delegation
                 .as_ref()
                 .map_or_else(|| input.to_string(), NormaDelegation::model_input);
             let contextual_delete_targets = self
@@ -239,11 +287,26 @@ impl NormaSession {
                 turn_id,
                 user_input: input.to_string(),
                 input_source,
+                voice_commit: None,
                 contextual_delete_targets,
                 tool_call_id: String::new(),
                 operation_id: None,
                 cancellation: cancellation.clone(),
             };
+            let mut voice_replan = None;
+            if matches!(input_source, crate::AgentInputSource::SingleVoiceCommand { .. }) {
+                if let Some(draft) = pending_voice {
+                    match self.resume_voice_draft(draft,pending_valid,&context,deltas.as_ref()).await? {
+                        voice_resume::VoiceResume::Done(result)=>return Ok(result),
+                        voice_resume::VoiceResume::Replan {draft,model_input:request}=>{model_input=request;voice_replan=Some(draft);}
+                    }
+                }
+                if let crate::voice_command::VoicePlan::Proposals(proposals) =
+                    crate::voice_command::plan_voice_command(input, &self.roster)
+                {
+                    return self.submit_voice_proposals(proposals, &context, deltas.as_ref()).await;
+                }
+            }
             let frame = tokio::select! {
                 biased;
                 _ = cancellation.cancelled() => return Err(NormaSessionError::Cancelled),
@@ -269,6 +332,7 @@ impl NormaSession {
                 return Ok(NormaTurnResult {
                     final_text,
                     tool_calls: 0,
+                    voice_feedback: None,
                 });
             }
             let history = self.protocol_history.clone();
@@ -279,9 +343,9 @@ impl NormaSession {
                 max_input_bytes: request_budget::input_bytes(self.context_window_tokens),
                 input: model_input,
                 history,
-                context,
+                context: context.clone(),
                 cancellation,
-                deltas,
+                deltas: if matches!(input_source, crate::AgentInputSource::SingleVoiceCommand { .. }) { None } else { deltas.clone() },
                 desktop_active: matches!(
                     self.desktop_context,
                     Some(
@@ -300,13 +364,25 @@ impl NormaSession {
                 }
             }?;
             self.replace_protocol_history(result.new_messages);
+            if !result.voice_proposals.is_empty() {
+                if let Some(draft) = voice_replan { return self.submit_voice_replan(draft,&context,result.voice_proposals,deltas.as_ref()).await; }
+                return self.submit_voice_proposals(result.voice_proposals, &context, deltas.as_ref()).await;
+            }
             let final_text = visible_norma_reply(&result.final_text);
             if final_text.is_empty() {
                 return Err(NormaSessionError::MissingFinalResponse);
             }
+            if matches!(input_source, crate::AgentInputSource::SingleVoiceCommand { .. })
+                && (voice_replan.is_some() || crate::voice_command::requires_action_receipt(input, &self.roster)) {
+                return Ok(single_voice::feedback(crate::voice_command::VoiceFeedback::NoActionReceipt, 0));
+            }
+            if matches!(input_source, crate::AgentInputSource::SingleVoiceCommand { .. }) {
+                if let Some(sender) = &deltas { let _ = sender.send(final_text.clone()).await; }
+            }
             Ok(NormaTurnResult {
                 final_text,
                 tool_calls: result.tool_calls,
+                voice_feedback: None,
             })
         })
         .await
@@ -355,12 +431,14 @@ impl NormaSession {
 pub struct NormaTurnResult {
     pub final_text: String,
     pub tool_calls: usize,
+    pub voice_feedback: Option<crate::voice_command::VoiceFeedback>,
 }
 
 struct InternalTurnResult {
     final_text: String,
     tool_calls: usize,
     new_messages: Vec<Message>,
+    voice_proposals: Vec<crate::voice_command::VoiceProposal>,
 }
 
 struct TurnRequest {

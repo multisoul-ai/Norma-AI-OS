@@ -1,0 +1,42 @@
+{
+  "at": "2026-11-01T05:36:43.197569+00:00",
+  "commit": "f0740f6cc2f2a03da32e15ddb238abf3dfdb4af2",
+  "scope": "isolated settings prototype and design plan",
+  "variants": 3,
+  "prototype_logic_tests": {
+    "passed": 9,
+    "failed": 0,
+    "red_phase_observed": true
+  },
+  "template_checks": {
+    "render_cases": 60,
+    "dialogs": 13,
+    "languages": 2
+  },
+  "html_script_syntax_and_assets_checked": [
+    "docs/prototypes/voice-command-settings/index.html",
+    "docs/exec-plans/2026-10-31-voice-command-redesign-plan.html",
+    "docs/design-docs/2026-10-31-voice-command-jev-architecture.html"
+  ],
+  "browser_acceptance": "not performed: browser access host unavailable",
+  "production_changes": false,
+  "api_calls": 0,
+  "asr_runs": 0,
+  "private_recordings_or_transcripts_read": false,
+  "credentials_in_artifacts": false,
+  "files_sha256": {
+    "docs/prototypes/voice-command-settings/README.md": "3f05192a84da8b06e90c4f94c509685047a0de2fe70df8224efb41a23e47861c",
+    "docs/prototypes/voice-command-settings/build.mjs": "a958274e9c6f5787067de7457e3212127b9dcd055ae870e9d4df53973effa7af",
+    "docs/prototypes/voice-command-settings/check-render.mjs": "572517385cab184bfa82772bb679dae5ec5134ad76307c45fb34679076b105db",
+    "docs/prototypes/voice-command-settings/index.html": "58d949b5ec24e8a25742b20caa768954007b304e6f790142d8857c0d24dd9347",
+    "docs/prototypes/voice-command-settings/src/app.mjs": "72c071a3b03528c4412975adc67635c296142a6671ed6d2eeb35404e718f2243",
+    "docs/prototypes/voice-command-settings/src/locales.mjs": "9cf63b11817a9f86b5e764b113e5a4a02a5355295807eb1318eb4ad983157253",
+    "docs/prototypes/voice-command-settings/src/model.mjs": "c746df1c0eb579467843202931b9aeb0adbb8928bb2bd32f95a3518b17e805ff",
+    "docs/prototypes/voice-command-settings/src/picker.css": "f292574d26d73a6a95b5f36e1c09182ae135a9f5b2e5c89cf3716942aa40f993",
+    "docs/prototypes/voice-command-settings/src/picker.html": "68b518212128032e5766392c5f8220c540e61848d9849dac02cd27dabcbe1fd1",
+    "docs/prototypes/voice-command-settings/src/picker.js": "7c000ed11d75aa47abba683f74572dc618be397ba4a0af74f76f51fa028b54dd",
+    "docs/prototypes/voice-command-settings/src/styles.css": "de2c4835f6fb192f837200188eb143cf2daa27af0ce208ccc1256a5875c263a7",
+    "docs/prototypes/voice-command-settings/src/views.mjs": "14875854b0e38a258d3073d1e30fb11a62bcf0b29652715e4fd1a86a6b05ae82",
+    "docs/prototypes/voice-command-settings/tests/model.test.mjs": "df87e8bd8fc933fa135054685c0080a4c404a154dd030db76243b006ffb791ed"
+  }
+}

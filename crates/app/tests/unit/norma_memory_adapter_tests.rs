@@ -18,6 +18,7 @@ fn context(turn: &str) -> ToolContext {
         turn_id: turn.into(),
         user_input: "请合并重复中文偏好".into(),
         input_source: agent::AgentInputSource::Other,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "memory-call".into(),
         operation_id: Some(turn.into()),

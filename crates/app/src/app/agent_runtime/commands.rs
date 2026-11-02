@@ -107,17 +107,13 @@ pub(super) fn execute_coordinated_agent_command(
             app, name, profile, activate, area, zoom,
         ),
         CardCommand::ActivateAgent { name } => {
-            let definition = app
-                .agent_definitions
-                .definition_by_address(&name)
-                .cloned()
-                .ok_or_else(|| {
-                    CardCommandError::agent(
-                        AgentErrorCode::UnknownAgent,
-                        format!("未找到 Agent：{name}"),
-                        false,
-                    )
-                })?;
+            let definition = app.voice_bound_definition(&name).cloned().ok_or_else(|| {
+                CardCommandError::agent(
+                    AgentErrorCode::UnknownAgent,
+                    format!("未找到 Agent：{name}"),
+                    false,
+                )
+            })?;
             if !definition.enabled {
                 return Err(CardCommandError::agent(
                     AgentErrorCode::AgentDisabled,
@@ -142,8 +138,7 @@ pub(super) fn execute_coordinated_agent_command(
                 .iter()
                 .map(|assignment| {
                     let definition = app
-                        .agent_definitions
-                        .definition_by_address(&assignment.name)
+                        .voice_bound_definition(&assignment.name)
                         .cloned()
                         .ok_or_else(|| {
                             CardCommandError::agent(

@@ -113,6 +113,7 @@ impl VoiceSettingsState {
             return false;
         }
         if snapshot.asr_provider != self.saved.asr_provider
+            || snapshot.local_asr_provider != self.saved.local_asr_provider
             || snapshot.desktop_mode != self.saved.desktop_mode
             || snapshot.interaction_mode != self.saved.interaction_mode
         {

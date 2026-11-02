@@ -28,6 +28,7 @@ fn context(original: &str) -> ToolContext {
         turn_id: "doubao:turn-1".into(),
         user_input: original.into(),
         input_source: AgentInputSource::DoubaoVoice,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "call-1".into(),
         operation_id: Some("doubao:turn-1:call-1".into()),

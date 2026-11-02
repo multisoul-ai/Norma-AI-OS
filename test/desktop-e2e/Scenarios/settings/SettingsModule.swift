@@ -13,6 +13,12 @@ public enum SettingsModule {
             SettingsGlobalAppearance.name,
             SettingsLiveConfiguration.name,
             SettingsA1Configuration.name,
+            SettingsVoiceCommandsPrototype.name,
+            SettingsVoiceCommandsPrototype.sectionsName,
+            SettingsVoiceCapabilities.a1Name,
+            SettingsA1InstalledActions.name,
+            SettingsVoiceCapabilities.jevName,
+            SettingsVoiceCapabilities.errorsName,
             SettingsShortcutCustomize.name,
             SettingsShortcutDefaults.name,
             SettingsOrchestrationPathConvention.name,
@@ -21,9 +27,17 @@ public enum SettingsModule {
             SettingsDispatchEffects.name,
             SettingsRunEffects.name,
         ],
-        visualScenarioNames: [SettingsThemeConsistency.name],
+        visualScenarioNames: [SettingsThemeConsistency.name, SettingsA1Configuration.name, SettingsVoiceCommandsPrototype.name, SettingsVoiceCommandsPrototype.sectionsName, SettingsVoiceCapabilities.a1Name, SettingsA1InstalledActions.name, SettingsVoiceCapabilities.jevName, SettingsVoiceCapabilities.errorsName],
         run: { scenario, session in
             switch scenario {
+            case SettingsA1InstalledActions.name:
+                try await SettingsA1InstalledActions.run(session)
+            case SettingsVoiceCapabilities.errorsName:
+                try await SettingsVoiceCapabilities.runEnglishErrors(session)
+            case SettingsVoiceCapabilities.a1Name:
+                try await SettingsVoiceCapabilities.runA1(session)
+            case SettingsVoiceCapabilities.jevName:
+                try await SettingsVoiceCapabilities.runJev(session)
             case SettingsThemeConsistency.name:
                 try await SettingsThemeConsistency.run(session)
             case SettingsNavigation.name:
@@ -38,6 +52,10 @@ public enum SettingsModule {
                 try await SettingsGlobalAppearance.run(session)
             case SettingsA1Configuration.name:
                 try await SettingsA1Configuration.run(session)
+            case SettingsVoiceCommandsPrototype.sectionsName:
+                try await SettingsVoiceCommandsPrototype.runSections(session)
+            case SettingsVoiceCommandsPrototype.name:
+                try await SettingsVoiceCommandsPrototype.run(session)
             case SettingsLiveConfiguration.name:
                 try await SettingsLiveConfiguration.run(session)
             case SettingsShortcutCustomize.name:

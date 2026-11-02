@@ -230,6 +230,15 @@ printf 'static fixture preview\n' >build/release-media/wallpaper-previews/option
 MEDIA
 chmod +x "$fixture_root/scripts/prepare-release-media.sh"
 
+# 这里只验证runner把构建时生成的引擎资源带入bundle；真实依赖和签名另行验收。
+cat >"$fixture_root/scripts/prepare-a1-engine.py" <<'ENGINE'
+from pathlib import Path
+output = Path(__file__).resolve().parents[1] / "build/a1-engine"
+output.mkdir(parents=True, exist_ok=True)
+(output / "engine.json").write_text("fixture engine manifest\n")
+(output / "engine.tar.bz2").write_bytes(b"fixture engine payload")
+ENGINE
+
 # 新 worktree 有本地 LFS 对象但媒体文件仍是指针时，开发启动必须先还原真实字节。
 cat >"$fixture_bin/git" <<'GIT'
 #!/usr/bin/env bash
@@ -421,6 +430,9 @@ if ! cmp -s "$fixture_auth_extension_manifest" "$bundle_auth_extension_manifest"
 fi
 
 bundle_wallpaper="$tmp_dir/Norma OS Dev.app/Contents/Resources/wallpapers/1407174.mp4"
+if ! cmp -s "$fixture_root/build/a1-engine/engine.tar.bz2" "$tmp_dir/Norma OS Dev.app/Contents/Resources/a1-engine/engine.tar.bz2"; then
+  fail "development bundle must carry the complete prebuilt A1 engine resource"
+fi
 if ! cmp -s "$fixture_home_source" "$tmp_dir/Norma OS Dev.app/Contents/Resources/home/fixture.txt"; then
   fail "development bundle must include the home resources copied by the runner"
 fi

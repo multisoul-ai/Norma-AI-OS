@@ -128,6 +128,7 @@ fn turn() -> ToolContext {
         turn_id: "session:turn-7".into(),
         user_input: "当前目标是什么".into(),
         input_source: agent::AgentInputSource::DoubaoVoice,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: String::new(),
         operation_id: None,

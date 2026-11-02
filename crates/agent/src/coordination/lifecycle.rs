@@ -64,7 +64,6 @@ impl AgentTaskCoordinator {
             .agents
             .iter_mut()
             .find(|agent| agent.roster.definition_id == definition_id)?;
-        let node_id = agent.roster.active_node_id?;
         if let Some(completed) = agent.active.take() {
             mark_task_terminal_maps(
                 &mut self.unfinished_tasks,
@@ -103,7 +102,7 @@ impl AgentTaskCoordinator {
                 source_node_id: next.source_node_id,
                 definition_id,
                 name: agent.roster.name.clone(),
-                node_id,
+                node_id: next.target_node_id,
                 task: next.task,
                 state: AgentDispatchState::SubmittedManaged,
             })

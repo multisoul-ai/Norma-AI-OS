@@ -24,6 +24,7 @@ mod realtime_intent;
 mod reply_visibility;
 mod rig_tools;
 mod tool_policy;
+pub mod voice_command;
 
 pub use realtime_intent::realtime_command_authorized;
 pub use tool_policy::{ToolCallBudget, ToolCallPolicy, MAX_TOOL_CALLS_PER_TURN};
@@ -82,3 +83,5 @@ pub use provider_catalog::{
     discover_provider_models, normalize_provider_models, validate_provider_model,
     ProviderCatalogError,
 };
+
+pub mod jev_choice;

@@ -82,6 +82,18 @@ impl SettingsPanelLayout {
         }
     }
 
+    fn for_voice_commands(mut self, width: f32, height: f32) -> Self {
+        if width >= 1100.0 {
+            self.width = (width * 0.94).min(1280.0).min(width - 64.0);
+            self.height = (height * 0.9).min(900.0).min(height - 64.0);
+            // Preserve room for the existing product/version footer.
+            self.sidebar_width = 256.0;
+            self.left = (width - self.width) * 0.5;
+            self.top = (height - self.height) * 0.5;
+        }
+        self
+    }
+
     fn content_width(self) -> f32 {
         match self.navigation_mode {
             SettingsNavigationMode::TopBar => self.width,
@@ -221,7 +233,23 @@ impl MultisoulApp {
         let win = window.viewport_size();
         let win_w = f32::from(win.width);
         let win_h = f32::from(win.height);
-        let layout = SettingsPanelLayout::for_viewport(win_w, win_h);
+        let mut layout = SettingsPanelLayout::for_viewport(win_w, win_h);
+        if self.settings_panel.active_section == SettingsSection::NormaVoice
+            && self.voice_settings.values().desktop_mode()
+                == crate::settings::voice::DesktopVoiceMode::Legacy
+        {
+            layout = layout.for_voice_commands(win_w, win_h);
+            let roster = self.single_voice_roster();
+            let project = self.workspace_state.current_root.clone();
+            self.voice_settings_inputs
+                .prepare_command_preview(self.theme, project, roster, window, cx);
+            self.voice_settings_inputs.prepare_capabilities(
+                &self.voice_settings,
+                self.theme,
+                window,
+                cx,
+            );
+        }
         debug_assert!(
             layout.content_width() > 0.0,
             "settings layout must reserve positive content width"

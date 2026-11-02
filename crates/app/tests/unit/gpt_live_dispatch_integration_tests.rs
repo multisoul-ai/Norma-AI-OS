@@ -137,6 +137,7 @@ fn gpt_live_sse_to_real_project_adapter_records_one_browser_and_replays_receipt(
         turn_id: turn_id.clone(),
         user_input: work.snapshot.user_input.clone(),
         input_source: AgentInputSource::GptLiveVoice,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "replay".into(),
         operation_id: Some(format!("{turn_id}:step-1")),

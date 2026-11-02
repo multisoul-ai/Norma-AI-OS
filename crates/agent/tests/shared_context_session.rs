@@ -328,6 +328,7 @@ async fn tool_continuation_rechecks_complete_request_budget() {
             turn_id: "t".into(),
             user_input: "报告详情".into(),
             input_source: agent::AgentInputSource::Other,
+            voice_commit: None,
             contextual_delete_targets: vec![],
             tool_call_id: String::new(),
             operation_id: None,

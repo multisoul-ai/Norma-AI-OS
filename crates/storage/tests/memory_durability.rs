@@ -88,6 +88,7 @@ fn partial_read_cannot_authorize_overwriting_unseen_text() {
         turn_id: turn.into(),
         user_input: "请纠正记忆：覆盖".into(),
         input_source: agent::AgentInputSource::Other,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "call".into(),
         operation_id: Some(turn.into()),

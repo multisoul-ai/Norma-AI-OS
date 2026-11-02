@@ -45,8 +45,10 @@ pub(super) fn spawn_turn(
             let collected_deltas = Arc::clone(&produced_deltas);
             let live_events = runtime.events.clone();
             let stopped = runtime.cancelled.clone();
+            let event_generation = Arc::clone(&runtime.generation);
             let delta_forwarder = tokio::spawn(async move {
                 while let Some(text) = delta_rx.recv().await {
+                    if event_generation.load(Ordering::Acquire) != turn_generation { break; }
                     let event = AgentEvent::DialogueTextDelta { text };
                     collected_deltas
                         .lock()
@@ -55,7 +57,7 @@ pub(super) fn spawn_turn(
                     tokio::select! {
                         biased;
                         _ = stopped.cancelled() => break,
-                        _ = live_events.send(event) => {}
+                        _ = live_events.send(RuntimeEvent::for_turn(event,turn_generation,Arc::clone(&event_generation),input_source)) => {}
                     }
                 }
             });
@@ -74,8 +76,21 @@ pub(super) fn spawn_turn(
                 let _ = response.send(Err("Norma Session 已关闭".into())).await;
                 return;
             }
+            if runtime.generation.load(Ordering::Acquire) != turn_generation {
+                let _ = response.send(Err(ui::i18n::text("voice.command_scope_changed").into())).await;
+                return;
+            }
             match result {
-                Ok(_result) => {
+                Ok(result) => {
+                    if let Some(feedback) = result.voice_feedback {
+                        let event = AgentEvent::DialogueTextDelta { text: super::voice_command::feedback_text(&feedback) };
+                        produced_deltas.lock().expect("Norma streamed event lock should not be poisoned").push(event.clone());
+                        tokio::select! {
+                            biased;
+                            _ = runtime.cancelled.cancelled() => return,
+                            _ = runtime.events.send(RuntimeEvent::for_turn(event,turn_generation,Arc::clone(&runtime.generation),input_source)) => {}
+                        }
+                    }
                     let mut produced = produced_deltas
                         .lock()
                         .expect("Norma streamed event lock should not be poisoned")
@@ -88,7 +103,7 @@ pub(super) fn spawn_turn(
                             let _ = response.send(Err("Norma Session 已关闭".into())).await;
                             return;
                         }
-                        _ = runtime.events.send(AgentEvent::DialogueStreamFinished) => {}
+                        _ = runtime.events.send(RuntimeEvent::for_turn(AgentEvent::DialogueStreamFinished,turn_generation,Arc::clone(&runtime.generation),input_source)) => {}
                     }
                     let _ = response.send(Ok(produced)).await;
                 }
@@ -97,7 +112,7 @@ pub(super) fn spawn_turn(
                     tokio::select! {
                         biased;
                         _ = runtime.cancelled.cancelled() => {},
-                        _ = runtime.events.send(AgentEvent::ProviderError { message: message.clone() }) => {}
+                        _ = runtime.events.send(RuntimeEvent::for_turn(AgentEvent::ProviderError { message: message.clone() },turn_generation,Arc::clone(&runtime.generation),input_source)) => {}
                     }
                     let _ = response.send(Err(message)).await;
                 }

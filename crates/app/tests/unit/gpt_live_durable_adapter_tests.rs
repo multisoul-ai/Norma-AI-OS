@@ -35,6 +35,7 @@ fn context() -> ToolContext {
         turn_id: "stable-intent:gpt-live:r2".into(),
         user_input: "创建一个终端".into(),
         input_source: agent::AgentInputSource::GptLiveVoice,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "changing-model-call-id".into(),
         operation_id: Some("stable-intent:gpt-live:r2:step-1".into()),

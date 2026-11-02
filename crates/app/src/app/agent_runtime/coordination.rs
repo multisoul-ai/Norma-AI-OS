@@ -73,11 +73,13 @@ impl MultisoulApp {
             .definitions()
             .iter()
             .map(|definition| {
-                let active_node_id = self.runtime.document.nodes().iter().find_map(|node| {
-                    let CanvasNodeKind::Agent(spec) = &node.kind else {
-                        return None;
-                    };
-                    (spec.definition_id == Some(definition.id)).then_some(node.id)
+                let active_node_id = self.voice_bound_node(definition.id).or_else(|| {
+                    self.runtime.document.nodes().iter().find_map(|node| {
+                        let CanvasNodeKind::Agent(spec) = &node.kind else {
+                            return None;
+                        };
+                        (spec.definition_id == Some(definition.id)).then_some(node.id)
+                    })
                 });
                 let runtime_task_state =
                     active_node_id.and_then(|node_id| self.runtime.agent_task_state(node_id));
@@ -210,7 +212,7 @@ impl MultisoulApp {
     }
 }
 
-fn agent_task_state_for_norma(
+pub(super) fn agent_task_state_for_norma(
     runtime_state: Option<&runtime::AgentTaskState>,
 ) -> agent::AgentTaskState {
     match runtime_state {

@@ -31,6 +31,33 @@ pub(super) fn error(message: impl ToString) -> AsrError {
 }
 
 impl A1Config {
+    /// Blocking, fully verified registration. A failed check never replaces an existing manifest.
+    pub fn install(&self, root: &Path) -> Result<(), AsrError> {
+        self.install_with_gate(root, || Ok(()))
+    }
+
+    /// Recheck cancellation/authorization after all blocking integrity work, immediately
+    /// before atomic promotion. A rejected gate preserves the previous configuration.
+    pub fn install_with_gate(
+        &self,
+        root: &Path,
+        before_commit: impl FnOnce() -> Result<(), AsrError>,
+    ) -> Result<(), AsrError> {
+        use std::io::Write;
+        self.validate()?;
+        let destination = root.join("a1");
+        std::fs::create_dir_all(&destination).map_err(error)?;
+        let mut temporary = tempfile::NamedTempFile::new_in(&destination).map_err(error)?;
+        serde_json::to_writer_pretty(&mut temporary, self).map_err(error)?;
+        temporary.flush().map_err(error)?;
+        temporary.as_file().sync_all().map_err(error)?;
+        before_commit()?;
+        temporary
+            .persist(destination.join("runtime.json"))
+            .map_err(error)?;
+        Ok(())
+    }
+
     /// Metadata-only read. Full artifact validation occurs before worker launch.
     pub fn from_model_root(root: &Path) -> Result<Self, AsrError> {
         let path = root.join("a1/runtime.json");
@@ -98,3 +125,7 @@ fn file_sha256(path: &Path) -> Result<String, AsrError> {
     }
     Ok(format!("{:x}", hash.finalize()))
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/a1_installation_tests.rs"]
+mod installation_tests;

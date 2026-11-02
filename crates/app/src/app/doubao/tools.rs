@@ -96,6 +96,7 @@ pub(super) async fn execute_call(
         turn_id: format!("{session}:turn-{turn}"),
         user_input: transcript.into(),
         input_source: agent::AgentInputSource::DoubaoVoice,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: call_id.into(),
         operation_id: Some(operation_id),

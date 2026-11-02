@@ -22,6 +22,7 @@ pub(crate) struct RigToolContext {
     base: ToolContext,
     identities: Arc<Mutex<CallIdentities>>,
     policy: ToolCallPolicy,
+    voice_proposals: Arc<Mutex<Vec<crate::voice_command::VoiceProposal>>>,
 }
 
 impl RigToolContext {
@@ -30,6 +31,7 @@ impl RigToolContext {
             base,
             identities: Arc::new(Mutex::new(CallIdentities::default())),
             policy: ToolCallPolicy::default(),
+            voice_proposals: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -47,6 +49,28 @@ impl RigToolContext {
 
     pub(crate) fn is_gpt_live(&self) -> bool {
         self.base.input_source == crate::AgentInputSource::GptLiveVoice
+    }
+
+    pub(crate) fn is_single_voice_command(&self) -> bool {
+        matches!(
+            self.base.input_source,
+            crate::AgentInputSource::SingleVoiceCommand { .. }
+        )
+    }
+
+    pub(crate) fn propose_voice_command(&self, tool: &str, arguments: &str) {
+        let proposal = crate::voice_command::VoiceProposal {
+            tool: tool.into(),
+            arguments: serde_json::from_str(arguments).unwrap_or(Value::Null),
+        };
+        let mut proposals = self.voice_proposals.lock().expect("voice proposal lock");
+        if !proposals.contains(&proposal) {
+            proposals.push(proposal);
+        }
+    }
+
+    pub(crate) fn take_voice_proposals(&self) -> Vec<crate::voice_command::VoiceProposal> {
+        std::mem::take(&mut *self.voice_proposals.lock().expect("voice proposal lock"))
     }
 
     pub(crate) fn unknown_seen(&self) -> bool {

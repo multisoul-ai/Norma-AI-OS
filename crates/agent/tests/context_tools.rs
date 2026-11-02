@@ -31,6 +31,7 @@ async fn context_tools_preserve_typed_candidates_and_hide_host_checkpoint() {
         turn_id: "t".into(),
         user_input: "先补测试".into(),
         input_source: agent::AgentInputSource::Voice,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "call".into(),
         operation_id: None,

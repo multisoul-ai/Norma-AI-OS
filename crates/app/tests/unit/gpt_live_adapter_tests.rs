@@ -34,6 +34,7 @@ fn authorized_context(
         turn_id: "host-intent:gpt-live:r2".into(),
         user_input: snapshot.user_input.clone(),
         input_source: agent::AgentInputSource::GptLiveVoice,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "tool-1".into(),
         operation_id: Some("host-intent:gpt-live:r2:step-1".into()),

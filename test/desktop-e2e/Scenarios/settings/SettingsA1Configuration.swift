@@ -8,6 +8,7 @@ public enum SettingsA1Configuration {
     public nonisolated static let name = "settings-a1-configuration"
 
     public static func run(_ session: Session) async throws {
+        if session.visualReview { return try await SettingsVoiceCommandsVisual.run(session) }
         defer { session.stop() }
         for (index, theme) in ["sapphire-night", "paper-blue"].enumerated() {
             try await session.step("A1 可选入口与模式隔离 · \(theme)") {
@@ -24,11 +25,12 @@ public enum SettingsA1Configuration {
                 try await session.click(matching: ["语音指令", "Voice Commands"], pick: .top)
                 for _ in 0..<6 {
                     let frame = try await session.capture()
-                    if frame.contains("本地精准") || frame.contains("On-device Accurate") { break }
+                    if frame.contains("本地引擎与诊断") || frame.contains("Local engine and diagnostics") { break }
                     try await session.scroll(pixels: -180)
                     try await Task.sleep(nanoseconds: 200_000_000)
                 }
-                try await session.click(matching: ["本地精准", "On-device Accurate"], pick: .top)
+                try await session.click(matching: ["显示", "Show"], pick: .top)
+                try await session.click(matching: ["A1 预览与终稿", "A1 preview and final"], pick: .top)
                 let local = try await session.wait(Expectation(anyOf: ["检查本地文件", "Check local files"], absent: ["本地精准 · 已选择", "Accurate · Selected"], timeout: 8))
                 let provider = try VoiceConfigurationFixture.value(database: session.databaseURL(), key: "voice.asr.provider")
                 guard provider == nil || provider == "local_sherpa" else { throw E2EError.product("浏览 A1 不得改变默认 provider: \(provider ?? "nil")") }

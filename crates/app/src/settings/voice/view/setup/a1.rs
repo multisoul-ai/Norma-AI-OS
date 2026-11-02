@@ -6,9 +6,10 @@ use crate::{
 use gpui::{div, prelude::*, px, ClickEvent, Context, Div, Window};
 use ui::Theme;
 
-pub(super) fn a1_detail(
+pub(in crate::settings::voice::view) fn a1_detail(
     theme: Theme,
     state: &VoiceSettingsState,
+    inputs: &super::VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let active = state.values().asr_provider() == asr::AsrProviderId::LocalA1;
@@ -51,18 +52,21 @@ pub(super) fn a1_detail(
         .flex()
         .flex_col()
         .gap(px(8.0))
+        .when_some(inputs.a1_panel.clone(), |detail, panel| detail.child(panel))
         .child(compact_setup_row(
             theme,
-            ui::i18n::text("voice.a1_name"),
-            ui::i18n::text(if allowed {
+            ui::i18n::text("voice.a1_readiness"),
+            ui::i18n::text(if allowed && ready && !active {
+                "voice.a1_ready_to_activate"
+            } else if allowed {
                 "voice.a1_description"
             } else {
                 "voice.a1_single_only"
             }),
             action,
         ))
-        .when_some(state.a1_validation_error(), |detail, _error| {
-            detail.child(ui::i18n::text("voice.a1_prepare_failed"))
+        .when_some(state.a1_validation_error(), |detail, error| {
+            detail.child(super::super::capabilities::a1_preparation_failure(error))
         })
         .when(!ready && !checking, |detail| {
             detail.child(ui::i18n::text("voice.a1_setup_required"))
@@ -97,7 +101,10 @@ impl MultisoulApp {
         }
         self.prepare_or_validate_a1(false, cx);
     }
-    fn prepare_or_validate_a1(&mut self, activate: bool, cx: &mut Context<Self>) {
+    pub(crate) fn prepare_or_validate_a1(&mut self, activate: bool, cx: &mut Context<Self>) {
+        if activate {
+            self.invalidate_single_voice_commands();
+        }
         let prepare = activate
             || (self.voice_settings.values().asr_provider() == asr::AsrProviderId::LocalA1
                 && self
@@ -112,7 +119,7 @@ impl MultisoulApp {
             if cancellation.is_cancelled() {
                 return Err("A1 preparation cancelled".to_string());
             }
-            asr::A1Config::from_model_root(&root)
+            crate::settings::voice::a1_install::ensure_runtime(&root, &cancellation)
                 .and_then(|config| {
                     if prepare {
                         asr::A1RecognizerFactory::new(config)

@@ -238,6 +238,7 @@ pub struct MultisoulApp {
     pub(crate) presentation_notification: Option<presentation::PresentationNotification>,
     pub(crate) presentation_notification_generation: u64,
     pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
+    voice_commit_target: Option<agent::voice_command::VoiceTargetBinding>,
     pub(crate) agent_task_coordinator: Option<agent::AgentTaskCoordinator>,
     pub(crate) agent_queue_ui: agent_queue::AgentQueueUiState,
     pub(crate) orchestration_authorizations: storage::OrchestrationAuthorizationCache,

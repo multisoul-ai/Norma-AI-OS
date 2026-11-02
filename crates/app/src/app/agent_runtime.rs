@@ -9,6 +9,8 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
 
+mod turn_events;
+use turn_events::RuntimeEvent;
 mod adapter_task;
 mod artifacts;
 mod command_protocol;
@@ -36,6 +38,7 @@ pub(super) mod pending;
 mod reply_adapter;
 mod session_reply_queue;
 mod session_titles;
+mod voice_command;
 
 pub(crate) use conversation_tails::{ConversationTailMemory, ConversationTailWriter};
 pub(crate) use identity::{self_dispatch_forbidden_error, AgentIdentitySnapshot};
@@ -72,7 +75,7 @@ struct NormaAdapterRequest {
 #[derive(Clone)]
 struct TurnRuntime {
     session: Arc<tokio::sync::Mutex<agent::NormaSession>>,
-    events: async_channel::Sender<AgentEvent>,
+    events: async_channel::Sender<RuntimeEvent>,
     dialogue_cancelled: Arc<AtomicBool>,
     generation: Arc<AtomicU64>,
     cancelled: CancellationToken,
@@ -103,7 +106,19 @@ impl agent::AgentCardAdapter for ChannelAgentCardAdapter {
                     sent.map_err(|_| AdapterError::Failed("AgentCard Adapter 已关闭".to_string()))?;
                 }
             }
-            match result_rx.await {
+            let received = if matches!(
+                context.input_source,
+                AgentInputSource::SingleVoiceCommand { .. }
+            ) {
+                tokio::select! {
+                    biased;
+                    _ = context.cancellation.cancelled() => return Ok(AdapterResult::unknown(ui::i18n::text("voice.command_operation_unconfirmed"))),
+                    received = result_rx => received,
+                }
+            } else {
+                result_rx.await
+            };
+            match received {
                 Ok(receipt) => receipt,
                 Err(_) => Ok(AdapterResult::unknown(
                     "AgentCard Adapter 回执丢失，无法确认副作用是否发生",
@@ -121,6 +136,7 @@ pub(crate) struct ProjectAgentRuntime {
     request_tx: async_channel::Sender<AgentRequest>,
     cancelled: CancellationToken,
     dialogue_cancelled: Arc<AtomicBool>,
+    cancel_handle: agent::NormaCancelHandle,
     workspace_memory_roots: Arc<Mutex<Vec<std::path::PathBuf>>>,
 }
 
@@ -135,7 +151,7 @@ impl ProjectAgentRuntime {
         (
             Self,
             async_channel::Receiver<NormaAdapterRequest>,
-            async_channel::Receiver<AgentEvent>,
+            async_channel::Receiver<RuntimeEvent>,
         ),
         String,
     > {
@@ -153,7 +169,7 @@ impl ProjectAgentRuntime {
         (
             Self,
             async_channel::Receiver<NormaAdapterRequest>,
-            async_channel::Receiver<AgentEvent>,
+            async_channel::Receiver<RuntimeEvent>,
         ),
         String,
     > {
@@ -182,6 +198,7 @@ impl ProjectAgentRuntime {
         };
         let session = agent::NormaSession::new(project_id.clone(), &config, adapter)
             .map_err(|error| error.to_string())?;
+        let cancel_handle = session.cancel_handle();
         runtime.spawn(run_project_agent(
             session,
             request_rx,
@@ -199,6 +216,7 @@ impl ProjectAgentRuntime {
                 request_tx,
                 cancelled,
                 dialogue_cancelled,
+                cancel_handle,
                 workspace_memory_roots,
             },
             adapter_rx,
@@ -259,7 +277,7 @@ impl Drop for ProjectAgentRuntime {
 async fn run_project_agent(
     session: agent::NormaSession,
     requests: async_channel::Receiver<AgentRequest>,
-    events: async_channel::Sender<AgentEvent>,
+    events: async_channel::Sender<RuntimeEvent>,
     cancelled: CancellationToken,
     dialogue_cancelled: Arc<AtomicBool>,
     active_config: Arc<Mutex<agent::ProviderConfig>>,
@@ -327,14 +345,17 @@ async fn run_project_agent(
                 } => {
                     if let Some(message) = model_switch_error.take() {
                         let _ = events
-                            .send(AgentEvent::ProviderError {
-                                message: message.clone(),
-                            })
+                            .send(
+                                AgentEvent::ProviderError {
+                                    message: message.clone(),
+                                }
+                                .into(),
+                            )
                             .await;
                         let _ = request.response.send(Err(message)).await;
                         continue;
                     }
-                    cancel_handle.cancel();
+                    cancel_handle.supersede_turn();
                     dialogue_cancelled.store(false, Ordering::Release);
                     let turn_generation = generation.fetch_add(1, Ordering::AcqRel) + 1;
                     let context = canvas.clone();
@@ -389,7 +410,7 @@ async fn run_project_agent(
                 }
                 AgentCommand::CardActivity { node_id, summary } => {
                     let event = AgentEvent::CardActivityNotification { node_id, summary };
-                    let _ = events.send(event.clone()).await;
+                    let _ = events.send(event.clone().into()).await;
                     let _ = request.response.send(Ok(vec![event])).await;
                 }
                 AgentCommand::ProjectClosed => {

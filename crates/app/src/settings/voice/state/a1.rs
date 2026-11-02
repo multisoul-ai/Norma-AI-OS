@@ -57,6 +57,7 @@ impl VoiceSettingsState {
         {
             return false;
         }
+        self.remember_local_provider(asr::AsrProviderId::LocalA1);
         self.saved.asr_provider = Some(asr::AsrProviderId::LocalA1);
         self.persist_string(KEY_ASR_PROVIDER, asr::AsrProviderId::LocalA1.as_str());
         self.refresh_values();

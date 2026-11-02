@@ -17,7 +17,7 @@ pub struct InstallationManifest {
 }
 
 impl InstallationManifest {
-    fn for_artifact(model_id: &str, artifact: &ModelArtifact) -> Self {
+    pub(super) fn for_artifact(model_id: &str, artifact: &ModelArtifact) -> Self {
         Self {
             schema_version: MANIFEST_SCHEMA_VERSION,
             model_id: model_id.to_string(),
@@ -25,7 +25,7 @@ impl InstallationManifest {
         }
     }
 
-    fn write_to(&self, root: &Path) -> Result<(), InstallationError> {
+    pub(super) fn write_to(&self, root: &Path) -> Result<(), InstallationError> {
         let path = root.join(INSTALLATION_MANIFEST_FILE);
         let bytes = serde_json::to_vec_pretty(self)
             .map_err(|error| InstallationError::InvalidManifest(error.to_string()))?;
@@ -96,6 +96,8 @@ pub enum InstallationError {
     ArtifactHashMismatch,
     #[error("model archive SHA-256 does not match the catalog")]
     ArchiveHashMismatch,
+    #[error("model file length or SHA-256 does not match the catalog: {0}")]
+    FileIntegrityMismatch(PathBuf),
     #[error("required model file is missing: {0}")]
     MissingRequiredFile(PathBuf),
     #[error("invalid model archive: {0}")]
@@ -203,7 +205,7 @@ pub fn remove_installation(
     })
 }
 
-fn validate_model_id(model_id: &str) -> Result<(), InstallationError> {
+pub(super) fn validate_model_id(model_id: &str) -> Result<(), InstallationError> {
     let trimmed = model_id.trim();
     if trimmed.is_empty() {
         return Err(InstallationError::BlankModelId);
