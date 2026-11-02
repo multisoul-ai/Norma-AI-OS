@@ -123,8 +123,7 @@ impl MultisoulApp {
                                                 menu_open.as_deref() == Some(row.id.as_str());
                                             self.render_todo_row(
                                                 row,
-                                                focused,
-                                                open,
+                                                (focused, open),
                                                 &options,
                                                 areas.clone(),
                                                 feedback,

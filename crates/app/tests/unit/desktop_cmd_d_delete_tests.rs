@@ -1,8 +1,7 @@
 use canvas::{CanvasNodeKind, Vec2};
 use gpui::TestAppContext;
 
-#[path = "../support/desktop_embedded_project.rs"]
-mod embedded_project;
+use crate::workspace::desktop::embedded_test_support as embedded_project;
 use embedded_project::{open_wide_embedded_project, place_tiled_terminals};
 
 /// 场景：嵌入项目里用户选中第 1 张卡片后按 Cmd+D 删除。

@@ -181,3 +181,7 @@ pub fn run_norma_os() {
         settings::general::open_initial_window(cx);
     });
 }
+
+#[cfg(test)]
+#[path = "../tests/support/shared.rs"]
+mod test_support;

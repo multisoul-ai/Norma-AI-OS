@@ -102,9 +102,11 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
             status,
             token: "report-token".into(),
         });
-        let mut settings = config::BrainSettings::default();
-        settings.enabled = true;
-        settings.speak = speak;
+        let settings = config::BrainSettings {
+            enabled: true,
+            speak,
+            ..Default::default()
+        };
         if speak {
             use crate::settings::voice::{
                 DesktopVoiceMode, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsState,

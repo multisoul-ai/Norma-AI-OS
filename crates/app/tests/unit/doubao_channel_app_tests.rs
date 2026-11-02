@@ -14,6 +14,7 @@ use tokio_util::sync::CancellationToken;
 /// 执行过程：
 ///   1. 第 1 次 Cmd+E（activate_ready_voice）→ 下发一次收音请求。
 ///   2. 第 2 次 Cmd+E → 停止本次收音。
+///
 /// 预期结果：第 1 次收到 id 1 的收音令牌，listening 存在；第 2 次令牌被取消、listening 清空；
 ///   两次操作后会话令牌未取消、报告通道仍在，通道 is_active 为真。
 #[test]
@@ -71,6 +72,7 @@ fn doubao_shortcut_toggles_listening_without_closing_channel() {
 ///
 /// 数据构造：豆包模式 + 不存在的凭据引用 + 已打开的项目 + 当前窗口作为项目窗口。
 /// 执行过程：reconcile 排队启动 → 执行前切到 GPT Live 并停止豆包 → 运行到空闲。
+///
 /// 预期结果：豆包通道未启动，状态仍为 Idle，没有多余的错误状态。
 #[test]
 fn doubao_scheduled_start_rechecks_settings() {

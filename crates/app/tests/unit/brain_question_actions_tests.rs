@@ -1,6 +1,5 @@
-#[path = "../support/brain_question.rs"]
-mod support;
 use crate::app::MultisoulApp;
+use crate::test_support::brain_question as support;
 use gpui::TestAppContext;
 use norma::agent_hook::{parse_hook_event, HookQuestion, HookSource, QuestionHookStatus};
 use norma::protocol::{QuestionAnswer, QuestionState};

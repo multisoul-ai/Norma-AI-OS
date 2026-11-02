@@ -68,8 +68,7 @@ impl MultisoulApp {
                 "{} · {target}",
                 ui::i18n::text("chrome.brain_proposal_badge")
             ),
-            "✦",
-            theme.accent_warm,
+            ("✦", theme.accent_warm),
             self,
             cx,
         );

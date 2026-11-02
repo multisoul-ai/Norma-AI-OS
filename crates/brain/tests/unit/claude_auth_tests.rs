@@ -32,6 +32,7 @@ fn read_child_env(command: &mut Command) -> Value {
 ///   1. 清除测试子进程的认证与干扰变量，指定独立 CLAUDE_CONFIG_DIR。
 ///   2. 配置 Claude 认证环境，启动真实 Python 子进程读取最终环境。
 ///   3. 检查幕僚 session_meta 的权限隔离仍然生效。
+///
 /// 预期结果：
 ///   - 正断言：子进程收到指定网关和测试 token，settingSources 仍为空。
 ///   - 负断言：没有 API key、NODE_OPTIONS 或无关密钥，不允许绕过权限。
@@ -95,6 +96,7 @@ fn claude_gateway_credentials_survive_settings_isolation() {
 /// 执行过程：
 ///   1. 清除继承的认证变量，写入旧网关配置，显式设置新地址。
 ///   2. 配置认证环境，启动真实子进程观察最终环境。
+///
 /// 预期结果：
 ///   - 正断言：显式指定的新地址保留。
 ///   - 负断言：不把旧 token 或 API key 拼接给新地址，避免跨服务泄露凭证。
@@ -132,6 +134,7 @@ fn explicit_gateway_does_not_receive_another_gateways_token() {
 ///
 /// 数据构造：独立 Claude 配置提供一对虚构网关地址与 token，目标后端为 OpenCode。
 /// 执行过程：清除继承的认证变量，以 OpenCode 身份配置并启动真实子进程。
+///
 /// 预期结果：
 ///   - 正断言：子进程正常退出，仍可正常启动其他后端。
 ///   - 负断言：不注入 Claude 网关、token 或 API key。
@@ -168,6 +171,7 @@ fn other_backends_do_not_receive_claude_credentials() {
 ///
 /// 数据构造：独立 HOME 下的 .claude/settings.json 仅含测试 API key。
 /// 执行过程：移除 CLAUDE_CONFIG_DIR，指定独立 HOME，配置并启动真实子进程。
+///
 /// 预期结果：
 ///   - 正断言：收到用户配置中的 API key。
 ///   - 负断言：没有额外网关地址或 token，不改变默认 Anthropic 服务地址。
@@ -207,6 +211,7 @@ fn api_key_uses_the_default_home_config_directory() {
 ///
 /// 数据构造：独立工作目录下创建名称唯一的相对配置目录，其中仅含测试 token。
 /// 执行过程：指定子进程 cwd 和相对 CLAUDE_CONFIG_DIR，配置认证后启动真实子进程。
+///
 /// 预期结果：
 ///   - 正断言：子进程收到其工作目录内的测试 token。
 ///   - 负断言：没有网关地址或 API key，不从父进程工作目录补入其他认证。
@@ -248,6 +253,7 @@ fn relative_config_directory_uses_the_child_working_directory() {
 ///
 /// 数据构造：独立空目录，不创建 settings.json。
 /// 执行过程：配置认证环境，启动真实子进程检查未注入的变量。
+///
 /// 预期结果：
 ///   - 正断言：没有配置文件仍能启动子进程。
 ///   - 负断言：不伪造网关地址、token 或 API key。
@@ -275,6 +281,7 @@ fn missing_settings_preserve_the_default_authentication_path() {
 ///
 /// 数据构造：未闭合的 JSON 内含仅用于测试的敏感标记。
 /// 执行过程：在没有显式认证的情况下读取损坏文件，获取返回错误。
+///
 /// 预期结果：
 ///   - 正断言：错误类型为 InvalidData，提示 JSON 格式错误。
 ///   - 负断言：错误文本不包含文件中的敏感标记。

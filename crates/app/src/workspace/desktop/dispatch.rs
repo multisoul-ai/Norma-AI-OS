@@ -9,14 +9,14 @@ mod dispatch_tests;
 impl MultisoulApp {
     pub(crate) fn norma_locate_workspace_agent(
         &mut self,
-        workspace_id: &str,
-        area_id: &str,
+        target: (&str, &str),
         node_id: canvas::NodeId,
         approval_run_id: Option<&str>,
         approval_turn_id: Option<&str>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
+        let (workspace_id, area_id) = target;
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
             let target = host
                 .read(cx)
@@ -25,7 +25,7 @@ impl MultisoulApp {
                 validate_location_target(self, node_id, approval_run_id, approval_turn_id)?;
             } else {
                 validate_location_target(
-                    &target.read(cx),
+                    target.read(cx),
                     node_id,
                     approval_run_id,
                     approval_turn_id,
@@ -40,8 +40,7 @@ impl MultisoulApp {
             window.defer(cx, move |window, cx| {
                 host.update(cx, |host, cx| {
                     if let Err(error) = host.norma_locate_workspace_agent_on_host(
-                        &workspace_id,
-                        &area_id,
+                        (&workspace_id, &area_id),
                         node_id,
                         approval_run_id.as_deref(),
                         approval_turn_id.as_deref(),
@@ -56,8 +55,7 @@ impl MultisoulApp {
             return Ok(AdapterResult::accepted("正在定位 Agent 卡片").with_node_id(node_id));
         }
         self.norma_locate_workspace_agent_on_host(
-            workspace_id,
-            area_id,
+            (workspace_id, area_id),
             node_id,
             approval_run_id,
             approval_turn_id,
@@ -68,21 +66,16 @@ impl MultisoulApp {
 
     fn norma_locate_workspace_agent_on_host(
         &mut self,
-        workspace_id: &str,
-        area_id: &str,
+        target: (&str, &str),
         node_id: canvas::NodeId,
         approval_run_id: Option<&str>,
         approval_turn_id: Option<&str>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
+        let (workspace_id, area_id) = target;
         let session = self.workspace_agent_location_session(workspace_id, area_id)?;
-        validate_location_target(
-            &session.read(cx),
-            node_id,
-            approval_run_id,
-            approval_turn_id,
-        )?;
+        validate_location_target(session.read(cx), node_id, approval_run_id, approval_turn_id)?;
         if approval_run_id.is_some() {
             self.locate_desktop_approval(
                 area_id,
@@ -135,19 +128,18 @@ impl MultisoulApp {
 
     pub(crate) fn norma_open_workspace_artifact(
         &mut self,
-        workspace_id: &str,
-        area_id: &str,
+        target: (&str, &str),
         node_id: canvas::NodeId,
         turn_id: &str,
         source_path: &str,
         version: &str,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
+        let (workspace_id, area_id) = target;
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
             return host.update(cx, |host, cx| {
                 host.norma_open_workspace_artifact_on_host(
-                    workspace_id,
-                    area_id,
+                    (workspace_id, area_id),
                     node_id,
                     turn_id,
                     source_path,
@@ -157,8 +149,7 @@ impl MultisoulApp {
             });
         }
         self.norma_open_workspace_artifact_on_host(
-            workspace_id,
-            area_id,
+            (workspace_id, area_id),
             node_id,
             turn_id,
             source_path,
@@ -169,14 +160,14 @@ impl MultisoulApp {
 
     fn norma_open_workspace_artifact_on_host(
         &mut self,
-        workspace_id: &str,
-        area_id: &str,
+        target: (&str, &str),
         node_id: canvas::NodeId,
         turn_id: &str,
         source_path: &str,
         version: &str,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
+        let (workspace_id, area_id) = target;
         if self.screen != crate::app::AppScreen::DesktopWorkspace
             || self.desktop_workspace.active_id.as_deref() != Some(workspace_id)
         {
@@ -288,7 +279,7 @@ impl MultisoulApp {
             .get(&(workspace_id.to_owned(), area_id.to_owned()))
             .cloned()
             .ok_or_else(|| AdapterError::Rejected("Agent 会话尚未加载".into()))?;
-        let agent_name = agent_name_for_node(&session.read(cx), node_id)?;
+        let agent_name = agent_name_for_node(session.read(cx), node_id)?;
         let submitted = session.update(cx, |session, cx| {
             session.submit_agent_text(node_id, task, user_initiated, cx)
         });

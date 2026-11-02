@@ -127,7 +127,7 @@ impl MultisoulApp {
                         app.refresh_file_workbench(cx);
                         app.finish_workbench_leaving(cx);
                     }
-                    Err(e) => s.error = Some(e.into()),
+                    Err(e) => s.error = Some(e),
                 }
                 cx.notify();
             });

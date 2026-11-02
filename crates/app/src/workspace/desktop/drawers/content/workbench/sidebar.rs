@@ -421,7 +421,7 @@ impl MultisoulApp {
                 cx,
             )
         };
-        let key_stage = stage.clone();
+        let key_stage = stage;
         let mut plus = div()
             .id(ElementId::Name(format!("files-stage-{index}").into()))
             .debug_selector(move || format!("files-stage-{index}"))

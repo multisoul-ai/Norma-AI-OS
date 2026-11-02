@@ -12,7 +12,7 @@ use crate::app::video_wallpaper::{
 };
 use crate::app::wallpaper_resolvers::resolve_builtin_asset;
 use gpui::{div, prelude::*, App, Context, Entity, MouseButton, Subscription, Window};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -84,7 +84,7 @@ impl BootSplash {
     /// Returns whether to keep polling.
     fn tick(
         &mut self,
-        path: &PathBuf,
+        path: &Path,
         mailbox: &Arc<VideoFrameMailbox>,
         cx: &mut Context<Self>,
     ) -> bool {

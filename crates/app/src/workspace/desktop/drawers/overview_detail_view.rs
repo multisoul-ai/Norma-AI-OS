@@ -14,11 +14,11 @@ pub(super) fn header(
     key: DetailKey,
     title: String,
     meta: String,
-    glyph: &'static str,
-    color: u32,
+    icon: (&'static str, u32),
     app: &MultisoulApp,
     cx: &mut Context<MultisoulApp>,
 ) -> Stateful<Div> {
+    let (glyph, color) = icon;
     let theme = app.desktop_theme();
     let feedback = super::super::overview_rows::overview_feedback(theme);
     let expanded = app.desktop_workspace.attention.is_open(&key);

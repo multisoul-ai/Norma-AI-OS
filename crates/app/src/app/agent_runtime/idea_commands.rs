@@ -3,7 +3,6 @@
 //! 派发协议：先把想法 CAS 为“派发中”并写占位 task_ref，再走既有派发路径，
 //! 成功后用回执里的真实 task_ref 落库；失败回退到待办。重启对账见 `IdeasStore::reconcile_dispatching`。
 //! 单行 SQLite 读写与既有派发回执路径同在适配器更新内完成，不进入 PTY/渲染/鼠标热路径。
-
 use super::{adapter_task, commands};
 use crate::app::{AppScreen, MultisoulApp};
 use crate::motion::{DispatchReceiptVisualStatus, DispatchVisualOrigin};
@@ -12,7 +11,6 @@ use gpui::{Context, Window};
 use norma::protocol::{CardCommand, CardCommandResult};
 use serde_json::json;
 use storage::{IdeaSource, IdeasStore, StorageError, StoredIdea};
-
 pub(super) fn capture_idea(
     app: &mut MultisoulApp,
     cx: &mut Context<MultisoulApp>,
@@ -103,7 +101,7 @@ pub(crate) struct IdeaDelivery<'a> {
 
 pub(crate) fn assign_idea_with_states(
     app: &mut MultisoulApp,
-    mut window: Option<&mut Window>,
+    window: Option<&mut Window>,
     cx: &mut Context<MultisoulApp>,
     idea_id: &str,
     input_source: AgentInputSource,
@@ -156,10 +154,11 @@ pub(crate) fn assign_idea_with_states(
         "[idea-dispatch] begin"
     );
     // 派发给智能体的文本 = 正文 + 附带图片的绝对路径。
-    let task_text = match (!states.is_empty())
-        .then(|| agent::context::context_task_handoff(&ideas.dispatch_text(&idea), states))
-        .unwrap_or_else(|| Ok(ideas.dispatch_text(&idea)))
-    {
+    let task_text = match if !states.is_empty() {
+        agent::context::context_task_handoff(&ideas.dispatch_text(&idea), states)
+    } else {
+        Ok(ideas.dispatch_text(&idea))
+    } {
         Ok(text) => text,
         Err(error) => {
             if let Err(rollback) = ideas.fail_dispatch(&workspace_id, idea_id) {
@@ -198,7 +197,7 @@ pub(crate) fn assign_idea_with_states(
             } else {
                 create_agent_with_task(
                     app,
-                    window.as_deref_mut(),
+                    window,
                     cx,
                     profile,
                     task_text.clone(),

@@ -189,8 +189,7 @@ async fn workspace_memory_recall_revokes_turn_waiting_for_session_lock() {
     let (response, received) = async_channel::bounded(1);
     spawn_turn(
         &runtime,
-        "旧输入".into(),
-        AgentInputSource::MobileDiscussion,
+        ("旧输入".into(), AgentInputSource::MobileDiscussion),
         None,
         None,
         Vec::new(),

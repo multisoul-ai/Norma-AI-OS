@@ -9,12 +9,12 @@ impl MultisoulApp {
         &self,
         index: usize,
         workspace: storage::DesktopWorkspace,
-        size: Vec2,
-        full: Vec2,
+        dimensions: (Vec2, Vec2),
         scale: f32,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let (size, full) = dimensions;
         let theme = home_theme(self.theme_id);
         let focus = window
             .use_keyed_state(("home-card-focus", index), cx, |_, cx| cx.focus_handle())

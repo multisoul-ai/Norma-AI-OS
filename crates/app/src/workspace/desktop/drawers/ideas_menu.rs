@@ -61,7 +61,6 @@ impl MultisoulApp {
                         id: format!("desktop-idea-target-{index}"),
                         label: option.name.clone(),
                         detail: Some(option.status.to_owned()),
-                        accent: false,
                         dot: if option.running {
                             Dot::Running
                         } else {
@@ -92,7 +91,6 @@ impl MultisoulApp {
                         id: "desktop-idea-target-new".to_owned(),
                         label: ui::i18n::text("drawers.new_agent").to_owned(),
                         detail: None,
-                        accent: true,
                         dot: Dot::NewAgent,
                         selected: cursor == total,
                     },
@@ -131,7 +129,6 @@ struct MenuItem {
     dot: Dot,
     label: String,
     detail: Option<String>,
-    accent: bool,
     selected: bool,
 }
 
@@ -146,7 +143,6 @@ fn menu_item(
         dot,
         label,
         detail,
-        accent,
         selected,
     } = item;
     let (hover, pressed, focus) = (feedback.hover, feedback.pressed, feedback.focus);
@@ -172,11 +168,7 @@ fn menu_item(
                 .flex_1()
                 .min_w(px(0.0))
                 .text_size(px(13.0))
-                .text_color(rgba(if accent {
-                    theme.text_primary
-                } else {
-                    theme.text_primary
-                }))
+                .text_color(rgba(theme.text_primary))
                 .child(label),
         )
         .when_some(detail, |item, detail| {
