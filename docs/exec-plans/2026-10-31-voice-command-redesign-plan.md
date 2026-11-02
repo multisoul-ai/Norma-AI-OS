@@ -711,3 +711,16 @@ Jev真实页面场景 `settings-voice-jev-configuration --visual` 于 `artifacts
 追溯：本轮实现基准 `15b3c81ae52ae4ee1502a3c4db0d8f00093020dd`，另保留 `d80b673e`、`9967917e`。新增源码清单 `artifacts/a1-installed-feedback-20261102/source-files.json`，SHA256 `c29af5c118d18d9d85cbc03a124d20f73f8b36993b15b58882f8353a7d407b07`；配置/结果索引 `artifacts/a1-installed-feedback-20261102/configuration.json`，SHA256 `c2d6aa8a8b29b8f81c2df6df2f3065bb448e64f298ea5a110e00e6505b4f53df`。承载实现的提交以本节所在提交及后续集成记录为准，不自引用预生成commit。
 
 用户已明确要求合并到dev，按正常hook和PR检查执行集成、保留历史提交。此授权不改变证据边界：真人麦克风录音/松键/A1终稿/目标澄清/派发/真实回执的完整链路仍未通过；Jev生产入口禁用、定量实验暂停，正式Developer ID包与公证仍未验证。不替换或终止用户当前App，不清理主工作区他人改动。合并结果待实际完成后记录，不能将合并等同全部语音验收完成。
+
+
+#### dev 集成检查与既有 Clippy 限制
+
+托管引擎及反馈实现已正常提交为 `932d102f2263d7b017348a3e5619e5decb34a5a7`，正常hook的workspace check与fmt通过。PR #171（https://github.com/multisoul-ai/Norma-AI-OS/pull/171）已更新最终范围并取消草稿。GitHub测试合并提交 `b2016d63871e42c6f2aa7de9e090a5754d97c7fa` 的父提交为当前dev `bcc6e04e1048a3f11c312d069e1500a49c3944a3` 与本分支 `932d102f`，无冲突。
+
+CI run `41485542869` 的领域契约、护栏、`cargo check --workspace`、fmt均通过；Clippy失败于 `crates/norma/src/protocol.rs:80` 的 `CardCommand::Brain` 大枚举，不能宣称CI通过。HEAD与dev的norma源码tree均为 `a98e3aff0f7f92dbbdcd6584e001602437a11904`，锁文件仅App增加model_store/security-framework引用，无依赖版本变化；这项报错属于未改动的基线。证据 `artifacts/a1-installed-feedback-20261102/ci-failed.log`、`artifacts/a1-installed-feedback-20261102/ci-baseline-relation.json`。
+
+本地补查PATH发现实际优先使用Homebrew Rust1.93.1，另存诊断，不混作CI固定1.91.1结果；`cargo clippy -p app -p model_store --all-targets --no-deps -- -D warnings` 有48项App诊断，未通过。新增引擎代码的一处nonminimal_bool按诊断等价改为is_none_or，不改变拒绝未知/过旧系统的语义，其余旧App/协议告警不扩大修改。显式1.91.1冷构建补查经确认只终止本次校验进程，记为取消、不是通过，不继续扩大仅合并任务的重建范围。
+
+GitHub实际查询dev经典保护返回404、有效分支规则为空，没有必需状态检查。按执行规范“无关的既有问题记录后继续收尾”，执行用户明确要求的普通PR merge；不使用admin、强制推送或跳过hook，不声称全仓Clippy绿灯。最终PR状态、合并SHA与可达性检查另保留本机 `artifacts/a1-installed-feedback-20261102/merge-result.json`，并在用户回执中报告。真人语音、签名公证与Jev禁用等限制延续上文。
+
+布尔表达式等价修正后，`voice_a1_managed_engine_installs_without_a_user_python` 1/1通过（0.34秒，编译1分23秒），日志 `artifacts/a1-installed-feedback-20261102/managed-equivalence-tests.log`。该增量不改变页面或协议，复用此前中英文真实App和200项语音测试证据；不宣称本轮全仓Clippy通过。

@@ -59,7 +59,7 @@ pub(super) fn prepare(
         .ok()
         .and_then(|output| String::from_utf8(output.stdout).ok())
         .and_then(|version| version.split('.').next()?.parse::<u32>().ok());
-    if !version.is_some_and(|major| major >= specification.minimum_macos_major) {
+    if version.is_none_or(|major| major < specification.minimum_macos_major) {
         return Err(A1InstallFailure::EngineIncompatible);
     }
     // No user-selected interpreters, PATH lookup, environment overrides, venv or pip.
