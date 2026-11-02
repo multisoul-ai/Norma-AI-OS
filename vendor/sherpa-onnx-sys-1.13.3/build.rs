@@ -57,6 +57,10 @@ fn try_main() -> Result<(), DynError> {
     let link_mode = resolve_link_mode()?;
     let lib_dir = resolve_lib_dir(link_mode, &target_os, &target_arch)?;
 
+    // Cargo/rust-cache can retain this script's output while pruning native libraries.
+    // Watch the resolved directory so a missing archive reruns download/unpack before rustc links.
+    println!("cargo:rerun-if-changed={}", lib_dir.display());
+
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
 
     if link_mode == LinkMode::Shared && matches!(target_os.as_str(), "linux" | "macos") {
