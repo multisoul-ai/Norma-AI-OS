@@ -366,7 +366,12 @@ def summary(output):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as stream:
             stream.write("\n".join(text) + "\n")
     print(json.dumps(data, ensure_ascii=False, indent=2))
-    return 1  # A feasibility run without real tasks/candidate is never the Goal's green acceptance gate.
+    # CI measures captured native feasibility; real-model/product acceptance remains explicit above.
+    native_gates = [status for name, status in goal_gates.items()
+                    if name not in ("live_agents", "candidate_package")]
+    platform = by_task["compile"].get("norma_platform_tests", {})
+    return 0 if all(status == "PASS" for status in native_gates) and (
+        platform.get("status") == "PASS" and platform.get("exit_code") == 0) else 1
 
 
 def main():

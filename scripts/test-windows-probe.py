@@ -54,6 +54,42 @@ class FeasibilityReportTests(unittest.TestCase):
                              for name in names]
         return reports
 
+    def passing_reports(self):
+        reports = self.reports()
+        reports["compile"] = [{"id": name, "status": "PASS", "exit_code": 0}
+                              for name in ("norma_compile", "norma_cli_compile", "app_compile", "norma_platform_tests")]
+        reports["graphics"] = [{"id": name, "status": "PASS"}
+                               for name in ("gpui_window", "gpui_os_keyboard_close")]
+        reports["speech"] = [{"id": name, "status": "PASS", "exit_code": 0}
+                             for name in ("voice_input_compile", "speech_tests")]
+        reports["compile"].append({"id": "canvas_tests", "status": "PASS", "exit_code": 0})
+        return reports
+
+    def test_native_feasibility_can_pass_without_claiming_full_product_acceptance(self):
+        """全部原生检查通过才允许CI成功；真实模型与候选包仍明确未验。"""
+        code, report = self.invoke(self.passing_reports())
+        self.assertEqual(code, 0, "原生可行性检查不应永久固定返回失败")
+        self.assertFalse(report["goal_complete"], "CI通过不能冒充完整产品迁移验收")
+        self.assertEqual(report["goal_gates"]["live_agents"], "NOT_RUN", "不得冒充真实模型调用")
+        self.assertEqual(report["goal_gates"]["candidate_package"], "NOT_RUN", "不得冒充候选包验收")
+
+    def test_canvas_is_a_required_zero_exit_gate(self):
+        """场景：其余原生证据全绿；分别移除Canvas、置FAIL或PASS+101；
+        经公开summary CLI汇总；三者都须非零，不能漏掉画布失败。
+        """
+        for variant in ("missing", "failed", "nonzero"):
+            with self.subTest(variant=variant):
+                reports = self.passing_reports()
+                canvas = reports["compile"].pop()
+                if variant != "missing":
+                    canvas.update(status="FAIL" if variant == "failed" else "PASS",
+                                  exit_code=101)
+                    reports["compile"].append(canvas)
+                code, report = self.invoke(reports)
+                self.assertNotEqual(code, 0, "Canvas缺失或失败必须阻止可行性CI通过")
+                self.assertNotEqual(report["goal_gates"].get("canvas_checks"), "PASS",
+                                    "Canvas必须有独立且真实的非PASS状态")
+
     def test_control_failure_is_a_central_gate(self):
         """场景：八类报告齐全而真实控制测试失败；构造失败与非零PASS两种报告；
         执行summary；预期中央control门槛均为FAIL，不能只把记录藏在checks数组。
