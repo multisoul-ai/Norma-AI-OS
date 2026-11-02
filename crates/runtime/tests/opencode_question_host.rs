@@ -17,14 +17,24 @@ use std::time::{Duration, Instant};
 /// 预期：原会话原题Answered且唯一POST，接管零POST；错误process不能接管，普通任务始终被原题挡住。
 #[test]
 fn owned_opencode_host_routes_current_question_through_runtime() {
-    for (cancel, drop_reply) in [(false, false), (true, false), (false, true)] {
+    for (cancel, drop_reply, hold_after_consumption) in [
+        (false, false, true),
+        (false, false, false),
+        (true, false, false),
+        (false, true, false),
+    ] {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
         let stop = Arc::new(AtomicBool::new(false));
         let posts = Arc::new(AtomicUsize::new(0));
         let (worker_stop, worker_posts) = (stop.clone(), posts.clone());
+        let (holding, held) = crossbeam_channel::bounded(1);
+        let (release, resume) = crossbeam_channel::bounded(1);
+        let mut pending_when_consumed = None;
         let server = std::thread::spawn(move || {
+            let mut empty_reads = 0;
+
             'connections: while !worker_stop.load(Ordering::Acquire) {
                 let mut socket = match listener.accept() {
                     Ok((s, _)) => s,
@@ -34,6 +44,9 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
                     }
                     Err(e) => panic!("本机服务失败:{e}"),
                 };
+                if hold_after_consumption {
+                    socket.set_nonblocking(false).unwrap();
+                }
                 socket
                     .set_read_timeout(Some(Duration::from_millis(200)))
                     .unwrap();
@@ -60,6 +73,13 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
                 reader.read_exact(&mut body).unwrap();
                 let value = if first.starts_with("GET /question?") {
                     if worker_posts.load(Ordering::Acquire) > 0 {
+                        empty_reads += 1;
+                        // The first empty snapshot publishes consumption. Hold the next query
+                        // so the old instantaneous input assertion deterministically sees revalidation.
+                        if hold_after_consumption && empty_reads == 2 {
+                            holding.send(()).unwrap();
+                            resume.recv_timeout(Duration::from_secs(3)).unwrap();
+                        }
                         json!([])
                     } else {
                         json!([serde_json::from_str::<Value>(include_str!(
@@ -201,6 +221,10 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
                 QuestionState::Answered
             };
             let deadline = Instant::now() + Duration::from_secs(5);
+            if hold_after_consumption {
+                held.recv_timeout(Duration::from_secs(4))
+                    .expect("消费后第二轮HTTP核对必须真正进入门闩");
+            }
             while runtime.question_snapshot(&target).unwrap().state != expected
                 && Instant::now() < deadline
             {
@@ -212,7 +236,12 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
                 expected,
                 "必须等待原工具精确消费"
             );
-            assert!(!runtime.has_pending_question(node), "消费后输入锁解除");
+            let pending = runtime.has_pending_question(node);
+            eprintln!("OpenCode consumption snapshot: held={hold_after_consumption}, state={:?}, input_pending={pending}", runtime.question_snapshot(&target).unwrap().state);
+            pending_when_consumed = Some(pending);
+            if hold_after_consumption {
+                release.send(()).unwrap();
+            }
             assert!(
                 !runtime.observe_mobile_hook(&child_session),
                 "空闲时子Agent创建session也不能替换原TUI归属"
@@ -240,6 +269,9 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
         drop(runtime);
         stop.store(true, Ordering::Release);
         server.join().unwrap();
+        if let Some(pending) = pending_when_consumed {
+            assert!(!pending, "消费后输入锁解除");
+        }
         assert_eq!(
             posts.load(Ordering::Acquire),
             usize::from(!cancel),
