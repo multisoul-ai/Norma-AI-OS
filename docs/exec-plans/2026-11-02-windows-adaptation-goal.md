@@ -147,3 +147,9 @@ Windows native run `41477762062`，attempt 1，job `125387736616` 已完成失�
 - 候选修正 `0d5221a5` 保留正常kill的事件转发；构造失败仍可停止有界发送并排空。Restored显式携带可选warning，副本角色和磁盘状态不再被keep元数据错误覆盖；独立审查未发现新数据保留反例。双语展示测试故意先保留红灯，随后补准确文案。
 - vendor独立manifest已启动编译，但fixture的`Box<dyn MasterPty + Send>`不能直接downcast；已在同候选中显式擦除冗余Send标记。尚无真实满管道反例结果，不能记为旧析构顺序红灯。
 - macOS旧source `bbaacab9` job `125403139224`：受影响域层1469 passed /0 failed /19既有ignored；App 1659 passed /76 failed /10既有ignored。App包含Vision VM的E5RT输出污染及后续线程资源耗尽，不能据此宣称Mac全绿。按差异补独立文案边界测试，单测opt-level0及workspace缓存缩短编译；release仍单独验收。
+
+## 真正的旧API反例与基础CI结果
+
+- `4c9a86ae` CI run `41493382935`、`796cc43c` CI run `41496616544` 均通过，正常check/fmt/Clippy和既有护栏已获得GitHub证据；不代表Windows功能与发布验收全绿。
+- `796cc43c` native run `41496606263`，job `125453090768`：workspace lib 26/0/0，content_platform 1/0/0，Review 1/0/0，scoped directory 4/0/0；ConPTY三个真实案例均通过（启动退出、1024行尾部+exit7、主动kill返回真实Exited）。严格socket关闭仍失败。
+- 同run Windows2022 job `125453090817` 的vendor反例确实执行，满管道、外部reader释放、写入者存活前提均满足，master销毁3秒未返回而失败；Windows2025 job `125453090682` 同反例1项通过、产品PTY3项通过。修复将隐藏原读端排在con之前析构，保持正常外部reader排空；下一轮必须同时通过两平台，不能用较新API的绿灯覆盖旧API红灯。

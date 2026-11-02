@@ -44,8 +44,9 @@ impl PtySystem for ConPtySystem {
 }
 
 struct Inner {
-    con: PsuedoCon,
+    // Release the hidden read end before ClosePseudoConsole; external readers can still drain.
     readable: FileDescriptor,
+    con: PsuedoCon,
     writable: Option<FileDescriptor>,
     size: PtySize,
 }

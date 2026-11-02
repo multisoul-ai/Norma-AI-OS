@@ -111,6 +111,10 @@ fn abandoned_reader_does_not_deadlock_full_pipe_close() {
     }
     let full = available >= capacity;
     let running = child.try_wait().expect("查询精确客户端句柄").is_none();
+    eprintln!(
+        "ConPTY close precondition: available={}, capacity={}, writer_running={}",
+        available, capacity, running
+    );
     let (closed, completed) = mpsc::sync_channel(1);
     let master = pair.master;
     thread::spawn(move || {
@@ -123,7 +127,8 @@ fn abandoned_reader_does_not_deadlock_full_pipe_close() {
     drop(writer);
     assert!(
         full,
-        "必须真实达到管道容量：available={available}, capacity={capacity}"
+        "必须真实达到管道容量：available={}, capacity={}",
+        available, capacity
     );
     assert!(running, "销毁前写入者必须仍然存活，不能把提前退出算成功");
     assert!(
