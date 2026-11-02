@@ -34,6 +34,7 @@ impl MultisoulApp {
                         .selected(local)
                         .disabled(s.busy)
                         .on_click(cx.listener(|app, _, _, cx| {
+                            app.begin_desktop_content_navigation();
                             app.desktop_workspace.workbench.saved.comparison = Comparison::Local;
                             app.refresh_file_workbench(cx);
                         })),
@@ -45,6 +46,7 @@ impl MultisoulApp {
                         .selected(!local)
                         .disabled(s.busy)
                         .on_click(cx.listener(|app, _, _, cx| {
+                            app.begin_desktop_content_navigation();
                             let s = &mut app.desktop_workspace.workbench;
                             if let Some(target) =
                                 s.git.as_ref().and_then(|g| g.default_target.clone())

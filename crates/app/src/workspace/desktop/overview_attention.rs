@@ -55,6 +55,8 @@ pub(super) fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
         },
         RunOverviewAttentionKind::Review => OverviewAction::OpenReview {
             area_id: row.area_id.clone(),
+            node_id: row.node_id,
+            fingerprint: row.fingerprint.clone().unwrap_or_default(),
             direct_diff: row.paths.len() == 1,
             paths: row.paths.clone(),
         },

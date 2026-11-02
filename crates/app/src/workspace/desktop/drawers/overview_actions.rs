@@ -10,6 +10,10 @@ use crate::app::MultisoulApp;
 use gpui::{Context, Window};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(test)]
+#[path = "../../../../tests/unit/desktop_attention_read_tests.rs"]
+mod read_tests;
+
 impl MultisoulApp {
     pub(super) fn presented_overview(&self, cx: &gpui::App) -> OverviewScreen {
         let now = unix_ms();
@@ -228,10 +232,15 @@ impl MultisoulApp {
             }
             OverviewAction::OpenReview {
                 area_id,
+                node_id,
+                fingerprint,
                 paths,
                 direct_diff,
             } => {
-                self.open_turn_changes(area_id, paths, direct_diff, cx);
+                let target = direct_diff.then(|| paths.first().cloned()).flatten();
+                self.open_turn_changes(area_id.clone(), paths, direct_diff, cx);
+                self.desktop_workspace.workbench.pending_turn_review =
+                    Some((area_id, node_id, fingerprint, target));
             }
             OverviewAction::OpenFile {
                 area_id,
@@ -255,6 +264,12 @@ impl MultisoulApp {
         self.open_file_workbench(cx);
         let first = paths.first().cloned();
         let state = &mut self.desktop_workspace.workbench;
+        state.generation = state.generation.wrapping_add(1);
+        state.file_generation = state.file_generation.wrapping_add(1);
+        state.loading = false;
+        state.error = None;
+        state.git_error = None;
+        state.saved.selected = None;
         state.lock_area = true;
         state.saved.area_id = Some(area_id);
         state.changes_section_closed = false;

@@ -107,9 +107,36 @@ pub(crate) struct WorkbenchState {
     pub lock_area: bool,
     /// Git 快照到达后要直接打开差异的单个路径。
     pub pending_turn_diff: Option<String>,
+    /// 成果列表或差异成功展示后，才消费这一份版本身份。
+    pub pending_turn_review: Option<(String, u64, String, Option<String>)>,
 }
 
 impl WorkbenchState {
+    pub(crate) fn turn_review_list_visible(&self, cx: &gpui::App) -> bool {
+        let (Some(allow), Some(git)) = (&self.turn_paths, &self.git) else {
+            return false;
+        };
+        if self.changes_section_closed || allow.is_empty() {
+            return false;
+        }
+        let paths = git
+            .changes
+            .iter()
+            .map(|change| change.path.clone())
+            .collect::<Vec<_>>();
+        let query = self
+            .filter
+            .as_ref()
+            .map(|input| input.read(cx).value().to_string())
+            .unwrap_or_default();
+        let rows = tree::change_rows(&paths, &self.changes_dirs_closed, &query, Some(allow));
+        allow.iter().all(|path| {
+            rows.iter().any(
+                |row| matches!(row, tree::ChangeRow::File { index, .. } if paths[*index] == *path),
+            )
+        })
+    }
+
     pub fn options(&self) -> FileOptions {
         FileOptions {
             hidden: self.saved.hidden,

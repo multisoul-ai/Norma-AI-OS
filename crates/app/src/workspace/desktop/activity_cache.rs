@@ -314,6 +314,7 @@ impl MultisoulApp {
             .desktop_workspace
             .content_artifacts
             .iter()
+            .filter(|artifact| !artifact.viewed)
             .map(|artifact| RunOverviewFile {
                 area_id: artifact.area_id.clone(),
                 node_id: artifact.node_id,

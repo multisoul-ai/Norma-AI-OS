@@ -138,13 +138,9 @@ impl MultisoulApp {
             }
         };
         let before = self.desktop_workspace.drawers;
-        self.desktop_workspace.drawers = route_drawer(before, event);
-        if before != self.desktop_workspace.drawers {
-            self.desktop_workspace.drawer_motion.retarget(
-                self.desktop_workspace.drawers.left_open,
-                self.desktop_workspace.drawers.right_open,
-            );
-            self.wake_animation_frame_loop();
+        let next = route_drawer(before, event);
+        if before != next {
+            self.apply_desktop_drawers(next, cx);
         }
         cx.notify();
     }

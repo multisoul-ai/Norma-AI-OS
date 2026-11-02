@@ -10,6 +10,7 @@ public enum WorkspaceModule {
             WorkspaceHomePreview.name,
             WorkspaceDrawerTabs.name,
             WorkspaceRunOverview.name,
+            WorkspaceAttentionRead.name,
             WorkspaceStatusCapsule.name,
             WorkspaceRunOverviewAgents.name,
             WorkspaceRunOverviewTitles.name,
@@ -25,7 +26,7 @@ public enum WorkspaceModule {
             WorkspaceHandoffEffects.name,
             WorkspaceSwitchShortcuts.name,
         ],
-        visualScenarioNames: [WorkspaceIdeasDeleteUndo.name, WorkspaceDrawerTabs.name],
+        visualScenarioNames: [WorkspaceAttentionRead.name, WorkspaceIdeasDeleteUndo.name, WorkspaceDrawerTabs.name],
         run: { scenario, session in
             switch scenario {
             case WorkspaceHomePreview.name:
@@ -39,6 +40,9 @@ public enum WorkspaceModule {
                 return true
             case WorkspaceDrawerTabs.name:
                 try await WorkspaceDrawerTabs.run(session)
+                return true
+            case WorkspaceAttentionRead.name:
+                try await WorkspaceAttentionRead.run(session)
                 return true
             case WorkspaceRunOverview.name:
                 try await WorkspaceRunOverview.run(session)

@@ -75,6 +75,8 @@ pub(super) enum OverviewAction {
     },
     OpenReview {
         area_id: String,
+        node_id: u64,
+        fingerprint: String,
         paths: Vec<String>,
         direct_diff: bool,
     },

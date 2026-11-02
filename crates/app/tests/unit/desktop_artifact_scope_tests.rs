@@ -1,5 +1,6 @@
 use super::*;
 use crate::app::AppScreen;
+use crate::workspace::desktop::DesktopArtifact;
 use gpui::{AppContext as _, TestAppContext};
 use storage::{
     ApprovalAuditStore, BackgroundApprovalAudit, DesktopContentTabStore, DesktopWorkspaceStore,
@@ -42,6 +43,7 @@ fn artifact_open_result_does_not_cross_workspace_after_switch() {
         source_path: "plan.md".into(),
         version: "version-a".into(),
         saved_at_unix: 1,
+        viewed: false,
     };
     let mut test = TestAppContext::single();
     let (app, cx) = test
@@ -70,7 +72,13 @@ fn artifact_open_result_does_not_cross_workspace_after_switch() {
 ///
 /// 数据构造：项目 B 的 Agent 7 产生 plan.md，文件与冻结成果正文故意不同，当前保持总览。
 /// 执行过程：先以错误版本请求，再以完整引用请求，等待文件校验与标签存储。
-/// 预期结果：错误版本无副作用；正确引用在右侧打开标有 B 来源的文件，中央不切项目。
+///   3. 成果正文加载后重新投影运行概览，检查已读提醒与原始成果。
+///   4. 丢弃内存成果索引，再从存储刷新，验证已读回执可恢复。
+///   5. 清除测试回执后重新加载，完成前收起右栏；隐藏加载不算已读，重新展开缓存正文才算。
+///   6. 再次清除回执，正文加载期间请求工作台；用队列闸门让正文先完成，检查旧标签不误读。
+///   7. 快速选择成果 A 再回工作台 B，暂停 B 的存储；A 的迟到选择不能借用 B 的代次记读。
+/// 预期结果：错误版本无副作用；正确引用在右侧打开标有 B 来源的文件，中央不切项目；
+///   已读成果不再出现在需要处理列表，原始成果仍可再次打开。
 #[test]
 fn norma_artifact_tool_opens_exact_version_in_right_drawer_without_switching_project() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -141,6 +149,7 @@ fn norma_artifact_tool_opens_exact_version_in_right_drawer_without_switching_pro
         source_path: "plan.md".into(),
         version: saved.fingerprint.clone(),
         saved_at_unix: 1,
+        viewed: false,
     };
     let mut test = TestAppContext::single();
     let (app, cx) = test
@@ -181,6 +190,8 @@ fn norma_artifact_tool_opens_exact_version_in_right_drawer_without_switching_pro
         assert_eq!(accepted.status, "accepted", "异步打开应先返回接收回执");
     });
     cx.run_until_parked();
+    app.update(cx, |app, cx| app.mark_workspace_activity_dirty(cx));
+    cx.run_until_parked();
     app.read_with(cx, |app, _| {
         assert_eq!(
             app.desktop_workspace.content_tabs.len(),
@@ -209,7 +220,174 @@ fn norma_artifact_tool_opens_exact_version_in_right_drawer_without_switching_pro
             Some(&Ok("# Frozen B plan".into())),
             "右侧必须真正加载冻结成果正文，不能只创建空标签"
         );
+        let overview = app
+            .desktop_workspace
+            .activity_run_overview
+            .as_ref()
+            .expect("打开成果后应完成运行概览投影");
+        assert!(
+            overview.attention.is_empty(),
+            "看过唯一成果后，文件和回合成果提醒都应消失"
+        );
+        assert_eq!(
+            app.desktop_workspace.content_artifacts.len(),
+            1,
+            "已读不能删除原始成果引用"
+        );
     });
+    app.update(cx, |app, cx| {
+        app.desktop_workspace.content_artifacts.clear();
+        app.desktop_workspace.artifact_revision = 0;
+        app.refresh_desktop_artifacts_if_changed(cx);
+    });
+    cx.run_until_parked();
+    app.read_with(cx, |app, _| {
+        assert_eq!(
+            app.desktop_workspace.content_artifacts.len(),
+            1,
+            "重新加载应保留唯一成果"
+        );
+        assert!(
+            app.desktop_workspace.content_artifacts[0].viewed,
+            "已读回执应从存储恢复"
+        );
+        assert!(
+            app.desktop_workspace
+                .activity_run_overview
+                .as_ref()
+                .expect("应刷新概览")
+                .attention
+                .is_empty(),
+            "刷新不能复活已读成果提醒"
+        );
+    });
+    let read_key = app.read_with(cx, |app, _| {
+        app.desktop_workspace.content_artifacts[0].read_key(&workspace.id)
+    });
+    storage::SettingsStore::new(paths.app_db_path().to_owned())
+        .delete_string(&read_key)
+        .expect("清除本测试的已读回执");
+    app.update(cx, |app, cx| {
+        app.desktop_workspace.content_artifacts[0].viewed = false;
+        app.desktop_workspace.content_previews.clear();
+        app.desktop_workspace.content_resources.clear();
+        app.desktop_workspace.content_snapshots.clear();
+        app.load_selected_desktop_content(cx);
+        app.desktop_workspace.drawers.right_open = false;
+    });
+    cx.run_until_parked();
+    app.read_with(cx, |app, _| {
+        assert!(
+            !app.desktop_workspace.content_artifacts[0].viewed,
+            "右栏关闭前未展示的后台加载不能算已读"
+        );
+        assert!(
+            !app.desktop_workspace.drawers.right_open,
+            "回调不能自行展开右栏"
+        );
+    });
+    app.update(cx, |app, cx| {
+        app.desktop_workspace.drawers.right_open = true;
+        app.load_selected_desktop_content(cx);
+    });
+    cx.run_until_parked();
+    app.read_with(cx, |app, _| {
+        assert!(
+            app.desktop_workspace.content_artifacts[0].viewed,
+            "再次展开已缓存的成功正文应补记已读"
+        );
+    });
+    storage::SettingsStore::new(paths.app_db_path().to_owned())
+        .delete_string(&read_key)
+        .expect("清除回执以验证改选取消");
+    let (release, waiting) = futures::channel::oneshot::channel::<()>();
+    app.update(cx, |app, cx| {
+        app.desktop_workspace.content_artifacts[0].viewed = false;
+        app.desktop_workspace.content_previews.clear();
+        app.desktop_workspace.content_resources.clear();
+        app.desktop_workspace.content_snapshots.clear();
+        app.load_selected_desktop_content(cx);
+        // 模拟标签存储队列繁忙：正文先完成，而用户的新导航已经发出。
+        app.desktop_workspace.content_tab_task = Some(cx.spawn(async move |_, _| {
+            let _ = waiting.await;
+        }));
+        app.open_file_workbench(cx);
+    });
+    cx.run_until_parked();
+    app.read_with(cx, |app, _| {
+        assert!(
+            !app.desktop_workspace.content_artifacts[0].viewed,
+            "已发出其他导航时，旧标签仍暂时选中也不能被迟到正文记为已读"
+        );
+        assert!(
+            app.desktop_workspace
+                .content_previews
+                .values()
+                .any(Result::is_ok),
+            "夹具必须让旧正文实际完成，不能因任务未执行而假通过"
+        );
+    });
+    release.send(()).expect("释放标签存储队列");
+    cx.run_until_parked();
+    app.read_with(cx, |app, _| {
+        assert!(
+            app.desktop_workspace
+                .content_tabs
+                .iter()
+                .any(|tab| tab.selected && tab.kind == storage::DesktopContentKind::ProjectFiles),
+            "用户最后请求的工作台应成为当前标签"
+        );
+        assert!(
+            !app.desktop_workspace.content_artifacts[0].viewed,
+            "旧正文不得清除提醒"
+        );
+    });
+    let (release, waiting) = futures::channel::oneshot::channel::<()>();
+    app.update(cx, |app, cx| {
+        let file = app
+            .desktop_workspace
+            .content_tabs
+            .iter()
+            .find(|tab| tab.kind == storage::DesktopContentKind::File)
+            .expect("应保留成果标签")
+            .id
+            .clone();
+        let workbench = app
+            .desktop_workspace
+            .content_tabs
+            .iter()
+            .find(|tab| tab.kind == storage::DesktopContentKind::ProjectFiles)
+            .expect("应保留工作台标签")
+            .id
+            .clone();
+        app.select_desktop_content_tab(&file, cx);
+        let selecting_file = app
+            .desktop_workspace
+            .content_tab_task
+            .take()
+            .expect("应排队选择成果");
+        app.desktop_workspace.content_tab_task = Some(cx.spawn(async move |_, _| {
+            selecting_file.await;
+            let _ = waiting.await;
+        }));
+        app.select_desktop_content_tab(&workbench, cx);
+    });
+    cx.run_until_parked();
+    app.read_with(cx, |app, _| {
+        assert!(
+            !app.desktop_workspace.content_artifacts[0].viewed,
+            "过期的标签选择不能借用新导航代次清除已缓存成果"
+        );
+        assert!(
+            app.desktop_workspace
+                .content_tabs
+                .iter()
+                .any(|tab| tab.selected && tab.kind == storage::DesktopContentKind::ProjectFiles),
+            "过期回调不得把最后选择的工作台换成成果标签"
+        );
+    });
+    release.send(()).expect("释放最后选择的工作台");
+    cx.run_until_parked();
 }
 
 /// 桌面项目里旧网页与文件工具应打开右侧标签，中央不产生不可见内容卡片。

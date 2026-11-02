@@ -6,6 +6,10 @@ use agent::AdapterError;
 use gpui::Context;
 use storage::{DesktopContentKind, NewDesktopContentTab};
 
+#[cfg(test)]
+#[path = "../../../../../tests/unit/desktop_artifact_scope_tests.rs"]
+mod tests;
+
 impl MultisoulApp {
     pub(crate) fn norma_open_desktop_content_tab(
         &mut self,
@@ -238,10 +242,7 @@ impl MultisoulApp {
             storage::DesktopContentTabStore::new(self.database_paths.app_db_path().to_owned());
         let tab_id = tab_id.to_owned();
         let expected_workspace_id = workspace_id.clone();
-        self.desktop_workspace.content_tab_generation = self
-            .desktop_workspace
-            .content_tab_generation
-            .wrapping_add(1);
+        let generation = self.begin_desktop_content_navigation();
         let previous = self.desktop_workspace.content_tab_task.take();
         self.desktop_workspace.content_tab_task = Some(cx.spawn(async move |this, cx| {
             if let Some(previous) = previous {
@@ -267,6 +268,7 @@ impl MultisoulApp {
             let _ = this.update(cx, |app, cx| {
                 if app.desktop_workspace.active_id.as_deref()
                     != Some(expected_workspace_id.as_str())
+                    || app.desktop_workspace.content_tab_generation != generation
                 {
                     return;
                 }
@@ -323,6 +325,7 @@ impl MultisoulApp {
             .desktop_workspace
             .content_tab_generation
             .wrapping_add(1);
+        let generation = self.desktop_workspace.content_tab_generation;
         let previous = self.desktop_workspace.content_tab_task.take();
         self.desktop_workspace.content_tab_task = Some(cx.spawn(async move |this, cx| {
             if let Some(previous) = previous {
@@ -338,6 +341,7 @@ impl MultisoulApp {
             let _ = this.update(cx, |app, cx| {
                 if app.desktop_workspace.active_id.as_deref()
                     != Some(expected_workspace_id.as_str())
+                    || app.desktop_workspace.content_tab_generation != generation
                 {
                     return;
                 }

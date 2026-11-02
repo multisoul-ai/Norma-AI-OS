@@ -157,6 +157,7 @@ impl MultisoulApp {
         s.turn_paths = None;
         s.lock_area = false;
         s.pending_turn_diff = None;
+        s.pending_turn_review = None;
         s.followed_area = current;
         if s.saved.area_id.as_deref() != Some(area_id.as_str()) {
             s.saved.area_id = Some(area_id.clone());

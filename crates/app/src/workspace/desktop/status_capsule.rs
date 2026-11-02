@@ -204,6 +204,9 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         let before = self.desktop_workspace.drawers;
+        if before.right_open && !next.right_open {
+            self.begin_desktop_content_navigation();
+        }
         self.desktop_workspace.drawers = next;
         if before.left_view != next.left_view {
             self.desktop_workspace.left_view_slide.retarget(

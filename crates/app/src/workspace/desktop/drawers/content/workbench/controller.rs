@@ -12,6 +12,7 @@ impl MultisoulApp {
         state.turn_paths = None;
         state.lock_area = false;
         state.pending_turn_diff = None;
+        state.pending_turn_review = None;
         self.open_desktop_content_tab(
             DesktopContentKind::ProjectFiles,
             "project-files".into(),
@@ -105,6 +106,7 @@ impl MultisoulApp {
                 }
             }));
         }
+        self.acknowledge_workbench_review(cx);
     }
 
     pub(crate) fn refresh_file_workbench(&mut self, cx: &mut Context<Self>) {
@@ -218,6 +220,9 @@ impl MultisoulApp {
                                 git.changes.iter().any(|change| change.path == *path)
                             })
                         });
+                        let frozen_path = s.pending_turn_diff.clone().filter(|_| {
+                            pending_diff.is_none() && s.git.is_some() && s.git_error.is_none()
+                        });
                         if pending_diff.is_some() {
                             s.pending_turn_diff = None;
                         }
@@ -236,8 +241,19 @@ impl MultisoulApp {
                         if external_change && dirty {
                             s.notice = Some(ui::i18n::LocalizedText::new("drawers.file_changed"));
                         }
-                        if let Some(path) = pending_diff {
-                            app.select_workbench_path(path, true, false, cx);
+                        if let Some(path) = frozen_path {
+                            app.open_pending_review_artifact(&path, cx);
+                        } else if let Some(path) = pending_diff {
+                            let staged = s
+                                .git
+                                .as_ref()
+                                .and_then(|git| {
+                                    git.changes.iter().find(|change| change.path == path)
+                                })
+                                .is_some_and(|change| {
+                                    super::tree::row_is_staged(change.staged, change.unstaged)
+                                });
+                            app.select_workbench_path(path, true, staged, cx);
                         } else if reload_diff {
                             let staged = s.diff_staged;
                             app.load_workbench_file(true, staged, cx);
@@ -258,6 +274,7 @@ impl MultisoulApp {
                     }
                 }
                 app.apply_pending_workbench_open(cx);
+                app.acknowledge_workbench_review(cx);
                 app.persist_file_workbench(cx);
                 cx.notify();
             });
@@ -288,24 +305,6 @@ impl MultisoulApp {
                 .background_spawn(async move { store.save_state(&workspace, &json) })
                 .await;
         }));
-    }
-
-    pub(crate) fn select_workbench_path(
-        &mut self,
-        path: String,
-        diff: bool,
-        staged: bool,
-        cx: &mut Context<Self>,
-    ) {
-        self.hide_desktop_content_browsers();
-        let s = &mut self.desktop_workspace.workbench;
-        s.saved.selected = Some(path);
-        s.jump_line = None;
-        s.pending_scroll = None;
-        s.sidebar_open = false;
-        s.show_source = false;
-        self.load_workbench_file(diff, staged, cx);
-        self.persist_file_workbench(cx);
     }
 
     pub(crate) fn load_workbench_file(&mut self, diff: bool, staged: bool, cx: &mut Context<Self>) {
@@ -382,6 +381,7 @@ impl MultisoulApp {
                     Err(e) => s.error = Some(e.into()),
                 }
                 app.consume_workbench_scroll();
+                app.acknowledge_workbench_review(cx);
                 cx.notify();
             });
         })

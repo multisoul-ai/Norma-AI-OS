@@ -62,6 +62,8 @@
 
 | `agent` | `agent-codex-wait-completion` | 真实 Codex + 本机 Responses 回放：API等待、思考、真实后台终端等待持续运行；提前Stop不完成；原生回合结束后Done且幕僚只收一次最终回复。连续帧单独比较卡片边缘动效，不覆盖真实云端模型/TTS。 |
 
+| `workspace` | `workspace-attention-read` | 中英、Sapphire Night/Ink Black：逐文件打开清除对应提醒，看完回合全部文件清除回合提醒，键盘打开成果清除该回合提醒；重启持久化，新版本重新提醒，冻结成果与项目文件保留。 |
+
 ## 预留模块
 
 下面这些目录还没有场景。第一条用例落进去时再创建目录，并在本表补一行。不要把它们的步骤塞进 `workspace`。

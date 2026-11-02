@@ -28,6 +28,18 @@ impl MultisoulApp {
         else {
             return;
         };
+        if self
+            .desktop_workspace
+            .content_previews
+            .get(&tab.id)
+            .is_some_and(Result::is_ok)
+            || self
+                .desktop_workspace
+                .content_resources
+                .contains_key(&tab.id)
+        {
+            self.mark_visible_desktop_artifact_viewed(&tab, cx);
+        }
         if tab.kind != DesktopContentKind::File
             || self
                 .desktop_workspace
@@ -47,6 +59,7 @@ impl MultisoulApp {
         }
         let id = tab.id.clone();
         let workspace_id = tab.workspace_id.clone();
+        let navigation_generation = self.desktop_workspace.content_tab_generation;
         let tab_resource = tab.resource.clone();
         let expected_tab = tab.clone();
         let load_id = self.desktop_workspace.content_load_sequence.wrapping_add(1);
@@ -189,6 +202,11 @@ impl MultisoulApp {
                     })
                 {
                     return;
+                }
+                if result.is_ok()
+                    && app.desktop_workspace.content_tab_generation == navigation_generation
+                {
+                    app.mark_visible_desktop_artifact_viewed(&expected_tab, cx);
                 }
                 match result {
                     Ok(LoadedContent::Text(text)) => {

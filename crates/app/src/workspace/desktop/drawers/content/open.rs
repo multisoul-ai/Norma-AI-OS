@@ -32,6 +32,15 @@ impl MultisoulApp {
         self.desktop_workspace.content_load_versions.clear();
     }
 
+    /// User navigation supersedes late opens and any unacknowledged workbench review.
+    pub(crate) fn begin_desktop_content_navigation(&mut self) -> u64 {
+        let state = &mut self.desktop_workspace;
+        state.content_tab_generation = state.content_tab_generation.wrapping_add(1);
+        state.workbench.pending_turn_review = None;
+        state.workbench.pending_turn_diff = None;
+        state.content_tab_generation
+    }
+
     pub(crate) fn enqueue_desktop_content_open(
         &mut self,
         mut request: NewDesktopContentTab,
@@ -44,11 +53,7 @@ impl MultisoulApp {
         let epoch = self.desktop_workspace.content_workspace_epoch;
         let store =
             storage::DesktopContentTabStore::new(self.database_paths.app_db_path().to_owned());
-        self.desktop_workspace.content_tab_generation = self
-            .desktop_workspace
-            .content_tab_generation
-            .wrapping_add(1);
-        let generation = self.desktop_workspace.content_tab_generation;
+        let generation = self.begin_desktop_content_navigation();
         let previous = self.desktop_workspace.content_tab_task.take();
         self.desktop_workspace.content_tab_task = Some(cx.spawn(async move |this, cx| {
             if let Some(previous) = previous {
