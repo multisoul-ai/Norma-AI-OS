@@ -1,6 +1,5 @@
-#[path = "../support/a1_python.rs"]
-mod a1_python;
 use super::*;
+use crate::providers::local::a1::test_python as a1_python;
 
 fn worker(mode: &str) -> Transport {
     let mut command = std::process::Command::new(a1_python::executable());

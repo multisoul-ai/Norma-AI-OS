@@ -9,3 +9,7 @@ pub use host::{
 };
 
 mod resources;
+
+#[cfg(test)]
+#[path = "../../../../tests/support/a1_python.rs"]
+mod test_python;

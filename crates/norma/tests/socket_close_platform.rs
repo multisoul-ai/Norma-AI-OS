@@ -41,6 +41,9 @@ fn observe(label: &str, socket: &UnixStream) {
 fn unread_socket_close_notification_diagnostics_preserve_payload() {
     let (mut source, mut receiver) = UnixStream::pair().unwrap();
     let bytes = vec![7u8; 128 * 1024];
+    source
+        .set_write_timeout(Some(std::time::Duration::from_secs(3)))
+        .unwrap();
     source.write_all(&bytes).unwrap();
     receiver.set_nonblocking(true).unwrap();
     observe("alive", &receiver);
