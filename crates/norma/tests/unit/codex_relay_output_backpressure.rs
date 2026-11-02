@@ -36,6 +36,8 @@ fn actual_relay_output_backpressure_detects_native_shutdown() {
     let path = dir.path().join("s.sock");
     let listener = UnixListener::bind(&path).unwrap();
     let (native, bridge) = UnixStream::pair().unwrap();
+    #[cfg(windows)]
+    let native_probe = bridge.try_clone().unwrap();
     let blocked = Arc::new(AtomicUsize::new(0));
     let witness = blocked.clone();
     let connector = std::thread::spawn(move || {
@@ -87,13 +89,61 @@ fn actual_relay_output_backpressure_detects_native_shutdown() {
         std::thread::sleep(Duration::from_millis(5));
     }
     let stopped = !relay.is_running();
+    #[cfg(windows)]
+    readiness_witness(&native_probe);
+    #[cfg(windows)]
+    eprintln!(
+        "relay close source writer finished before final handle drop={}",
+        writer.is_finished()
+    );
+    drop(shutdown);
+    #[cfg(windows)]
+    if !stopped {
+        let after_drop = Instant::now() + Duration::from_millis(300);
+        while relay.is_running() && Instant::now() < after_drop {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        eprintln!(
+            "relay close after final source handle drop: running={}",
+            relay.is_running()
+        );
+        readiness_witness(&native_probe);
+    }
     drop(server);
     drop(relay);
-    let _ = shutdown.shutdown(Shutdown::Both);
     writer.join().unwrap();
+    assert!(
+        was_running,
+        "关闭前relay必须仍然存活，不能把背压导致的提前断连冒充关闭成功"
+    );
     assert!(
         observed >= 8,
         "必须观测relay实际输出连续背压，不能用外部writer首次WouldBlock代替：{observed}"
     );
     assert!(stopped, "实际relay输出背压时native关闭必须在3秒内收口");
+}
+
+#[cfg(windows)]
+fn readiness_witness(stream: &UnixStream) {
+    use std::os::windows::io::AsRawSocket;
+    use windows_sys::Win32::Networking::WinSock::{
+        ioctlsocket, WSAGetLastError, WSAPoll, FIONREAD, POLLRDNORM, WSAPOLLFD,
+    };
+    let mut unread = 0u32;
+    let status = unsafe { ioctlsocket(stream.as_raw_socket() as _, FIONREAD, &mut unread) };
+    eprintln!("relay close native FIONREAD: status={status}, unread_bytes={unread}");
+    for events in [0, POLLRDNORM] {
+        let mut descriptor = WSAPOLLFD {
+            fd: stream.as_raw_socket() as _,
+            events,
+            revents: 0,
+        };
+        let result = unsafe { WSAPoll(&mut descriptor, 1, 0) };
+        let error = if result < 0 {
+            unsafe { WSAGetLastError() }
+        } else {
+            0
+        };
+        eprintln!("relay close native WSAPoll: interest={events}, result={result}, revents={}, error={error}", descriptor.revents);
+    }
 }

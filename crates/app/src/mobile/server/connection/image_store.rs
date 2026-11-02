@@ -1,9 +1,11 @@
-use super::{fs, Write, LIMIT};
+use std::{fs, io::Write};
+pub(super) const LIMIT: usize = 2 * 1024 * 1024;
 use image::{ImageFormat, ImageReader};
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::{
     io::{Cursor, Read},
-    os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::Path,
     sync::Mutex,
 };
@@ -28,6 +30,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<&'static str, &'static str> {
     Ok(extension)
 }
 
+#[cfg(unix)]
 fn directory(path: &Path) -> Result<(), &'static str> {
     match fs::symlink_metadata(path) {
         Ok(info) if info.file_type().is_dir() => Ok(()),
@@ -39,6 +42,35 @@ fn directory(path: &Path) -> Result<(), &'static str> {
         }
         Err(_) => Err("image_storage_unavailable"),
     }
+}
+
+#[cfg(windows)]
+fn directory(path: &Path) -> Result<(), &'static str> {
+    // Reuse the owner-only DACL primitive, which also rejects reparse points and foreign owners.
+    norma::private_fs::create_private_dir(path).map_err(|_| "image_storage_unavailable")
+}
+
+#[cfg(unix)]
+fn open_image(path: &Path) -> std::io::Result<fs::File> {
+    fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+}
+#[cfg(windows)]
+fn open_image(path: &Path) -> std::io::Result<fs::File> {
+    use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
+    };
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)?;
+    if file.metadata()?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+        return Err(std::io::ErrorKind::PermissionDenied.into());
+    }
+    Ok(file)
 }
 
 pub(super) fn save(
@@ -120,11 +152,7 @@ pub(super) fn read(folder: &Path, id: &str) -> Result<(String, Vec<u8>), &'stati
     }
     for extension in ["jpg", "png"] {
         let path = folder.join(format!("{id}.{extension}"));
-        let Ok(file) = fs::OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-            .open(&path)
-        else {
+        let Ok(file) = open_image(&path) else {
             continue;
         };
         let metadata = file.metadata().map_err(|_| "image_not_found")?;

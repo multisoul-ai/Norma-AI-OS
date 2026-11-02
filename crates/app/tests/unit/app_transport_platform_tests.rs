@@ -144,3 +144,56 @@ fn occupied_regular_file_is_never_removed() {
         "禁止删除或截断原正文"
     );
 }
+
+/// 场景：已入队但未获UI回执的副作用请求，在App退出时必须及时收口且保留未知结果身份。
+/// 构造：真实listener，固定operation_id，收到队列请求后故意持有response sender不回复。
+/// 执行：关闭listener，再从原客户端读取结构化响应。
+/// 预期：退出少于3秒，返回OutcomeUnknown并保留原operation_id，不能假称请求未被接收。
+#[test]
+fn shutdown_does_not_wait_for_ui_and_preserves_unknown_operation() {
+    let (_dir, path) = endpoint();
+    let listener = NormaSocketListener::bind(path.clone()).unwrap();
+    let mut input = request();
+    input.operation_id = Some("11111111-2222-4333-8444-555555555555".into());
+    let mut client = UnixStream::connect(&path).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    client
+        .write_all(encode_request_line(&input).unwrap().as_bytes())
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let pending = loop {
+        if let Some(request) = listener.try_recv() {
+            break request;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "必须确认请求已经入队，不能用未接收请求测试未知结果"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    };
+    let start = Instant::now();
+    drop(listener);
+    let elapsed = start.elapsed();
+    let mut line = String::new();
+    BufReader::new(client).read_line(&mut line).unwrap();
+    let reply = decode_response_line(&line).unwrap();
+    let Err(norma::protocol::CardCommandError::Agent(error)) = reply.result else {
+        panic!("必须返回结构化退出结果");
+    };
+    drop(pending);
+    assert!(
+        elapsed < Duration::from_secs(3),
+        "退出不能等待10秒UI回执：{elapsed:?}"
+    );
+    assert_eq!(
+        error.code,
+        norma::protocol::AgentErrorCode::OutcomeUnknown,
+        "入队后退出不能假称无副作用"
+    );
+    assert_eq!(
+        error.operation_id, input.operation_id,
+        "未知结果必须保留原operation_id"
+    );
+}

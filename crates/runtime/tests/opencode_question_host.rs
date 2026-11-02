@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 /// 构造：可写echo PTY与仅原question/message路由的本机HTTP服务，真实三题夹具。
 /// 执行：原run采用host→原题占有输入→提交或先撤销→真实HTTP结果对账。
 /// 回包丢失分支：同工具消费只关闭原题，不保留我方交付归属，也不得重发。
+/// 核对门闩分支：消费发布后暂停第二轮HTTP核对，先证明输入仍受闸门保护，再在原5秒内共同观察消费与解锁。
 /// 预期：原会话原题Answered且唯一POST，接管零POST；错误process不能接管，普通任务始终被原题挡住。
 #[test]
 fn owned_opencode_host_routes_current_question_through_runtime() {
@@ -44,9 +45,8 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
                     }
                     Err(e) => panic!("本机服务失败:{e}"),
                 };
-                if hold_after_consumption {
-                    socket.set_nonblocking(false).unwrap();
-                }
+                // macOS accepted sockets inherit listener flags; the mock honors bounded blocking HTTP.
+                socket.set_nonblocking(false).unwrap();
                 socket
                     .set_read_timeout(Some(Duration::from_millis(200)))
                     .unwrap();
@@ -225,23 +225,39 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
                 held.recv_timeout(Duration::from_secs(4))
                     .expect("消费后第二轮HTTP核对必须真正进入门闩");
             }
-            while runtime.question_snapshot(&target).unwrap().state != expected
-                && Instant::now() < deadline
-            {
+            let mut gate = hold_after_consumption.then_some(release);
+            let mut joint = None;
+            let mut last = (runtime.question_snapshot(&target).unwrap().state, true);
+            let mut held_consumption_seen = false;
+            while Instant::now() < deadline {
                 runtime.drain_native_question_hosts("p");
+                let state = runtime.question_snapshot(&target).unwrap().state;
+                let pending = runtime.has_pending_question(node);
+                if state == expected {
+                    if let Some(gate) = gate.take() {
+                        assert!(pending, "受控HTTP核对未返回时必须保留输入闸门");
+                        held_consumption_seen = true;
+                        eprintln!("OpenCode held revalidation witness: state={state:?}, input_pending={pending}");
+                        gate.send(()).unwrap();
+                    }
+                    if !pending {
+                        joint = Some((state, pending));
+                        break;
+                    }
+                }
+                last = (state, pending);
                 std::thread::sleep(Duration::from_millis(5));
             }
-            assert_eq!(
-                runtime.question_snapshot(&target).unwrap().state,
-                expected,
-                "必须等待原工具精确消费"
-            );
-            let pending = runtime.has_pending_question(node);
-            eprintln!("OpenCode consumption snapshot: held={hold_after_consumption}, state={:?}, input_pending={pending}", runtime.question_snapshot(&target).unwrap().state);
-            pending_when_consumed = Some(pending);
+            let (state, pending) = joint.unwrap_or(last);
+            assert_eq!(state, expected, "必须等待原工具精确消费");
             if hold_after_consumption {
-                release.send(()).unwrap();
+                assert!(
+                    held_consumption_seen,
+                    "门闩必须实际覆盖消费已发布而核对仍未结束的窗口"
+                );
             }
+            pending_when_consumed = Some(pending);
+            eprintln!("OpenCode joined milestone: held={hold_after_consumption}, state={state:?}, input_pending={pending}");
             assert!(
                 !runtime.observe_mobile_hook(&child_session),
                 "空闲时子Agent创建session也不能替换原TUI归属"

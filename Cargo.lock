@@ -245,6 +245,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "socket2",
  "storage",
  "tempfile",
  "terminal",
@@ -262,6 +263,7 @@ dependencies = [
  "uuid",
  "voice_input",
  "voice_sherpa",
+ "windows-sys 0.61.2",
  "workspace",
  "wry",
 ]

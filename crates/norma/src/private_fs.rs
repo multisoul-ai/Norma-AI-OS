@@ -44,7 +44,7 @@ pub(crate) fn permissions_are_private(path: &Path) -> io::Result<bool> {
 }
 
 #[cfg(unix)]
-pub(crate) fn create_private_dir(path: &Path) -> io::Result<()> {
+pub fn create_private_dir(path: &Path) -> io::Result<()> {
     use std::os::unix::fs::DirBuilderExt;
     match std::fs::DirBuilder::new().mode(0o700).create(path) {
         Ok(()) => Ok(()),
@@ -54,6 +54,6 @@ pub(crate) fn create_private_dir(path: &Path) -> io::Result<()> {
 }
 
 #[cfg(windows)]
-pub(crate) fn create_private_dir(path: &Path) -> io::Result<()> {
+pub fn create_private_dir(path: &Path) -> io::Result<()> {
     windows::create_private_dir(path)
 }

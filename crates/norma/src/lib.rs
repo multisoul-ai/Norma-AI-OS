@@ -12,4 +12,4 @@ pub mod presentation;
 pub mod protocol;
 
 mod file_identity;
-mod private_fs;
+pub mod private_fs;
