@@ -43,7 +43,7 @@ G1、G2 的纯协议夹具可以与 G3 的编译调查交错进行；发布包�
 1. `windows-contracts`：norma、Canvas、存储/文件边界、ConPTY、实际原生 Agent 启动与关闭。
 2. `windows-app`：默认 App 编译、App adapter、WebView2 与真实桌面场景。
 3. `macos-regression`：受影响 crate、workspace Clippy 和必要真实 App 回归。
-4. `live-agents`：受保护 GitHub environment 的手动 Windows job，冻结 Claude/Codex 两个 CLI 的版本；各执行真实模型最小任务，并验证会话归属、提问回答、取消与恢复。只读无凭据探针和无模型夹具不能满足此 job。缺安全凭据/预算时保留 NOT_RUN，Goal 继续未完成。
+4. `live-agents`：用户于2026-11-02明确回复“这个我自己测”，承接真实Claude/Codex模型验收。交付时提供冻结CLI版本、任务/提问/回答/取消/恢复的手动步骤与回执入口，不再等待GitHub模型凭据；生产控制链的无模型runner验收仍由Agent完成。可选受保护environment job仅在用户后续提供环境时运行，不以协议夹具冒充真实模型通过。
 5. `package`：必需 job 成功后构建 release、校验资源并上传候选包。
 6. `verify-candidate`：独立新 runner 下载同一 artifact，校验、启动和检查最终结果。
 
@@ -61,7 +61,7 @@ G1、G2 的纯协议夹具可以与 G3 的编译调查交错进行；发布包�
 
 ## 默认能力与验收矩阵（G0 冻结）
 
-以下软件门槛全部要求本轮来源一致的 PASS；FAIL、ENV、NOT_RUN 都阻止 Goal 完成。实现时可细分条目，不能删除范围或把软件缺口降为设备例外。
+以下自动化软件门槛要求本轮来源一致的 PASS；FAIL、ENV、NOT_RUN 阻止相应自动化阶段完成。用户已明确承接W05/W06的真实模型调用验收，这两项真实调用记录为USER_VALIDATION_PENDING，交付验收步骤，不要求配置GitHub模型凭据。生产Agent启动和控制实现、无模型runner验证仍不可省略；不能把软件缺口降为设备例外。
 
 | ID | 必需能力 | runner 验收证据 | 当前状态 |
 |---|---|---|---|
@@ -69,8 +69,8 @@ G1、G2 的纯协议夹具可以与 G3 的编译调查交错进行；发布包�
 | W02 | 文件/附件、DACL、原子替换、恢复与持久化 | 真实 NTFS 并发/reparse 反例；保存重开 | FAIL |
 | W03 | PowerShell/ConPTY、中文路径、环境、输入与进程树 | 原生 PTY 及 PID+创建时间；树外 sentinel | NOT_RUN |
 | W04 | Codex/OpenCode/Cursor 启动、relay、权限、提问和取消 | 生产 prepare 路径无模型夹具；严格关闭契约 | FAIL |
-| W05 | Claude、Codex 各执行真实任务 | 受保护 live-agents job；产物、session/卡片回执 | NOT_RUN |
-| W06 | 两个真实 Agent 的提问、回答、取消和同会话恢复 | live-agents job 的真实控制与迟到动作反例 | NOT_RUN |
+| W05 | Claude、Codex 各执行真实任务 | 用户在交付包上以自己的账号验收；提供步骤、CLI版本和session/产物记录入口 | USER_VALIDATION_PENDING |
+| W06 | 两个真实 Agent 的提问、回答、取消和同会话恢复 | 用户验收真实模型行为；Agent仍完成runner生产控制链和迟到动作反例 | USER_VALIDATION_PENDING |
 | W07 | 项目、画布、终端、退出与手机后台生命周期 | 真正 Norma 窗口输入、最终状态、退出树 | NOT_RUN |
 | W08 | WebView2、内容编辑/预览、资源和浏览器认证 | 真实页面导航、本地资源、编辑冲突及回调 | NOT_RUN |
 | W09 | ASR/VAD、TTS、模型安装、音频软件管线 | 真实引擎与受控 PCM；安装完整性；错误状态 | NOT_RUN |
@@ -86,11 +86,11 @@ G1、G2 的纯协议夹具可以与 G3 的编译调查交错进行；发布包�
 
 `PASS` 表示该门槛真实通过；`FAIL` 表示产品或断言失败；`ENV` 表示运行条件不足；`NOT_RUN` 表示没有执行。可行性 CI 的绿色仅对应其列出的原生技术检查，`goal_complete` 必须与完整验收矩阵一致。
 
-不把图形样例、协议夹具、编译通过或有截图单独等同产品验收。真实模型调用只使用已授权的 GitHub environment/secrets，不复制本机凭据；没有安全执行条件时明确保留未执行并继续其他可独立工作。
+不把图形样例、协议夹具、编译通过或有截图单独等同产品验收。真实模型调用已由用户明确承接，不复制本机凭据、不要求用户在聊天中提交密钥。可选自动化真实模型调用只使用已授权GitHub environment/secrets；人工待验收项准确列出。
 
 ## Goal 完成条件
 
-- W01–W12 所有必需软件门槛均 PASS，含两个真实 Agent 的 W05/W06；没有安全执行条件时不得完成 Goal。
+- W01–W04、W07–W12必需软件门槛均PASS；W05/W06相关实现和无模型runner控制验证通过，并提供用户明确承接的真实模型验收步骤。用户未反馈结果时保留USER_VALIDATION_PENDING，不宣称真实模型通过，也不再因缺GitHub模型密钥阻止包交付。
 - 所有已确认的数据安全、生命周期、会话/权限边界阻塞均关闭；既有失败不得以重跑或放宽断言替代修复。
 - 默认能力适配矩阵逐项有实现与证据；设备相关限制清楚归类，未实现项仍属未完成。
 - 正常提交并推送；PR 的状态、描述和证据入口反映最终实现。
@@ -163,4 +163,14 @@ Windows native run `41477762062`，attempt 1，job `125387736616` 已完成失�
 - `c3b3599d` run `41501997882` 两平台的新增进程树测试真实红灯：root已退出，脱离控制台的middle/leaf在3秒后均存活。独立只读审查指出预算必须包含kill调用、等待API失败不得当退出、失败采集后代身份也要准确清理；已在`e2eb5e21`补强。
 - `e2eb5e21` run `41502962168`，Windows2022 job `125474882146`：3项中1过/2败，主动kill及自然root exit7均保留两个存活后代。自然退出码7断言通过，后代清理断言失败。下一补丁使用非继承私有Job，在CREATE_SUSPENDED期间绑定后才Resume；主动取消及自然root完成均收口后代，后台等ActiveProcesses归零并保留root退出码。等待两平台复验，不能将此候选记作W03完成。
 
-W01–W12的整体门槛仍未全部满足；没有生成候选包、真实Agent验收或同包新runner消费证据，Goal保持active。
+W01–W12的整体门槛仍未全部满足；没有生成候选包或同包新runner消费证据，Goal保持active。真实模型验收现由用户承接，按上表保留人工待验收。
+
+## 整树修复绿灯与用户验收分工
+
+- `ef9eb454` run `41503576948`：Windows2022 job `125476999072`、Windows2025 job `125476999364` 的真实满管道1项、PTY3项、进程树3项全部通过，0 ignored。两条实际树测试覆盖主动取消、自然root退出及退出码7，树外sentinel存活；独立审查未发现本次API或所有权阻塞，Future取消的上游等待线程行为单独保留说明。
+- `c81432cc` run `41501587650`，macOS job `125470144921`：i18n护栏及真实App文案边界1项通过，0 ignored。该差异的展示实现和catalog后续未改变，可复用此证据；不是实际GUI验收。
+- `20d775f9` run `41504359152`，Windows job `125479704697`：workspace lib 27/0/0，content/review/scoped directory分别1/0/0、1/0/0、4/0/0。Review夹具使用同一个原生Rust测试exe派生真实后代，保留原1.5秒deadline及回收断言，消除Python冷启动这个无关前提。严格relay关闭仍失败，整个native job没有通过。
+- `fb8a2d05`实验把通知注册句柄从标准OwnedSocket clone改为uds_windows clone，真实relay严格关闭仍失败（run `41504024395`，job `125478533916`）；该候选已在`9f1c0152`撤回，不能记为修复。
+- `9f1c0152` run `41505010677`，socket job `125481956397`：诊断2项通过，实际逐次512KiB发送在累计1048576字节时遇到真实WouldBlock。此时全部source释放后、仍有131072字节未读，WSAPoll只报可读、不报HUP；非背压对照报HUP。该最小重现不含WebSocket、relay或IOCP；完整正文仍可排空，不能靠丢正文制造关闭。下一轮延长仅观察窗口到原3秒，随后排空并比较HUP状态，不放宽产品3秒关闭断言。
+- 后续macOS缓存复验曾再次缺Sherpa静态库，`cargo clean -p`报告移除0文件。调整为独立原生库cache、在缺库时按test profile清理包；不因缓存问题反复重编译已通过的文案行为，也不把失败写成通过。
+- 用户2026-11-02回复“这个我自己测”，明确承接真实Claude/Codex模型任务、提问和恢复验收；不再索要模型环境或密钥。runner生产启动/控制验证、软件适配与候选包消费仍由Agent完成，真实模型结果不得冒充PASS。

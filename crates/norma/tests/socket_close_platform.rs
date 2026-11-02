@@ -6,7 +6,7 @@ use std::{
 };
 use uds_windows::UnixStream;
 use windows_sys::Win32::Networking::WinSock::{
-    ioctlsocket, send, WSAGetLastError, WSAIoctl, WSAPoll, WSASend, FIONREAD, POLLRDNORM,
+    ioctlsocket, send, WSAGetLastError, WSAIoctl, WSAPoll, WSASend, FIONREAD, POLLHUP, POLLRDNORM,
     POLLWRNORM, SIO_AF_UNIX_GETPEERPID, WSABUF, WSAPOLLFD,
 };
 
@@ -137,6 +137,29 @@ fn socket_close_with_clones_and_saturated_sender_preserves_payload() {
                     .unwrap();
                 drop(source_copy);
                 drop(source);
+                if saturate {
+                    let start = std::time::Instant::now();
+                    let mut poll = WSAPOLLFD {
+                        fd: receiver.as_raw_socket() as _,
+                        events: POLLRDNORM,
+                        revents: 0,
+                    };
+                    while start.elapsed() < std::time::Duration::from_secs(3) {
+                        assert!(
+                            unsafe { WSAPoll(&mut poll, 1, 0) } >= 0,
+                            "{label}: 真实WSAPoll不能失败"
+                        );
+                        if poll.revents & POLLHUP != 0 {
+                            break;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(1));
+                    }
+                    eprintln!(
+                        "{label}: close observation after {:?}, events={}",
+                        start.elapsed(),
+                        poll.revents
+                    );
+                }
                 observe(&format!("{label}/closed"), &receiver);
                 let actual = drain_closed(&mut receiver);
                 assert_eq!(actual.len(), written, "{label}: 不能丢掉已接受的正文长度");
@@ -144,6 +167,9 @@ fn socket_close_with_clones_and_saturated_sender_preserves_payload() {
                     actual.iter().all(|byte| *byte == 7),
                     "{label}: 非消费探测不能改写任何正文字节"
                 );
+                if saturate {
+                    observe(&format!("{label}/after-drain"), &receiver);
+                }
                 drop(receiver_copy);
             }
         }
