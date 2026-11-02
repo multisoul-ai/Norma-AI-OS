@@ -24,6 +24,11 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
         (true, false, false),
         (false, true, false),
     ] {
+        let workspace = tempfile::Builder::new()
+            .prefix("opencode owned ")
+            .tempdir()
+            .unwrap();
+        let directory = workspace.path().to_str().unwrap();
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
@@ -108,13 +113,17 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
                 let _=write!(socket,"HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",body.len());
             }
         });
-        let mut runtime = Runtime::new_for_workspace("/tmp/opencode-owned-test");
+        let mut runtime = Runtime::new_for_workspace(directory);
         runtime.set_agent_hook_config(Some(AgentHookRuntimeConfig {
             endpoint: "http://127.0.0.1:9/agent-hooks".into(),
             token: "test".into(),
             workspace_id: "w".into(),
             workspace_route_id: "r".into(),
-            norma_socket: "/tmp/unused.sock".into(),
+            norma_socket: workspace
+                .path()
+                .join("unused.sock")
+                .to_string_lossy()
+                .into_owned(),
         }));
         runtime.set_pty_factory(Box::new(|_, _, _, sender| {
             Ok(Box::new(terminal::TestPtyBackend::echo(sender)))
@@ -134,7 +143,7 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
         let client = || {
             OpenCodeQuestionClient::new(
                 &endpoint,
-                "/tmp/opencode-owned-test",
+                directory,
                 "ses_e818a6dfbffehqPKTZcQvWJCLL",
                 "opencode",
                 "test-secret",
