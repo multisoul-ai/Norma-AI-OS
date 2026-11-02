@@ -54,23 +54,35 @@ fn abandoned_reader_does_not_deadlock_full_pipe_close() {
     let mut child = pair.slave.spawn_command(command).expect("真实写入进程");
     drop(pair.slave);
     let reply = writer.clone();
+    let startup = Arc::new(Mutex::new(Vec::new()));
+    let captured = startup.clone();
     let (ready, observed) = mpsc::sync_channel(1);
     thread::spawn(move || {
         let mut recent = Vec::new();
         let mut bytes = [0u8; 4096];
-        let mut replied = false;
+        let mut dsr = 0;
         loop {
             let count = reader.read(&mut bytes).expect("启动输出");
             assert!(count > 0, "达到ready前不能EOF");
             recent.extend_from_slice(&bytes[..count]);
-            if !replied && recent.windows(4).any(|p| p == b"\x1b[6n") {
-                reply
-                    .lock()
-                    .expect("stdin锁")
-                    .write_all(b"\x1b[1;1R")
-                    .expect("实际DSR响应");
-                replied = true;
+            for &byte in &bytes[..count] {
+                dsr = match (dsr, byte) {
+                    (0, b'\x1b') => 1,
+                    (1, b'[') => 2,
+                    (2, b'6') => 3,
+                    (3, b'n') => {
+                        reply
+                            .lock()
+                            .expect("stdin锁")
+                            .write_all(b"\x1b[1;1R")
+                            .expect("实际DSR响应");
+                        0
+                    }
+                    (_, b'\x1b') => 1,
+                    _ => 0,
+                };
             }
+            *captured.lock().expect("启动诊断锁") = recent.clone();
             if recent
                 .windows(b"NORMA_CONPTY_DROP_READY".len())
                 .any(|p| p == b"NORMA_CONPTY_DROP_READY")
@@ -84,9 +96,16 @@ fn abandoned_reader_does_not_deadlock_full_pipe_close() {
             }
         }
     });
-    observed
-        .recv_timeout(Duration::from_secs(10))
-        .expect("必须实际完成启动并释放reader");
+    if let Err(error) = observed.recv_timeout(Duration::from_secs(10)) {
+        // Even a failed setup must reap the exact child before unwinding the master.
+        let _ = child.kill();
+        let _ = child.wait();
+        panic!(
+            "必须实际完成启动并释放reader: {:?}; recent={:?}",
+            error,
+            String::from_utf8_lossy(&startup.lock().expect("启动诊断锁"))
+        );
+    }
     let deadline = Instant::now() + Duration::from_secs(5);
     let mut available = 0;
     while Instant::now() < deadline {
