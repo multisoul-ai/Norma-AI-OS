@@ -589,3 +589,65 @@ Release SHA256：`26f5f2a24629c3af3375ad5258d468e7805e40cff5ced41145bd5ae192c411
 后续须先恢复300秒内可响应的模型看图通道，再运行三条已登记场景：`settings-voice-a1-install`、`settings-voice-jev-configuration`、`settings-voice-capability-errors-en`。提交中的A1场景已将依赖+1.21GB模型的安装预算扩为2700秒，但该新预算版本尚未实际运行。可选择第二轮App已准备并验证的专用Python继续，路径与57项依赖证据见 `fresh-runtime-evidence.json`；这不替代14个模型文件的真实下载、逐项SHA256和配置保存验收。模型下载使用实际可访问的固定HF地址，不以模拟文件形成成功证据。
 
 完整A1安装、配置重开、Jev页面真实验证及英文失败反馈仍是未完成项；真人麦克风全链路延续此前阻塞，不由本轮配置工作代替。当前不满足完整设置验收或语音分支合并门槛；未合并dev、未替换用户App、未启用Jev生产入口、未恢复准确率实验。
+
+### 2026-11-02 UTC 继续剩余配置验收（本轮配置范围通过）
+
+保留d80b673e与9967917e。历史三次看图超时的响应文件实际晚于请求494.05、382.61、806.18秒才落盘；成功步骤多为24–57秒。驱动未在截止前得到响应，尚无证据表明超时由App、错误路径或JSON解析造成。本轮9项VisualReviewTests全部通过；保持300秒限制并优先处理当前图，不以增加超时或自动通过绕过。
+
+Jev真实页面场景 `settings-voice-jev-configuration --visual` 于 `artifacts/desktop-workspace-e2e/2026-11-02T01-56-44Z/` 退出0、场景1/1通过。覆盖真实401、中文Keychain保存/连接、英文重开同一凭据加载、再次验证与清除；实际jev-1.14.0，中文1443ms、英文1594ms，生产入口始终禁用。此数字仅为配置连接探针，不是ASR或路由延迟。A1使用既有57项依赖验证环境，已通过无效Python反馈并开始实际HF模型下载，完整安装与英文重开仍待结果。
+
+新增证据根：`artifacts/voice-settings-acceptance-20261102/`；正在复现并核查两项未修改OpenCode时序测试的关系，不扩大生产修改。
+
+#### 本轮最终结论与追溯
+
+用户本轮指定的A1完整安装/配置重开、Jev配置页面全流程及中英文失败反馈已通过真实App验收。保留此前所有失败记录；本轮没有修改App、域层、语言包或场景源码，没有需要按TDD修复的新实现问题。未合并dev、未替换用户App、未启用Jev生产入口、未恢复定量实验。真人麦克风端到端验收仍未通过，不由这轮配置结果代替；整个语音分支的合并条件不能据此宣称齐备。
+
+产品实现提交仍为 `d80b673e6325be964d0d85a68ffbdb3e51c363f5`，此前记录提交 `9967917e9c4ebdce796b7c7833b9a7a431115efe` 保留。42项源码清单与已提交内容、当前文件逐项一致；复用原有受影响crate完整测试与release证据，未无依据重建或重跑全仓。
+
+本轮配置：`artifacts/voice-settings-acceptance-20261102/configuration.json`，SHA256 `07aaafa44e2e6446fc1399680e461438224f1c640bc6df6210c6403014ba1aee`。
+被测debug SHA256仍为 `dc77852f17b827d870aa313e0b7b2c4c96a677ac3efd766d3981d9478428e2f0`。
+源码清单复用 `artifacts/voice-settings-capabilities-20261101/source-manifest.json`，SHA256 `dc3e9ff137d73805908786d6f9d54db187fb2157af4f94c414d473e440afcb4b`。
+最终索引：`artifacts/voice-settings-acceptance-20261102/verification-summary.json`。
+
+| 真实App场景（均加 --visual） | 退出码/步骤 | 墙钟耗时 | 本工作树证据目录 |
+|---|---|---|---|
+| settings-voice-jev-configuration | 0；3/3通过，6次视觉检查 | 783.405秒 | `artifacts/desktop-workspace-e2e/2026-11-02T01-56-44Z/` |
+| settings-voice-a1-install | 0；3/3通过，4次视觉检查 | 1303.564秒 | `artifacts/desktop-workspace-e2e/2026-11-02T02-10-52Z/` |
+| settings-voice-capability-errors-en | 0；2/2通过，2次视觉检查 | 444.445秒 | `artifacts/desktop-workspace-e2e/2026-11-02T02-33-19Z/` |
+
+合计3/3场景、8/8步骤、12次视觉检查，33次当前截图请求均实际看图并原子写入逐项结论，没有预填或超时追认。全部报告为 `verification=model-assisted`。原图、请求/响应、app.log、report.json与关键截图保留。所有被测进程已退出，用户App PID83621仍运行。耗时包含下载和Agent看图等待，不是ASR或路由时延。
+
+#### A1与Jev实际行为
+
+- A1：从页面使用无效Python触发明确错误，无runtime.json；更正路径后，通过真实HF地址下载全部14文件（1,209,840,003字节），完整校验后保存配置。重开英文页面保留相同manifest，Check local files复查通过并出现Use Accurate启用操作；没有点击启用，provider硬断言确认未自动切换。安装、文件就绪和模型激活保持区分。
+- A1运行环境：复用此前真实App创建且57项固定依赖已验证的专用Python，哈希 `31b9c9a8d50289f3a13f014b3efd8ea3534fc3eea7ca7d9809e166139910b805`；完整模型下载没有使用模拟文件或本地模型拷贝替代。最终manifest SHA256 `e0589d074c9c7f7e228fe76bcf4155008a43adc765fe46d11feae4b3c0e5de84`，独立复查证据 `a1-installed-integrity.json` 位于本轮A1目录。
+- Jev：中文真实HTTP 401拒绝人工无效Key；从已授权环境导入有效Key，通过页面保存到Keychain、清空输入框，SQLite仅有引用。真实固定合成请求返回jev-1.14.0，中文1443ms。英文重启从同一引用加载，状态重新标记本次未验证；重新验证返回jev-1.14.0、1594ms，清除后回到Not configured、验证按钮禁用、旧成功状态失效。生产语音入口始终禁用。
+- 中英文错误：中文/英文A1缺失Python均有明确原因与可重试入口；英文Jev另获真实HTTP 401并提示重试，密钥仅掩码。硬断言确认失败安装/未保存的错误Key均不生成可用配置。工程层既有网络损坏、取消、原配置保留与安全存储补偿测试继续有效；本轮未把所有故障类别都声明为真实桌面实测。
+
+补跑 `CARGO_BUILD_JOBS=1 CARGO_PROFILE_TEST_OPT_LEVEL=0 cargo test -p app --lib voice_ -- --test-threads=2`：194 passed、0 failed、1 ignored，13.80秒；日志 `voice-focused-tests.log`。9项Swift VisualReviewTests通过；`python3 scripts/check-i18n.py`验证2138个双语键通过，日志分别为 `visual-protocol-tests.log` 与 `i18n.log`。上述日志均在新增证据根。实际中英文页面覆盖Sapphire Night/Ink Black；本轮没有扩大到其他主题、ASR推理或真人录音。
+
+密钥审计本轮源码副本、日志、JSON和SQLite相关文件共4104项，真实凭据明文命中0；结果 `secret-audit.json`。密钥、模型、二进制与测试数据均未提交。
+
+#### 看图ENV根因与恢复措施
+
+失败直接原因是响应文件在300秒截止后才出现，驱动按规定退出3；不是“有截图就通过”。历史迟到494.05/382.61/806.18秒，实际落盘后才补写的响应均不追认。9项协议测试和本轮33次真实请求未发现文件路径、JSON解析或窗口控制通道错误。
+
+本轮优先串行处理当前看图请求，避免在请求挂起时进行构建、长分析或其他调查；原始图片仍逐张查看，未改300秒预算，未使用OCR或Computer Use绕过。相同首张PNG（SHA256 e7ecb48713b9af2b90789619b572dfb218d38d899ffebd68a090b420ddbd2555）此前迟到806.18秒，本轮31.133秒完成响应。Jev本轮15次请求最大71.869秒、中位45.275秒；三场景全部33次请求最大116.987秒，均被驱动正常接受。详见 `jev-visual-timing.json` 与最终索引。
+
+仓库证据能定位到Agent/看图往返响应迟到这一层；缺少平台内部链路追踪，不能进一步武断区分平台排队、图像推理和Agent调度各自耗时。该ENV本轮已恢复且三场景均通过；若复发，待满足条件仍为当前图的响应在300秒内实际落盘，不能靠放宽结论或重用旧响应消除。
+
+#### OpenCode失败关系核查与范围
+
+基线412f4fc9的 `crates/norma` tree为 `a98e3aff0f7f92dbbdcd6584e001602437a11904`，与本次HEAD相同；`crates/mobile_pairing` tree也相同。Cargo.lock差异仅为App新增model_store和security-framework依赖条目，无包版本变化。没有从OpenCode测试到本轮安装/配置入口的调用。使用git archive导出隔离基线源码进行对照，没有切换、清理或回退工作区。
+
+| 版本/试验 | question_transport | foreground未知发送 | 结论边界 |
+|---|---|---|---|
+| 当前分支原样 | 10次，1次失败 | 10次，0次失败 | transport复现同一WouldBlock |
+| 改动前基线412f4fc9原样 | 50次，3次失败 | 20次，3次失败 | 两测试在本改动前也会失败；foreground本轮为Unsent/Unknown断言 |
+| 仅临时基线副本修正socket模式 | 50次，0次失败 | 20次，0次失败 | 有限样本支持夹具模式为失败来源，未修改生产代码或主工作树测试 |
+
+两夹具都把listener设为非阻塞，但接受的socket未显式恢复阻塞。最小真实TCP探针在本机3/3次立即WouldBlock，即使设置3秒read timeout；只增加accepted_socket.set_nonblocking(false)后，3/3次能等到150ms延迟请求。transport夹具read_line/read_exact的unwrap因此可能误报服务失败；foreground夹具对首次读错误直接丢连接，可能使发送状态断言失效。临时副本两行补丁未放宽任何断言/超时，诊断补丁SHA256 `ce54aa1f495b1ffc415d4eb4d6d0d0669b891d35b6f8e08ef9375d03a8362459`。
+
+证据：`opencode-reproduction.json`、`opencode-baseline-reproduction.json`、`opencode-fixture-diagnostic.json`、`opencode-fixture-mode.diff`、`accepted-socket-probe.log`，汇总 `opencode-diagnosis.json`，均位于新增证据根。保留每次单独日志。
+
+这些证据表明存在与本次A1/Jev改动无源码变化关系的基线夹具问题；不把有限样本写成所有OpenCode时序问题均已解决。历史foreground的POST计数为0这一具体断言本轮未原样复现，不能断言唯一根因已全部证明。主工作树未修改OpenCode；全仓此前失败不追认为通过，本轮也没有为追求全仓绿灯扩大生产修改。配置验收已通过，OpenCode夹具稳定性与真人语音链路仍须分别处理。
