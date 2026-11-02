@@ -3,7 +3,7 @@ use crate::codex::UnixListener;
 use serde_json::json;
 use std::net::Shutdown;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc,
 };
 use std::time::{Duration, Instant};
@@ -19,9 +19,9 @@ fn timed(stream: UnixStream) -> UnixStream {
     stream
 }
 
-/// 场景：relay向暂停读取的server实际连续WouldBlock后，native写端关闭必须结束relay。
+/// 场景：relay向暂停读取的server实际连续WouldBlock后，native全部句柄关闭必须结束relay。
 /// 构造：最多128×512KiB=64MiB独立帧；真实输出Socket观测8次连续WouldBlock，任何真实写进展都清零计数。
-/// 执行：只在relay输出见证成立后关闭native，随后在原3秒关闭预算内等待并回收资源。
+/// 执行：输出见证成立后停止非阻塞writer，确认其释放native，再释放最后clone并开始原3秒预算。
 /// 预期：不是外部writer瞬时背压的假阳性；前提不成立也必须失败，关闭后不能遗留relay。
 #[test]
 fn actual_relay_output_backpressure_detects_native_shutdown() {
@@ -61,17 +61,43 @@ fn actual_relay_output_backpressure_detects_native_shutdown() {
         .0;
     let relay = connector.join().unwrap();
     let shutdown = native.get_ref().try_clone().unwrap();
+    native.get_mut().set_nonblocking(true).unwrap();
     let frames = Arc::new(AtomicUsize::new(0));
     let sent = frames.clone();
+    let stop = Arc::new(AtomicBool::new(false));
+    let stopping = stop.clone();
+    let (closed, source_closed) = crossbeam_channel::bounded(1);
     let writer = std::thread::spawn(move || {
         let payload =
             json!({"method":"load/passthrough","params":{"text":"x".repeat(512*1024)}}).to_string();
-        for _ in 0..128 {
-            if native.send(Message::Text(payload.clone().into())).is_err() {
-                return;
+        'frames: for _ in 0..128 {
+            if stopping.load(Ordering::Acquire) {
+                break;
+            }
+            match native.send(Message::Text(payload.clone().into())) {
+                Ok(()) => {}
+                Err(tungstenite::Error::Io(error))
+                    if error.kind() == std::io::ErrorKind::WouldBlock => {}
+                Err(_) => break,
+            }
+            loop {
+                if stopping.load(Ordering::Acquire) {
+                    break 'frames;
+                }
+                match native.flush() {
+                    Ok(()) => break,
+                    Err(tungstenite::Error::Io(error))
+                        if error.kind() == std::io::ErrorKind::WouldBlock =>
+                    {
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(_) => break 'frames,
+                }
             }
             sent.fetch_add(1, Ordering::AcqRel);
         }
+        drop(native);
+        closed.send(()).unwrap();
     });
     let deadline = Instant::now() + Duration::from_secs(4);
     while blocked.load(Ordering::Acquire) < 8 && relay.is_running() && Instant::now() < deadline {
@@ -83,7 +109,13 @@ fn actual_relay_output_backpressure_detects_native_shutdown() {
         frames.load(Ordering::Acquire)
     );
     let was_running = relay.is_running();
+    stop.store(true, Ordering::Release);
     shutdown.shutdown(Shutdown::Both).unwrap();
+    let source_released = source_closed.recv_timeout(Duration::from_secs(1)).is_ok();
+    // The acknowledgement follows drop(native); joining and dropping the clone proves full close.
+    writer.join().unwrap();
+    drop(shutdown);
+    eprintln!("relay close all source handles released={source_released}");
     let deadline = Instant::now() + Duration::from_secs(3);
     while relay.is_running() && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(5));
@@ -91,27 +123,12 @@ fn actual_relay_output_backpressure_detects_native_shutdown() {
     let stopped = !relay.is_running();
     #[cfg(windows)]
     readiness_witness(&native_probe);
-    #[cfg(windows)]
-    eprintln!(
-        "relay close source writer finished before final handle drop={}",
-        writer.is_finished()
-    );
-    drop(shutdown);
-    #[cfg(windows)]
-    if !stopped {
-        let after_drop = Instant::now() + Duration::from_millis(300);
-        while relay.is_running() && Instant::now() < after_drop {
-            std::thread::sleep(Duration::from_millis(5));
-        }
-        eprintln!(
-            "relay close after final source handle drop: running={}",
-            relay.is_running()
-        );
-        readiness_witness(&native_probe);
-    }
     drop(server);
     drop(relay);
-    writer.join().unwrap();
+    assert!(
+        source_released,
+        "开始关闭计时前必须确认writer已释放native句柄"
+    );
     assert!(
         was_running,
         "关闭前relay必须仍然存活，不能把背压导致的提前断连冒充关闭成功"
