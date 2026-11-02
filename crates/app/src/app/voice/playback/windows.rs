@@ -10,10 +10,12 @@ const COMMAND_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_QUEUED_BYTES: usize = 8 * 1024 * 1024;
 
 fn scheduling_ack_channel() -> (
-    mpsc::Sender<Result<(), String>>,
+    mpsc::SyncSender<Result<(), String>>,
     mpsc::Receiver<Result<(), String>>,
 ) {
-    mpsc::channel()
+    // A successful send must witness the receive, even when a timed-out caller
+    // is preempted before dropping its receiver.
+    mpsc::sync_channel(0)
 }
 
 trait OutputDevice {
@@ -22,11 +24,11 @@ trait OutputDevice {
     fn frames_written(&self) -> u64;
     fn padding(&self) -> Result<u32, String>;
     fn write(&mut self, bytes: &[u8], frames: u32) -> Result<(), String>;
-    fn stop(&mut self) -> Result<(), String>;
+    fn stop(&mut self) -> Result<u64, String>;
 }
 
 enum Command {
-    Play(Pending, mpsc::Sender<Result<(), String>>),
+    Play(Pending, mpsc::SyncSender<Result<(), String>>),
     Stop(mpsc::Sender<Result<(), String>>),
     Shutdown,
 }
@@ -152,7 +154,7 @@ struct Playback {
 }
 
 impl Playback {
-    fn schedule(&mut self, pending: Pending, result: mpsc::Sender<Result<(), String>>) {
+    fn schedule(&mut self, pending: Pending, result: mpsc::SyncSender<Result<(), String>>) {
         let scheduled = self.enqueue(pending);
         if matches!(result.send(scheduled), Err(mpsc::SendError(Ok(())))) {
             self.discard_last();
@@ -253,10 +255,16 @@ impl Playback {
     }
 
     fn stop(&mut self) -> Result<(), String> {
-        let result = self
-            .device
-            .take()
-            .map_or(Ok(()), |mut device| device.stop());
+        let result = match self.device.take() {
+            Some(mut device) => match device.stop() {
+                Ok(consumed) => {
+                    self.retire_consumed(consumed);
+                    Ok(())
+                }
+                Err(error) => Err(error),
+            },
+            None => Ok(()),
+        };
         self.pending.clear();
         self.bytes = 0;
         if let Some(error) = self.failure.take() {
@@ -277,7 +285,10 @@ fn playback_loop(incoming: mpsc::Receiver<Command>) {
         Err(error) => {
             while let Ok(command) = incoming.recv() {
                 match command {
-                    Command::Play(_, result) | Command::Stop(result) => {
+                    Command::Play(_, result) => {
+                        let _ = result.send(Err(error.clone()));
+                    }
+                    Command::Stop(result) => {
                         let _ = result.send(Err(error.clone()));
                     }
                     Command::Shutdown => break,

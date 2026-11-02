@@ -89,3 +89,24 @@ fn windows_default_sink_validates_pcm_before_accessing_hardware() {
     );
     sink.stop_and_confirm().expect("未成功启动也必须安全收口");
 }
+
+/// 场景：TTS预览必须使用同一个真实Windows后端，保留PCM参数验证和停止确认。
+/// 构造：三字节PCM16非法块；执行生产preview sink；预期准确拒绝并可安全停止。
+/// 无物理设备不会掩盖此软件契约，也不能回退到Noop。
+#[test]
+fn windows_preview_sink_preserves_native_validation_and_stop_confirmation() {
+    let chunk = PcmAudioChunk {
+        format: PcmFormat::Pcm16,
+        sample_rate_hz: 24_000,
+        channels: 1,
+        bytes: vec![1, 2, 3],
+    };
+    let mut sink = super::default_preview_audio_sink();
+    assert_eq!(
+        sink.write_chunk(&chunk),
+        Err("Windows audio: invalid PCM chunk: InvalidPcm16Length".into()),
+        "预览必须使用原生后端的参数契约"
+    );
+    sink.stop_and_confirm()
+        .expect("无有效调度的预览仍须安全停止");
+}

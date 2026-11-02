@@ -129,14 +129,17 @@ impl NativeOutput {
         Ok(())
     }
 
-    pub(super) fn stop(&mut self) -> Result<(), String> {
+    pub(super) fn stop(&mut self) -> Result<u64, String> {
         if self.started {
             unsafe { self.client.Stop() }.map_err(audio_error)?;
             self.started = false;
         }
+        // Freeze the consumption cursor before observing it; Reset would erase
+        // the remaining padding and lose an inter-tick start or completion.
+        let consumed = self.written - u64::from(self.padding()?);
         unsafe { self.client.Reset() }.map_err(audio_error)?;
         self.written = 0;
-        Ok(())
+        Ok(consumed)
     }
 }
 
@@ -164,7 +167,7 @@ impl OutputDevice for NativeOutput {
     fn write(&mut self, bytes: &[u8], frames: u32) -> Result<(), String> {
         NativeOutput::write(self, bytes, frames)
     }
-    fn stop(&mut self) -> Result<(), String> {
+    fn stop(&mut self) -> Result<u64, String> {
         NativeOutput::stop(self)
     }
 }

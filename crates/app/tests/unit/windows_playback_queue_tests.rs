@@ -30,9 +30,10 @@ impl super::OutputDevice for ControlledDevice {
         state.bytes.extend_from_slice(bytes);
         Ok(())
     }
-    fn stop(&mut self) -> Result<(), String> {
-        self.0.lock().expect("受控设备锁应有效").stops += 1;
-        Ok(())
+    fn stop(&mut self) -> Result<u64, String> {
+        let mut state = self.0.lock().expect("受控设备锁应有效");
+        state.stops += 1;
+        Ok(state.written - u64::from(state.padding))
     }
 }
 
