@@ -10,14 +10,15 @@ use std::io::Error as IoError;
 use std::os::windows::ffi::OsStringExt;
 use std::os::windows::io::{AsRawHandle, FromRawHandle};
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::{mem, ptr};
 use winapi::shared::minwindef::DWORD;
 use winapi::shared::winerror::{HRESULT, S_OK};
 use winapi::um::handleapi::*;
 use winapi::um::processthreadsapi::*;
 use winapi::um::winbase::{
-    CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+    CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT,
+    STARTF_USESTDHANDLES, STARTUPINFOEXW,
 };
 use winapi::um::wincon::COORD;
 use winapi::um::winnt::HANDLE;
@@ -134,6 +135,7 @@ impl PsuedoCon {
         let cmd_os = OsString::from_wide(&cmdline);
 
         let cwd = cmd.current_directory();
+        let job = Arc::new(super::job::Job::new()?);
 
         let res = unsafe {
             CreateProcessW(
@@ -142,7 +144,7 @@ impl PsuedoCon {
                 ptr::null_mut(),
                 ptr::null_mut(),
                 0,
-                EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+                EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED,
                 cmd.environment_block().as_mut_slice().as_mut_ptr() as *mut _,
                 cwd.as_ref()
                     .map(|c| c.as_slice().as_ptr())
@@ -168,8 +170,28 @@ impl PsuedoCon {
         let _main_thread = unsafe { OwnedHandle::from_raw_handle(pi.hThread as _) };
         let proc = unsafe { OwnedHandle::from_raw_handle(pi.hProcess as _) };
 
+        // The client cannot run or create descendants until ownership is established.
+        let started = job.assign(&proc).and_then(|()| {
+            if unsafe { ResumeThread(pi.hThread) } == u32::MAX {
+                Err(IoError::last_os_error())
+            } else {
+                Ok(())
+            }
+        });
+        if let Err(error) = started {
+            unsafe {
+                TerminateProcess(pi.hProcess, 1);
+                winapi::um::synchapi::WaitForSingleObject(
+                    pi.hProcess,
+                    winapi::um::winbase::INFINITE,
+                );
+            }
+            return Err(error.into());
+        }
+
         Ok(WinChild {
             proc: Mutex::new(proc),
+            job,
         })
     }
 }

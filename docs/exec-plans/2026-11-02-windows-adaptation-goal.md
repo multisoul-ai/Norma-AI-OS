@@ -153,3 +153,14 @@ Windows native run `41477762062`，attempt 1，job `125387736616` 已完成失�
 - `4c9a86ae` CI run `41493382935`、`796cc43c` CI run `41496616544` 均通过，正常check/fmt/Clippy和既有护栏已获得GitHub证据；不代表Windows功能与发布验收全绿。
 - `796cc43c` native run `41496606263`，job `125453090768`：workspace lib 26/0/0，content_platform 1/0/0，Review 1/0/0，scoped directory 4/0/0；ConPTY三个真实案例均通过（启动退出、1024行尾部+exit7、主动kill返回真实Exited）。严格socket关闭仍失败。
 - 同run Windows2022 job `125453090817` 的vendor反例确实执行，满管道、外部reader释放、写入者存活前提均满足，master销毁3秒未返回而失败；Windows2025 job `125453090682` 同反例1项通过、产品PTY3项通过。修复将隐藏原读端排在con之前析构，保持正常外部reader排空；下一轮必须同时通过两平台，不能用较新API的绿灯覆盖旧API红灯。
+
+## ConPTY 双平台复验及整树反例
+
+- `9931eadd` native run `41500959311`：Windows2022 job `125467996763` 与 Windows2025 job `125467997460` 均通过真实满管道关闭1项、产品PTY3项，全部0 ignored。前一轮2025失败发生在启动握手前提；夹具改为逐个响应真实DSR查询，保留10秒启动和3秒关闭预算，未修改产品关闭断言。
+- 同源socket诊断2项通过：source/receiver复制句柄及128KiB/4MiB正文的8个组合均保留全部正文并观测到HUP。零长send、WSASend及peer-state ioctl不能区分连接状态，不能作为产品关闭判据。真实relay原3秒关闭仍失败；尚未定位普通pair与真实relay之间的关键差异。
+- 同源workspace 25过/1败：文件恢复两条DACL反例继续通过，失败为Review Python launcher未在1.5秒内生成启动标记。此前单轮全过不能覆盖本轮这个既有时序问题。
+- `b13fdadf` 已补Restored warning的准确中英文展示，并复用现有GPT-Live翻译key。run `41500714761` job `125467156521` 的i18n检查通过，App测试在Sherpa原生静态库缺失时编译失败，未到断言。`c81432cc` 在runner缓存中显式保存原生预构建库，并重新执行该依赖build script；修复后的App测试仍待结果。
+- `c3b3599d` run `41501997882` 两平台的新增进程树测试真实红灯：root已退出，脱离控制台的middle/leaf在3秒后均存活。独立只读审查指出预算必须包含kill调用、等待API失败不得当退出、失败采集后代身份也要准确清理；已在`e2eb5e21`补强。
+- `e2eb5e21` run `41502962168`，Windows2022 job `125474882146`：3项中1过/2败，主动kill及自然root exit7均保留两个存活后代。自然退出码7断言通过，后代清理断言失败。下一补丁使用非继承私有Job，在CREATE_SUSPENDED期间绑定后才Resume；主动取消及自然root完成均收口后代，后台等ActiveProcesses归零并保留root退出码。等待两平台复验，不能将此候选记作W03完成。
+
+W01–W12的整体门槛仍未全部满足；没有生成候选包、真实Agent验收或同包新runner消费证据，Goal保持active。
