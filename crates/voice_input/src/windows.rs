@@ -1,5 +1,9 @@
 //! Native Windows microphone discovery and desktop privacy status.
 
+mod capture;
+mod effects;
+pub(super) use capture::WindowsAudioCapture;
+
 use crate::{AudioInputDevice, MicrophoneAuthorization, VoiceInputError};
 use ::windows::{
     core::{HRESULT, PWSTR},

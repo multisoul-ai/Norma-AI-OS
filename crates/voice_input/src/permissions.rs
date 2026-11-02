@@ -8,6 +8,7 @@ pub enum MicrophoneAuthorization {
     Authorized,
 }
 
+#[cfg(any(target_os = "macos", test))]
 pub fn microphone_authorization_from_raw(raw: i64) -> Option<MicrophoneAuthorization> {
     match raw {
         0 => Some(MicrophoneAuthorization::NotDetermined),

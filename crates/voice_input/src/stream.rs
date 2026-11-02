@@ -270,7 +270,9 @@ fn spawn_capture_thread(
                         );
                         let _ = started_tx.send(Ok(()));
                         let _ = stop_rx.recv();
-                        capture.stop();
+                        if let Err(error) = capture.stop() {
+                            tracing::error!(%error, "microphone PCM capture stopped after an audio error");
+                        }
                         tracing::info!(
                             target: "norma_voice",
                             sent_chunks = stats.sent_chunks(),

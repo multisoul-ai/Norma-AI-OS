@@ -35,6 +35,10 @@ fn windows_microphone_enumeration_uses_native_endpoints() {
 /// 该检查不把权限状态等同于存在物理麦克风或成功录音。
 #[test]
 fn windows_microphone_permission_is_a_native_status() {
+    assert!(
+        std::env::var_os("NORMA_E2E_AUDIO_FIXTURE").is_none(),
+        "原生权限验收不能被E2E音频夹具旁路"
+    );
     let status = voice_input::microphone_authorization_status()
         .expect("Windows必须提供原生麦克风权限状态，而不是unsupported占位");
     eprintln!("Native Windows microphone permission: {status:?}");
@@ -56,7 +60,7 @@ fn a_missing_windows_endpoint_cannot_fall_back_to_another_microphone() {
     let error = match result {
         Err(error) => error,
         Ok(capture) => {
-            capture.stop();
+            capture.stop().expect("capture停止必须成功收口音频后端");
             panic!("不存在的端点不能打开另一个麦克风");
         }
     };
@@ -78,7 +82,7 @@ fn windows_capture_rejects_invalid_sample_rates_before_opening_devices() {
             match AudioCapture::start(sender, Arc::new(AudioQueueStats::default()), None, rate) {
                 Err(error) => error,
                 Ok(capture) => {
-                    capture.stop();
+                    capture.stop().expect("capture停止必须成功收口音频后端");
                     panic!("非法采样率不能打开真实音频流：{rate}");
                 }
             };
@@ -105,7 +109,7 @@ fn windows_capture_reports_an_absent_default_endpoint() {
         match AudioCapture::start(sender, Arc::new(AudioQueueStats::default()), None, 16_000) {
             Err(error) => error,
             Ok(capture) => {
-                capture.stop();
+                capture.stop().expect("capture停止必须成功收口音频后端");
                 panic!("无原生端点时不能伪造成功的capture");
             }
         };
