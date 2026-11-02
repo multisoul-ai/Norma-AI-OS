@@ -3,11 +3,14 @@ name: Windows script contracts
 on:
   workflow_dispatch:
   push:
-    branches: ['codex/windows-feasibility-*']
+    branches: ['codex/windows-feasibility-*', 'codex/windows-audio-*']
     paths:
       - '.github/workflows/windows-script-contracts.yml'
       - 'scripts/windows/**'
       - 'scripts/test-windows-*.py'
+      - '.gitattributes'
+      - 'scripts/prepare-release-media.py'
+      - 'packaging/media/**'
 
 permissions:
   contents: read
@@ -35,8 +38,10 @@ jobs:
           $report = $LASTEXITCODE
           python scripts/test-windows-package.py 2>&1 | Tee-Object artifacts/windows-script-contracts/package-tests.log
           $package = $LASTEXITCODE
-          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; report_exit = $report; package_exit = $package } | ConvertTo-Json | Set-Content artifacts/windows-script-contracts/report.json
-          if ($report -ne 0 -or $package -ne 0) { exit 1 }
+          python scripts/test-windows-release-media.py 2>&1 | Tee-Object artifacts/windows-script-contracts/media-tests.log
+          $media = $LASTEXITCODE
+          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; report_exit = $report; package_exit = $package; media_exit = $media } | ConvertTo-Json | Set-Content artifacts/windows-script-contracts/report.json
+          if ($report -ne 0 -or $package -ne 0 -or $media -ne 0) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
