@@ -102,3 +102,5 @@ G1、G2 的纯协议夹具可以与 G3 的编译调查交错进行；发布包�
 
 - `a0616877`：Canvas 汇总修复。Windows run `41475988222`，attempt 1，job `125384598403`：Rust 1.91.1，18 tests 全过；完整 run 仍在执行，不宣称其余原生门槛通过。前一个红灯 run `41475394387` 已取消剩余编译任务，红灯 job 的日志保留。
 - `deae23ec`：独立只读审查未发现 Clippy/fixture 候选中的调用或隔离回归；正常 hook 的 check/fmt 已通过，Windows/macOS runner 仍待执行此提交。下一批增加独立原生契约 workflow，保留冲突恢复和关闭原断言，仅增强失败诊断；Windows App 的配对名称改用系统环境名称，移除未受平台条件保护的 Objective-C 引用。
+
+- `2c315b29`：Windows native contracts run `41477762062`，attempt 1，script job `125387736138` 的 report 18 项通过；package 3 项中 1 项失败，确认仅四个 MZ 文件和自洽 manifest、完全缺 Resources 的目录会被旧 verify 错误接受。先修必需资源和实际二进制检查，再继续 CRT/目录清单完整性；native job 尚在执行。

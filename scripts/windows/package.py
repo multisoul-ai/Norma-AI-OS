@@ -11,6 +11,9 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 BINARIES = ('norma-os.exe', 'norma.exe', 'multisoul-agent-hook.exe', 'norma-browser-auth-host.exe')
+RESOURCES = ('Resources/home/earth-horizon.png', 'Resources/boot/boot-sync.mp4',
+             'Resources/boot/boot-awaken.mp4', 'Resources/browser-auth-extension/manifest.json',
+             'Resources/browser-auth-extension/service_worker.js', 'Resources/media-catalog.json')
 
 
 def file_digest(path):
@@ -39,9 +42,12 @@ def required_binaries(folder):
 
 def verify(folder):
     manifest = json.loads((folder / 'manifest.json').read_text(encoding='utf-8'))
-    for name in BINARIES:
-        if name not in manifest['files']:
-            raise ValueError(f'Missing required helper manifest entry: {name}')
+    required_binaries(folder)
+    for name in (*BINARIES, *RESOURCES):
+        if name not in manifest['files'] or not (folder / name).is_file():
+            raise ValueError(f'Missing required package content: {name}')
+        if not (folder / name).stat().st_size:
+            raise ValueError(f'Empty required package content: {name}')
     for name, digest in manifest['files'].items():
         path = folder / name
         if not path.resolve().is_relative_to(folder.resolve()):
