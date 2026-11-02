@@ -2,6 +2,11 @@ name: Windows platform follow-up probes
 on:
   push:
     branches: ['codex/windows-audio-*']
+    paths:
+      - '.github/workflows/windows-native-probes.yml'
+      - 'crates/terminal/**'
+      - 'vendor/portable-pty-0.9.0/**'
+      - 'scripts/windows/**'
   workflow_dispatch:
 permissions:
   contents: read

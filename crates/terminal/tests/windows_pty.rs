@@ -100,15 +100,28 @@ fn killing_conpty_publishes_its_exit_event() {
     let mut bytes = Vec::new();
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
-        match events
-            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
-            .unwrap_or_else(|error| {
-                panic!(
-                    "必须在取消前完成启动：{error:?}; raw={} bytes; prefix={:02x?}",
-                    bytes.len(),
-                    &bytes[..bytes.len().min(128)]
-                )
-            }) {
+        let event = match events.recv_timeout(
+            deadline
+                .saturating_duration_since(Instant::now())
+                .min(Duration::from_millis(5)),
+        ) {
+            Ok(event) => event,
+            Err(crossbeam_channel::RecvTimeoutError::Timeout) if Instant::now() < deadline => {
+                if let Some(reply) = grid.expire_synchronized_output() {
+                    if !reply.is_empty() {
+                        pty.write(&reply)
+                            .expect("空闲同步到期也必须回写真实协议响应");
+                    }
+                }
+                continue;
+            }
+            Err(error) => panic!(
+                "必须在取消前完成启动：{error:?}; raw={} bytes; prefix={:02x?}",
+                bytes.len(),
+                &bytes[..bytes.len().min(128)]
+            ),
+        };
+        match event {
             PtyEvent::Output(chunk) => {
                 let reply = grid.advance(&chunk);
                 if bytes.len() < 128 {

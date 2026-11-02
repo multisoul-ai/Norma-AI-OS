@@ -90,11 +90,15 @@ impl TerminalSession {
                     dirty = true;
                 }
                 Ok(PtyEvent::Exited { code }) => {
+                    let _ = self.grid.finish_output();
                     self.status = TerminalStatus::Exited { code };
                     dirty = true;
                 }
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
+                    if self.grid.finish_output().is_some() {
+                        dirty = true;
+                    }
                     // 读线程已结束 → 标记退出（若尚未标记）。
                     if self.status == TerminalStatus::Running {
                         self.status = TerminalStatus::Exited { code: None };
@@ -103,6 +107,12 @@ impl TerminalSession {
                     break;
                 }
             }
+        }
+        if let Some(replies) = self.grid.expire_synchronized_output() {
+            if !replies.is_empty() {
+                let _ = self.write_pty(&replies);
+            }
+            dirty = true;
         }
         dirty
     }

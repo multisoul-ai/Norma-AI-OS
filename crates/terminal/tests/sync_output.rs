@@ -66,3 +66,30 @@ fn explicit_sync_end_publishes_immediately_and_does_not_replay() {
     );
     assert!(!session.drain(), "正常结束后不能重复回放批次");
 }
+
+/// 场景：子进程在同步批次中退出，不能把最后正文藏到未来的150ms定时器。
+/// 构造：BSU+FINAL紧接真实形状的Exited(7)；一次drain处理两条事件。
+/// 预期：立即显示全部正文，退出码仍为7；退出本身不应替换或丢弃缓冲内容。
+#[test]
+fn process_exit_publishes_the_last_synchronized_output_immediately() {
+    let (tx, rx) = unbounded();
+    let backend = TestPtyBackend::recording(tx.clone(), Arc::new(Mutex::new(Vec::new())));
+    let mut session = TerminalSession::spawn_with_backend(3, 80, 24, Box::new(backend), rx);
+    tx.send(PtyEvent::Output(b"\x1b[?2026hFINAL".to_vec()))
+        .unwrap();
+    tx.send(PtyEvent::Exited { code: Some(7) }).unwrap();
+    assert!(session.drain(), "退出及最后输出必须触发更新");
+    let text: String = session.snapshot().rows[0]
+        .iter()
+        .map(|cell| cell.c)
+        .collect();
+    assert!(
+        text.starts_with("FINAL"),
+        "进程退出不能留下未发布的最后批次：{text:?}"
+    );
+    assert_eq!(
+        session.status,
+        terminal::TerminalStatus::Exited { code: Some(7) },
+        "同步输出收口必须保留原退出码"
+    );
+}
