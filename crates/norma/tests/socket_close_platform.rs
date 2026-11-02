@@ -90,8 +90,8 @@ fn observe(label: &str, socket: &UnixStream) {
 }
 
 /// 场景：将复制句柄与发送队列积压分开，定位未读正文遮蔽关闭通知的最小条件。
-/// 构造：三个独立开关控制source clone、receiver clone和4MiB发送负载；正文固定为7。
-/// 执行：只读端不消费，写到WouldBlock或完整128KiB；shutdown并释放全部source，再记录探测。
+/// 构造：三个独立开关控制source clone、receiver clone和真实发送背压；正文固定为7。
+/// 执行：每次最多512KiB、总上限64MiB，背压场景必须真遇到WouldBlock；shutdown后记录探测。
 /// 预期：存活探测不破坏协议，关闭后逐字节排空全部已接受正文；不得以PID活性判定关闭。
 #[test]
 fn socket_close_with_clones_and_saturated_sender_preserves_payload() {
@@ -104,18 +104,16 @@ fn socket_close_with_clones_and_saturated_sender_preserves_payload() {
                 let receiver_copy = receiver_clone.then(|| receiver.try_clone().unwrap());
                 source.set_nonblocking(true).unwrap();
                 receiver.set_nonblocking(true).unwrap();
-                let bytes = vec![
-                    7u8;
-                    if saturate {
-                        4 * 1024 * 1024
-                    } else {
-                        128 * 1024
-                    }
-                ];
+                let bytes = vec![7u8; 512 * 1024];
+                let limit = if saturate {
+                    64 * 1024 * 1024
+                } else {
+                    128 * 1024
+                };
                 let mut written = 0;
                 let mut blocked = false;
-                while written < bytes.len() {
-                    match source.write(&bytes[written..]) {
+                while written < limit {
+                    match source.write(&bytes[..bytes.len().min(limit - written)]) {
                         Ok(0) => panic!("真实socket不能零长接受非空正文"),
                         Ok(count) => written += count,
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -127,6 +125,10 @@ fn socket_close_with_clones_and_saturated_sender_preserves_payload() {
                 }
                 assert!(written > 0, "{label}: 必须实际发送正文");
                 eprintln!("{label}: accepted={written}, blocked={blocked}");
+                assert!(
+                    !saturate || blocked,
+                    "{label}: 必须真实耗尽发送缓冲，不能仅以单次大写冒充背压"
+                );
                 observe(&format!("{label}/alive"), &receiver);
                 source_copy
                     .as_ref()
@@ -137,10 +139,10 @@ fn socket_close_with_clones_and_saturated_sender_preserves_payload() {
                 drop(source);
                 observe(&format!("{label}/closed"), &receiver);
                 let actual = drain_closed(&mut receiver);
-                assert_eq!(
-                    actual,
-                    bytes[..written],
-                    "{label}: 非消费探测必须保持全部已发送正文"
+                assert_eq!(actual.len(), written, "{label}: 不能丢掉已接受的正文长度");
+                assert!(
+                    actual.iter().all(|byte| *byte == 7),
+                    "{label}: 非消费探测不能改写任何正文字节"
                 );
                 drop(receiver_copy);
             }
