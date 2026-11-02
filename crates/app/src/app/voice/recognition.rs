@@ -129,3 +129,7 @@ fn collect_terminal(
     }
     Err("recognition ended without a terminal event".to_string())
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/recognition_capture_tests.rs"]
+mod capture_tests;

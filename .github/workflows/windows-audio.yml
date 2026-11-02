@@ -45,8 +45,10 @@ jobs:
           $clippy = $LASTEXITCODE
           cargo test --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --target-dir target --lib playback -- --nocapture 2>&1 | Tee-Object artifacts/windows-audio/playback.log
           $playback = $LASTEXITCODE
-          @{ sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; attempt = $env:GITHUB_RUN_ATTEMPT; platform_exit = $platform; regression_exit = $regression; sherpa_exit = $sherpa; clippy_exit = $clippy; playback_exit = $playback; physical_audio = 'NOT_RUN: no physical audio is injected by this workflow' } | ConvertTo-Json | Set-Content artifacts/windows-audio/report.json
-          if ($platform -ne 0 -or $regression -ne 0 -or $sherpa -ne 0 -or $clippy -ne 0 -or $playback -ne 0) { exit 1 }
+          cargo test --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --target-dir target --lib recognition::capture_tests -- --nocapture 2>&1 | Tee-Object artifacts/windows-audio/capture-failure.log
+          $captureFailure = $LASTEXITCODE
+          @{ sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; attempt = $env:GITHUB_RUN_ATTEMPT; platform_exit = $platform; regression_exit = $regression; sherpa_exit = $sherpa; clippy_exit = $clippy; playback_exit = $playback; capture_failure_exit = $captureFailure; physical_audio = 'NOT_RUN: no physical audio is injected by this workflow' } | ConvertTo-Json | Set-Content artifacts/windows-audio/report.json
+          if ($platform -ne 0 -or $regression -ne 0 -or $sherpa -ne 0 -or $clippy -ne 0 -or $playback -ne 0 -or $captureFailure -ne 0) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

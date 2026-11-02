@@ -21,3 +21,7 @@ mod browser_auth_host;
 #[cfg(windows)]
 #[path = "../../../src/app/voice/playback.rs"]
 mod playback;
+
+#[cfg(windows)]
+#[path = "../../../src/app/voice/recognition.rs"]
+mod recognition;
