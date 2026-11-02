@@ -2,7 +2,7 @@
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 const MARKER_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
@@ -26,7 +26,7 @@ fn marker_name(session_id: &str) -> Option<String> {
     Some(format!("{prefix}-{:016x}", hasher.finish()))
 }
 
-fn ensure_private_dir(dir: &PathBuf) -> std::io::Result<()> {
+fn ensure_private_dir(dir: &Path) -> std::io::Result<()> {
     crate::private_fs::create_private_dir(dir)
 }
 

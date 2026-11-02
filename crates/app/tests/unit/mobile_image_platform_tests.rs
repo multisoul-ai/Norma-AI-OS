@@ -73,3 +73,69 @@ fn oversized_image_file_cannot_bypass_read_limit() {
         "超过实际协议上限的文件必须拒绝"
     );
 }
+
+/// 场景：Windows根目录校验与附件写入之间，攻击者交换根目录为外部目录junction。
+/// 构造：独立图片根、外部目录及标记；用线程局部门闩在真实save的校验后精确尝试交换。
+/// 执行：重命名已验证根后建junction，再继续同一次save；全部路径均在测试TempDir内。
+/// 预期：根身份被固定，交换失败；合法图片仍可保存，外部正文与目录均不受副作用影响。
+#[cfg(windows)]
+#[test]
+fn root_exchange_after_validation_cannot_redirect_attachment_write() {
+    use std::sync::{Arc, Mutex};
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("attachments");
+    let moved = temp.path().join("attachments-owned");
+    let external = temp.path().join("external");
+    std::fs::create_dir(&external).unwrap();
+    std::fs::write(external.join("keep.txt"), b"user contents").unwrap();
+    let swapped = Arc::new(Mutex::new(None));
+    let witness = swapped.clone();
+    let (attack_root, attack_moved, attack_external) =
+        (root.clone(), moved.clone(), external.clone());
+    image_store::test_hooks::on_root_validated(move || {
+        let renamed = std::fs::rename(&attack_root, &attack_moved);
+        eprintln!("image root exchange rename={renamed:?}");
+        let redirected = renamed.is_ok();
+        if redirected {
+            let result = std::process::Command::new("cmd")
+                .args(["/D", "/C", "mklink", "/J"])
+                .arg(&attack_root)
+                .arg(&attack_external)
+                .output()
+                .unwrap();
+            assert!(
+                result.status.success(),
+                "测试junction必须实际创建：{result:?}"
+            );
+        }
+        *witness.lock().unwrap() = Some(redirected);
+    });
+    let bytes = png();
+    let id = format!("{:x}", Sha256::digest(&bytes));
+    let result = image_store::save(&root.join("project"), &id, "png", &bytes);
+    let redirected = swapped.lock().unwrap().expect("实际save必须经过校验后门闩");
+    let escaped = external.join("project").join(format!("{id}.png")).exists();
+    // Remove only the test junction before TempDir cleanup; never traverse its target.
+    if redirected {
+        std::fs::remove_dir(&root).unwrap();
+        std::fs::rename(&moved, &root).unwrap();
+    }
+    assert!(!escaped, "校验后的目录交换不能把图片写到外部：{result:?}");
+    assert!(
+        !redirected,
+        "目录能力必须阻止已验证根被重命名后替换为junction"
+    );
+    assert!(
+        result.is_ok(),
+        "阻止交换后仍须保留合法附件写入能力：{result:?}"
+    );
+    assert_eq!(
+        std::fs::read(external.join("keep.txt")).unwrap(),
+        b"user contents",
+        "不能修改外部用户正文"
+    );
+    assert!(
+        !external.join("project").exists(),
+        "不得在外部目录创建项目或修改其权限"
+    );
+}

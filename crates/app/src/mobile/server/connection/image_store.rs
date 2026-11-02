@@ -13,6 +13,10 @@ use std::{
 // ponytail: serialize the small quota-check/atomic-save section; per-store locks if many servers contend.
 static WRITES: Mutex<()> = Mutex::new(());
 
+#[cfg(all(test, windows))]
+#[path = "../../../../tests/support/mobile_image_hooks.rs"]
+pub(crate) mod test_hooks;
+
 pub(super) fn validate(bytes: &[u8]) -> Result<&'static str, &'static str> {
     let format = image::guess_format(bytes).map_err(|_| "invalid_image")?;
     let extension = match format {
@@ -82,6 +86,8 @@ pub(super) fn save(
     let _lock = WRITES.lock().map_err(|_| "image_storage_unavailable")?;
     let root = folder.parent().ok_or("image_storage_unavailable")?;
     directory(root)?;
+    #[cfg(all(test, windows))]
+    test_hooks::after_root_validation();
     directory(folder)?;
     let path = folder.join(format!("{id}.{extension}"));
     if path.exists() {

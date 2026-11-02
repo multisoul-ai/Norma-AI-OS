@@ -144,7 +144,12 @@ impl CodexQuestionRelay {
     ) -> Result<Self, String> {
         Self::connect_with(
             native,
-            || UnixStream::connect(server).map(Into::into),
+            || {
+                let stream = UnixStream::connect(server)?;
+                #[cfg(test)]
+                let stream = RelayStream::from(stream);
+                Ok(stream)
+            },
             check_version,
             forwarding,
             full_access,
