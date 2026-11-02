@@ -1,5 +1,5 @@
-#![cfg(windows)]
 // Exercise the actual App audio adapters without unrelated storage/agent/GPUI tests.
+#[cfg(windows)]
 #[path = "../../app/src/app/voice/playback.rs"]
 mod playback;
 

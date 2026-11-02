@@ -9,7 +9,7 @@ default = []
 test-support = []
 
 [[test]]
-name = "windows_app_audio"
+name = "app_audio_platform"
 required-features = ["test-support"]
 
 [dependencies]
