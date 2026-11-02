@@ -16,10 +16,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: windows-contracts-${{ github.ref }}
-  cancel-in-progress: false
-
 env:
   CARGO_INCREMENTAL: '0'
   CARGO_BUILD_JOBS: '2'
@@ -29,6 +25,9 @@ env:
 
 jobs:
   native-contracts:
+    concurrency:
+      group: windows-native-contracts-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: windows-2025
     timeout-minutes: 35
     steps:
@@ -72,6 +71,9 @@ jobs:
           if-no-files-found: error
 
   macos-regression:
+    concurrency:
+      group: windows-port-macos-regression-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: macos-latest
     timeout-minutes: 90
     steps:

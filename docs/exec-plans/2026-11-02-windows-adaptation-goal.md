@@ -121,3 +121,11 @@ Windows native run `41477762062`，attempt 1，job `125387736616` 已完成失�
 
 - `bbaacab9` script job `125403140004`：report 18 项仍通过，package 正向夹具暴露一个构造错误（误把嵌套的扩展 manifest 也排除）；本轮尚不能据此证明 CRT 反例。先修夹具，仅排除根 manifest，再复验 CRT 反例。为保证脚本 RED→GREEN 不等待长 Rust/App 回归，把小型脚本检查移至独立 Windows workflow；原生和 Mac 验收仍独立保留。
 - 本地临时文件创建曾报磁盘空间不足；检查时可用空间已恢复到 7.9 GiB，未删除代码、缓存或证据，测试已用 apply_patch 写入。正常 hook 已执行，其余测试仍只在 runner 运行。
+
+## 修复后的聚焦结果与后续红灯
+
+- `bbaacab9` 的 native job `125403139978`：普通冲突恢复和 `content_platform` 均通过，sharing violation 修复获真实 Windows 绿灯；只读 socket 诊断的正文完整性恢复通过。
+- 同轮 ACL 回归真实触发 keep 的 OS error 5，验证了恢复清理缺口；候选修复在冲突/部分替换后禁自动清理，并以结构化恢复路径返回 keep 错误。
+- 同轮 TerminalSession 已收到 PowerShell 可见标记，但状态仍 Running：DSR修正仅解决了启动，ConPTY 的进程退出/输出EOF仍有生命周期缺口。保留10秒与正常退出断言，不能记为通过。Python进程夹具本轮也失败（1.56秒时连启动标记都未生成），仍需消除启动速度对清理断言的干扰。
+- `0edc0149`，script run `41482927165`，job `125405674109`：报告18项通过；包正向及Resources反例通过，CRT缺失反例单独失败（5项中1败）。新增三项MSVC CRT文件作为必需清单，等待下一轮。
+- Windows 与 macOS 长测试改用各自的job并发锁，避免Mac完整App测试阻塞Windows原生反馈；已启动的验收保留完成。脚本检查继续独立Windows runner。

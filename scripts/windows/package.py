@@ -11,6 +11,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 BINARIES = ('norma-os.exe', 'norma.exe', 'multisoul-agent-hook.exe', 'norma-browser-auth-host.exe')
+CRT = ('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll')
 RESOURCES = ('Resources/home/earth-horizon.png', 'Resources/boot/boot-sync.mp4',
              'Resources/boot/boot-awaken.mp4', 'Resources/browser-auth-extension/manifest.json',
              'Resources/browser-auth-extension/service_worker.js', 'Resources/media-catalog.json')
@@ -43,7 +44,7 @@ def required_binaries(folder):
 def verify(folder):
     manifest = json.loads((folder / 'manifest.json').read_text(encoding='utf-8'))
     required_binaries(folder)
-    for name in (*BINARIES, *RESOURCES):
+    for name in (*BINARIES, *RESOURCES, *CRT):
         if name not in manifest['files'] or not (folder / name).is_file():
             raise ValueError(f'Missing required package content: {name}')
         if not (folder / name).stat().st_size:

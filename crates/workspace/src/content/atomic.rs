@@ -18,8 +18,13 @@ pub(super) fn replace_checked(
 ) -> Result<()> {
     // ReplaceFileW opens the replacement without sharing: release its writable handle first.
     // TempPath keeps cleanup/recovery ownership while allowing the OS to open both names.
-    let file = file.into_temp_path();
-    exchange(&file, target)?;
+    let mut file = file.into_temp_path();
+    if let Err(error) = exchange(&file, target) {
+        if matches!(&error, ContentError::SaveConflictRecovery { .. }) {
+            file.disable_cleanup(true);
+        }
+        return Err(error);
+    }
     let displaced = std::fs::File::open(&file)
         .and_then(|f| {
             let mut bytes = Vec::new();
@@ -33,6 +38,8 @@ pub(super) fn replace_checked(
     {
         return Ok(());
     }
+    // Either name can now hold unique user content. Even a failed keep must never unlink it.
+    file.disable_cleanup(true);
     let rollback = exchange(&file, target);
     if matches!(&rollback, Err(ContentError::SaveConflictRecovery { .. })) {
         // A partial Windows replacement already retained the actual original at its recovery path.
@@ -40,7 +47,13 @@ pub(super) fn replace_checked(
         let _ = file.keep();
         return rollback;
     }
-    let recovery = file.keep().map_err(|e| e.to_string())?;
+    let recovery = file.to_path_buf();
+    let recovery = file
+        .keep()
+        .map_err(|error| ContentError::SaveConflictRecovery {
+            recovery,
+            detail: format!("{error}; rollback: {rollback:?}"),
+        })?;
     match rollback {
         Ok(()) => Err(ContentError::SaveConflictRestored { recovery }),
         Err(error) => Err(ContentError::SaveConflictRecovery {
