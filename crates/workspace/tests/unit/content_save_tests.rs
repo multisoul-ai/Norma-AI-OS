@@ -34,13 +34,81 @@ fn exchange_preserves_external_edit_arriving_before_replace() {
     );
 }
 
-/// 场景：冲突已回滚，但Windows拒绝修改恢复文件属性，目录仍允许删除。
-/// 构造：外部版本的DACL拒绝WRITE_ATTRIBUTES（0x100），owner保留其他完整权限。
-/// 执行：真实ReplaceFileW交换/回滚保留目标DACL，TempPath::keep触发属性拒绝。
-/// 预期：错误保留恢复路径，external和draft都在，不能自动清理掉唯一草稿。
+/// 场景：ACL同时阻止冲突回滚和keep的属性更新，旧版本不能被自动清理。
+/// 构造：目标external拒绝WRITE_ATTRIBUTES，owner仍有DELETE和WRITE_DAC。
+/// 执行：真实原子交换、回滚和keep；预期Recovery明确报告旧版本路径。
+/// 预期：目标仍为完整draft、恢复副本为完整external；不能伪报Restored或删掉任一正文。
 #[cfg(windows)]
 #[test]
-fn conflict_recovery_survives_denied_keep_attributes() {
+fn failed_rollback_and_keep_preserve_both_versions() {
+    let temp = tempfile::tempdir().expect("隔离ACL夹具");
+    let target = temp.path().join("a.txt");
+    std::fs::write(&target, "external").expect("外部版本");
+    deny_write_attributes(&target);
+    let mut draft = tempfile::NamedTempFile::new_in(temp.path()).expect("草稿");
+    let recovery_path = draft.path().to_path_buf();
+    draft.write_all(b"draft").expect("写草稿");
+    let error = replace_checked(draft, &target, &fingerprint(b"before"))
+        .expect_err("回滚和keep失败不能变成成功保存");
+    assert!(
+        matches!(&error, ContentError::SaveConflictRecovery { recovery, detail }
+            if recovery == &recovery_path && detail.contains("os error 5")),
+        "必须保留旧版本路径和属性拒绝诊断：{error:?}"
+    );
+    assert!(
+        !matches!(&error, ContentError::SaveConflictRestored { .. }),
+        "ACL阻止恢复时不能承诺目标已恢复"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&target).expect("目标仍在"),
+        "draft",
+        "回滚失败时目标保留已写入的草稿，不能伪造恢复状态"
+    );
+    assert_eq!(
+        std::fs::read(&recovery_path).expect("keep失败不能删除旧版本"),
+        b"external",
+        "错误路径必须确实包含完整外部版本"
+    );
+}
+
+/// 场景：回滚已成功，只在归档草稿时拒绝属性更新；不能混淆副本角色。
+/// 构造：目标为已恢复external，TempPath为draft，仅草稿的真实DACL拒绝WRITE_ATTRIBUTES。
+/// 执行：调用实际归档I/O边界conflict_result，传入已成功的rollback状态。
+/// 预期：报告Restored并保留属性警告，target为external、recovery为draft，两份均不被删除。
+#[cfg(windows)]
+#[test]
+fn restored_conflict_keeps_draft_when_attributes_cannot_be_persisted() {
+    let temp = tempfile::tempdir().expect("隔离keep失败");
+    let target = temp.path().join("a.txt");
+    std::fs::write(&target, "external").expect("已恢复的外部版本");
+    let mut draft = tempfile::NamedTempFile::new_in(temp.path()).expect("归档草稿");
+    draft.write_all(b"draft").expect("草稿正文");
+    let path = draft.into_temp_path();
+    let recovery_path = path.to_path_buf();
+    deny_write_attributes(&recovery_path);
+    let error = conflict_result(path, Ok(())).expect_err("保存冲突仍需显式报告");
+    assert!(
+        matches!(&error, ContentError::SaveConflictRestored { recovery, .. } if recovery == &recovery_path),
+        "磁盘已恢复时必须准确标明草稿副本角色：{error:?}"
+    );
+    assert!(
+        error.to_string().contains("os error 5"),
+        "属性失败不能被吞掉：{error:?}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&target).expect("恢复目标"),
+        "external",
+        "磁盘版本保持已恢复"
+    );
+    assert_eq!(
+        std::fs::read(&recovery_path).expect("保留草稿副本"),
+        b"draft",
+        "属性失败不能删除唯一草稿"
+    );
+}
+
+#[cfg(windows)]
+fn deny_write_attributes(target: &Path) {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::{
         Foundation::LocalFree,
@@ -49,9 +117,6 @@ fn conflict_recovery_survives_denied_keep_attributes() {
             DACL_SECURITY_INFORMATION,
         },
     };
-    let temp = tempfile::tempdir().expect("隔离ACL夹具");
-    let target = temp.path().join("a.txt");
-    std::fs::write(&target, "external").expect("外部版本");
     // 0x100 is FILE_WRITE_ATTRIBUTES; FA retains DELETE and WRITE_DAC for the owner.
     let sddl: Vec<u16> = "D:P(D;;0x100;;;WD)(A;;FA;;;OW)\0".encode_utf16().collect();
     let mut descriptor = std::ptr::null_mut();
@@ -70,26 +135,7 @@ fn conflict_recovery_survives_denied_keep_attributes() {
     );
     let path: Vec<u16> = target.as_os_str().encode_wide().chain(Some(0)).collect();
     let applied = unsafe { SetFileSecurityW(path.as_ptr(), DACL_SECURITY_INFORMATION, descriptor) };
-    let acl_error = std::io::Error::last_os_error();
+    let error = std::io::Error::last_os_error();
     unsafe { LocalFree(descriptor) };
-    assert_ne!(applied, 0, "必须实际应用拒绝属性的DACL：{acl_error}");
-    let mut draft = tempfile::NamedTempFile::new_in(temp.path()).expect("草稿");
-    let recovery_path = draft.path().to_path_buf();
-    draft.write_all(b"draft").expect("写草稿");
-    let error = replace_checked(draft, &target, &fingerprint(b"before"))
-        .expect_err("冲突与保留属性失败必须显式报告");
-    assert!(
-        matches!(&error, ContentError::SaveConflictRecovery { recovery, .. } if recovery == &recovery_path),
-        "keep失败必须报告可恢复的草稿路径，实际为 {error:?}"
-    );
-    assert_eq!(
-        std::fs::read_to_string(&target).expect("外部版本仍在"),
-        "external",
-        "回滚保留外部编辑"
-    );
-    assert_eq!(
-        std::fs::read(&recovery_path).expect("keep失败不能删除恢复副本"),
-        b"draft",
-        "草稿正文必须完整保留"
-    );
+    assert_ne!(applied, 0, "必须实际应用拒绝属性的DACL：{error}");
 }

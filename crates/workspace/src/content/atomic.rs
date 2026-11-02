@@ -47,6 +47,11 @@ pub(super) fn replace_checked(
         let _ = file.keep();
         return rollback;
     }
+    conflict_result(file, rollback)
+}
+
+fn conflict_result(mut file: tempfile::TempPath, rollback: Result<()>) -> Result<()> {
+    file.disable_cleanup(true);
     let recovery = file.to_path_buf();
     let recovery = file
         .keep()
