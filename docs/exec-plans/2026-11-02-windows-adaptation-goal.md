@@ -15,12 +15,16 @@
 
 - 工作树：`/private/tmp/norma-windows-feasibility-20261101`。
 - 分支：`codex/windows-feasibility-20261101`，PR #170。
-- PR 分支当前已推送 `c26f0071`，标准CI run `41536051278` PASS；Windows build run `41536039634`仍在执行，没有候选ZIP。
+- PR基准 `c26f0071` 的标准CI run `41536051278` PASS；Windows build run `41536039634` 的默认check、browser/helper及App/norma release均PASS，但最后媒体准备失败，没有候选ZIP。真实失败为Windows checkout把可信README的1951字节变为1983字节（32个CRLF），不是编译或哈希保护错误。
 - 上一轮 `7a1a1c4c` 的默认App check PASS，build run `41530644679` 在过滤browser单测前编译整个App测试harness时失败：10条Unix/macOS专用测试夹具编译错误。`c26f0071`把同一生产browser模块及原四项测试接入既有native probe，保留真实storage依赖和锁定版本，等待复验；不宣称整个Windows App单测harness已迁移。
 - Windows原生终端、helper、文件/附件与传输契约已有通过证据，见后续记录；真实App用户流程、WebView2及其余平台能力仍未完成。
 - follow-up分支 `codex/windows-audio-20261102` 在独立worktree `/private/tmp/norma-windows-audio-20261102` 开发音频；只在验证完成后接回PR，避免持续取消长构建。
 - `5399afbd` run `41534211348`：原生麦克风枚举/权限/失效选择3项PASS。`bd4ab0f8` run `41534408042`：新增采集2项RED（仍是unsupported）。`fb66cd17` run `41535530484`：WASAPI实现后5项平台契约、voice_input 24/0/6 PASS；无物理端点，真实录音/AEC为NOT_RUN。
 - `f418389a` run `41536602913` Windows job `125589915321`：新增包解析/线程收口4项PASS，voice_input 28/0/6、voice_sherpa 26/0/8；Clippy唯一失败是capture timer可改成while-let，`1b1ac491`已修待复验。忽略数均来自原有模型/硬件测试，没有新增ignore。
+- 最新音频绿灯 `5973078a` run `41544919078`：Windows job `125618049728`及macOS job `125618049366`整体PASS。Windows原生平台5/0/0、voice_input 29/0/6、voice_sherpa 26/0/8、生产App播放10/0/0、生产App ASR5/0/0；域层和实际App适配器Clippy均PASS。macOS复验受影响crate及相同生产ASR调用链。物理输入/输出端点为0，真实录音、扬声器及AEC效果仍NOT_RUN。
+- 运行时错误不是只测私有wrapper：`9353b105` run `41537434166`实际返回截断文本成功，修复后User/DurationLimit/Cancel/EOF四条通过；`6365cc73` run `41541100661`明确暴露Provider错误被SessionClosed覆盖，`96ff20bc`保留原始结构化错误。capture失败仍需join forward的回归使用受控退出门，错误不能跳过清理。
+- 播放ACK/Stop的真实RED：`cd92b9da` run `41542429408` job `125609667207`为7过/2败。`5366d83f`使用零容量ACK交接，并按Stop冻结游标、读取padding、Reset、收口队列的顺序保留实际启动证据；上述5973078a已包含两条绿灯，无放宽断言。独立对抗复核未发现新的确定问题。
+- 媒体RED `7f6efff6` script run `41543998643`两项失败：可信README被checkout改字节；catalog报告398字节但实际412字节。`d7b76613`固定可信README为LF，显式UTF-8/LF读写catalog/report，run `41544534254` job `125616762322`两项GREEN，原报告/包验证亦通过。主构建已把资源测试及真实LFS媒体准备移至长构建前；没有改写可信哈希或归一化损坏源。
 - 重规划冻结证据仍保留在 `artifacts/pr170-goal-handoff/checkpoint.json` 与 `working-tree.patch`；历史失败不改写为成功。
 
 ## 执行顺序和完成门槛
@@ -52,10 +56,9 @@ G1、G2 的纯协议夹具可以与 G3 的编译调查交错进行；发布包�
 
 ## 已知阻塞，按优先级处理
 
-1. **候选包尚未生成**：跟踪同源默认App、browser/helper探针及release构建；产物上传后在新runner消费同一ZIP并读取原图。窗口检查不能代替核心用户流程。
-2. **采集运行时错误尚未贯穿上层**：独立审查指出PCM断流后App ASR仍可按User完成并返回截断文本。新增生产AsrRecordingSession断流回归，先取得RED再修复；私有WASAPI stop单测不作为该调用链证据。
-3. **Windows播放仍为Noop**：新增原生端点独立枚举和生产默认sink测试；实现WASAPI播放、实际消费完成与停止确认，不用理论时长伪造完成。
-4. **其余默认能力与真实App矩阵未关闭**：WebView2、项目/终端/保存重开、双语主题、媒体/Ego/移动链路按下表逐项实现与验收。硬件例外只限制物理能力结论，不能掩盖软件未实现。
+1. **候选包尚未生成**：资源和音频修复已获聚焦绿灯，接回PR后从同一源码重建。产物上传后在新runner消费同一ZIP并读取原图；窗口检查不能代替核心用户流程。
+2. **真实App核心流程未验收**：工作区/项目/终端输入、保存重开、快捷键、双语主题、WebView2及手机后台生命周期均需真正Windows程序证据。源码中的cmd修饰键在GPUI Windows映射Win键，需按Windows键盘语义聚焦复现，不能仅以终端输入编码测试代替App快捷键验收。
+3. **其余默认能力矩阵未关闭**：模型真实受控推理、媒体/Ego/移动链路按下表逐项实现与验收。已实现WASAPI软件契约和错误收口，不把无物理设备的API绿灯写成真实录音/播放/AEC效果。
 
 ## 默认能力与验收矩阵（G0 冻结）
 
