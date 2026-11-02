@@ -56,7 +56,8 @@ G1、G2 的纯协议夹具可以与 G3 的编译调查交错进行；发布包�
 3. **进程树关闭缺口**：PowerShell 不具有 POSIX exec 语义。证明 ConPTY/进程树是否收口；若不足则引入受控 Job Object。父进程退出本身不算子孙退出。
 4. **完整 App 前沿**：已缩至手机截图路径的一处 Objective-C 引用，修复后以 runner 复验默认目标与新暴露错误；另有九条 warning，不能先宣称完整编译通过。
 5. **交付验证不足**：package verify 必须要求 Resources/catalog/CRT，而非只验证已列出的文件；CRT 发现改用明确获取目录；Smoke 要检查并收口遗留子树；补 workflow 触发路径。
-6. **Clippy 候选待确认**：自动修复涉及调用签名和共享测试夹具。先审查差异并以 runner 编译/测试验证；恢复无关格式噪音，保持单文件上限与测试语义。
+6. **恢复文件保留的既有风险**：两处 `keep()` 失败时错误对象仍会清理 TempPath；极端回滚失败下可能删除唯一被置换的外部版本。需先补真实失败/故障注入回归，禁止仅凭共享句柄修复宣称 G1 关闭。
+7. **Clippy 候选待确认**：自动修复涉及调用签名和共享测试夹具。先审查差异并以 runner 编译/测试验证；恢复无关格式噪音，保持单文件上限与测试语义。
 
 ## 默认能力与验收矩阵（G0 冻结）
 
@@ -104,3 +105,6 @@ G1、G2 的纯协议夹具可以与 G3 的编译调查交错进行；发布包�
 - `deae23ec`：独立只读审查未发现 Clippy/fixture 候选中的调用或隔离回归；正常 hook 的 check/fmt 已通过，Windows/macOS runner 仍待执行此提交。下一批增加独立原生契约 workflow，保留冲突恢复和关闭原断言，仅增强失败诊断；Windows App 的配对名称改用系统环境名称，移除未受平台条件保护的 Objective-C 引用。
 
 - `2c315b29`：Windows native contracts run `41477762062`，attempt 1，script job `125387736138` 的 report 18 项通过；package 3 项中 1 项失败，确认仅四个 MZ 文件和自洽 manifest、完全缺 Resources 的目录会被旧 verify 错误接受。先修必需资源和实际二进制检查，再继续 CRT/目录清单完整性；native job 尚在执行。
+
+- 原子替换共享句柄修复候选：`NamedTempFile::into_temp_path()` 先关闭可写句柄，仍保留路径的清理/keep 所有权。Microsoft `ReplaceFileW` 文档明确 replacement 打开“不指定 sharing mode”；独立审查未发现本次路径/回滚所有权回归。真实旧错误详情及修复后结果以 runner 为准，不以 API 文档代替测试。文档来源：https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew 。
+- 增加 GitHub macOS 定向域层与 App 单测回归，固定 Rust 1.91.1；并保留当前原生诊断 run 完成，后续推送不再自动取消它。两套 runner 的编译及测试不在本地重跑。

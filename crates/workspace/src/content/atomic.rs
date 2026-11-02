@@ -16,8 +16,11 @@ pub(super) fn replace_checked(
     target: &Path,
     expected: &str,
 ) -> Result<()> {
-    exchange(file.path(), target)?;
-    let displaced = std::fs::File::open(file.path())
+    // ReplaceFileW opens the replacement without sharing: release its writable handle first.
+    // TempPath keeps cleanup/recovery ownership while allowing the OS to open both names.
+    let file = file.into_temp_path();
+    exchange(&file, target)?;
+    let displaced = std::fs::File::open(&file)
         .and_then(|f| {
             let mut bytes = Vec::new();
             f.take(super::MAX_TEXT_BYTES + 1).read_to_end(&mut bytes)?;
@@ -30,14 +33,14 @@ pub(super) fn replace_checked(
     {
         return Ok(());
     }
-    let rollback = exchange(file.path(), target);
+    let rollback = exchange(&file, target);
     if matches!(&rollback, Err(ContentError::SaveConflictRecovery { .. })) {
         // A partial Windows replacement already retained the actual original at its recovery path.
         // Its error takes precedence over a temporary pathname that may no longer exist.
         let _ = file.keep();
         return rollback;
     }
-    let (_, recovery) = file.keep().map_err(|e| e.to_string())?;
+    let recovery = file.keep().map_err(|e| e.to_string())?;
     match rollback {
         Ok(()) => Err(ContentError::SaveConflictRestored { recovery }),
         Err(error) => Err(ContentError::SaveConflictRecovery {
