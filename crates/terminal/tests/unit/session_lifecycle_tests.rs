@@ -3,8 +3,7 @@ use super::*;
 use crate::input::Key;
 use std::time::{Duration, Instant};
 
-#[path = "../support/native_command.rs"]
-mod native;
+use crate::native_test_command as native;
 
 /// 集成：spawn sh，写入命令，drain 后快照含命令输出，exit 后 status=Exited。
 ///

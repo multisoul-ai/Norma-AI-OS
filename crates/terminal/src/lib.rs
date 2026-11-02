@@ -21,3 +21,7 @@ pub use test_backend::{ScriptRule, TestPtyBackend};
 
 #[cfg(any(windows, test))]
 mod windows_launch;
+
+#[cfg(test)]
+#[path = "../tests/support/native_command.rs"]
+mod native_test_command;

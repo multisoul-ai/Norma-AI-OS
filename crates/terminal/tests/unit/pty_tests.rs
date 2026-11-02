@@ -2,8 +2,7 @@ use super::*;
 use crossbeam_channel::unbounded;
 use std::time::Duration;
 
-#[path = "../support/native_command.rs"]
-mod native;
+use crate::native_test_command as native;
 
 fn collect(
     pty: &mut PtyHandle,
