@@ -107,7 +107,7 @@ fn killing_conpty_publishes_its_exit_event() {
         ) {
             Ok(event) => event,
             Err(crossbeam_channel::RecvTimeoutError::Timeout) if Instant::now() < deadline => {
-                if let Some(reply) = grid.expire_synchronized_output() {
+                if let Some(reply) = grid.expire_synchronized_output(Instant::now()) {
                     if !reply.is_empty() {
                         pty.write(&reply)
                             .expect("空闲同步到期也必须回写真实协议响应");

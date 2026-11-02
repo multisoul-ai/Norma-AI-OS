@@ -1,11 +1,12 @@
+use super::{PtyEvent, TerminalSession, TerminalStatus};
+use crate::TestPtyBackend;
 use crossbeam_channel::unbounded;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use terminal::{PtyEvent, TerminalSession, TestPtyBackend};
+use std::time::{Duration, Instant};
 
 /// 场景：终端开启同步输出后等待DSR回复，却不发送结束同步标记；不能永久互相等待。
 /// 构造：BSU + ABC + CSI6n，真实vte0.15同步预算150ms，记录后端回写；ABC后的坐标为1行4列。
-/// 执行：先确认同步期间不发布ABC、不提前回复；200ms后只调用App同样的drain，不再投递字节。
+/// 执行：以真实vte产生的deadline为锚点，分别在到期前1ms和到期时调用同一drain路径，不再投递字节。
 /// 预期：idle drain主动到期同步批次，发布ABC并精确回写一次DSR；后续drain不能重复发布。
 #[test]
 fn idle_drain_expires_synchronized_output_and_replies_without_another_pty_chunk() {
@@ -15,7 +16,8 @@ fn idle_drain_expires_synchronized_output_and_replies_without_another_pty_chunk(
     let mut session = TerminalSession::spawn_with_backend(1, 80, 24, Box::new(backend), rx);
     tx.send(PtyEvent::Output(b"\x1b[?2026hABC\x1b[6n".to_vec()))
         .unwrap();
-    session.drain();
+    let before = Instant::now();
+    session.drain_at(before);
     assert_eq!(
         session.snapshot().rows[0][0].c,
         ' ',
@@ -25,8 +27,27 @@ fn idle_drain_expires_synchronized_output_and_replies_without_another_pty_chunk(
         writes.lock().unwrap().is_empty(),
         "未处理的同步DSR不能伪报已回复"
     );
-    std::thread::sleep(Duration::from_millis(200));
-    assert!(session.drain(), "没有新PTY字节时也必须服务150ms同步到期");
+    let deadline = session
+        .grid
+        .synchronized_output_deadline()
+        .expect("真实vte必须设置同步deadline");
+    assert!(
+        !session.drain_at(deadline - Duration::from_millis(1)),
+        "到期前idle drain不能提前发布批次"
+    );
+    assert_eq!(
+        session.snapshot().rows[0][0].c,
+        ' ',
+        "到期前画面必须继续保持原状态"
+    );
+    assert!(
+        writes.lock().unwrap().is_empty(),
+        "到期前不能提前回复缓存内的DSR"
+    );
+    assert!(
+        session.drain_at(deadline),
+        "没有新PTY字节时也必须服务150ms同步到期"
+    );
     let text: String = session.snapshot().rows[0]
         .iter()
         .map(|cell| cell.c)
@@ -51,7 +72,8 @@ fn explicit_sync_end_publishes_immediately_and_does_not_replay() {
     let mut session = TerminalSession::spawn_with_backend(2, 80, 24, Box::new(backend), rx);
     tx.send(PtyEvent::Output(b"\x1b[?2026hABC".to_vec()))
         .unwrap();
-    session.drain();
+    let before = Instant::now();
+    session.drain_at(before);
     assert_eq!(
         session.snapshot().rows[0][0].c,
         ' ',
@@ -73,9 +95,10 @@ fn explicit_sync_end_publishes_immediately_and_does_not_replay() {
 #[test]
 fn process_exit_publishes_the_last_synchronized_output_immediately() {
     let (tx, rx) = unbounded();
-    let backend = TestPtyBackend::recording(tx.clone(), Arc::new(Mutex::new(Vec::new())));
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let backend = TestPtyBackend::recording(tx.clone(), writes.clone());
     let mut session = TerminalSession::spawn_with_backend(3, 80, 24, Box::new(backend), rx);
-    tx.send(PtyEvent::Output(b"\x1b[?2026hFINAL".to_vec()))
+    tx.send(PtyEvent::Output(b"\x1b[?2026hFINAL\x1b[6n".to_vec()))
         .unwrap();
     tx.send(PtyEvent::Exited { code: Some(7) }).unwrap();
     assert!(session.drain(), "退出及最后输出必须触发更新");
@@ -89,7 +112,57 @@ fn process_exit_publishes_the_last_synchronized_output_immediately() {
     );
     assert_eq!(
         session.status,
-        terminal::TerminalStatus::Exited { code: Some(7) },
+        TerminalStatus::Exited { code: Some(7) },
         "同步输出收口必须保留原退出码"
+    );
+    assert!(!session.drain(), "退出收口不能让后续drain持续dirty");
+    assert!(
+        writes.lock().unwrap().is_empty(),
+        "已退出后不能把DSR回复写到死后端"
+    );
+}
+
+/// 场景：主动kill先标记Exited，随后收到尾批，producer只断开通道而不再发Exited。
+/// 构造：独立事件通道和记录后端；kill后投递BSU+FINAL+DSR，再关闭最后事件sender。
+/// 执行：用同一到期前时间处理尾批和EOF；预期EOF立即发布，状态保持Exited，不回复死进程且不重复dirty。
+#[test]
+fn disconnected_output_finishes_a_pending_batch_even_after_explicit_kill() {
+    let (tx, rx) = unbounded();
+    let (backend_tx, _backend_rx) = unbounded();
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let backend = TestPtyBackend::recording(backend_tx, writes.clone());
+    let mut session = TerminalSession::spawn_with_backend(4, 80, 24, Box::new(backend), rx);
+    session.kill();
+    let before = Instant::now();
+    tx.send(PtyEvent::Output(b"\x1b[?2026hFINAL\x1b[6n".to_vec()))
+        .unwrap();
+    session.drain_at(before);
+    assert_eq!(
+        session.snapshot().rows[0][0].c,
+        ' ',
+        "EOF之前不能提前结束同步批次"
+    );
+    drop(tx);
+    assert!(
+        session.drain_at(before),
+        "已kill也必须在通道EOF时立即发布尾批"
+    );
+    assert_eq!(
+        session.snapshot().rows[0][0].c,
+        'F',
+        "通道EOF不能吞掉最后正文"
+    );
+    assert_eq!(
+        session.status,
+        TerminalStatus::Exited { code: None },
+        "不能把kill状态改回Running"
+    );
+    assert!(
+        !session.drain_at(before),
+        "永久断开的通道不能每轮重复标记dirty"
+    );
+    assert!(
+        writes.lock().unwrap().is_empty(),
+        "kill和EOF后不得向死后端回写DSR"
     );
 }

@@ -79,6 +79,10 @@ impl TerminalSession {
 
     /// 批量排空通道：把这一批 PTY 输出一次性喂给 grid（8–16ms 批处理由 app 定时调用实现），返回是否 dirty。
     pub fn drain(&mut self) -> bool {
+        self.drain_at(std::time::Instant::now())
+    }
+
+    fn drain_at(&mut self, now: std::time::Instant) -> bool {
         let mut dirty = false;
         loop {
             match self.rx.try_recv() {
@@ -108,7 +112,7 @@ impl TerminalSession {
                 }
             }
         }
-        if let Some(replies) = self.grid.expire_synchronized_output() {
+        if let Some(replies) = self.grid.expire_synchronized_output(now) {
             if !replies.is_empty() {
                 let _ = self.write_pty(&replies);
             }
@@ -214,3 +218,7 @@ mod backend_tests;
 #[cfg(test)]
 #[path = "../tests/unit/session_lifecycle_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_sync_tests.rs"]
+mod sync_tests;

@@ -208,12 +208,16 @@ impl TerminalGrid {
     }
 
     /// Service VTE's synchronized-output deadline even when the child waits for a reply.
-    pub fn expire_synchronized_output(&mut self) -> Option<Vec<u8>> {
-        let deadline = self.processor.sync_timeout().sync_timeout()?;
-        if std::time::Instant::now() < deadline {
+    pub fn expire_synchronized_output(&mut self, now: std::time::Instant) -> Option<Vec<u8>> {
+        let deadline = self.synchronized_output_deadline()?;
+        if now < deadline {
             return None;
         }
         self.finish_output()
+    }
+
+    pub(crate) fn synchronized_output_deadline(&self) -> Option<std::time::Instant> {
+        self.processor.sync_timeout().sync_timeout()
     }
 
     /// EOF ends any pending display batch; there cannot be a later ESU from this child.

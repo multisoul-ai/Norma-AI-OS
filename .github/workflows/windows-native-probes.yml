@@ -37,12 +37,15 @@ jobs:
           $vs = & $vswhere -latest -products '*' -property installationPath
           $crt = Get-ChildItem "$vs/VC/Redist/MSVC/*/x64/*" -Directory | Where-Object { $_.Name -like '*.CRT' } | ForEach-Object { @{ path = $_.FullName; files = @(Get-ChildItem $_.FullName -File | Select-Object -ExpandProperty Name) } }
           @{ sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; attempt = $env:GITHUB_RUN_ATTEMPT; image = $env:ImageVersion; vs = $vs; crt = @($crt) } | ConvertTo-Json -Depth 6 | Set-Content artifacts/native-followup/environment.json
-          cargo test --locked -p terminal --test sync_output -- --nocapture 2>&1 | Tee-Object artifacts/native-followup/sync.log
+          cargo test --locked -p terminal --lib session::sync_tests -- --nocapture 2>&1 | Tee-Object artifacts/native-followup/sync.log
           $sync = $LASTEXITCODE
+          if (-not (Select-String -Path artifacts/native-followup/sync.log -Pattern 'test result: ok\. 4 passed; 0 failed; 0 ignored;' -Quiet)) { $sync = 1 }
           cargo test --locked -p terminal --test windows_pty -- --nocapture 2>&1 | Tee-Object artifacts/native-followup/conpty.log
           $conpty = $LASTEXITCODE
-          @{ sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; sync_exit = $sync; conpty_exit = $conpty } | ConvertTo-Json | Set-Content artifacts/native-followup/report.json
-          if ($sync -ne 0 -or $conpty -ne 0) { exit 1 }
+          cargo test --locked -p terminal -- --nocapture 2>&1 | Tee-Object artifacts/native-followup/terminal-crate.log
+          $terminal = $LASTEXITCODE
+          @{ sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; sync_exit = $sync; conpty_exit = $conpty; terminal_exit = $terminal } | ConvertTo-Json | Set-Content artifacts/native-followup/report.json
+          if ($sync -ne 0 -or $conpty -ne 0 -or $terminal -ne 0) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
