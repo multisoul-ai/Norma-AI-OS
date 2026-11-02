@@ -11,12 +11,63 @@ use uds_windows::UnixStream;
 use windows_sys::Win32::{
     Foundation::INVALID_HANDLE_VALUE,
     Networking::WinSock::{
-        ProcessSocketNotifications, SOCK_NOTIFY_EVENT_REMOVE, SOCK_NOTIFY_OP_ENABLE,
-        SOCK_NOTIFY_OP_REMOVE, SOCK_NOTIFY_REGISTER_EVENT_HANGUP, SOCK_NOTIFY_REGISTRATION,
-        SOCK_NOTIFY_TRIGGER_LEVEL, SOCK_NOTIFY_TRIGGER_PERSISTENT,
+        ProcessSocketNotifications, WSAGetLastError, WSAGetOverlappedResult, WSASend,
+        SOCK_NOTIFY_EVENT_REMOVE, SOCK_NOTIFY_OP_ENABLE, SOCK_NOTIFY_OP_REMOVE,
+        SOCK_NOTIFY_REGISTER_EVENT_HANGUP, SOCK_NOTIFY_REGISTRATION, SOCK_NOTIFY_TRIGGER_LEVEL,
+        SOCK_NOTIFY_TRIGGER_PERSISTENT, WSABUF, WSA_IO_PENDING,
     },
-    System::IO::{CreateIoCompletionPort, OVERLAPPED_ENTRY},
+    System::{
+        Threading::{CreateEventW, WaitForSingleObject},
+        IO::{CancelIoEx, CreateIoCompletionPort, OVERLAPPED, OVERLAPPED_ENTRY},
+    },
 };
+
+/// Report actual overlapped zero-byte send completion; never treat a cancelled probe as closure.
+/// Stack buffers, event and borrowed socket stay alive until completion, including cancellation.
+pub fn observe_zero_send(label: &str, stream: &UnixStream) {
+    let raw_event = unsafe { CreateEventW(ptr::null(), 1, 0, ptr::null()) };
+    assert!(!raw_event.is_null(), "零字节异步诊断必须有真实event");
+    let event = unsafe { OwnedHandle::from_raw_handle(raw_event) };
+    let mut overlapped = OVERLAPPED::default();
+    // The low bit suppresses an IO completion packet on any notification port sharing the socket.
+    overlapped.hEvent = event.as_raw_handle().map_addr(|address| address | 1);
+    let mut byte = 0u8;
+    let buffer = WSABUF {
+        len: 0,
+        buf: &mut byte,
+    };
+    let fd = stream.as_raw_socket() as _;
+    let result = unsafe { WSASend(fd, &buffer, 1, ptr::null_mut(), 0, &mut overlapped, None) };
+    let initial_error = if result == 0 {
+        0
+    } else {
+        unsafe { WSAGetLastError() }
+    };
+    if result != 0 && initial_error != WSA_IO_PENDING {
+        eprintln!("{label}: overlapped WSASend(0)={result}, initial_error={initial_error}; no operation initiated");
+        return;
+    }
+    let mut cancelled = false;
+    if initial_error == WSA_IO_PENDING
+        && unsafe { WaitForSingleObject(event.as_raw_handle(), 100) } != 0
+    {
+        cancelled = true;
+        // Cancel requests do not complete synchronously. WSAGetOverlappedResult(TRUE) below
+        // waits for final completion before the OVERLAPPED or its zero-length buffer is released.
+        unsafe {
+            CancelIoEx(stream.as_raw_socket() as *mut _, &overlapped);
+        }
+    }
+    let mut bytes = 0;
+    let mut flags = 0;
+    let completed = unsafe { WSAGetOverlappedResult(fd, &overlapped, &mut bytes, 1, &mut flags) };
+    let error = if completed == 0 {
+        unsafe { WSAGetLastError() }
+    } else {
+        0
+    };
+    eprintln!("{label}: overlapped WSASend(0)={result}, initial_error={initial_error}, cancelled={cancelled}, completed={completed}, bytes={bytes}, flags={flags}, error={error}");
+}
 
 pub struct CloseNotifications {
     // Closing the registered socket precedes the port, even if explicit deregistration fails.

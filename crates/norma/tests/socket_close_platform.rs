@@ -38,6 +38,7 @@ fn drain_closed(socket: &mut UnixStream) -> Vec<u8> {
 }
 
 fn observe(label: &str, socket: &UnixStream) {
+    notifications::observe_zero_send(label, socket);
     let fd = socket.as_raw_socket() as _;
     let mut seconds = u32::MAX;
     let mut length = size_of::<u32>() as i32;
