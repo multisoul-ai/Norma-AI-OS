@@ -44,3 +44,52 @@ fn unknown_shell_scripts_are_rejected_and_native_programs_are_preserved() {
         "原生调用不能被重写"
     );
 }
+
+/// 场景：受控Agent的二进制覆写来自本次命令，不应误读App进程的全局环境。
+/// 构造：OpenCode/Infcode/Cursor各使用中文空格、单引号和美元符号路径，命令保留hook环境。
+/// 执行：走生产prepare入口，逐项比较PowerShell程序字面值和完整环境。
+/// 预期：三个覆写均执行同一个字面路径，不能启动默认CLI或丢掉Cursor变量支持。
+#[test]
+fn agent_binary_overrides_use_the_command_environment() {
+    for (variable, default) in [
+        ("OPENCODE_BIN", "opencode"),
+        ("INFCODE_BIN", "infcode"),
+        ("CURSOR_AGENT_BIN", "cursor-agent"),
+    ] {
+        let path = "C:/用户 项目/agent's $bin.exe";
+        let command = PtyCommand::new("/bin/zsh")
+            .args([
+                "-lic".into(),
+                format!("exec \"${{{variable}:-{default}}}\" --resume 'session_7'"),
+            ])
+            .env(variable, path)
+            .env("MULTISOUL_CONTROL_RUN_ID", "run-7");
+        let expected_environment = command.env.clone();
+        let actual = prepare(command).expect("受控Agent必须接受本次二进制覆写");
+        assert_eq!(
+            actual.args[3], "& 'C:/用户 项目/agent''s $bin.exe' '--resume' 'session_7'",
+            "{variable}: 路径必须保持字面值，不能使用进程环境或默认CLI"
+        );
+        assert_eq!(
+            actual.env, expected_environment,
+            "{variable}: 原始hook和二进制环境必须保留"
+        );
+    }
+}
+
+/// 场景：Windows环境键不区分大小写，最后一个空覆写应遵守POSIX的:-默认语义。
+/// 构造：同一命令先设错误OPENCODE_BIN，再以小写键设空值；不修改全局进程环境。
+/// 执行：通过实际prepare转换原有OpenCode默认表达式。
+/// 预期：执行默认opencode，既不残留早先路径，也不把空值作为可执行程序。
+#[test]
+fn empty_last_binary_override_uses_the_default_case_insensitively() {
+    let command = PtyCommand::new("/bin/zsh")
+        .args(["-lic", "exec \"${OPENCODE_BIN:-opencode}\""])
+        .env("OPENCODE_BIN", "C:/obsolete.exe")
+        .env("opencode_bin", "");
+    let actual = prepare(command).expect("空覆写应回退默认程序");
+    assert_eq!(
+        actual.args[3], "& 'opencode'",
+        "最后一个空值必须覆盖旧值，并按:-选择默认CLI"
+    );
+}
