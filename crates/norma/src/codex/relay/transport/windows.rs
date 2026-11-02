@@ -1,6 +1,6 @@
 //! WinSock readiness for AF_UNIX, with the same bounded cancellation and backpressure budget.
-use super::super::Socket;
-use std::os::windows::io::{AsRawSocket, BorrowedSocket, OwnedSocket};
+use super::super::{Socket, UnixStream};
+use std::os::windows::io::AsRawSocket;
 use windows_sys::Win32::Networking::WinSock::{
     WSAGetLastError, WSAPoll, POLLERR, POLLHUP, POLLNVAL, POLLRDNORM, POLLWRNORM, WSAEINTR,
     WSAPOLLFD,
@@ -65,7 +65,7 @@ use windows_sys::Win32::{
 
 pub(crate) struct Readiness {
     port: HANDLE,
-    sockets: [Option<OwnedSocket>; 2],
+    sockets: [Option<UnixStream>; 2],
     registered: [bool; 2],
     closed: [bool; 2],
 }
@@ -73,8 +73,9 @@ pub(crate) struct Readiness {
 impl Readiness {
     pub(crate) fn new(native: &Socket, server: &Socket) -> Result<Self, String> {
         let clone = |socket: &Socket| {
-            unsafe { BorrowedSocket::borrow_raw(socket.get_ref().as_raw_socket()) }
-                .try_clone_to_owned()
+            socket
+                .get_ref()
+                .try_clone()
                 .map(Some)
                 .map_err(|error| error.to_string())
         };
