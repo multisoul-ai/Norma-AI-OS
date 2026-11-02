@@ -140,3 +140,10 @@ Windows native run `41477762062`，attempt 1，job `125387736616` 已完成失�
 
 - `35d296ec` native run `41491899815`：TerminalSession 正常退出/1024行尾部+exit7两个案例在 Windows2022 job `125436762496`、Windows2025 job `125436762939`、主原生job `125436763338` 均真实通过（0 ignored）。ConPTY常规生命周期修复获得绿灯，不能延伸成取消/整树验收。
 - vendor回归原命令被Cargo拒绝：excluded依赖包含dev-dependencies，不能由root `-p`测试。实际未执行，不计成旧析构顺序红灯；改用独立manifest及原始vendor lockfile。退出码/实际test result双重门禁拒绝了空测试假绿。
+
+## 退出事件与恢复副本角色回归
+
+- `4c9a86ae` native run `41493369517`，job `125441857509`：真实ACL的rollback失败分支通过；“已回滚、仅keep失败”独立案例按预期暴露Recovery/Restored状态混淆。ConPTY两条正常路径继续通过，新kill案例失败为Disconnected，证明已安装PTY不能取消Exited转发。
+- 候选修正 `0d5221a5` 保留正常kill的事件转发；构造失败仍可停止有界发送并排空。Restored显式携带可选warning，副本角色和磁盘状态不再被keep元数据错误覆盖；独立审查未发现新数据保留反例。双语展示测试故意先保留红灯，随后补准确文案。
+- vendor独立manifest已启动编译，但fixture的`Box<dyn MasterPty + Send>`不能直接downcast；已在同候选中显式擦除冗余Send标记。尚无真实满管道反例结果，不能记为旧析构顺序红灯。
+- macOS旧source `bbaacab9` job `125403139224`：受影响域层1469 passed /0 failed /19既有ignored；App 1659 passed /76 failed /10既有ignored。App包含Vision VM的E5RT输出污染及后续线程资源耗尽，不能据此宣称Mac全绿。按差异补独立文案边界测试，单测opt-level0及workspace缓存缩短编译；release仍单独验收。

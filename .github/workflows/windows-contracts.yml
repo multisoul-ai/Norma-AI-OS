@@ -9,6 +9,10 @@ on:
       - 'crates/norma/**'
       - 'crates/workspace/**'
       - 'crates/terminal/**'
+      - 'crates/app/src/preview/content_copy.rs'
+      - 'crates/app/tests/unit/content_i18n_tests.rs'
+      - 'crates/ui/locales/**'
+      - 'scripts/*i18n.py'
       - 'vendor/portable-pty-0.9.0/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -143,5 +147,43 @@ jobs:
         with:
           name: conpty-compatibility-${{ matrix.os }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/conpty-compatibility/
+          retention-days: 14
+          if-no-files-found: error
+
+  macos-content-copy:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    env:
+      CARGO_PROFILE_TEST_OPT_LEVEL: '0'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-port-content-copy
+          cache-on-failure: true
+          cache-workspace-crates: true
+          env-vars: CARGO_PROFILE_TEST_OPT_LEVEL
+      - name: Validate bilingual keys and guard semantics
+        run: |
+          python3 scripts/test-i18n.py
+          python3 scripts/check-i18n.py
+      - name: Run focused actual App copy boundary test
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/content-copy
+          rustc -vV | tee artifacts/content-copy/rustc.log
+          cargo test --locked -p app --lib drawer_i18n_restored_draft_retains_attribute_warning -- --nocapture 2>&1 | tee artifacts/content-copy/test.log
+          python3 -c "import pathlib,re; log=pathlib.Path('artifacts/content-copy/test.log').read_text(); assert re.search(r'test result: ok\. 1 passed; 0 failed; 0 ignored;',log), 'Expected one actual App bilingual copy test'"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: content-copy-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/content-copy/
           retention-days: 14
           if-no-files-found: error
