@@ -66,3 +66,52 @@ fn a_missing_windows_endpoint_cannot_fall_back_to_another_microphone() {
         "必须在打开设备前拒绝失效的显式输入选择"
     );
 }
+
+/// 场景：非法PCM目标采样率不能交给驱动，也不应被缺物理设备掩盖。
+/// 构造：零采样率和乘法会溢出的u32::MAX；执行真实capture入口。
+/// 预期：两种参数均在设备打开前得到精确参数错误，不返回平台unsupported。
+#[test]
+fn windows_capture_rejects_invalid_sample_rates_before_opening_devices() {
+    for rate in [0, u32::MAX] {
+        let (sender, _receiver) = crossbeam_channel::bounded(voice_input::PCM_QUEUE_CHUNKS);
+        let error =
+            match AudioCapture::start(sender, Arc::new(AudioQueueStats::default()), None, rate) {
+                Err(error) => error,
+                Ok(capture) => {
+                    capture.stop();
+                    panic!("非法采样率不能打开真实音频流：{rate}");
+                }
+            };
+        assert_eq!(
+            error,
+            VoiceInputError::Audio(format!("invalid capture sample rate: {rate}")),
+            "必须在访问设备前拒绝非法采样率"
+        );
+    }
+}
+
+/// 场景：hosted runner没有物理麦克风时，应准确报告原生端点缺失。
+/// 构造：先通过真实API枚举，只有确实无端点才尝试默认capture。
+/// 执行：启动16kHz默认输入；预期准确拒绝缺设备，不将unsupported当成设备限制。
+#[test]
+fn windows_capture_reports_an_absent_default_endpoint() {
+    let devices = voice_input::list_audio_input_devices().expect("原生设备枚举必须成功");
+    if !devices.is_empty() {
+        eprintln!("NOT_RUN: absent-device branch; this runner has physical endpoints");
+        return;
+    }
+    let (sender, _receiver) = crossbeam_channel::bounded(voice_input::PCM_QUEUE_CHUNKS);
+    let error =
+        match AudioCapture::start(sender, Arc::new(AudioQueueStats::default()), None, 16_000) {
+            Err(error) => error,
+            Ok(capture) => {
+                capture.stop();
+                panic!("无原生端点时不能伪造成功的capture");
+            }
+        };
+    assert_eq!(
+        error,
+        VoiceInputError::Audio("no active microphone endpoint is available".into()),
+        "缺硬件必须与未实现平台区分"
+    );
+}
