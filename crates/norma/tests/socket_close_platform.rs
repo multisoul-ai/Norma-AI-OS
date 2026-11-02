@@ -10,6 +10,30 @@ use windows_sys::Win32::Networking::WinSock::{
     POLLWRNORM, SIO_AF_UNIX_GETPEERPID, WSABUF, WSAPOLLFD,
 };
 
+fn drain_closed(socket: &mut UnixStream) -> Vec<u8> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    let mut actual = Vec::new();
+    let mut buffer = [0u8; 8192];
+    loop {
+        match socket.read(&mut buffer) {
+            Ok(0) => return actual,
+            Ok(count) => actual.extend_from_slice(&buffer[..count]),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "释放全部source句柄后3秒内必须收到EOF，已读取{}字节",
+                    actual.len()
+                );
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+            Err(error) => panic!(
+                "关闭后的正文不能被探测丢弃: {error}; received={}",
+                actual.len()
+            ),
+        }
+    }
+}
+
 fn observe(label: &str, socket: &UnixStream) {
     let fd = socket.as_raw_socket() as _;
     let mut available = 0u32;
@@ -112,14 +136,7 @@ fn socket_close_with_clones_and_saturated_sender_preserves_payload() {
                 drop(source_copy);
                 drop(source);
                 observe(&format!("{label}/closed"), &receiver);
-                receiver.set_nonblocking(false).unwrap();
-                receiver
-                    .set_read_timeout(Some(std::time::Duration::from_secs(3)))
-                    .unwrap();
-                let mut actual = Vec::new();
-                receiver
-                    .read_to_end(&mut actual)
-                    .expect("关闭后应排空真实正文并抵达EOF");
+                let actual = drain_closed(&mut receiver);
                 assert_eq!(
                     actual,
                     bytes[..written],
@@ -157,8 +174,6 @@ fn unread_socket_close_notification_diagnostics_preserve_payload() {
     observe("shutdown", &receiver);
     drop(source);
     observe("closed", &receiver);
-    receiver.set_nonblocking(false).unwrap();
-    let mut actual = Vec::new();
-    receiver.read_to_end(&mut actual).unwrap();
+    let actual = drain_closed(&mut receiver);
     assert_eq!(actual, bytes, "任何探测均不得消费、改写或丢弃原协议正文");
 }
