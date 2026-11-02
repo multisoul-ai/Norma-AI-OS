@@ -331,6 +331,7 @@ struct Relay {
 
 impl Relay {
     fn pump(&mut self) -> Result<(), String> {
+        let mut readiness = transport::Readiness::new(&self.native, &self.server)?;
         while self.running.load(Ordering::Acquire) {
             let mut active = false;
             // A WouldBlock send has buffered its frame. Flush before reading more into that side.
@@ -396,7 +397,7 @@ impl Relay {
                 self.publish_changes();
             }
             if !active {
-                transport::wait_ready(
+                readiness.wait_ready(
                     &self.native,
                     &self.server,
                     native_ready,

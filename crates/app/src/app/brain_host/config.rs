@@ -372,7 +372,11 @@ pub(super) fn shell_safe_bin(state_dir: &Path, bin: PathBuf) -> PathBuf {
     if !fresh {
         let _ = std::fs::create_dir_all(state_dir.join("bin"));
         let _ = std::fs::remove_file(&link);
-        if std::os::unix::fs::symlink(&bin, &link).is_err() {
+        #[cfg(unix)]
+        let linked = std::os::unix::fs::symlink(&bin, &link);
+        #[cfg(windows)]
+        let linked = std::fs::hard_link(&bin, &link);
+        if linked.is_err() {
             return bin;
         }
     }

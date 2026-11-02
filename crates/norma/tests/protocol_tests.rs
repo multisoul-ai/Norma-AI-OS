@@ -269,3 +269,34 @@ fn wire_request_preserves_workspace_routing_and_decodes_legacy_v1() {
         "legacy 请求不得伪造不存在的幂等身份"
     );
 }
+
+/// 场景：幕僚回答命令缩小内存布局时仍须兼容已有 JSON 协议。
+/// 构造：同一完整问题身份，分别带建议理由和直接回答；请求号固定为 17。
+/// 执行：解码既有 JSON，再编码并比较独立 JSON 值，并检查命令有界内联预算。
+/// 预期：身份、答案和理由完全保留；命令不超过四个 64 字节缓存行。
+#[test]
+fn brain_answer_commands_preserve_wire_shape_with_bounded_inline_storage() {
+    let target = serde_json::json!({
+        "workspace_id":"w", "project_id":"p", "node_id":3, "provider":"Codex",
+        "run_id":"r", "connection_id":"c", "session_id":"s", "request_id":17, "revision":1
+    });
+    for (name, reason) in [("Answer", None), ("ProposeAnswer", Some("用户要求"))] {
+        let mut payload =
+            serde_json::json!({"target":target, "answers":[{"key":"q","selected":["yes"]}]});
+        if let Some(reason) = reason {
+            payload["reason"] = reason.into();
+        }
+        let wire = serde_json::json!({"Brain":{"token":"test-token", "op":{name:payload}}});
+        let command: CardCommand =
+            serde_json::from_value(wire.clone()).expect("既有回答协议应可解码");
+        assert_eq!(
+            serde_json::to_value(command).unwrap(),
+            wire,
+            "{name} 不能改变线协议形状"
+        );
+    }
+    assert!(
+        std::mem::size_of::<CardCommand>() <= 4 * 64,
+        "轻量卡片命令不能为最大幕僚回答在每次传递时携带超过256字节内联数据"
+    );
+}

@@ -49,7 +49,7 @@ pub struct MobileAccess {
 }
 
 impl MobileAccess {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", windows))]
     pub fn open(store: AppStore) -> Result<Self> {
         let settings = store.settings_store();
         let identity = match settings.get_string("mobile.server_identity")? {

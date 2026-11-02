@@ -1,12 +1,12 @@
 //! WinSock readiness for AF_UNIX, with the same bounded cancellation and backpressure budget.
 use super::super::Socket;
-use std::os::windows::io::AsRawSocket;
+use std::os::windows::io::{AsRawSocket, BorrowedSocket, OwnedSocket};
 use windows_sys::Win32::Networking::WinSock::{
     WSAGetLastError, WSAPoll, POLLERR, POLLHUP, POLLNVAL, POLLRDNORM, POLLWRNORM, WSAEINTR,
     WSAPOLLFD,
 };
 
-pub(crate) fn wait_ready(
+fn wait_ready(
     native: &Socket,
     server: &Socket,
     native_ready: bool,
@@ -44,4 +44,183 @@ pub(crate) fn wait_ready(
         }
     }
     Ok(())
+}
+
+// Completion notifications retain hangup independently of unread application data.
+use std::{
+    ffi::c_void,
+    ptr::null_mut,
+    time::{Duration, Instant},
+};
+use windows_sys::Win32::Networking::WinSock::{
+    ProcessSocketNotifications, SOCK_NOTIFY_EVENT_ERR, SOCK_NOTIFY_EVENT_HANGUP,
+    SOCK_NOTIFY_EVENT_REMOVE, SOCK_NOTIFY_OP_ENABLE, SOCK_NOTIFY_OP_REMOVE,
+    SOCK_NOTIFY_REGISTER_EVENT_HANGUP, SOCK_NOTIFY_REGISTRATION, SOCK_NOTIFY_TRIGGER_LEVEL,
+    SOCK_NOTIFY_TRIGGER_PERSISTENT,
+};
+use windows_sys::Win32::{
+    Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE},
+    System::IO::{CreateIoCompletionPort, OVERLAPPED_ENTRY},
+};
+
+pub(crate) struct Readiness {
+    port: HANDLE,
+    sockets: [Option<OwnedSocket>; 2],
+    registered: [bool; 2],
+    closed: [bool; 2],
+}
+
+impl Readiness {
+    pub(crate) fn new(native: &Socket, server: &Socket) -> Result<Self, String> {
+        let clone = |socket: &Socket| {
+            unsafe { BorrowedSocket::borrow_raw(socket.get_ref().as_raw_socket()) }
+                .try_clone_to_owned()
+                .map(Some)
+                .map_err(|error| error.to_string())
+        };
+        let sockets = [clone(native)?, clone(server)?];
+        let port = unsafe { CreateIoCompletionPort(INVALID_HANDLE_VALUE, null_mut(), 0, 1) };
+        if port.is_null() {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        let mut this = Self {
+            port,
+            sockets,
+            registered: [false; 2],
+            closed: [false; 2],
+        };
+        this.register(SOCK_NOTIFY_OP_ENABLE)?;
+        Ok(this)
+    }
+
+    fn register(&mut self, operation: u32) -> Result<(), String> {
+        let indices: Vec<_> = (0..2)
+            .filter(|i| operation == SOCK_NOTIFY_OP_ENABLE || self.registered[*i])
+            .collect();
+        let mut registrations: Vec<_> = indices
+            .iter()
+            .map(|i| SOCK_NOTIFY_REGISTRATION {
+                socket: self.sockets[*i]
+                    .as_ref()
+                    .expect("registered socket remains owned")
+                    .as_raw_socket() as _,
+                completionKey: (i + 1) as *mut c_void,
+                eventFilter: SOCK_NOTIFY_REGISTER_EVENT_HANGUP as u16,
+                operation: operation as u8,
+                triggerFlags: (SOCK_NOTIFY_TRIGGER_LEVEL | SOCK_NOTIFY_TRIGGER_PERSISTENT) as u8,
+                registrationResult: 0,
+            })
+            .collect();
+        let code = unsafe {
+            ProcessSocketNotifications(
+                self.port,
+                registrations.len() as u32,
+                registrations.as_mut_ptr(),
+                0,
+                0,
+                null_mut(),
+                null_mut(),
+            )
+        };
+        if code != 0 {
+            return Err(std::io::Error::from_raw_os_error(code as i32).to_string());
+        }
+        let mut error = None;
+        for (i, registration) in indices.into_iter().zip(registrations) {
+            if registration.registrationResult != 0 {
+                error.get_or_insert_with(|| {
+                    std::io::Error::from_raw_os_error(registration.registrationResult as i32)
+                        .to_string()
+                });
+            } else if operation == SOCK_NOTIFY_OP_ENABLE {
+                self.registered[i] = true;
+            }
+        }
+        error.map_or(Ok(()), Err)
+    }
+
+    fn notifications(&mut self, timeout: u32) -> Result<(), String> {
+        let mut entries = [OVERLAPPED_ENTRY::default(); 8];
+        let mut count = 0;
+        let code = unsafe {
+            ProcessSocketNotifications(
+                self.port,
+                0,
+                null_mut(),
+                timeout,
+                entries.len() as u32,
+                entries.as_mut_ptr(),
+                &mut count,
+            )
+        };
+        if code == 258 || code == 1460 {
+            return Ok(());
+        }
+        if code != 0 {
+            return Err(std::io::Error::from_raw_os_error(code as i32).to_string());
+        }
+        for entry in entries.iter().take(count as usize) {
+            let Some(i) = entry.lpCompletionKey.checked_sub(1).filter(|i| *i < 2) else {
+                return Err("invalid socket notification identity".into());
+            };
+            let events = entry.dwNumberOfBytesTransferred;
+            if events & SOCK_NOTIFY_EVENT_REMOVE != 0 {
+                self.registered[i] = false;
+            }
+            if events & SOCK_NOTIFY_EVENT_ERR != 0 {
+                return Err("codex_native_connection_closed".into());
+            }
+            if events & SOCK_NOTIFY_EVENT_HANGUP != 0 {
+                self.closed[i] = true;
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn wait_ready(
+        &mut self,
+        native: &Socket,
+        server: &Socket,
+        native_ready: bool,
+        server_ready: bool,
+        read_server: bool,
+    ) -> Result<(), String> {
+        self.notifications(0)?;
+        wait_ready(native, server, native_ready, server_ready, read_server)?;
+        self.notifications(0)?;
+        if self
+            .closed
+            .iter()
+            .zip([server_ready, native_ready && read_server])
+            .any(|(closed, reading)| *closed && !reading)
+        {
+            return Err("codex_native_connection_closed".into());
+        }
+        Ok(())
+    }
+}
+
+impl Drop for Readiness {
+    fn drop(&mut self) {
+        if self.registered.iter().any(|registered| *registered) {
+            if let Err(error) = self.register(SOCK_NOTIFY_OP_REMOVE) {
+                tracing::warn!(%error, "socket notification removal failed");
+            }
+            let deadline = Instant::now() + Duration::from_millis(100);
+            while self.registered.iter().any(|registered| *registered) && Instant::now() < deadline
+            {
+                if self.notifications(5).is_err() {
+                    break;
+                }
+            }
+        }
+        // The registrations own duplicated handles. Closing them deregisters even on REMOVE error.
+        // Completion keys are integer tags, so queued notifications never refer to freed memory.
+        self.sockets.iter_mut().for_each(|socket| {
+            drop(socket.take());
+        });
+        unsafe {
+            CloseHandle(self.port);
+        }
+    }
 }

@@ -28,6 +28,7 @@ fn respond(body: String, status: &str) -> (HookForwardEnv, std::thread::JoinHand
             }
         };
         socket.set_nonblocking(false).unwrap();
+        socket.set_nonblocking(false).unwrap();
         socket
             .set_read_timeout(Some(std::time::Duration::from_secs(5)))
             .unwrap();
@@ -184,6 +185,7 @@ fn unsupported_question_notifies_host_before_returning_to_native_tui() {
                 _ => return None,
             }
         };
+        socket.set_nonblocking(false).unwrap();
         socket
             .set_read_timeout(Some(std::time::Duration::from_secs(2)))
             .unwrap();

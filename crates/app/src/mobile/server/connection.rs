@@ -21,6 +21,10 @@ pub(super) mod relay;
 mod review;
 mod stream;
 mod thread_delivery;
+#[cfg(unix)]
+mod watch_wait;
+#[cfg(windows)]
+#[path = "connection/watch_wait_windows.rs"]
 mod watch_wait;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -195,7 +195,10 @@ impl MultisoulApp {
             self.clear_browser_views();
         }
         self.clear_ego_previews(cx);
-        self.video_wallpaper = None;
+        #[cfg(target_os = "macos")]
+        {
+            self.video_wallpaper = None;
+        }
         self.feature_guide_media = super::feature_guide::FeatureGuideMediaState::default();
         self.working_snake_views.clear();
         self.run_effect_views.clear();

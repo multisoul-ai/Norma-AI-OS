@@ -98,6 +98,9 @@ pub(crate) mod ego;
 mod ego_page_capture;
 #[cfg(target_os = "macos")]
 mod ego_preview;
+#[cfg(windows)]
+#[path = "ego_preview_windows.rs"]
+mod ego_preview;
 pub(crate) mod embedded_canvas;
 #[cfg(all(target_os = "macos", feature = "l3-test-support"))]
 pub use ego_preview::{run_ego_live_capture_probe, EgoLiveCaptureProbeReport};
@@ -165,7 +168,6 @@ pub(crate) use state::mark_runtime_node_viewed_if_needed;
 pub use state::AppScreen;
 mod gpt_live;
 pub(crate) use gpt_live::LiveCallView;
-
 pub struct MultisoulApp {
     pub(crate) database_paths: storage::DatabasePaths,
     pub(crate) test_database_guard: Option<Arc<crate::database::TestDatabaseGuard>>,
@@ -312,7 +314,6 @@ impl MultisoulApp {
             bootstrap::OrchestrationBootstrap::CurrentProcess,
         )
     }
-
     pub(crate) fn on_new_terminal(
         &mut self,
         _: &NewTerminal,

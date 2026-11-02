@@ -43,32 +43,59 @@ pub(super) fn component_status(theme: Theme, component: &ComponentState) -> (&'s
 }
 
 pub(super) fn component_error_detail(integration: &ProviderIntegration) -> Option<String> {
+    component_error_detail_for(integration, ui::i18n::Locale::current())
+}
+
+fn component_error_detail_for(
+    integration: &ProviderIntegration,
+    locale: ui::i18n::Locale,
+) -> Option<String> {
     [
         ("Skill", &integration.skill_component),
         ("Norma CLI", &integration.cli_component),
         ("Agent Hook", &integration.hook_component),
         (
-            ui::i18n::text("settings.authorization"),
+            ui::i18n::text_for(locale, "settings.authorization"),
             &integration.authorization_component,
         ),
     ]
     .into_iter()
     .find_map(|(label, component)| match component {
-        ComponentState::Conflict { path, reason } => Some(ui::i18n::format(
-            "settings.label_reason_resolve_the_conflict_at_and_choose_repair",
-            &[
-                ("label", (label).to_string()),
-                ("reason", (reason).to_string()),
-                ("arg0", (path.display()).to_string()),
-            ],
-        )),
-        ComponentState::Failed { message, .. } => Some(ui::i18n::format(
-            "settings.label_message_choose_repair_to_try_again",
-            &[
-                ("label", (label).to_string()),
-                ("message", (message).to_string()),
-            ],
-        )),
+        ComponentState::Conflict { path, reason } => Some(
+            ui::i18n::message(
+                "settings.label_reason_resolve_the_conflict_at_and_choose_repair",
+                &[
+                    ("label", (label).to_string()),
+                    ("reason", (reason).to_string()),
+                    ("arg0", (path.display()).to_string()),
+                ],
+            )
+            .resolve_for(locale),
+        ),
+        ComponentState::Failed {
+            message,
+            error_code,
+        } => {
+            let message = if error_code == "credential_permissions_insecure" {
+                ui::i18n::text_for(locale, "settings.credential_permissions_insecure")
+            } else {
+                message
+            };
+            Some(
+                ui::i18n::message(
+                    "settings.label_message_choose_repair_to_try_again",
+                    &[
+                        ("label", (label).to_string()),
+                        ("message", (message).to_string()),
+                    ],
+                )
+                .resolve_for(locale),
+            )
+        }
         _ => None,
     })
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/orchestration_status_tests.rs"]
+mod tests;

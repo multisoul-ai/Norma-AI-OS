@@ -112,7 +112,7 @@ impl BrainArgs {
                 answers_json,
                 reason,
             } => BrainOp::ProposeAnswer {
-                target,
+                target: Box::new(target),
                 answers: answers_json.0,
                 reason,
             },
@@ -120,7 +120,7 @@ impl BrainArgs {
                 target,
                 answers_json,
             } => BrainOp::Answer {
-                target,
+                target: Box::new(target),
                 answers: answers_json.0,
             },
             BrainCliCommand::Context { reference } => BrainOp::Context { reference },

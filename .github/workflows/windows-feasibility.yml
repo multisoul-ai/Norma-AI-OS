@@ -113,17 +113,19 @@ jobs:
       - name: Exercise actual App socket and image adapters without the GPUI dependency graph
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force artifacts/app-adapters | Out-Null
+          New-Item -ItemType Directory -Force artifacts/windows-feasibility/app-adapters | Out-Null
           $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-app-adapter-target'
-          cargo test --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --lib --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/app-adapters/transport.log
+          cargo test --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --lib --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/app-adapters/transport.log
           $transport = $LASTEXITCODE
-          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; transport_exit = $transport } | ConvertTo-Json | Set-Content artifacts/app-adapters/report.json
+          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; transport_exit = $transport } | ConvertTo-Json | Set-Content artifacts/windows-feasibility/app-adapters/report.json
+          python scripts/windows/probe.py record-app-adapters
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           exit $transport
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: windows-app-adapters-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/app-adapters/
+          name: windows-feasibility-app-adapters-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
           retention-days: 7
           if-no-files-found: error
 
@@ -140,25 +142,27 @@ jobs:
       - name: Require Codex control request errors and shutdown on Windows
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force artifacts/codex-control | Out-Null
+          New-Item -ItemType Directory -Force artifacts/windows-feasibility/control | Out-Null
           $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-codex-control-target'
-          cargo test --locked -p norma --test control_identity_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/codex-control/identity.log
+          cargo test --locked -p norma --test control_identity_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/control/identity.log
           $identity = $LASTEXITCODE
-          cargo test --locked --no-fail-fast -p norma --lib --test codex_control_platform --test codex_control_handshake --test codex_control_shutdown --test codex_connection --test codex_question_relay --test codex_question_host --test codex_question_connections --test codex_question_version --test codex_question_relay_permissions --test codex_question_relay_identity --test codex_question_relay_backpressure --test codex_question_relay_ephemeral --test codex_question_relay_large --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/codex-control/control.log
+          cargo test --locked --no-fail-fast -p norma --lib --test codex_control_platform --test codex_control_handshake --test codex_control_shutdown --test codex_connection --test codex_question_relay --test codex_question_host --test codex_question_connections --test codex_question_version --test codex_question_relay_permissions --test codex_question_relay_identity --test codex_question_relay_backpressure --test codex_question_relay_ephemeral --test codex_question_relay_large --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/control/control.log
           $control = $LASTEXITCODE
-          cargo test --locked --no-fail-fast -p runtime --test codex_question_host --test codex_question_blocker --test codex_turn_lifecycle --test codex_questions --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/codex-control/runtime.log
+          cargo test --locked --no-fail-fast -p runtime --test codex_question_host --test codex_question_blocker --test codex_turn_lifecycle --test codex_questions --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/control/runtime.log
           $runtime = $LASTEXITCODE
-          cargo test --locked -p norma --test opencode_question_transport --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/codex-control/opencode_transport.log
+          cargo test --locked -p norma --test opencode_question_transport --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/control/opencode_transport.log
           $opencode_transport = $LASTEXITCODE
-          cargo test --locked -p runtime --test opencode_question_host --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/codex-control/opencode_runtime.log
+          cargo test --locked -p runtime --test opencode_question_host --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/control/opencode_runtime.log
           $opencode_runtime = $LASTEXITCODE
-          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; control_exit = $control; identity_exit = $identity; runtime_exit = $runtime; opencode_transport_exit = $opencode_transport; opencode_runtime_exit = $opencode_runtime } | ConvertTo-Json | Set-Content artifacts/codex-control/report.json
+          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; control_exit = $control; identity_exit = $identity; runtime_exit = $runtime; opencode_transport_exit = $opencode_transport; opencode_runtime_exit = $opencode_runtime } | ConvertTo-Json | Set-Content artifacts/windows-feasibility/control/report.json
+          python scripts/windows/probe.py record-control
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ($control -ne 0 -or $identity -ne 0 -or $runtime -ne 0 -or $opencode_transport -ne 0 -or $opencode_runtime -ne 0) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: windows-codex-control-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/codex-control/
+          name: windows-feasibility-control-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
           retention-days: 7
           if-no-files-found: error
 
@@ -175,21 +179,23 @@ jobs:
       - name: Require real storage Review and A1 platform regressions
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force artifacts/platform-boundaries | Out-Null
+          New-Item -ItemType Directory -Force artifacts/windows-feasibility/platform | Out-Null
           $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-platform-target'
-          cargo test --locked -p storage --test memory_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/platform-boundaries/memory_platform.log
+          cargo test --locked -p storage --test memory_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/platform/memory_platform.log
           $memory = $LASTEXITCODE
-          cargo test --locked --no-fail-fast -p workspace --lib --test review_platform --test scoped_directory --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/platform-boundaries/review_platform.log
+          cargo test --locked --no-fail-fast -p workspace --lib --test review_platform --test scoped_directory --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/platform/review_platform.log
           $review = $LASTEXITCODE
-          cargo test --locked -p asr --test a1_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/platform-boundaries/a1_platform.log
+          cargo test --locked -p asr --test a1_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/platform/a1_platform.log
           $a1 = $LASTEXITCODE
-          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; memory_exit = $memory; review_exit = $review; a1_exit = $a1 } | ConvertTo-Json | Set-Content artifacts/platform-boundaries/report.json
+          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; memory_exit = $memory; review_exit = $review; a1_exit = $a1 } | ConvertTo-Json | Set-Content artifacts/windows-feasibility/platform/report.json
+          python scripts/windows/probe.py record-platform
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ($memory -ne 0 -or $review -ne 0 -or $a1 -ne 0) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: windows-platform-boundaries-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/platform-boundaries/
+          name: windows-feasibility-platform-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
           retention-days: 7
           if-no-files-found: error
 

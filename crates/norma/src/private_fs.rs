@@ -57,3 +57,14 @@ pub fn create_private_dir(path: &Path) -> io::Result<()> {
 pub fn create_private_dir(path: &Path) -> io::Result<()> {
     windows::create_private_dir(path)
 }
+
+/// Inspect the already-open token file, avoiding a second path lookup at the permission boundary.
+#[cfg(windows)]
+pub fn file_permissions_are_private(file: &File) -> io::Result<bool> {
+    windows::file_permissions_are_private(file)
+}
+#[cfg(unix)]
+pub fn file_permissions_are_private(file: &File) -> io::Result<bool> {
+    use std::os::unix::fs::PermissionsExt;
+    Ok(file.metadata()?.permissions().mode() & 0o077 == 0)
+}

@@ -1,0 +1,47 @@
+name: Windows build
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/windows-feasibility-*']
+    paths: ['crates/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-build.yml']
+permissions:
+  contents: read
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Diagnose unread AF_UNIX close
+        shell: pwsh
+        run: cargo test --locked -p norma --test socket_close_platform -- --nocapture
+      - name: Require relay closure and platform contracts
+        if: always()
+        shell: pwsh
+        run: |
+          cargo test --locked --no-fail-fast -p norma --lib --test codex_control_shutdown --test codex_question_relay_backpressure --test protocol_tests -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p workspace --test content_platform
+      - name: Require App adapters
+        if: always()
+        shell: pwsh
+        run: cargo test --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --lib -- --nocapture
+      - name: Check Windows App
+        if: always()
+        shell: pwsh
+        run: cargo check --locked -p app --message-format=short

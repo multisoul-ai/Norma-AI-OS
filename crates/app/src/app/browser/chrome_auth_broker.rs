@@ -8,11 +8,15 @@ use crate::browser_auth_host::{
 };
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use std::collections::HashMap;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+#[cfg(windows)]
+use uds_windows::{UnixListener, UnixStream};
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
 const BROKER_TICK: Duration = Duration::from_millis(20);
@@ -140,6 +144,7 @@ fn bind_listener() -> Result<UnixListener, String> {
             socket_dir.display()
         )
     })?;
+    #[cfg(unix)]
     std::fs::set_permissions(socket_dir, std::fs::Permissions::from_mode(0o700)).map_err(
         |error| {
             format!(
@@ -148,6 +153,8 @@ fn bind_listener() -> Result<UnixListener, String> {
             )
         },
     )?;
+    #[cfg(windows)]
+    norma::private_fs::create_private_dir(socket_dir).map_err(|e| e.to_string())?;
     if socket_path.exists() {
         if UnixStream::connect(&socket_path).is_ok() {
             return Err("another Norma OS process already owns the Chrome auth bridge".to_string());
@@ -165,6 +172,7 @@ fn bind_listener() -> Result<UnixListener, String> {
             socket_path.display()
         )
     })?;
+    #[cfg(unix)]
     std::fs::set_permissions(&socket_path, std::fs::Permissions::from_mode(0o600)).map_err(
         |error| {
             format!(

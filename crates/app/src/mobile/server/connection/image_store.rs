@@ -35,7 +35,12 @@ pub(super) fn validate(bytes: &[u8]) -> Result<&'static str, &'static str> {
 }
 
 #[cfg(unix)]
-fn directory(path: &Path) -> Result<(), &'static str> {
+struct DirectoryGuard;
+#[cfg(windows)]
+type DirectoryGuard = workspace::scoped_directory::Directory;
+
+#[cfg(unix)]
+fn directory(path: &Path) -> Result<DirectoryGuard, &'static str> {
     match fs::symlink_metadata(path) {
         Ok(info) if info.file_type().is_dir() => Ok(()),
         Ok(_) => Err("image_storage_unavailable"),
@@ -45,13 +50,23 @@ fn directory(path: &Path) -> Result<(), &'static str> {
                 .map_err(|_| "image_storage_unavailable")
         }
         Err(_) => Err("image_storage_unavailable"),
-    }
+    }?;
+    Ok(DirectoryGuard)
 }
 
 #[cfg(windows)]
-fn directory(path: &Path) -> Result<(), &'static str> {
-    // Reuse the owner-only DACL primitive, which also rejects reparse points and foreign owners.
-    norma::private_fs::create_private_dir(path).map_err(|_| "image_storage_unavailable")
+fn directory(path: &Path) -> Result<DirectoryGuard, &'static str> {
+    // Pin every ancestor before creation/permission repair, and retain the capability through IO.
+    let error = |_| "image_storage_unavailable";
+    let parent = path.parent().ok_or("image_storage_unavailable")?;
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("image_storage_unavailable")?;
+    let parent = workspace::scoped_directory::Directory::open(parent, true).map_err(error)?;
+    let directory = parent.child(name, true).map_err(error)?;
+    norma::private_fs::create_private_dir(path).map_err(error)?;
+    Ok(directory)
 }
 
 #[cfg(unix)]
@@ -85,10 +100,10 @@ pub(super) fn save(
 ) -> Result<String, &'static str> {
     let _lock = WRITES.lock().map_err(|_| "image_storage_unavailable")?;
     let root = folder.parent().ok_or("image_storage_unavailable")?;
-    directory(root)?;
+    let _root = directory(root)?;
     #[cfg(all(test, windows))]
     test_hooks::after_root_validation();
-    directory(folder)?;
+    let _folder = directory(folder)?;
     let path = folder.join(format!("{id}.{extension}"));
     if path.exists() {
         let (_, previous) = read(folder, id)?;

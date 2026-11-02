@@ -210,6 +210,7 @@ dependencies = [
  "brain",
  "canvas",
  "cef",
+ "chrono",
  "core-foundation 0.10.0",
  "core-video",
  "crossbeam-channel",
@@ -235,6 +236,7 @@ dependencies = [
  "objc2-quartz-core",
  "objc2-web-kit",
  "pulldown-cmark",
+ "qrcodegen",
  "raw-window-handle",
  "reqwest",
  "rfd",
@@ -257,6 +259,7 @@ dependencies = [
  "tracing-subscriber",
  "tts",
  "tungstenite",
+ "uds_windows",
  "ui",
  "ureq 3.3.0",
  "url",
@@ -5808,6 +5811,12 @@ checksum = "7f6d64c71eb498fe9eae14ce4ec935c555749aef511cca85b5568910d6e48001"
 dependencies = [
  "bytemuck",
 ]
+
+[[package]]
+name = "qrcodegen"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4339fc7a1021c9c1621d87f5e3505f2805c8c105420ba2f2a4df86814590c142"
 
 [[package]]
 name = "quick-error"

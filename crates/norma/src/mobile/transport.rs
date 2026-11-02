@@ -26,6 +26,11 @@ impl MobileTcp {
         self.deadline = deadline;
     }
 
+    /// Duplicate only the transport handle for platform-neutral reactor registration.
+    pub fn try_clone_socket(&self) -> io::Result<TcpStream> {
+        self.socket.try_clone()
+    }
+
     fn remaining(&self) -> io::Result<std::time::Duration> {
         self.deadline
             .checked_duration_since(Instant::now())

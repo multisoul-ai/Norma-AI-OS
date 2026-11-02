@@ -1,6 +1,8 @@
 use anyhow::{ensure, Context, Result};
 use serde_json::Value;
-use std::{io::Read, os::unix::fs::PermissionsExt, path::Path, time::Duration};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::{io::Read, path::Path, time::Duration};
 use storage::PushEnvironment;
 
 /// Private deployment configuration; never store the Apple signing key on the Mac.
@@ -27,9 +29,7 @@ impl PushRelayConfig {
             .context("Unable to read notification service token")?;
         let metadata = file.metadata()?;
         ensure!(
-            metadata.is_file()
-                && metadata.permissions().mode() & 0o077 == 0
-                && metadata.len() <= 1024,
+            metadata.is_file() && private_token(&file)? && metadata.len() <= 1024,
             "The token file must be a regular file of at most 1 KiB, accessible only by its owner."
         );
         let mut key = String::new();
@@ -164,3 +164,12 @@ impl Relay {
 #[cfg(test)]
 #[path = "../../../tests/unit/mobile_push_config_tests.rs"]
 mod tests;
+
+#[cfg(unix)]
+fn private_token(file: &std::fs::File) -> std::io::Result<bool> {
+    Ok(file.metadata()?.permissions().mode() & 0o077 == 0)
+}
+#[cfg(windows)]
+fn private_token(file: &std::fs::File) -> std::io::Result<bool> {
+    norma::private_fs::file_permissions_are_private(file)
+}

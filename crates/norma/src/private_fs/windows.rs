@@ -249,7 +249,11 @@ fn dacl(descriptor: &LocalMemory) -> io::Result<*mut windows_sys::Win32::Securit
 
 pub(super) fn restrict_to_owner(path: &Path) -> io::Result<()> {
     let file = open_security_handle(path, READ_CONTROL | WRITE_DAC)?;
-    let actual = security(&file)?;
+    file_permissions_are_private(&file)
+}
+
+pub(super) fn file_permissions_are_private(file: &File) -> io::Result<bool> {
+    let actual = security(file)?;
     let desired = descriptor()?;
     if unsafe { EqualSid(owner(&actual)?, owner(&desired)?) } == 0 {
         return Err(io::Error::new(
@@ -272,7 +276,11 @@ pub(super) fn restrict_to_owner(path: &Path) -> io::Result<()> {
 
 pub(super) fn permissions_are_private(path: &Path) -> io::Result<bool> {
     let file = open_security_handle(path, READ_CONTROL)?;
-    let actual = security(&file)?;
+    file_permissions_are_private(&file)
+}
+
+pub(super) fn file_permissions_are_private(file: &File) -> io::Result<bool> {
+    let actual = security(file)?;
     let desired = descriptor()?;
     let owner = owner(&desired)?;
     let mut control = 0;

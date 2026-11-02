@@ -6,7 +6,26 @@ use tungstenite::{Error, Message};
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub(super) use windows::wait_ready;
+pub(super) use windows::Readiness;
+
+#[cfg(unix)]
+pub(super) struct Readiness;
+#[cfg(unix)]
+impl Readiness {
+    pub(super) fn new(_native: &Socket, _server: &Socket) -> Result<Self, String> {
+        Ok(Self)
+    }
+    pub(super) fn wait_ready(
+        &mut self,
+        native: &Socket,
+        server: &Socket,
+        native_ready: bool,
+        server_ready: bool,
+        read_server: bool,
+    ) -> Result<(), String> {
+        wait_ready(native, server, native_ready, server_ready, read_server)
+    }
+}
 
 #[cfg(unix)]
 pub(super) fn wait_ready(

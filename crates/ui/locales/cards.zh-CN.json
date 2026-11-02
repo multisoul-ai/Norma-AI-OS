@@ -69,5 +69,6 @@
   "cards.external_links_macos": "仅 macOS 支持在外部浏览器中打开终端链接。",
   "cards.default_node_title": "节点",
   "cards.default_preview_title": "预览",
-  "cards.default_browser_title": "浏览器"
+  "cards.default_browser_title": "浏览器",
+  "cards.ego_capture_unavailable": "Windows 暂不支持 Ego 屏幕预览。"
 }

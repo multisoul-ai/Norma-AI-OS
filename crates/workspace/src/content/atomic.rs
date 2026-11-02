@@ -1,6 +1,13 @@
 use super::ContentError;
 use super::{files::fingerprint, Result};
-use std::{ffi::CString, io::Read, path::Path};
+#[cfg(unix)]
+use std::ffi::CString;
+use std::{io::Read, path::Path};
+#[cfg(windows)]
+#[path = "atomic_windows.rs"]
+mod windows;
+#[cfg(windows)]
+use windows::exchange;
 
 /// Exchange first, then validate the actual displaced inode. A concurrent external save
 /// cannot disappear between a version check and rename; preserve both versions on conflict.
@@ -24,6 +31,12 @@ pub(super) fn replace_checked(
         return Ok(());
     }
     let rollback = exchange(file.path(), target);
+    if matches!(&rollback, Err(ContentError::SaveConflictRecovery { .. })) {
+        // A partial Windows replacement already retained the actual original at its recovery path.
+        // Its error takes precedence over a temporary pathname that may no longer exist.
+        let _ = file.keep();
+        return rollback;
+    }
     let (_, recovery) = file.keep().map_err(|e| e.to_string())?;
     match rollback {
         Ok(()) => Err(ContentError::SaveConflictRestored { recovery }),
@@ -34,6 +47,7 @@ pub(super) fn replace_checked(
     }
 }
 
+#[cfg(unix)]
 fn exchange(left: &Path, right: &Path) -> Result<()> {
     use std::os::unix::ffi::OsStrExt;
     let left = CString::new(left.as_os_str().as_bytes()).map_err(|e| e.to_string())?;

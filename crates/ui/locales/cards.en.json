@@ -69,5 +69,6 @@
   "cards.external_links_macos": "Opening terminal links externally is only available on macOS.",
   "cards.default_node_title": "Node",
   "cards.default_preview_title": "Preview",
-  "cards.default_browser_title": "Browser"
+  "cards.default_browser_title": "Browser",
+  "cards.ego_capture_unavailable": "Ego screen capture is not available on Windows yet."
 }

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import platform
 import queue
+import re
 import shutil
 import subprocess
 import sys
@@ -16,7 +17,19 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET = "x86_64-pc-windows-msvc"
-REQUIRED = ("environment", "compile", "graphics", "agents", "speech")
+COLLECTED = ("environment", "compile", "graphics", "agents", "speech")
+EXIT_CHECKS = {
+    "control": {"identity_tests": ("identity_exit", "identity.log"),
+                "control_tests": ("control_exit", "control.log"),
+                "runtime_control_tests": ("runtime_exit", "runtime.log"),
+                "opencode_transport_tests": ("opencode_transport_exit", "opencode_transport.log"),
+                "opencode_runtime_tests": ("opencode_runtime_exit", "opencode_runtime.log")},
+    "platform": {"memory_platform_tests": ("memory_exit", "memory_platform.log"),
+                 "review_platform_tests": ("review_exit", "review_platform.log"),
+                 "a1_platform_tests": ("a1_exit", "a1_platform.log")},
+    "app-adapters": {"app_adapter_tests": ("transport_exit", "transport.log")},
+}
+REQUIRED = (*COLLECTED, *EXIT_CHECKS)
 STATUSES = {"PASS", "FAIL", "ENV_UNSUPPORTED", "NOT_RUN", "NOT_IN_SCOPE"}
 
 
@@ -92,6 +105,9 @@ def compile_probe(folder):
             args.append("--lib")
         checks.append(command(folder, f"{package}_compile", [*args,
                       "--target", TARGET, "--message-format=short"], 1500 if package == "app" else 900))
+        if package == "norma":
+            checks.append(command(folder, "norma_cli_compile", ["cargo", "check", "--locked",
+                          "-p", "norma", "--target", TARGET, "--message-format=short"], 900))
     checks.append(command(folder, "norma_platform_tests", [
         "cargo", "test", "--locked", "--no-fail-fast", "-p", "norma", "--lib",
         "--test", "client_platform", "--test", "codex_question", "--test", "cursor_questions",
@@ -123,6 +139,59 @@ def speech_check_status(rows):
     if any(row["status"] == "ENV_UNSUPPORTED" for row in rows):
         return "ENV_UNSUPPORTED"
     return "PASS" if all(row["status"] == "PASS" for row in rows) else "NOT_RUN"
+
+
+def native_check_status(task, rows):
+    checks = {row["id"]: row for row in rows}
+    if len(checks) != len(rows):
+        return "FAIL"
+    if set(checks) != set(EXIT_CHECKS[task]):
+        return "NOT_RUN"
+    for row in rows:
+        if row["status"] == "FAIL" or (row["status"] == "PASS" and row.get("exit_code") != 0):
+            return "FAIL"
+        counts = row.get("counts", {})
+        if row["status"] == "PASS":
+            if not all(type(counts.get(k)) is int and counts[k] >= 0
+                       for k in ("passed", "failed", "ignored")):
+                return "FAIL"
+            if counts["failed"] or counts["ignored"]:
+                return "FAIL"
+            if not counts["passed"]:
+                return "NOT_RUN"
+    if any(row["status"] == "ENV_UNSUPPORTED" for row in rows):
+        return "ENV_UNSUPPORTED"
+    return "PASS" if all(row["status"] == "PASS" for row in rows) else "NOT_RUN"
+
+
+def record_exit_report(output, task):
+    """Normalize captured native tests; never run the commands again or replace their exit codes."""
+    folder = output / task
+    path = folder / "report.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+        checks = []
+        for name, (field, filename) in EXIT_CHECKS[task].items():
+            code = data.get(field)
+            log = folder / filename
+            rows = re.findall(r"test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;",
+                              log.read_text(encoding="utf-8-sig") if log.exists() else "")
+            counts = {key: sum(int(row[i]) for row in rows)
+                      for i, key in enumerate(("passed", "failed", "ignored"))}
+            status = "NOT_RUN"
+            if type(code) is int and code != 0:
+                status = "FAIL"
+            elif code == 0 and type(code) is int and rows:
+                status = "FAIL" if counts["failed"] or counts["ignored"] else (
+                    "PASS" if counts["passed"] else "NOT_RUN")
+            checks.append({"id": name, "status": status, "exit_code": code,
+                           "log": filename, "counts": counts})
+        data.update(task=task, checks=checks)
+        save(path, data)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(f"Native report normalization FAIL: {error}")
+        return 1
+    return 0
 
 
 def speech_gate(output):
@@ -254,23 +323,34 @@ def summary(output):
         except (ValueError, KeyError, TypeError) as error:
             missing.append(name)
             checks.append({"id": name, "status": "FAIL", "detail": str(error), "task": name})
-    statuses = {row["id"]: row["status"] for row in checks}
+    by_task = {name: {row["id"]: row for row in checks if row["task"] == name} for name in REQUIRED}
     source_consistent = len(shas) == 1
     expected_sha = os.environ.get("GITHUB_SHA")
     if expected_sha and shas != {expected_sha}:
         source_consistent = False
-    graphics_status = statuses.get("gpui_window", "NOT_RUN")
+    graphics_status = by_task["graphics"].get("gpui_window", {}).get("status", "NOT_RUN")
     if graphics_status == "PASS":
-        graphics_status = statuses.get("gpui_os_keyboard_close", "NOT_RUN")
+        graphics_status = by_task["graphics"].get("gpui_os_keyboard_close", {}).get("status", "NOT_RUN")
     speech_rows = [row for row in checks if row["task"] == "speech"]
+    compile_rows = [by_task["compile"].get(name, {})
+                    for name in ("norma_compile", "norma_cli_compile", "app_compile")]
+    compile_states = ["FAIL" if row.get("status") == "FAIL" or (
+        row.get("status") == "PASS" and row.get("exit_code") not in (None, 0)) else (
+        "PASS" if row.get("status") == "PASS" and row.get("exit_code") == 0 else "NOT_RUN")
+                      for row in compile_rows]
     goal_gates = {
-        "product_compile": "PASS" if all(statuses.get(f"{p}_compile") == "PASS" for p in ("norma", "app"))
-                           else "FAIL" if "FAIL" in [statuses.get(f"{p}_compile") for p in ("norma", "app")]
-                           else "NOT_RUN",
+        "product_compile": "FAIL" if "FAIL" in compile_states else (
+            "PASS" if all(state == "PASS" for state in compile_states) else "NOT_RUN"),
         "gpui_graphics": graphics_status,
         "speech_default_checks": speech_check_status(speech_rows),
         "live_agents": "NOT_RUN", "candidate_package": "NOT_RUN",
     }
+    for task, gate in (("control", "control_transport_checks"),
+                       ("platform", "platform_boundary_checks"),
+                       ("app-adapters", "app_adapter_checks")):
+        goal_gates[gate] = native_check_status(task, [row for row in checks if row["task"] == task])
+    goal_gates["evidence_integrity"] = "PASS" if (
+        not missing and source_consistent and provenance_consistent) else "FAIL"
     data = {"kind": "feasibility_only", "source_shas": sorted(shas),
             "source_consistent": source_consistent, "provenance_consistent": provenance_consistent,
             "missing_reports": missing,
@@ -291,11 +371,14 @@ def summary(output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("task", choices=[*REQUIRED, "summary", "speech-gate"])
+    parser.add_argument("task", choices=[*COLLECTED, "summary", "speech-gate",
+                                         *[f"record-{task}" for task in EXIT_CHECKS]])
     parser.add_argument("--output", type=Path, default=ROOT / "artifacts/windows-feasibility")
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    if args.task.startswith("record-"):
+        return record_exit_report(output, args.task.removeprefix("record-"))
     if args.task == "speech-gate":
         return speech_gate(output)
     if args.task == "summary":

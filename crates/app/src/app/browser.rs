@@ -23,10 +23,15 @@ mod location;
 pub(crate) mod native;
 mod presentation;
 mod resource_timing;
+#[cfg(target_os = "macos")]
 mod safari_identity;
 #[cfg(target_os = "macos")]
 mod scene_clip;
 mod store;
+#[cfg(target_os = "macos")]
+mod wry_backend;
+#[cfg(windows)]
+#[path = "browser/wry_windows.rs"]
 mod wry_backend;
 
 pub(crate) use address_input::BrowserAddressInput;
@@ -35,7 +40,10 @@ pub(crate) use chrome_auth::BrowserAuthUiState;
 pub(crate) use engine::BrowserEngineKind;
 pub(crate) use location::canonical_browser_location;
 pub(crate) use native::{browser_native_view_bounds, BrowserViewBounds, NativeBrowserView};
+#[cfg(target_os = "macos")]
 pub(crate) use safari_identity::initialize_safari_browser_identity;
+#[cfg(windows)]
+pub(crate) fn initialize_safari_browser_identity() {}
 pub(crate) use store::BrowserStore;
 
 const CEF_MESSAGE_PUMP_INTERVAL: Duration = Duration::from_millis(16);

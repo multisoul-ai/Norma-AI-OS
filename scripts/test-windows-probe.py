@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import patch
 
 PROBE = Path(__file__).parent / "windows/probe.py"
-REQUIRED = ["environment", "compile", "graphics", "agents", "speech"]
+REQUIRED = ["environment", "compile", "graphics", "agents", "speech", "control", "platform", "app-adapters"]
 
 
 def summary_env(**values):
@@ -22,7 +22,7 @@ def summary_env(**values):
 
 
 class FeasibilityReportTests(unittest.TestCase):
-    def invoke(self, reports):
+    def invoke(self, reports, metadata=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name, checks in reports.items():
@@ -30,16 +30,113 @@ class FeasibilityReportTests(unittest.TestCase):
                 folder.mkdir()
                 (folder / "report.json").write_text(json.dumps({
                     "task": name, "source_sha": "fixture-sha", "checks": checks,
+                    "run_id": "123", "run_attempt": "1", **(metadata or {}).get(name, {}),
                 }))
             run = subprocess.run([sys.executable, str(PROBE), "summary", "--output", str(root)],
-                                 capture_output=True, text=True, env=summary_env())
+                                 capture_output=True, text=True,
+                                 env=summary_env(GITHUB_SHA="fixture-sha", GITHUB_RUN_ID="123",
+                                                 GITHUB_RUN_ATTEMPT="1"))
             report = root / "feasibility.json"
             self.assertTrue(report.exists(), f"CLI must persist its verdict: {run.stderr}")
             return run.returncode, json.loads(report.read_text())
 
     def reports(self):
-        return {name: [{"id": name, "status": "PASS", "detail": "fixture observation"}]
-                for name in REQUIRED}
+        reports = {name: [{"id": name, "status": "PASS", "detail": "fixture observation"}]
+                   for name in REQUIRED}
+        for task, names in {
+            "control": ["identity_tests", "control_tests", "runtime_control_tests",
+                        "opencode_transport_tests", "opencode_runtime_tests"],
+            "platform": ["memory_platform_tests", "review_platform_tests", "a1_platform_tests"],
+            "app-adapters": ["app_adapter_tests"],
+        }.items():
+            reports[task] = [{"id": name, "status": "PASS", "exit_code": 0,
+                              "counts": {"passed": 1, "failed": 0, "ignored": 0}}
+                             for name in names]
+        return reports
+
+    def test_control_failure_is_a_central_gate(self):
+        """场景：八类报告齐全而真实控制测试失败；构造失败与非零PASS两种报告；
+        执行summary；预期中央control门槛均为FAIL，不能只把记录藏在checks数组。
+        """
+        for status in ("FAIL", "PASS"):
+            with self.subTest(status=status):
+                reports = self.reports()
+                reports["control"][1].update(status=status, exit_code=101)
+                _, report = self.invoke(reports)
+                self.assertEqual(report["goal_gates"].get("control_transport_checks"), "FAIL",
+                                 "控制失败和状态/退出码矛盾必须显示为独立FAIL门槛")
+
+    def test_native_reports_must_match_current_source_and_attempt(self):
+        """场景：其余七份报告均为本次来源；单独替换任一新增job的SHA或attempt；
+        执行公共summary；预期来源或代次不一致，并明确关闭evidence_integrity门槛。
+        """
+        for task in ("control", "platform", "app-adapters"):
+            for field, value in (("source_sha", "wrong-sha"), ("run_attempt", "0")):
+                with self.subTest(task=task, field=field):
+                    _, report = self.invoke(self.reports(), {task: {field: value}})
+                    self.assertEqual(report["goal_gates"]["evidence_integrity"], "FAIL",
+                                     "任何一个新增job的旧来源都不能获得完整性PASS")
+                    key = "source_consistent" if field == "source_sha" else "provenance_consistent"
+                    self.assertFalse(report[key], "必须核验该新增报告本身的身份")
+
+    def test_control_check_cannot_override_an_app_compile_failure(self):
+        """场景：控制报告混入与编译同名的check；构造App失败与伪造的同名PASS；
+        执行summary；预期编译门槛仍FAIL，task间不能覆盖检查名称。
+        """
+        reports = self.reports()
+        reports["compile"] = [{"id": "norma_compile", "status": "PASS", "exit_code": 0},
+                              {"id": "app_compile", "status": "FAIL", "exit_code": 101}]
+        reports["control"].append({"id": "app_compile", "status": "PASS", "exit_code": 0})
+        _, report = self.invoke(reports)
+        self.assertEqual(report["goal_gates"]["product_compile"], "FAIL",
+                         "其他task同名检查不能覆盖实际App失败")
+
+    def test_cli_and_helper_failure_cannot_pass_library_compile_gate(self):
+        """场景：norma库与App检查成功，但默认CLI/helper失败；构造三个明确退出码；
+        执行summary；预期产品编译门槛FAIL，不能仅凭--lib推断默认二进制成功。
+        """
+        reports = self.reports()
+        reports["compile"] = [{"id": name, "status": "PASS", "exit_code": 0}
+                              for name in ("norma_compile", "app_compile")]
+        reports["compile"].append({"id": "norma_cli_compile", "status": "FAIL", "exit_code": 101})
+        _, report = self.invoke(reports)
+        self.assertEqual(report["goal_gates"]["product_compile"], "FAIL",
+                         "CLI/helper默认检查失败必须关闭编译门槛")
+
+    def test_record_control_checks_require_actual_test_execution(self):
+        """场景：PowerShell记录五个退出码；构造真实格式日志、缺日志、零执行及忽略；
+        执行公共record-control；预期规范化报告保留退出码与统计，只有实际无忽略执行通过可标PASS。
+        """
+        for variant in ("pass", "nonzero", "missing_log", "zero_tests", "ignored"):
+            with self.subTest(variant=variant), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                folder = root / "control"
+                folder.mkdir()
+                raw = {"source_sha": "fixture-sha", "run_id": "123", "run_attempt": "1"}
+                for field, log in (("identity", "identity"), ("control", "control"),
+                                   ("runtime", "runtime"), ("opencode_transport", "opencode_transport"),
+                                   ("opencode_runtime", "opencode_runtime")):
+                    raw[field + "_exit"] = 101 if variant == "nonzero" and field == "control" else 0
+                    (folder / (log + ".log")).write_text(
+                        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out;\n")
+                if variant == "missing_log":
+                    (folder / "control.log").unlink()
+                if variant in ("zero_tests", "ignored"):
+                    (folder / "control.log").write_text(
+                        f"test result: ok. 0 passed; 0 failed; {int(variant == 'ignored')} ignored;\n")
+                path = folder / "report.json"
+                path.write_text(json.dumps(raw))
+                run = subprocess.run([sys.executable, str(PROBE), "record-control", "--output", str(root)],
+                                     capture_output=True, text=True, env=summary_env(GITHUB_SHA="fixture-sha"))
+                self.assertEqual(run.returncode, 0, f"规范化必须完成并保留原结果：{run.stderr}")
+                data = json.loads(path.read_text())
+                self.assertEqual(data["task"], "control", "报告必须明确属于control任务")
+                checks = {row["id"]: row for row in data["checks"]}
+                expected = {"pass": "PASS", "nonzero": "FAIL", "missing_log": "NOT_RUN",
+                            "zero_tests": "NOT_RUN", "ignored": "FAIL"}[variant]
+                self.assertEqual(checks["control_tests"]["status"], expected,
+                                 f"{variant}必须按实际执行记录判定")
+                self.assertEqual(data["control_exit"], raw["control_exit"], "不得覆盖原始退出码")
 
     def test_app_check_includes_default_binary_targets(self):
         """场景：App 默认构建包含主程序和 helper；采集命令计划；
@@ -56,10 +153,20 @@ class FeasibilityReportTests(unittest.TestCase):
         self.assertNotIn("--features", args, "Default product evidence cannot use a test-support feature")
 
     def test_missing_reports_never_pass(self):
-        """场景：runner 未产生任何证据；执行 summary；预期非零并列出五类缺失报告。"""
+        """场景：runner 未产生任何证据；执行 summary；预期非零并列出八类缺失报告。"""
         code, report = self.invoke({})
         self.assertNotEqual(code, 0, "empty evidence must fail the gate")
-        self.assertEqual(len(report["missing_reports"]), 5, "all five report classes are required")
+        self.assertEqual(len(report["missing_reports"]), 8, "all eight report classes are required")
+
+    def test_native_job_reports_cannot_be_silently_missing(self):
+        """场景：旧五类报告齐全，但控制、平台与App适配三类未上传；执行公共summary；
+        预期精确列出三类缺失，不得把五类报告的来源一致当成全部必跑证据齐全。
+        """
+        reports = {name: checks for name, checks in self.reports().items()
+                   if name not in ("control", "platform", "app-adapters")}
+        _, report = self.invoke(reports)
+        self.assertEqual(set(report["missing_reports"]), {"control", "platform", "app-adapters"},
+                         "三个新增必跑job必须进入中央缺失检查")
 
     def test_unconfigured_live_agents_and_candidate_remain_not_run(self):
         """场景：环境探针均成功但未提供模型凭据和产品包；执行 summary；
