@@ -102,10 +102,22 @@ fn killing_conpty_publishes_its_exit_event() {
     loop {
         match events
             .recv_timeout(deadline.saturating_duration_since(Instant::now()))
-            .expect("必须在取消前完成启动")
-        {
+            .unwrap_or_else(|error| {
+                panic!(
+                    "必须在取消前完成启动：{error:?}; raw={} bytes; prefix={:02x?}",
+                    bytes.len(),
+                    &bytes[..bytes.len().min(128)]
+                )
+            }) {
             PtyEvent::Output(chunk) => {
                 let reply = grid.advance(&chunk);
+                if bytes.len() < 128 {
+                    eprintln!(
+                        "ConPTY startup raw={:02x?}; reply={:02x?}",
+                        &chunk[..chunk.len().min(128 - bytes.len())],
+                        reply
+                    );
+                }
                 if !reply.is_empty() {
                     pty.write(&reply).expect("真实协议响应");
                 }
