@@ -10,3 +10,6 @@ mod image_store;
 #[cfg(test)]
 #[path = "../../unit/mobile_image_platform_tests.rs"]
 mod image_tests;
+
+#[path = "../../../src/bundle_paths.rs"]
+mod bundle_paths;

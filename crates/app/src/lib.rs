@@ -7,6 +7,7 @@ mod app;
 mod assets;
 mod boot_splash;
 mod browser_auth_host;
+mod bundle_paths;
 mod canvas;
 mod cards;
 mod database;

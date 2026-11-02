@@ -9,35 +9,10 @@
 
 use std::path::{Path, PathBuf};
 
-/// macOS app bundle 的 `Contents/Resources` 目录；非打包运行返回 None。
-///
-/// 打包态：`Foo.app/Contents/MacOS/<bin>` → `Foo.app/Contents/Resources`。
-/// 开发态：`target/(debug|release)/<bin>`，parent 链不存在 `Contents/MacOS`，
-/// 故返回 None —— 此时内置资源解析回退到 `CARGO_MANIFEST_DIR/assets`。
-///
-/// 严格校验三层布局（`MacOS` → `Contents` → `*.app`），避免误判任意目录。
+/// Locate packaged resources from the running executable, with a source fallback for development.
 pub(crate) fn bundle_resources_dir() -> Option<PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    // .../Foo.app/Contents/MacOS/<bin>
-    let macos = exe.parent()?; // .../Contents/MacOS
-    let contents = macos.parent()?; // .../Contents
-    if macos.file_name()?.to_str()? != "MacOS" {
-        return None;
-    }
-    if contents.file_name()?.to_str()? != "Contents" {
-        return None;
-    }
-    let app_bundle = contents.parent()?;
-    let app_name = app_bundle.file_name()?.to_str()?;
-    if !app_name.ends_with(".app") {
-        return None;
-    }
-    let res = contents.join("Resources");
-    if res.is_dir() {
-        Some(res)
-    } else {
-        None
-    }
+    let resources = crate::bundle_paths::resources_for_executable(&std::env::current_exe().ok()?)?;
+    resources.is_dir().then_some(resources)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
