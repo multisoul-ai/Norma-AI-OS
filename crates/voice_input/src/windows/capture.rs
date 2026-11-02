@@ -194,11 +194,9 @@ impl CaptureClient {
         sender: &Sender<PcmEvent>,
         stats: &AudioQueueStats,
     ) -> Result<(), VoiceInputError> {
-        'capture: loop {
-            match stopping.recv_timeout(Duration::from_millis(10)) {
-                Err(mpsc::RecvTimeoutError::Timeout) => {}
-                Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
-            }
+        'capture: while let Err(mpsc::RecvTimeoutError::Timeout) =
+            stopping.recv_timeout(Duration::from_millis(10))
+        {
             while unsafe { self.input.GetNextPacketSize() }.map_err(capture_error)? > 0 {
                 if !matches!(stopping.try_recv(), Err(mpsc::TryRecvError::Empty)) {
                     break 'capture;
