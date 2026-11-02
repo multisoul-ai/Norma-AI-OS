@@ -9,6 +9,10 @@ use std::time::Duration;
 #[path = "playback/macos.rs"]
 mod macos;
 
+#[cfg(windows)]
+#[path = "playback/windows.rs"]
+mod windows;
+
 pub(crate) trait AssistantAudioSink: Send {
     fn write_chunk(&mut self, chunk: &PcmAudioChunk) -> Result<Duration, String>;
 
@@ -38,8 +42,10 @@ pub(crate) trait AssistantAudioSink: Send {
 }
 
 #[derive(Default)]
+#[cfg(not(windows))]
 pub(crate) struct NoopAssistantAudioSink;
 
+#[cfg(not(windows))]
 impl AssistantAudioSink for NoopAssistantAudioSink {
     fn write_chunk(&mut self, chunk: &PcmAudioChunk) -> Result<Duration, String> {
         tracing::trace!(
@@ -117,16 +123,23 @@ impl AssistantAudioSink for RecordingAssistantAudioSink {
 }
 
 pub(crate) fn default_assistant_audio_sink() -> Box<dyn AssistantAudioSink> {
-    #[cfg(target_os = "macos")]
+    #[cfg(windows)]
     {
-        match macos::MacosAssistantAudioSink::new() {
-            Ok(sink) => return Box::new(sink),
-            Err(error) => {
-                tracing::warn!(%error, "failed to create macOS assistant audio sink");
+        Box::new(windows::WindowsAssistantAudioSink::new())
+    }
+    #[cfg(not(windows))]
+    {
+        #[cfg(target_os = "macos")]
+        {
+            match macos::MacosAssistantAudioSink::new() {
+                Ok(sink) => return Box::new(sink),
+                Err(error) => {
+                    tracing::warn!(%error, "failed to create macOS assistant audio sink");
+                }
             }
         }
+        Box::<NoopAssistantAudioSink>::default()
     }
-    Box::<NoopAssistantAudioSink>::default()
 }
 
 /// Preview uses an independently-created sink, while its actual playback callbacks feed the
