@@ -1,4 +1,5 @@
 //! WASAPI objects are created, used and released only by the playback worker.
+use super::OutputDevice;
 use ::windows::{
     core::HRESULT,
     Win32::{
@@ -144,6 +145,27 @@ impl Drop for NativeOutput {
         if let Err(error) = self.stop() {
             tracing::warn!(%error, "Windows output cleanup failed");
         }
+    }
+}
+
+impl OutputDevice for NativeOutput {
+    fn rate(&self) -> u32 {
+        self.rate
+    }
+    fn capacity(&self) -> u32 {
+        self.frames
+    }
+    fn frames_written(&self) -> u64 {
+        self.written
+    }
+    fn padding(&self) -> Result<u32, String> {
+        NativeOutput::padding(self)
+    }
+    fn write(&mut self, bytes: &[u8], frames: u32) -> Result<(), String> {
+        NativeOutput::write(self, bytes, frames)
+    }
+    fn stop(&mut self) -> Result<(), String> {
+        NativeOutput::stop(self)
     }
 }
 

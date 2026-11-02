@@ -384,7 +384,10 @@ fn test_voice_processing_capture_restarts_without_raw_fallback() {
         let startup = started_rx.recv().expect("采集线程应报告启动结果");
         let pcm = pcm_rx.recv_timeout(super::DUPLEX_CAPTURE_READY_TIMEOUT);
         let _ = stop_tx.send(());
-        owner.join().expect("旧引擎必须完整关闭后才能重开");
+        owner
+            .join()
+            .expect("旧引擎线程必须完整关闭后才能重开")
+            .expect("旧引擎停止不能丢弃底层采集错误");
         startup.expect("Voice Processing 引擎应成功启动");
         pcm
     }

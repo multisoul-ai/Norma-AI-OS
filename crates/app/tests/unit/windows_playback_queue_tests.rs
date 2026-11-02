@@ -1,5 +1,111 @@
 use super::{Pending, Playback};
 use audio::{PcmAudioChunk, PcmFormat};
+use std::sync::{mpsc, Arc, Mutex};
+
+#[derive(Default)]
+struct DeviceState {
+    written: u64,
+    padding: u32,
+    bytes: Vec<u8>,
+    stops: usize,
+}
+struct ControlledDevice(Arc<Mutex<DeviceState>>);
+impl super::OutputDevice for ControlledDevice {
+    fn rate(&self) -> u32 {
+        16_000
+    }
+    fn capacity(&self) -> u32 {
+        160
+    }
+    fn frames_written(&self) -> u64 {
+        self.0.lock().expect("受控设备锁应有效").written
+    }
+    fn padding(&self) -> Result<u32, String> {
+        Ok(self.0.lock().expect("受控设备锁应有效").padding)
+    }
+    fn write(&mut self, bytes: &[u8], frames: u32) -> Result<(), String> {
+        let mut state = self.0.lock().expect("受控设备锁应有效");
+        state.written += u64::from(frames);
+        state.padding += frames;
+        state.bytes.extend_from_slice(bytes);
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<(), String> {
+        self.0.lock().expect("受控设备锁应有效").stops += 1;
+        Ok(())
+    }
+}
+
+/// 场景：等待ACK超时但接收端尚未析构时，迟到ACK发送仍成功，不能因此播放失败请求。
+/// 构造：真实ACK通道先超时且保持receiver存活，生产Playback队列和可见写入的受控设备。
+/// 执行：迟到ACK成功发送后推进生产tick；预期没有任何PCM写入或启动/完成信号。
+/// 该受控端点只证明软件协议，不能作为物理扬声器验收。
+#[test]
+fn a_late_ack_does_not_authorize_audio_after_the_waiter_timed_out() {
+    let state = Arc::new(Mutex::new(DeviceState::default()));
+    let mut playback = Playback {
+        device: Some(Box::new(ControlledDevice(Arc::clone(&state)))),
+        ..Default::default()
+    };
+    let (mut pending, starts, completions) = pending(1, 3);
+    pending.offset = 0;
+    pending.first_frame = None;
+    pending.last_frame = None;
+    playback
+        .enqueue(pending)
+        .expect("受控设备应能接收尚未确认的调度请求");
+    let (ack, waiter) = mpsc::channel::<Result<(), String>>();
+    assert!(
+        matches!(
+            waiter.recv_timeout(std::time::Duration::from_millis(1)),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        ),
+        "必须先实际见证ACK等待超时"
+    );
+    ack.send(Ok(()))
+        .expect("receiver尚未析构，迟到ACK确实会发送成功");
+    playback.tick().expect("生产tick应安全处理未确认请求");
+    assert!(
+        state.lock().expect("受控设备锁应有效").bytes.is_empty(),
+        "ACK发送成功不等于调用方收到确认，不能写入音频"
+    );
+    assert!(
+        starts.is_empty() && completions.is_empty(),
+        "超时的调度不能发出播放成功证据"
+    );
+}
+
+/// 场景：首帧在两个tick之间已经消费，Stop仍必须保留已实际发声的启动见证。
+/// 构造：三个已提交帧，padding=2表示仅首帧已消费，尚未执行下一次tick。
+/// 执行：生产stop；预期先冻结读取最终消费游标，发送启动，但未消费尾帧不得完成。
+#[test]
+fn stop_preserves_a_start_that_happened_between_ticks() {
+    let state = Arc::new(Mutex::new(DeviceState {
+        written: 3,
+        padding: 2,
+        ..Default::default()
+    }));
+    let (pending, starts, completions) = pending(1, 3);
+    let mut playback = Playback {
+        device: Some(Box::new(ControlledDevice(Arc::clone(&state)))),
+        pending: [pending].into(),
+        bytes: 6,
+        ..Default::default()
+    };
+    playback.stop().expect("受控设备停止应成功");
+    starts
+        .try_recv()
+        .expect("Stop之前已消费首帧，必须保留启动见证");
+    assert!(
+        completions.is_empty() && completions.is_closed(),
+        "未消费尾帧只能取消，不能假报完成"
+    );
+    assert_eq!(
+        state.lock().expect("受控设备锁应有效").stops,
+        1,
+        "停止确认必须实际调用原生端点适配器"
+    );
+}
 
 fn pending(
     first: u64,

@@ -9,6 +9,15 @@ use device::{Apartment, NativeOutput};
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_QUEUED_BYTES: usize = 8 * 1024 * 1024;
 
+trait OutputDevice {
+    fn rate(&self) -> u32;
+    fn capacity(&self) -> u32;
+    fn frames_written(&self) -> u64;
+    fn padding(&self) -> Result<u32, String>;
+    fn write(&mut self, bytes: &[u8], frames: u32) -> Result<(), String>;
+    fn stop(&mut self) -> Result<(), String>;
+}
+
 enum Command {
     Play(Pending, mpsc::Sender<Result<(), String>>),
     Stop(mpsc::Sender<Result<(), String>>),
@@ -129,7 +138,7 @@ impl Drop for WindowsAssistantAudioSink {
 
 #[derive(Default)]
 struct Playback {
-    device: Option<NativeOutput>,
+    device: Option<Box<dyn OutputDevice>>,
     pending: VecDeque<Pending>,
     bytes: usize,
     failure: Option<String>,
@@ -147,12 +156,12 @@ impl Playback {
             && self
                 .device
                 .as_ref()
-                .is_none_or(|device| device.rate != pending.chunk.sample_rate_hz)
+                .is_none_or(|device| device.rate() != pending.chunk.sample_rate_hz)
         {
             if let Some(mut old) = self.device.take() {
                 old.stop()?;
             }
-            self.device = Some(NativeOutput::open(pending.chunk.sample_rate_hz)?);
+            self.device = Some(Box::new(NativeOutput::open(pending.chunk.sample_rate_hz)?));
         }
         self.bytes += pending.chunk.bytes.len();
         self.pending.push_back(pending);
@@ -170,7 +179,7 @@ impl Playback {
             return Ok(());
         };
         let padding = device.padding()?;
-        let consumed = device.written - u64::from(padding);
+        let consumed = device.frames_written() - u64::from(padding);
         self.retire_consumed(consumed);
         let Some(device) = &mut self.device else {
             return Ok(());
@@ -178,17 +187,17 @@ impl Playback {
         let Some(first) = self.pending.front() else {
             return Ok(());
         };
-        if first.chunk.sample_rate_hz != device.rate {
+        if first.chunk.sample_rate_hz != device.rate() {
             // Different providers can use different rates; preserve the old tail first.
             if padding == 0 {
                 device.stop()?;
-                self.device = Some(NativeOutput::open(first.chunk.sample_rate_hz)?);
+                self.device = Some(Box::new(NativeOutput::open(first.chunk.sample_rate_hz)?));
             }
             return Ok(());
         }
-        let mut available = device.frames - padding;
+        let mut available = device.capacity() - padding;
         for pending in &mut self.pending {
-            if available == 0 || pending.chunk.sample_rate_hz != device.rate {
+            if available == 0 || pending.chunk.sample_rate_hz != device.rate() {
                 break;
             }
             let remaining = (pending.chunk.bytes.len() - pending.offset) / 2;
@@ -197,12 +206,12 @@ impl Playback {
                 continue;
             }
             let end = pending.offset + frames as usize * 2;
-            let first_frame = device.written + 1;
+            let first_frame = device.frames_written() + 1;
             device.write(&pending.chunk.bytes[pending.offset..end], frames)?;
             pending.first_frame.get_or_insert(first_frame);
             pending.offset = end;
             if end == pending.chunk.bytes.len() {
-                pending.last_frame = Some(device.written);
+                pending.last_frame = Some(device.frames_written());
             }
             available -= frames;
         }
