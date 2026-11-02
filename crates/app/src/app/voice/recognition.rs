@@ -10,8 +10,13 @@ pub(crate) struct AsrRecordingSession {
     pcm_stream: Option<PcmStreamSession>,
     recognition: Arc<RecognitionSession>,
     forward_thread: Option<JoinHandle<Result<(), String>>>,
-    event_thread: Option<JoinHandle<Result<String, String>>>,
+    event_thread: Option<JoinHandle<Result<String, asr::AsrError>>>,
     capture_stopping: Arc<AtomicBool>,
+}
+
+enum RecordingInputError {
+    Capture(String),
+    Forward(String),
 }
 
 impl AsrRecordingSession {
@@ -101,15 +106,21 @@ impl AsrRecordingSession {
     pub(crate) fn finish(mut self) -> Result<String, String> {
         if let Err(error) = self.stop_capture() {
             let _ = self.recognition.cancel();
-            let _ = self.join_terminal();
-            return Err(error);
+            let terminal = self.join_terminal();
+            return Err(match error {
+                RecordingInputError::Capture(error) => error,
+                RecordingInputError::Forward(error) => match terminal {
+                    Err(provider @ asr::AsrError::Provider(_)) => provider.to_string(),
+                    _ => error,
+                },
+            });
         }
         if let Err(error) = self.recognition.finish(InputEndReason::User) {
             if error != asr::AsrError::SessionClosed {
                 return Err(error.to_string());
             }
         }
-        self.join_terminal()
+        self.join_terminal().map_err(|error| error.to_string())
     }
 
     pub(crate) fn cancel(mut self) {
@@ -123,27 +134,30 @@ impl AsrRecordingSession {
             });
     }
 
-    fn stop_capture(&mut self) -> Result<(), String> {
+    fn stop_capture(&mut self) -> Result<(), RecordingInputError> {
         // Publish intent before closing PCM, so a user stop cannot look like device loss.
         self.capture_stopping.store(true, Ordering::Release);
         let capture_result = self.pcm_stream.take().map_or(Ok(()), |stream| {
-            stream.stop().map_err(|error| error.to_string())
+            stream
+                .stop()
+                .map_err(|error| RecordingInputError::Capture(error.to_string()))
         });
         let forward_result = self.forward_thread.take().map_or(Ok(()), |thread| {
             thread
                 .join()
                 .map_err(|_| "ASR PCM forwarder panicked".to_string())
                 .and_then(|result| result)
+                .map_err(RecordingInputError::Forward)
         });
         capture_result.and(forward_result)
     }
 
-    fn join_terminal(&mut self) -> Result<String, String> {
+    fn join_terminal(&mut self) -> Result<String, asr::AsrError> {
         self.event_thread
             .take()
-            .ok_or_else(|| "ASR event forwarder is missing".to_string())?
+            .ok_or(asr::AsrError::WorkerStopped)?
             .join()
-            .map_err(|_| "ASR event forwarder panicked".to_string())?
+            .map_err(|_| asr::AsrError::WorkerStopped)?
     }
 }
 
@@ -156,7 +170,7 @@ impl Drop for AsrRecordingSession {
 fn collect_terminal(
     events: async_channel::Receiver<RecognitionEvent>,
     partials: async_channel::Sender<String>,
-) -> Result<String, String> {
+) -> Result<String, asr::AsrError> {
     while let Ok(event) = events.recv_blocking() {
         match event {
             RecognitionEvent::Partial(text) => {
@@ -164,10 +178,10 @@ fn collect_terminal(
             }
             RecognitionEvent::Final(text) => return Ok(text),
             RecognitionEvent::Empty => return Ok(String::new()),
-            RecognitionEvent::Failed(error) => return Err(error.to_string()),
-            RecognitionEvent::Cancelled => return Err("recognition was cancelled".to_string()),
+            RecognitionEvent::Failed(error) => return Err(error),
+            RecognitionEvent::Cancelled => return Err(asr::AsrError::SessionClosed),
             RecognitionEvent::InputEnded(_) => {}
         }
     }
-    Err("recognition ended without a terminal event".to_string())
+    Err(asr::AsrError::WorkerStopped)
 }

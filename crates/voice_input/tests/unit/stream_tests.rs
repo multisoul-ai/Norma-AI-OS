@@ -11,6 +11,9 @@ fn stopping_a_failed_capture_still_joins_the_forwarder() {
     let (stop_tx, _stop_rx) = std::sync::mpsc::channel();
     let (pcm_tx, pcm_rx) = crossbeam_channel::bounded(1);
     let (chunk_tx, chunk_rx) = async_channel::bounded(1);
+    let (at_gate, waiting) = std::sync::mpsc::channel();
+    let (release, gate) = std::sync::mpsc::channel();
+    let (exited, exit_seen) = std::sync::mpsc::channel();
     let joined = Arc::new(AtomicBool::new(false));
     let witness = Arc::clone(&joined);
     let capture_thread = std::thread::spawn(move || {
@@ -19,7 +22,10 @@ fn stopping_a_failed_capture_still_joins_the_forwarder() {
     });
     let forward_thread = std::thread::spawn(move || {
         forward_pcm_events(pcm_rx, chunk_tx, None);
+        at_gate.send(()).expect("必须见证forward已到达受控退出门");
+        gate.recv().expect("测试必须显式释放forward退出门");
         witness.store(true, Ordering::SeqCst);
+        exited.send(()).expect("必须保留forward退出见证");
     });
     let session = PcmStreamSession {
         stop_tx: Some(stop_tx),
@@ -30,8 +36,35 @@ fn stopping_a_failed_capture_still_joins_the_forwarder() {
         #[cfg(feature = "test-support")]
         test_lifecycle_tx: None,
     };
+    waiting
+        .recv_timeout(std::time::Duration::from_secs(3))
+        .expect("forward必须实际运行到退出门");
+    let (done, result) = std::sync::mpsc::channel();
+    let stopper = std::thread::spawn(move || {
+        done.send(session.stop()).expect("必须保留stop返回值");
+    });
+    // 门保持关闭时，50ms只给stop线程取得执行机会，不模拟设备时序。
+    let early = result.recv_timeout(std::time::Duration::from_millis(50));
+    release
+        .send(())
+        .expect("检查后必须释放退出门，避免失败时遗留线程");
+    stopper.join().expect("stop所有者必须完整收口");
+    exit_seen
+        .recv_timeout(std::time::Duration::from_secs(3))
+        .expect("forward必须完成退出");
+    let returned_early = early.is_ok();
+    let outcome = match early {
+        Ok(outcome) => outcome,
+        Err(_) => result
+            .recv_timeout(std::time::Duration::from_secs(3))
+            .expect("释放forward后stop必须返回"),
+    };
+    assert!(
+        !returned_early,
+        "capture失败不能在forward退出门释放前返回，必须实际等待join"
+    );
     assert_eq!(
-        session.stop(),
+        outcome,
         Err(crate::VoiceInputError::Audio("device invalidated".into())),
         "stop不能将采集错误伪装成成功"
     );
