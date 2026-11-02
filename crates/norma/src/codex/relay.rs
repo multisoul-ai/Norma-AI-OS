@@ -380,6 +380,14 @@ impl Relay {
                 self.server_frame(&frame);
                 native_ready = send(&mut self.native, frame)?;
             }
+            #[cfg(windows)]
+            readiness.probe_backpressure(
+                &mut self.native,
+                &mut self.server,
+                &mut native_ready,
+                &mut server_ready,
+                self.pending_send.is_some(),
+            )?;
             if !self.observing.load(Ordering::Acquire) && !self.disabled {
                 self.disable("codex_question_observer_disabled");
             }

@@ -68,6 +68,7 @@ pub(crate) struct Readiness {
     sockets: [Option<OwnedSocket>; 2],
     registered: [bool; 2],
     closed: [bool; 2],
+    last_probe: [Instant; 2],
 }
 
 impl Readiness {
@@ -88,6 +89,7 @@ impl Readiness {
             sockets,
             registered: [false; 2],
             closed: [false; 2],
+            last_probe: [Instant::now(); 2],
         };
         this.register(SOCK_NOTIFY_OP_ENABLE)?;
         Ok(this)
@@ -195,6 +197,30 @@ impl Readiness {
             .any(|(closed, reading)| *closed && !reading)
         {
             return Err("codex_native_connection_closed".into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn probe_backpressure(
+        &mut self,
+        native: &mut Socket,
+        server: &mut Socket,
+        native_ready: &mut bool,
+        server_ready: &mut bool,
+        answer_pending: bool,
+    ) -> Result<(), String> {
+        // AF_UNIX defers HUP behind unread queued sends. A legal control frame exercises
+        // the reverse write path without consuming data or growing a read-ahead queue.
+        // Never flush an in-flight answer outside its cancellation/ticket lock.
+        let blocked = [!*server_ready, !*native_ready && !answer_pending];
+        for (index, socket, writable) in [(0, native, native_ready), (1, server, server_ready)] {
+            if blocked[index]
+                && *writable
+                && self.last_probe[index].elapsed() >= Duration::from_millis(250)
+            {
+                *writable = super::send(socket, tungstenite::Message::Ping(Vec::new().into()))?;
+                self.last_probe[index] = Instant::now();
+            }
         }
         Ok(())
     }
