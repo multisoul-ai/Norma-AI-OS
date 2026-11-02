@@ -36,10 +36,16 @@ pub(super) fn prepare(mut command: PtyCommand) -> Result<PtyCommand, PtyError> {
         (variable, default, value)
     });
     for (variable, default, value) in &binaries {
-        script = script.replace(
-            &format!("\"${{{variable}:-{default}}}\""),
-            &shell_words::quote(value),
-        );
+        let executable = format!("\"${{{variable}:-{default}}}\"");
+        if let Some(arguments) = script
+            .trim_start_matches([' ', '\t', '\n'])
+            .strip_prefix(&executable)
+        {
+            if arguments.chars().next().is_none_or(char::is_whitespace) {
+                script = format!("{}{arguments}", shell_words::quote(value));
+                break;
+            }
+        }
     }
     let words = shell_words::split(&script).map_err(|error| PtyError::Spawn(error.to_string()))?;
     let program = words
@@ -70,7 +76,7 @@ pub(super) fn prepare(mut command: PtyCommand) -> Result<PtyCommand, PtyError> {
     }
     let invocation = words
         .iter()
-        .map(|word| format!("'{}'", word.replace('\'', "''")))
+        .map(|word| powershell_literal(word))
         .collect::<Vec<_>>()
         .join(" ");
     command.args = vec![
@@ -80,6 +86,19 @@ pub(super) fn prepare(mut command: PtyCommand) -> Result<PtyCommand, PtyError> {
         format!("& {invocation}"),
     ];
     Ok(command)
+}
+
+fn powershell_literal(word: &str) -> String {
+    let mut literal = String::from("'");
+    for ch in word.chars() {
+        literal.push(ch);
+        // PowerShell's tokenizer treats these Unicode characters as single quotes too.
+        if matches!(ch, '\'' | '\u{2018}' | '\u{2019}' | '\u{201a}' | '\u{201b}') {
+            literal.push(ch);
+        }
+    }
+    literal.push('\'');
+    literal
 }
 
 #[cfg(test)]
