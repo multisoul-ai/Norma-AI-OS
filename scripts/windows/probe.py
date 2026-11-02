@@ -338,7 +338,12 @@ def summary(output):
         row.get("status") == "PASS" and row.get("exit_code") not in (None, 0)) else (
         "PASS" if row.get("status") == "PASS" and row.get("exit_code") == 0 else "NOT_RUN")
                       for row in compile_rows]
+    canvas = by_task["compile"].get("canvas_tests", {})
+    canvas_status = canvas.get("status", "NOT_RUN")
+    if canvas_status == "PASS" and canvas.get("exit_code") != 0:
+        canvas_status = "FAIL"
     goal_gates = {
+        "canvas_checks": canvas_status,
         "product_compile": "FAIL" if "FAIL" in compile_states else (
             "PASS" if all(state == "PASS" for state in compile_states) else "NOT_RUN"),
         "gpui_graphics": graphics_status,
