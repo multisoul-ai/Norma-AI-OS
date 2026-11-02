@@ -143,7 +143,9 @@ fn windows_tree_helper() {
     });
     if role == "root" && std::env::var_os("NORMA_WINDOWS_TREE_EXIT_ROOT").is_some() {
         let deadline = Instant::now() + Duration::from_secs(10);
-        while read_identity(&directory.join("leaf.pid")).is_none() {
+        while read_identity(&directory.join("leaf.pid")).is_none()
+            || !directory.join("allow-root-exit").exists()
+        {
             assert!(Instant::now() < deadline, "root退出前必须实际派生leaf");
             thread::sleep(Duration::from_millis(5));
         }
@@ -274,9 +276,21 @@ fn natural_root_exit_reaps_descendants_and_retains_the_root_exit_code() {
     let mut pty = PtyHandle::spawn_command(command, 80, 24, output).expect("真实自然退出PTY");
     let mut descendants = Vec::new();
     let mut grid = TerminalGrid::new(80, 24);
+    let mut exit_code = None;
     let ready = Instant::now() + Duration::from_secs(10);
     for role in ["middle", "leaf"] {
         loop {
+            for event in events.try_iter() {
+                match event {
+                    terminal::PtyEvent::Output(bytes) => {
+                        let reply = grid.advance(&bytes);
+                        if !reply.is_empty() {
+                            pty.write(&reply).expect("真实准备DSR响应");
+                        }
+                    }
+                    terminal::PtyEvent::Exited { code } => exit_code = Some(code),
+                }
+            }
             if let Some((pid, birth)) = read_identity(&fixture.0.join(format!("{role}.pid"))) {
                 let mut process = Process::open(pid);
                 assert_eq!(process.birth, birth, "必须持有自然退出后的原后代: {role}");
@@ -285,12 +299,15 @@ fn natural_root_exit_reaps_descendants_and_retains_the_root_exit_code() {
                 break;
             }
             assert!(Instant::now() < ready, "必须实际启动{role}");
-            // Reading output is not necessary for the helper's filesystem readiness.
             thread::sleep(Duration::from_millis(5));
         }
     }
+    assert!(
+        exit_code.is_none() && descendants.iter().all(Process::running),
+        "触发退出前原root和后代必须全部存活"
+    );
     let deadline = Instant::now() + Duration::from_secs(3);
-    let mut exit_code = None;
+    std::fs::write(fixture.0.join("allow-root-exit"), "go").expect("允许真实root自然退出");
     while Instant::now() < deadline {
         for event in events.try_iter() {
             match event {
