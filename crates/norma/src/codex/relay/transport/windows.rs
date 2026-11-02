@@ -46,7 +46,7 @@ fn wait_ready(
     Ok(())
 }
 
-// Completion notifications retain hangup independently of unread application data.
+// Subscribe to close events; Windows AF_UNIX may defer them until unread data is drained.
 use std::{
     ffi::c_void,
     ptr::null_mut,

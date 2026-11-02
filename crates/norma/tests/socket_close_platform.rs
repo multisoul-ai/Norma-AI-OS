@@ -6,8 +6,9 @@ use std::{
 };
 use uds_windows::UnixStream;
 use windows_sys::Win32::Networking::WinSock::{
-    ioctlsocket, send, WSAGetLastError, WSAIoctl, WSAPoll, WSASend, FIONREAD, POLLHUP, POLLRDNORM,
-    POLLWRNORM, SIO_AF_UNIX_GETPEERPID, WSABUF, WSAPOLLFD,
+    getpeername, getsockopt, ioctlsocket, send, WSAGetLastError, WSAIoctl, WSAPoll, WSASend,
+    FIONREAD, POLLHUP, POLLRDNORM, POLLWRNORM, SIO_AF_UNIX_GETPEERPID, SOCKADDR_STORAGE,
+    SOL_SOCKET, SO_CONNECT_TIME, WSABUF, WSAPOLLFD,
 };
 
 fn drain_closed(socket: &mut UnixStream) -> Vec<u8> {
@@ -36,6 +37,34 @@ fn drain_closed(socket: &mut UnixStream) -> Vec<u8> {
 
 fn observe(label: &str, socket: &UnixStream) {
     let fd = socket.as_raw_socket() as _;
+    let mut seconds = u32::MAX;
+    let mut length = size_of::<u32>() as i32;
+    let result = unsafe {
+        getsockopt(
+            fd,
+            SOL_SOCKET,
+            SO_CONNECT_TIME,
+            (&mut seconds as *mut u32).cast(),
+            &mut length,
+        )
+    };
+    eprintln!(
+        "{label}: SO_CONNECT_TIME={result}, seconds={seconds}, length={length}, error={}",
+        unsafe { WSAGetLastError() }
+    );
+    let mut address = SOCKADDR_STORAGE::default();
+    let mut length = size_of::<SOCKADDR_STORAGE>() as i32;
+    let result = unsafe {
+        getpeername(
+            fd,
+            (&mut address as *mut SOCKADDR_STORAGE).cast(),
+            &mut length,
+        )
+    };
+    eprintln!(
+        "{label}: getpeername={result}, length={length}, error={}",
+        unsafe { WSAGetLastError() }
+    );
     let mut available = 0u32;
     let result = unsafe { ioctlsocket(fd, FIONREAD, &mut available) };
     eprintln!("{label}: FIONREAD={result}, bytes={available}");

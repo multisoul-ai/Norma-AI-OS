@@ -18,11 +18,27 @@ pub(super) fn prepare(mut command: PtyCommand) -> Result<PtyCommand, PtyError> {
         .strip_prefix("exec ")
         .ok_or_else(|| PtyError::Spawn("unsupported POSIX launch script on Windows".into()))?;
     let mut script = script.to_string();
-    for (variable, default) in [("OPENCODE_BIN", "opencode"), ("INFCODE_BIN", "infcode")] {
-        let value = std::env::var(variable).unwrap_or_else(|_| default.into());
+    let binaries = [
+        ("OPENCODE_BIN", "opencode"),
+        ("INFCODE_BIN", "infcode"),
+        ("CURSOR_AGENT_BIN", "cursor-agent"),
+    ]
+    .map(|(variable, default)| {
+        let value = command
+            .env
+            .iter()
+            .rev()
+            .find(|(key, _)| key.eq_ignore_ascii_case(variable))
+            .map(|(_, value)| value.clone())
+            .or_else(|| std::env::var(variable).ok())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| default.to_owned());
+        (variable, default, value)
+    });
+    for (variable, default, value) in &binaries {
         script = script.replace(
             &format!("\"${{{variable}:-{default}}}\""),
-            &shell_words::quote(&value),
+            &shell_words::quote(value),
         );
     }
     let words = shell_words::split(&script).map_err(|error| PtyError::Spawn(error.to_string()))?;
@@ -42,9 +58,7 @@ pub(super) fn prepare(mut command: PtyCommand) -> Result<PtyCommand, PtyError> {
         "hermes",
     ]
     .contains(&program.as_str())
-        || ["OPENCODE_BIN", "INFCODE_BIN"]
-            .iter()
-            .any(|key| std::env::var(key).is_ok_and(|value| value == *program));
+        || binaries.iter().any(|(_, _, value)| value == program);
     if !known
         || words
             .iter()
