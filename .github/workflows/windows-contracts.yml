@@ -89,6 +89,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python --version
           $results = [ordered]@{}
+          cargo test --locked -p norma --test bundled_helpers_platform -- --nocapture 2>&1 | Tee-Object artifacts/windows-contracts/bundled-helpers.log
+          $results.bundled_helpers = $LASTEXITCODE
           cargo test --locked -p norma --test socket_close_platform -- --nocapture 2>&1 | Tee-Object artifacts/windows-contracts/socket-diagnostics.log
           $results.socket_diagnostics = $LASTEXITCODE
           cargo test --locked --no-fail-fast -p workspace --lib --test content_platform --test review_platform --test scoped_directory -- --nocapture 2>&1 | Tee-Object artifacts/windows-contracts/workspace.log
@@ -129,6 +131,26 @@ jobs:
         with:
           path: target/sherpa-onnx-prebuilt
           key: sherpa-prebuilt-${{ runner.os }}-${{ runner.arch }}-1.13.3-static
+      - name: Rebuild retained Sherpa outputs when native archives are missing
+        shell: bash
+        run: |
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          import shutil
+          root = Path('target')
+          native = list((root / 'sherpa-onnx-prebuilt').glob('*/lib/libsherpa-onnx-c-api.a'))
+          if not native:
+              patterns = ('debug/build/sherpa-onnx-sys-*', 'debug/.fingerprint/sherpa-onnx-sys-*',
+                          'debug/deps/libsherpa_onnx_sys*', 'debug/deps/sherpa_onnx_sys-*.d')
+              for pattern in patterns:
+                  for path in root.glob(pattern):
+                      print(f'Rebuilding missing native dependency: {path}')
+                      if path.is_dir():
+                          shutil.rmtree(path)
+                      else:
+                          path.unlink()
+                      assert not path.exists(), f'Stale native build output remains: {path}'
+          PYCODE
       - name: Record toolchain and run affected domain regressions
         shell: bash
         run: |
@@ -243,6 +265,26 @@ jobs:
         with:
           path: target/sherpa-onnx-prebuilt
           key: sherpa-prebuilt-${{ runner.os }}-${{ runner.arch }}-1.13.3-static
+      - name: Rebuild retained Sherpa outputs when native archives are missing
+        shell: bash
+        run: |
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          import shutil
+          root = Path('target')
+          native = list((root / 'sherpa-onnx-prebuilt').glob('*/lib/libsherpa-onnx-c-api.a'))
+          if not native:
+              patterns = ('debug/build/sherpa-onnx-sys-*', 'debug/.fingerprint/sherpa-onnx-sys-*',
+                          'debug/deps/libsherpa_onnx_sys*', 'debug/deps/sherpa_onnx_sys-*.d')
+              for pattern in patterns:
+                  for path in root.glob(pattern):
+                      print(f'Rebuilding missing native dependency: {path}')
+                      if path.is_dir():
+                          shutil.rmtree(path)
+                      else:
+                          path.unlink()
+                      assert not path.exists(), f'Stale native build output remains: {path}'
+          PYCODE
       - name: Validate bilingual keys and guard semantics
         run: |
           python3 scripts/test-i18n.py

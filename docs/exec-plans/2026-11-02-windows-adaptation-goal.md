@@ -182,3 +182,12 @@ W01–W12的整体门槛仍未全部满足；没有生成候选包或同包新ru
 - `8c083fc6` run `41508587588` job `125494185669`：命令边界4项3过1败，明确OPENCODE_BIN本命令路径被错误换成默认opencode。`94eab557`修正命令环境大小写/最后覆盖/空值默认及Cursor变量后，两平台job `125497575127`、`125497575295` 均4/0/0，PTY及树回归继续通过。全套terminal默认测试尚未验证，不能以定向测试替代。
 - 独立对抗审查发现ASCII-only PowerShell单引号编码遗漏U+2018–U+201B，及全局Cursor模板替换会改写Claude正文。`4c2dd0dd` run `41510462982` job `125500693291` 实际6项4过2败：正文被拆成两个错误路径参数，真实PowerShell5.1解析器在U+2018路径处得到额外/畸形语句。`0b1c6ceb`限制只替换开头程序模板、逐字符重复五种单引号，等待两平台六项及真实解析器复验。
 - 原有zsh profile顺序测试依赖Unix权限API，已仅限Unix编译；未增加ignore。下一门禁执行Windows完整`cargo test -p terminal`，暴露并逐项迁移其余Unix shell夹具，同时保留原平台行为和Windows原生对等验收。
+
+## 原生终端全套与关闭修复（2026-11-02 后续）
+
+- `409a7bbe` run `41516020469`：Windows2022 job `125519668728`、Windows2025 job `125519668644` 的完整 terminal 均为79项单测、两组各3项集成测试通过，0失败、0新增忽略；原生shell夹具保留了时间、输出、退出、目录和尺寸断言。Mac PR CI 的 Clippy 随后指出测试辅助模块重复加载；`8161f6f1` 改为crate根单次注册，没有增加allow。
+- `00c3e7b0` run `41518749959`，Windows job `125528981629`：norma lib 31/0/0，严格实际输出关闭反例保留真实连续8次WouldBlock和原3秒预算，已通过。两个方向的24MiB慢端完整性均通过，来源各实际收到3个合法Ping。探针仅在原反向flush成功、来源读取因背压暂停时发送；server还要求没有pending answer，不扩大缓存或绕过票据锁。这证明全部source关闭，不宣称已覆盖仅Shutdown::Write的半关闭。
+- 同job：workspace lib 27/0/0，content/review/scoped directory分别1/0/0、1/0/0、4/0/0；原生PTY3/0/0。原始日志保留在对应job；不可将其延伸为真实模型或完整GUI验收。
+- `00c3e7b0` 同源增加真实App资源路径模块及Windows中文空格路径回归，先验证原macOS布局在便携包下失败，再修Windows sibling Resources解析。候选包生产/消费尚未执行；Goal保持ACTIVE。
+- 取消旧source的重复待执行任务 `41515182043`、`41516020469`、`41516020544`，释放runner；其已完成失败日志保留，取消不记为通过。
+- Mac旧source run `41513185652` 的域层完成后，App在链接阶段缺`sherpa-onnx-c-api`，不是断言通过。仅touch旧build.rs未重建保留输出；后续在原生库缺失时精确清理该依赖的build/fingerprint/Rust输出以强制重新下载，不删除其他crate或系统工具。

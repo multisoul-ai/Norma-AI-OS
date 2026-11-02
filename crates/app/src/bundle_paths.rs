@@ -6,6 +6,18 @@ pub(crate) fn resources_for_executable(executable: &Path) -> Option<PathBuf> {
         return None;
     }
     let binaries = executable.parent()?;
+    #[cfg(windows)]
+    {
+        Some(binaries.join("Resources"))
+    }
+    #[cfg(not(windows))]
+    {
+        macos_resources(binaries)
+    }
+}
+
+#[cfg(not(windows))]
+fn macos_resources(binaries: &Path) -> Option<PathBuf> {
     let contents = binaries.parent()?;
     if binaries.file_name()? != "MacOS" || contents.file_name()? != "Contents" {
         return None;

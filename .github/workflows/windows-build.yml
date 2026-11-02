@@ -3,16 +3,28 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/windows-feasibility-*']
-    paths: ['crates/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-build.yml']
+    paths:
+      - 'crates/**'
+      - 'vendor/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/windows-build.yml'
+      - 'scripts/windows/**'
+      - 'scripts/test-windows-package.py'
+      - 'scripts/prepare-release-media.py'
+      - 'packaging/media/**'
+      - 'docs/references/windows-preview.md'
+      - 'THIRD_PARTY_NOTICES.md'
 permissions:
   contents: read
 concurrency:
   group: windows-build-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: windows-2025
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       CARGO_INCREMENTAL: '0'
       CARGO_BUILD_JOBS: '2'
@@ -21,6 +33,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          lfs: true
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.91.1
@@ -37,11 +50,84 @@ jobs:
           cargo test --locked --no-fail-fast -p norma --lib --test codex_control_shutdown --test codex_question_relay_backpressure --test protocol_tests -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p workspace --test content_platform
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p terminal --test windows_pty
+          exit $LASTEXITCODE
       - name: Require App adapters
         if: always()
         shell: pwsh
-        run: cargo test --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --lib -- --nocapture
+        run: cargo test --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --target-dir target --lib -- --nocapture
       - name: Check Windows App
         if: always()
         shell: pwsh
         run: cargo check --locked -p app --message-format=short
+
+      - name: Require executable helpers and native user configuration
+        shell: pwsh
+        run: cargo test --locked -p norma --test bundled_helpers_platform -- --nocapture
+      - name: Test native browser helper and bundled paths
+        shell: pwsh
+        run: cargo test --locked -p app --lib browser_auth_host::tests -- --nocapture
+      - name: Build Windows release candidate
+        shell: pwsh
+        run: |
+          cargo build --locked --release -p app --features production-data --bins
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --locked --release -p norma --bins
+          exit $LASTEXITCODE
+      - name: Package Windows portable candidate
+        shell: pwsh
+        run: |
+          python scripts/test-windows-package.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/prepare-release-media.py --profile light
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $visualStudio = & $vswhere -latest -products '*' -property installationPath
+          $crt = Get-ChildItem "$visualStudio/VC/Redist/MSVC" -Directory |
+            ForEach-Object { Join-Path $_.FullName 'x64/Microsoft.VC143.CRT' } |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Container } |
+            Sort-Object | Select-Object -Last 1
+          if (-not $crt) { throw 'Visual C++ runtime redistributables are missing' }
+          python scripts/windows/package.py --crt-dir $crt
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: norma-os-windows-x64-${{ github.sha }}
+          path: |
+            build/windows/*.zip
+            build/windows/*.sha256
+          if-no-files-found: error
+          retention-days: 1
+
+  verify-candidate:
+    needs: build
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: verification-tools
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: norma-os-windows-x64-${{ github.sha }}
+          path: dist
+      - name: Verify and launch the exact uploaded package
+        working-directory: verification-tools
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem ../dist/*.zip | Select-Object -First 1
+          $expected = ((Get-Content "$($zip.FullName).sha256" -Raw).Trim() -split '\s+')[0]
+          if ((Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Candidate ZIP checksum mismatch' }
+          $destination = Join-Path $env:RUNNER_TEMP 'norma-candidate-verification'
+          Expand-Archive $zip.FullName $destination
+          $package = Get-ChildItem $destination -Directory | Select-Object -First 1
+          ./scripts/windows/smoke-package.ps1 -Package $package.FullName -Output ../artifacts/candidate-verification
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: norma-os-windows-verification-${{ github.sha }}
+          path: artifacts/candidate-verification/
+          if-no-files-found: error
+          retention-days: 3

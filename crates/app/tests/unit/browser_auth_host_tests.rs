@@ -78,7 +78,11 @@ fn test_native_message_frame_uses_byte_length_and_round_trips_unicode_json() {
 ///   - 正断言：安装目标位于 Google Chrome 的用户级 NativeMessagingHosts 目录。
 #[test]
 fn test_native_host_manifest_allows_only_bundled_chrome_extension() {
-    let helper = Path::new("/Applications/Norma OS.app/Contents/MacOS/norma-browser-auth-host");
+    let helper = Path::new(if cfg!(windows) {
+        r"C:\Norma OS\norma-browser-auth-host.exe"
+    } else {
+        "/Applications/Norma OS.app/Contents/MacOS/norma-browser-auth-host"
+    });
     let manifest = super::native_host_manifest(helper)
         .expect("绝对 helper 路径必须能生成 Chrome Native Messaging manifest");
     let json: serde_json::Value = serde_json::from_slice(&manifest)
@@ -117,10 +121,18 @@ fn test_native_host_manifest_allows_only_bundled_chrome_extension() {
         "allowed_origins 禁止通配符，否则任意扩展都能请求认证 Cookie"
     );
 
-    let install_path = super::chrome_native_host_manifest_path(Path::new("/Users/tester"));
+    let (home, expected) = if cfg!(windows) {
+        (
+            r"C:\Users\tester",
+            r"C:\Users\tester\AppData\Local\Norma OS\NativeMessagingHosts\com.norma.os.browser_auth.json",
+        )
+    } else {
+        ("/Users/tester", "/Users/tester/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.norma.os.browser_auth.json")
+    };
+    let install_path = super::chrome_native_host_manifest_path(Path::new(home));
     assert_eq!(
         install_path,
-        Path::new("/Users/tester/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.norma.os.browser_auth.json"),
+        Path::new(expected),
         "用户级 host manifest 必须安装到 Google Chrome 官方查找目录"
     );
 }
@@ -142,16 +154,29 @@ fn test_native_host_manifest_allows_only_bundled_chrome_extension() {
 ///   - 负断言：路径不得仍位于 `Contents/MacOS`。
 #[test]
 fn test_bundled_extension_path_is_resolved_from_app_resources() {
-    let executable = Path::new("/Applications/Norma OS.app/Contents/MacOS/norma-os");
+    let (executable, expected, binaries) = if cfg!(windows) {
+        (
+            r"C:\Norma OS\norma-os.exe",
+            r"C:\Norma OS\Resources\browser-auth-extension",
+            r"C:\Norma OS\norma-browser-auth-host.exe",
+        )
+    } else {
+        (
+            "/Applications/Norma OS.app/Contents/MacOS/norma-os",
+            "/Applications/Norma OS.app/Contents/Resources/browser-auth-extension",
+            "/Applications/Norma OS.app/Contents/MacOS",
+        )
+    };
+    let executable = Path::new(executable);
     let extension = super::bundled_extension_path_for_executable(executable)
         .expect("标准 `.app` executable 路径必须能推导 bundled extension 目录");
     assert_eq!(
         extension,
-        Path::new("/Applications/Norma OS.app/Contents/Resources/browser-auth-extension"),
+        Path::new(expected),
         "Chrome 安装指引必须指向 app Resources 中随包扩展目录"
     );
     assert!(
-        !extension.starts_with("/Applications/Norma OS.app/Contents/MacOS"),
+        !extension.starts_with(binaries),
         "扩展目录不得错误指向可执行 helper 所在的 MacOS 目录"
     );
 }
