@@ -191,3 +191,5 @@ W01–W12的整体门槛仍未全部满足；没有生成候选包或同包新ru
 - `00c3e7b0` 同源增加真实App资源路径模块及Windows中文空格路径回归，先验证原macOS布局在便携包下失败，再修Windows sibling Resources解析。候选包生产/消费尚未执行；Goal保持ACTIVE。
 - 取消旧source的重复待执行任务 `41515182043`、`41516020469`、`41516020544`，释放runner；其已完成失败日志保留，取消不记为通过。
 - Mac旧source run `41513185652` 的域层完成后，App在链接阶段缺`sherpa-onnx-c-api`，不是断言通过。仅touch旧build.rs未重建保留输出；后续在原生库缺失时精确清理该依赖的build/fingerprint/Rust输出以强制重新下载，不删除其他crate或系统工具。
+- `00c3e7b0` build run `41518749964` job `125528981830`：App adapter 17/1/0，唯一失败正是新增中文空格Windows路径的Resources断言（实际None，预期exe旁Resources）。默认App check仍通过；`c78787fe`修复平台布局并接入release/同包消费，等待绿灯。
+- 独立交付审查发现helper名称和无HOME路径缺口。`c78787fe` native run `41521019369` job `125536743947` 的三项真实Windows回归均为RED：已编译.exe无法解析；源/托管文件名无.exe；无HOME子进程得到相对`.claude`目录。`0e3e7e87`使用原生EXE_SUFFIX和dirs::home_dir修复，旧Unix行为保持；同包smoke新增真实hook帮助与browser helper拒绝未授权caller检查。复验待执行，不能提前标PASS。

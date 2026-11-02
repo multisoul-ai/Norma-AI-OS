@@ -18,9 +18,11 @@ python scripts/windows/package.py --verify $root
 if ($LASTEXITCODE -ne 0) { throw 'Candidate integrity validation failed' }
 $version = & (Join-Path $root 'norma.exe') --version
 if ($LASTEXITCODE -ne 0) { throw 'Packaged CLI did not execute' }
-$hook = Start-Process -FilePath (Join-Path $root 'multisoul-agent-hook.exe') -ArgumentList '--help' -WorkingDirectory $root -Wait -PassThru -RedirectStandardOutput (Join-Path $Output 'hook-help.log') -RedirectStandardError (Join-Path $Output 'hook-stderr.log')
+$hook = Start-Process -FilePath (Join-Path $root 'multisoul-agent-hook.exe') -ArgumentList '--help' -WorkingDirectory $root -PassThru -RedirectStandardOutput (Join-Path $Output 'hook-help.log') -RedirectStandardError (Join-Path $Output 'hook-stderr.log')
+if (-not $hook.WaitForExit(10000)) { $hook.Kill($true); throw 'Packaged hook helper did not exit within 10 seconds' }
 if ($hook.ExitCode -ne 0 -or -not (Select-String -Path (Join-Path $Output 'hook-help.log') -Pattern 'forward' -Quiet)) { throw 'Packaged hook helper did not execute its real CLI' }
-$browser = Start-Process -FilePath (Join-Path $root 'norma-browser-auth-host.exe') -ArgumentList 'unauthorized-probe-origin' -WorkingDirectory $root -Wait -PassThru -RedirectStandardOutput (Join-Path $Output 'browser-host-stdout.log') -RedirectStandardError (Join-Path $Output 'browser-host-stderr.log')
+$browser = Start-Process -FilePath (Join-Path $root 'norma-browser-auth-host.exe') -ArgumentList 'unauthorized-probe-origin' -WorkingDirectory $root -PassThru -RedirectStandardOutput (Join-Path $Output 'browser-host-stdout.log') -RedirectStandardError (Join-Path $Output 'browser-host-stderr.log')
+if (-not $browser.WaitForExit(10000)) { $browser.Kill($true); throw 'Packaged browser helper did not exit within 10 seconds' }
 if ($browser.ExitCode -ne 1 -or -not (Select-String -Path (Join-Path $Output 'browser-host-stderr.log') -Pattern 'caller was not the authorized Norma Chrome extension' -Quiet)) { throw 'Packaged browser helper did not enforce its caller boundary' }
 $manifest = Get-Content (Join-Path $root 'manifest.json') -Raw | ConvertFrom-Json
 if ($manifest.source_sha -ne $env:GITHUB_SHA) { throw 'Candidate source identity does not match this workflow' }
@@ -54,5 +56,5 @@ if ($manifest.source_sha -ne $env:GITHUB_SHA) { throw 'Candidate source identity
     @{ status = 'FAIL'; source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; error = $_.Exception.Message } | ConvertTo-Json | Set-Content (Join-Path $Output 'report.json')
     throw
 } finally {
-    if ($process) { $process.Refresh(); if (-not $process.HasExited) { & taskkill /PID $process.Id /T /F | Out-Null }; $process.Dispose() }
+    if ($process) { $process.Refresh(); if (-not $process.HasExited) { $process.Kill($true); $process.WaitForExit(10000) | Out-Null }; $process.Dispose() }
 }

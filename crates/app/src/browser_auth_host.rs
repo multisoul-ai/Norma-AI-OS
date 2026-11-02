@@ -113,13 +113,8 @@ pub(crate) fn install_native_host_manifest() -> Result<PathBuf, String> {
             host_binary.display()
         ));
     }
-    let home = if cfg!(windows) {
-        std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"))
-    } else {
-        std::env::var_os("HOME")
-    }
-    .map(PathBuf::from)
-    .ok_or_else(|| "could not resolve the user home for Chrome integration".to_string())?;
+    let home = dirs::home_dir()
+        .ok_or_else(|| "could not resolve the user home for Chrome integration".to_string())?;
     let destination = chrome_native_host_manifest_path(&home);
     let parent = destination
         .parent()
