@@ -8,8 +8,6 @@ use norma::protocol::{
     CardCommand, CardCommandResult, OrchestrationDoctorReport, WireResponse, WorkspaceSummary,
     CURRENT_PROTOCOL_VERSION,
 };
-use std::fs::File;
-use std::io::Read;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -17,9 +15,12 @@ mod brain_context;
 mod brain_history;
 mod brain_report;
 pub(crate) mod presentation;
+#[path = "route_id.rs"]
+mod route_id;
 mod routing;
 mod task_control;
 mod task_dispatch;
+pub(crate) use route_id::new_workspace_route_id;
 
 pub(crate) use routing::protocol_compatibility_error;
 use routing::{
@@ -205,19 +206,6 @@ pub(crate) fn unregister_workspace(workspace_id: &str, route_id: &str, cx: &mut 
             .detach();
     }
     removed
-}
-
-pub(crate) fn new_workspace_route_id() -> std::io::Result<String> {
-    let mut bytes = [0_u8; 16];
-    File::open("/dev/urandom")?.read_exact(&mut bytes)?;
-    // RFC 4122 v4: version nibble = 0100, variant high bits = 10.
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    Ok(format!(
-        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
-    ))
 }
 
 pub(crate) fn workspace_summaries(cx: &App) -> Vec<WorkspaceSummary> {
