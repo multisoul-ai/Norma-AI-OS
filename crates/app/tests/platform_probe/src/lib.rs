@@ -17,3 +17,7 @@ mod bundle_paths;
 // Keep the production transport and its original protocol/path tests together.
 #[path = "../../../src/browser_auth_host.rs"]
 mod browser_auth_host;
+
+#[cfg(windows)]
+#[path = "../../../src/app/voice/playback.rs"]
+mod playback;

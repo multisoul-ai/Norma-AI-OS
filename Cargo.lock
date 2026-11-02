@@ -266,6 +266,7 @@ dependencies = [
  "uuid",
  "voice_input",
  "voice_sherpa",
+ "windows 0.61.3",
  "windows-sys 0.61.2",
  "workspace",
  "wry",

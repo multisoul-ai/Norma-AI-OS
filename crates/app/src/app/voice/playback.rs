@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 #[cfg(target_os = "macos")]
+#[path = "playback/macos.rs"]
 mod macos;
 
 pub(crate) trait AssistantAudioSink: Send {
@@ -146,3 +147,7 @@ pub(crate) fn pcm_chunk_duration(chunk: &PcmAudioChunk) -> Duration {
 #[cfg(test)]
 #[path = "../../../tests/unit/playback_tests.rs"]
 mod playback_tests;
+
+#[cfg(all(test, windows))]
+#[path = "../../../tests/unit/windows_playback_tests.rs"]
+mod windows_platform_tests;
