@@ -2,11 +2,11 @@
 
 use crate::{AudioInputDevice, MicrophoneAuthorization, VoiceInputError};
 use ::windows::{
-    core::PWSTR,
+    core::{HRESULT, PWSTR},
     Devices::Enumeration::{DeviceAccessInformation, DeviceAccessStatus, DeviceClass},
     Win32::{
         Devices::FunctionDiscovery::PKEY_Device_FriendlyName,
-        Foundation::{E_NOTFOUND, RPC_E_CHANGED_MODE},
+        Foundation::{ERROR_NOT_FOUND, RPC_E_CHANGED_MODE},
         Media::Audio::{
             eCapture, eCommunications, IMMDeviceEnumerator, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
         },
@@ -65,7 +65,7 @@ pub(crate) fn list_audio_input_devices() -> Result<Vec<AudioInputDevice>, VoiceI
             CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).map_err(audio_error)?;
         let default_id = match enumerator.GetDefaultAudioEndpoint(eCapture, eCommunications) {
             Ok(device) => Some(take_string(device.GetId().map_err(audio_error)?)?),
-            Err(error) if error.code() == E_NOTFOUND => None,
+            Err(error) if error.code() == HRESULT::from_win32(ERROR_NOT_FOUND.0) => None,
             Err(error) => return Err(audio_error(error)),
         };
         let devices = enumerator
