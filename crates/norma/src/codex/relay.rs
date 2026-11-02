@@ -458,3 +458,7 @@ impl Relay {
 #[cfg(test)]
 #[path = "../../tests/unit/codex_question_relay_partial.rs"]
 mod partial_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/codex_relay_output_backpressure.rs"]
+mod output_backpressure_tests;

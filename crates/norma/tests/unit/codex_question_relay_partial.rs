@@ -96,6 +96,7 @@ fn partial_answer_ping_and_disconnect_keep_transport_ownership_accurate() {
                 Ok(ControlledStream {
                     stream: UnixStream::connect(&path)?,
                     budget: write_budget,
+                    blocked: None,
                 })
             },
             false,
@@ -241,12 +242,23 @@ fn large_question() -> (Value, Value) {
 pub(super) struct ControlledStream {
     stream: UnixStream,
     budget: Arc<AtomicUsize>,
+    blocked: Option<Arc<AtomicUsize>>,
+}
+impl ControlledStream {
+    pub(super) fn observing(stream: UnixStream, blocked: Arc<AtomicUsize>) -> Self {
+        Self {
+            stream,
+            budget: Arc::new(AtomicUsize::new(usize::MAX)),
+            blocked: Some(blocked),
+        }
+    }
 }
 impl From<UnixStream> for ControlledStream {
     fn from(stream: UnixStream) -> Self {
         Self {
             stream,
             budget: Arc::new(AtomicUsize::new(usize::MAX)),
+            blocked: None,
         }
     }
 }
@@ -267,7 +279,22 @@ impl Write for ControlledStream {
         if remaining == 0 {
             return Err(io::ErrorKind::WouldBlock.into());
         }
-        let written = self.stream.write(&bytes[..bytes.len().min(remaining)])?;
+        let written = match self.stream.write(&bytes[..bytes.len().min(remaining)]) {
+            Ok(written) => {
+                if let Some(blocked) = &self.blocked {
+                    blocked.store(0, Ordering::Release);
+                }
+                written
+            }
+            Err(error) => {
+                if error.kind() == io::ErrorKind::WouldBlock {
+                    if let Some(blocked) = &self.blocked {
+                        blocked.fetch_add(1, Ordering::AcqRel);
+                    }
+                }
+                return Err(error);
+            }
+        };
         if remaining != usize::MAX {
             self.budget.fetch_sub(written, Ordering::AcqRel);
         }
