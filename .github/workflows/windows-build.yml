@@ -40,6 +40,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+      - name: Resolve the matching native Visual Studio runtime before building
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/windows/test-crt.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          . ./scripts/windows/crt.ps1
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -property installationPath
+          $crt = Find-NormaCrtDirectory -VisualStudio $vs
+          "NORMA_WINDOWS_CRT_DIR=$crt" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Output "Packaging the native x64 CRT from $crt"
       - name: Diagnose unread AF_UNIX close
         shell: pwsh
         run: cargo test --locked -p norma --test socket_close_platform -- --nocapture
@@ -82,14 +93,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/prepare-release-media.py --profile light
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
-          $visualStudio = & $vswhere -latest -products '*' -property installationPath
-          $crt = Get-ChildItem "$visualStudio/VC/Redist/MSVC" -Directory |
-            ForEach-Object { Join-Path $_.FullName 'x64/Microsoft.VC143.CRT' } |
-            Where-Object { Test-Path -LiteralPath $_ -PathType Container } |
-            Sort-Object | Select-Object -Last 1
-          if (-not $crt) { throw 'Visual C++ runtime redistributables are missing' }
-          python scripts/windows/package.py --crt-dir $crt
+          python scripts/windows/package.py --crt-dir $env:NORMA_WINDOWS_CRT_DIR
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
         with:
