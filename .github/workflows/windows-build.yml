@@ -10,8 +10,10 @@ on:
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
       - '.github/workflows/windows-build.yml'
+      - '.gitattributes'
       - 'scripts/windows/**'
       - 'scripts/test-windows-package.py'
+      - 'scripts/test-windows-release-media.py'
       - 'scripts/prepare-release-media.py'
       - 'packaging/media/**'
       - 'docs/references/windows-preview.md'
@@ -29,11 +31,21 @@ jobs:
       CARGO_INCREMENTAL: '0'
       CARGO_BUILD_JOBS: '2'
       CARGO_TERM_COLOR: never
+      PYTHONUTF8: '1'
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
           lfs: true
+      - name: Verify and stage trusted media before the long native build
+        shell: pwsh
+        run: |
+          python scripts/test-windows-package.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-windows-release-media.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/prepare-release-media.py --profile light
+          exit $LASTEXITCODE
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.91.1
@@ -89,10 +101,6 @@ jobs:
       - name: Package Windows portable candidate
         shell: pwsh
         run: |
-          python scripts/test-windows-package.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/prepare-release-media.py --profile light
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/windows/package.py --crt-dir $env:NORMA_WINDOWS_CRT_DIR
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4

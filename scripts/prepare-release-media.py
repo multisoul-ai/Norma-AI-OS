@@ -54,7 +54,7 @@ def safe_source(assets, rel):
 
 def load_manifest(root):
     path = root / "packaging/media/resources.json"
-    manifest = json.loads(path.read_text())
+    manifest = json.loads(path.read_text(encoding="utf-8"))
     if manifest.get("schema_version") != 1:
         raise PreparationError("unsupported media manifest schema")
     version = manifest.get("resource_version", "")
@@ -190,8 +190,8 @@ def prepare(root, output, profile):
             "catalog_bytes": len(catalog_json.encode("utf-8")),
             "media_payload_bytes": bundled_bytes + preview_bytes + len(catalog_json.encode("utf-8")),
         }
-        (stage / "media-catalog.json").write_text(catalog_json)
-        (stage / "media-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+        (stage / "media-catalog.json").write_text(catalog_json, encoding="utf-8", newline="\n")
+        (stage / "media-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
         if output.exists():
             output.rename(backup)
         try:
