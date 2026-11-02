@@ -182,7 +182,7 @@ jobs:
         run: |
           cargo test --locked -p terminal --test windows_process_tree -- --nocapture 2>&1 | Tee-Object artifacts/conpty-compatibility/process-tree.log
           $code = $LASTEXITCODE
-          $ran = Select-String -Path artifacts/conpty-compatibility/process-tree.log -Pattern 'test result: ok\. 2 passed; 0 failed; 0 ignored;' -Quiet
+          $ran = Select-String -Path artifacts/conpty-compatibility/process-tree.log -Pattern 'test result: ok\. 3 passed; 0 failed; 0 ignored;' -Quiet
           if ($code -ne 0 -or -not $ran) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
