@@ -9,10 +9,12 @@ use device::{Apartment, NativeOutput};
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_QUEUED_BYTES: usize = 8 * 1024 * 1024;
 
-fn scheduling_ack_channel() -> (
+type SchedulingAckChannel = (
     mpsc::SyncSender<Result<(), String>>,
     mpsc::Receiver<Result<(), String>>,
-) {
+);
+
+fn scheduling_ack_channel() -> SchedulingAckChannel {
     // A successful send must witness the receive, even when a timed-out caller
     // is preempted before dropping its receiver.
     mpsc::sync_channel(0)
