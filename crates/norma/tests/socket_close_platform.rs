@@ -5,6 +5,8 @@ use std::{
     os::windows::io::AsRawSocket,
 };
 use uds_windows::UnixStream;
+#[path = "support/socket_notifications.rs"]
+mod notifications;
 use windows_sys::Win32::Networking::WinSock::{
     getpeername, getsockopt, ioctlsocket, send, WSAGetLastError, WSAIoctl, WSAPoll, WSASend,
     FIONREAD, POLLHUP, POLLRDNORM, POLLWRNORM, SIO_AF_UNIX_GETPEERPID, SOCKADDR_STORAGE,
@@ -133,6 +135,9 @@ fn socket_close_with_clones_and_saturated_sender_preserves_payload() {
                 let receiver_copy = receiver_clone.then(|| receiver.try_clone().unwrap());
                 source.set_nonblocking(true).unwrap();
                 receiver.set_nonblocking(true).unwrap();
+                let notifications = (!source_clone && !receiver_clone && saturate).then(|| {
+                    notifications::CloseNotifications::new(&receiver).expect("真实IOCP注册必须成功")
+                });
                 let bytes = vec![7u8; 512 * 1024];
                 let limit = if saturate {
                     64 * 1024 * 1024
@@ -168,12 +173,16 @@ fn socket_close_with_clones_and_saturated_sender_preserves_payload() {
                 drop(source);
                 if saturate {
                     let start = std::time::Instant::now();
+                    let mut notified = 0;
                     let mut poll = WSAPOLLFD {
                         fd: receiver.as_raw_socket() as _,
                         events: POLLRDNORM,
                         revents: 0,
                     };
                     while start.elapsed() < std::time::Duration::from_secs(3) {
+                        if let Some(notifications) = &notifications {
+                            notified |= notifications.poll().expect("真实IOCP查询不能失败");
+                        }
                         assert!(
                             unsafe { WSAPoll(&mut poll, 1, 0) } >= 0,
                             "{label}: 真实WSAPoll不能失败"
@@ -184,7 +193,7 @@ fn socket_close_with_clones_and_saturated_sender_preserves_payload() {
                         std::thread::sleep(std::time::Duration::from_millis(1));
                     }
                     eprintln!(
-                        "{label}: close observation after {:?}, events={}",
+                        "{label}: close observation after {:?}, events={}, IOCP={notified}",
                         start.elapsed(),
                         poll.revents
                     );
@@ -198,6 +207,12 @@ fn socket_close_with_clones_and_saturated_sender_preserves_payload() {
                 );
                 if saturate {
                     observe(&format!("{label}/after-drain"), &receiver);
+                }
+                if let Some(notifications) = &notifications {
+                    eprintln!(
+                        "{label}/after-drain: IOCP={}",
+                        notifications.poll().expect("排空后IOCP查询")
+                    );
                 }
                 drop(receiver_copy);
             }

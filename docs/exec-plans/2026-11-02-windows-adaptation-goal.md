@@ -174,3 +174,11 @@ W01–W12的整体门槛仍未全部满足；没有生成候选包或同包新ru
 - `9f1c0152` run `41505010677`，socket job `125481956397`：诊断2项通过，实际逐次512KiB发送在累计1048576字节时遇到真实WouldBlock。此时全部source释放后、仍有131072字节未读，WSAPoll只报可读、不报HUP；非背压对照报HUP。该最小重现不含WebSocket、relay或IOCP；完整正文仍可排空，不能靠丢正文制造关闭。下一轮延长仅观察窗口到原3秒，随后排空并比较HUP状态，不放宽产品3秒关闭断言。
 - 后续macOS缓存复验曾再次缺Sherpa静态库，`cargo clean -p`报告移除0文件。调整为独立原生库cache、在缺库时按test profile清理包；不因缓存问题反复重编译已通过的文案行为，也不把失败写成通过。
 - 用户2026-11-02回复“这个我自己测”，明确承接真实Claude/Codex模型任务、提问和恢复验收；不再索要模型环境或密钥。runner生产启动/控制验证、软件适配与候选包消费仍由Agent完成，真实模型结果不得冒充PASS。
+
+## 原生缓存与命令边界的新证据
+
+- `d61364a1` run `41506482883`，socket job `125486989342`：四种clone组合的真实饱和场景均等完整3秒无HUP，排空全部原正文后立即有HUP。后续`94eab557` run `41509564695` job `125497574899` 证实SO_CONNECT_TIME与getpeername在alive/closed/after-drain均成功，不能充当关闭判据。纯pair仍未包括IOCP，下一诊断增加生产一致的OwnedSocket、私有port、LEVEL|PERSISTENT HANGUP注册及队列对照；不从WSAPoll结果推断IOCP保证。
+- `7db4be3d` run `41507397341` job `125490089087`：先实际构建Sherpa，再只裁剪原生lib目录和Rust库文件、保留build-script输出；第二次构建确实缺`sherpa-onnx-c-api`失败。`78e89638`增加原生目录rerun-if-changed后，run `41508405287` job `125493549823` 两次实际构建通过，裁剪后原生库恢复。旧App缓存仍有构建脚本二进制，需要在恢复缓存后触碰build.rs以引导新脚本；App消费者复验仍待结果，不能据独立库绿灯称全App构建通过。
+- `8c083fc6` run `41508587588` job `125494185669`：命令边界4项3过1败，明确OPENCODE_BIN本命令路径被错误换成默认opencode。`94eab557`修正命令环境大小写/最后覆盖/空值默认及Cursor变量后，两平台job `125497575127`、`125497575295` 均4/0/0，PTY及树回归继续通过。全套terminal默认测试尚未验证，不能以定向测试替代。
+- 独立对抗审查发现ASCII-only PowerShell单引号编码遗漏U+2018–U+201B，及全局Cursor模板替换会改写Claude正文。`4c2dd0dd` run `41510462982` job `125500693291` 实际6项4过2败：正文被拆成两个错误路径参数，真实PowerShell5.1解析器在U+2018路径处得到额外/畸形语句。`0b1c6ceb`限制只替换开头程序模板、逐字符重复五种单引号，等待两平台六项及真实解析器复验。
+- 原有zsh profile顺序测试依赖Unix权限API，已仅限Unix编译；未增加ignore。下一门禁执行Windows完整`cargo test -p terminal`，暴露并逐项迁移其余Unix shell夹具，同时保留原平台行为和Windows原生对等验收。

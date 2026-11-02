@@ -196,6 +196,14 @@ jobs:
           $code = $LASTEXITCODE
           $ran = Select-String -Path artifacts/conpty-compatibility/agent-command.log -Pattern 'test result: ok\. 6 passed; 0 failed; 0 ignored;' -Quiet
           if ($code -ne 0 -or -not $ran) { exit 1 }
+      - name: Require the complete default terminal crate suite
+        if: always()
+        shell: pwsh
+        run: |
+          cargo test --locked -p terminal -- --nocapture 2>&1 | Tee-Object artifacts/conpty-compatibility/terminal-crate.log
+          $code = $LASTEXITCODE
+          $ran = Select-String -Path artifacts/conpty-compatibility/terminal-crate.log -Pattern 'test result: ok\. [1-9][0-9]* passed; 0 failed; 0 ignored;' -Quiet
+          if ($code -ne 0 -or -not $ran) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
