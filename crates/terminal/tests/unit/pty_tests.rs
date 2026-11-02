@@ -188,6 +188,7 @@ fn test_spawn_command_uses_configured_cwd() {
 ///   - 负断言：输出不应包含 "command not found"，否则复现 GUI 环境下 zoxide 缺失
 ///   - 正断言：zsh 在 3 秒内退出，证明 .zshrc 的 exit 被执行
 #[test]
+#[cfg(unix)]
 fn test_zsh_login_shell_loads_profile_path_before_zshrc_zoxide_init() {
     use std::os::unix::fs::PermissionsExt;
 
