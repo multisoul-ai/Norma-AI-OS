@@ -39,7 +39,7 @@ class PackageTests(unittest.TestCase):
 
     def write_manifest(self, root):
         files = {path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
-                 for path in root.rglob('*') if path.is_file() and path.name != 'manifest.json'}
+                 for path in root.rglob('*') if path.is_file() and path != root / 'manifest.json'}
         (root / 'manifest.json').write_text(json.dumps({'source_sha': 'fixture', 'files': files}),
                                             encoding='utf-8')
 

@@ -118,3 +118,6 @@ Windows native run `41477762062`，attempt 1，job `125387736616` 已完成失�
 - 双向非零写探测导致 AF_UNIX 原未读内容消失并返回 10054，数据完整性断言确实失败。因此该探测被撤回，不能用于产品“检测关闭”；恢复只读诊断及原正文完整性断言。
 - 原始 ConPTY 测试未像App处理协议查询，10秒超时。portable-pty 0.9 的 Windows实现启用了 INHERIT_CURSOR；改为真正 TerminalSession 的 drain/Grid/DSR 路径验证，仍保留原10秒、可见唯一标记和正常退出断言，不新增生产绕过。
 - `52a3aed5` 的 sharing violation 修复已正常提交；将与上述夹具修正及 CRT 必需门槛红灯测试一起推送复验。恢复文件 keep 失败风险、严格 socket 关闭及真实 Agent 仍未关闭。
+
+- `bbaacab9` script job `125403140004`：report 18 项仍通过，package 正向夹具暴露一个构造错误（误把嵌套的扩展 manifest 也排除）；本轮尚不能据此证明 CRT 反例。先修夹具，仅排除根 manifest，再复验 CRT 反例。为保证脚本 RED→GREEN 不等待长 Rust/App 回归，把小型脚本检查移至独立 Windows workflow；原生和 Mac 验收仍独立保留。
+- 本地临时文件创建曾报磁盘空间不足；检查时可用空间已恢复到 7.9 GiB，未删除代码、缓存或证据，测试已用 apply_patch 写入。正常 hook 已执行，其余测试仍只在 runner 运行。
