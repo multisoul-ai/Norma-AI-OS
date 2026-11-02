@@ -108,3 +108,13 @@ G1、G2 的纯协议夹具可以与 G3 的编译调查交错进行；发布包�
 
 - 原子替换共享句柄修复候选：`NamedTempFile::into_temp_path()` 先关闭可写句柄，仍保留路径的清理/keep 所有权。Microsoft `ReplaceFileW` 文档明确 replacement 打开“不指定 sharing mode”；独立审查未发现本次路径/回滚所有权回归。真实旧错误详情及修复后结果以 runner 为准，不以 API 文档代替测试。文档来源：https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew 。
 - 增加 GitHub macOS 定向域层与 App 单测回归，固定 Rust 1.91.1；并保留当前原生诊断 run 完成，后续推送不再自动取消它。两套 runner 的编译及测试不在本地重跑。
+
+## G1/G2 最新诊断（`2c315b29`）
+
+Windows native run `41477762062`，attempt 1，job `125387736616` 已完成失败：
+
+- workspace lib 23 过/1 败：冲突恢复明确为 OS error 32（sharing violation）；`content_platform` 同样失败。Python launcher/专属 Job 子孙回收本轮通过，不能据单轮结果宣称既有时序问题永久消失。
+- norma lib 30 过/1 败，严格 3 秒关闭仍失败；独立 `codex_control_shutdown` 也失败（方向=true，关闭写端=true），前轮通过不覆盖本轮失败。
+- 双向非零写探测导致 AF_UNIX 原未读内容消失并返回 10054，数据完整性断言确实失败。因此该探测被撤回，不能用于产品“检测关闭”；恢复只读诊断及原正文完整性断言。
+- 原始 ConPTY 测试未像App处理协议查询，10秒超时。portable-pty 0.9 的 Windows实现启用了 INHERIT_CURSOR；改为真正 TerminalSession 的 drain/Grid/DSR 路径验证，仍保留原10秒、可见唯一标记和正常退出断言，不新增生产绕过。
+- `52a3aed5` 的 sharing violation 修复已正常提交；将与上述夹具修正及 CRT 必需门槛红灯测试一起推送复验。恢复文件 keep 失败风险、严格 socket 关闭及真实 Agent 仍未关闭。
