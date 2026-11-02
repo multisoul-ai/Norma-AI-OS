@@ -13,3 +13,6 @@ pub mod protocol;
 
 mod file_identity;
 pub mod private_fs;
+
+mod route_id;
+pub use route_id::new_route_id;
