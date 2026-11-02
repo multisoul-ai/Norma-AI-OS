@@ -193,3 +193,17 @@ W01–W12的整体门槛仍未全部满足；没有生成候选包或同包新ru
 - Mac旧source run `41513185652` 的域层完成后，App在链接阶段缺`sherpa-onnx-c-api`，不是断言通过。仅touch旧build.rs未重建保留输出；后续在原生库缺失时精确清理该依赖的build/fingerprint/Rust输出以强制重新下载，不删除其他crate或系统工具。
 - `00c3e7b0` build run `41518749964` job `125528981830`：App adapter 17/1/0，唯一失败正是新增中文空格Windows路径的Resources断言（实际None，预期exe旁Resources）。默认App check仍通过；`c78787fe`修复平台布局并接入release/同包消费，等待绿灯。
 - 独立交付审查发现helper名称和无HOME路径缺口。`c78787fe` native run `41521019369` job `125536743947` 的三项真实Windows回归均为RED：已编译.exe无法解析；源/托管文件名无.exe；无HOME子进程得到相对`.claude`目录。`0e3e7e87`使用原生EXE_SUFFIX和dirs::home_dir修复，旧Unix行为保持；同包smoke新增真实hook帮助与browser helper拒绝未授权caller检查。复验待执行，不能提前标PASS。
+
+
+## 独立 follow-up 分支与最新绿灯（2026-11-02）
+
+为避免诊断推送不断取消候选构建，后续聚焦验证使用`codex/windows-audio-20261102`，worktree为`/private/tmp/norma-windows-audio-20261102`；虽然分支名包含audio，本批先处理真实构建和终端阻塞，音频后端尚未实现。通过后以fast-forward接回PR分支，不合并dev/main。
+
+- 主分支`7eb9b85e`的标准CI run `41522506966`，attempt 1因macOS ARM hosted容量不足、15分钟未分配runner而取消；仅对该ENV失败重试一次，attempt 2 check/fmt/Clippy及护栏全部通过。断言失败没有据此重跑覆盖。
+- 同源native run `41522490922` job `125541769305`：helper三项RED→GREEN（真实PE同目录发现/执行、源和托管.exe名、无HOME子进程用户目录）。norma31项与慢端/关闭、workspace全部继续通过。但其PTY三项10秒无输出失败；两个compatibility job在同一`windows-2025-vs2026/20261030.294.1`镜像却均通过，不能认定ENV或靠预热跳过。
+- 同源build job `125543493792`实际暴露Windows同样缺Sherpa native lib，没有release包。Mac content copy job `125541769616`也在同一链接前置失败。旧仅删除整个lib目录的回归未覆盖“保留空目录”的真实裁剪。
+- cache RED：`7b26a409` run `41524676555` job `125549239559`，初始真实构建及删除整个lib目录后重建均通过；仅删所有native库文件、保留目录及build-script输出后，第三次真实build失败缺`sherpa-onnx-c-api`。`5019710d`改为检查全部必需非空库文件；run `41526454004` Windows job `125555320774`、Mac job `125555321528`均通过完整目录删除、空目录及保留C API但缺另一库三个场景。
+- 同步输出RED：`ced42697` run `41526089514`，idle同步批次1败、显式ESU1过。四项补强后`10176f24` run `41528850944`全部通过，完整terminal为83项单测及两组各3项集成测试通过，0 ignored。计时测试锚定真实vte deadline，覆盖到期前/到期、显式ESU、Exited(7)及已kill后仅channel EOF；不sleep，也不向死后端回复DSR。独立审查未发现新计时/重复回写反例。该job原始ConPTY首帧是CSI6n且已正确回复，不包含2026，原三项同时空白的因果仍保留未确认，不能把同步修复冒充该次故障已定位。
+- CRT RED：同`10176f24`探针确认VS18默认CRT元数据为14.51.36231/VC145，而旧选择得到14.44.35112/VC143；独立中文空格路径、ARM64排除及版本测试明确失败。`e774d0f4`依据实际`Microsoft.VCRedistVersion.default.txt`选择匹配的完整x64 CRT，不向旧版本静默回退；run `41529631242`整体PASS，四项同步、完整terminal和真实SDK选择一并通过。生产workflow在长构建前验证CRT，再复制同一目录。
+
+候选构建尚未完成；真实App窗口、保存重开、WebView2、双语/主题、音频等完整软件矩阵仍未关闭，Goal保持ACTIVE。真实Claude/Codex调用继续由用户承接。标准CI保持原有macos-latest检查环境，不以换OS跳过失败。

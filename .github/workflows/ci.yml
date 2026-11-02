@@ -12,7 +12,7 @@ concurrency:
 jobs:
   rust-checks:
     name: rust checks
-    runs-on: macos-15
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
