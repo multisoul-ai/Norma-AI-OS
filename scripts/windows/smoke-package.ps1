@@ -18,6 +18,10 @@ python scripts/windows/package.py --verify $root
 if ($LASTEXITCODE -ne 0) { throw 'Candidate integrity validation failed' }
 $version = & (Join-Path $root 'norma.exe') --version
 if ($LASTEXITCODE -ne 0) { throw 'Packaged CLI did not execute' }
+$hook = Start-Process -FilePath (Join-Path $root 'multisoul-agent-hook.exe') -ArgumentList '--help' -WorkingDirectory $root -Wait -PassThru -RedirectStandardOutput (Join-Path $Output 'hook-help.log') -RedirectStandardError (Join-Path $Output 'hook-stderr.log')
+if ($hook.ExitCode -ne 0 -or -not (Select-String -Path (Join-Path $Output 'hook-help.log') -Pattern 'forward' -Quiet)) { throw 'Packaged hook helper did not execute its real CLI' }
+$browser = Start-Process -FilePath (Join-Path $root 'norma-browser-auth-host.exe') -ArgumentList 'unauthorized-probe-origin' -WorkingDirectory $root -Wait -PassThru -RedirectStandardOutput (Join-Path $Output 'browser-host-stdout.log') -RedirectStandardError (Join-Path $Output 'browser-host-stderr.log')
+if ($browser.ExitCode -ne 1 -or -not (Select-String -Path (Join-Path $Output 'browser-host-stderr.log') -Pattern 'caller was not the authorized Norma Chrome extension' -Quiet)) { throw 'Packaged browser helper did not enforce its caller boundary' }
 $manifest = Get-Content (Join-Path $root 'manifest.json') -Raw | ConvertFrom-Json
 if ($manifest.source_sha -ne $env:GITHUB_SHA) { throw 'Candidate source identity does not match this workflow' }
     $process = Start-Process -FilePath (Join-Path $root 'norma-os.exe') -WorkingDirectory $root -PassThru -RedirectStandardOutput (Join-Path $Output 'stdout.log') -RedirectStandardError (Join-Path $Output 'stderr.log')
@@ -45,7 +49,7 @@ if ($manifest.source_sha -ne $env:GITHUB_SHA) { throw 'Candidate source identity
     if (-not [NormaWindow]::PostMessage($window, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)) { throw 'Unable to close the candidate window' }
     if (-not $process.WaitForExit(10000)) { throw 'Candidate remained running after closing its last window' }
     if ($process.ExitCode -ne 0) { throw "Candidate exited with $($process.ExitCode)" }
-    @{ status = 'PASS'; source_sha = $manifest.source_sha; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; version = $version; width = $width; height = $height; exit_code = $process.ExitCode; scope = 'Packaged executable, visible window and normal last-window close; no model task' } | ConvertTo-Json | Set-Content (Join-Path $Output 'report.json')
+    @{ status = 'PASS'; source_sha = $manifest.source_sha; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; version = $version; width = $width; height = $height; exit_code = $process.ExitCode; scope = 'Packaged CLI, hook help, browser caller rejection, window and normal last-window close; no model task' } | ConvertTo-Json | Set-Content (Join-Path $Output 'report.json')
 } catch {
     @{ status = 'FAIL'; source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; error = $_.Exception.Message } | ConvertTo-Json | Set-Content (Join-Path $Output 'report.json')
     throw
