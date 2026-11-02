@@ -2,6 +2,37 @@ use super::*;
 use crossbeam_channel::unbounded;
 use std::time::Duration;
 
+#[path = "../support/native_command.rs"]
+mod native;
+
+fn collect(
+    pty: &mut PtyHandle,
+    events: &crossbeam_channel::Receiver<PtyEvent>,
+    cols: u16,
+    rows: u16,
+) -> (String, Option<Option<i32>>) {
+    let mut grid = crate::TerminalGrid::new(cols, rows);
+    let mut bytes = Vec::new();
+    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+    while std::time::Instant::now() < deadline {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        match events.recv_timeout(remaining.min(Duration::from_millis(200))) {
+            Ok(PtyEvent::Output(chunk)) => {
+                let reply = grid.advance(&chunk);
+                if !reply.is_empty() {
+                    pty.write(&reply).expect("真实终端协议响应");
+                }
+                bytes.extend(chunk);
+            }
+            Ok(PtyEvent::Exited { code }) => {
+                return (String::from_utf8_lossy(&bytes).into_owned(), Some(code))
+            }
+            Err(_) => {}
+        }
+    }
+    (String::from_utf8_lossy(&bytes).into_owned(), None)
+}
+
 /// 冒烟集成测试：spawn `/bin/sh`，写入命令 `printf 'hello-pty'; exit`，
 /// 从通道收到含该文本的输出，最终收到 Exited。
 ///
@@ -20,37 +51,32 @@ use std::time::Duration;
 /// 预期结果：
 ///   - 正断言：累积输出字节中包含子串 "hello-pty"
 ///   - 正断言：在 3 秒内收到至少一个 Exited 事件
+///
+/// Windows对等：cmd.exe执行cls/echo/exit，真实Grid回复DSR，仍要求3秒内退出0。
 #[test]
 fn test_spawn_echo_emits_output_and_exit() {
     let (tx, rx) = unbounded();
-    let mut pty = PtyHandle::spawn("/bin/sh", 80, 24, tx).expect("spawn sh");
-    pty.write(b"printf 'hello-pty'; exit\n").expect("write cmd");
-
-    let mut acc = Vec::new();
-    let mut saw_exit = false;
-    let deadline = std::time::Instant::now() + Duration::from_secs(3);
-    while std::time::Instant::now() < deadline {
-        match rx.recv_timeout(Duration::from_millis(200)) {
-            Ok(PtyEvent::Output(b)) => acc.extend_from_slice(&b),
-            Ok(PtyEvent::Exited { .. }) => {
-                saw_exit = true;
-                break;
-            }
-            Err(_) => {}
-        }
-    }
-    let text = String::from_utf8_lossy(&acc);
+    let mut pty = PtyHandle::spawn(native::shell(), 80, 24, tx).expect("spawn native shell");
+    let input: &[u8] = if cfg!(windows) {
+        b"cls & echo hello-pty & exit\r"
+    } else {
+        b"printf 'hello-pty'; exit\n"
+    };
+    pty.write(input).expect("write native command");
+    let (text, exit) = collect(&mut pty, &rx, 80, 24);
     assert!(
         text.contains("hello-pty"),
-        "PTY 输出应包含 'hello-pty'，实际收到: {:?}",
-        text
+        "PTY应收到原生shell真实输出: {text:?}"
     );
     assert!(
-        !text.contains("command not found"),
-        "PTY 输出不应含错误信息，若有说明命令执行失败: {:?}",
-        text
+        !text.contains("command not found") && !text.contains("is not recognized"),
+        "原生命令不能报未找到: {text:?}"
     );
-    assert!(saw_exit, "shell exit 后应在超时内收到 Exited 事件");
+    assert_eq!(
+        exit,
+        Some(Some(0)),
+        "原生shell必须在原3秒预算内正常退出0，不能只收到echo或未知退出"
+    );
 }
 
 /// spawn_command 为子进程补充 true color 终端环境变量。
@@ -69,39 +95,27 @@ fn test_spawn_echo_emits_output_and_exit() {
 ///   - 正断言：输出包含 "xterm-256color/truecolor"
 ///   - 负断言：输出不应包含 "/\r" 或 "/" 后为空，否则 COLORTERM 未注入
 ///   - 正断言：在 3 秒内收到 Exited
+///
+/// Windows对等：PowerShell读取同名环境变量，真实Grid处理DSR，保持3秒及完整输出断言。
 #[test]
 fn test_spawn_command_sets_truecolor_terminal_environment() {
     let (tx, rx) = unbounded();
-    let command =
-        PtyCommand::new("/bin/sh").args(["-c", "printf '%s/%s' \"$TERM\" \"$COLORTERM\""]);
-    let _pty = PtyHandle::spawn_command(command, 80, 24, tx).expect("spawn env command");
-
-    let mut acc = Vec::new();
-    let mut saw_exit = false;
-    let deadline = std::time::Instant::now() + Duration::from_secs(3);
-    while std::time::Instant::now() < deadline {
-        match rx.recv_timeout(Duration::from_millis(200)) {
-            Ok(PtyEvent::Output(b)) => acc.extend_from_slice(&b),
-            Ok(PtyEvent::Exited { .. }) => {
-                saw_exit = true;
-                break;
-            }
-            Err(_) => {}
-        }
-    }
-
-    let text = String::from_utf8_lossy(&acc);
+    let command = native::command(
+        "printf '%s/%s' \"$TERM\" \"$COLORTERM\"",
+        "[Console]::Write($env:TERM + '/' + $env:COLORTERM)",
+    );
+    let mut pty =
+        PtyHandle::spawn_command(command, 80, 24, tx).expect("spawn native environment command");
+    let (text, exit) = collect(&mut pty, &rx, 80, 24);
     assert!(
         text.contains("xterm-256color/truecolor"),
-        "子进程应看到 true color 终端环境，实际输出: {:?}",
-        text
+        "原生子进程必须看到完整truecolor环境: {text:?}"
     );
     assert!(
         !text.contains("/\r") && !text.ends_with('/'),
-        "COLORTERM 不应为空，否则 true color 程序可能不会输出 24-bit 颜色: {:?}",
-        text
+        "COLORTERM不能为空: {text:?}"
     );
-    assert!(saw_exit, "环境探测命令退出后应在超时内收到 Exited 事件");
+    assert_eq!(exit, Some(Some(0)), "环境探测必须在原3秒预算内正常退出0");
 }
 
 /// spawn_command 将 PtyCommand.cwd 传给子进程工作目录。
@@ -120,6 +134,8 @@ fn test_spawn_command_sets_truecolor_terminal_environment() {
 /// 预期结果：
 ///   - 正断言：输出包含 canonical cwd
 ///   - 负断言：输出不应等于当前测试进程工作目录
+///
+/// Windows对等：PowerShell打印Environment.CurrentDirectory；仅对期望展示路径去除Win32命名空间前缀。
 #[test]
 fn test_spawn_command_uses_configured_cwd() {
     let cwd = std::env::temp_dir().join(format!("multisoul-pty-cwd-{}", std::process::id()));
@@ -128,43 +144,24 @@ fn test_spawn_command_uses_configured_cwd() {
     let canonical_cwd = cwd.canonicalize().expect("cwd should canonicalize");
     let process_cwd = std::env::current_dir().expect("test should read process cwd");
     let (tx, rx) = unbounded();
-    let command = PtyCommand::new("/bin/sh")
-        .args(["-c", "printf '%s' \"$PWD\""])
-        .cwd(canonical_cwd.clone());
-
-    let _pty =
-        PtyHandle::spawn_command(command, 120, 24, tx).expect("spawn cwd command should work");
-
-    let mut acc = Vec::new();
-    let mut saw_exit = false;
-    let deadline = std::time::Instant::now() + Duration::from_secs(3);
-    while std::time::Instant::now() < deadline {
-        match rx.recv_timeout(Duration::from_millis(200)) {
-            Ok(PtyEvent::Output(bytes)) => acc.extend_from_slice(&bytes),
-            Ok(PtyEvent::Exited { .. }) => {
-                saw_exit = true;
-                break;
-            }
-            Err(_) => {}
-        }
-    }
+    let command = native::command(
+        "printf '%s' \"$PWD\"",
+        "[Console]::Write([Environment]::CurrentDirectory)",
+    )
+    .cwd(canonical_cwd.clone());
+    let mut pty = PtyHandle::spawn_command(command, 120, 24, tx).expect("spawn native cwd command");
+    let (text, exit) = collect(&mut pty, &rx, 120, 24);
     let _ = std::fs::remove_dir_all(&cwd);
-
-    let text = String::from_utf8_lossy(&acc);
+    let canonical = canonical_cwd.to_string_lossy();
+    let displayed = canonical.strip_prefix(r"\\?\").unwrap_or(&canonical);
+    assert_eq!(exit, Some(Some(0)), "cwd探测必须在原3秒预算内正常退出0");
     assert!(
-        saw_exit,
-        "cwd 探测命令执行结束后应在 3 秒内收到 Exited 事件"
-    );
-    assert!(
-        text.contains(canonical_cwd.to_string_lossy().as_ref()),
-        "子进程 PWD 应包含 configured cwd {:?}，实际输出: {:?}",
-        canonical_cwd,
-        text
+        text.contains(displayed),
+        "子进程必须打印配置目录{canonical_cwd:?}: {text:?}"
     );
     assert!(
         !text.trim().eq(process_cwd.to_string_lossy().as_ref()),
-        "子进程不应继续使用测试进程 cwd {:?}，说明 CommandBuilder::cwd 未生效",
-        process_cwd
+        "子进程不能残留测试进程目录{process_cwd:?}"
     );
 }
 
