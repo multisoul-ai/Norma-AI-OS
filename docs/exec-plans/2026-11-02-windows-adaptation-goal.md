@@ -137,3 +137,6 @@ Windows native run `41477762062`，attempt 1，job `125387736616` 已完成失�
 - Windows候选实现独立后台child.wait，锁外关闭ConPTY，reader排空后发布退出码；有界发送可由取消信号打断，关闭时不在前台等待输出。新增旧关闭语义的Windows2022 runner回归，主平台仍Windows2025。
 - Microsoft文档确认build26100(24H2)以前ClosePseudoConsole可能无限等待未关闭/未排空输出端；portable-pty0.9隐藏原读端的析构顺序需专门反例。引入同版本原始vendor及真实满管道/reader释放测试，先记录旧顺序结果，再改最小顺序；不升级依赖或缩减Windows11范围。
 - ACL夹具已确认同时阻止rollback。`SaveConflictRecovery`契约允许目标为draft、旧版本在recovery；现测试错误地假定已恢复。将区分rollback失败与仅keep失败两个严格场景，并补准确的双语副本角色提示。
+
+- `35d296ec` native run `41491899815`：TerminalSession 正常退出/1024行尾部+exit7两个案例在 Windows2022 job `125436762496`、Windows2025 job `125436762939`、主原生job `125436763338` 均真实通过（0 ignored）。ConPTY常规生命周期修复获得绿灯，不能延伸成取消/整树验收。
+- vendor回归原命令被Cargo拒绝：excluded依赖包含dev-dependencies，不能由root `-p`测试。实际未执行，不计成旧析构顺序红灯；改用独立manifest及原始vendor lockfile。退出码/实际test result双重门禁拒绝了空测试假绿。
