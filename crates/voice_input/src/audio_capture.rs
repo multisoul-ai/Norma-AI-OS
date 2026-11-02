@@ -4,8 +4,6 @@ use audio::{PcmAudioChunk, PcmFormat};
 use crossbeam_channel::Sender;
 use std::sync::Arc;
 
-const INPUT_BUS: usize = 0;
-const TAP_BUFFER_SIZE: u32 = 1_600; // requested tap size in frames (hint; HW may differ)
 pub const RECOGNIZER_SAMPLE_RATE_HZ: u32 = 16_000;
 pub const PCM_STREAM_SAMPLE_RATE_HZ: u32 = 16_000;
 
@@ -56,6 +54,13 @@ impl AudioCapture {
         }
         #[cfg(not(target_os = "macos"))]
         {
+            #[cfg(windows)]
+            if input_device_id.is_some() {
+                crate::resolve_audio_input_device_selection(
+                    input_device_id,
+                    &crate::list_audio_input_devices()?,
+                )?;
+            }
             let _ = sender;
             let _ = stats;
             let _ = input_device_id;
@@ -119,6 +124,9 @@ mod macos {
     };
     use std::cell::RefCell;
     use std::ptr::NonNull;
+
+    const INPUT_BUS: usize = 0;
+    const TAP_BUFFER_SIZE: u32 = 1_600; // requested tap size in frames (hint; HW may differ)
 
     type TapBlock = RcBlock<dyn Fn(NonNull<AVAudioPCMBuffer>, NonNull<AVAudioTime>)>;
 

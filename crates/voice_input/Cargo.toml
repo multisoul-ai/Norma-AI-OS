@@ -21,6 +21,9 @@ tracing.workspace = true
 asr.workspace = true
 tempfile.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.61.3", features = ["Devices_Enumeration", "Win32_Devices_FunctionDiscovery", "Win32_Media_Audio", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_System_WinRT", "Win32_UI_Shell_PropertiesSystem"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"
 objc2 = "0.6"

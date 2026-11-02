@@ -88,7 +88,12 @@ mod platform {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+mod platform {
+    pub(super) use crate::windows::list_audio_input_devices;
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 mod platform {
     use super::*;
 

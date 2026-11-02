@@ -7,6 +7,8 @@ mod resample;
 mod samples;
 mod stream;
 mod vad;
+#[cfg(windows)]
+mod windows;
 
 pub use audio_capture::{
     pcm16_bytes_from_f32_samples, pcm_stream_chunk_from_samples, AudioCapture,
