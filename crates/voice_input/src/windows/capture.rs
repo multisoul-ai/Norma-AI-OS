@@ -229,23 +229,15 @@ impl CaptureClient {
                 .GetBuffer(&mut data, &mut frames, &mut flags, None, None)
         }
         .map_err(capture_error)?;
-        let samples = if frames > self.frames
-            || (data.is_null() && frames != 0 && flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 == 0)
-        {
-            Err(VoiceInputError::Audio(
-                "Windows capture returned an invalid packet".into(),
-            ))
-        } else if frames == 0 || flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0 {
-            Ok(vec![0.0; frames as usize])
+        let silent = flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0;
+        let bytes = if frames <= self.frames && frames != 0 && !data.is_null() && !silent {
+            // WASAPI owns this memory until ReleaseBuffer. Bound the slice by the
+            // negotiated buffer size; do not assume f32 alignment of its pointer.
+            Some(unsafe { std::slice::from_raw_parts(data, frames as usize * 4) })
         } else {
-            // WASAPI owns this memory until ReleaseBuffer. Copy bytes instead of
-            // assuming its data pointer has Rust f32 slice alignment.
-            let bytes = unsafe { std::slice::from_raw_parts(data, frames as usize * 4) };
-            Ok(bytes
-                .chunks_exact(4)
-                .map(|bytes| f32::from_ne_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
-                .collect())
+            None
         };
+        let samples = decode_packet(bytes, frames, self.frames, silent);
         let released = unsafe { self.input.ReleaseBuffer(frames) }.map_err(capture_error);
         let samples = samples?;
         released?;
@@ -276,3 +268,29 @@ fn capture_error(error: ::windows::core::Error) -> VoiceInputError {
         audio_error(error)
     }
 }
+
+fn decode_packet(
+    bytes: Option<&[u8]>,
+    frames: u32,
+    capacity: u32,
+    silent: bool,
+) -> Result<Vec<f32>, VoiceInputError> {
+    let invalid = || VoiceInputError::Audio("Windows capture returned an invalid packet".into());
+    if frames > capacity {
+        return Err(invalid());
+    }
+    if frames == 0 || silent {
+        return Ok(vec![0.0; frames as usize]);
+    }
+    let bytes = bytes
+        .filter(|bytes| bytes.len() == frames as usize * 4)
+        .ok_or_else(invalid)?;
+    Ok(bytes
+        .chunks_exact(4)
+        .map(|bytes| f32::from_ne_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+        .collect())
+}
+
+#[cfg(test)]
+#[path = "../../tests/unit/windows_capture_tests.rs"]
+mod tests;
