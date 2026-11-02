@@ -263,6 +263,7 @@
   "drawers.content_atomic_unsupported": "This system does not support safe atomic file replacement",
   "drawers.content_git_failed": "Git operation failed: %{error}",
   "drawers.content_save_restored": "The file changed while saving. The disk version was restored; recover your draft from %{path}",
+  "drawers.content_save_restored_warning": "The disk version was restored; your draft is preserved at %{path}. File properties could not be updated: %{error}",
   "drawers.content_save_recovery": "Save conflict. The previous version is preserved at %{path}; check the disk: %{error}",
   "drawers.content_no_commits": "No commits",
   "drawers.content_unchanged": "Unchanged",

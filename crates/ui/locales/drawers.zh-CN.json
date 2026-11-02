@@ -263,6 +263,7 @@
   "drawers.content_atomic_unsupported": "当前系统不支持安全的原子交换保存",
   "drawers.content_git_failed": "Git 操作失败：%{error}",
   "drawers.content_save_restored": "保存时文件被外部修改，磁盘版本已恢复；草稿恢复副本：%{path}",
+  "drawers.content_save_restored_warning": "磁盘版本已恢复；草稿副本已保留于 %{path}。无法更新副本的文件属性：%{error}",
   "drawers.content_save_recovery": "保存冲突，旧版本已保留于 %{path}；请检查磁盘：%{error}",
   "drawers.content_no_commits": "尚无提交",
   "drawers.content_unchanged": "未修改",

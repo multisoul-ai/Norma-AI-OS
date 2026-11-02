@@ -11,6 +11,7 @@ on:
       - 'crates/terminal/**'
       - 'crates/app/src/preview/content_copy.rs'
       - 'crates/app/tests/unit/content_i18n_tests.rs'
+      - 'crates/app/src/settings/voice/view/gpt_live.rs'
       - 'crates/ui/locales/**'
       - 'scripts/*i18n.py'
       - 'vendor/portable-pty-0.9.0/**'
@@ -151,6 +152,9 @@ jobs:
           if-no-files-found: error
 
   macos-content-copy:
+    concurrency:
+      group: windows-port-content-copy-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: macos-latest
     timeout-minutes: 40
     env:
