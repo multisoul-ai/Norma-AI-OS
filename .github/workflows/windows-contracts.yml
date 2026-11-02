@@ -66,8 +66,6 @@ jobs:
           $results.relay = $LASTEXITCODE
           cargo test --locked -p terminal --test windows_pty -- --nocapture 2>&1 | Tee-Object artifacts/windows-contracts/conpty.log
           $results.conpty = $LASTEXITCODE
-          cargo test --locked -p terminal --test windows_process_tree -- --nocapture 2>&1 | Tee-Object artifacts/windows-contracts/process-tree.log
-          $results.process_tree = $LASTEXITCODE
           @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; os = [Environment]::OSVersion.VersionString; commands = $results } | ConvertTo-Json -Depth 4 | Set-Content artifacts/windows-contracts/report.json
           if (@($results.Values | Where-Object { $_ -ne 0 }).Count -gt 0) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -148,6 +146,14 @@ jobs:
           $sessionRan = Select-String -Path artifacts/conpty-compatibility/session.log -Pattern 'test result: ok\. [1-9][0-9]* passed; 0 failed; 0 ignored;' -Quiet
           @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; os = [Environment]::OSVersion.VersionString; close_exit = $close; session_exit = $session; close_tests_observed = $closeRan; session_tests_observed = $sessionRan } | ConvertTo-Json | Set-Content artifacts/conpty-compatibility/report.json
           if ($close -ne 0 -or $session -ne 0 -or -not $closeRan -or -not $sessionRan) { exit 1 }
+      - name: Require exact PTY process tree cleanup
+        if: always()
+        shell: pwsh
+        run: |
+          cargo test --locked -p terminal --test windows_process_tree -- --nocapture 2>&1 | Tee-Object artifacts/conpty-compatibility/process-tree.log
+          $code = $LASTEXITCODE
+          $ran = Select-String -Path artifacts/conpty-compatibility/process-tree.log -Pattern 'test result: ok\. 2 passed; 0 failed; 0 ignored;' -Quiet
+          if ($code -ne 0 -or -not $ran) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
