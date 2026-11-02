@@ -192,8 +192,6 @@ impl PtyHandle {
 
     /// 杀掉子进程（窗口关闭时调用，确保不留僵尸进程）。
     pub fn kill(&mut self) {
-        #[cfg(windows)]
-        self.master.cancel_forwarding();
         crate::process_tree::terminate_or_signal(self.child_process, self.child.as_mut());
     }
 }

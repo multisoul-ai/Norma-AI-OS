@@ -39,7 +39,8 @@ impl Master {
         drop(master);
     }
 
-    pub(super) fn cancel_forwarding(&self) {
+    // Failed construction has no subscriber. An installed PTY must still publish Exited on kill.
+    fn cancel_preparation_output(&self) {
         self.cancelled.store(true, Ordering::Release);
     }
 }
@@ -93,7 +94,7 @@ pub(super) fn start(
             let _ = finished.send(code);
         })
     {
-        master.cancel_forwarding();
+        master.cancel_preparation_output();
         let mut child = child.lock().unwrap_or_else(|error| error.into_inner());
         let _ = child.kill();
         let _ = child.wait();

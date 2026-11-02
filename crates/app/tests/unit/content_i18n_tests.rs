@@ -27,6 +27,7 @@ fn drawer_i18n_workbench_errors_preserve_raw_context_and_follow_locale() {
     );
     let restored = content_error(ContentError::SaveConflictRestored {
         recovery: "用户目录/草稿.txt".into(),
+        warning: None,
     });
     assert_eq!(restored.resolve_for(Locale::En), "The file changed while saving. The disk version was restored; recover your draft from 用户目录/草稿.txt", "恢复路径保持原文");
     let failed = content_error(ContentError::GitFailed("用户 hook: REJECTED".into()));
@@ -53,4 +54,24 @@ fn drawer_i18n_workbench_errors_preserve_raw_context_and_follow_locale() {
         "不能残留中文状态"
     );
     previous.apply();
+}
+
+/// 场景：磁盘已恢复，但草稿副本属性未能更新；提示必须准确表达两份内容及诊断。
+/// 构造：Restored携带中文草稿路径和原始属性错误，转换一次后分别读取中英文。
+/// 执行：走真实content_error展示边界及现有Locale解析。
+/// 预期：两种语言均说明磁盘已恢复、副本为草稿、属性警告保留，不能丢掉warning。
+#[test]
+fn drawer_i18n_restored_draft_retains_attribute_warning() {
+    let message = content_error(ContentError::SaveConflictRestored {
+        recovery: "用户目录/草稿.txt".into(),
+        warning: Some("os error 5".into()),
+    });
+    assert_eq!(message.resolve_for(Locale::En),
+        "The disk version was restored; your draft is preserved at 用户目录/草稿.txt. File properties could not be updated: os error 5",
+        "英文必须准确说明草稿副本及原始属性警告");
+    assert_eq!(
+        message.resolve_for(Locale::ZhCn),
+        "磁盘版本已恢复；草稿副本已保留于 用户目录/草稿.txt。无法更新副本的文件属性：os error 5",
+        "中文必须与英文保留相同角色和诊断"
+    );
 }

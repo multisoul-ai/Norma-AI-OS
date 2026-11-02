@@ -20,8 +20,8 @@ fn abandoned_reader_does_not_deadlock_full_pipe_close() {
             pixel_height: 0,
         })
         .expect("真实ConPTY");
-    let master = pair
-        .master
+    let erased: &dyn crate::MasterPty = pair.master.as_ref();
+    let master = erased
         .downcast_ref::<ConPtyMasterPty>()
         .expect("Windows master");
     let raw = master

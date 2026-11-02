@@ -36,8 +36,14 @@ pub enum ContentError {
     GitTimeout,
     AtomicUnsupported,
     GitFailed(String),
-    SaveConflictRestored { recovery: PathBuf },
-    SaveConflictRecovery { recovery: PathBuf, detail: String },
+    SaveConflictRestored {
+        recovery: PathBuf,
+        warning: Option<String>,
+    },
+    SaveConflictRecovery {
+        recovery: PathBuf,
+        detail: String,
+    },
     Diagnostic(String),
 }
 

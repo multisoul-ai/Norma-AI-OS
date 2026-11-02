@@ -39,7 +39,7 @@ pub(crate) fn content_error(error: ContentError) -> LocalizedText {
         ContentError::GitFailed(detail) => {
             return LocalizedText::new("drawers.content_git_failed").with_arg("error", detail)
         }
-        ContentError::SaveConflictRestored { recovery } => {
+        ContentError::SaveConflictRestored { recovery, .. } => {
             return LocalizedText::new("drawers.content_save_restored")
                 .with_arg("path", recovery.display())
         }

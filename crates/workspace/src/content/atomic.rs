@@ -53,17 +53,15 @@ pub(super) fn replace_checked(
 fn conflict_result(mut file: tempfile::TempPath, rollback: Result<()>) -> Result<()> {
     file.disable_cleanup(true);
     let recovery = file.to_path_buf();
-    let recovery = file
-        .keep()
-        .map_err(|error| ContentError::SaveConflictRecovery {
-            recovery,
-            detail: format!("{error}; rollback: {rollback:?}"),
-        })?;
+    let warning = file.keep().err().map(|error| error.to_string());
     match rollback {
-        Ok(()) => Err(ContentError::SaveConflictRestored { recovery }),
+        Ok(()) => Err(ContentError::SaveConflictRestored { recovery, warning }),
         Err(error) => Err(ContentError::SaveConflictRecovery {
             recovery,
-            detail: error.to_string(),
+            detail: match warning {
+                Some(warning) => format!("{error}; {warning}"),
+                None => error.to_string(),
+            },
         }),
     }
 }
