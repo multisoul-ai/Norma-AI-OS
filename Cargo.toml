@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 # Run vendored GPUI unit tests explicitly via its manifest, outside app-wide tests.
-exclude = ["vendor/gpui-0.2.2"]
+exclude = ["vendor/gpui-0.2.2", "vendor/portable-pty-0.9.0"]
 members = [
   "crates/media_store",
   "crates/model_store",
@@ -39,7 +39,7 @@ gpui = "=0.2.2"
 # Longbridge 组件库；与 gpui 0.2.2 对齐的 crates.io 版本（勿跟 git main，那会拉 Zed 最新 gpui）
 gpui-component = "=0.5.1"
 # 域层
-portable-pty = "0.9"
+portable-pty = "=0.9.0"
 alacritty_terminal = "=0.26"
 crossbeam-channel = "0.5"
 async-channel = "2"
@@ -97,6 +97,7 @@ norma = { path = "crates/norma" }
 # the same link across synchronous displayLayer paints instead of dropping and
 # recreating it on every repaint. See vendor/gpui-0.2.2/NORMA_PATCH.md.
 [patch.crates-io]
+portable-pty = { path = "vendor/portable-pty-0.9.0" }
 gpui = { path = "vendor/gpui-0.2.2" }
 sherpa-onnx-sys = { path = "vendor/sherpa-onnx-sys-1.13.3" }
 

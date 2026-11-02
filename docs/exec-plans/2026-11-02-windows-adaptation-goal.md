@@ -129,3 +129,11 @@ Windows native run `41477762062`，attempt 1，job `125387736616` 已完成失�
 - 同轮 TerminalSession 已收到 PowerShell 可见标记，但状态仍 Running：DSR修正仅解决了启动，ConPTY 的进程退出/输出EOF仍有生命周期缺口。保留10秒与正常退出断言，不能记为通过。Python进程夹具本轮也失败（1.56秒时连启动标记都未生成），仍需消除启动速度对清理断言的干扰。
 - `0edc0149`，script run `41482927165`，job `125405674109`：报告18项通过；包正向及Resources反例通过，CRT缺失反例单独失败（5项中1败）。新增三项MSVC CRT文件作为必需清单，等待下一轮。
 - Windows 与 macOS 长测试改用各自的job并发锁，避免Mac完整App测试阻塞Windows原生反馈；已启动的验收保留完成。脚本检查继续独立Windows runner。
+
+## ConPTY 生命周期回归
+
+- `863a40b9` script run `41484967761`，job `125412767292`：报告18项和包5项通过。native job `125412769903` 仍有文件ACL角色断言、严格socket、ConPTY退出红灯；不得把脚本绿灯当全量通过。
+- `efc48392` native run `41486346012`，job `125417589042`：正常退出与1024条记录/唯一尾部/exit7两个真实TerminalSession测试均收到正文，但10秒后仍Running。
+- Windows候选实现独立后台child.wait，锁外关闭ConPTY，reader排空后发布退出码；有界发送可由取消信号打断，关闭时不在前台等待输出。新增旧关闭语义的Windows2022 runner回归，主平台仍Windows2025。
+- Microsoft文档确认build26100(24H2)以前ClosePseudoConsole可能无限等待未关闭/未排空输出端；portable-pty0.9隐藏原读端的析构顺序需专门反例。引入同版本原始vendor及真实满管道/reader释放测试，先记录旧顺序结果，再改最小顺序；不升级依赖或缩减Windows11范围。
+- ACL夹具已确认同时阻止rollback。`SaveConflictRecovery`契约允许目标为draft、旧版本在recovery；现测试错误地假定已恢复。将区分rollback失败与仅keep失败两个严格场景，并补准确的双语副本角色提示。
