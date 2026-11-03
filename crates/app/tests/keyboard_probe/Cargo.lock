@@ -157,12 +157,15 @@ name = "app-keyboard-probe"
 version = "0.1.0"
 dependencies = [
  "gpui",
+ "log",
  "norma",
+ "raw-window-handle",
  "serde",
  "serde_json",
  "storage",
  "tempfile",
  "ui",
+ "windows 0.61.3",
 ]
 
 [[package]]
