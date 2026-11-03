@@ -5,7 +5,14 @@ impl MultisoulApp {
     pub(crate) fn drain_browser_events(&mut self, cx: &mut Context<Self>) -> bool {
         let mut changed = false;
         for event in self.browsers.drain_events() {
+            let Some(event) = self.browsers.consume_event(event) else {
+                continue;
+            };
             match event {
+                #[cfg(windows)]
+                BrowserEvent::Native(_) => {
+                    unreachable!("native envelopes must resolve at consumption")
+                }
                 #[cfg(windows)]
                 BrowserEvent::NativeViewFailed { node_id, message } => {
                     self.browsers.fail_native_view(node_id);

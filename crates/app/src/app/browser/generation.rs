@@ -13,7 +13,7 @@ impl GenerationOwner {
         Generation(Arc::downgrade(&self.0))
     }
     pub(crate) fn invalidate(&self) {
-        self.0.store(false, Ordering::Release);
+        self.lease().invalidate();
     }
 }
 impl Drop for GenerationOwner {
@@ -34,6 +34,11 @@ impl Generation {
             .upgrade()
             .is_some_and(|live| live.load(Ordering::Acquire))
     }
+    pub(crate) fn invalidate(&self) {
+        if let Some(live) = self.0.upgrade() {
+            live.store(false, Ordering::Release);
+        }
+    }
     pub(crate) fn queue<T>(&self, event: T) -> Queued<T> {
         Queued {
             generation: self.clone(),
@@ -48,7 +53,6 @@ pub(crate) struct Queued<T> {
 }
 impl<T> Queued<T> {
     pub(crate) fn consume(self) -> Option<T> {
-        // Initially preserve the legacy unconditional delivery for the focused RED witness.
-        Some(self.event)
+        self.generation.is_current().then_some(self.event)
     }
 }

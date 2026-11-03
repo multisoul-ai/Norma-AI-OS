@@ -19,6 +19,8 @@ mod chrome_auth_tests;
 mod cef_backend;
 mod engine;
 mod events;
+#[cfg(windows)]
+mod generation;
 mod load_timeline;
 mod location;
 pub(crate) mod native;
@@ -77,6 +79,8 @@ pub(crate) struct BrowserAddressEdit {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum BrowserEvent {
+    #[cfg(windows)]
+    Native(generation::Queued<Box<BrowserEvent>>),
     #[cfg(windows)]
     NativeViewFailed {
         node_id: NodeId,

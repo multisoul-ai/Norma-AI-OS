@@ -1,12 +1,13 @@
 //! WebView2 pumps Win32 messages while constructing COM controllers. All native work
 //! must run on the foreground STA with no GPUI App or RefCell borrow held.
+use super::super::generation::{Generation, GenerationOwner};
 use super::{BrowserEvent, NodeId, Sender};
 use gpui::{AnyWindowHandle, App, AppContext, AsyncApp, ForegroundExecutor, Window};
 use raw_window_handle::{HandleError, HasWindowHandle, RawWindowHandle, WindowHandle};
 use std::{
     cell::{Cell, RefCell},
     collections::VecDeque,
-    rc::{Rc, Weak},
+    rc::Rc,
 };
 
 type Action = Box<dyn FnOnce(Result<&wry::WebView, &str>)>;
@@ -42,15 +43,15 @@ impl HasWindowHandle for Parent {
 
 #[derive(Clone)]
 pub(super) struct Events {
-    owner: Weak<()>,
+    owner: Generation,
     lease: Lease,
     sender: Option<Sender<BrowserEvent>>,
 }
 impl Events {
     pub(super) fn send(&self, event: BrowserEvent) {
-        if self.owner.upgrade().is_some() && self.lease.alive() {
+        if self.owner.is_current() && self.lease.alive() {
             if let Some(sender) = &self.sender {
-                let _ = sender.send(event);
+                let _ = sender.send(BrowserEvent::Native(self.owner.queue(Box::new(event))));
             }
         }
     }
@@ -63,10 +64,18 @@ struct State {
     pending: RefCell<VecDeque<Pending>>,
     running: Cell<bool>,
     cancelled: Cell<bool>,
+    generation: Generation,
+}
+impl State {
+    fn cancel(&self) {
+        self.cancelled.set(true);
+        self.generation.invalidate();
+        self.pending.borrow_mut().clear();
+    }
 }
 pub(super) struct DeferredWebView {
     state: Rc<State>,
-    _owner: Rc<()>,
+    _owner: GenerationOwner,
     pub(super) events: Events,
 }
 impl DeferredWebView {
@@ -83,9 +92,9 @@ impl DeferredWebView {
             window: window.window_handle(),
             parent,
         };
-        let owner = Rc::new(());
+        let owner = GenerationOwner::new();
         let events = Events {
-            owner: Rc::downgrade(&owner),
+            owner: owner.lease(),
             lease: lease.clone(),
             sender,
         };
@@ -97,6 +106,7 @@ impl DeferredWebView {
             pending: RefCell::new(VecDeque::new()),
             running: Cell::new(true),
             cancelled: Cell::new(false),
+            generation: owner.lease(),
         });
         let weak = Rc::downgrade(&state);
         let builder = builder(events.clone());
@@ -192,8 +202,7 @@ impl DeferredWebView {
 }
 impl Drop for DeferredWebView {
     fn drop(&mut self) {
-        self.state.cancelled.set(true);
-        self.state.pending.borrow_mut().clear();
+        self.state.cancel();
         let native = self.state.native.borrow_mut().take();
         // Closing a COM controller may pump messages too; never destroy it from an App update.
         self.state
@@ -225,8 +234,7 @@ fn drain(state: &Rc<State>) {
     let failure = state.failure.borrow().clone();
     for _ in 0..32 {
         if state.cancelled.get() || !state.lease.alive() {
-            state.cancelled.set(true);
-            state.pending.borrow_mut().clear();
+            state.cancel();
             return; // native is dropped here, outside the App borrow.
         }
         let pending = { state.pending.borrow_mut().pop_front() };
@@ -238,6 +246,7 @@ fn drain(state: &Rc<State>) {
         );
     }
     if state.cancelled.get() || !state.lease.alive() {
+        state.cancel();
         return;
     }
     state.native.replace(native);

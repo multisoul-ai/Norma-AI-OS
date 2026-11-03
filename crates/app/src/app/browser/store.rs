@@ -90,18 +90,23 @@ impl BrowserStore {
                 })
         }));
         events
-            .into_iter()
-            .filter_map(|event| match event {
-                BrowserEvent::LocationChanged { node_id, url } => {
-                    self.accept_location_change(node_id, url)
-                }
-                BrowserEvent::PageLoad { node_id, phase, at } => {
-                    self.record_page_load(node_id, phase, at);
-                    None
-                }
-                event => Some(event),
-            })
-            .collect()
+    }
+
+    /// Resolve each queued native lease immediately before applying the event, including
+    /// events invalidated by a preceding delivery in the same drained batch.
+    pub(crate) fn consume_event(&mut self, event: BrowserEvent) -> Option<BrowserEvent> {
+        match event {
+            #[cfg(windows)]
+            BrowserEvent::Native(queued) => self.consume_event(*queued.consume()?),
+            BrowserEvent::LocationChanged { node_id, url } => {
+                self.accept_location_change(node_id, url)
+            }
+            BrowserEvent::PageLoad { node_id, phase, at } => {
+                self.record_page_load(node_id, phase, at);
+                None
+            }
+            event => Some(event),
+        }
     }
 
     pub(crate) fn warm_up(&mut self, window: &mut Window, _cx: &gpui::App) {
