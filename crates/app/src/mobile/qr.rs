@@ -69,6 +69,7 @@ fn native_qr_pixels_round_trip_through_vision() {
     );
     let temp = tempfile::tempdir().expect("隔离 QR 目录");
     let path = temp.path().join("code.png");
+    let decoded = temp.path().join("decoded.txt");
     image.save(&path).expect("保存测试图片");
     let output = std::process::Command::new("/usr/bin/swift")
         .arg(concat!(
@@ -76,6 +77,7 @@ fn native_qr_pixels_round_trip_through_vision() {
             "/../../scripts/check-norma-qr.swift"
         ))
         .arg(path)
+        .arg(&decoded)
         .output()
         .expect("独立 Apple Vision 验证");
     assert!(
@@ -83,7 +85,7 @@ fn native_qr_pixels_round_trip_through_vision() {
         "原生相机识别协议必须可解码生成的像素"
     );
     assert_eq!(
-        String::from_utf8(output.stdout).expect("UTF8").trim(),
+        std::fs::read_to_string(decoded).expect("独立解码结果必须是完整UTF8文件"),
         payload,
         "内容不能被镜像、裁切或编码转换破坏"
     );

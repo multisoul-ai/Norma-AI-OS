@@ -1,0 +1,46 @@
+name: Windows port macOS regression fixes
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/windows-audio-*']
+    paths: ['scripts/check-norma-qr.swift', 'crates/app/src/mobile/qr.rs', 'crates/runtime/tests/opencode_foreground.rs', 'crates/runtime/tests/support/opencode_foreground.rs', '.github/workflows/windows-macos-fixes.yml']
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_TERM_COLOR: never
+jobs:
+  focused-regression:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          lfs: true
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-port-macos-regression-native-watch-v2
+          cache-on-failure: true
+      - uses: actions/cache@v4
+        with:
+          path: target/sherpa-onnx-prebuilt
+          key: sherpa-prebuilt-${{ runner.os }}-${{ runner.arch }}-1.13.3-static
+      - name: Require original foreground and exact QR round trip
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/macos-fixes
+          rustc -vV | tee artifacts/macos-fixes/rustc.log
+          cargo test --locked -p app --lib native_qr_pixels_round_trip_through_vision -- --nocapture 2>&1 | tee artifacts/macos-fixes/qr.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: macos-fixes-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/macos-fixes/
+          if-no-files-found: error
+          retention-days: 3
