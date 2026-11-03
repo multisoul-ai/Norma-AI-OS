@@ -1,9 +1,14 @@
 name: Windows port macOS regression fixes
 on:
   workflow_dispatch:
+    inputs:
+      full_app:
+        description: Run the complete macOS App test harness after the focused regressions
+        type: boolean
+        default: false
   push:
     branches: ['codex/windows-audio-*']
-    paths: ['crates/app/tests/unit/voice_settings_redesign_tests.rs', 'vendor/gpui-0.2.2/src/app/test_context.rs', 'scripts/check-norma-qr.swift', 'crates/app/src/mobile/qr.rs', 'crates/runtime/tests/opencode_foreground.rs', 'crates/runtime/tests/support/opencode_foreground.rs', '.github/workflows/windows-macos-fixes.yml']
+    paths: ['crates/app/tests/unit/voice_settings_redesign_tests.rs', 'vendor/gpui-0.2.2/src/app/test_context.rs', 'scripts/check-norma-qr.swift', 'crates/app/src/mobile/qr.rs', 'crates/runtime/tests/opencode_foreground.rs', 'crates/runtime/tests/support/opencode_foreground.rs']
 permissions:
   contents: read
 env:
@@ -13,7 +18,7 @@ env:
 jobs:
   focused-regression:
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -50,6 +55,12 @@ jobs:
         run: |
           set -o pipefail
           cargo test --locked -p app --lib voice_redesign_task_layout_and_mode_persistence -- --nocapture 2>&1 | tee artifacts/macos-fixes/azure.log
+      - name: Require the complete macOS App regression harness
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.full_app
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --locked --no-fail-fast -p app --lib 2>&1 | tee artifacts/macos-fixes/app-full.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
