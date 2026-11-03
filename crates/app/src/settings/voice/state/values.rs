@@ -29,6 +29,7 @@ pub(super) const KEY_DOUBAO_INTERACTION_MODE: &str = "voice.doubao.interaction_m
 pub(super) const KEY_SINGLE_VOICE_COMMAND_TRIGGER: &str = "voice.single_voice_command.trigger";
 pub(super) const LEGACY_KEY_DICTATION_TRIGGER: &str = "voice.dictation.trigger";
 pub(super) const KEY_ASR_MODEL_ID: &str = "voice.asr.model_id";
+pub(super) const KEY_LOCAL_ASR_PROVIDER: &str = "voice.asr.local_provider";
 pub(super) const KEY_ASR_PROVIDER: &str = "voice.asr.provider";
 pub(super) const KEY_ASR_AZURE_REGION: &str = "voice.asr.azure.region";
 pub(super) const KEY_ASR_AZURE_LOCALE: &str = "voice.asr.azure.locale";
@@ -65,6 +66,7 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) dictation_trigger: Option<DictationTrigger>,
     pub(crate) asr_model_id: Option<AsrModelId>,
     pub(crate) asr_provider: Option<asr::AsrProviderId>,
+    pub(crate) local_asr_provider: Option<asr::AsrProviderId>,
     pub(crate) azure_asr_region: Option<String>,
     pub(crate) azure_asr_locale: Option<String>,
     pub(crate) azure_asr_credential_ref: Option<String>,
@@ -173,6 +175,14 @@ impl VoiceSettingsValues {
         let asr_provider = saved
             .asr_provider
             .unwrap_or(asr::AsrProviderId::LocalSherpa);
+        let asr_provider = if desktop_mode == DesktopVoiceMode::Legacy
+            && interaction_mode == VoiceInteractionMode::ContinuousListening
+            && asr_provider == asr::AsrProviderId::LocalA1
+        {
+            asr::AsrProviderId::LocalSherpa
+        } else {
+            asr_provider
+        };
         let azure_asr_profile = AzureAsrProfileValues {
             region: saved
                 .azure_asr_region

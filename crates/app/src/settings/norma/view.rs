@@ -9,7 +9,7 @@ use ui::component::{
 };
 use ui::icons::with_alpha;
 
-pub(super) fn editor(
+pub(crate) fn editor(
     id: &'static str,
     input: &Entity<InputState>,
     disabled: bool,
@@ -18,6 +18,7 @@ pub(super) fn editor(
 ) -> gpui::Stateful<gpui::Div> {
     let focus = input.focus_handle(cx);
     let field = Input::new(input)
+        .w_full()
         .settings_font(TextRole::Body)
         .disabled(disabled)
         .small();

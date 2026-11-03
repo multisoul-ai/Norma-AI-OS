@@ -155,7 +155,7 @@ struct TerminalInputArgs {
     submit: bool,
 }
 
-pub(super) fn parse_adapter_command(
+pub(crate) fn parse_adapter_command(
     name: &str,
     arguments: Value,
 ) -> Result<AdapterCommand, AdapterError> {

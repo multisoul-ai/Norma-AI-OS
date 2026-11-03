@@ -53,3 +53,6 @@ mod agent_context_command_tests;
 
 #[path = "../../../tests/unit/agent_self_identity_tests.rs"]
 mod agent_self_identity_tests;
+
+#[path = "../../../tests/unit/voice_runtime_commit_tests.rs"]
+mod voice_runtime_commit_tests;

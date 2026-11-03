@@ -36,6 +36,7 @@ fn context(source: AgentInputSource, turn: &str) -> ToolContext {
         turn_id: turn.into(),
         user_input: "记一下：给设置页加深色主题".into(),
         input_source: source,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".into(),
         operation_id: Some(format!("{turn}:call-1")),

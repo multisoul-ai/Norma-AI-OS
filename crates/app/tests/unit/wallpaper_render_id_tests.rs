@@ -15,11 +15,11 @@ use super::tests::TestRootGuard;
 /// 本测试验证 render_id_key 的核心契约：不同选择 → 不同 key。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   s = load_from_store(temp/app.sqlite) → 默认选择 Builtin{home/earth-horizon.png}
+///   s = load_from_store(temp/app.sqlite) → 默认选择 Builtin{wallpapers/norma-awake.mp4}
 ///   switch1 = select_builtin("wallpapers/220240.gif") → Builtin{220240.gif}（多帧 GIF）
 ///   switch2 = select_custom("mine.png") → Custom{mine.png}（单帧静态图）
 ///   各步对应 key：
-///     默认    = "builtin:home/earth-horizon.png"
+///     默认    = "builtin:wallpapers/norma-awake.mp4"
 ///     switch1 = "builtin:wallpapers/220240.gif"
 ///     switch2 = "custom:mine.png"
 ///   三者必须互不相同。
@@ -85,17 +85,17 @@ fn test_wallpaper_selection_variants_are_distinct() {
     );
 }
 
-/// T-W11: 默认壁纸必须用内置资源，渲染时不得为它访问文件系统。
+/// T-W11: 内置回退静图必须用内置资源，渲染时不得为它访问文件系统。
 ///
-/// 背景：默认壁纸 `home/earth-horizon.png` 已 `include_bytes!` 进二进制。旧实现在每次
+/// 背景：回退静图 `home/earth-horizon.png`（默认视频壁纸缺失时的画面）已 `include_bytes!` 进二进制。旧实现在每次
 /// 渲染都先 `Path::is_file` 解析仓库路径，未打包的 debug 构建会因此读取位于用户“文稿”
 /// 目录的源码 checkout，对从未授权的宿主触发文件夹访问授权弹窗，同时每帧多一次 stat。
 ///
-/// 数据构造：选择 = 默认 Builtin{home/earth-horizon.png}；测试环境里
+/// 数据构造：选择 = Builtin{DEFAULT_WALLPAPER_ASSET = home/earth-horizon.png}；测试环境里
 ///   `CARGO_MANIFEST_DIR/assets/home/earth-horizon.png` 确实存在，所以旧实现必然返回路径来源。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 取默认选择的 image_source_for_selection
+///   1. 取该选择的 image_source_for_selection
 ///
 /// 预期结果：
 ///   - 正断言：返回 `Resource::Embedded("home/earth-horizon.png")`
@@ -103,7 +103,9 @@ fn test_wallpaper_selection_variants_are_distinct() {
 #[test]
 fn test_default_wallpaper_uses_embedded_asset_without_touching_disk() {
     use gpui::{ImageSource, Resource};
-    let source = WallpaperSettingsState::image_source_for_selection(&WallpaperSelection::default());
+    let source = WallpaperSettingsState::image_source_for_selection(&WallpaperSelection::Builtin {
+        rel: crate::assets::DEFAULT_WALLPAPER_ASSET,
+    });
 
     match &source {
         ImageSource::Resource(Resource::Embedded(path)) => {

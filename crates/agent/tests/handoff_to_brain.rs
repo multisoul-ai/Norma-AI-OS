@@ -36,6 +36,7 @@ async fn run(args: Value) -> (Result<AdapterResult, AdapterError>, Vec<AdapterCo
         turn_id: "turn-1".into(),
         user_input: "让 Codex 把 ACP 文档补上".into(),
         input_source: AgentInputSource::Other,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".into(),
         operation_id: Some("turn-1:call-1".into()),

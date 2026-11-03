@@ -7,7 +7,7 @@ use gpui::{
 /// 场景：Norma 语音设置的长页面能通过滚轮访问末尾的声音配置。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   隔离空数据根，无项目、无已安装语音模型，使用真实 Voice Setup 页面。
+///   隔离空数据根，无项目、无已安装语音模型，使用原型对齐后的四组语音设置页面。
 ///   窗口 = 1280×800px（桌面基准），内容可用高度扣除设置边距与固定标题。
 ///   滚动距离 = 布局实际计算出的 max_offset.height，不使用猜测的滚动阈值。
 ///
@@ -40,7 +40,7 @@ fn norma_voice_settings_scrolls_to_spoken_replies() {
         .debug_bounds("settings-content-scroll")
         .expect("应有内容视口");
     let before = cx
-        .debug_bounds("voice-setup-requirement-tts")
+        .debug_bounds("voice-command-group-reply")
         .expect("应渲染声音配置");
     assert!(
         before.top() >= viewport.bottom(),
@@ -60,7 +60,7 @@ fn norma_voice_settings_scrolls_to_spoken_replies() {
     });
     cx.update(|window, cx| window.draw(cx).clear());
     let after = cx
-        .debug_bounds("voice-setup-requirement-tts")
+        .debug_bounds("voice-command-group-reply")
         .expect("滚动后应保留声音配置");
     assert!(
         scroll.offset().y < px(0.0),

@@ -1,4 +1,6 @@
+mod catalog;
 mod config;
+pub use catalog::{a1_model_artifacts, A1ModelArtifact, A1_REQUIREMENTS};
 #[cfg(unix)]
 mod transport;
 pub use config::A1Config;

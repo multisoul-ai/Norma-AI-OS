@@ -77,6 +77,7 @@ where
                         final_text: response.output,
                         tool_calls,
                         new_messages: response.messages.unwrap_or_default(),
+                        voice_proposals: unknown_status.take_voice_proposals(),
                     });
                 }
                 MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::Text(text)) => {

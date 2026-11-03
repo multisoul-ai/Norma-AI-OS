@@ -8,6 +8,7 @@ pub(super) fn context(turn: &str) -> ToolContext {
         turn_id: turn.into(),
         user_input: "请合并重复记忆，保留简洁中文偏好及构建命令".into(),
         input_source: AgentInputSource::Other,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "merge-call".into(),
         operation_id: Some(format!("{turn}:merge-call")),

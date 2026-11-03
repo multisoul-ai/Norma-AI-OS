@@ -109,11 +109,17 @@ fn full_playback_fades_out_at_the_end() {
 fn skip_fades_out_quickly() {
     let mut timeline = BootTimeline::new(s(0.0));
     timeline.on_first_frame(s(0.1));
-    timeline.skip(s(2.0));
+    assert!(
+        timeline.skip(s(2.0)),
+        "a skip that starts the fade must report it so the soundtrack fades too"
+    );
     timeline.advance(s(2.1));
     let mid = timeline.opacity(s(2.1));
     assert!(mid > 0.0 && mid < 1.0, "skip must fade out, got {mid}");
-    timeline.skip(s(2.1));
+    assert!(
+        !timeline.skip(s(2.1)),
+        "a second skip must not restart the soundtrack fade"
+    );
     assert!(
         timeline.opacity(s(2.1)) <= mid,
         "a second skip must not restart the fade from fully opaque"
@@ -177,7 +183,10 @@ fn decode_failure_dismisses_immediately() {
 fn input_right_after_launch_does_not_skip() {
     let mut timeline = BootTimeline::new(s(0.0));
     timeline.on_first_frame(s(0.1));
-    timeline.skip(s(0.4));
+    assert!(
+        !timeline.skip(s(0.4)),
+        "an ignored skip must not fade the soundtrack"
+    );
     timeline.advance(s(0.5));
     assert!(
         !timeline.is_done(),
@@ -196,75 +205,40 @@ fn input_right_after_launch_does_not_skip() {
     );
 }
 
-/// 每次冷启动在两个版本间随机选择：种子奇偶决定版本，两个版本都会被选到。
+/// 冷启动默认播放 Trace；e2e 用 NORMA_E2E_BOOT_ANIMATION 指定版本，"1" 等其他值播放默认版本。
 ///
-/// 数据构造：BOOT_VARIANTS = [Sync, Awaken]；种子 0、1、2、7。
-/// 执行过程：boot_variant_for(seed)。
+/// 数据构造：None、Some("1")、Some("")、Some("trace")、Some("sync")、Some("awaken")。
+/// 执行过程：boot_variant(value)。
 /// 预期结果：
-///   - 正断言：0、2 → boot/boot-sync.mp4；1、7 → boot/boot-awaken.mp4。
-///   - 负断言：两个结果互不相同（不会永远只播一个版本）。
+///   - 正断言：未指定、"1"、空串、"trace" → boot/boot-trace.mp4；sync/awaken 映射到各自资源。
+///   - 负断言：默认版本不是旧的 Sync 或 Awaken（冷启动不再随机）。
 #[test]
-fn random_seed_picks_both_variants() {
+fn cold_launch_plays_trace_unless_e2e_pins_a_variant() {
+    for value in [None, Some("1"), Some(""), Some("trace")] {
+        assert_eq!(
+            boot_variant(value),
+            "boot/boot-trace.mp4",
+            "{value:?} must play the default Trace animation"
+        );
+    }
     assert_eq!(
-        boot_variant_for(0),
+        boot_variant(Some("sync")),
         "boot/boot-sync.mp4",
-        "even seed plays Sync"
+        "sync pins Sync"
     );
     assert_eq!(
-        boot_variant_for(2),
-        "boot/boot-sync.mp4",
-        "even seed plays Sync"
-    );
-    assert_eq!(
-        boot_variant_for(1),
+        boot_variant(Some("awaken")),
         "boot/boot-awaken.mp4",
-        "odd seed plays Awaken"
-    );
-    assert_eq!(
-        boot_variant_for(7),
-        "boot/boot-awaken.mp4",
-        "odd seed plays Awaken"
+        "awaken pins Awaken"
     );
     assert_ne!(
-        boot_variant_for(0),
-        boot_variant_for(1),
-        "both variants must be reachable"
+        boot_variant(None),
+        boot_variant(Some("sync")),
+        "the default launch must not fall back to the old Sync animation"
     );
 }
 
-/// e2e 用 NORMA_E2E_BOOT_ANIMATION 指定版本；"1" 或其他值表示随机，未设置表示不开启。
-///
-/// 数据构造：Some("sync")、Some("awaken")、Some("1")、Some(""), None。
-/// 执行过程：forced_boot_variant(value)。
-/// 预期结果：
-///   - 正断言：sync/awaken 映射到各自资源。
-///   - 负断言："1"、空串、None 不强制任何版本。
-#[test]
-fn e2e_can_force_a_variant() {
-    assert_eq!(
-        forced_boot_variant(Some("sync")),
-        Some("boot/boot-sync.mp4"),
-        "sync forces Sync"
-    );
-    assert_eq!(
-        forced_boot_variant(Some("awaken")),
-        Some("boot/boot-awaken.mp4"),
-        "awaken forces Awaken"
-    );
-    assert_eq!(
-        forced_boot_variant(Some("1")),
-        None,
-        "1 opts in with a random variant"
-    );
-    assert_eq!(
-        forced_boot_variant(Some("")),
-        None,
-        "an empty value forces nothing"
-    );
-    assert_eq!(forced_boot_variant(None), None, "unset forces nothing");
-}
-
-/// 每个版本按自己的片长淡出：Awaken 9.0s，Sync 6.0s。
+/// 每个版本按自己的片长淡出：Trace 646 帧 / 60fps ≈ 10.767s，Awaken 9.0s，Sync 6.0s。
 ///
 /// 数据构造：with_duration(0, 9.0s)；首帧 t=0；淡出开始 = 9.0 - 0.45 = 8.55s。
 /// 执行过程：advance(6.5) → advance(8.7) → advance(9.05)。
@@ -274,6 +248,11 @@ fn e2e_can_force_a_variant() {
 #[test]
 fn each_variant_uses_its_own_length() {
     assert_eq!(variant_duration("boot/boot-sync.mp4"), s(6.0), "Sync is 6s");
+    assert_eq!(
+        variant_duration("boot/boot-trace.mp4"),
+        Duration::from_millis(10_767),
+        "Trace is 646 frames at 60fps"
+    );
     assert_eq!(
         variant_duration("boot/boot-awaken.mp4"),
         s(9.0),
@@ -295,4 +274,30 @@ fn each_variant_uses_its_own_length() {
     );
     timeline.advance(s(9.05));
     assert!(timeline.is_done(), "a 9s variant ends at 9s");
+}
+
+/// Trace 自带配乐，与视频同目录打包；旧版 Sync/Awaken 没有配乐。
+///
+/// 数据构造：三个版本的资源名。
+/// 执行过程：variant_soundtrack(asset)。
+/// 预期结果：
+///   - 正断言：Trace → boot/boot-trace.m4a。
+///   - 负断言：Sync、Awaken → None（静音播放，不报错）。
+#[test]
+fn only_trace_has_a_soundtrack() {
+    assert_eq!(
+        variant_soundtrack("boot/boot-trace.mp4"),
+        Some("boot/boot-trace.m4a"),
+        "Trace plays its mixed BGM + sfx"
+    );
+    assert_eq!(
+        variant_soundtrack("boot/boot-sync.mp4"),
+        None,
+        "Sync is silent"
+    );
+    assert_eq!(
+        variant_soundtrack("boot/boot-awaken.mp4"),
+        None,
+        "Awaken is silent"
+    );
 }

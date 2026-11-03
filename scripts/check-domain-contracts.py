@@ -96,7 +96,7 @@ def storage_profile_mappings(source: str) -> tuple[dict[str, str], dict[str, str
 def check_agent_profile_contract(root: Path) -> list[str]:
     protocol = root / "crates/norma/src/protocol.rs"
     canvas = root / "crates/canvas/src/node/agent_profile.rs"
-    schema = root / "crates/agent/src/adapter.rs"
+    schema = root / "crates/agent/src/adapter/definitions.rs"
     parser = root / "crates/agent/src/adapter/commands.rs"
     storage = root / "crates/storage/src/agent_definition_store.rs"
 

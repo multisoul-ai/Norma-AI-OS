@@ -77,7 +77,10 @@ pub(crate) async fn maybe_handle_direct_address(
     input: &str,
     roster: &[crate::AgentRosterEntry],
 ) -> Result<Option<String>, NormaSessionError> {
-    if context.input_source == crate::AgentInputSource::GptLiveVoice {
+    if matches!(
+        context.input_source,
+        crate::AgentInputSource::GptLiveVoice | crate::AgentInputSource::SingleVoiceCommand { .. }
+    ) {
         return Ok(None);
     }
     let calls = match plan_direct_address(input, roster) {

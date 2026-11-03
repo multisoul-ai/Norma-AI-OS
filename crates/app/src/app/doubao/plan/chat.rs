@@ -92,6 +92,7 @@ impl ChatRuntime {
             turn_id: format!("{}:turn-{turn}", self.session),
             user_input: transcript.clone(),
             input_source: agent::AgentInputSource::DoubaoVoice,
+            voice_commit: None,
             contextual_delete_targets: vec![],
             tool_call_id: String::new(),
             operation_id: None,

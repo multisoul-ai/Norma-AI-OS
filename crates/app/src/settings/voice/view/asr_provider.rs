@@ -1,8 +1,7 @@
-use super::{action_button, setting_row, settings_group, text_setting_row, VoiceSettingsInputs};
+use super::{action_button, settings_group, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
-use crate::settings::typography::{SettingsText, TextRole};
-use crate::settings::voice::state::{VoiceSettingsField, VoiceSettingsState};
-use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Stateful, Window};
+use crate::settings::voice::state::VoiceSettingsState;
+use gpui::{div, prelude::*, px, ClickEvent, Context, Div, Stateful, Window};
 use ui::Theme;
 
 pub(super) fn asr_provider_group(
@@ -11,166 +10,15 @@ pub(super) fn asr_provider_group(
     inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let profile = state.values().azure_asr_profile();
-    let local_active = state.values().asr_provider() == asr::AsrProviderId::LocalSherpa;
-    let azure_active = state.values().asr_provider() == asr::AsrProviderId::CloudAzure;
-    let credential_configured = profile.credential_ref().is_some();
-    settings_group(theme, ui::i18n::text("voice.speech_recognition_provider"))
-        .child(
-            setting_row(
-                theme,
-                ui::i18n::text("voice.active_provider"),
-                ui::i18n::text("voice.local_sherpa_remains_the_default_azure_is_activated_only_after_validation"),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_wrap()
-                    .gap(px(8.0))
-                    .child(
-                        action_button(
-                            theme,
-                            if !local_active {
-                                ui::i18n::text("voice.use_local_sherpa")
-                            } else {
-                                ui::i18n::text("voice.local_sherpa")
-                            },
-                            if !local_active {
-                                theme.text_secondary
-                            } else {
-                                theme.accent_green
-                            },
-                        )
-                        .id("settings-asr-provider-local")
-                        .debug_selector(|| "settings-asr-provider-local".to_string())
-                        .on_click(cx.listener(MultisoulApp::on_voice_settings_activate_local_asr)),
-                    )
-                    .child(
-                        action_button(
-                            theme,
-                            if azure_active {
-                                ui::i18n::text("voice.azure_speech")
-                            } else if profile.is_ready() {
-                                ui::i18n::text("voice.activate_azure")
-                            } else {
-                                ui::i18n::text("voice.azure_not_ready")
-                            },
-                            if azure_active || profile.is_ready() {
-                                theme.accent_blue
-                            } else {
-                                theme.text_tertiary
-                            },
-                        )
-                        .id("settings-asr-provider-azure")
-                        .debug_selector(|| "settings-asr-provider-azure".to_string())
-                        .when(
-                            profile.is_ready() && !azure_active,
-                            |button| {
-                                button.on_click(
-                                    cx.listener(MultisoulApp::on_voice_settings_activate_azure_asr),
-                                )
-                            },
-                        ),
-                    ),
-            ),
-        )
-        .when(profile.is_ready(), |group| {
-            group.child(
-                setting_row(
-                    theme,
-                    ui::i18n::text("voice.test_recognition"),
-                    ui::i18n::text("voice.records_three_seconds_from_the_selected_microphone_without_changing_the_active"),
-                )
-                .child(
-                    action_button(theme, ui::i18n::text("voice.test_azure_3_sec"), theme.accent_blue)
-                        .id("settings-asr-azure-test-recognition")
-                        .debug_selector(|| {
-                            "settings-asr-azure-test-recognition".to_string()
-                        })
-                        .on_click(
-                            cx.listener(MultisoulApp::on_voice_settings_test_azure_recognition),
-                        ),
-                ),
-            )
-        })
-        .child(text_setting_row(
+    settings_group(theme, ui::i18n::text("voice.speech_recognition")).child(
+        super::setup::recognition::recognition_detail(
             theme,
+            state.requirement_state(crate::settings::voice::VoiceRequirement::Microphone),
+            state,
             inputs,
-            VoiceSettingsField::AzureRegion,
-            ui::i18n::text("voice.azure_region"),
-            ui::i18n::text("voice.standard_public_azure_region_for_example_eastus"),
             cx,
-        ))
-        .child(locale_catalog(theme, state, cx))
-        .child(text_setting_row(
-            theme,
-            inputs,
-            VoiceSettingsField::AzureLocale,
-            ui::i18n::text("voice.recognition_language"),
-            ui::i18n::text("voice.choose_a_supported_azure_locale_zh_cn_is_the_default"),
-            cx,
-        ))
-        .child(
-            setting_row(
-                theme,
-                ui::i18n::text("voice.azure_api_key"),
-                ui::i18n::text("voice.stored_in_this_mac_s_local_database_never_written_to_logs"),
-            )
-            .child(
-                div()
-                    .w_full()
-                    .flex()
-                    .flex_wrap()
-                    .items_center()
-                    .gap(px(10.0))
-                    .child(inputs.input(VoiceSettingsField::AzureApiKey))
-                    .when(credential_configured, |row| {
-                        row.child(
-                            action_button(theme, ui::i18n::text("common.remove"), theme.destructive)
-                                .id("settings-asr-azure-key-remove")
-                                .debug_selector(|| "settings-asr-azure-key-remove".to_string())
-                                .on_click(
-                                    cx.listener(MultisoulApp::on_voice_settings_remove_azure_key),
-                                ),
-                        )
-                    }),
-            ),
-        )
-        .child(
-            setting_row(
-                theme,
-                ui::i18n::text("voice.validate_configuration"),
-                ui::i18n::text("voice.checks_region_and_credentials_without_changing_the_active_provider"),
-            )
-            .child(
-                action_button(
-                    theme,
-                    if profile.is_ready() {
-                        ui::i18n::text("voice.azure_ready")
-                    } else {
-                        ui::i18n::text("voice.validate_azure")
-                    },
-                    if profile.is_ready() {
-                        theme.accent_green
-                    } else {
-                        theme.accent_blue
-                    },
-                )
-                .id("settings-asr-azure-validate")
-                .debug_selector(|| "settings-asr-azure-validate".to_string())
-                .on_click(cx.listener(MultisoulApp::on_voice_settings_validate_azure_asr)),
-            ),
-        )
-        .when(azure_active, |group| {
-            group.child(
-                div()
-                    .settings_font(TextRole::Helper)
-                    .text_color(rgba(theme.accent_blue))
-                    .child(
-                        ui::i18n::text("voice.azure_speech_is_active_for_single_voice_command_and_continuous_listening"),
-                    ),
-            )
-        })
+        ),
+    )
 }
 
 pub(super) fn locale_catalog(
@@ -229,16 +77,49 @@ pub(super) fn locale_catalog(
 }
 
 impl MultisoulApp {
+    pub(crate) fn on_voice_settings_activate_compatibility_asr(
+        &mut self,
+        _: &ClickEvent,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.invalidate_single_voice_commands();
+        self.voice.stop_for_model_switch();
+        self.dialogue.stop_shell();
+        self.release_a1_runtime(cx);
+        self.voice_settings.activate_local_sherpa_asr();
+        self.persist_voice_settings_in_background(cx);
+        cx.notify();
+    }
+
     pub(crate) fn on_voice_settings_activate_local_asr(
         &mut self,
         _: &ClickEvent,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.invalidate_single_voice_commands();
         self.voice.stop_for_model_switch();
         self.dialogue.stop_shell();
         self.release_a1_runtime(cx);
-        self.voice_settings.activate_local_sherpa_asr();
+        if self.voice_settings.preferred_local_provider() == asr::AsrProviderId::LocalA1
+            && self
+                .voice_settings
+                .values()
+                .desktop_mode()
+                .supports_local_a1(self.voice_settings.values().interaction_mode())
+        {
+            self.prepare_or_validate_a1(true, cx);
+            return;
+        }
+        if !self.voice_settings.activate_local_recognition() {
+            self.voice_settings
+                .open_setup_destination(crate::settings::voice::VoiceSetupDestination::AsrOnDevice);
+            if !self.voice_settings.advanced_expanded() {
+                self.voice_settings.toggle_advanced_expanded();
+            }
+            self.refresh_a1_requirement(cx);
+        }
         self.persist_voice_settings_in_background(cx);
         cx.notify();
     }
@@ -251,6 +132,7 @@ impl MultisoulApp {
     ) {
         if self.voice_settings.activate_azure_asr() {
             self.release_a1_runtime(cx);
+            self.invalidate_single_voice_commands();
             self.voice.stop_for_model_switch();
             self.dialogue.stop_shell();
             self.persist_voice_settings_in_background(cx);

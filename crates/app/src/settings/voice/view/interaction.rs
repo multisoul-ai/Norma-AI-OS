@@ -13,8 +13,25 @@ pub(super) fn interaction_group(
     voice_shortcut_label: &str,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
+    settings_group(theme, ui::i18n::text("shortcuts.voice_interaction")).child(interaction_rows(
+        theme,
+        state,
+        voice_shortcut_label,
+        cx,
+    ))
+}
+
+pub(super) fn interaction_rows(
+    theme: Theme,
+    state: &VoiceSettingsState,
+    voice_shortcut_label: &str,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
     let mode = state.values().interaction_mode();
-    settings_group(theme, ui::i18n::text("shortcuts.voice_interaction"))
+    div()
+        .w_full()
+        .flex()
+        .flex_col()
         .child(compact_interaction_row(
             theme,
             ui::i18n::text("voice.mode"),
@@ -36,6 +53,7 @@ pub(super) fn interaction_group(
                         cx,
                     )
                     .on_activate(cx.listener(|app, _, _, cx| {
+                        app.invalidate_single_voice_commands();
                         app.stop_continuous_listening(cx);
                         app.voice_settings
                             .select_interaction_mode(VoiceInteractionMode::SingleVoiceCommand);
@@ -56,6 +74,7 @@ pub(super) fn interaction_group(
                         cx,
                     )
                     .on_activate(cx.listener(|app, _, _, cx| {
+                        app.invalidate_single_voice_commands();
                         app.voice.stop_for_model_switch();
                         app.release_a1_runtime(cx);
                         app.voice_settings

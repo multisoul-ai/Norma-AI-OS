@@ -3,7 +3,6 @@
 //! 派发协议：先把想法 CAS 为“派发中”并写占位 task_ref，再走既有派发路径，
 //! 成功后用回执里的真实 task_ref 落库；失败回退到待办。重启对账见 `IdeasStore::reconcile_dispatching`。
 //! 单行 SQLite 读写与既有派发回执路径同在适配器更新内完成，不进入 PTY/渲染/鼠标热路径。
-
 use super::{adapter_task, commands};
 use crate::app::{AppScreen, MultisoulApp};
 use crate::motion::{DispatchReceiptVisualStatus, DispatchVisualOrigin};
@@ -12,7 +11,6 @@ use gpui::{Context, Window};
 use norma::protocol::{CardCommand, CardCommandResult};
 use serde_json::json;
 use storage::{IdeaSource, IdeasStore, StorageError, StoredIdea};
-
 pub(super) fn capture_idea(
     app: &mut MultisoulApp,
     cx: &mut Context<MultisoulApp>,
@@ -22,6 +20,7 @@ pub(super) fn capture_idea(
     let workspace_id = active_workspace_id(app, cx)?;
     let source = match input_source {
         AgentInputSource::Voice
+        | AgentInputSource::SingleVoiceCommand { .. }
         | AgentInputSource::DoubaoVoice
         | AgentInputSource::GptLiveVoice => IdeaSource::Voice,
         _ => IdeaSource::Chat,

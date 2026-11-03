@@ -1,5 +1,7 @@
+mod a1_install;
 mod credentials;
 mod download_progress;
+mod jev;
 mod models;
 pub(crate) use models::ensure_silero_vad;
 mod readiness;

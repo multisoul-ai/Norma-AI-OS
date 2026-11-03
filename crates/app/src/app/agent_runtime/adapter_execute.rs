@@ -182,7 +182,7 @@ fn execute_norma_adapter_command_unchecked(
                     let canvas::CanvasNodeKind::Agent(spec) = &node.kind else {
                         return None;
                     };
-                    (spec.definition_id == Some(task.definition_id)).then_some(node.id)
+                    (spec.definition_id == Some(task.definition_id) && node.id == task.target_node_id).then_some(node.id)
                 })
             });
             if let Some((node_id, task_was_typed)) =
@@ -293,7 +293,9 @@ fn execute_norma_adapter_command_unchecked(
             if let Some(window) = window.as_deref_mut().filter(|_| {
                 matches!(
                     input_source,
-                    agent::AgentInputSource::Voice | agent::AgentInputSource::DoubaoVoice
+                    agent::AgentInputSource::Voice
+                        | agent::AgentInputSource::SingleVoiceCommand { .. }
+                        | agent::AgentInputSource::DoubaoVoice
                 )
             }) {
                 let visible_area = app.visible_canvas_rect(window);

@@ -10,11 +10,19 @@ where
 {
     async fn on_event(&self, _context: &HookContext, event: StepEvent<'_, M>) -> Flow {
         if let StepEvent::ToolCall {
+            tool_name,
+            args,
             tool_call_id,
             internal_call_id,
             ..
         } = event
         {
+            if self.context.is_single_voice_command()
+                && !crate::voice_command::is_read_only_tool(tool_name)
+            {
+                self.context.propose_voice_command(tool_name, args);
+                return Flow::skip("{\"status\":\"proposed\",\"executed\":false}");
+            }
             self.context
                 .record_tool_call(tool_call_id, internal_call_id);
         }
@@ -36,6 +44,7 @@ where
     let personal = rig_context.context_project_is_personal();
     let workspace = rig_context.is_mobile_workspace();
     let gpt_live = rig_context.is_gpt_live();
+    let normalized_delete_schema = gpt_live || rig_context.is_single_voice_command();
     let builder = AgentBuilder::new(model)
         .name("Norma")
         .description("Norma OS 的唯一 Master Agent")
@@ -110,7 +119,7 @@ where
         .tool(CreatePreviewTool::new(tools.clone()))
         .tool(FocusCardTool::new(tools.clone()))
         .tool(SendTerminalInputTool::new(tools));
-    if gpt_live {
+    if normalized_delete_schema {
         builder
             .tool(crate::rig_tools::GptLiveDeleteCanvasCardTool(delete))
             .build()

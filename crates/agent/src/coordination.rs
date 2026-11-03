@@ -375,3 +375,5 @@ fn new_runtime_instance_id() -> String {
     let sequence = RUNTIME_INSTANCE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
     format!("{timestamp:x}-{sequence:x}")
 }
+
+mod node_closure;

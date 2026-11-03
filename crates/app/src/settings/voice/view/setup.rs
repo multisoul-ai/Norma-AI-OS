@@ -13,17 +13,20 @@ use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::Theme;
 
 #[cfg(test)]
+#[path = "../../../../tests/unit/voice_settings_keyboard_tests.rs"]
+mod keyboard_tests;
+#[cfg(test)]
 #[path = "../../../../tests/unit/voice_settings_redesign_tests.rs"]
 mod redesign_tests;
 
 #[path = "setup/a1.rs"]
-mod a1;
+pub(super) mod a1;
 #[path = "setup/components.rs"]
 mod components;
 #[path = "setup/models.rs"]
 pub(super) mod models;
 #[path = "setup/recognition.rs"]
-mod recognition;
+pub(super) mod recognition;
 
 use self::recognition::recognition_detail;
 
@@ -73,6 +76,7 @@ pub(super) fn voice_setup(
                 setup_scroll_target == Some(VoiceSetupDestination::AgentProvider),
             ),
         ))
+        .child(super::command_policy::command_policy_group(theme))
         .child(setup_step(
             theme,
             3,

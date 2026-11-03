@@ -34,6 +34,7 @@ pub(crate) fn execute(
                     turn_id: "cold-target:turn-1".into(),
                     user_input: "检查登录方案".into(),
                     input_source: agent::AgentInputSource::DoubaoVoice,
+                    voice_commit: None,
                     contextual_delete_targets: vec![],
                     tool_call_id: "dispatch-1".into(),
                     operation_id: None,
