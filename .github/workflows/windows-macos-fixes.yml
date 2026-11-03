@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/windows-audio-*']
-    paths: ['crates/app/tests/gpui_test_lifecycle.rs', 'crates/app/tests/unit/voice_settings_redesign_tests.rs', 'vendor/gpui-0.2.2/src/app/test_context.rs', 'scripts/check-norma-qr.swift', 'crates/app/src/mobile/qr.rs', 'crates/runtime/tests/opencode_foreground.rs', 'crates/runtime/tests/support/opencode_foreground.rs', '.github/workflows/windows-macos-fixes.yml']
+    paths: ['crates/app/tests/unit/voice_settings_redesign_tests.rs', 'vendor/gpui-0.2.2/src/app/test_context.rs', 'scripts/check-norma-qr.swift', 'crates/app/src/mobile/qr.rs', 'crates/runtime/tests/opencode_foreground.rs', 'crates/runtime/tests/support/opencode_foreground.rs', '.github/workflows/windows-macos-fixes.yml']
 permissions:
   contents: read
 env:
@@ -43,12 +43,6 @@ jobs:
         run: |
           set -o pipefail
           cargo test --locked -p runtime --test opencode_foreground -- --nocapture 2>&1 | tee artifacts/macos-fixes/foreground.log
-      - name: Reproduce standalone test-context resource ownership
-        if: always()
-        shell: bash
-        run: |
-          set -o pipefail
-          cargo test --locked -p app --test gpui_test_lifecycle -- --nocapture 2>&1 | tee artifacts/macos-fixes/lifecycle.log
       - name: Reproduce Azure source click independently of the full suite
         if: always()
         shell: bash
