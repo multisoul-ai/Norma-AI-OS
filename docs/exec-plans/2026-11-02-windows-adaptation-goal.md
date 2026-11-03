@@ -13,6 +13,9 @@
 
 ## 当前事实与检查点
 
+- W07平台候选`3f257cdc`已正常提交推送，复验run `41581943206`进行中，尚无GREEN。独立只读对抗审查核验默认true、先注销窗口再检查策略及无跨App回调借用；Norma仍未启用此开关。原RED日志在`/private/tmp/norma-background-last-close-red-5b772aa3`。
+- Mac诊断run `41580160481`在2026-11-03 05:11 UTC仍为in_progress，job `125732862258`的首个测试步骤自04:49:38未结束；job日志API此时返回BlobNotFound，尚不能区分构建/测试执行。继续等待同一job，不将观察超时当进程终止，也不重启覆盖失败。完整Windows门禁run `41581512783`也仍进行中。
+
 - W07平台策略真实RED：`5b772aa3` run `41580285891`、attempt 1、job `125733259551`的原有四模式全部exit0；唯一新增无keeper的`background-last-close`为exit101，准确失败于`drain_finished`断言。Windows最后窗口自动PostQuit覆盖保活决定已由真实窗口证实；最小候选实现增加默认true的退出策略，仅显式false时继续消息循环，Norma产品仍暂不启用。
 - 完整Windows App门禁已补为独立手动workflow，`95fc57ab` run `41581512783`、job `125737198998`运行完整App单测harness及生产App严格Clippy。该run尚未完成，不以独立probe代替全套结果。
 
