@@ -420,6 +420,12 @@ const fn entry(
     hint: &'static str,
     default_keystroke: Option<&'static str>,
 ) -> ShortcutEntry {
+    #[cfg(windows)]
+    let default_keystroke = if matches!(command, ShortcutCommandId::NewWorkspace) {
+        Some("ctrl-n")
+    } else {
+        default_keystroke
+    };
     ShortcutEntry {
         command,
         category,
