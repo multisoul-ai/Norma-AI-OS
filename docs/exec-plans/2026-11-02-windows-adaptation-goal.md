@@ -13,6 +13,8 @@
 
 ## 当前事实与检查点
 
+- 实际Windows App清理复验GREEN：`8e2a1b3a` startup run `41575429677`、job `125717706162` PASS；真实WebView2 ready约6.57秒，三张client原图已逐张看图，完整欢迎页无先前桌面/任务栏夹带，正常WM_CLOSE退出0，stdout/stderr未出现ERROR或panic。原图/日志在`/private/tmp/norma-startup-clean-8e2a1b3a`。这是开发App启动与关闭证据，不代表实际项目/终端/网页操作、手机后台或同包fresh-runner验收完成。
+
 - Mac六项剩余失败已获得定向GREEN：`f902836c` run `41574377560`、job `125714371971`整体PASS。Browser 2/0/0、桌面光晕2/0/0、Master首帧2/0/0、失活会话1/0/0；原QR/OpenCode/Azure分别1/2/1项继续PASS。无新增ignore，原业务断言保留；全套新源复验已dispatch `c11c9ce3` run `41576561435`，未提前写成完整App PASS。
 
 - 产品feature锁冻结：`8e2a1b3a` run `41575256058`，Windows/macOS的`cargo update --workspace`均只移除测试feature专用依赖、升级0包，product dependency identity检查均PASS；两端Cargo.lock逐字节一致，SHA256 `41f79d5e1da16f78301970737c4fd1bfe5a35549d49dbc679c75ed59a42e7feb`。`dc82c76e`提交相同锁文件；新的native run `41575727720`及shortcut run `41575727697`进行中。`a7a23002`的失败是旧锁与feature不匹配，未到行为断言，不冒充产品功能失败或成功。
