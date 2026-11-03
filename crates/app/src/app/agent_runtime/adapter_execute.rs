@@ -55,12 +55,14 @@ fn execute_norma_adapter_command_unchecked(
             source_path,
             version,
         } => app.norma_open_workspace_artifact(
-            &workspace_id,
-            &area_id,
-            node_id,
-            &turn_id,
-            &source_path,
-            &version,
+            crate::workspace::desktop::ArtifactLocation {
+                workspace_id: &workspace_id,
+                area_id: &area_id,
+                node_id,
+                turn_id: &turn_id,
+                source_path: &source_path,
+                version: &version,
+            },
             cx,
         ),
         AdapterCommand::LocateWorkspaceAgent {
@@ -70,11 +72,13 @@ fn execute_norma_adapter_command_unchecked(
             approval_run_id,
             approval_turn_id,
         } => app.norma_locate_workspace_agent(
-            &workspace_id,
-            &area_id,
-            node_id,
-            approval_run_id.as_deref(),
-            approval_turn_id.as_deref(),
+            crate::workspace::desktop::AgentLocation {
+                workspace_id: &workspace_id,
+                area_id: &area_id,
+                node_id,
+                approval_run_id: approval_run_id.as_deref(),
+                approval_turn_id: approval_turn_id.as_deref(),
+            },
             window
                 .as_deref_mut()
                 .ok_or_else(|| AdapterError::Rejected("定位 Agent 需要桌面窗口".into()))?,

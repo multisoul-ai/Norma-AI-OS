@@ -11,14 +11,14 @@ pub(super) fn dispatch(
     cx: &mut App,
 ) {
     let id = request.request_id;
-    let CardCommand::Brain {
-        token,
-        op: BrainOp::Report {
-            text,
-            priority,
-            sources,
-        },
-    } = request.command.clone()
+    let CardCommand::Brain { token, op } = request.command.clone() else {
+        return;
+    };
+    let BrainOp::Report {
+        text,
+        priority,
+        sources,
+    } = *op
     else {
         return;
     };

@@ -67,9 +67,9 @@ fn cli_preserves_report_sources_and_read_reference() {
         read.command,
         CardCommand::Brain {
             token: "t".into(),
-            op: BrainOp::Context {
+            op: Box::new(BrainOp::Context {
                 reference: reference.clone()
-            }
+            })
         },
         "补读应保留完整引用"
     );
@@ -85,11 +85,10 @@ fn cli_preserves_report_sources_and_read_reference() {
         &value,
     ])
     .unwrap();
-    let CardCommand::Brain {
-        op: BrainOp::Report { sources, .. },
-        ..
-    } = report.command
-    else {
+    let CardCommand::Brain { op, .. } = report.command else {
+        panic!("应解析为大脑命令")
+    };
+    let BrainOp::Report { sources, .. } = *op else {
         panic!("应解析为汇报")
     };
     assert_eq!(sources, vec![reference], "汇报来源不能丢失");

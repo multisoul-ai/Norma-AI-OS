@@ -24,11 +24,10 @@ pub(super) fn dispatch(
     cx: &mut App,
 ) {
     let request_id = request.request_id;
-    let CardCommand::Brain {
-        token,
-        op: BrainOp::History { agent, last, grep },
-    } = request.command.clone()
-    else {
+    let CardCommand::Brain { token, op } = request.command.clone() else {
+        return;
+    };
+    let BrainOp::History { agent, last, grep } = *op else {
         return;
     };
     let target = match resolve_targets(&request, cx) {

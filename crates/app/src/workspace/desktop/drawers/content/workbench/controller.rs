@@ -269,7 +269,7 @@ impl MultisoulApp {
                         }
                     }
                     Err(error) => {
-                        s.error = Some(error.into());
+                        s.error = Some(error);
                         s.pending_open = None;
                     }
                 }
@@ -378,7 +378,7 @@ impl MultisoulApp {
                         s.file = text;
                         s.preview = preview;
                     }
-                    Err(e) => s.error = Some(e.into()),
+                    Err(e) => s.error = Some(e),
                 }
                 app.consume_workbench_scroll();
                 app.acknowledge_workbench_review(cx);
@@ -433,7 +433,7 @@ impl MultisoulApp {
                     Ok(_) => s.notice = Some(ui::i18n::LocalizedText::new("drawers.git_complete")),
                     Err(e) => {
                         s.notice = None;
-                        s.error = Some(e.into());
+                        s.error = Some(e);
                     }
                 }
                 app.refresh_file_workbench(cx);

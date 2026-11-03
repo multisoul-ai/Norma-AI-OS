@@ -62,7 +62,7 @@ impl MultisoulApp {
         } = request;
         let command = match command {
             CardCommand::Brain { token, op } => {
-                let result = self.execute_brain_command(&token, op, window, cx);
+                let result = self.execute_brain_command(&token, *op, window, cx);
                 return WireResponse::new(request_id, result);
             }
             other => other,

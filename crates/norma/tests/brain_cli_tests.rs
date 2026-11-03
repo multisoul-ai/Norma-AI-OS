@@ -28,11 +28,11 @@ fn report_parses_text_and_priority() {
         normal,
         CardCommand::Brain {
             token: "t0".into(),
-            op: BrainOp::Report {
+            op: Box::new(BrainOp::Report {
                 text: "Codex 完成了".into(),
                 sources: Vec::new(),
                 priority: ReportPriority::Normal
-            },
+            }),
         },
         "默认优先级应是 Normal"
     );
@@ -50,13 +50,13 @@ fn report_parses_text_and_priority() {
     assert!(
         matches!(
             now,
-            CardCommand::Brain {
-                op: BrainOp::Report {
+            CardCommand::Brain { ref op, .. } if matches!(
+                **op,
+                BrainOp::Report {
                     priority: ReportPriority::Now,
                     ..
-                },
-                ..
-            }
+                }
+            )
         ),
         "--priority now 应解析为 Now：{now:?}"
     );
@@ -91,11 +91,11 @@ fn decide_parses_the_three_decisions_and_requires_a_reason() {
             command,
             CardCommand::Brain {
                 token: "t".into(),
-                op: BrainOp::Decide {
+                op: Box::new(BrainOp::Decide {
                     approval_id: id.into(),
                     decision: want,
                     reason: "测试命令".into()
-                },
+                }),
             },
             "{word} 应解析为对应结论"
         );
@@ -122,17 +122,11 @@ fn decide_parses_the_three_decisions_and_requires_a_reason() {
 fn agents_approvals_and_assign_parse() {
     assert!(matches!(
         parse(&["norma", "brain", "--token", "t", "agents"]),
-        CardCommand::Brain {
-            op: BrainOp::Agents,
-            ..
-        }
+        CardCommand::Brain { op, .. } if matches!(*op, BrainOp::Agents)
     ));
     assert!(matches!(
         parse(&["norma", "brain", "--token", "t", "approvals"]),
-        CardCommand::Brain {
-            op: BrainOp::Approvals,
-            ..
-        }
+        CardCommand::Brain { op, .. } if matches!(*op, BrainOp::Approvals)
     ));
     let assign = parse(&[
         "norma",
@@ -148,10 +142,10 @@ fn agents_approvals_and_assign_parse() {
         assign,
         CardCommand::Brain {
             token: "t".into(),
-            op: BrainOp::Assign {
+            op: Box::new(BrainOp::Assign {
                 agent: "Cursor".into(),
                 task: "实现安全闸门".into()
-            },
+            }),
         },
         "assign 应带上 Agent 与任务"
     );
@@ -192,11 +186,11 @@ fn history_parses_agent_last_and_grep() {
         full,
         CardCommand::Brain {
             token: "t0".into(),
-            op: BrainOp::History {
+            op: Box::new(BrainOp::History {
                 agent: "Alan".into(),
                 last: Some(3),
                 grep: Some("error".into())
-            },
+            }),
         }
     );
     let bare = parse(&["norma", "brain", "--token", "t0", "history", "Alan"]);
@@ -204,11 +198,11 @@ fn history_parses_agent_last_and_grep() {
         bare,
         CardCommand::Brain {
             token: "t0".into(),
-            op: BrainOp::History {
+            op: Box::new(BrainOp::History {
                 agent: "Alan".into(),
                 last: None,
                 grep: None
-            },
+            }),
         }
     );
 }
@@ -239,12 +233,12 @@ fn propose_parses_title_task_and_why() {
         command,
         CardCommand::Brain {
             token: "t0".into(),
-            op: BrainOp::Propose {
+            op: Box::new(BrainOp::Propose {
                 agent: "Alan".into(),
                 title: "补测试".into(),
                 task: "为概览搜索补单元测试；cargo test 通过即完成".into(),
                 why: "搜索没有测试".into(),
-            },
+            }),
         }
     );
     let missing_why = parse_invocation_from([

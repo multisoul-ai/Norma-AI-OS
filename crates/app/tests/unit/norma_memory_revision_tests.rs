@@ -1,8 +1,7 @@
 use super::*;
+use crate::test_gpt_live_sse as sse;
 use agent::{MemoryScopeAlias, NormaSession, ProviderConfig, ProviderProtocol};
 use serde_json::json;
-#[path = "../support/gpt_live_sse.rs"]
-mod sse;
 
 struct NoTools;
 impl AgentCardAdapter for NoTools {

@@ -34,9 +34,12 @@ pub(crate) struct IdeasAux {
     pub(crate) input_focused: bool,
     /// 新增待办后还要贴底滚动的帧数：输入框回落一行会让列表在下一帧变高，只滚一帧会差一行。
     pub(crate) stick_bottom_frames: u8,
-    pub(crate) row_bounds:
-        std::sync::Arc<std::sync::Mutex<Vec<(String, gpui::Bounds<gpui::Pixels>)>>>,
+    pub(crate) row_bounds: RowBounds,
 }
+
+/// 每条待办在上一帧绘制后的屏幕位置，按想法 ID 记录。
+pub(crate) type RowBounds =
+    std::sync::Arc<std::sync::Mutex<Vec<(String, gpui::Bounds<gpui::Pixels>)>>>;
 
 impl Default for IdeasAux {
     fn default() -> Self {

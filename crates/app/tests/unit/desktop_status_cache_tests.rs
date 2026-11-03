@@ -136,10 +136,9 @@ fn opening_workspace_restores_unloaded_project_status_from_storage() {
     assert_eq!(project["live"], false, "未加载项目不得宣称状态实时");
     app.read_with(cx, |app, _| {
         assert!(
-            app.desktop_workspace
+            !app.desktop_workspace
                 .sessions
-                .get(&(workspace.id.clone(), area.id.clone()))
-                .is_none(),
+                .contains_key(&(workspace.id.clone(), area.id.clone())),
             "项目目录不可用时不得启动会话"
         );
     });

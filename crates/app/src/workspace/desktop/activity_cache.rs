@@ -219,7 +219,7 @@ impl MultisoulApp {
 
     pub(crate) fn note_workspace_activity_changed(&mut self, cx: &mut Context<Self>) {
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
-            let _ = host.update(cx, |host, cx| host.mark_workspace_activity_dirty(cx));
+            host.update(cx, |host, cx| host.mark_workspace_activity_dirty(cx));
             return;
         }
         if matches!(self.screen, crate::app::AppScreen::DesktopWorkspace) {
@@ -394,7 +394,7 @@ impl MultisoulApp {
             {
                 let project = session.read(cx);
                 let snapshots = project.mobile_card_snapshots();
-                for agent in live_agents(&project) {
+                for agent in live_agents(project) {
                     let card = card_from_status(
                         &agent,
                         snapshots.iter().find(|card| card.node_id == agent.node_id),
@@ -407,7 +407,7 @@ impl MultisoulApp {
                         ego_stop_agent: agent
                             .state
                             .starts_with("ego_")
-                            .then(|| ego_stop_agent(&project, agent.node_id))
+                            .then(|| ego_stop_agent(project, agent.node_id))
                             .flatten(),
                     });
                     agents.push(chat_agent(agent.name, card));

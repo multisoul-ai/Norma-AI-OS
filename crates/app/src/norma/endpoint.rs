@@ -355,58 +355,45 @@ fn dispatch_request(server_request: NormaServerRequest, cx: &mut App) {
         return;
     }
     if matches!(
-        request.command,
-        CardCommand::Brain {
-            op: norma::protocol::BrainOp::History { .. },
-            ..
-        }
+        request.command.brain_op(),
+        Some(norma::protocol::BrainOp::History { .. })
     ) {
         brain_history::dispatch(request, response, cx);
         return;
     }
     if matches!(
-        request.command,
-        CardCommand::Brain {
-            op: norma::protocol::BrainOp::Context { .. },
-            ..
-        }
+        request.command.brain_op(),
+        Some(norma::protocol::BrainOp::Context { .. })
     ) {
         brain_context::dispatch(request, response, cx);
         return;
     }
     if matches!(
-        request.command,
-        CardCommand::Brain {
-            op: norma::protocol::BrainOp::Report { .. },
-            ..
-        }
+        request.command.brain_op(),
+        Some(norma::protocol::BrainOp::Report { .. })
     ) {
         brain_report::dispatch(request, response, cx);
         return;
     }
     if matches!(
-        request.command,
-        CardCommand::Brain {
-            op: norma::protocol::BrainOp::Decide {
-                decision: norma::protocol::BrainDecision::Deny,
-                ..
-            },
+        request.command.brain_op(),
+        Some(norma::protocol::BrainOp::Decide {
+            decision: norma::protocol::BrainDecision::Deny,
             ..
-        }
+        })
     ) {
         brain_context::dispatch_denied(request, response, cx);
         return;
     }
     if matches!(
-        request.command,
-        CardCommand::Brain {
-            op: norma::protocol::BrainOp::Assign { .. }
+        request.command.brain_op(),
+        Some(
+            norma::protocol::BrainOp::Assign { .. }
                 | norma::protocol::BrainOp::Decide {
                     decision: norma::protocol::BrainDecision::Allow,
                     ..
-                },
-            ..
-        }
+                }
+        )
     ) {
         brain_context::dispatch_guarded(request, response, cx);
         return;

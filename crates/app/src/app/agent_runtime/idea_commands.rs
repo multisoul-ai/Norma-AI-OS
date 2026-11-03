@@ -102,7 +102,7 @@ pub(crate) struct IdeaDelivery<'a> {
 
 pub(crate) fn assign_idea_with_states(
     app: &mut MultisoulApp,
-    mut window: Option<&mut Window>,
+    window: Option<&mut Window>,
     cx: &mut Context<MultisoulApp>,
     idea_id: &str,
     input_source: AgentInputSource,
@@ -155,10 +155,11 @@ pub(crate) fn assign_idea_with_states(
         "[idea-dispatch] begin"
     );
     // 派发给智能体的文本 = 正文 + 附带图片的绝对路径。
-    let task_text = match (!states.is_empty())
-        .then(|| agent::context::context_task_handoff(&ideas.dispatch_text(&idea), states))
-        .unwrap_or_else(|| Ok(ideas.dispatch_text(&idea)))
-    {
+    let task_text = match if states.is_empty() {
+        Ok(ideas.dispatch_text(&idea))
+    } else {
+        agent::context::context_task_handoff(&ideas.dispatch_text(&idea), states)
+    } {
         Ok(text) => text,
         Err(error) => {
             if let Err(rollback) = ideas.fail_dispatch(&workspace_id, idea_id) {
@@ -197,7 +198,7 @@ pub(crate) fn assign_idea_with_states(
             } else {
                 create_agent_with_task(
                     app,
-                    window.as_deref_mut(),
+                    window,
                     cx,
                     profile,
                     task_text.clone(),

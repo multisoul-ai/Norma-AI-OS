@@ -41,6 +41,19 @@ mod menu_bar_tests;
 #[cfg(test)]
 #[path = "../tests/unit/pinned_locale.rs"]
 mod pinned_locale;
+#[cfg(test)]
+#[path = "../tests/support/brain_question.rs"]
+mod test_brain_question;
+#[cfg(test)]
+#[path = "../../norma/tests/support/codex_relay.rs"]
+mod test_codex_relay;
+#[cfg(test)]
+#[path = "../tests/support/drawer_locale.rs"]
+mod test_drawer_locale;
+/// 多个单元测试共用的夹具，只加载一次。
+#[cfg(test)]
+#[path = "../tests/support/gpt_live_sse.rs"]
+mod test_gpt_live_sse;
 
 #[cfg(feature = "e2e-test-support")]
 pub use app::{

@@ -107,10 +107,8 @@ impl MultisoulApp {
                     row,
                     tag,
                     index,
-                    Some(key),
-                    option.label.clone(),
-                    item.multiple,
-                    selected,
+                    (Some(key), option.label.clone()),
+                    (item.multiple, selected),
                     cx,
                 ));
                 if let Some(description) = &option.description {
@@ -128,10 +126,8 @@ impl MultisoulApp {
                     row,
                     tag,
                     index,
-                    None,
-                    ui::i18n::text("chrome.question_custom").into(),
-                    item.multiple,
-                    editor.draft.custom[index],
+                    (None, ui::i18n::text("chrome.question_custom").into()),
+                    (item.multiple, editor.draft.custom[index]),
                     cx,
                 ));
                 if editor.draft.custom[index] {
@@ -155,10 +151,8 @@ impl MultisoulApp {
         row: &OverviewQuestion,
         tag: &str,
         index: usize,
-        key: Option<String>,
-        label: String,
-        multiple: bool,
-        selected: bool,
+        (key, label): (Option<String>, String),
+        (multiple, selected): (bool, bool),
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let selector = format!(

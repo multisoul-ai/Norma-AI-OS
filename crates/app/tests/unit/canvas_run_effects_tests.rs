@@ -41,15 +41,14 @@ fn classic_keeps_existing_intents_and_other_styles_disable_them() {
             "灵光风格下 {state:?} 不应再画光蛇或呼吸边框"
         );
     }
-    assert_eq!(
-        classic_intents(
+    assert!(
+        !classic_intents(
             RunStyle::Classic,
             false,
             Some(AgentTaskState::Thinking),
             None
         )
         .0,
-        false,
         "非 Agent 节点不画光蛇"
     );
 }

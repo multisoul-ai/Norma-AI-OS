@@ -1,11 +1,10 @@
 use super::*;
 use crate::app::background_project::PreparedProject;
 use crate::settings::voice::{EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsState};
+use crate::test_gpt_live_sse as sse;
 use agent::{MemoryRevision, MemoryScopeAlias};
 use gpui::{AppContext as _, TestAppContext, VisualTestContext};
 use std::time::{Duration, Instant};
-#[path = "../support/gpt_live_sse.rs"]
-mod sse;
 
 /// 场景：手机读取的项目或工作树记忆被设置页纠正后，下一轮不能再发送旧工具结果和回答。
 /// 构造：隔离数据库、真实工作空间与移动授权、生产消息入口和四次本地 SSE 请求。

@@ -72,8 +72,7 @@ impl MultisoulApp {
             key,
             title,
             format!("{} · {}", row.agent, ui::i18n::text(status)),
-            "?",
-            theme.accent_cyan,
+            ("?", theme.accent_cyan),
             self,
             cx,
         );

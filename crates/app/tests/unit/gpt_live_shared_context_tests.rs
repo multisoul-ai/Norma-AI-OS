@@ -245,7 +245,7 @@ async fn gpt_live_context_read_is_cancellable_and_bounded() {
         };
         release.send(()).unwrap();
         blocker.await.unwrap().unwrap();
-        let error = result.err().expect("读取未确认时不得连接");
+        let error = result.expect_err("读取未确认时不得连接");
         assert!(
             error.contains(if cancel { "已取消" } else { "读取超时" }),
             "错误须区分取消和超时：{error}"

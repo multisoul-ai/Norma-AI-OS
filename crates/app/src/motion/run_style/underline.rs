@@ -23,7 +23,7 @@ fn thinking_position(time: f32) -> f32 {
 pub(super) fn targets(motion: &RunMotion) -> Targets {
     let state = motion.input.state;
     let visible =
-        !matches!(state, RunState::Ready) && !(state == RunState::Done && motion.input.viewed);
+        !(matches!(state, RunState::Ready) || state == RunState::Done && motion.input.viewed);
     let (tx, tx_tau) = if state == RunState::Tool {
         (TOOL_POSITION, 260.0)
     } else {

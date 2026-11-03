@@ -111,7 +111,7 @@ fn assign_fixture(address: String, fail_receipt: bool) {
         target_workspace_id: None,
         command: CardCommand::Brain {
             token: "action-token".into(),
-            op,
+            op: Box::new(op),
         },
     };
     crate::app::shared_tokio_runtime()

@@ -107,8 +107,7 @@ fn schematic_window(index: usize, area: usize, node: PreviewNode, bounds: Canvas
     // 极小窗口按同比例减小细节；不改变窗口本身的真实几何或省略节点。
     let detail = (bounds.size.x / 64.0)
         .min(bounds.size.y / 42.0)
-        .min(1.0)
-        .max(0.0);
+        .clamp(0.0, 1.0);
     let tint = match node.kind {
         NodeType::Term => 0xa8c7faff,
         NodeType::Agent => 0xc4b5fdff,
