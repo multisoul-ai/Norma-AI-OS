@@ -111,7 +111,7 @@ impl MultisoulApp {
                         .text_size(px(11.0))
                         .text_color(rgba(0x9fb8cfff))
                         .child(if index < 8 {
-                            format!("⌃⇧{}", index + 2)
+                            (index + 2).to_string()
                         } else {
                             String::new()
                         }),

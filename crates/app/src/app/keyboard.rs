@@ -474,7 +474,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let keys = (ev.modifiers.control, ev.modifiers.shift);
+        let keys = ev.modifiers;
         if self.desktop_workspace.ideas_aux.badge_keys != keys {
             self.desktop_workspace.ideas_aux.badge_keys = keys;
             cx.notify();

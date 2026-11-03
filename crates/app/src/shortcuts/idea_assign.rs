@@ -23,13 +23,21 @@ pub(crate) fn badge_mode(
     platform: bool,
     todo_count: usize,
 ) -> BadgeMode {
-    if !control || alt || platform || todo_count == 0 {
+    if platform || todo_count == 0 {
         return BadgeMode::Hidden;
     }
-    if shift {
+    if control && shift && !alt {
         BadgeMode::NewAgent
-    } else {
+    } else if !shift
+        && if cfg!(windows) {
+            alt && !control
+        } else {
+            control && !alt
+        }
+    {
         BadgeMode::Cards
+    } else {
+        BadgeMode::Hidden
     }
 }
 
@@ -37,7 +45,15 @@ pub(crate) fn new_agent_hint(default: AgentProfile) -> String {
     let typed: Vec<String> = (2..=9)
         .filter_map(|slot| new_agent_profile(slot).map(|profile| format!("{slot} {profile:?}")))
         .collect();
-    format!("⌃0 {default:?}　⌃⇧ {}", typed.join(" · "))
+    let (default_key, typed_key) = if cfg!(windows) {
+        ("Ctrl+0", "Ctrl+Shift+")
+    } else {
+        ("⌃0", "⌃⇧")
+    };
+    format!(
+        "{default_key} {default:?}　{typed_key} {}",
+        typed.join(" · ")
+    )
 }
 
 /// 数字槽位对应的新建类型；`0` 与未绑定的槽位返回 `None`，由调用方使用默认类型。

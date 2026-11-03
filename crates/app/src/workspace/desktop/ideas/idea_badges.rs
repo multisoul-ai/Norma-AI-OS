@@ -1,4 +1,4 @@
-//! 按住 `⌃` 时在智能体卡片上浮出序号（对应 `⌃1…9`），按住 `⌃⇧` 时提示新建类型的数字键。
+//! 按住默认派发修饰键时浮出卡片序号（Windows Alt，macOS Ctrl）；Ctrl+Shift提示新建类型。
 //! 提示层不接收指针事件，松开修饰键即消失；只读窗口修饰键，不碰存储。
 //!
 //! 设计注记（apple-design）：提示服务于“第几张卡片”的即时判断，随修饰键出现/消失，
@@ -28,6 +28,9 @@ impl MultisoulApp {
         cx: &Context<Self>,
     ) -> Option<Div> {
         let modifiers = window.modifiers();
+        if modifiers.function {
+            return None;
+        }
         let todo = self
             .desktop_workspace
             .ideas
