@@ -123,6 +123,7 @@ objc2-avf-audio = { version = "0.3.2", features = [
     "AVAudioFormat",
     "AVAudioMixerNode",
     "AVAudioNode",
+    "AVAudioPlayer",
     "AVAudioPlayerNode",
     "AVAudioTypes",
     "block2",

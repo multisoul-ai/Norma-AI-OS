@@ -273,7 +273,11 @@ fn cached_wallpaper_retry_does_not_flash_fallback() {
     app.read_with(cx, |app, _| {
         assert_eq!(
             app.wallpaper_settings.transition_from(),
-            Some(&crate::settings::wallpaper::state::WallpaperSelection::default()),
+            Some(
+                &crate::settings::wallpaper::state::WallpaperSelection::Builtin {
+                    rel: crate::assets::DEFAULT_WALLPAPER_ASSET
+                }
+            ),
             "失效后重新下载应从地球回退画面淡入"
         );
         assert!(

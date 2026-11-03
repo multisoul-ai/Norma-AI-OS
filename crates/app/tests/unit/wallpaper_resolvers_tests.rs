@@ -206,7 +206,7 @@ fn test_wallpaper_badge_labels_distinguish_static_and_dynamic_media() {
     );
 }
 
-/// T-R2: 内置清单恰为 22 项 = 15 static + 2 gif + 5 video。
+/// T-R2: 内置清单恰为 23 项 = 15 static + 2 gif + 6 video。
 /// 地球背景位于 home/，其余资源均位于 wallpapers/ 前缀下。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -216,9 +216,10 @@ fn test_wallpaper_badge_labels_distinguish_static_and_dynamic_media() {
 ///              + 1411492.webp + 379352.jpg + 1411385.webp   = 6 static（mut/v2）
 ///            + 215824.gif(Gif) + 220240.gif(Gif)              = 2 gif
 ///            + 1403512.mp4 + 1404942.mp4 + 1406443.mp4
-///              + 1406489.mp4 + 1407174.mp4                    = 5 video
-///   Total   = 1 Earth + 3 + 6 + 5 space + 2 + 5 = 22
-///   (counts = (static, gif, video) = (15, 2, 5))
+///              + 1406489.mp4 + 1407174.mp4
+///              + norma-awake.mp4(默认，开机动画续播循环)      = 6 video
+///   Total   = 1 Earth + 3 + 6 + 5 space + 2 + 6 = 23
+///   (counts = (static, gif, video) = (15, 2, 6))
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. builtin_wallpapers() 返回 &'static [(path, name, kind)] 切片
@@ -228,15 +229,15 @@ fn test_wallpaper_badge_labels_distinguish_static_and_dynamic_media() {
 ///   5. for 循环校验每条路径前缀
 ///
 /// 预期结果：
-///   - 正断言：len==22；counts==(15,2,5)；6 个 mut/v2 文件逐一存在且为 Static
+///   - 正断言：len==23；counts==(15,2,6)；6 个 mut/v2 文件逐一存在且为 Static
 ///   - 负断言：除地球图外，每条路径必须以 wallpapers/ 开头（非空相对资源名）
 #[test]
 fn test_builtin_wallpapers_contains_mut_v2_defaults_with_correct_kinds() {
     let list = builtin_wallpapers();
     assert_eq!(
         list.len(),
-        22,
-        "built-in library must contain the 17 existing entries plus five space wallpapers"
+        23,
+        "built-in library must contain the 17 existing entries, five space wallpapers and the Norma awake loop"
     );
     let counts = list.iter().fold((0, 0, 0), |(s, g, v), (_, _, k)| match k {
         WallpaperKind::Static => (s + 1, g, v),
@@ -245,8 +246,8 @@ fn test_builtin_wallpapers_contains_mut_v2_defaults_with_correct_kinds() {
     });
     assert_eq!(
         counts,
-        (15, 2, 5),
-        "expected 15 static (Earth + 3 existing + 6 mut/v2 + 5 space), 2 gif, 5 video — got {:?}",
+        (15, 2, 6),
+        "expected 15 static (Earth + 3 existing + 6 mut/v2 + 5 space), 2 gif, 6 video — got {:?}",
         counts
     );
     assert!(

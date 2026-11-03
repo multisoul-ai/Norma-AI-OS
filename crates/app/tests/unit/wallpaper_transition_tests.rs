@@ -9,7 +9,7 @@ use std::time::Duration;
 ///   过渡总长 220ms；110ms = 220ms / 2，随后 110ms 应完成。
 ///
 /// 执行过程：
-///   1. 加载无偏好的状态，验证地球图为默认选择。
+///   1. 加载无偏好的状态（默认是视频，不参与图片淡化），无动效地切到地球图。
 ///   2. 切至 Aurora，推进 110ms，再重复设置 Aurora。
 ///   3. 再推进 110ms，观察过渡结束。
 ///
@@ -26,7 +26,7 @@ fn wallpaper_image_change_crossfades_without_restarting() {
     let aurora = WallpaperSelection::Builtin {
         rel: "wallpapers/1350954.webp",
     };
-    assert_eq!(state.selection, earth, "新 workspace 默认应使用首页地球图");
+    state.set_effective_selection(earth.clone(), true);
 
     state.set_effective_selection(aurora.clone(), false);
     assert_eq!(
@@ -70,7 +70,10 @@ fn wallpaper_image_change_crossfades_without_restarting() {
 fn rapid_wallpaper_changes_keep_current_composite() {
     let guard = TestRootGuard::new();
     let mut state = WallpaperSettingsState::load_from_store(guard.settings_store());
-    let earth = state.selection.clone();
+    let earth = WallpaperSelection::Builtin {
+        rel: crate::assets::HOME_BACKGROUND_ASSET,
+    };
+    state.set_effective_selection(earth.clone(), true);
     let aurora = WallpaperSelection::Builtin {
         rel: "wallpapers/1350954.webp",
     };
@@ -152,7 +155,9 @@ fn downloaded_wallpaper_fades_from_fallback() {
     assert_eq!(state.selection, aurora, "下载完成不得改变用户选择");
     assert_eq!(
         state.transition_from(),
-        Some(&WallpaperSelection::default()),
+        Some(&WallpaperSelection::Builtin {
+            rel: crate::assets::DEFAULT_WALLPAPER_ASSET
+        }),
         "下载完成应从地球回退图开始淡化"
     );
     let opacity = state.transition_from_opacity();
