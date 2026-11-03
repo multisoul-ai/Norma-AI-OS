@@ -1,0 +1,100 @@
+name: Chinese workspace creation
+on:
+  push:
+    branches: ['codex/windows-workspace-create-*']
+    paths:
+      - 'crates/storage/src/workspace_identity_store.rs'
+      - 'crates/storage/tests/desktop_workspace_platform.rs'
+      - '.github/workflows/workspace-create.yml'
+  workflow_dispatch:
+    inputs:
+      full_storage:
+        description: Run all storage tests after the focused workspace regression
+        type: boolean
+        default: false
+      real_app:
+        description: Validate native Chinese workspace creation and reopen in the actual Windows App
+        type: boolean
+        default: false
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_TERM_COLOR: never
+jobs:
+  storage:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-native-contracts
+          cache-workspace-crates: true
+          cache-on-failure: true
+      - name: Require exact Chinese workspace persistence through public APIs
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/workspace-create
+          rustc -vV | tee artifacts/workspace-create/rustc.log
+          cargo test --locked -p storage --test desktop_workspace_platform -- --nocapture 2>&1 | tee artifacts/workspace-create/focused.log
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' artifacts/workspace-create/focused.log
+      - name: Require affected storage tests
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.full_storage
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --locked --no-fail-fast -p storage -- --nocapture 2>&1 | tee artifacts/workspace-create/storage.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: workspace-create-${{ matrix.os }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/workspace-create/
+          if-no-files-found: error
+          retention-days: 3
+  actual-app:
+    if: github.event_name == 'workflow_dispatch' && inputs.real_app
+    runs-on: windows-2025
+    timeout-minutes: 50
+    env:
+      RUST_BACKTRACE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          lfs: true
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-native-keyboard
+          cache-workspace-crates: true
+          cache-on-failure: true
+      - name: Require existing bilingual messages
+        shell: pwsh
+        run: python scripts/check-i18n.py
+      - name: Build the actual Windows App
+        shell: pwsh
+        run: cargo build --locked -p app --features production-data --bin norma-os
+      - name: Require Chinese workspace creation and the same identity after native reopen
+        shell: pwsh
+        run: ./scripts/windows/probe-startup.ps1 -Executable target/debug/norma-os.exe -Output artifacts/workspace-create -ExitMode workspace-reopen
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: workspace-create-app-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/workspace-create/
+          if-no-files-found: error
+          retention-days: 3
