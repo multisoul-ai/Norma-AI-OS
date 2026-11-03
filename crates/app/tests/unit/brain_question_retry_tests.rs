@@ -4,7 +4,7 @@ use norma::agent_hook::QuestionHookStatus;
 
 /// 场景：已持久化但未发送的答案重试时遇到上下文读取故障，轮询不能丢掉发送资格。
 /// 构造：真实原Hook和隔离SQLite，首次切换scope，第二次仅给原scope注入无效checkpoint。
-/// 执行：每次开始后运行生产问题轮询；前两次失败，恢复条件后第三次提交。
+/// 执行：准备中和前两次失败后都明确运行生产轮询；恢复条件后第三次提交。
 /// 预期：前两次没有Hook响应，最终复用唯一delivery并只产生一次原答案。
 #[test]
 fn question_prepared_lease_survives_poll_and_context_read_failure() {
@@ -80,7 +80,11 @@ fn question_prepared_lease_survives_poll_and_context_read_failure() {
                 "准备明确结束后只恢复原scope的故障行，不移动活跃SQLite文件"
             );
         }
-        source.read_with(cx, |app, _| {
+        source.update(cx, |app, _| {
+            if attempt != 2 {
+                assert_eq!(app.runtime.question(&target).unwrap().state, QuestionState::Failed, "必须明确在失败等待期间轮询，不能只覆盖Submitting");
+                app.poll_brain_questions();
+            }
             let snapshot = app.runtime.question(&target).unwrap();
             assert_eq!(
                 snapshot.state,
