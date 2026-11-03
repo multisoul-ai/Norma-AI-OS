@@ -13,6 +13,10 @@ on:
         description: Number of unchanged mobile_commands runs per source
         type: number
         default: 10
+      minimize:
+        description: Compare serial and two-test subsets without changing production or assertions
+        type: boolean
+        default: false
 permissions:
   contents: read
 env:
@@ -97,10 +101,11 @@ jobs:
           shared-key: windows-native-contracts
           cache-workspace-crates: true
           cache-on-failure: true
-      - name: Isolate the original two-thread reservation and immutable receipt case
+      - name: Isolate receipt contention with unchanged assertions
         shell: pwsh
         env:
           RECEIPT_REPEATS: ${{ inputs.repeats }}
+          RECEIPT_MINIMIZE: ${{ inputs.minimize }}
         run: |
           $count=[int]$env:RECEIPT_REPEATS
           if ($count -lt 1 -or $count -gt 100) { throw 'Repeat count must be 1..100' }
@@ -110,17 +115,28 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Compiler identity unavailable' }
           $report=@{ source_sha=$env:GITHUB_SHA; run_id=$env:GITHUB_RUN_ID; run_attempt=$env:GITHUB_RUN_ATTEMPT; image=$env:ImageVersion; os=[Environment]::OSVersion.VersionString; processors=[Environment]::ProcessorCount; compiler=$compiler; runs=@() }
           $failed=$false
+          $variants=@(@{ name='isolated'; expected=1; arguments=@('mobile_command_is_reserved_once_and_receipt_is_immutable','--','--exact','--nocapture') })
+          if ($env:RECEIPT_MINIMIZE -eq 'true') {
+            $variants=@(
+              @{ name='serial'; expected=3; arguments=@('--','--test-threads=1','--nocapture') },
+              @{ name='without-lookup'; expected=2; arguments=@('--','--skip','mobile_command_lookup_never_reserves_and_checks_original_payload','--nocapture') },
+              @{ name='without-failure-fixture'; expected=2; arguments=@('--','--skip','mobile_command_failures_preserve_known_outcome','--nocapture') }
+            )
+          }
           try {
+            foreach ($variant in $variants) {
             for ($i=1; $i -le $count; $i++) {
-              $log=Join-Path $output ("focused-{0:D3}.log" -f $i)
-              cargo test --locked -p storage --test mobile_commands mobile_command_is_reserved_once_and_receipt_is_immutable -- --exact --nocapture 2>&1 | Tee-Object $log
+              $log=Join-Path $output ("{0}-{1:D3}.log" -f $variant.name,$i)
+              $arguments=$variant.arguments
+              cargo test --locked -p storage --test mobile_commands @arguments 2>&1 | Tee-Object $log
               $code=$LASTEXITCODE
               $text=Get-Content $log -Raw
               $match=[regex]::Match($text,'test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;')
-              $valid=$match.Success -and ([int]$match.Groups[1].Value+[int]$match.Groups[2].Value -eq 1) -and [int]$match.Groups[3].Value -eq 0
-              $report.runs+=@{ iteration=$i; exit_code=$code; valid_test_counts=$valid; passed=$match.Groups[1].Value; failed=$match.Groups[2].Value; ignored=$match.Groups[3].Value; log=(Split-Path $log -Leaf) }
+              $valid=$match.Success -and ([int]$match.Groups[1].Value+[int]$match.Groups[2].Value -eq $variant.expected) -and [int]$match.Groups[3].Value -eq 0
+              $report.runs+=@{ scenario=$variant.name; arguments=$arguments; expected_tests=$variant.expected; iteration=$i; exit_code=$code; valid_test_counts=$valid; passed=$match.Groups[1].Value; failed=$match.Groups[2].Value; ignored=$match.Groups[3].Value; log=(Split-Path $log -Leaf) }
               if ($code -ne 0 -or -not $valid) { $failed=$true }
               $report | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $output 'focused.json') -Encoding utf8
+            }
             }
           } finally { $report | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $output 'focused.json') -Encoding utf8 }
           if ($failed) { exit 1 }
