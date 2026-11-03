@@ -13,6 +13,8 @@
 
 ## 当前事实与检查点
 
+- Mac六项剩余失败已获得定向GREEN：`f902836c` run `41574377560`、job `125714371971`整体PASS。Browser 2/0/0、桌面光晕2/0/0、Master首帧2/0/0、失活会话1/0/0；原QR/OpenCode/Azure分别1/2/1项继续PASS。无新增ignore，原业务断言保留；全套新源复验已dispatch `c11c9ce3` run `41576561435`，未提前写成完整App PASS。
+
 - 产品feature锁冻结：`8e2a1b3a` run `41575256058`，Windows/macOS的`cargo update --workspace`均只移除测试feature专用依赖、升级0包，product dependency identity检查均PASS；两端Cargo.lock逐字节一致，SHA256 `41f79d5e1da16f78301970737c4fd1bfe5a35549d49dbc679c75ed59a42e7feb`。`dc82c76e`提交相同锁文件；新的native run `41575727720`及shortcut run `41575727697`进行中。`a7a23002`的失败是旧锁与feature不匹配，未到行为断言，不冒充产品功能失败或成功。
 - 实际App复验已dispatch `8e2a1b3a` startup run `41575429677`：采用产品feature和修正后的client捕获，正常关闭后拒绝ERROR/panic日志；当前进行中，不以最小GPUI探针代替App验收。Mac剩余回归run `41574377560`（`f902836c`）也仍在执行。
 - W07确定缺口：App层`on_window_closed`已按mobile/后台项目决定是否退出，但WindowsPlatform最后原生窗口关闭仍直接PostQuit，覆盖了保活决定。Windows `on_reopen`只存回调、未驱动，`activate`为空；第二实例endpoint失败后仍继续启动。固定Cmd+Q在Windows为Win+Q，主动Quit入口不可达。不能只取消自动退出而制造无法重开的无窗进程；后续需同时完成App接管最后关窗决策、单实例reopen/ACK、原宿主/Runtime复用及可达Quit入口，并以真实服务/PTY跨关窗保活→重开同会话→主动退出验证。当前四模式native关闭契约不等于W07已通过。
