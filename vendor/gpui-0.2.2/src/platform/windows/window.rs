@@ -1,7 +1,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     num::NonZeroIsize,
     path::PathBuf,
     rc::{Rc, Weak},
@@ -27,6 +27,8 @@ use windows::{
 };
 
 use crate::*;
+
+mod lifecycle;
 
 pub(crate) struct WindowsWindow(pub Rc<WindowsWindowInner>);
 
@@ -62,6 +64,9 @@ pub struct WindowsWindowState {
 
 pub(crate) struct WindowsWindowInner {
     hwnd: HWND,
+    closed: Cell<bool>,
+    native_destroyed: Cell<bool>,
+    drag_drop_registered: Cell<bool>,
     pub(super) this: Weak<Self>,
     drop_target_helper: IDropTargetHelper,
     pub(crate) state: RefCell<WindowsWindowState>,
@@ -220,6 +225,9 @@ impl WindowsWindowInner {
 
         Ok(Rc::new_cyclic(|this| Self {
             hwnd,
+            closed: Cell::new(false),
+            native_destroyed: Cell::new(false),
+            drag_drop_registered: Cell::new(false),
             this: this.clone(),
             drop_target_helper: context.drop_target_helper.clone(),
             state,
@@ -242,6 +250,9 @@ impl WindowsWindowInner {
         };
         self.executor
             .spawn(async move {
+                if this.is_closed() {
+                    return;
+                }
                 let mut lock = this.state.borrow_mut();
                 let StyleAndBounds {
                     style,
@@ -458,7 +469,11 @@ impl WindowsWindow {
         let this = context.inner.take().unwrap()?;
         let hwnd = creation_result?;
 
-        register_drag_drop(&this)?;
+        // Own native cleanup before any remaining fallible initialization.
+        let window = Self(this);
+        let this = &window.0;
+        register_drag_drop(this)?;
+        this.drag_drop_registered.set(true);
         configure_dwm_dark_mode(hwnd, appearance);
         this.state.borrow_mut().border_offset.update(hwnd)?;
         let placement = retrieve_window_placement(
@@ -477,7 +492,7 @@ impl WindowsWindow {
             });
         }
 
-        Ok(Self(this))
+        Ok(window)
     }
 }
 
@@ -502,14 +517,11 @@ impl Drop for WindowsWindow {
     fn drop(&mut self) {
         // clone this `Rc` to prevent early release of the pointer
         let this = self.0.clone();
+        drop(this.detach_callbacks());
         self.0
             .executor
             .spawn(async move {
-                let handle = this.hwnd;
-                unsafe {
-                    RevokeDragDrop(handle).log_err();
-                    DestroyWindow(handle).log_err();
-                }
+                this.destroy_native_if_owned();
             })
             .detach();
     }
@@ -538,6 +550,7 @@ impl PlatformWindow for WindowsWindow {
 
     fn resize(&mut self, size: Size<Pixels>) {
         let hwnd = self.0.hwnd;
+        let this = self.0.clone();
         let bounds =
             crate::bounds(self.bounds().origin, size).to_device_pixels(self.scale_factor());
         let rect = calculate_window_rect(bounds, self.0.state.borrow().border_offset);
@@ -545,6 +558,9 @@ impl PlatformWindow for WindowsWindow {
         self.0
             .executor
             .spawn(async move {
+                if this.is_closed() {
+                    return;
+                }
                 unsafe {
                     SetWindowPos(
                         hwnd,
@@ -614,10 +630,14 @@ impl PlatformWindow for WindowsWindow {
         let msg = msg.to_string();
         let detail_string = detail.map(|detail| detail.to_string());
         let handle = self.0.hwnd;
+        let this = self.0.clone();
         let answers = answers.to_vec();
         self.0
             .executor
             .spawn(async move {
+                if this.is_closed() {
+                    return;
+                }
                 unsafe {
                     let mut config = TASKDIALOGCONFIG::default();
                     config.cbSize = std::mem::size_of::<TASKDIALOGCONFIG>() as _;
@@ -693,7 +713,13 @@ impl PlatformWindow for WindowsWindow {
         self.0
             .executor
             .spawn(async move {
+                if this.is_closed() {
+                    return;
+                }
                 this.set_window_placement().log_err();
+                if this.is_closed() {
+                    return;
+                }
 
                 unsafe {
                     // If the window is minimized, restore it.
@@ -702,7 +728,13 @@ impl PlatformWindow for WindowsWindow {
                     }
 
                     SetActiveWindow(hwnd).log_err();
+                    if this.is_closed() {
+                        return;
+                    }
                     SetFocus(Some(hwnd)).log_err();
+                }
+                if this.is_closed() {
+                    return;
                 }
 
                 // premium ragebait by windows, this is needed because the window
@@ -802,43 +834,53 @@ impl PlatformWindow for WindowsWindow {
     }
 
     fn on_request_frame(&self, callback: Box<dyn FnMut(RequestFrameOptions)>) {
-        self.0.state.borrow_mut().callbacks.request_frame = Some(callback);
+        self.0
+            .restore_callback(|callbacks| &mut callbacks.request_frame, callback);
     }
 
     fn on_input(&self, callback: Box<dyn FnMut(PlatformInput) -> DispatchEventResult>) {
-        self.0.state.borrow_mut().callbacks.input = Some(callback);
+        self.0
+            .restore_callback(|callbacks| &mut callbacks.input, callback);
     }
 
     fn on_active_status_change(&self, callback: Box<dyn FnMut(bool)>) {
-        self.0.state.borrow_mut().callbacks.active_status_change = Some(callback);
+        self.0
+            .restore_callback(|callbacks| &mut callbacks.active_status_change, callback);
     }
 
     fn on_hover_status_change(&self, callback: Box<dyn FnMut(bool)>) {
-        self.0.state.borrow_mut().callbacks.hovered_status_change = Some(callback);
+        self.0
+            .restore_callback(|callbacks| &mut callbacks.hovered_status_change, callback);
     }
 
     fn on_resize(&self, callback: Box<dyn FnMut(Size<Pixels>, f32)>) {
-        self.0.state.borrow_mut().callbacks.resize = Some(callback);
+        self.0
+            .restore_callback(|callbacks| &mut callbacks.resize, callback);
     }
 
     fn on_moved(&self, callback: Box<dyn FnMut()>) {
-        self.0.state.borrow_mut().callbacks.moved = Some(callback);
+        self.0
+            .restore_callback(|callbacks| &mut callbacks.moved, callback);
     }
 
     fn on_should_close(&self, callback: Box<dyn FnMut() -> bool>) {
-        self.0.state.borrow_mut().callbacks.should_close = Some(callback);
+        self.0
+            .restore_callback(|callbacks| &mut callbacks.should_close, callback);
     }
 
     fn on_close(&self, callback: Box<dyn FnOnce()>) {
-        self.0.state.borrow_mut().callbacks.close = Some(callback);
+        self.0
+            .restore_callback(|callbacks| &mut callbacks.close, callback);
     }
 
     fn on_hit_test_window_control(&self, callback: Box<dyn FnMut() -> Option<WindowControlArea>>) {
-        self.0.state.borrow_mut().callbacks.hit_test_window_control = Some(callback);
+        self.0
+            .restore_callback(|callbacks| &mut callbacks.hit_test_window_control, callback);
     }
 
     fn on_appearance_changed(&self, callback: Box<dyn FnMut()>) {
-        self.0.state.borrow_mut().callbacks.appearance_changed = Some(callback);
+        self.0
+            .restore_callback(|callbacks| &mut callbacks.appearance_changed, callback);
     }
 
     fn draw(&self, scene: &Scene) {
@@ -867,11 +909,15 @@ struct WindowsDragDropHandler(pub Rc<WindowsWindowInner>);
 
 impl WindowsDragDropHandler {
     fn handle_drag_drop(&self, input: PlatformInput) {
+        if self.0.is_closed() {
+            return;
+        }
         let mut lock = self.0.state.borrow_mut();
         if let Some(mut func) = lock.callbacks.input.take() {
             drop(lock);
             func(input);
-            self.0.state.borrow_mut().callbacks.input = Some(func);
+            self.0
+                .restore_callback(|callbacks| &mut callbacks.input, func);
         }
     }
 }
@@ -885,6 +931,10 @@ impl IDropTarget_Impl for WindowsDragDropHandler_Impl {
         pt: &POINTL,
         pdweffect: *mut DROPEFFECT,
     ) -> windows::core::Result<()> {
+        if self.0.is_closed() {
+            unsafe { *pdweffect = DROPEFFECT_NONE };
+            return Ok(());
+        }
         unsafe {
             let idata_obj = pdataobj.ok()?;
             let config = FORMATETC {
@@ -911,6 +961,10 @@ impl IDropTarget_Impl for WindowsDragDropHandler_Impl {
                     }
                 });
                 ReleaseStgMedium(&mut idata);
+                if self.0.is_closed() {
+                    *pdweffect = DROPEFFECT_NONE;
+                    return Ok(());
+                }
                 let mut cursor_position = cursor_position;
                 ScreenToClient(self.0.hwnd, &mut cursor_position)
                     .ok()
@@ -928,6 +982,10 @@ impl IDropTarget_Impl for WindowsDragDropHandler_Impl {
             } else {
                 *pdweffect = DROPEFFECT_NONE;
             }
+            if self.0.is_closed() {
+                *pdweffect = DROPEFFECT_NONE;
+                return Ok(());
+            }
             self.0
                 .drop_target_helper
                 .DragEnter(self.0.hwnd, idata_obj, &cursor_position, *pdweffect)
@@ -942,6 +1000,10 @@ impl IDropTarget_Impl for WindowsDragDropHandler_Impl {
         pt: &POINTL,
         pdweffect: *mut DROPEFFECT,
     ) -> windows::core::Result<()> {
+        if self.0.is_closed() {
+            unsafe { *pdweffect = DROPEFFECT_NONE };
+            return Ok(());
+        }
         let mut cursor_position = POINT { x: pt.x, y: pt.y };
         unsafe {
             *pdweffect = DROPEFFECT_COPY;
@@ -949,6 +1011,10 @@ impl IDropTarget_Impl for WindowsDragDropHandler_Impl {
                 .drop_target_helper
                 .DragOver(&cursor_position, *pdweffect)
                 .log_err();
+            if self.0.is_closed() {
+                *pdweffect = DROPEFFECT_NONE;
+                return Ok(());
+            }
             ScreenToClient(self.0.hwnd, &mut cursor_position)
                 .ok()
                 .log_err();
@@ -967,6 +1033,9 @@ impl IDropTarget_Impl for WindowsDragDropHandler_Impl {
     }
 
     fn DragLeave(&self) -> windows::core::Result<()> {
+        if self.0.is_closed() {
+            return Ok(());
+        }
         unsafe {
             self.0.drop_target_helper.DragLeave().log_err();
         }
@@ -983,6 +1052,10 @@ impl IDropTarget_Impl for WindowsDragDropHandler_Impl {
         pt: &POINTL,
         pdweffect: *mut DROPEFFECT,
     ) -> windows::core::Result<()> {
+        if self.0.is_closed() {
+            unsafe { *pdweffect = DROPEFFECT_NONE };
+            return Ok(());
+        }
         let idata_obj = pdataobj.ok()?;
         let mut cursor_position = POINT { x: pt.x, y: pt.y };
         unsafe {
@@ -991,6 +1064,10 @@ impl IDropTarget_Impl for WindowsDragDropHandler_Impl {
                 .drop_target_helper
                 .Drop(idata_obj, &cursor_position, *pdweffect)
                 .log_err();
+            if self.0.is_closed() {
+                *pdweffect = DROPEFFECT_NONE;
+                return Ok(());
+            }
             ScreenToClient(self.0.hwnd, &mut cursor_position)
                 .ok()
                 .log_err();

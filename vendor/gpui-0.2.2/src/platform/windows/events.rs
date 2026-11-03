@@ -38,6 +38,10 @@ impl WindowsWindowInner {
         wparam: WPARAM,
         lparam: LPARAM,
     ) -> LRESULT {
+        if self.is_closed() && msg != WM_DESTROY {
+            // The OS must still receive teardown messages, without invoking removed GPUI views.
+            return unsafe { DefWindowProcW(handle, msg, wparam, lparam) };
+        }
         let handled = match msg {
             WM_ACTIVATE => self.handle_activate_msg(wparam),
             WM_CREATE => self.handle_create_msg(handle),
@@ -146,7 +150,7 @@ impl WindowsWindowInner {
         if let Some(mut callback) = lock.callbacks.moved.take() {
             drop(lock);
             callback();
-            self.state.borrow_mut().callbacks.moved = Some(callback);
+            self.restore_callback(|callbacks| &mut callbacks.moved, callback);
         }
         Some(0)
     }
@@ -209,7 +213,7 @@ impl WindowsWindowInner {
         if let Some(mut callback) = lock.callbacks.resize.take() {
             drop(lock);
             callback(new_logical_size, scale_factor);
-            self.state.borrow_mut().callbacks.resize = Some(callback);
+            self.restore_callback(|callbacks| &mut callbacks.resize, callback);
         }
     }
 
@@ -256,16 +260,15 @@ impl WindowsWindowInner {
     fn handle_close_msg(&self) -> Option<isize> {
         let mut callback = self.state.borrow_mut().callbacks.should_close.take()?;
         let should_close = callback();
-        self.state.borrow_mut().callbacks.should_close = Some(callback);
+        self.restore_callback(|callbacks| &mut callbacks.should_close, callback);
         if should_close { None } else { Some(0) }
     }
 
     fn handle_destroy_msg(&self, handle: HWND) -> Option<isize> {
-        let callback = {
-            let mut lock = self.state.borrow_mut();
-            lock.callbacks.close.take()
+        let Some(callbacks) = self.begin_native_destroy() else {
+            return Some(0);
         };
-        if let Some(callback) = callback {
+        if let Some(callback) = callbacks.close {
             callback();
         }
         unsafe {
@@ -310,7 +313,7 @@ impl WindowsWindowInner {
             modifiers: current_modifiers(),
         });
         let handled = !func(input).propagate;
-        self.state.borrow_mut().callbacks.input = Some(func);
+        self.restore_callback(|callbacks| &mut callbacks.input, func);
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -321,7 +324,7 @@ impl WindowsWindowInner {
         if let Some(mut callback) = lock.callbacks.hovered_status_change.take() {
             drop(lock);
             callback(false);
-            self.state.borrow_mut().callbacks.hovered_status_change = Some(callback);
+            self.restore_callback(|callbacks| &mut callbacks.hovered_status_change, callback);
         }
 
         Some(0)
@@ -340,8 +343,8 @@ impl WindowsWindowInner {
 
         let handled = !func(input).propagate;
 
+        self.restore_callback(|callbacks| &mut callbacks.input, func);
         let mut lock = self.state.borrow_mut();
-        lock.callbacks.input = Some(func);
 
         if handled {
             lock.system_key_handled = true;
@@ -361,7 +364,7 @@ impl WindowsWindowInner {
         let mut func = lock.callbacks.input.take()?;
         drop(lock);
         func(input);
-        self.state.borrow_mut().callbacks.input = Some(func);
+        self.restore_callback(|callbacks| &mut callbacks.input, func);
 
         // Always return 0 to indicate that the message was handled, so we could properly handle `ModifiersChanged` event.
         Some(0)
@@ -396,7 +399,7 @@ impl WindowsWindowInner {
 
         let handled = !func(input).propagate;
 
-        self.state.borrow_mut().callbacks.input = Some(func);
+        self.restore_callback(|callbacks| &mut callbacks.input, func);
 
         if handled {
             Some(0)
@@ -420,7 +423,7 @@ impl WindowsWindowInner {
         drop(lock);
 
         let handled = !func(input).propagate;
-        self.state.borrow_mut().callbacks.input = Some(func);
+        self.restore_callback(|callbacks| &mut callbacks.input, func);
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -468,7 +471,7 @@ impl WindowsWindowInner {
             first_mouse: false,
         });
         let handled = !func(input).propagate;
-        self.state.borrow_mut().callbacks.input = Some(func);
+        self.restore_callback(|callbacks| &mut callbacks.input, func);
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -497,7 +500,7 @@ impl WindowsWindowInner {
             click_count,
         });
         let handled = !func(input).propagate;
-        self.state.borrow_mut().callbacks.input = Some(func);
+        self.restore_callback(|callbacks| &mut callbacks.input, func);
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -568,7 +571,7 @@ impl WindowsWindowInner {
             touch_phase: TouchPhase::Moved,
         });
         let handled = !func(input).propagate;
-        self.state.borrow_mut().callbacks.input = Some(func);
+        self.restore_callback(|callbacks| &mut callbacks.input, func);
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -608,7 +611,7 @@ impl WindowsWindowInner {
             touch_phase: TouchPhase::Moved,
         });
         let handled = !func(event).propagate;
-        self.state.borrow_mut().callbacks.input = Some(func);
+        self.restore_callback(|callbacks| &mut callbacks.input, func);
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -751,11 +754,14 @@ impl WindowsWindowInner {
         let this = self.clone();
         self.executor
             .spawn(async move {
+                if this.is_closed() {
+                    return;
+                }
                 let mut lock = this.state.borrow_mut();
                 if let Some(mut func) = lock.callbacks.active_status_change.take() {
                     drop(lock);
                     func(activated);
-                    this.state.borrow_mut().callbacks.active_status_change = Some(func);
+                    this.restore_callback(|callbacks| &mut callbacks.active_status_change, func);
                 }
             })
             .detach();
@@ -868,7 +874,7 @@ impl WindowsWindowInner {
         if let Some(mut callback) = lock.callbacks.hit_test_window_control.take() {
             drop(lock);
             let area = callback();
-            self.state.borrow_mut().callbacks.hit_test_window_control = Some(callback);
+            self.restore_callback(|callbacks| &mut callbacks.hit_test_window_control, callback);
             if let Some(area) = area {
                 return match area {
                     WindowControlArea::Drag => Some(HTCAPTION as _),
@@ -941,7 +947,7 @@ impl WindowsWindowInner {
             modifiers: current_modifiers(),
         });
         let handled = !func(input).propagate;
-        self.state.borrow_mut().callbacks.input = Some(func);
+        self.restore_callback(|callbacks| &mut callbacks.input, func);
 
         if handled { Some(0) } else { None }
     }
@@ -974,7 +980,7 @@ impl WindowsWindowInner {
             });
             let result = func(input);
             let handled = !result.propagate || result.default_prevented;
-            self.state.borrow_mut().callbacks.input = Some(func);
+            self.restore_callback(|callbacks| &mut callbacks.input, func);
 
             if handled {
                 return Some(0);
@@ -1021,7 +1027,7 @@ impl WindowsWindowInner {
                 click_count: 1,
             });
             let handled = !func(input).propagate;
-            self.state.borrow_mut().callbacks.input = Some(func);
+            self.restore_callback(|callbacks| &mut callbacks.input, func);
 
             if handled {
                 return Some(0);
@@ -1156,7 +1162,7 @@ impl WindowsWindowInner {
                     let mut callback = lock.callbacks.appearance_changed.take()?;
                     drop(lock);
                     callback();
-                    self.state.borrow_mut().callbacks.appearance_changed = Some(callback);
+                    self.restore_callback(|callbacks| &mut callbacks.appearance_changed, callback);
                     configure_dwm_dark_mode(handle, new_appearance);
                 }
             }
@@ -1199,7 +1205,7 @@ impl WindowsWindowInner {
             require_presentation: false,
             force_render,
         });
-        self.state.borrow_mut().callbacks.request_frame = Some(request_frame);
+        self.restore_callback(|callbacks| &mut callbacks.request_frame, request_frame);
         unsafe { ValidateRect(Some(handle), None).ok().log_err() };
         Some(0)
     }
@@ -1252,7 +1258,7 @@ impl WindowsWindowInner {
             if let Some(mut callback) = lock.callbacks.hovered_status_change.take() {
                 drop(lock);
                 callback(true);
-                self.state.borrow_mut().callbacks.hovered_status_change = Some(callback);
+                self.restore_callback(|callbacks| &mut callbacks.hovered_status_change, callback);
             }
         }
     }
