@@ -13,6 +13,9 @@
 
 ## 当前事实与检查点
 
+- 产品feature下native关闭契约最终GREEN：`dc82c76e` run `41575727720`、attempt 1、job `125718662353` PASS。原生关闭、迟到激活、排队activate/resize/fullscreen后关闭、App移除四模式均exit0；每项明确验证close_count=1、drain_finished=true、原窗及keeper HWND均销毁、errors=0。没有过滤shutdown报错或放宽断言；真实App的同类关闭证据见下条。
+- 本批验收日志artifact的GitHub SHA256：native `13204400934`为`a1f3b2667fa69444e1969d9ceb99f617dd3e3acafc6f1cf3b800b29caf84af24`；实际App `13202859951`为`dfde3085d2ff748646965522327dbe9bcc0e1a093ccfbd77434537ffde8950fc`；Mac定向 `13203083772`为`2ea51a116204271d418aad3325df9a5def1fa7b376b3d3484000a8d77811c58d`。这三个是日志/截图archive校验和，不是可交付Windows发行包的校验和。
+
 - 实际Windows App清理复验GREEN：`8e2a1b3a` startup run `41575429677`、job `125717706162` PASS；真实WebView2 ready约6.57秒，三张client原图已逐张看图，完整欢迎页无先前桌面/任务栏夹带，正常WM_CLOSE退出0，stdout/stderr未出现ERROR或panic。原图/日志在`/private/tmp/norma-startup-clean-8e2a1b3a`。这是开发App启动与关闭证据，不代表实际项目/终端/网页操作、手机后台或同包fresh-runner验收完成。
 
 - Mac六项剩余失败已获得定向GREEN：`f902836c` run `41574377560`、job `125714371971`整体PASS。Browser 2/0/0、桌面光晕2/0/0、Master首帧2/0/0、失活会话1/0/0；原QR/OpenCode/Azure分别1/2/1项继续PASS。无新增ignore，原业务断言保留；全套新源复验已dispatch `c11c9ce3` run `41576561435`，未提前写成完整App PASS。
