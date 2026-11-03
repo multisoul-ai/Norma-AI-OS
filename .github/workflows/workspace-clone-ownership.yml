@@ -45,7 +45,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          cargo test --locked -p workspace --lib clone_target_cleanup -- --nocapture 2>&1 | tee artifacts/clone-ownership/ownership.log
+          cargo test --locked -p workspace --lib clone_target_ -- --nocapture 2>&1 | tee artifacts/clone-ownership/ownership.log
       - name: Require the complete workspace test harness
         if: always()
         shell: bash
