@@ -4,6 +4,8 @@
 # 预期：两种日志流都接受真实ready；空日志和creation_requested均不能假绿。
 $ErrorActionPreference='Stop'
 . "$PSScriptRoot/desktop-driver.ps1"
+# The package wrapper loads the same driver for smoke and then workspace acceptance.
+. "$PSScriptRoot/desktop-driver.ps1"
 $root=Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
 New-Item -ItemType Directory $root | Out-Null
 try {

@@ -1,5 +1,6 @@
 param([Parameter(Mandatory)][string]$Package, [Parameter(Mandatory)][string]$Output, [string]$ExpectedSourceSha=$env:GITHUB_SHA)
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/desktop-driver.ps1"
 Add-Type -AssemblyName System.Drawing
 Add-Type @'
 using System;
@@ -52,6 +53,7 @@ if ($browser.ExitCode -ne 1 -or -not (Select-String -Path (Join-Path $Output 'br
     if (-not [NormaWindow]::PostMessage($window, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)) { throw 'Unable to close the candidate window' }
     if (-not $process.WaitForExit(10000)) { throw 'Candidate remained running after closing its last window' }
     if ($process.ExitCode -ne 0) { throw "Candidate exited with $($process.ExitCode)" }
+    Assert-NormaAppLogs $Output
     @{ status = 'PASS'; source_sha = $manifest.source_sha; probe_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; version = $version; width = $width; height = $height; exit_code = $process.ExitCode; scope = 'Packaged CLI, hook help, browser caller rejection, window and normal last-window close; no model task' } | ConvertTo-Json | Set-Content (Join-Path $Output 'report.json')
 } catch {
     @{ status = 'FAIL'; source_sha = $manifest.source_sha; probe_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; error = $_.Exception.Message } | ConvertTo-Json | Set-Content (Join-Path $Output 'report.json')

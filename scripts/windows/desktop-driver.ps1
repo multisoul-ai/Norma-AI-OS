@@ -83,3 +83,9 @@ function Test-NormaNativeReady([string]$Directory) {
     }
     return $false
 }
+function Assert-NormaAppLogs([string]$Directory, [string[]]$Streams=@('stdout.log','stderr.log')) {
+    foreach ($stream in $Streams) {
+        $content=(Get-Content (Join-Path $Directory $stream) -Raw) -replace '\x1b\[[0-9;]*m', ''
+        if ($content -match '(?m)^\S+\s+ERROR\b|^\[[^\r\n]*:ERROR:|panicked at') { throw "Actual App emitted an error during startup/close; inspect $stream" }
+    }
+}
