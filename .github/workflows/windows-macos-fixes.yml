@@ -80,7 +80,7 @@ jobs:
         shell: bash
         run: |
           had_failure=0
-          for filter in browser_page_interaction desktop_doubao_inset desktop_master_first test_doubao_hold_window_deactivation; do
+          for filter in browser_page_interaction desktop_doubao_inset desktop_master_first test_doubao_hold_window_deactivation quit_shortcut_routes; do
             if ! cargo test --locked -p app --lib "$filter" -- --nocapture 2>&1 | tee "artifacts/macos-fixes/$filter.log"; then had_failure=1; fi
           done
           exit "$had_failure"
