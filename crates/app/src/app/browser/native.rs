@@ -72,15 +72,22 @@ impl NativeBrowserView {
         bounds: BrowserViewBounds,
         window: &mut Window,
         event_sender: Sender<BrowserEvent>,
+        _cx: &gpui::App,
     ) -> Result<Self, String> {
         #[cfg(any(target_os = "macos", windows))]
         {
             match engine {
-                BrowserEngineKind::Wry => {
-                    WryBrowserView::create(node_id, url, bounds, window, event_sender)
-                        .map(Self::Wry)
-                        .map_err(|err| err.to_string())
-                }
+                BrowserEngineKind::Wry => WryBrowserView::create(
+                    node_id,
+                    url,
+                    bounds,
+                    window,
+                    event_sender,
+                    #[cfg(windows)]
+                    _cx,
+                )
+                .map(Self::Wry)
+                .map_err(|err| err.to_string()),
                 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
                 BrowserEngineKind::Cef => {
                     create_cef_view(node_id, url, bounds, window, event_sender)

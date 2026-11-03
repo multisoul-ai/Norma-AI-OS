@@ -104,7 +104,7 @@ impl BrowserStore {
             .collect()
     }
 
-    pub(crate) fn warm_up(&mut self, window: &mut Window) {
+    pub(crate) fn warm_up(&mut self, window: &mut Window, _cx: &gpui::App) {
         if !self.native_views_enabled || self.warm_view.is_some() {
             return;
         }
@@ -112,9 +112,23 @@ impl BrowserStore {
         if BrowserEngineKind::from_env_value(configured.as_deref()) != BrowserEngineKind::Wry {
             return;
         }
-        match WarmWebView::create(window) {
+        match WarmWebView::create(
+            window,
+            #[cfg(windows)]
+            _cx,
+        ) {
             Ok(view) => self.warm_view = Some(view),
             Err(error) => tracing::warn!(%error, "browser warm-up view failed"),
+        }
+    }
+
+    #[cfg(windows)]
+    pub(crate) fn fail_native_view(&mut self, node_id: NodeId) {
+        if let Some(view) = self.views.get_mut(&node_id) {
+            view.load_timeline.cancel();
+        }
+        if self.auth_states.get(&node_id) == Some(&BrowserAuthUiState::Waiting) {
+            self.auth_states.insert(node_id, BrowserAuthUiState::Failed);
         }
     }
 
@@ -158,6 +172,7 @@ impl BrowserStore {
         url: &str,
         bounds: BrowserViewBounds,
         window: &mut Window,
+        cx: &gpui::App,
     ) {
         if bounds.width <= 1.0 || bounds.height <= 1.0 {
             self.hide(node_id);
@@ -174,7 +189,7 @@ impl BrowserStore {
             presentation: None,
         });
         if self.native_views_enabled {
-            view.sync(node_id, url, bounds, window, event_sender);
+            view.sync(node_id, url, bounds, window, event_sender, cx);
         }
     }
 

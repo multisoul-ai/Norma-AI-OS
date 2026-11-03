@@ -1,4 +1,5 @@
 {
+  "cards.browser_start_failed": "Unable to start the browser: %{message}",
   "cards.waiting_question": "Waiting for answer",
   "cards.edit": "Edit",
   "cards.terminal": "Terminal",

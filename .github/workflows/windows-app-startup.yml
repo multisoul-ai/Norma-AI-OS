@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/windows-audio-*']
-    paths: ['.github/workflows/windows-app-startup.yml', 'scripts/windows/probe-startup.ps1', 'vendor/gpui-0.2.2/src/app/async_context.rs']
+    paths: ['.github/workflows/windows-app-startup.yml', 'scripts/windows/probe-startup.ps1', 'vendor/gpui-0.2.2/src/app/async_context.rs', 'crates/app/src/app/browser/**', 'crates/app/src/app/browser.rs', 'crates/app/src/license_gate/gate_root/workbench.rs']
 permissions:
   contents: read
 env:
@@ -28,6 +28,9 @@ jobs:
           shared-key: windows-native-keyboard
           cache-workspace-crates: true
           cache-on-failure: true
+      - name: Require bilingual display keys
+        shell: pwsh
+        run: python scripts/check-i18n.py
       - name: Build the actual App with native debug symbol locations
         shell: pwsh
         run: cargo build --locked -p app --features production-data --bin norma-os

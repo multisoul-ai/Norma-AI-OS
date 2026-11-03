@@ -41,7 +41,7 @@ impl GateRoot {
                     app.browsers.disable_native_views();
                     app.start_dialogue_turn_loop(window, cx);
                     app.start_cef_message_pump_loop(window, cx);
-                    app.warm_up_browser_engine(window);
+                    app.warm_up_browser_engine(window, cx);
                     app.configure_cpu_benchmark_from_environment(window, cx);
                     #[cfg(feature = "e2e-test-support")]
                     if crate::workspace::windowing::visual_preview_name().as_deref()

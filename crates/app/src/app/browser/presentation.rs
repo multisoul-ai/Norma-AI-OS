@@ -90,7 +90,7 @@ impl MultisoulApp {
                                 },
                                 ..bounds
                             };
-                            app.browsers.sync_view(node_id, &url, logical, window);
+                            app.browsers.sync_view(node_id, &url, logical, window, cx);
                             app.browsers
                                 .present(node_id, placement, interactive, window);
                         } else {
