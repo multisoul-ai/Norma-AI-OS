@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
     rc::{Rc, Weak},
     sync::Arc,
+    time::{Duration, Instant},
 };
 
 use ::util::{ResultExt, paths::SanitizedPath};
@@ -275,7 +276,14 @@ impl WindowsPlatform {
 
     fn drain_shutdown_tasks(&self) {
         let mut message = MSG::default();
-        loop {
+        // A finite cleanup chain must run, but unrelated self-waking work cannot keep quit alive.
+        let deadline = Instant::now() + Duration::from_secs(1);
+        let mut timed_out = false;
+        'drain: loop {
+            if Instant::now() >= deadline {
+                timed_out = true;
+                break;
+            }
             let _ = self.inner.run_foreground_task();
             let mut dispatched = false;
             for kind in [
@@ -287,6 +295,10 @@ impl WindowsPlatform {
                 }
                 .as_bool()
                 {
+                    if Instant::now() >= deadline {
+                        timed_out = true;
+                        break 'drain;
+                    }
                     unsafe { DispatchMessageW(&message) };
                     dispatched = true;
                 }
@@ -294,6 +306,9 @@ impl WindowsPlatform {
             if !dispatched && self.inner.main_receiver.is_empty() {
                 break;
             }
+        }
+        if timed_out {
+            log::error!("native foreground cleanup did not quiesce within one second");
         }
         // Closing the last native HWND can post another quit message while draining.
         while unsafe { PeekMessageW(&mut message, None, WM_QUIT, WM_QUIT, PM_REMOVE) }.as_bool() {}
