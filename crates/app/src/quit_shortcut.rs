@@ -11,7 +11,8 @@ pub(crate) fn install(cx: &mut App) {
         let target = window
             .root::<ui::component::Root>()
             .flatten()
-            .and_then(|root| root.read(cx).view().clone().downcast::<MultisoulApp>().ok());
+            .and_then(|root| root.read(cx).view().clone().downcast::<MultisoulApp>().ok())
+            .or_else(|| crate::workspace::desktop::sessions::in_window(window.window_handle(), cx));
         let should_quit = if let Some(target) = target {
             let app = target.read(cx);
             app.shortcuts.command_for_keystroke(&event.keystroke)

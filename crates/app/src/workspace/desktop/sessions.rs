@@ -12,6 +12,15 @@ struct DesktopHost {
 struct DesktopHosts(Vec<DesktopHost>);
 impl Global for DesktopHosts {}
 
+#[cfg(any(windows, test))]
+pub(crate) fn in_window(window: AnyWindowHandle, cx: &App) -> Option<Entity<MultisoulApp>> {
+    cx.try_global::<DesktopHosts>()?
+        .0
+        .iter()
+        .find(|host| host.window == Some(window))
+        .map(|host| host.app.clone())
+}
+
 pub(crate) fn hosts(database: &Path, cx: &App) -> Vec<Entity<MultisoulApp>> {
     cx.try_global::<DesktopHosts>()
         .map(|hosts| {
