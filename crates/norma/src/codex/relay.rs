@@ -478,3 +478,7 @@ mod partial_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/codex_relay_output_backpressure.rs"]
 mod output_backpressure_tests;
+
+#[cfg(all(test, windows))]
+#[path = "../../tests/unit/windows_relay_compat.rs"]
+mod compat_tests;
