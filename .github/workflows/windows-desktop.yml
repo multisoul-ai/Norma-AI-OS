@@ -1,0 +1,55 @@
+name: Windows packaged desktop contracts
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run:
+        description: Windows build run containing the immutable candidate ZIP
+        required: true
+        type: string
+  push:
+    branches: ['codex/windows-audio-*']
+    paths: ['.github/workflows/windows-desktop.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  desktop:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Download the exact producer artifact without rebuilding
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run }}
+        run: |
+          if ($env:CANDIDATE_RUN -notmatch '^\d+$') { throw 'Invalid producer run ID' }
+          $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:CANDIDATE_RUN" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Producer metadata unavailable' }
+          if ($run.name -ne 'Windows build' -or $run.head_sha -notmatch '^[a-f0-9]{40}$' -or $run.head_repository.full_name -ne $env:GITHUB_REPOSITORY) { throw 'Unexpected candidate producer' }
+          gh run download $env:CANDIDATE_RUN --repo $env:GITHUB_REPOSITORY --name "norma-os-windows-x64-$($run.head_sha)" --dir dist
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate download failed' }
+          "CANDIDATE_SOURCE_SHA=$($run.head_sha)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          $zip = @(Get-ChildItem dist/*.zip)
+          if ($zip.Count -ne 1) { throw 'Expected exactly one candidate ZIP' }
+          $expected = ((Get-Content "$($zip[0].FullName).sha256" -Raw).Trim() -split '\s+')[0]
+          if ((Get-FileHash $zip[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Candidate ZIP checksum mismatch' }
+          Expand-Archive $zip[0].FullName (Join-Path $env:RUNNER_TEMP 'Norma 中文 candidate')
+          "CANDIDATE_ZIP_SHA256=$expected" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Exercise native keyboard workspace creation and persistence
+        shell: pwsh
+        run: |
+          $package = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'Norma 中文 candidate') -Directory)
+          if ($package.Count -ne 1) { throw 'Unexpected package layout' }
+          ./scripts/windows/probe-desktop.ps1 -Package $package[0].FullName -Output artifacts/desktop -ExpectedSource $env:CANDIDATE_SOURCE_SHA
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-desktop-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/desktop/
+          if-no-files-found: error
+          retention-days: 3
