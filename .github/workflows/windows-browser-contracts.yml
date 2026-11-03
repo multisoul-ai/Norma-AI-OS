@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/windows-audio-*']
-    paths: ['crates/app/src/app/browser/generation.rs', 'crates/norma/tests/app_browser_generation_platform.rs', '.github/workflows/windows-browser-contracts.yml']
+    paths: ['crates/app/src/app/browser/generation.rs', 'crates/app/src/app/browser/focus_policy.rs', 'crates/norma/tests/app_browser_focus_platform.rs', 'crates/norma/tests/app_browser_generation_platform.rs', '.github/workflows/windows-browser-contracts.yml']
 permissions:
   contents: read
 env:
@@ -35,7 +35,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p artifacts/browser-generation
-          cargo test --locked -p norma --test app_browser_generation_platform -- --nocapture 2>&1 | tee artifacts/browser-generation/tests.log
+          cargo test --locked -p norma --test app_browser_generation_platform --test app_browser_focus_platform -- --nocapture 2>&1 | tee artifacts/browser-generation/tests.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
