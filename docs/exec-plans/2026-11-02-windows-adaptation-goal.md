@@ -208,3 +208,12 @@ W01–W12的整体门槛仍未全部满足；没有生成候选包或同包新ru
 - CRT RED：同`10176f24`探针确认VS18默认CRT元数据为14.51.36231/VC145，而旧选择得到14.44.35112/VC143；独立中文空格路径、ARM64排除及版本测试明确失败。`e774d0f4`依据实际`Microsoft.VCRedistVersion.default.txt`选择匹配的完整x64 CRT，不向旧版本静默回退；run `41529631242`整体PASS，四项同步、完整terminal和真实SDK选择一并通过。生产workflow在长构建前验证CRT，再复制同一目录。
 
 候选构建尚未完成；真实App窗口、保存重开、WebView2、双语/主题、音频等完整软件矩阵仍未关闭，Goal保持ACTIVE。真实Claude/Codex调用继续由用户承接。标准CI保持原有macos-latest检查环境，不以换OS跳过失败。
+
+
+## 路由 ID 原生随机源与真实包流程（2026-11-03 UTC）
+
+- 生产 App 原路由 ID 无条件读取 `/dev/urandom`；在 Windows 上工作区/手机/Agent 路由生成失败。RED `6a306e0f` run `41547549765` Windows job `125626724778` 得到 OS error 3，macOS 对照通过。
+- `e5ffcb2b` 复用 norma 已有 ring::SystemRandom，保留可失败结果，不提供弱随机降级；App 调用相同实现。GREEN run `41549108614` Windows job `125631888863`、macOS job `125631888653` 均通过真实 App helper 的1000次生成、UUID版本/variant与批内唯一性测试；批内唯一性不作为熵质量证明。
+- PR `626debf2` 标准CI `41545807436` PASS；native run `41545800521` 的Windows原生、2022/2025 ConPTY、socket、Mac文案均PASS。Mac域回归有OpenCode history/receipt迁移超时，App回归1662过76败（主要线程创建EAGAIN，另有Vision VM警告混入QR结果、Azure输入框断言），保留原失败并定位，不重跑覆盖。
+- `0888e50b` 增加独立Windows桌面consumer：显式下载producer run的同一ZIP，验证hash与candidate源码；记录probe SHA和candidate SHA。使用真实SendInput触发Ctrl+N及中文输入，再关闭重开；只读SQLite观察是补充证据，必须读取对应窗口原图，不能冒充完整项目/终端/WebView2验收。
+- Windows release run `41545800566`仍在构建，尚无已验证候选包。本次route修复尚未接回PR；待当前构建取得诊断包后合入，避免取消已有长构建。

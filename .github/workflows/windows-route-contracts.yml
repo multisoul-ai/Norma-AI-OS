@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/windows-audio-*']
-    paths: ['crates/app/src/norma/route_id.rs', 'crates/app/src/norma/endpoint.rs', 'crates/norma/tests/app_route_id_platform.rs', 'crates/norma/Cargo.toml', 'Cargo.lock', '.github/workflows/windows-route-contracts.yml']
+    paths: ['crates/app/src/norma/route_id.rs', 'crates/app/src/norma/endpoint.rs', 'crates/norma/src/route_id.rs', 'crates/norma/src/lib.rs', 'crates/norma/tests/app_route_id_platform.rs', 'crates/norma/Cargo.toml', 'Cargo.lock', '.github/workflows/windows-route-contracts.yml']
 permissions:
   contents: read
 env:
