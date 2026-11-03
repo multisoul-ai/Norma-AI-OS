@@ -1,6 +1,9 @@
 name: Windows complete App gates
 on:
   workflow_dispatch:
+  push:
+    branches: ['codex/windows-audio-*']
+    paths: ['.github/workflows/windows-app-checks.yml']
 permissions:
   contents: read
 env:
@@ -10,6 +13,7 @@ env:
   RUST_BACKTRACE: '1'
 jobs:
   app-gates:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: windows-2025
     timeout-minutes: 60
     steps:
