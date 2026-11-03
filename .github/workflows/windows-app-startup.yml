@@ -48,6 +48,10 @@ jobs:
         if: always() && steps.build.outcome == 'success'
         shell: pwsh
         run: ./scripts/windows/probe-startup.ps1 -Executable target/debug/norma-os.exe -Output artifacts/startup/settings-then-quit -ExitMode settings-then-quit
+      - name: Require persisted custom Quit before real input Select All
+        if: always() && steps.build.outcome == 'success'
+        shell: pwsh
+        run: ./scripts/windows/probe-startup.ps1 -Executable target/debug/norma-os.exe -Output artifacts/startup/configured-input-quit -ExitMode configured-input-quit
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
