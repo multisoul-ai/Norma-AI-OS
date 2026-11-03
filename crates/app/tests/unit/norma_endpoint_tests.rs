@@ -1,9 +1,9 @@
 use super::endpoint::protocol_compatibility_error;
 use super::route::{WorkspaceRouteError, WorkspaceRouteIndex};
 use super::transport::NormaSocketListener;
+use norma::codex::UnixStream;
 use norma::protocol::{AgentErrorCode, CURRENT_PROTOCOL_VERSION};
 use std::io::ErrorKind;
-use std::os::unix::net::UnixStream;
 
 /// App 全局 Socket 所有权：第二个入口不得删除或替换正在工作的 Norma socket。
 ///

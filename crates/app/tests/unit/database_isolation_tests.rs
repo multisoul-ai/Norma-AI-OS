@@ -1,6 +1,10 @@
 use super::{database_isolation_support::rect_snapshot, MultisoulApp};
 use canvas::{CanvasNodeKind, CanvasRect, RectNode};
 use gpui::TestAppContext;
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
+#[cfg(windows)]
+use std::os::windows::fs::symlink_dir as symlink;
 use storage::{DatabasePaths, ProjectStore, SettingsStore};
 use terminal::{PtyBackend, TestPtyBackend};
 
@@ -198,13 +202,11 @@ fn test_external_test_root_rejects_direct_and_symlinked_production_directory() {
         .expect("Production app DB 必须有数据目录");
     std::fs::create_dir_all(production_root).expect("测试应创建 Production 数据目录");
     let alias = temp.path().join("production-alias");
-    std::os::unix::fs::symlink(production_root, &alias)
-        .expect("测试应创建指向 Production 数据目录的符号链接");
+    symlink(production_root, &alias).expect("测试应创建指向 Production 数据目录的符号链接");
     let production_child = production_root.join("child");
     std::fs::create_dir(&production_child).expect("测试应创建 Production child 目录");
     let child_alias = temp.path().join("production-child-alias");
-    std::os::unix::fs::symlink(&production_child, &child_alias)
-        .expect("测试应创建指向 Production child 的符号链接");
+    symlink(&production_child, &child_alias).expect("测试应创建指向 Production child 的符号链接");
     let symlink_parent = child_alias.join("..");
 
     let direct_error =

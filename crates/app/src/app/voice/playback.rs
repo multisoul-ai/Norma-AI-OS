@@ -42,10 +42,10 @@ pub(crate) trait AssistantAudioSink: Send {
 }
 
 #[derive(Default)]
-#[cfg(not(windows))]
+#[cfg(any(not(windows), test))]
 pub(crate) struct NoopAssistantAudioSink;
 
-#[cfg(not(windows))]
+#[cfg(any(not(windows), test))]
 impl AssistantAudioSink for NoopAssistantAudioSink {
     fn write_chunk(&mut self, chunk: &PcmAudioChunk) -> Result<Duration, String> {
         tracing::trace!(

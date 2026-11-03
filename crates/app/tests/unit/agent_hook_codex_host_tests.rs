@@ -1,9 +1,9 @@
 use super::*;
 use crate::test_support::codex_relay as relay_support;
 use norma::codex::{native_questions::CodexQuestionHost, relay::CodexQuestionRelay};
+use norma::codex::{UnixListener, UnixStream};
 use relay_support::{read, send, timed};
 use serde_json::json;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Duration, Instant};
 
 /// 场景：生产App的统一drain也要处理同进程宿主，即使HTTP Hook队列为空。
@@ -14,7 +14,11 @@ use std::time::{Duration, Instant};
 fn app_hook_drain_adopts_native_questions_and_reports_session_changes() {
     let dir = tempfile::Builder::new()
         .prefix("nqa-")
-        .tempdir_in("/tmp")
+        .tempdir_in(if cfg!(windows) {
+            std::env::temp_dir()
+        } else {
+            std::path::PathBuf::from("/tmp")
+        })
         .unwrap();
     let path = dir.path().join("s.sock");
     let listener = UnixListener::bind(&path).unwrap();

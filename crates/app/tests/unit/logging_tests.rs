@@ -1,7 +1,10 @@
 use super::*;
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
+#[cfg(windows)]
+use std::os::windows::fs::symlink_file as symlink;
 use std::{
     fs::{self, File, FileTimes},
-    os::unix::fs::symlink,
     sync::mpsc,
     thread,
     time::Duration,
