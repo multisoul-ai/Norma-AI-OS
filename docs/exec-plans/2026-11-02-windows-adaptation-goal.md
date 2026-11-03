@@ -13,6 +13,12 @@
 
 ## 当前事实与检查点
 
+- 最新启动结果：`6183569d` startup run `41566226993`、job `125688326459` PASS。真实WebView2 native创建完成（约6.64秒）；三张原始PNG已逐张看图，欢迎页实际渲染；WM_CLOSE退出码0。截图存在初始窗口越界、夹带桌面的问题，不能宣称整窗布局验收通过。关闭日志仍有`window not found`和两条invalid-HWND，独立审查定位到既有GPUI重复销毁及迟到active回调候选；须增加无Wry真实窗口反例后修复，不把exit0写成无错误清理。
+- 剪贴板独立RED：`923ab1fe` run `41566913219` Windows 2过/2败，focused粘贴与keyboard-selected外层准入分别失败；Mac 3过/1败，额外修饰组合被误识别。`8ef9b815` run `41567873627`中两平台的两条clipboard均GREEN；整个Windows job仍因两条badge RED失败（4过/2败），Mac为6/0/0。不可将该run整体称PASS。
+- Badge独立RED：`c4b5521d` run `41567577876` Windows实际失败于Alt不显示卡片序号、提示仍为macOS符号。`61a6e64b`修默认平台策略、完整Modifiers快照触发重绘，以及picker内实际支持的裸数字提示；combined run `41568535811`进行中。提示继续遵守文档中“仅默认键位”的既有范围；真实Alt重绘、焦点和完整键盘路径尚待App验收。
+- 截图driver RED `93313269` run `41568237185`：640×360 client被旧函数捕为656×399。`682acc36` run `41568614384`整体PASS，真实WinForms client尺寸和越界拒绝两项均通过，readiness四项继续PASS。生产driver会先将App放入桌面工作区，再捕获client；修正后的实际App截图待下一轮，不用fixture代替产品截图。
+- `f24b9d08`已显式dispatch Mac完整App回归run `41568796539`，复用定向workflow与缓存，先保留QR/OpenCode/Azure，再执行原App全套；当前进行中，Goal仍ACTIVE。Windows App全测试harness的10个Unix/macOS夹具编译问题、完整Windows Clippy、默认能力缺口、PR接回与最终同包验收仍未完成。
+
 - 2026-11-03 UTC 最新增量：`6183569d` script run `41562853503` PASS，readiness会逐个读取stdout/stderr；`50141620`的真实native WebView已完成创建，旧probe仅查stdout导致超时，未获得正常截图/退出证据。修复后startup dispatch `41566226993`正在Windows runner构建，尚不记PASS。
 - `e94d9663` shortcut run `41561550263` 两平台PASS：生产registry默认键唯一、Windows不使用Win键、保留PTY控制输入；焦点纯策略run `41561550286`两平台PASS。上述为软件契约，不替代真实窗口焦点/键盘验收；录制与恢复及Ctrl+V两路径仍待补齐。
 - GPUI根TestAppContext清理的第四条callback-panic反例修复后，`8f28f047` run `41557240079`为4/0/0 PASS；尚未以整套App回归确认原74项线程耗尽失败全部消除。
