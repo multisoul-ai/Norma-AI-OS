@@ -13,6 +13,9 @@ use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::Theme;
 
 #[cfg(test)]
+#[path = "../../../../tests/unit/voice_settings_interaction_tests.rs"]
+mod interaction_tests;
+#[cfg(test)]
 #[path = "../../../../tests/unit/voice_settings_redesign_tests.rs"]
 mod redesign_tests;
 
