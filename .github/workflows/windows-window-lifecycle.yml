@@ -5,6 +5,8 @@ on:
     branches: ['codex/windows-audio-*']
     paths:
       - 'crates/app/tests/keyboard_probe/src/window_lifecycle.rs'
+      - 'crates/app/tests/keyboard_probe/Cargo.toml'
+      - 'crates/app/tests/keyboard_probe/Cargo.lock'
       - 'vendor/gpui-0.2.2/src/platform/windows/window.rs'
       - 'vendor/gpui-0.2.2/src/platform/windows/window/**'
       - 'vendor/gpui-0.2.2/src/platform/windows/events.rs'

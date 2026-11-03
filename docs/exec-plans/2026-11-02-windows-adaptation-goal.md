@@ -13,6 +13,12 @@
 
 ## 当前事实与检查点
 
+- `61a6e64b` combined shortcut run `41568535811`两平台均6/0/0 PASS；Ctrl+V focused/selection、默认registry和badge策略/提示均通过。实际App键盘/重绘/焦点验收仍待执行。
+- native窗口真实RED：`67b2086c` run `41570402448`三模式都已通过close计数、明确drain和两个原HWND销毁前提，最后在errors断言失败。日志精确定位`window.rs:1130`到`handle_activate_msg`迟到任务，及Windows `window.rs:510/511`重复Revoke/Destroy。`1c6db17d` run `41571554479`补第四模式queued activate/resize/fullscreen后同步关闭，实际捕到旧HWND操作失败。
+- `ef748246`/`e68e2e84`实现逻辑脱离、原生销毁、拖放注册及平台注册各自所有权；先撤销callbacks/IME handler，在借用外drop和COM/native清理。异步操作执行前、回调后及默认proc续执行前校验closed，WM_DESTROY仍完成平台注销；构造失败的未登记窗口不发平台注销。静态独立审查未见前述反例残留；构造失败注入尚未验证。
+- `274fbf50` run `41572369133`四模式原三类native错误均不再出现，但全部仍因GPUI shutdown报错失败。查明独立probe误启用`test-support`，`executor.rs`遇真实dispatcher会直接返回Err（连空future也如此）。`f902836c`去掉该feature以匹配产品；没有过滤错误或放松断言。产品features下的最终native GREEN尚待执行。
+- Mac完整App `f24b9d08` run `41568796539`：1732过/6败/10既有ignored，256.37秒；QR/OpenCode/Azure继续分别1/2/1项PASS。剩余6项分为过时源文本断言、2项丢失根TestAppContext所有权、2项自指宿主Entity、及豆包假凭据后台Disconnected与失活测试竞争。`9057dd0f`保留fixture根owner、独立宿主、生产失活绑定，并新增真正BrowserStore队列→App→Runtime选中/删除迟到事件断言替代旧处理代码字符串；定向复验待执行，尚未声称Mac全绿。
+
 - 最新启动结果：`6183569d` startup run `41566226993`、job `125688326459` PASS。真实WebView2 native创建完成（约6.64秒）；三张原始PNG已逐张看图，欢迎页实际渲染；WM_CLOSE退出码0。截图存在初始窗口越界、夹带桌面的问题，不能宣称整窗布局验收通过。关闭日志仍有`window not found`和两条invalid-HWND，独立审查定位到既有GPUI重复销毁及迟到active回调候选；须增加无Wry真实窗口反例后修复，不把exit0写成无错误清理。
 - 剪贴板独立RED：`923ab1fe` run `41566913219` Windows 2过/2败，focused粘贴与keyboard-selected外层准入分别失败；Mac 3过/1败，额外修饰组合被误识别。`8ef9b815` run `41567873627`中两平台的两条clipboard均GREEN；整个Windows job仍因两条badge RED失败（4过/2败），Mac为6/0/0。不可将该run整体称PASS。
 - Badge独立RED：`c4b5521d` run `41567577876` Windows实际失败于Alt不显示卡片序号、提示仍为macOS符号。`61a6e64b`修默认平台策略、完整Modifiers快照触发重绘，以及picker内实际支持的裸数字提示；combined run `41568535811`进行中。提示继续遵守文档中“仅默认键位”的既有范围；真实Alt重绘、焦点和完整键盘路径尚待App验收。
