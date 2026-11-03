@@ -13,6 +13,9 @@
 
 ## 当前事实与检查点
 
+- 自定义Quit输入优先级反例已在`286f1d9a`冻结并派出Mac定向run `41585721066`（包含真实Root/InputState派发，预期旧root capture计数为0而失败）。当前没有改pre-binding拦截；现有真实App默认Quit run `41584529677`仍在构建，不能用默认键结果覆盖自定义键缺口。
+- Windows App本体lint前沿已完整取回：`23453202` run `41583956356`整体FAIL，App-only诊断在`-D warnings`下61条错误；原严格依赖检查仍先失败于workspace clone metadata，完整App测试仍有11条编译错误。日志`/private/tmp/norma-app-clippy-frontier-23453202`。除了机械导入与div_ceil，未接线的PageInteraction、角落裁剪、媒体/Boot、剪贴板图片、性能采样与系统打开路径也表现为dead_code；需逐条按真实平台调用补齐或准确限定测试/原生专用边界，不能统一cfg/allow掩盖默认功能缺口。
+
 - Mac完整回归已GREEN：`02942cb1` run `41583624505`、attempt 1，完整App 1739过/0败/10既有ignored（212.03秒），加强后的原scope读失败与Failed期间poll重试测试另连续10次通过。没有新增ignore或放宽5秒/同delivery/原Hook唯一响应要求；这是收窄夹具后的通过，不反推旧活SQLite替换时那一次具体错误已唯一定位。日志`/private/tmp/norma-mac-full-green-02942cb1`；artifact `13207546973` SHA256 `e780118274adc51b6e59a1dc69dcf8e0aeeaae0b90d368d8e0484d496af2fac7`。后续退出快捷键改动不在这个全套基准中。
 - Quit注册表GREEN：`2884b587` run `41584360020`两平台PASS（Windows7/0/0，Mac6/0/0），Windows默认Ctrl+Shift+Q、正式录制与恢复均通过；Mac保留Cmd+Q。日志`/private/tmp/norma-quit-registry-green-2884b587`。Win artifact `13206744957` SHA256 `0e9e7340ac4905a6b6c080f75d75307b44c654d1a539bddd1ddea46a1b3e3e03`；Mac `13206997892` SHA256 `53e546a83c522a89ba928fbbe05e454c90de05f85d388b1768fa7990bdd488f2`。
 - Quit仍有已确认静态反例：InputState键图先于root capture消费Ctrl+A，录制为退出键后在输入框内无效。`025bb77f`/`286f1d9a`补真实Root/InputState聚焦与正式GPUI派发反例（Mac用Cmd+A仅注入路由策略）；当前尚未改成pre-binding interceptor，等待RED。独立审查确认实际焦点、键图与全局回调读实体的前提成立。现有`App::intercept_keystrokes`可在键图前运行，但`KeystrokeEvent`不携带is_held；后续须同时保留长按抑制，不可从单次键测试推断重复键已覆盖。
