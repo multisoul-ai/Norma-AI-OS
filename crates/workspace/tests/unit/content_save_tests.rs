@@ -111,14 +111,15 @@ fn restored_conflict_keeps_draft_when_attributes_cannot_be_persisted() {
 fn deny_write_attributes(target: &Path) {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::{
-        Foundation::LocalFree,
+        Foundation::{CloseHandle, LocalFree, INVALID_HANDLE_VALUE},
         Security::{
             Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW, SetFileSecurityW,
             DACL_SECURITY_INFORMATION,
         },
         Storage::FileSystem::{
-            GetFileAttributesW, SetFileAttributesW, FILE_ATTRIBUTE_NORMAL,
-            FILE_ATTRIBUTE_TEMPORARY, INVALID_FILE_ATTRIBUTES,
+            CreateFileW, GetFileAttributesW, SetFileAttributesW, FILE_ATTRIBUTE_NORMAL,
+            FILE_ATTRIBUTE_TEMPORARY, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+            FILE_WRITE_ATTRIBUTES, INVALID_FILE_ATTRIBUTES, OPEN_EXISTING,
         },
     };
     // 0x100 is FILE_WRITE_ATTRIBUTES; FA retains DELETE and WRITE_DAC for the owner.
@@ -132,6 +133,11 @@ fn deny_write_attributes(target: &Path) {
         unsafe { SetFileAttributesW(path.as_ptr(), attributes | FILE_ATTRIBUTE_TEMPORARY) },
         0,
         "keep必须真正清除TEMPORARY，不能让NORMAL无变化操作绕过故障注入"
+    );
+    assert_ne!(
+        unsafe { GetFileAttributesW(path.as_ptr()) } & FILE_ATTRIBUTE_TEMPORARY,
+        0,
+        "夹具必须回读确认TEMPORARY位确已设置"
     );
     let sddl: Vec<u16> = "D:P(D;;0x100;;;WD)(A;;FA;;;OW)\0".encode_utf16().collect();
     let mut descriptor = std::ptr::null_mut();
@@ -152,8 +158,44 @@ fn deny_write_attributes(target: &Path) {
     let error = std::io::Error::last_os_error();
     unsafe { LocalFree(descriptor) };
     assert_ne!(applied, 0, "必须实际应用拒绝属性的DACL：{error}");
+    for (program, arguments) in [
+        ("icacls", vec![target.as_os_str()]),
+        ("whoami", vec![std::ffi::OsStr::new("/all")]),
+    ] {
+        let result = std::process::Command::new(program)
+            .args(arguments)
+            .output()
+            .expect("真实ACL和token诊断");
+        eprintln!(
+            "[DEBUG-keep-acl] {program}: {}",
+            String::from_utf8_lossy(&result.stdout)
+        );
+    }
+    let handle = unsafe {
+        CreateFileW(
+            path.as_ptr(),
+            FILE_WRITE_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            std::ptr::null(),
+            OPEN_EXISTING,
+            0,
+            std::ptr::null_mut(),
+        )
+    };
+    let open_error = std::io::Error::last_os_error();
+    eprintln!(
+        "[DEBUG-keep-acl] write-attributes handle invalid={} error={open_error:?}",
+        handle == INVALID_HANDLE_VALUE
+    );
+    if handle != INVALID_HANDLE_VALUE {
+        unsafe { CloseHandle(handle) };
+    }
     let denied = unsafe { SetFileAttributesW(path.as_ptr(), FILE_ATTRIBUTE_NORMAL) };
     let error = std::io::Error::last_os_error();
+    eprintln!(
+        "[DEBUG-keep-acl] SetFileAttributesW={denied} error={error:?} final_attributes={:#x}",
+        unsafe { GetFileAttributesW(path.as_ptr()) }
+    );
     assert_eq!(
         denied, 0,
         "生产keep使用的实际属性更新必须被DACL拒绝，不能伪造故障"
