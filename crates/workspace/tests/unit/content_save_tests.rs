@@ -116,8 +116,23 @@ fn deny_write_attributes(target: &Path) {
             Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW, SetFileSecurityW,
             DACL_SECURITY_INFORMATION,
         },
+        Storage::FileSystem::{
+            GetFileAttributesW, SetFileAttributesW, FILE_ATTRIBUTE_NORMAL,
+            FILE_ATTRIBUTE_TEMPORARY, INVALID_FILE_ATTRIBUTES,
+        },
     };
     // 0x100 is FILE_WRITE_ATTRIBUTES; FA retains DELETE and WRITE_DAC for the owner.
+    let path: Vec<u16> = target.as_os_str().encode_wide().chain(Some(0)).collect();
+    let attributes = unsafe { GetFileAttributesW(path.as_ptr()) };
+    assert_ne!(
+        attributes, INVALID_FILE_ATTRIBUTES,
+        "夹具文件的真实属性必须可读"
+    );
+    assert_ne!(
+        unsafe { SetFileAttributesW(path.as_ptr(), attributes | FILE_ATTRIBUTE_TEMPORARY) },
+        0,
+        "keep必须真正清除TEMPORARY，不能让NORMAL无变化操作绕过故障注入"
+    );
     let sddl: Vec<u16> = "D:P(D;;0x100;;;WD)(A;;FA;;;OW)\0".encode_utf16().collect();
     let mut descriptor = std::ptr::null_mut();
     assert_ne!(
@@ -133,9 +148,19 @@ fn deny_write_attributes(target: &Path) {
         "DACL必须可解析：{}",
         std::io::Error::last_os_error()
     );
-    let path: Vec<u16> = target.as_os_str().encode_wide().chain(Some(0)).collect();
     let applied = unsafe { SetFileSecurityW(path.as_ptr(), DACL_SECURITY_INFORMATION, descriptor) };
     let error = std::io::Error::last_os_error();
     unsafe { LocalFree(descriptor) };
     assert_ne!(applied, 0, "必须实际应用拒绝属性的DACL：{error}");
+    let denied = unsafe { SetFileAttributesW(path.as_ptr(), FILE_ATTRIBUTE_NORMAL) };
+    let error = std::io::Error::last_os_error();
+    assert_eq!(
+        denied, 0,
+        "生产keep使用的实际属性更新必须被DACL拒绝，不能伪造故障"
+    );
+    assert_eq!(
+        error.raw_os_error(),
+        Some(5),
+        "必须取得真实AccessDenied：{error}"
+    );
 }

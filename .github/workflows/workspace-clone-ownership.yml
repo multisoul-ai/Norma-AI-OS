@@ -6,8 +6,11 @@ on:
     paths:
       - 'crates/workspace/src/git_clone/**'
       - 'crates/workspace/src/scoped_directory/**'
+      - 'crates/workspace/src/content/**'
       - 'crates/workspace/tests/unit/git_clone_target_ownership.rs'
+      - 'crates/workspace/tests/unit/content_save_tests.rs'
       - 'crates/workspace/tests/content_workbench.rs'
+      - 'crates/workspace/tests/project_review.rs'
       - '.github/workflows/workspace-clone-ownership.yml'
 permissions:
   contents: read

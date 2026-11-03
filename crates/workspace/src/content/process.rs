@@ -11,7 +11,11 @@ use std::{
 pub(super) fn git(root: &Path, args: &[&str]) -> Result<String> {
     let mut stdout = tempfile::tempfile().map_err(|e| e.to_string())?;
     let mut stderr = tempfile::tempfile().map_err(|e| e.to_string())?;
-    let mut command = Command::new("/usr/bin/git");
+    let mut command = Command::new(if cfg!(windows) {
+        "git.exe"
+    } else {
+        "/usr/bin/git"
+    });
     for (key, _) in std::env::vars_os() {
         if key.to_string_lossy().starts_with("GIT_") {
             command.env_remove(key);

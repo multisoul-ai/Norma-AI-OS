@@ -1,4 +1,8 @@
 //! Project-scoped file browsing and local Git operations. Call from a background executor.
+#[cfg(windows)]
+use dunce::canonicalize;
+#[cfg(not(windows))]
+use std::fs::canonicalize;
 use std::path::{Component, Path, PathBuf};
 
 mod atomic;
@@ -21,7 +25,7 @@ pub struct Project {
 
 impl Project {
     pub fn open(root: &Path) -> Result<Self> {
-        let root = root.canonicalize().map_err(|e| e.to_string())?;
+        let root = canonicalize(root).map_err(|e| e.to_string())?;
         if !root.is_dir() {
             return Err(ContentError::ProjectMissing);
         }
@@ -42,11 +46,7 @@ impl Project {
         if relative.components().any(|c| c.as_os_str() == ".git") {
             return Err(ContentError::GitInternalPath);
         }
-        let path = self
-            .root
-            .join(relative)
-            .canonicalize()
-            .map_err(|e| e.to_string())?;
+        let path = canonicalize(self.root.join(relative)).map_err(|e| e.to_string())?;
         if !path.starts_with(&self.root)
             || path
                 .strip_prefix(&self.root)
@@ -61,7 +61,7 @@ impl Project {
         let repo = git2::Repository::discover(&self.root)
             .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?;
         let work = repo.workdir().ok_or(ContentError::BareRepository)?;
-        if work.canonicalize().map_err(|e| e.to_string())? != self.root {
+        if canonicalize(work).map_err(|e| e.to_string())? != self.root {
             return Err(ContentError::WorktreeRootRequired);
         }
         Ok(repo)

@@ -3,18 +3,27 @@ use std::{
     process::Command,
     time::{Duration, Instant},
 };
-use workspace::review::{capture, ContentKind, ReviewError};
+#[cfg(unix)]
+use workspace::review::ContentKind;
+use workspace::review::{capture, ReviewError};
 #[path = "project_review/baseline.rs"]
 mod baseline;
 
 fn git(root: &Path, args: &[&str]) {
-    let output = Command::new("/usr/bin/git")
-        .current_dir(root)
-        .args(args)
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
-        .env("GIT_CONFIG_NOSYSTEM", "1")
-        .output()
-        .expect("运行隔离Git fixture");
+    let output = Command::new(if cfg!(windows) {
+        "git.exe"
+    } else {
+        "/usr/bin/git"
+    })
+    .current_dir(root)
+    .args(args)
+    .env(
+        "GIT_CONFIG_GLOBAL",
+        if cfg!(windows) { "NUL" } else { "/dev/null" },
+    )
+    .env("GIT_CONFIG_NOSYSTEM", "1")
+    .output()
+    .expect("运行隔离Git fixture");
     assert!(
         output.status.success(),
         "隔离Git fixture命令必须成功: {}",
