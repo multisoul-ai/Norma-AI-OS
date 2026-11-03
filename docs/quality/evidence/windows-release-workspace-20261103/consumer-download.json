@@ -1,0 +1,12 @@
+{
+  "rebuilt": false,
+  "producer_url": "https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41629601361",
+  "zip_size": 95184305,
+  "source_sha": "94e4bc83a7940a39ef0888d97d5f90669c5ccacd",
+  "zip_sha256": "87ee66f8985766bbc611e5d4530e9edd3533fa27f26777037ffd3fcdcde9eba7",
+  "zip_name": "norma-os-0.1.77-windows-x64-94e4bc83.zip",
+  "producer_attempt": 1,
+  "producer_run": "41629601361",
+  "probe_sha": "cdc35620a926f282bcb80307a414afdb36bcacfd",
+  "consumer_run": "41638906755"
+}

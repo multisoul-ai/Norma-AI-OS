@@ -1,0 +1,15 @@
+{
+  "candidate_sha": "94e4bc83a7940a39ef0888d97d5f90669c5ccacd",
+  "producer_run": "41629601361",
+  "artifact_id": 13231717118,
+  "artifact_outer_sha256": "ec7a249654e6d1f18e7f5a5be6fd71cf2786f3fb4b4bbf4876d9ef20da3e0dae",
+  "artifact_size": 95101037,
+  "zip_name": "norma-os-0.1.77-windows-x64-94e4bc83.zip",
+  "zip_path": "/private/tmp/norma-workspace-create-20261103/build/windows/norma-os-0.1.77-windows-x64-94e4bc83.zip",
+  "zip_sha256": "87ee66f8985766bbc611e5d4530e9edd3533fa27f26777037ffd3fcdcde9eba7",
+  "zip_size": 95184305,
+  "version": "0.1.77",
+  "architecture": "x86_64-pc-windows-msvc",
+  "signed": false,
+  "manifest_file_count": 59
+}

@@ -1,0 +1,3 @@
+PASS: four native readiness log contracts
+PASS: clean App logs and six zero-exit error rejection contracts
+PASS: native client capture and offscreen rejection

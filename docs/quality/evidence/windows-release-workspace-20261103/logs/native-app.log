@@ -1,0 +1,24 @@
+2026-11-03T12:49:51.973906Z  INFO app::logging: disk logging initialized retention_days=14 rotation="daily"
+2026-11-03T12:49:51.979378Z  INFO gpui::platform::windows::directx_devices: Using GPU: Microsoft Basic Render Driver
+2026-11-03T12:49:51.983528Z  INFO gpui::platform::windows::directx_devices: Created device with Direct3D 11.1 feature level.
+2026-11-03T12:49:52.015533Z  INFO gpui::platform::windows::direct_write: Use Segoe UI as UI font.
+2026-11-03T12:49:52.022449Z  WARN app::updater: Sparkle updater unavailable; update checks are disabled reason=Sparkle is only available on macOS
+2026-11-03T12:49:59.378669Z  INFO norma_voice: [TTS-TRACE] reply stream aborted reply_generation=0 mark_interrupted=false queued_segments=0 playback_chunks_pending=0 cumulative_accepted_chars=0 cumulative_submitted_chars=0 cumulative_consumed_chars=0 active_chars_high_water=0 terminal_reason="reply_stream_aborted"
+2026-11-03T12:49:59.727308Z  INFO norma_voice: [TTS-TRACE] reply stream aborted reply_generation=1 mark_interrupted=false queued_segments=0 playback_chunks_pending=0 cumulative_accepted_chars=0 cumulative_submitted_chars=0 cumulative_consumed_chars=0 active_chars_high_water=0 terminal_reason="reply_stream_aborted"
+2026-11-03T12:49:59.929048Z  INFO app::logging: disk logging initialized retention_days=14 rotation="daily"
+2026-11-03T12:49:59.934672Z  INFO gpui::platform::windows::directx_devices: Using GPU: Microsoft Basic Render Driver
+2026-11-03T12:49:59.938920Z  INFO gpui::platform::windows::directx_devices: Created device with Direct3D 11.1 feature level.
+2026-11-03T12:49:59.971543Z  INFO gpui::platform::windows::direct_write: Use Segoe UI as UI font.
+2026-11-03T12:49:59.978347Z  WARN app::updater: Sparkle updater unavailable; update checks are disabled reason=Sparkle is only available on macOS
+2026-11-03T12:50:02.445237Z  INFO app::app::browser::wry_backend::deferred: native_webview_ready node_id=None create_ms=2156.641
+2026-11-03T12:50:07.498977Z  INFO desktop_motion: project regions updated event="project_layout" workspace="4a34cb6a-72d9-46c3-bec1-f05b9d7fa092" reason="workspace" projects=0 rows=2 columns=2 viewport=Vec2 { x: 1008.0, y: 711.0 } animated=false
+2026-11-03T12:50:09.110940Z  INFO norma_voice: [TTS-TRACE] reply stream aborted reply_generation=0 mark_interrupted=false queued_segments=0 playback_chunks_pending=0 cumulative_accepted_chars=0 cumulative_submitted_chars=0 cumulative_consumed_chars=0 active_chars_high_water=0 terminal_reason="reply_stream_aborted"
+2026-11-03T12:50:09.212058Z  INFO norma_voice: [TTS-TRACE] reply stream aborted reply_generation=1 mark_interrupted=false queued_segments=0 playback_chunks_pending=0 cumulative_accepted_chars=0 cumulative_submitted_chars=0 cumulative_consumed_chars=0 active_chars_high_water=0 terminal_reason="reply_stream_aborted"
+2026-11-03T12:50:09.259171Z  INFO app::logging: disk logging initialized retention_days=14 rotation="daily"
+2026-11-03T12:50:09.266034Z  INFO gpui::platform::windows::directx_devices: Using GPU: Microsoft Basic Render Driver
+2026-11-03T12:50:09.270117Z  INFO gpui::platform::windows::directx_devices: Created device with Direct3D 11.1 feature level.
+2026-11-03T12:50:09.303392Z  INFO gpui::platform::windows::direct_write: Use Segoe UI as UI font.
+2026-11-03T12:50:09.309937Z  WARN app::updater: Sparkle updater unavailable; update checks are disabled reason=Sparkle is only available on macOS
+2026-11-03T12:50:10.122316Z  INFO app::app::browser::wry_backend::deferred: native_webview_ready node_id=None create_ms=525.9272000000001
+2026-11-03T12:50:11.362550Z  INFO norma_voice: [TTS-TRACE] reply stream aborted reply_generation=0 mark_interrupted=false queued_segments=0 playback_chunks_pending=0 cumulative_accepted_chars=0 cumulative_submitted_chars=0 cumulative_consumed_chars=0 active_chars_high_water=0 terminal_reason="reply_stream_aborted"
+2026-11-03T12:50:11.382359Z  INFO norma_voice: [TTS-TRACE] reply stream aborted reply_generation=1 mark_interrupted=false queued_segments=0 playback_chunks_pending=0 cumulative_accepted_chars=0 cumulative_submitted_chars=0 cumulative_consumed_chars=0 active_chars_high_water=0 terminal_reason="reply_stream_aborted"
