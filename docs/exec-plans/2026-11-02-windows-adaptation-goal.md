@@ -13,6 +13,9 @@
 
 ## 当前事实与检查点
 
+- W07平台策略真实RED：`5b772aa3` run `41580285891`、attempt 1、job `125733259551`的原有四模式全部exit0；唯一新增无keeper的`background-last-close`为exit101，准确失败于`drain_finished`断言。Windows最后窗口自动PostQuit覆盖保活决定已由真实窗口证实；最小候选实现增加默认true的退出策略，仅显式false时继续消息循环，Norma产品仍暂不启用。
+- 完整Windows App门禁已补为独立手动workflow，`95fc57ab` run `41581512783`、job `125737198998`运行完整App单测harness及生产App严格Clippy。该run尚未完成，不以独立probe代替全套结果。
+
 - 最新Mac完整App结果：`c11c9ce3` run `41576561435`、attempt 1、job `125721310668`为1738过/1败/10既有ignored（154.81秒）。唯一失败是`question_prepared_lease_survives_poll_and_context_read_failure`第三次恢复后仍Failed；前两次及delivery身份断言已过，不能据此断言poll丢lease。独立只读审查提出活SQLite路径替换可能与额外Tokio初始读取竞争；尚未证实。`a0714e14`仅增强错误/lease诊断，run `41580160481`进行中，不视为修复或重跑覆盖失败。
 - W07先补无keeper的真实`background-last-close`反例：窗口关闭后必须在零窗口状态执行100毫秒后的UI任务，再显式quit。新增平台策略API暂为默认no-op以保留既有行为，等待Windows runner证明RED；Norma产品尚未启用保活策略，单实例重开/ACK与主动退出入口仍待完成。
 

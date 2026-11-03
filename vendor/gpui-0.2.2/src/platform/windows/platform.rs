@@ -52,6 +52,7 @@ struct WindowsPlatformInner {
 
 pub(crate) struct WindowsPlatformState {
     callbacks: PlatformCallbacks,
+    quit_on_last_window_close: bool,
     menus: Vec<OwnedMenu>,
     jump_list: JumpList,
     // NOTE: standard cursor handles don't need to close.
@@ -79,6 +80,7 @@ impl WindowsPlatformState {
 
         Self {
             callbacks,
+            quit_on_last_window_close: true,
             jump_list,
             current_cursor,
             directx_devices,
@@ -325,6 +327,10 @@ impl Platform for WindowsPlatform {
         self.foreground_executor()
             .spawn(async { unsafe { PostQuitMessage(0) } })
             .detach();
+    }
+
+    fn set_quit_on_last_window_close(&self, quit: bool) {
+        self.inner.state.borrow_mut().quit_on_last_window_close = quit;
     }
 
     fn restart(&self, binary_path: Option<PathBuf>) {
@@ -717,7 +723,9 @@ impl WindowsPlatformInner {
         }
         match message {
             WM_GPUI_CLOSE_ONE_WINDOW => {
-                if self.close_one_window(HWND(lparam.0 as _)) {
+                if self.close_one_window(HWND(lparam.0 as _))
+                    && self.state.borrow().quit_on_last_window_close
+                {
                     unsafe { PostQuitMessage(0) };
                 }
                 Some(0)
