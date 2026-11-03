@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use storage::SettingsStore;
 
+#[path = "shortcuts/catalog.rs"]
 mod catalog;
+#[path = "shortcuts/idea_assign.rs"]
 pub(crate) mod idea_assign;
 pub(crate) use catalog::{default_shortcut_entries, read_only_behaviors};
 
