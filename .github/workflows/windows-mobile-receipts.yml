@@ -1,5 +1,8 @@
 name: Windows mobile command receipts
 on:
+  push:
+    branches: ['codex/windows-mobile-receipt-*']
+    paths: ['.github/workflows/windows-mobile-receipts.yml']
   workflow_dispatch:
     inputs:
       historical:
@@ -20,7 +23,7 @@ env:
   RUST_BACKTRACE: '1'
 jobs:
   historical:
-    if: inputs.historical
+    if: github.event_name == 'workflow_dispatch' && inputs.historical
     runs-on: windows-2025
     timeout-minutes: 40
     steps:
