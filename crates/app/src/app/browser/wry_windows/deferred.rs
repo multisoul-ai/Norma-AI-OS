@@ -109,6 +109,7 @@ impl DeferredWebView {
                     return;
                 }
                 // No App/Window/RefCell borrow may span this call: Wry dispatches arbitrary Win32 messages.
+                let create_started = std::time::Instant::now();
                 let result = builder.build_as_child(&Parent(parent));
                 if state.cancelled.get() || !state.lease.alive() {
                     drop(result);

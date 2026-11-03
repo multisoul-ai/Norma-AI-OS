@@ -32,13 +32,24 @@ impl BrowserView {
             {
                 Ok(native_view) => {
                     self.native_view = Some(native_view);
+                    #[cfg(not(windows))]
                     tracing::info!(
                         node_id,
                         create_ms = create_started.elapsed().as_secs_f64() * 1000.0,
                         "browser_view_created"
                     );
-                    self.load_timeline
-                        .begin(create_started, Some(create_started.elapsed()));
+                    #[cfg(windows)]
+                    tracing::info!(node_id, "browser_view_creation_requested");
+                    self.load_timeline.begin(create_started, {
+                        #[cfg(windows)]
+                        {
+                            None
+                        }
+                        #[cfg(not(windows))]
+                        {
+                            Some(create_started.elapsed())
+                        }
+                    });
                 }
                 Err(error) => tracing::warn!(
                     node_id,

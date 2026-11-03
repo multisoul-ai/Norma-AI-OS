@@ -5,11 +5,18 @@ New-Item -ItemType Directory -Force $Output | Out-Null
 $Output=(Resolve-Path $Output).Path
 $exe=(Resolve-Path $Executable).Path
 $process=$null
-$report=@{status='FAIL'; source_sha=$env:GITHUB_SHA; run_id=$env:GITHUB_RUN_ID; run_attempt=$env:GITHUB_RUN_ATTEMPT; scope='Actual development App startup, native foreground, three rendered frames and WM_CLOSE; no package acceptance'}
+$report=@{status='FAIL'; source_sha=$env:GITHUB_SHA; run_id=$env:GITHUB_RUN_ID; run_attempt=$env:GITHUB_RUN_ATTEMPT; scope='Actual development App startup, native foreground, real WebView2 creation, three rendered frames and WM_CLOSE; no package acceptance'}
 try {
     $process=Start-Process $exe -WorkingDirectory (Split-Path $exe) -PassThru -RedirectStandardOutput (Join-Path $Output 'stdout.log') -RedirectStandardError (Join-Path $Output 'stderr.log')
     $window=Get-NormaWindow $process
     Focus-NormaWindow $window
+    $readyDeadline=[DateTime]::UtcNow.AddSeconds(45)
+    while (-not (Select-String -Path (Join-Path $Output 'stdout.log') -Pattern 'native_webview_ready' -Quiet)) {
+        $process.Refresh()
+        if ($process.HasExited) { throw "Actual App exited during native browser creation: $($process.ExitCode)" }
+        if ([DateTime]::UtcNow -ge $readyDeadline) { throw 'WebView2 did not finish real native creation' }
+        Start-Sleep -Milliseconds 250
+    }
     foreach ($frame in 1..3) {
         Start-Sleep -Seconds 1
         $process.Refresh()
