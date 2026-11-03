@@ -43,7 +43,11 @@ try {
         Start-Sleep -Seconds 1
         Save-NormaScreenshot $window (Join-Path $Output 'workspace-create-dialog.png')
         [NormaDesktop]::Text($name)
+        Start-Sleep -Milliseconds 300
+        Save-NormaScreenshot $window (Join-Path $Output 'workspace-name-entered.png')
         Send-NormaChord @(0x0D)
+        Start-Sleep -Milliseconds 300
+        Save-NormaScreenshot $window (Join-Path $Output 'workspace-name-submitted.png')
         python "$PSScriptRoot/read-workspace.py" --database $database --name $name --output (Join-Path $Output 'workspace-created.json') --wait-seconds 10
         if ($LASTEXITCODE -ne 0) { throw 'Native workspace creation did not persist the exact Unicode name' }
         Start-Sleep -Milliseconds 300
