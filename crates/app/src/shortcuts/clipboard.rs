@@ -2,17 +2,19 @@
 use gpui::Keystroke;
 
 pub(crate) fn is_paste_shortcut(key: &Keystroke) -> bool {
-    key.modifiers.platform && key.key == "v"
+    let modifiers = key.modifiers;
+    key.key == "v"
+        && !modifiers.alt
+        && !modifiers.shift
+        && !modifiers.function
+        && if cfg!(windows) {
+            modifiers.control && !modifiers.platform
+        } else {
+            modifiers.platform && !modifiers.control
+        }
 }
 
 pub(crate) fn selection_accepts_modifiers(key: &Keystroke) -> bool {
     let modifiers = key.modifiers;
-    if modifiers.platform {
-        return key.key == "v"
-            && !modifiers.control
-            && !modifiers.alt
-            && !modifiers.shift
-            && !modifiers.function;
-    }
-    !modifiers.control && !modifiers.function
+    is_paste_shortcut(key) || (!modifiers.platform && !modifiers.control && !modifiers.function)
 }

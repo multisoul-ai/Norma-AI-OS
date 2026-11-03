@@ -373,7 +373,8 @@ fn test_should_auto_focus_keyboard_selection_accepts_content_but_not_navigation_
         ..Modifiers::default()
     };
     let cmd_c = key("c", None, platform);
-    let cmd_v = key("v", None, platform);
+    let paste = Keystroke::parse(if cfg!(windows) { "ctrl-v" } else { "cmd-v" })
+        .expect("平台粘贴快捷键必须合法");
 
     assert!(
         should_auto_focus_keyboard_selection(&printable),
@@ -384,8 +385,8 @@ fn test_should_auto_focus_keyboard_selection_accepts_content_but_not_navigation_
         "方向键选中 terminal 后按 Enter 应触发自动聚焦并发送 Enter"
     );
     assert!(
-        should_auto_focus_keyboard_selection(&cmd_v),
-        "方向键选中 terminal 后 Cmd+V 是内容粘贴，应触发自动聚焦"
+        should_auto_focus_keyboard_selection(&paste),
+        "方向键选中terminal后，平台粘贴键应触发自动聚焦"
     );
     assert!(
         !should_auto_focus_keyboard_selection(&arrow),
