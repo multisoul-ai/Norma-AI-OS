@@ -32,6 +32,7 @@ fn read_child_env(command: &mut Command) -> Value {
 ///   1. 清除测试子进程的认证与干扰变量，指定独立 CLAUDE_CONFIG_DIR。
 ///   2. 配置 Claude 认证环境，启动真实 Python 子进程读取最终环境。
 ///   3. 检查幕僚 session_meta 的权限隔离仍然生效。
+///
 /// 预期结果：
 ///   - 正断言：子进程收到指定网关和测试 token，settingSources 仍为空。
 ///   - 负断言：没有 API key、NODE_OPTIONS 或无关密钥，不允许绕过权限。
@@ -95,6 +96,7 @@ fn claude_gateway_credentials_survive_settings_isolation() {
 /// 执行过程：
 ///   1. 清除继承的认证变量，写入旧网关配置，显式设置新地址。
 ///   2. 配置认证环境，启动真实子进程观察最终环境。
+///
 /// 预期结果：
 ///   - 正断言：显式指定的新地址保留。
 ///   - 负断言：不把旧 token 或 API key 拼接给新地址，避免跨服务泄露凭证。

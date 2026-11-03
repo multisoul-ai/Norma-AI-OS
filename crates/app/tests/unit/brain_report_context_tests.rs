@@ -102,9 +102,11 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
             status,
             token: "report-token".into(),
         });
-        let mut settings = config::BrainSettings::default();
-        settings.enabled = true;
-        settings.speak = speak;
+        let settings = config::BrainSettings {
+            enabled: true,
+            speak,
+            ..Default::default()
+        };
         if speak {
             use crate::settings::voice::{
                 DesktopVoiceMode, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsState,
@@ -160,11 +162,11 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
         target_workspace_id: None,
         command: CardCommand::Brain {
             token: "report-token".into(),
-            op: BrainOp::Report {
+            op: Box::new(BrainOp::Report {
                 text: "因为当前任务尚未获得批准".into(),
                 priority: ReportPriority::Normal,
                 sources: vec![source.clone()],
-            },
+            }),
         },
     };
     cx.update(|_, cx| crate::norma::endpoint::dispatch_test_request(request, response, cx));

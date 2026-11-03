@@ -7,7 +7,7 @@ use agent::AgentTaskState;
 mod voice;
 use voice::{member, Host};
 #[path = "support/sse.rs"]
-mod sse;
+pub mod sse;
 use agent::{
     AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter, AgentInputSource,
     CurrentCanvasContext, NormaSession, ProviderConfig, ProviderProtocol, ToolContext,

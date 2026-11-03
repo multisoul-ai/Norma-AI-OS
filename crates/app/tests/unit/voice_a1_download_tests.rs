@@ -59,7 +59,7 @@ fn server(body: &'static [u8]) -> (String, std::thread::JoinHandle<()>) {
     let thread = std::thread::spawn(move || {
         let (mut stream, _) = listener.accept().expect("HTTP连接");
         let mut request = [0u8; 4096];
-        stream.read(&mut request).expect("读取请求");
+        let _ = stream.read(&mut request).expect("读取请求");
         write!(
             stream,
             "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",

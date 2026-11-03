@@ -2,8 +2,7 @@ use super::*;
 
 pub(super) fn spawn_turn(
     runtime: &TurnRuntime,
-    input: String,
-    input_source: AgentInputSource,
+    (input, input_source): (String, AgentInputSource),
     canvas: Option<agent::CurrentCanvasContext>,
     desktop_context: Option<agent::DesktopContext>,
     roster: Vec<agent::AgentRosterEntry>,

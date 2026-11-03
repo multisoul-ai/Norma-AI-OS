@@ -1,3 +1,4 @@
+use std::slice::from_ref;
 use std::sync::{Arc, Barrier};
 use storage::{DesktopWorkspaceStore, IdeaSource, IdeasStore, Reconcile};
 use workspace::ideas::IdeaState;
@@ -384,7 +385,7 @@ fn ideas_keep_images_multiline_bodies_and_build_dispatch_text() {
         )
         .expect("应记下带图的想法");
     store
-        .add_with_images(&workspace, "i2", "  ", IdeaSource::Manual, &[first.clone()])
+        .add_with_images(&workspace, "i2", "  ", IdeaSource::Manual, from_ref(&first))
         .expect("只有图片的想法应被接受");
     assert!(
         store
@@ -453,7 +454,7 @@ fn deleting_ideas_removes_their_image_files() {
     for (id, task) in [("a", "t1"), ("b", "t2"), ("c", "t3"), ("d", "")] {
         let image = store.save_image(id.as_bytes(), "png").expect("应保存图片");
         store
-            .add_with_images(&workspace, id, id, IdeaSource::Manual, &[image.clone()])
+            .add_with_images(&workspace, id, id, IdeaSource::Manual, from_ref(&image))
             .expect("应记下想法");
         if !task.is_empty() {
             store

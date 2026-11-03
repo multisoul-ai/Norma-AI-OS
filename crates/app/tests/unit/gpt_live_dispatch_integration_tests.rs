@@ -1,9 +1,8 @@
 use super::super::bridge::LiveBridge;
 use super::*;
+use crate::test_gpt_live_sse as sse;
 use agent::{AgentCardAdapter, AgentInputSource, ProviderConfig, ProviderProtocol, ToolContext};
 use serde_json::json;
-#[path = "../support/gpt_live_sse.rs"]
-mod sse;
 
 /// AC05/AC07/AC08/AC10：本地SSE规划经真实NormaSession、持久Adapter和GPUI pump创建隔离项目卡片。
 /// 构造：观测原文“创建浏览器”、模型create_browser和最终回复；真实App域状态及隔离SQLite。

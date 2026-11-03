@@ -1,10 +1,9 @@
 use super::*;
+use crate::test_gpt_live_sse as sse;
 use agent::{AgentRosterEntry, AgentTaskState, AgentTrackingMode};
 use norma::protocol::AgentProfile;
 use serde_json::json;
 use std::time::Duration;
-#[path = "../support/gpt_live_sse.rs"]
-mod sse;
 
 /// 场景：真实 ProjectAgentRuntime 连续收到正文和目标补答。
 /// 构造：隔离数据库、真实 worker、回环模型；提交通道记录工具与本轮原话。

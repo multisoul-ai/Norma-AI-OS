@@ -340,7 +340,7 @@ impl MultisoulApp {
             )
         };
         match self.desktop_drawer_chat_project() {
-            Some(project) => snapshot(&project.read(cx)),
+            Some(project) => snapshot(project.read(cx)),
             None => snapshot(self),
         }
     }
@@ -349,7 +349,7 @@ impl MultisoulApp {
         use super::orb::OrbMode;
         let source = self.desktop_drawer_chat_project();
         let source = source.as_ref().map(|project| project.read(cx));
-        let source = source.as_deref().unwrap_or(self);
+        let source = source.unwrap_or(self);
         match source.voice_waveform_state() {
             None => OrbMode::Idle,
             Some(crate::app::VoiceWaveformState::Listening) => OrbMode::Listening,

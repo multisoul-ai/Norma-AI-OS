@@ -171,7 +171,10 @@ impl BrainArgs {
             .token
             .or_else(|| std::env::var("NORMA_BRAIN_TOKEN").ok())
             .unwrap_or_default();
-        CardCommand::Brain { token, op }
+        CardCommand::Brain {
+            token,
+            op: Box::new(op),
+        }
     }
 }
 

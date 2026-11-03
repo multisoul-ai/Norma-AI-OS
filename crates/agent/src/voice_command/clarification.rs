@@ -116,10 +116,9 @@ pub(crate) fn validate_clarified_proposals(
         if matches!(
             proposal.tool.as_str(),
             "assign_agent_task" | "reply_agent" | "cancel_agent_reply"
-        ) {
-            if proposal.tool != "cancel_agent_reply" || proposal.arguments.get("agent").is_some() {
-                proposal.arguments["agent"] = Value::String(target.name.clone());
-            }
+        ) && (proposal.tool != "cancel_agent_reply" || proposal.arguments.get("agent").is_some())
+        {
+            proposal.arguments["agent"] = Value::String(target.name.clone());
         }
     }
     let expected = VoiceTargetResolution::CanvasAgent {

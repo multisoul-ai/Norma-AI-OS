@@ -37,6 +37,10 @@ mod dialogs;
 mod dialogs_other;
 mod directory_navigation;
 mod dispatch;
+#[cfg(test)]
+#[path = "../../tests/support/desktop_embedded_project.rs"]
+mod test_embedded_project;
+pub(crate) use dispatch::{AgentLocation, ArtifactLocation};
 mod drawers;
 pub(crate) use drawers::overview_details::{AttentionDetails, DetailKey};
 pub(crate) use drawers::overview_questions::QuestionEditor;

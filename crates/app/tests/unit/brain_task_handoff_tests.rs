@@ -15,14 +15,16 @@ impl terminal::PtyBackend for RecordPty {
     fn kill(&mut self) {}
 }
 
-/// 构造一个已保存“只修改前端”约束、带就绪 Alan 卡片的 App，返回卡片实际收到的字节记录。
-fn fixture() -> (
+type Fixture = (
     gpui::Entity<MultisoulApp>,
     gpui::VisualTestContext,
     Arc<Mutex<Vec<u8>>>,
     tempfile::TempDir,
     TestAppContext,
-) {
+);
+
+/// 构造一个已保存“只修改前端”约束、带就绪 Alan 卡片的 App，返回卡片实际收到的字节记录。
+fn fixture() -> Fixture {
     let dir = tempfile::tempdir().unwrap();
     let paths = storage::DatabasePaths::isolated_test(&dir.path().join("data"));
     let received = Arc::new(Mutex::new(Vec::new()));

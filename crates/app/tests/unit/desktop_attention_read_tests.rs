@@ -237,6 +237,7 @@ fn opening_turn_review_clears_only_its_artifact_version() {
 ///   2. 直接发起带版本的标签存储后关闭右栏，等待后台完成。
 ///   3. 阻塞标签队列后请求成果，通过项目选择器切到 B，再释放队列。
 ///   4. 再次正常打开成果，等待标签安装，确认正常请求仍能展开右栏。
+///
 /// 预期结果：关闭和切项目都不能被迟到请求覆盖、不记已读；正常打开仍可显示文件标签。
 #[test]
 fn artifact_open_cancellation_covers_path_validation_and_tab_storage() {
@@ -407,6 +408,7 @@ fn artifact_open_cancellation_covers_path_validation_and_tab_storage() {
 /// 执行过程：
 ///   1. 通过概览打开单文件成果，等待工作台目录与 Git 快照。
 ///   2. 等待目标差异加载及已读持久化。
+///
 /// 预期结果：差异包含 +staged alpha，不能展示空 diff；成果已读、原引用仍存在。
 #[test]
 fn staged_only_turn_review_opens_the_staged_diff_before_acknowledging() {

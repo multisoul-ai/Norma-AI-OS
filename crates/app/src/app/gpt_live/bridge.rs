@@ -132,11 +132,10 @@ impl LiveBridge {
         // A receipt still in flight is a possible side effect, even with an empty completed list.
         if report.pending || report.effects || current {
             timeline.settle(&work.snapshot);
-        } else {
-            if timeline.release_unexecuted(&work.snapshot) && !self.call_cancellation.is_cancelled()
-            {
-                self.pending.push_front(notice);
-            }
+        } else if timeline.release_unexecuted(&work.snapshot)
+            && !self.call_cancellation.is_cancelled()
+        {
+            self.pending.push_front(notice);
         }
         if !current {
             return None;

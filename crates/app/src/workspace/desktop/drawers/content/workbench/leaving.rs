@@ -52,7 +52,7 @@ impl MultisoulApp {
         }
         cx.spawn(async move |this, cx| match action {
             PendingWorkbenchAction::Quit => {
-                let _ = cx.update(|cx| crate::settings::general::quit_after_saving(cx));
+                let _ = cx.update(crate::settings::general::quit_after_saving);
             }
             PendingWorkbenchAction::CloseWindow(window) => {
                 let _ = window.update(cx, |_, window, _| window.remove_window());

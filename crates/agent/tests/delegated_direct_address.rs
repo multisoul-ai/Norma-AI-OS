@@ -1,5 +1,5 @@
 #[path = "support/sse.rs"]
-mod sse;
+pub mod sse;
 use agent::{
     AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter, AgentInputSource,
     AgentRosterEntry, AgentTaskState, AgentTrackingMode, CurrentCanvasContext, NormaDelegation,

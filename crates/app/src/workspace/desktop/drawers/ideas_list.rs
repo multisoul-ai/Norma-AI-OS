@@ -127,7 +127,6 @@ impl MultisoulApp {
                                                 open,
                                                 &options,
                                                 areas.clone(),
-                                                feedback,
                                                 cx,
                                             )
                                         },

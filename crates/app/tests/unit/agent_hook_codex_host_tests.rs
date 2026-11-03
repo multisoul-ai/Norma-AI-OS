@@ -1,11 +1,10 @@
 use super::*;
+use crate::test_codex_relay as relay_support;
 use norma::codex::{native_questions::CodexQuestionHost, relay::CodexQuestionRelay};
+use relay_support::{read, send, timed};
 use serde_json::json;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Duration, Instant};
-#[path = "../../../norma/tests/support/codex_relay.rs"]
-mod relay_support;
-use relay_support::{read, send, timed};
 
 /// 场景：生产App的统一drain也要处理同进程宿主，即使HTTP Hook队列为空。
 /// 构造：空Hook server，测试PTY身份，真实Unix relay透传原start与问答事件。

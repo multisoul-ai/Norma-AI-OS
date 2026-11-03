@@ -14,8 +14,7 @@ pub(super) fn header(
     key: DetailKey,
     title: String,
     meta: String,
-    glyph: &'static str,
-    color: u32,
+    (glyph, color): (&'static str, u32),
     app: &MultisoulApp,
     cx: &mut Context<MultisoulApp>,
 ) -> Stateful<Div> {

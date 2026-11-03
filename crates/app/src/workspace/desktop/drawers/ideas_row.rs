@@ -240,10 +240,10 @@ impl MultisoulApp {
         menu_open: bool,
         options: &[IdeaTargetOption],
         expanded_area: Option<String>,
-        feedback: super::super::overview_rows::OverviewFeedback,
         cx: &mut Context<Self>,
     ) -> Div {
         let theme = self.desktop_theme();
+        let feedback = super::super::overview_rows::overview_feedback(theme);
         let id = row.id.clone();
         let element_id = format!("desktop-idea-row-{}", row.id);
         let group = format!("idea-group-{}", row.id);

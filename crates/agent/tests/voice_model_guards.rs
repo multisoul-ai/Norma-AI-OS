@@ -3,7 +3,7 @@ use agent::{
     AgentInputSource, CurrentCanvasContext, NormaSession, ProviderConfig, ProviderProtocol,
 };
 #[path = "support/sse.rs"]
-mod sse;
+pub mod sse;
 #[path = "support/voice.rs"]
 mod voice;
 use serde_json::json;

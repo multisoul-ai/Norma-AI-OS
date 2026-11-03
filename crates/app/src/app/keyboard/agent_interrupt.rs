@@ -73,7 +73,7 @@ impl MultisoulApp {
             shift: false,
         };
         self.runtime
-            .send_node_input(node_id, NodeInput::Key(input.clone()))
+            .send_node_input(node_id, NodeInput::Key(input))
             .map_err(|error| error.to_string())?;
         end_active_agent_task_for_manual_interrupt(self, node_id, &input);
         cx.notify();

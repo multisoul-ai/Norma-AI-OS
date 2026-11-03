@@ -163,12 +163,14 @@ fn norma_artifact_tool_opens_exact_version_in_right_drawer_without_switching_pro
         app.desktop_workspace.areas = vec![area.clone()];
         app.desktop_workspace.content_artifacts = vec![artifact];
         let stale = app.norma_open_workspace_artifact(
-            &workspace.id,
-            &area.id,
-            7,
-            "turn-b",
-            "plan.md",
-            "wrong-version",
+            crate::workspace::desktop::ArtifactLocation {
+                workspace_id: &workspace.id,
+                area_id: &area.id,
+                node_id: 7,
+                turn_id: "turn-b",
+                source_path: "plan.md",
+                version: "wrong-version",
+            },
             cx,
         );
         assert!(stale.is_err(), "版本不一致时应拒绝打开");
@@ -178,12 +180,14 @@ fn norma_artifact_tool_opens_exact_version_in_right_drawer_without_switching_pro
         );
         let accepted = app
             .norma_open_workspace_artifact(
-                &workspace.id,
-                &area.id,
-                7,
-                "turn-b",
-                "plan.md",
-                &saved.fingerprint,
+                crate::workspace::desktop::ArtifactLocation {
+                    workspace_id: &workspace.id,
+                    area_id: &area.id,
+                    node_id: 7,
+                    turn_id: "turn-b",
+                    source_path: "plan.md",
+                    version: &saved.fingerprint,
+                },
                 cx,
             )
             .expect("完整引用应触发打开");

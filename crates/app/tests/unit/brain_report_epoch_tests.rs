@@ -40,9 +40,11 @@ fn fixture(speak: bool) -> Fixture {
             status,
             token: "report-token".into(),
         });
-        let mut settings = config::BrainSettings::default();
-        settings.enabled = true;
-        settings.speak = speak;
+        let settings = config::BrainSettings {
+            enabled: true,
+            speak,
+            ..Default::default()
+        };
         use crate::settings::voice::{
             DesktopVoiceMode, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsState,
         };
@@ -140,11 +142,11 @@ fn send_report(f: &mut Fixture) {
         target_workspace_id: None,
         command: CardCommand::Brain {
             token: "report-token".into(),
-            op: BrainOp::Report {
+            op: Box::new(BrainOp::Report {
                 text: "部署已完成".into(),
                 priority: ReportPriority::Normal,
                 sources: vec![],
-            },
+            }),
         },
     };
     f.cx.update(|_, cx| crate::norma::endpoint::dispatch_test_request(request, response, cx));
