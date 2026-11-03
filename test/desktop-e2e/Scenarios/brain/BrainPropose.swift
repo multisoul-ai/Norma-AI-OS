@@ -189,7 +189,7 @@ public enum BrainPropose {
     }
 
     /// 读提议文件里的条数；文件在后台写入，等到条数为 `expect` 或 3 秒到期。
-    private static func savedProposals(_ brainDir: URL?, expect: Int) async throws -> Int {
+    static func savedProposals(_ brainDir: URL?, expect: Int) async throws -> Int {
         guard let brainDir else { throw E2EError.env("大脑目录丢失") }
         let dir = brainDir.appendingPathComponent("projects", isDirectory: true)
         var count = -1
@@ -209,7 +209,7 @@ public enum BrainPropose {
         throw E2EError.product("提议文件必须存在、可解析且含 \(expect) 条，实际 \(count)")
     }
 
-    private static func received(_ brainDir: URL?) throws -> [[String: Any]] {
+    static func received(_ brainDir: URL?) throws -> [[String: Any]] {
         guard let brainDir else { throw E2EError.env("大脑目录丢失") }
         let path = brainDir.appendingPathComponent("received.jsonl")
         guard FileManager.default.fileExists(atPath: path.path) else { return [] }
