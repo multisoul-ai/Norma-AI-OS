@@ -51,6 +51,7 @@ mod native {
         let close_count = closed.clone();
         let raw = Rc::new(Cell::new(0isize));
         let observed_raw = raw.clone();
+        let retired_raw = raw.clone();
         let requested_mode = mode.clone();
         Application::new().run(move |cx| {
             cx.on_window_closed(move |cx| {
@@ -123,7 +124,7 @@ mod native {
         );
         // SAFETY: querying the captured numeric handle does not dereference the former window.
         assert!(
-            !unsafe { IsWindow(Some(HWND(observed_raw.get() as *mut std::ffi::c_void))) }.as_bool(),
+            !unsafe { IsWindow(Some(HWND(retired_raw.get() as *mut std::ffi::c_void))) }.as_bool(),
             "{mode} must destroy the original native HWND"
         );
         let errors = ERRORS.lock().expect("inspect captured native errors");
