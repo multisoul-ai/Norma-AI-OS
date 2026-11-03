@@ -217,3 +217,22 @@ W01–W12的整体门槛仍未全部满足；没有生成候选包或同包新ru
 - PR `626debf2` 标准CI `41545807436` PASS；native run `41545800521` 的Windows原生、2022/2025 ConPTY、socket、Mac文案均PASS。Mac域回归有OpenCode history/receipt迁移超时，App回归1662过76败（主要线程创建EAGAIN，另有Vision VM警告混入QR结果、Azure输入框断言），保留原失败并定位，不重跑覆盖。
 - `0888e50b` 增加独立Windows桌面consumer：显式下载producer run的同一ZIP，验证hash与candidate源码；记录probe SHA和candidate SHA。使用真实SendInput触发Ctrl+N及中文输入，再关闭重开；只读SQLite观察是补充证据，必须读取对应窗口原图，不能冒充完整项目/终端/WebView2验收。
 - Windows release run `41545800566`仍在构建，尚无已验证候选包。本次route修复尚未接回PR；待当前构建取得诊断包后合入，避免取消已有长构建。
+
+## 首个包与真实启动阻塞（2026-11-03 UTC）
+
+- PR `626debf2` build run `41545800566` 的默认check、adapter、App/helper release及打包全部PASS，首次得到ZIP：95,136,908 bytes，SHA-256 `48e47c32cfa715869be50bcb6e321bcc83e240e1bd8d5c9201c881bd28f22c06`，manifest 59个文件。该包是诊断输入，尚不能交付为可用版本。
+- fresh consumer job `125643924340`、独立desktop run `41552688583` job `125643929068` 均失败：窗口句柄短暂出现，随后App在AsyncApp::update重复借用处abort。未进入Ctrl+N；没有可验收的正常窗口截图。
+- 真实开发App诊断 `2ce592f6` run `41553489141` 得到完整符号栈：`norma/endpoint.rs:120`的前台任务，在`WarmWebView::create → build_as_child → webview2_com::wait_with_pump`期间重入；外层是`settings/general.rs:73`持有App借用的开窗任务。原图frame-1已读，主要为黑屏/桌面任务栏，不能算产品渲染通过。由此确认WebView2同步消息泵触发本次启动崩溃；不再把它当GPU或缺DLL猜测。
+- `04449a5a`、`04e09dc6`把Windows WebView2创建、命令和释放放到同UI/STA线程的独立前台任务，所有native调用前移出RefCell借用；32条命令后让步。创建前后校验AnyWindowHandle，关窗/删view撤销；retained项目换host时重建native view。导航/cookie保持FIFO，仅在顺序屏障后的尾段合并布局。失败结束loading、使Pending cookie失败，并以双语错误展示。
+- `8086eea0`新增真实`native_webview_ready`见证，startup probe必须等真实native构造完成再取三帧并正常关窗。占位返回时改记creation_requested，不把排队时间写作native构造成功或耗时。startup工作流改为显式dispatch，防止每次TDD辅助推送重复做长App构建；后续必须在冻结源码上dispatch并复验。
+- `3fff84c4`的startup run `41555972612`未执行App构建，前置Python i18n默认CP1252解码失败。`0383e51c`显式UTF-8读取catalog/source，script run `41557077334`整体PASS，新增`python -X utf8=0 scripts/check-i18n.py`亦PASS；不是对App启动修复的成败结论。
+
+## 本轮聚焦回归与未完成项
+
+- ZIP命名RED `616ce0f3` run `41552880320`：真实package函数的资源循环覆盖name，产物误为browser-auth-extension.zip。`eaed7ce1`仅改循环变量，run `41553535034` package 6项GREEN、原report/media继续通过；未改hash保护。
+- Ctrl+N RED `81d22c4f` run `41550774986` Windows job `125637515950`：生产registry返回None，0过1败；Mac job `125637515518`对照PASS。`3fff84c4`仅修Windows NewWorkspace默认Ctrl+N，待GREEN；其余Windows快捷键、终端Ctrl+C/D、复制粘贴和焦点仍需逐项处理，不能以这一项代替完整键盘验收。
+- 测试资源RED `9f487297` run `41551742282`：离开根TestAppContext作用域仍保留真实窗口实体。`1ccc2e47` run `41554212453`三项GREEN，覆盖根退出、clone不接管/显式quit幂等、原断言panic清理。第四项RED `3fff84c4` run `41555972614`为3过1败：on_quit回调自身panic会跳过其余清理；`8f28f047`逐个捕获回调异常、继续shutdown、最后保留首个错误，等待四项复验。没有把减小并行数当生命周期修复。
+- 独立审查发现旧native事件先入队、换host后再消费仍可污染新view。RED `8086eea0` run `41556862483` 两平台均0过2败，保留旧URL/失败及窗口撤销反例；`630376e1`把production generation owner/lease接入native事件信封，App逐项消费时校验，包含同一drained batch前一个事件撤销后一个事件的情况。新代际必须有正断言；待两平台GREEN。
+- 尚待真实验证的审查项：延迟focus_parent可能覆盖用户后续的焦点意图，需要原生焦点所有权和迟到命令反例；当前不能声明焦点生命周期完成。
+- Mac QR修复及Azure独立复现曾因30分钟冷编译job上限取消；当前将App编译job预算扩至60分钟，测试内部4秒/3秒契约不变。保持原失败/取消记录，尚无整套Mac回归GREEN。
+- 当前Windows实现仍在follow-up分支；PR未接回上述新提交，没有包含本轮完整修复的最终release/新runner消费包。W01–W12未全部完成，Goal保持ACTIVE。真实Claude/Codex继续由用户承接。
