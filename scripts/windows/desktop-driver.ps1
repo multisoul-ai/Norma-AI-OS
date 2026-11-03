@@ -5,11 +5,17 @@ using System;
 using System.Runtime.InteropServices;
 public static class NormaDesktop {
     [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential)] public struct Point { public int X, Y; }
     [StructLayout(LayoutKind.Sequential)] public struct Keyboard { public ushort Key, Scan; public uint Flags, Time; public UIntPtr Extra; }
     [StructLayout(LayoutKind.Explicit, Size=32)] public struct InputData { [FieldOffset(0)] public Keyboard Keyboard; }
     [StructLayout(LayoutKind.Sequential)] public struct Input { public uint Type; public InputData Data; }
     [DllImport("user32.dll", SetLastError=true)] static extern uint SendInput(uint count, Input[] inputs, int size);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+    [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr hwnd, out Rect rect);
+    [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hwnd, ref Point point);
+    [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint parameter, out Rect rect, uint flags);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int width, int height, uint flags);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int command);
@@ -36,6 +42,9 @@ function Get-NormaWindow($Process) {
 }
 function Focus-NormaWindow([IntPtr]$Window) {
     [NormaDesktop]::ShowWindow($Window, 9) | Out-Null
+    $area=[NormaDesktop+Rect]::new()
+    if (-not [NormaDesktop]::SystemParametersInfo(0x0030,0,[ref]$area,0)) { throw 'No desktop working area' }
+    if (-not [NormaDesktop]::SetWindowPos($Window,[IntPtr]::Zero,$area.Left,$area.Top,($area.Right-$area.Left),($area.Bottom-$area.Top),0x0004)) { throw 'Unable to fit App within visible desktop' }
     [NormaDesktop]::SetForegroundWindow($Window) | Out-Null
     Start-Sleep -Milliseconds 300
     if ([NormaDesktop]::GetForegroundWindow() -ne $Window) { throw 'Input target is not the foreground App window' }
@@ -46,13 +55,17 @@ function Send-NormaChord([ushort[]]$Keys) {
 }
 function Save-NormaScreenshot([IntPtr]$Window, [string]$Path) {
     $rect = [NormaDesktop+Rect]::new()
-    if (-not [NormaDesktop]::GetWindowRect($Window, [ref]$rect)) { throw 'No window bounds' }
+    $origin = [NormaDesktop+Point]::new()
+    if (-not [NormaDesktop]::GetClientRect($Window, [ref]$rect) -or -not [NormaDesktop]::ClientToScreen($Window, [ref]$origin)) { throw 'No window client bounds' }
     $width=$rect.Right-$rect.Left; $height=$rect.Bottom-$rect.Top
     if ($width -lt 300 -or $height -lt 200) { throw 'Window has invalid dimensions' }
+    $desktopX=[NormaDesktop]::GetSystemMetrics(76); $desktopY=[NormaDesktop]::GetSystemMetrics(77)
+    $desktopWidth=[NormaDesktop]::GetSystemMetrics(78); $desktopHeight=[NormaDesktop]::GetSystemMetrics(79)
+    if ($origin.X -lt $desktopX -or $origin.Y -lt $desktopY -or ($origin.X+$width) -gt ($desktopX+$desktopWidth) -or ($origin.Y+$height) -gt ($desktopY+$desktopHeight)) { throw 'Window client is not wholly visible on desktop' }
     $bitmap=[System.Drawing.Bitmap]::new($width,$height)
     $graphics=[System.Drawing.Graphics]::FromImage($bitmap)
     try {
-        $graphics.CopyFromScreen($rect.Left,$rect.Top,0,0,$bitmap.Size)
+        $graphics.CopyFromScreen($origin.X,$origin.Y,0,0,$bitmap.Size)
         $bitmap.Save($Path,[System.Drawing.Imaging.ImageFormat]::Png)
     } finally { $graphics.Dispose(); $bitmap.Dispose() }
 }
