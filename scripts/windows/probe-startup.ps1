@@ -46,12 +46,22 @@ try {
         }
         if ($ExitMode -eq 'configured-input-quit') {
             Send-NormaChord @(0x11,0x4B) # Ctrl+K focuses the real command InputState.
-            Start-Sleep -Milliseconds 300
+            $focusDeadline=[DateTime]::UtcNow.AddSeconds(5)
+            while ($true) {
+                $focusLog=(@('stdout.log','stderr.log') | ForEach-Object { Get-Content (Join-Path $Output $_) -Raw }) -join "`n"
+                $focusLog=$focusLog -replace '\x1b\[[0-9;]*m',''
+                if ($focusLog -match 'stage="focus_applied"[^\r\n]*\bfocused=true\b') { break }
+                if ($process.WaitForExit(0)) { throw 'App exited before the command input gained focus' }
+                if ([DateTime]::UtcNow -ge $focusDeadline) { throw 'Real command InputState did not gain focus' }
+                Start-Sleep -Milliseconds 100
+            }
+            $report.command_input_focused=$true
             [NormaDesktop]::Text('native quit focus probe')
             Start-Sleep -Milliseconds 300
             Save-NormaScreenshot $window (Join-Path $Output 'focused-input-before-quit.png')
             Send-NormaChord @(0x11,0x10,0x51)
-            if ($process.WaitForExit(1000)) { throw 'Overridden default Quit must not exit App' }
+            # Use the full positive Quit deadline so a delayed old-key exit cannot pass as Ctrl+A.
+            if ($process.WaitForExit(10000)) { throw 'Overridden default Quit must not exit App' }
             $report.overridden_default_ignored=$true
             Send-NormaChord @(0x11,0x41) # Configured Ctrl+A must precede InputState SelectAll.
         } else {
@@ -67,18 +77,33 @@ try {
     $report.status='PASS'
 } catch { $report.error=$_.Exception.Message; throw }
 finally {
-    $restoreFailed=$false
-    if ($process) { $process.Refresh(); if (-not $process.HasExited) { $process.Kill($true); $process.WaitForExit(10000) | Out-Null }; $process.Dispose() }
-    if ($configured) {
-        python "$PSScriptRoot/shortcut-fixture.py" restore --database $database --backup $backup
-        if ($LASTEXITCODE -ne 0) {
-            $restoreFailed=$true
-            $report.status='FAIL'
-            $report.error='Could not restore the original runner shortcut'
-        } else { $report.shortcut_fixture_restored=$true }
+    $cleanupErrors=@()
+    $processStopped=($null -eq $process)
+    try {
+        if ($process) {
+            if (-not $process.WaitForExit(0)) {
+                try { $process.Kill($true) }
+                catch { if (-not $process.WaitForExit(0)) { throw } }
+                if (-not $process.WaitForExit(10000)) { throw 'App remained alive after cleanup' }
+            }
+            $processStopped=$true
+        }
+    } catch { $cleanupErrors += $_.Exception.Message }
+    try { if ($process) { $process.Dispose() } }
+    catch { $cleanupErrors += $_.Exception.Message }
+    if ($configured -and $processStopped) {
+        try {
+            python "$PSScriptRoot/shortcut-fixture.py" restore --database $database --backup $backup
+            if ($LASTEXITCODE -ne 0) { throw 'Could not restore the original runner shortcut' }
+            $report.shortcut_fixture_restored=$true
+        } catch { $cleanupErrors += $_.Exception.Message }
+    } elseif ($configured) {
+        $cleanupErrors += 'App is still alive; its settings cannot be restored safely'
     }
     $logs=Join-Path $env:USERPROFILE '.norma/logs'
-    if (Test-Path $logs) { Copy-Item $logs (Join-Path $Output 'app-logs') -Recurse }
+    try { if (Test-Path $logs) { Copy-Item $logs (Join-Path $Output 'app-logs') -Recurse } }
+    catch { $cleanupErrors += $_.Exception.Message }
+    if ($cleanupErrors.Count -gt 0) { $report.status='FAIL'; $report.cleanup_errors=$cleanupErrors }
     $report | ConvertTo-Json | Set-Content (Join-Path $Output 'report.json') -Encoding utf8
-    if ($restoreFailed) { throw $report.error }
+    if ($cleanupErrors.Count -gt 0) { throw ($cleanupErrors -join '; ') }
 }
