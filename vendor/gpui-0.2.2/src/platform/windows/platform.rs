@@ -272,6 +272,32 @@ impl WindowsPlatform {
             })
             .unwrap();
     }
+
+    fn drain_shutdown_tasks(&self) {
+        let mut message = MSG::default();
+        loop {
+            let _ = self.inner.run_foreground_task();
+            let mut dispatched = false;
+            for kind in [
+                WM_GPUI_TASK_DISPATCHED_ON_MAIN_THREAD,
+                WM_GPUI_CLOSE_ONE_WINDOW,
+            ] {
+                while unsafe {
+                    PeekMessageW(&mut message, Some(self.handle), kind, kind, PM_REMOVE)
+                }
+                .as_bool()
+                {
+                    unsafe { DispatchMessageW(&message) };
+                    dispatched = true;
+                }
+            }
+            if !dispatched && self.inner.main_receiver.is_empty() {
+                break;
+            }
+        }
+        // Closing the last native HWND can post another quit message while draining.
+        while unsafe { PeekMessageW(&mut message, None, WM_QUIT, WM_QUIT, PM_REMOVE) }.as_bool() {}
+    }
 }
 
 impl Platform for WindowsPlatform {
@@ -318,9 +344,13 @@ impl Platform for WindowsPlatform {
             }
         }
 
-        if let Some(ref mut callback) = self.inner.state.borrow_mut().callbacks.quit {
+        let quit = self.inner.state.borrow_mut().callbacks.quit.take();
+        if let Some(mut callback) = quit {
             callback();
         }
+        // App/Window destruction queues foreground COM and HWND cleanup. Run it only
+        // after shutdown and every App/platform borrow have returned; never replay menu input.
+        self.drain_shutdown_tasks();
     }
 
     fn quit(&self) {
