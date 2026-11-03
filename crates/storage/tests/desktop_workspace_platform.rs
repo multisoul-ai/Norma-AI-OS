@@ -32,9 +32,11 @@ fn native_chinese_workspace_creation_persists_across_reopen() {
         "UUID variant必须保持高位10"
     );
     assert!(
-        id.iter()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(byte) || *byte == b'-'),
-        "ID只能包含小写十六进制数字和分隔符"
+        id.iter().enumerate().all(|(index, byte)| match index {
+            8 | 13 | 18 | 23 => *byte == b'-',
+            _ => byte.is_ascii_digit() || (b'a'..=b'f').contains(byte),
+        }),
+        "ID非分隔位置只能包含小写十六进制数字"
     );
     assert_eq!(
         catalog.get(&created.id).expect("应按身份查询已创建记录"),

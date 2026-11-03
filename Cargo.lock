@@ -7307,6 +7307,7 @@ dependencies = [
  "canvas",
  "dirs 6.0.0",
  "libc",
+ "ring",
  "rusqlite",
  "serde",
  "serde_json",
