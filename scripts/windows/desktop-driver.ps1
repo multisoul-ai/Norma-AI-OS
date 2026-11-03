@@ -62,5 +62,11 @@ function Close-NormaWindow($Process, [IntPtr]$Window) {
     if ($Process.ExitCode -ne 0) { throw "App exit code $($Process.ExitCode)" }
 }
 function Test-NormaNativeReady([string]$Directory) {
-    return [bool](Select-String -Path (Join-Path $Directory 'stdout.log') -Pattern 'native_webview_ready' -Quiet)
+    foreach ($name in @('stdout.log', 'stderr.log')) {
+        $path=Join-Path $Directory $name
+        if (Test-Path $path -PathType Leaf) {
+            if (Select-String -Path $path -Pattern 'native_webview_ready' -Quiet) { return $true }
+        }
+    }
+    return $false
 }
