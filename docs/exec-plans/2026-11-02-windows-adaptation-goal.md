@@ -13,6 +13,12 @@
 
 ## 当前事实与检查点
 
+- Mac完整回归已GREEN：`02942cb1` run `41583624505`、attempt 1，完整App 1739过/0败/10既有ignored（212.03秒），加强后的原scope读失败与Failed期间poll重试测试另连续10次通过。没有新增ignore或放宽5秒/同delivery/原Hook唯一响应要求；这是收窄夹具后的通过，不反推旧活SQLite替换时那一次具体错误已唯一定位。日志`/private/tmp/norma-mac-full-green-02942cb1`；artifact `13207546973` SHA256 `e780118274adc51b6e59a1dc69dcf8e0aeeaae0b90d368d8e0484d496af2fac7`。后续退出快捷键改动不在这个全套基准中。
+- Quit注册表GREEN：`2884b587` run `41584360020`两平台PASS（Windows7/0/0，Mac6/0/0），Windows默认Ctrl+Shift+Q、正式录制与恢复均通过；Mac保留Cmd+Q。日志`/private/tmp/norma-quit-registry-green-2884b587`。Win artifact `13206744957` SHA256 `0e9e7340ac4905a6b6c080f75d75307b44c654d1a539bddd1ddea46a1b3e3e03`；Mac `13206997892` SHA256 `53e546a83c522a89ba928fbbe05e454c90de05f85d388b1768fa7990bdd488f2`。
+- Quit仍有已确认静态反例：InputState键图先于root capture消费Ctrl+A，录制为退出键后在输入框内无效。`025bb77f`/`286f1d9a`补真实Root/InputState聚焦与正式GPUI派发反例（Mac用Cmd+A仅注入路由策略）；当前尚未改成pre-binding interceptor，等待RED。独立审查确认实际焦点、键图与全局回调读实体的前提成立。现有`App::intercept_keystrokes`可在键图前运行，但`KeystrokeEvent`不携带is_held；后续须同时保留长按抑制，不可从单次键测试推断重复键已覆盖。
+- 真正App默认Quit验收`7706fed2` run `41584529677`进行中：正常WM_CLOSE、Ctrl+Shift+Q、请求Settings后Ctrl+Shift+Q三次独立进程；只用原生键盘输入，无退出失败后的WM_CLOSE fallback。Settings原图尚需看图确认，不把“发送了打开Settings键”先写成已进入设置页。不是发行包验收，也未验证自定义键、后台服务和PTY退出树。
+- App-only Clippy诊断run `41583956356`（`23453202`）仍进行中，原严格依赖门禁保留。此前native退出策略GREEN artifact `13206434902` SHA256 `2935cb772582d187d813de20d445a8bdb4c0439e631796831fe1ac3410dc182d`；旧Mac10次诊断artifact `13206870035` SHA256 `9bb5e6c2ee40d1ce773c121d1e9aa5369d3627634233a10bd7edf0671d66f96c`；Windows11编译错误artifact `13206761290` SHA256 `71d44351386a071cae31cb4abceb4a617b5ea87e62a3ee85eaefb0169c722c54`。均为日志archive，不是候选ZIP。
+
 - W07平台退出策略GREEN：`3f257cdc` run `41581943206`、attempt 1、job `125738555114`五模式全部exit0。无keeper模式确认close_count=1、drain_finished=true、原生窗口销毁、keeper_present=false、errors=0；原四模式继续PASS。证据`/private/tmp/norma-background-last-close-green-3f257cdc`。仅平台策略通过，Norma尚未启用；单实例重开/ACK、可达Quit和真实服务/PTY保活复用仍未完成。
 - 原W07 RED日志artifact `13206177551`的SHA256为`50b40159d7deb877344c720f03aa775db2ecedb3641c4de56e55d5a02c1353e5`（日志archive，不是发行包）。
 - Mac诊断`a0714e14` run `41580160481`整体PASS，原测试10次均通过，但没有复现原全套第三次失败，不能将其视为修复。`eaca5a41`把故障改为原scope的真实checkpoint解码失败，先断言无旧state/events、防止覆盖状态；加强具体错误、唯一lease/receipt和非空delivery断言。独立审查另发现原测试只在Submitting显式poll，`02942cb1`补了Failed等待期的生产poll。`eaca5a41`全套run `41583403268`在缓存恢复阶段因缺这项覆盖被新来源取代并取消，非PASS；新来源完整+10次定向run `41583624505`进行中。原全套失败仍未关闭。
