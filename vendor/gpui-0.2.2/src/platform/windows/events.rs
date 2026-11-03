@@ -114,7 +114,9 @@ impl WindowsWindowInner {
             WM_GPUI_GPU_DEVICE_LOST => self.handle_device_lost(lparam),
             _ => None,
         };
-        if let Some(n) = handled {
+        if self.is_closed() {
+            LRESULT(0)
+        } else if let Some(n) = handled {
             LRESULT(n)
         } else {
             unsafe { DefWindowProcW(handle, msg, wparam, lparam) }
@@ -150,7 +152,9 @@ impl WindowsWindowInner {
         if let Some(mut callback) = lock.callbacks.moved.take() {
             drop(lock);
             callback();
-            self.restore_callback(|callbacks| &mut callbacks.moved, callback);
+            if !self.restore_callback(|callbacks| &mut callbacks.moved, callback) {
+                return Some(0);
+            }
         }
         Some(0)
     }
@@ -213,7 +217,9 @@ impl WindowsWindowInner {
         if let Some(mut callback) = lock.callbacks.resize.take() {
             drop(lock);
             callback(new_logical_size, scale_factor);
-            self.restore_callback(|callbacks| &mut callbacks.resize, callback);
+            if !self.restore_callback(|callbacks| &mut callbacks.resize, callback) {
+                return;
+            }
         }
     }
 
@@ -260,7 +266,9 @@ impl WindowsWindowInner {
     fn handle_close_msg(&self) -> Option<isize> {
         let mut callback = self.state.borrow_mut().callbacks.should_close.take()?;
         let should_close = callback();
-        self.restore_callback(|callbacks| &mut callbacks.should_close, callback);
+        if !self.restore_callback(|callbacks| &mut callbacks.should_close, callback) {
+            return Some(0);
+        }
         if should_close { None } else { Some(0) }
     }
 
@@ -270,6 +278,9 @@ impl WindowsWindowInner {
         };
         if let Some(callback) = callbacks.close {
             callback();
+        }
+        if !self.take_platform_registration() {
+            return Some(0);
         }
         unsafe {
             PostMessageW(
@@ -313,7 +324,9 @@ impl WindowsWindowInner {
             modifiers: current_modifiers(),
         });
         let handled = !func(input).propagate;
-        self.restore_callback(|callbacks| &mut callbacks.input, func);
+        if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+            return Some(0);
+        }
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -324,7 +337,9 @@ impl WindowsWindowInner {
         if let Some(mut callback) = lock.callbacks.hovered_status_change.take() {
             drop(lock);
             callback(false);
-            self.restore_callback(|callbacks| &mut callbacks.hovered_status_change, callback);
+            if !self.restore_callback(|callbacks| &mut callbacks.hovered_status_change, callback) {
+                return Some(0);
+            }
         }
 
         Some(0)
@@ -343,7 +358,9 @@ impl WindowsWindowInner {
 
         let handled = !func(input).propagate;
 
-        self.restore_callback(|callbacks| &mut callbacks.input, func);
+        if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+            return Some(0);
+        }
         let mut lock = self.state.borrow_mut();
 
         if handled {
@@ -364,7 +381,9 @@ impl WindowsWindowInner {
         let mut func = lock.callbacks.input.take()?;
         drop(lock);
         func(input);
-        self.restore_callback(|callbacks| &mut callbacks.input, func);
+        if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+            return Some(0);
+        }
 
         // Always return 0 to indicate that the message was handled, so we could properly handle `ModifiersChanged` event.
         Some(0)
@@ -399,7 +418,9 @@ impl WindowsWindowInner {
 
         let handled = !func(input).propagate;
 
-        self.restore_callback(|callbacks| &mut callbacks.input, func);
+        if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+            return Some(0);
+        }
 
         if handled {
             Some(0)
@@ -423,7 +444,9 @@ impl WindowsWindowInner {
         drop(lock);
 
         let handled = !func(input).propagate;
-        self.restore_callback(|callbacks| &mut callbacks.input, func);
+        if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+            return Some(0);
+        }
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -471,7 +494,9 @@ impl WindowsWindowInner {
             first_mouse: false,
         });
         let handled = !func(input).propagate;
-        self.restore_callback(|callbacks| &mut callbacks.input, func);
+        if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+            return Some(0);
+        }
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -500,7 +525,9 @@ impl WindowsWindowInner {
             click_count,
         });
         let handled = !func(input).propagate;
-        self.restore_callback(|callbacks| &mut callbacks.input, func);
+        if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+            return Some(0);
+        }
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -571,7 +598,9 @@ impl WindowsWindowInner {
             touch_phase: TouchPhase::Moved,
         });
         let handled = !func(input).propagate;
-        self.restore_callback(|callbacks| &mut callbacks.input, func);
+        if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+            return Some(0);
+        }
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -611,7 +640,9 @@ impl WindowsWindowInner {
             touch_phase: TouchPhase::Moved,
         });
         let handled = !func(event).propagate;
-        self.restore_callback(|callbacks| &mut callbacks.input, func);
+        if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+            return Some(0);
+        }
 
         if handled { Some(0) } else { Some(1) }
     }
@@ -630,12 +661,12 @@ impl WindowsWindowInner {
     }
 
     fn handle_ime_position(&self, handle: HWND) -> Option<isize> {
+        let caret_position = self.retrieve_caret_position()?;
+        if self.is_closed() {
+            return Some(0);
+        }
         unsafe {
             let ctx = ImmGetContext(handle);
-
-            let Some(caret_position) = self.retrieve_caret_position() else {
-                return Some(0);
-            };
             {
                 let config = COMPOSITIONFORM {
                     dwStyle: CFS_POINT,
@@ -761,7 +792,10 @@ impl WindowsWindowInner {
                 if let Some(mut func) = lock.callbacks.active_status_change.take() {
                     drop(lock);
                     func(activated);
-                    this.restore_callback(|callbacks| &mut callbacks.active_status_change, func);
+                    if !this.restore_callback(|callbacks| &mut callbacks.active_status_change, func)
+                    {
+                        return;
+                    }
                 }
             })
             .detach();
@@ -874,7 +908,10 @@ impl WindowsWindowInner {
         if let Some(mut callback) = lock.callbacks.hit_test_window_control.take() {
             drop(lock);
             let area = callback();
-            self.restore_callback(|callbacks| &mut callbacks.hit_test_window_control, callback);
+            if !self.restore_callback(|callbacks| &mut callbacks.hit_test_window_control, callback)
+            {
+                return Some(0);
+            }
             if let Some(area) = area {
                 return match area {
                     WindowControlArea::Drag => Some(HTCAPTION as _),
@@ -947,7 +984,9 @@ impl WindowsWindowInner {
             modifiers: current_modifiers(),
         });
         let handled = !func(input).propagate;
-        self.restore_callback(|callbacks| &mut callbacks.input, func);
+        if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+            return Some(0);
+        }
 
         if handled { Some(0) } else { None }
     }
@@ -980,7 +1019,9 @@ impl WindowsWindowInner {
             });
             let result = func(input);
             let handled = !result.propagate || result.default_prevented;
-            self.restore_callback(|callbacks| &mut callbacks.input, func);
+            if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+                return Some(0);
+            }
 
             if handled {
                 return Some(0);
@@ -1027,7 +1068,9 @@ impl WindowsWindowInner {
                 click_count: 1,
             });
             let handled = !func(input).propagate;
-            self.restore_callback(|callbacks| &mut callbacks.input, func);
+            if !self.restore_callback(|callbacks| &mut callbacks.input, func) {
+                return Some(0);
+            }
 
             if handled {
                 return Some(0);
@@ -1126,6 +1169,9 @@ impl WindowsWindowInner {
         } else {
             self.handle_system_theme_changed(handle, lparam)?;
         };
+        if self.is_closed() {
+            return Some(0);
+        }
         // Force to trigger WM_NCCALCSIZE event to ensure that we handle auto hide
         // taskbar correctly.
         notify_frame_changed(handle);
@@ -1162,7 +1208,11 @@ impl WindowsWindowInner {
                     let mut callback = lock.callbacks.appearance_changed.take()?;
                     drop(lock);
                     callback();
-                    self.restore_callback(|callbacks| &mut callbacks.appearance_changed, callback);
+                    if !self
+                        .restore_callback(|callbacks| &mut callbacks.appearance_changed, callback)
+                    {
+                        return Some(0);
+                    }
                     configure_dwm_dark_mode(handle, new_appearance);
                 }
             }
@@ -1205,7 +1255,9 @@ impl WindowsWindowInner {
             require_presentation: false,
             force_render,
         });
-        self.restore_callback(|callbacks| &mut callbacks.request_frame, request_frame);
+        if !self.restore_callback(|callbacks| &mut callbacks.request_frame, request_frame) {
+            return Some(0);
+        }
         unsafe { ValidateRect(Some(handle), None).ok().log_err() };
         Some(0)
     }
@@ -1258,7 +1310,11 @@ impl WindowsWindowInner {
             if let Some(mut callback) = lock.callbacks.hovered_status_change.take() {
                 drop(lock);
                 callback(true);
-                self.restore_callback(|callbacks| &mut callbacks.hovered_status_change, callback);
+                if !self
+                    .restore_callback(|callbacks| &mut callbacks.hovered_status_change, callback)
+                {
+                    return;
+                }
             }
         }
     }
@@ -1269,8 +1325,8 @@ impl WindowsWindowInner {
     {
         let mut input_handler = self.state.borrow_mut().input_handler.take()?;
         let result = f(&mut input_handler);
-        self.state.borrow_mut().input_handler = Some(input_handler);
-        Some(result)
+        self.restore_input_handler(input_handler);
+        (!self.is_closed()).then_some(result)
     }
 
     fn with_input_handler_and_scale_factor<F, R>(&self, f: F) -> Option<R>
@@ -1282,8 +1338,8 @@ impl WindowsWindowInner {
         let scale_factor = lock.scale_factor;
         drop(lock);
         let result = f(&mut input_handler, scale_factor);
-        self.state.borrow_mut().input_handler = Some(input_handler);
-        result
+        self.restore_input_handler(input_handler);
+        if self.is_closed() { None } else { result }
     }
 }
 

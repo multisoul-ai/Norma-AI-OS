@@ -27,7 +27,7 @@ impl WindowsWindowInner {
         &self,
         select: impl FnOnce(&mut Callbacks) -> &mut Option<T>,
         callback: T,
-    ) {
+    ) -> bool {
         let retired = if self.is_closed() {
             Some(callback)
         } else {
@@ -35,6 +35,24 @@ impl WindowsWindowInner {
             select(&mut state.callbacks).replace(callback)
         };
         drop(retired);
+        !self.is_closed()
+    }
+
+    pub(crate) fn restore_input_handler(&self, handler: crate::PlatformInputHandler) {
+        let retired = if self.is_closed() {
+            Some(handler)
+        } else {
+            self.state.borrow_mut().input_handler.replace(handler)
+        };
+        drop(retired);
+    }
+
+    pub(crate) fn mark_registered_with_platform(&self) {
+        self.platform_registered.set(true);
+    }
+
+    pub(crate) fn take_platform_registration(&self) -> bool {
+        self.platform_registered.replace(false)
     }
 
     fn revoke_drag_drop(&self) {

@@ -8,6 +8,7 @@ on:
       - 'vendor/gpui-0.2.2/src/platform/windows/window.rs'
       - 'vendor/gpui-0.2.2/src/platform/windows/window/**'
       - 'vendor/gpui-0.2.2/src/platform/windows/events.rs'
+      - 'vendor/gpui-0.2.2/src/platform/windows/platform.rs'
       - '.github/workflows/windows-window-lifecycle.yml'
 permissions:
   contents: read

@@ -67,6 +67,7 @@ pub(crate) struct WindowsWindowInner {
     closed: Cell<bool>,
     native_destroyed: Cell<bool>,
     drag_drop_registered: Cell<bool>,
+    platform_registered: Cell<bool>,
     pub(super) this: Weak<Self>,
     drop_target_helper: IDropTargetHelper,
     pub(crate) state: RefCell<WindowsWindowState>,
@@ -228,6 +229,7 @@ impl WindowsWindowInner {
             closed: Cell::new(false),
             native_destroyed: Cell::new(false),
             drag_drop_registered: Cell::new(false),
+            platform_registered: Cell::new(false),
             this: this.clone(),
             drop_target_helper: context.drop_target_helper.clone(),
             state,
@@ -492,6 +494,10 @@ impl WindowsWindow {
             });
         }
 
+        anyhow::ensure!(
+            !this.native_destroyed.get(),
+            "window destroyed during initialization"
+        );
         Ok(window)
     }
 }
@@ -612,7 +618,7 @@ impl PlatformWindow for WindowsWindow {
     }
 
     fn set_input_handler(&mut self, input_handler: PlatformInputHandler) {
-        self.0.state.borrow_mut().input_handler = Some(input_handler);
+        self.0.restore_input_handler(input_handler);
     }
 
     fn take_input_handler(&mut self) -> Option<PlatformInputHandler> {

@@ -413,6 +413,7 @@ impl Platform for WindowsPlatform {
         let window = WindowsWindow::new(handle, options, self.generate_creation_info())?;
         let handle = window.get_raw_handle();
         self.raw_window_handles.write().push(handle.into());
+        window.0.mark_registered_with_platform();
 
         Ok(Box::new(window))
     }
