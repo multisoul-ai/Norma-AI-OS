@@ -44,8 +44,8 @@ mod native {
     /// 场景：显式quit结束消息循环后，退出观察器和实体析构排队的前台收尾仍须完成。
     /// 构造：真实顶层HWND、独立退出观察器标志和观察器排队的前台marker。
     /// 执行：窗口存活250毫秒后直接cx.quit；Application::run返回后查询marker和IsWindow。
-    /// 预期：观察器及marker均执行，原HWND已销毁，无native错误；不依赖正常关窗回调。
-    fn explicit_quit() {
+    /// 预期：观察器及marker均执行，原HWND已销毁；自唤醒工作须有界收口并明确报超时。
+    fn explicit_quit(self_waking: bool) {
         let raw = Rc::new(Cell::new(0isize));
         let observed = Rc::new(Cell::new(false));
         let finished = Rc::new(Cell::new(false));
@@ -57,8 +57,20 @@ mod native {
                 quit_observed.set(true);
                 let drained = drained.clone();
                 cx.foreground_executor()
-                    .spawn(async move { drained.set(true) })
+                    .spawn(async move {
+                        drained.set(true);
+                        println!("explicit-quit foreground marker completed");
+                    })
                     .detach();
+                if self_waking {
+                    cx.foreground_executor()
+                        .spawn(std::future::poll_fn(|cx| {
+                            cx.waker().wake_by_ref();
+                            std::task::Poll::<()>::Pending
+                        }))
+                        .detach();
+                }
+                println!("explicit-quit observer completed; self_waking={self_waking}");
                 async {}
             })
             .detach();
@@ -77,6 +89,7 @@ mod native {
             cx.foreground_executor()
                 .spawn(async move {
                     Timer::after(Duration::from_millis(250)).await;
+                    println!("requesting explicit quit; self_waking={self_waking}");
                     app.update(|cx| {
                         assert_eq!(cx.windows().len(), 1, "显式退出时必须仍有一个真实窗口");
                         cx.quit();
@@ -102,8 +115,20 @@ mod native {
             "Application::run返回前必须销毁显式退出遗留的顶层HWND"
         );
         let errors = ERRORS.lock().expect("inspect explicit quit native errors");
-        assert!(errors.is_empty(), "显式退出不能产生native错误：{errors:#?}");
-        println!("PASS: explicit-quit; quit_observed=true; drain_finished=true; all_native_windows_destroyed=true; errors=0");
+        if self_waking {
+            assert_eq!(
+                errors.len(),
+                1,
+                "必须明确报告无法收敛的前台工作，不能静默丢弃：{errors:#?}"
+            );
+            assert!(
+                errors[0].contains("native foreground cleanup did not quiesce"),
+                "超时诊断必须准确指出不收敛的前台工作：{errors:#?}"
+            );
+        } else {
+            assert!(errors.is_empty(), "显式退出不能产生native错误：{errors:#?}");
+        }
+        println!("PASS: explicit-quit; quit_observed=true; drain_finished=true; all_native_windows_destroyed=true; self_waking={self_waking}; errors={}", errors.len());
     }
 
     /// 场景：窗口完整收口；App选择后台保活时，关闭最后窗口不能退出消息循环。
@@ -119,7 +144,8 @@ mod native {
                 "queued-window-ops-close",
                 "remove-window",
                 "background-last-close",
-                "explicit-quit"
+                "explicit-quit",
+                "self-waking-quit"
             ]
             .contains(&mode.as_str()),
             "unknown lifecycle mode: {mode}"
@@ -127,8 +153,8 @@ mod native {
         let background = mode == "background-last-close";
         log::set_logger(&Capture).expect("install native error capture");
         log::set_max_level(log::LevelFilter::Error);
-        if mode == "explicit-quit" {
-            explicit_quit();
+        if mode == "explicit-quit" || mode == "self-waking-quit" {
+            explicit_quit(mode == "self-waking-quit");
             return;
         }
         let closed = Rc::new(Cell::new(0));
