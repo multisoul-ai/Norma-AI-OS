@@ -6,11 +6,10 @@ pub(crate) struct FocusSnapshot {
 }
 
 pub(crate) fn may_return_focus(
-    _expected: FocusSnapshot,
-    _current: FocusSnapshot,
-    _parent: isize,
-    _source_owns_focus: bool,
+    expected: FocusSnapshot,
+    current: FocusSnapshot,
+    parent: isize,
+    source_owns_focus: bool,
 ) -> bool {
-    // Legacy focus_parent was unconditional; retain that behavior for the RED witness.
-    true
+    expected == current && current.foreground == parent && source_owns_focus
 }

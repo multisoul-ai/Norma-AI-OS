@@ -12,6 +12,8 @@ use std::time::Instant;
 #[path = "wry_windows/deferred.rs"]
 mod deferred;
 use deferred::DeferredWebView;
+#[path = "wry_windows/focus.rs"]
+mod focus;
 
 pub(crate) struct WarmWebView {
     _webview: DeferredWebView,
@@ -25,6 +27,7 @@ impl WarmWebView {
             wry::WebViewBuilder::new()
                 .with_url("about:blank")
                 .with_visible(false)
+                .with_focused(false)
         })
         .map(|_webview| Self { _webview })
     }
@@ -56,6 +59,7 @@ impl WryBrowserView {
                 wry::WebViewBuilder::new()
                     .with_url(url)
                     .with_visible(false)
+                    .with_focused(false)
                     .with_bounds(rect(bounds))
                     .with_asynchronous_custom_protocol(
                         "norma-content".into(),
@@ -138,9 +142,9 @@ impl WryBrowserView {
         });
     }
     pub(crate) fn release_input(&mut self) {
-        self.webview.latest("focus-parent", |view| {
-            let _ = view.focus_parent();
-        });
+        let expected = focus::snapshot();
+        self.webview
+            .run(move |view| focus::release_if_current(view, expected));
     }
     pub(crate) fn present(
         &mut self,
@@ -152,6 +156,7 @@ impl WryBrowserView {
         let visible = bounds.size.width > gpui::px(0.)
             && bounds.size.height > gpui::px(0.)
             && placement.opacity > 0.;
+        let expected_focus = focus::snapshot();
         self.webview.latest("presentation", move |view| {
             let _ = view.set_visible(visible);
             if visible {
@@ -170,7 +175,7 @@ impl WryBrowserView {
                 let _ = view.zoom(f64::from(placement.scale));
             }
             if !interactive {
-                let _ = view.focus_parent();
+                focus::release_if_current(view, expected_focus);
             }
         });
     }

@@ -34,15 +34,11 @@ jobs:
         with:
           path: target/sherpa-onnx-prebuilt
           key: sherpa-prebuilt-${{ runner.os }}-${{ runner.arch }}-1.13.3-static
-      - name: Bootstrap and verify the probe lock against the product lock
+      - name: Verify the frozen probe lock against the product lock
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts/keyboard
-          if [ ! -f crates/app/tests/keyboard_probe/Cargo.lock ]; then
-            cp Cargo.lock crates/app/tests/keyboard_probe/Cargo.lock
-            cargo fetch --manifest-path crates/app/tests/keyboard_probe/Cargo.toml
-          fi
           python3 scripts/check-probe-lock.py Cargo.lock crates/app/tests/keyboard_probe/Cargo.lock
           cp crates/app/tests/keyboard_probe/Cargo.lock artifacts/keyboard/Cargo.lock
       - name: Require native primary-modifier dispatch

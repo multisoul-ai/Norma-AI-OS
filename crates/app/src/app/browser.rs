@@ -20,6 +20,8 @@ mod cef_backend;
 mod engine;
 mod events;
 #[cfg(windows)]
+mod focus_policy;
+#[cfg(windows)]
 mod generation;
 mod load_timeline;
 mod location;

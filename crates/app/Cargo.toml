@@ -145,7 +145,7 @@ cef = { version = "149.3.0", optional = true, default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 raw-window-handle = "0.6"
-windows = { version = "=0.61.3", features = ["Win32_Media_Audio", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_System_WinRT"] }
+windows = { version = "=0.61.3", features = ["Win32_Media_Audio", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_System_WinRT", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
 uds_windows = "=1.2.1"
 chrono = "0.4"
 qrcodegen = "=1.8.0"
