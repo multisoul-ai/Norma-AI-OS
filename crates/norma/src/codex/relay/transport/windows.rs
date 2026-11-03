@@ -101,7 +101,14 @@ pub(crate) struct Readiness {
 
 impl Readiness {
     pub(crate) fn new(native: &Socket, server: &Socket) -> Result<Self, String> {
-        Self::with_api(native, server, notification_api())
+        let this = Self::with_api(native, server, notification_api())?;
+        #[cfg(test)]
+        eprintln!(
+            "auto WinSock readiness: notifications={}, registered={:?}",
+            this.notify.is_some(),
+            this.registered
+        );
+        Ok(this)
     }
 
     #[cfg(test)]

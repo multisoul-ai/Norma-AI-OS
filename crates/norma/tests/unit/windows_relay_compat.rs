@@ -12,7 +12,7 @@ fn connect_without_api(native: UnixStream, server: &Path) -> Result<CodexQuestio
     CodexQuestionRelay::connect_with(
         native,
         || UnixStream::connect(server).map(ControlledStream::from),
-        true,
+        false,
         true,
         false,
         Readiness::without_socket_notifications,
