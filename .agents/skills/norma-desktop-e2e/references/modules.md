@@ -38,6 +38,7 @@
 
 | `settings` | `settings-shortcut-defaults` | 键位互换后 Settings → Keyboard Shortcuts 的默认显示（无覆盖写入、无 Restore），以及既有自定义（切换工作空间 ⌃⌥J、新建浏览器 ⇧⌘K）原样保留且优先生效：⌃⌥J 打开切换器，⇧⌘↑ / ⇧⌘K 不触发默认行为；浅色与深色。 |
 | `settings` | `settings-live-configuration` | GPT-Live模式切换、缺Key禁用、音色持久化、重启恢复和深浅主题。 |
+| `settings` | `settings-live-i18n` | 同一进程中文→英文→中文：GPT-Live 标题、说明、离线状态与缺 Key 禁用；核对语言持久值，模型看图，不启动通话。 |
 | `settings` | `settings-a1-configuration` | A1 可选识别来源的浏览（不激活、不加载模型），默认 provider 不变；切到 GPT-Live/豆包后页面保持独立。深浅主题。 |
 | `settings` | `settings-orchestration-path-convention` | 编排页“文件路径输出约定”开关：默认开启（未写库），点击后保存 false，再点击保存 true，开关外观随之变化。 |
 | `settings` | `settings-grok-orchestration` | Grok Build 编排安装与确认卸载；英文 Graphite、中文 Sapphire Night 下的实验性提示及 hover，隔离 home 内核对技能、原生 Hook、凭据和用户文件保留。 |

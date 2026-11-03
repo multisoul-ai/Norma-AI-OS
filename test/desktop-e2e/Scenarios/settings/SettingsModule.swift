@@ -12,6 +12,7 @@ public enum SettingsModule {
             SettingsSpaceWallpapers.name,
             SettingsGlobalAppearance.name,
             SettingsLiveConfiguration.name,
+            SettingsLiveI18n.name,
             SettingsA1Configuration.name,
             SettingsShortcutCustomize.name,
             SettingsShortcutDefaults.name,
@@ -21,7 +22,7 @@ public enum SettingsModule {
             SettingsDispatchEffects.name,
             SettingsRunEffects.name,
         ],
-        visualScenarioNames: [SettingsThemeConsistency.name],
+        visualScenarioNames: [SettingsThemeConsistency.name, SettingsLiveI18n.name],
         run: { scenario, session in
             switch scenario {
             case SettingsThemeConsistency.name:
@@ -40,6 +41,8 @@ public enum SettingsModule {
                 try await SettingsA1Configuration.run(session)
             case SettingsLiveConfiguration.name:
                 try await SettingsLiveConfiguration.run(session)
+            case SettingsLiveI18n.name:
+                try await SettingsLiveI18n.run(session)
             case SettingsShortcutCustomize.name:
                 try await SettingsShortcutCustomize.run(session)
             case SettingsShortcutDefaults.name:
