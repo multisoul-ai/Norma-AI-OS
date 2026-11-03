@@ -6,6 +6,10 @@ on:
         description: Run the complete macOS App test harness after the focused regressions
         type: boolean
         default: false
+      retry_diagnostics:
+        description: Diagnose the existing question retry failure without hiding any failed iteration
+        type: boolean
+        default: false
   push:
     branches: ['codex/windows-audio-*']
     paths: ['crates/app/tests/unit/voice_settings_redesign_tests.rs', 'crates/app/tests/unit/browser_view_tests.rs', 'crates/app/tests/unit/browser_page_interaction_tests.rs', 'crates/app/tests/unit/desktop_voice_inset_tests.rs', 'crates/app/tests/unit/desktop_master_visibility_tests.rs', 'crates/app/tests/unit/doubao_hold_keyboard_tests.rs', 'crates/app/src/app/doubao/session.rs', 'vendor/gpui-0.2.2/src/app/test_context.rs', 'scripts/check-norma-qr.swift', 'crates/app/src/mobile/qr.rs', 'crates/runtime/tests/opencode_foreground.rs', 'crates/runtime/tests/support/opencode_foreground.rs']
@@ -61,6 +65,16 @@ jobs:
         run: |
           set -o pipefail
           cargo test --locked --no-fail-fast -p app --lib 2>&1 | tee artifacts/macos-fixes/app-full.log
+      - name: Diagnose the existing question retry failure
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.retry_diagnostics
+        shell: bash
+        run: |
+          set -o pipefail
+          had_failure=0
+          for round in $(seq 1 10); do
+            if ! cargo test --locked -p app --lib question_prepared_lease_survives_poll_and_context_read_failure -- --nocapture 2>&1 | tee "artifacts/macos-fixes/question-retry-$round.log"; then had_failure=1; fi
+          done
+          exit "$had_failure"
       - name: Require the remaining full-suite regressions through production event paths
         if: always()
         shell: bash

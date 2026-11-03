@@ -65,6 +65,13 @@ fn question_prepared_lease_survives_poll_and_context_read_failure() {
         }
         source.read_with(cx, |app, _| {
             let snapshot = app.runtime.question(&target).unwrap();
+            eprintln!(
+                "[DEBUG-question-retry] attempt={attempt}; snapshot={snapshot:?}; scope={:?}; prepared={}; receipts={}; hook={:?}",
+                app.shared_context.as_ref().map(SharedContext::scope),
+                app.brain.questions.prepared.len(),
+                app.brain.questions.receipts.len(),
+                ticket.status(Instant::now()),
+            );
             assert_eq!(
                 snapshot.state,
                 if attempt == 2 {
@@ -72,7 +79,7 @@ fn question_prepared_lease_survives_poll_and_context_read_failure() {
                 } else {
                     QuestionState::Failed
                 },
-                "未发送失败可重试，轮询不能转成未知结果"
+                "未发送失败可重试，轮询不能转成未知结果；attempt={attempt}；snapshot={snapshot:?}"
             );
             if attempt == 0 {
                 original_delivery = snapshot.delivery_id.clone();
