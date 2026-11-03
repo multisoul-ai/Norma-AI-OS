@@ -17,19 +17,57 @@ pub(super) struct OwnedTarget {
     inode: u64,
 }
 
+#[derive(Debug)]
+pub(super) struct CreationFailure {
+    pub(super) error: std::io::Error,
+    pub(super) preserved: bool,
+}
+
+impl From<std::io::Error> for CreationFailure {
+    fn from(error: std::io::Error) -> Self {
+        Self {
+            error,
+            preserved: false,
+        }
+    }
+}
+
 impl OwnedTarget {
-    pub(super) fn create(path: PathBuf) -> std::io::Result<Self> {
+    pub(super) fn create(path: PathBuf) -> Result<Self, CreationFailure> {
         Self::create_with(path, || {})
     }
 
-    fn create_with(path: PathBuf, on_created: impl FnOnce()) -> std::io::Result<Self> {
+    #[cfg(windows)]
+    fn create_with(path: PathBuf, on_created: impl FnOnce()) -> Result<Self, CreationFailure> {
+        let invalid = || std::io::Error::from(std::io::ErrorKind::InvalidInput);
+        let parent = path.parent().ok_or_else(invalid)?;
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(invalid)?;
+        let parent = crate::scoped_directory::Directory::open(parent, true)?;
+        // FILE_CREATE returns this new directory's pinned handle; no path reopen can adopt a replacement.
+        let created = parent.create_child(name)?;
+        on_created();
+        let identity = created.identity().map_err(|error| CreationFailure {
+            error,
+            preserved: true,
+        })?;
+        Ok(Self { path, identity })
+    }
+
+    #[cfg(not(windows))]
+    fn create_with(path: PathBuf, on_created: impl FnOnce()) -> Result<Self, CreationFailure> {
         fs::create_dir(&path)?;
         on_created();
-        Self::capture(path.clone()).inspect_err(|_| {
-            let _ = fs::remove_dir(&path);
+        // Failed ownership verification must not unlink an unverified pathname.
+        Self::capture(path).map_err(|error| CreationFailure {
+            error,
+            preserved: true,
         })
     }
 
+    #[cfg(any(not(windows), test))]
     fn capture(path: PathBuf) -> std::io::Result<Self> {
         let metadata = fs::symlink_metadata(&path)?;
         if !metadata.is_dir() || metadata.file_type().is_symlink() {

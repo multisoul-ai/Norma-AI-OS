@@ -164,9 +164,9 @@ impl GitCloneRunner {
         let owned_target = OwnedTarget::create(target.clone()).map_err(|error| {
             CloneFailure::new(
                 CloneFailureKind::DestinationUnavailable,
-                format!("Could not create the project folder: {error}"),
+                format!("Could not create the project folder: {}", error.error),
                 target.clone(),
-                false,
+                error.preserved,
             )
         })?;
 
