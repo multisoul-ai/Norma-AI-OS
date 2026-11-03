@@ -51,6 +51,12 @@ pub(crate) enum NativeBrowserView {
 }
 
 impl NativeBrowserView {
+    #[cfg(windows)]
+    pub(crate) fn is_attached_to(&self, window: &Window) -> bool {
+        match self {
+            Self::Wry(view) => view.is_attached_to(window),
+        }
+    }
     pub(crate) fn present(
         &mut self,
         placement: gpui::ScenePresentation,

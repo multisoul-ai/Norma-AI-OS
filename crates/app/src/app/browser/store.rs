@@ -105,6 +105,14 @@ impl BrowserStore {
     }
 
     pub(crate) fn warm_up(&mut self, window: &mut Window, _cx: &gpui::App) {
+        #[cfg(windows)]
+        if self
+            .warm_view
+            .as_ref()
+            .is_some_and(|view| !view.is_attached_to(window))
+        {
+            self.warm_view = None;
+        }
         if !self.native_views_enabled || self.warm_view.is_some() {
             return;
         }

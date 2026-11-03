@@ -137,6 +137,9 @@ impl DeferredWebView {
             events,
         })
     }
+    pub(super) fn is_attached_to(&self, window: &Window) -> bool {
+        !self.state.cancelled.get() && self.state.lease.window == window.window_handle()
+    }
     pub(super) fn run(&self, action: impl FnOnce(&wry::WebView) + 'static) {
         self.enqueue(None, move |result| {
             if let Ok(view) = result {
@@ -165,7 +168,16 @@ impl DeferredWebView {
         {
             let mut pending = self.state.pending.borrow_mut();
             if let Some(key) = key {
-                if let Some(index) = pending.iter().position(|item| item.key == Some(key)) {
+                // Navigation/cookie commands are ordering barriers. Coalesce only the
+                // declarative layout tail after the most recent ordered command.
+                let index = pending
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .take_while(|(_, item)| item.key.is_some())
+                    .find(|(_, item)| item.key == Some(key))
+                    .map(|(index, _)| index);
+                if let Some(index) = index {
                     pending.remove(index);
                 }
             }

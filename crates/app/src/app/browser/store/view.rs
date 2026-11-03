@@ -11,6 +11,15 @@ impl BrowserView {
         event_sender: Sender<BrowserEvent>,
         cx: &gpui::App,
     ) {
+        #[cfg(windows)]
+        if self
+            .native_view
+            .as_ref()
+            .is_some_and(|view| !view.is_attached_to(window))
+        {
+            // A retained background project can attach to a different native host window.
+            self.native_view = None;
+        }
         if self.native_view.is_none() {
             let configured = std::env::var("MULTISOUL_BROWSER_ENGINE").ok();
             let engine = if url.starts_with("norma-content://") {

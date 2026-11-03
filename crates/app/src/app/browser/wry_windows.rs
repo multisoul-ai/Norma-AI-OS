@@ -17,6 +17,9 @@ pub(crate) struct WarmWebView {
     _webview: DeferredWebView,
 }
 impl WarmWebView {
+    pub(crate) fn is_attached_to(&self, window: &Window) -> bool {
+        self._webview.is_attached_to(window)
+    }
     pub(crate) fn create(window: &mut Window, cx: &gpui::App) -> wry::Result<Self> {
         DeferredWebView::create(window, cx, None, None, |_| {
             wry::WebViewBuilder::new()
@@ -30,6 +33,9 @@ pub(crate) struct WryBrowserView {
     webview: DeferredWebView,
 }
 impl WryBrowserView {
+    pub(crate) fn is_attached_to(&self, window: &Window) -> bool {
+        self.webview.is_attached_to(window)
+    }
     pub(crate) fn create(
         node_id: NodeId,
         url: &str,
