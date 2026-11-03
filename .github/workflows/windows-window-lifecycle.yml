@@ -11,6 +11,8 @@ on:
       - 'vendor/gpui-0.2.2/src/platform/windows/window/**'
       - 'vendor/gpui-0.2.2/src/platform/windows/events.rs'
       - 'vendor/gpui-0.2.2/src/platform/windows/platform.rs'
+      - 'vendor/gpui-0.2.2/src/platform.rs'
+      - 'vendor/gpui-0.2.2/src/app.rs'
       - '.github/workflows/windows-window-lifecycle.yml'
 permissions:
   contents: read
@@ -47,7 +49,7 @@ jobs:
         shell: pwsh
         run: |
           $results=@{}
-          foreach ($mode in @('native-close', 'queued-active-close', 'queued-window-ops-close', 'remove-window')) {
+          foreach ($mode in @('native-close', 'queued-active-close', 'queued-window-ops-close', 'remove-window', 'background-last-close')) {
             $process=Start-Process ./target/debug/norma-window-lifecycle.exe -ArgumentList $mode -PassThru -RedirectStandardOutput "artifacts/window-lifecycle/$mode-stdout.log" -RedirectStandardError "artifacts/window-lifecycle/$mode-stderr.log"
             try {
               if ($process.WaitForExit(15000)) { $results[$mode]=$process.ExitCode }

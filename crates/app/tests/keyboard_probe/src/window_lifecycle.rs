@@ -41,10 +41,10 @@ mod native {
         }
     }
 
-    /// 场景：原生关窗、激活通知排队后关窗、App主动移除三条路径都必须完整收口。
-    /// 数据构造：一个实际500×400目标窗与一个隐藏keeper，无WebView；消息在同一UI任务内发送。
-    /// 执行过程：初始化250毫秒后触发路径；keeper阻止最后窗口自动退出，100毫秒后明确记录排空。
-    /// 预期结果：只关闭一次，HWND真实销毁，GPUI不再访问已移除窗口或重复销毁句柄。
+    /// 场景：窗口完整收口；App选择后台保活时，关闭最后窗口不能退出消息循环。
+    /// 数据构造：实际500×400目标窗；既有四模式带隐藏keeper，后台模式完全没有keeper。
+    /// 执行过程：250毫秒后关窗，100毫秒后记录排空；后台模式此时才显式quit。
+    /// 预期结果：只关闭一次且HWND销毁；后台模式必须执行无窗口期间的UI任务，无native错误。
     pub(super) fn run() {
         let mode = std::env::args().nth(1).expect("lifecycle mode required");
         assert!(
@@ -52,11 +52,13 @@ mod native {
                 "native-close",
                 "queued-active-close",
                 "queued-window-ops-close",
-                "remove-window"
+                "remove-window",
+                "background-last-close"
             ]
             .contains(&mode.as_str()),
             "unknown lifecycle mode: {mode}"
         );
+        let background = mode == "background-last-close";
         log::set_logger(&Capture).expect("install native error capture");
         log::set_max_level(log::LevelFilter::Error);
         let closed = Rc::new(Cell::new(0));
@@ -70,8 +72,11 @@ mod native {
         let finished = drained.clone();
         let requested_mode = mode.clone();
         Application::new().run(move |cx| {
-            let keeper = cx
-                .open_window(
+            if background {
+                cx.set_quit_on_last_window_close(false);
+            }
+            let keeper = (!background).then(|| {
+                cx.open_window(
                     WindowOptions {
                         show: false,
                         ..Default::default()
@@ -87,9 +92,10 @@ mod native {
                         cx.new(|_| Probe)
                     },
                 )
-                .expect("open hidden keeper to prevent early native quit");
+                .expect("open hidden keeper to prevent early native quit")
+            });
             cx.on_window_closed(move |cx| {
-                if cx.windows().len() != 1 {
+                if cx.windows().len() != usize::from(!background) {
                     return;
                 }
                 close_count.set(close_count.get() + 1);
@@ -99,8 +105,19 @@ mod native {
                     .spawn(async move {
                         Timer::after(Duration::from_millis(100)).await;
                         finished.set(true);
-                        app.update_window(keeper.into(), |_, window, _| window.remove_window())
-                            .expect("remove keeper after verified drain");
+                        if let Some(keeper) = keeper {
+                            app.update_window(keeper.into(), |_, window, _| window.remove_window())
+                                .expect("remove keeper after verified drain");
+                        } else {
+                            app.update(|cx| {
+                                assert!(
+                                    cx.windows().is_empty(),
+                                    "background task must execute with no windows"
+                                );
+                                cx.quit();
+                            })
+                            .expect("explicitly quit after the background task executed");
+                        }
                     })
                     .detach();
             })
@@ -150,7 +167,9 @@ mod native {
                                 SendMessageW(hwnd, WM_ACTIVATE, Some(WPARAM(0)), Some(LPARAM(0)));
                                 SendMessageW(hwnd, WM_CLOSE, Some(WPARAM(0)), Some(LPARAM(0)));
                             }
-                            "native-close" | "queued-window-ops-close" => {
+                            "native-close"
+                            | "queued-window-ops-close"
+                            | "background-last-close" => {
                                 SendMessageW(hwnd, WM_CLOSE, Some(WPARAM(0)), Some(LPARAM(0)));
                             }
                             _ => {
@@ -179,22 +198,30 @@ mod native {
             !unsafe { IsWindow(Some(HWND(retired_raw.get() as *mut std::ffi::c_void))) }.as_bool(),
             "{mode} must destroy the original native HWND"
         );
-        assert_ne!(
-            retired_keeper.get(),
-            0,
-            "the keeper must have a real native HWND"
-        );
-        assert!(
-            !unsafe { IsWindow(Some(HWND(retired_keeper.get() as *mut std::ffi::c_void))) }
-                .as_bool(),
-            "{mode} must also destroy the keeper HWND"
-        );
+        if background {
+            assert_eq!(
+                retired_keeper.get(),
+                0,
+                "background mode must never create a keeper window"
+            );
+        } else {
+            assert_ne!(
+                retired_keeper.get(),
+                0,
+                "the keeper must have a real native HWND"
+            );
+            assert!(
+                !unsafe { IsWindow(Some(HWND(retired_keeper.get() as *mut std::ffi::c_void))) }
+                    .as_bool(),
+                "{mode} must also destroy the keeper HWND"
+            );
+        }
         let errors = ERRORS.lock().expect("inspect captured native errors");
         assert!(
             errors.is_empty(),
             "{mode} must close without native errors: {errors:#?}"
         );
-        println!("PASS: {mode}; close_count=1; drain_finished=true; both_native_windows_destroyed=true; errors=0");
+        println!("PASS: {mode}; close_count=1; drain_finished=true; all_native_windows_destroyed=true; keeper_present={}; errors=0", !background);
     }
 }
 

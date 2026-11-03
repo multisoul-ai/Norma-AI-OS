@@ -13,6 +13,9 @@
 
 ## 当前事实与检查点
 
+- 最新Mac完整App结果：`c11c9ce3` run `41576561435`、attempt 1、job `125721310668`为1738过/1败/10既有ignored（154.81秒）。唯一失败是`question_prepared_lease_survives_poll_and_context_read_failure`第三次恢复后仍Failed；前两次及delivery身份断言已过，不能据此断言poll丢lease。独立只读审查提出活SQLite路径替换可能与额外Tokio初始读取竞争；尚未证实。`a0714e14`仅增强错误/lease诊断，run `41580160481`进行中，不视为修复或重跑覆盖失败。
+- W07先补无keeper的真实`background-last-close`反例：窗口关闭后必须在零窗口状态执行100毫秒后的UI任务，再显式quit。新增平台策略API暂为默认no-op以保留既有行为，等待Windows runner证明RED；Norma产品尚未启用保活策略，单实例重开/ACK与主动退出入口仍待完成。
+
 - 产品feature下native关闭契约最终GREEN：`dc82c76e` run `41575727720`、attempt 1、job `125718662353` PASS。原生关闭、迟到激活、排队activate/resize/fullscreen后关闭、App移除四模式均exit0；每项明确验证close_count=1、drain_finished=true、原窗及keeper HWND均销毁、errors=0。没有过滤shutdown报错或放宽断言；真实App的同类关闭证据见下条。
 - 本批验收日志artifact的GitHub SHA256：native `13204400934`为`a1f3b2667fa69444e1969d9ceb99f617dd3e3acafc6f1cf3b800b29caf84af24`；实际App `13202859951`为`dfde3085d2ff748646965522327dbe9bcc0e1a093ccfbd77434537ffde8950fc`；Mac定向 `13203083772`为`2ea51a116204271d418aad3325df9a5def1fa7b376b3d3484000a8d77811c58d`。这三个是日志/截图archive校验和，不是可交付Windows发行包的校验和。
 

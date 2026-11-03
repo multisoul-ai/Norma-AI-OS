@@ -750,6 +750,12 @@ impl App {
         self.platform.quit();
     }
 
+    /// Configure Windows' automatic exit after the last native window closes.
+    /// Other platforms retain their existing lifecycle. Defaults to true on Windows.
+    pub fn set_quit_on_last_window_close(&self, quit: bool) {
+        self.platform.set_quit_on_last_window_close(quit);
+    }
+
     /// Schedules all windows in the application to be redrawn. This can be called
     /// multiple times in an update cycle and still result in a single redraw.
     pub fn refresh_windows(&mut self) {
