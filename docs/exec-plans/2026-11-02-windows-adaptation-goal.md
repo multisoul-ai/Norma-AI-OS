@@ -13,6 +13,12 @@
 
 ## 当前事实与检查点
 
+- 2026-11-03 UTC 最新增量：`6183569d` script run `41562853503` PASS，readiness会逐个读取stdout/stderr；`50141620`的真实native WebView已完成创建，旧probe仅查stdout导致超时，未获得正常截图/退出证据。修复后startup dispatch `41566226993`正在Windows runner构建，尚不记PASS。
+- `e94d9663` shortcut run `41561550263` 两平台PASS：生产registry默认键唯一、Windows不使用Win键、保留PTY控制输入；焦点纯策略run `41561550286`两平台PASS。上述为软件契约，不替代真实窗口焦点/键盘验收；录制与恢复及Ctrl+V两路径仍待补齐。
+- GPUI根TestAppContext清理的第四条callback-panic反例修复后，`8f28f047` run `41557240079`为4/0/0 PASS；尚未以整套App回归确认原74项线程耗尽失败全部消除。
+- `6183569d` macOS定向run `41562853525`、job `125677266162`全部PASS：QR 1/0/0、OpenCode foreground/history 2/0/0、Azure设置真实滚动后点击1/0/0。原始artifact下载至`/private/tmp/norma-mac-fixes-green-6183569d`。保留原4秒生产TTL/测试时限、原持久化与Provider断言，未新增ignore；不声明整个Mac App已通过。
+- clipboard RED候选`64650637`/`923ab1fe`抽取focused与keyboard-selected原有生产判定，并分别检测平台粘贴、外层准入和额外修饰键；runner runs `41566662009`/`41566913219`进行中。独立只读审查确认三个原调用点均已接入，后续须取得独立RED→GREEN及真实程序验收。
+
 - 工作树：`/private/tmp/norma-windows-feasibility-20261101`。
 - 分支：`codex/windows-feasibility-20261101`，PR #170。
 - PR基准 `c26f0071` 的标准CI run `41536051278` PASS；Windows build run `41536039634` 的默认check、browser/helper及App/norma release均PASS，但最后媒体准备失败，没有候选ZIP。真实失败为Windows checkout把可信README的1951字节变为1983字节（32个CRLF），不是编译或哈希保护错误。
