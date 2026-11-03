@@ -30,6 +30,8 @@ mod norma;
 mod panic_hook;
 mod performance_monitor;
 mod preview;
+#[cfg(any(windows, test))]
+mod quit_shortcut;
 mod settings;
 mod shortcuts;
 mod telemetry;
@@ -152,6 +154,8 @@ pub fn run_norma_os() {
 
         // Windows Quit participates in the editable registry; macOS retains its menu binding.
         register_global_actions(cx);
+        #[cfg(windows)]
+        quit_shortcut::install(cx);
         #[cfg(all(
             target_os = "macos",
             debug_assertions,

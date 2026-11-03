@@ -339,7 +339,10 @@ impl MultisoulApp {
         }
 
         if let Some(command) = self.shortcuts.command_for_keystroke(&ev.keystroke) {
-            if command == ShortcutCommandId::VoiceInteraction {
+            if matches!(
+                command,
+                ShortcutCommandId::VoiceInteraction | ShortcutCommandId::QuitNormaOs
+            ) {
                 return;
             }
             self.dispatch_shortcut_command(command, window, cx);

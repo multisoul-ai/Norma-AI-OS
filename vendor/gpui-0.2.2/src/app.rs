@@ -2339,6 +2339,9 @@ pub struct KeystrokeEvent {
     /// The keystroke that occurred
     pub keystroke: Keystroke,
 
+    /// Whether this is a repeated key-down while the key remains held.
+    pub is_held: bool,
+
     /// The action that was resolved for the keystroke, if any
     pub action: Option<Box<dyn Action>>,
 
