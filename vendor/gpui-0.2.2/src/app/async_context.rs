@@ -139,6 +139,7 @@ impl AsyncApp {
     }
 
     /// Invoke the given function in the context of the app, then flush any effects produced during its invocation.
+    #[track_caller]
     pub fn update<R>(&self, f: impl FnOnce(&mut App) -> R) -> Result<R> {
         let app = self.app.upgrade().context("app was released")?;
         let mut lock = app.borrow_mut();

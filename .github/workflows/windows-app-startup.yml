@@ -1,0 +1,43 @@
+name: Windows real App startup diagnosis
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/windows-audio-*']
+    paths: ['.github/workflows/windows-app-startup.yml', 'scripts/windows/probe-startup.ps1', 'vendor/gpui-0.2.2/src/app/async_context.rs']
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_TERM_COLOR: never
+  RUST_BACKTRACE: '1'
+jobs:
+  startup:
+    runs-on: windows-2025
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          lfs: true
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-native-keyboard
+          cache-workspace-crates: true
+          cache-on-failure: true
+      - name: Build the actual App with native debug symbol locations
+        shell: pwsh
+        run: cargo build --locked -p app --features production-data --bin norma-os
+      - name: Require stable real window and normal close
+        shell: pwsh
+        run: ./scripts/windows/probe-startup.ps1 -Executable target/debug/norma-os.exe -Output artifacts/startup
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-startup-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/startup/
+          if-no-files-found: error
+          retention-days: 3
