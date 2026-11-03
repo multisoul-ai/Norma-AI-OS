@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string]$Package, [Parameter(Mandatory)][string]$Output)
+param([Parameter(Mandatory)][string]$Package, [Parameter(Mandatory)][string]$Output, [string]$ExpectedSourceSha=$env:GITHUB_SHA)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 Add-Type @'
@@ -12,8 +12,11 @@ public static class NormaWindow {
 '@
 New-Item -ItemType Directory -Force $Output | Out-Null
 $process = $null
+$manifest = $null
 try {
 $root = (Resolve-Path $Package).Path
+$manifest = Get-Content (Join-Path $root 'manifest.json') -Raw | ConvertFrom-Json
+if ($manifest.source_sha -ne $ExpectedSourceSha) { throw 'Candidate source identity does not match the requested producer' }
 python scripts/windows/package.py --verify $root
 if ($LASTEXITCODE -ne 0) { throw 'Candidate integrity validation failed' }
 $version = & (Join-Path $root 'norma.exe') --version
@@ -24,8 +27,6 @@ if ($hook.ExitCode -ne 0 -or -not (Select-String -Path (Join-Path $Output 'hook-
 $browser = Start-Process -FilePath (Join-Path $root 'norma-browser-auth-host.exe') -ArgumentList 'unauthorized-probe-origin' -WorkingDirectory $root -PassThru -RedirectStandardOutput (Join-Path $Output 'browser-host-stdout.log') -RedirectStandardError (Join-Path $Output 'browser-host-stderr.log')
 if (-not $browser.WaitForExit(10000)) { $browser.Kill($true); throw 'Packaged browser helper did not exit within 10 seconds' }
 if ($browser.ExitCode -ne 1 -or -not (Select-String -Path (Join-Path $Output 'browser-host-stderr.log') -Pattern 'caller was not the authorized Norma Chrome extension' -Quiet)) { throw 'Packaged browser helper did not enforce its caller boundary' }
-$manifest = Get-Content (Join-Path $root 'manifest.json') -Raw | ConvertFrom-Json
-if ($manifest.source_sha -ne $env:GITHUB_SHA) { throw 'Candidate source identity does not match this workflow' }
     $process = Start-Process -FilePath (Join-Path $root 'norma-os.exe') -WorkingDirectory $root -PassThru -RedirectStandardOutput (Join-Path $Output 'stdout.log') -RedirectStandardError (Join-Path $Output 'stderr.log')
     $deadline = [DateTime]::UtcNow.AddSeconds(45)
     $window = [IntPtr]::Zero
@@ -51,9 +52,9 @@ if ($manifest.source_sha -ne $env:GITHUB_SHA) { throw 'Candidate source identity
     if (-not [NormaWindow]::PostMessage($window, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)) { throw 'Unable to close the candidate window' }
     if (-not $process.WaitForExit(10000)) { throw 'Candidate remained running after closing its last window' }
     if ($process.ExitCode -ne 0) { throw "Candidate exited with $($process.ExitCode)" }
-    @{ status = 'PASS'; source_sha = $manifest.source_sha; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; version = $version; width = $width; height = $height; exit_code = $process.ExitCode; scope = 'Packaged CLI, hook help, browser caller rejection, window and normal last-window close; no model task' } | ConvertTo-Json | Set-Content (Join-Path $Output 'report.json')
+    @{ status = 'PASS'; source_sha = $manifest.source_sha; probe_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; version = $version; width = $width; height = $height; exit_code = $process.ExitCode; scope = 'Packaged CLI, hook help, browser caller rejection, window and normal last-window close; no model task' } | ConvertTo-Json | Set-Content (Join-Path $Output 'report.json')
 } catch {
-    @{ status = 'FAIL'; source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; error = $_.Exception.Message } | ConvertTo-Json | Set-Content (Join-Path $Output 'report.json')
+    @{ status = 'FAIL'; source_sha = $manifest.source_sha; probe_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; error = $_.Exception.Message } | ConvertTo-Json | Set-Content (Join-Path $Output 'report.json')
     throw
 } finally {
     if ($process) { $process.Refresh(); if (-not $process.HasExited) { $process.Kill($true); $process.WaitForExit(10000) | Out-Null }; $process.Dispose() }

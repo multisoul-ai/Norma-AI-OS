@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory)][string]$Executable,
     [Parameter(Mandatory)][string]$Output,
-    [ValidateSet('window-close','quit-shortcut','settings-then-quit','configured-input-quit','workspace-reopen')][string]$ExitMode='window-close'
+    [ValidateSet('window-close','quit-shortcut','settings-then-quit','configured-input-quit','workspace-reopen')][string]$ExitMode='window-close',
+    [string]$SourceSha=$env:GITHUB_SHA
 )
 $ErrorActionPreference='Stop'
 . "$PSScriptRoot/desktop-driver.ps1"
@@ -12,7 +13,7 @@ $process=$null
 $configured=$false
 $database=Join-Path $env:USERPROFILE 'Library/Application Support/Norma OS/app.sqlite'
 $backup=Join-Path $Output 'shortcut-before.json'
-$report=@{status='FAIL'; source_sha=$env:GITHUB_SHA; run_id=$env:GITHUB_RUN_ID; run_attempt=$env:GITHUB_RUN_ATTEMPT; exit_mode=$ExitMode; scope='Actual development App startup, native foreground, real WebView2 creation, rendered frames and native exit input; no package acceptance'}
+$report=@{status='FAIL'; source_sha=$SourceSha; probe_sha=$env:GITHUB_SHA; executable=$exe; run_id=$env:GITHUB_RUN_ID; run_attempt=$env:GITHUB_RUN_ATTEMPT; exit_mode=$ExitMode; scope='Actual App startup, native foreground, real WebView2 creation, rendered frames and native exit input; package provenance is checked separately by the caller'}
 try {
     if ($ExitMode -eq 'configured-input-quit') {
         python "$PSScriptRoot/shortcut-fixture.py" configure --database $database --backup $backup
@@ -37,7 +38,7 @@ try {
         Save-NormaScreenshot $window (Join-Path $Output "frame-$frame.png")
     }
     if ($ExitMode -eq 'workspace-reopen') {
-        $report.scope='Actual development App: native Ctrl+N, Unicode workspace creation, close and reopen; screenshots require visual verification; no package acceptance'
+        $report.scope='Actual App: native Ctrl+N, Unicode workspace creation, close and reopen; screenshots require visual verification; package provenance is checked separately by the caller'
         $name="Runner 中文 workspace $env:GITHUB_RUN_ID"
         Send-NormaChord @(0x11,0x4E)
         Start-Sleep -Seconds 1
