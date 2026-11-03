@@ -146,7 +146,7 @@ impl Directory {
                     .checked_add(header)
                     .and_then(|start| start.checked_add(length))
                     .ok_or_else(invalid)?;
-                if length % 2 != 0
+                if !length.is_multiple_of(2)
                     || end > capacity
                     || (next != 0 && (next < header + length || next > capacity - offset))
                 {
