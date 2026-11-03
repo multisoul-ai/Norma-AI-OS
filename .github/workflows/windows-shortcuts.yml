@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/windows-audio-*']
-    paths: ['crates/app/src/shortcuts.rs', 'crates/app/src/shortcuts/**', 'crates/app/tests/keyboard_probe/**', '.github/workflows/windows-shortcuts.yml']
+    paths: ['crates/app/src/shortcuts.rs', 'crates/app/src/shortcuts/**', 'crates/app/tests/keyboard_probe/**', '!crates/app/tests/keyboard_probe/src/window_lifecycle.rs', '.github/workflows/windows-shortcuts.yml']
 permissions:
   contents: read
 env:
