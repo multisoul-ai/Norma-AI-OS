@@ -56,7 +56,7 @@ fn space_collection_is_selectable_bundled_and_decodable() {
             "{name} must restore from SQLite when settings state is recreated"
         );
         assert!(
-            !restored.is_selected_builtin(crate::assets::DEFAULT_WALLPAPER_ASSET),
+            !restored.is_selected_builtin(crate::assets::DEFAULT_WALLPAPER_SELECTION),
             "restoring {name} cannot silently fall back to the default wallpaper"
         );
         let path = resolve_builtin_asset(&rel).expect("space wallpaper must resolve offline");
@@ -89,6 +89,60 @@ fn space_collection_is_selectable_bundled_and_decodable() {
             "{name} must match the release integrity hash"
         );
     }
+}
+
+/// 场景：默认壁纸是续接开机动画的 Norma 循环视频，首启和离线都必须可用。
+/// 构造：读取签名发布清单与 `wallpapers/norma-awake.mp4` 原字节；临时 SQLite 无任何壁纸记录。
+/// 执行：检查内置清单登记、默认选择、发布策略、离线解析和完整性。
+/// 预期：登记为名为 Norma Awake 的视频；新用户默认选中它；属于 core 策略（每种媒体
+///       profile 都内置，不依赖下载）；长度和 SHA-256 与清单一致。
+#[test]
+fn default_norma_awake_loop_is_bundled_core_video() {
+    use super::{builtin_wallpapers, resolve_builtin_asset, WallpaperKind};
+    use sha2::{Digest, Sha256};
+
+    let rel = "wallpapers/norma-awake.mp4";
+    let entry = builtin_wallpapers()
+        .iter()
+        .find(|(path, _, _)| *path == rel);
+    assert_eq!(
+        entry.map(|(_, title, kind)| (*title, *kind)),
+        Some(("Norma Awake", WallpaperKind::Video)),
+        "the boot continuation loop must be a selectable video builtin"
+    );
+    let fixture = tempfile::tempdir().expect("default wallpaper database must be isolated");
+    let state = crate::settings::wallpaper::WallpaperSettingsState::load_from_store(
+        storage::SettingsStore::new(fixture.path().join("app.sqlite")),
+    );
+    assert!(
+        state.is_selected_builtin(rel),
+        "a fresh install must select the Norma awake loop by default"
+    );
+    let manifest: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../packaging/media/resources.json"))
+            .expect("release media manifest must parse");
+    let resource = manifest["resources"]
+        .as_array()
+        .expect("resources must be an array")
+        .iter()
+        .find(|entry| entry["path"] == rel)
+        .expect("the default wallpaper must be in the signed release catalog");
+    assert_eq!(
+        resource["policy"], "core",
+        "the default wallpaper must ship in every media profile, never on demand"
+    );
+    let path = resolve_builtin_asset(rel).expect("the default wallpaper must resolve offline");
+    let bytes = std::fs::read(&path).expect("default wallpaper bytes must be readable");
+    assert_eq!(
+        resource["bytes"],
+        bytes.len() as u64,
+        "the default wallpaper must have an accurate byte count"
+    );
+    assert_eq!(
+        resource["sha256"],
+        format!("{:x}", Sha256::digest(&bytes)),
+        "the default wallpaper must match the release integrity hash"
+    );
 }
 
 fn inspect_webp(rel: &str) -> (u64, (u32, u32), [u8; 12]) {

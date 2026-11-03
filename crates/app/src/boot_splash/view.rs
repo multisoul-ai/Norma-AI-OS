@@ -2,9 +2,10 @@
 //! pipeline (background AVAssetReader → 420f IOSurface → `surface()`); the
 //! foreground only swaps the latest frame and advances the timeline.
 
+use super::sound::BootSound;
 use super::{
-    boot_variant_for, claim_cold_start, forced_boot_variant, should_play_boot_splash,
-    variant_duration, BootTimeline,
+    boot_variant, claim_cold_start, should_play_boot_splash, variant_duration, variant_soundtrack,
+    BootTimeline, SKIP_FADE,
 };
 use crate::app::video_wallpaper::{
     poll_video_wallpaper, replace_video_wallpaper, video_wallpaper_surface, VideoFrameMailbox,
@@ -16,13 +17,14 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-/// The boot video is 60fps; poll at display rate only for its ~6s lifetime.
+/// The boot video is 60fps; poll at display rate only for its ~11s lifetime.
 const BOOT_POLL_INTERVAL: Duration = Duration::from_millis(16);
 
 pub(crate) struct BootSplash {
     started: Instant,
     timeline: BootTimeline,
     video: Option<VideoWallpaperState>,
+    sound: Option<BootSound>,
     _keys: Subscription,
 }
 
@@ -46,22 +48,25 @@ impl BootSplash {
             );
             return None;
         }
-        let seed = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|elapsed| elapsed.subsec_nanos() as u64)
-            .unwrap_or(0);
-        let asset =
-            forced_boot_variant(e2e_value.as_deref()).unwrap_or_else(|| boot_variant_for(seed));
+        let asset = boot_variant(e2e_value.as_deref());
         let Some(path) = resolve_builtin_asset(asset) else {
             tracing::warn!(asset, "boot animation asset missing");
             return None;
         };
         tracing::info!(?path, "boot animation started");
         let length = variant_duration(asset);
-        Some(cx.new(|cx| Self::start(path, length, cx)))
+        let sound = variant_soundtrack(asset)
+            .and_then(resolve_builtin_asset)
+            .map(|track| BootSound::load(track, length));
+        Some(cx.new(|cx| Self::start(path, length, sound, cx)))
     }
 
-    fn start(path: PathBuf, length: Duration, cx: &mut Context<Self>) -> Self {
+    fn start(
+        path: PathBuf,
+        length: Duration,
+        sound: Option<BootSound>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let mut video = None;
         let mailbox = replace_video_wallpaper(&mut video, path.clone());
         let keys = cx.observe_keystrokes(|splash, _, _, cx| splash.skip(cx));
@@ -77,6 +82,7 @@ impl BootSplash {
             started: Instant::now(),
             timeline: BootTimeline::with_duration(Duration::ZERO, length),
             video,
+            sound,
             _keys: keys,
         }
     }
@@ -91,9 +97,16 @@ impl BootSplash {
         let now = self.started.elapsed();
         poll_video_wallpaper(&mut self.video, path, mailbox);
         match self.video.as_ref() {
-            Some(state) if !state.is_active() => self.timeline.fail(),
+            Some(state) if !state.is_active() => {
+                self.timeline.fail();
+                // dropping the cue channel stops the soundtrack with the failed video
+                self.sound = None;
+            }
             _ if video_wallpaper_surface(self.video.as_ref()).is_some() => {
-                self.timeline.on_first_frame(now)
+                self.timeline.on_first_frame(now);
+                if let Some(sound) = self.sound.as_mut() {
+                    sound.play();
+                }
             }
             _ => {}
         }
@@ -111,7 +124,11 @@ impl BootSplash {
     }
 
     fn skip(&mut self, cx: &mut Context<Self>) {
-        self.timeline.skip(self.started.elapsed());
+        if self.timeline.skip(self.started.elapsed()) {
+            if let Some(sound) = self.sound.as_ref() {
+                sound.fade_out(SKIP_FADE);
+            }
+        }
         cx.notify();
     }
 }

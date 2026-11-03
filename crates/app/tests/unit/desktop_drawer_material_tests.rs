@@ -74,7 +74,7 @@ fn drawer_frost_refreshes_only_when_selection_changes() {
         "A→B→A 的旧 A 后台任务不得覆盖新 A"
     );
     assert!(
-        state.invalidate_for_builtin(crate::assets::DEFAULT_WALLPAPER_ASSET),
+        state.invalidate_for_builtin(crate::assets::DEFAULT_WALLPAPER_SELECTION),
         "当前内置壁纸下载完成后应使毛玻璃来源失效"
     );
     assert!(
@@ -181,20 +181,22 @@ fn drawer_frost_falls_back_when_video_frame_cannot_decode() {
     assert_ne!(source, invalid_video, "损坏视频不得成为最终毛玻璃来源");
 }
 
-/// 场景：默认壁纸已内置，抽屉毛玻璃解码不得再读取磁盘上的源码资源。
+/// 场景：回退壁纸（地球静图）已内置，抽屉毛玻璃解码不得再读取磁盘上的源码资源。
 /// 背景：未打包的 debug 构建会回退到 `CARGO_MANIFEST_DIR/assets`，它位于用户“文稿”目录，
 ///   对从未授权的宿主会触发文件夹访问授权弹窗。
-/// 数据构造：默认内置壁纸选择；测试环境里仓库路径下的真实文件存在，旧实现必然返回绝对路径。
-/// 执行过程：用 decode_frosted_selection 解码默认选择。
+/// 数据构造：选择内置回退静图 DEFAULT_WALLPAPER_ASSET（默认壁纸改为视频后，它仍是回退与毛玻璃来源）；测试环境里仓库路径下的真实文件存在，旧实现必然返回绝对路径。
+/// 执行过程：用 decode_frosted_selection 解码该选择。
 /// 预期结果：
 ///   - 正断言：解码成功，来源标识是内置名 home/earth-horizon.png
 ///   - 负断言：来源标识不是绝对路径，说明没有走文件系统
 ///   - 正断言：图像最长边不超过 1280，沿用同一套尺寸上限
 #[test]
 fn drawer_frost_decodes_the_default_wallpaper_from_embedded_bytes() {
-    let (source, image) =
-        material::decode_frosted_selection(&WallpaperSelection::default(), WallpaperKind::Static)
-            .expect("内置默认壁纸应能解码");
+    let still = WallpaperSelection::Builtin {
+        rel: crate::assets::DEFAULT_WALLPAPER_ASSET,
+    };
+    let (source, image) = material::decode_frosted_selection(&still, WallpaperKind::Static)
+        .expect("内置回退静图应能解码");
 
     assert_eq!(
         source,

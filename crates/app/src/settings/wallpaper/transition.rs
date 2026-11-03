@@ -48,7 +48,10 @@ impl WallpaperSettingsState {
             self.transition = None;
             return;
         }
-        self.start_transition(WallpaperSelection::default());
+        // while downloading, the embedded still stood in for the image; cross-fade from it
+        self.start_transition(WallpaperSelection::Builtin {
+            rel: crate::assets::DEFAULT_WALLPAPER_ASSET,
+        });
     }
 
     fn start_transition(&mut self, previous: WallpaperSelection) {

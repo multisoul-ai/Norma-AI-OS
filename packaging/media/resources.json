@@ -106,6 +106,12 @@
       "sha256": "816fe65bbda8e442d24616d36516a8fc6df8f5b26114180789d2276176d7b09f"
     },
     {
+      "path": "wallpapers/norma-awake.mp4",
+      "policy": "core",
+      "bytes": 6227925,
+      "sha256": "16179899db83c028b3ec57e3bd6def7d60178c2b59361517d86a6203f9f72c7f"
+    },
+    {
       "path": "wallpapers/home.mp4",
       "policy": "core",
       "bytes": 5152500,

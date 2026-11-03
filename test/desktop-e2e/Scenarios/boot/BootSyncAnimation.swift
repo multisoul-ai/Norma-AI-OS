@@ -1,9 +1,9 @@
 import E2EKit
 import Foundation
 
-/// 冷启动开机动画「Sync」：全窗口视频叠在首个窗口上，播完自动淡出、任意键可跳过。
-/// 正式启动时在 Sync / Awaken 两版间随机；e2e 控制下默认不播（避免挡住其他场景），
-/// `NORMA_E2E_BOOT_ANIMATION=sync|awaken` 指定版本播放。
+/// 冷启动开机动画：全窗口视频叠在首个窗口上，播完自动淡出、任意键可跳过。
+/// 正式启动播放 Trace（末帧即默认壁纸 Norma Awake 循环的首帧）；e2e 控制下默认不播（避免挡住
+/// 其他场景），`NORMA_E2E_BOOT_ANIMATION=1` 播放默认 Trace，`sync|awaken` 指定旧版本。
 /// 判据：动画里的 HUD 文字（NEURAL SYNC / MEMORY LINK / AGENT BUS）经 OCR 可见即在播放；
 /// 首页「创建工作空间」可见且 HUD 文字消失即已退场。
 @MainActor
@@ -11,6 +11,8 @@ public enum BootSyncAnimation {
     public nonisolated static let name = "boot-sync-animation"
     private static let hud = ["NEURAL", "SYNC", "MEMORY LINK", "AGENT BUS", "NORMA CORE"]
     private static let home = ["创建工作空间", "Create Workspace"]
+    /// Trace 睁眼后左侧字标区的文字；首页不含这些文案。
+    private static let traceTitle = ["欢迎回来", "SYNCHRONIZED", "YOU SET THE DIRECTION"]
 
     public static func run(_ session: Session) async throws {
         defer {
@@ -80,6 +82,24 @@ public enum BootSyncAnimation {
             }
             let after = try await session.wait(Expectation(anyOf: home, timeout: 10))
             try session.save(after, "07-awaken-dismissed-home.png")
+            return after.summary
+        }
+
+        try await session.step("默认 Trace：线稿织成网格并显形，睁眼时启动进度收拢为字标，约 11 秒后淡出到默认的 Norma 循环壁纸") {
+            session.stop()
+            setenv("NORMA_E2E_BOOT_ANIMATION", "1", 1)
+            try session.launch(language: "zh-Hans")
+            try await waitForWindow(session)
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+            let tracing = try await session.capture()
+            try session.save(tracing, "08-trace-mesh.png")
+            guard !home.contains(where: tracing.contains) else {
+                throw E2EError.product("Trace 播放中首页文字透出，遮罩未盖住窗口：\(tracing.summary)")
+            }
+            let titled = try await session.wait(Expectation(anyOf: traceTitle, timeout: 9))
+            try session.save(titled, "09-trace-wordmark.png")
+            let after = try await session.wait(Expectation(anyOf: home, absent: traceTitle, timeout: 12))
+            try session.save(after, "10-trace-wallpaper-home.png")
             return after.summary
         }
 

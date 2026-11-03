@@ -1,7 +1,9 @@
-//! Cold-start boot animation ("Sync"): a full-window video over the first window,
+//! Cold-start boot animation ("Trace"): a full-window video over the first window,
 //! dismissed when it ends, on any click or key, or immediately on failure.
 //! Policy and timing are pure so they can be tested without a window.
 
+#[cfg(target_os = "macos")]
+mod sound;
 #[cfg(target_os = "macos")]
 mod view;
 #[cfg(target_os = "macos")]
@@ -10,11 +12,16 @@ pub(crate) use view::BootSplash;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-/// Bundled variants (crates/app/assets/boot → Resources/boot); one is picked per cold launch.
-const BOOT_VARIANTS: [&str; 2] = ["boot/boot-sync.mp4", "boot/boot-awaken.mp4"];
+/// Bundled variants (crates/app/assets/boot → Resources/boot). Cold launch plays Trace, whose last
+/// frame is the first frame of the default `wallpapers/norma-awake.mp4` loop; e2e can pin the others.
+const TRACE: &str = "boot/boot-trace.mp4";
+const SYNC: &str = "boot/boot-sync.mp4";
+const AWAKEN: &str = "boot/boot-awaken.mp4";
 /// Length of the Sync video; also the default for an unknown asset.
 const MAIN_DURATION: Duration = Duration::from_millis(6000);
 const AWAKEN_DURATION: Duration = Duration::from_millis(9000);
+/// 646 frames at 60fps.
+const TRACE_DURATION: Duration = Duration::from_millis(10_767);
 const FADE_OUT: Duration = Duration::from_millis(450);
 const SKIP_FADE: Duration = Duration::from_millis(250);
 /// Input this soon after launch is leftover from starting the app (e.g. Spotlight Return), not a skip.
@@ -31,23 +38,24 @@ pub(crate) fn claim_cold_start() -> bool {
 
 /// Each bundled video's length; keep in sync with crates/app/assets/boot/README.md.
 pub(crate) fn variant_duration(asset: &str) -> Duration {
-    if asset == BOOT_VARIANTS[1] {
-        AWAKEN_DURATION
-    } else {
-        MAIN_DURATION
+    match asset {
+        TRACE => TRACE_DURATION,
+        AWAKEN => AWAKEN_DURATION,
+        _ => MAIN_DURATION,
     }
 }
 
-pub(crate) fn boot_variant_for(seed: u64) -> &'static str {
-    BOOT_VARIANTS[(seed % BOOT_VARIANTS.len() as u64) as usize]
+/// The mixed soundtrack (BGM + sfx) cut from the same render as the video, if the variant has one.
+pub(crate) fn variant_soundtrack(asset: &str) -> Option<&'static str> {
+    (asset == TRACE).then_some("boot/boot-trace.m4a")
 }
 
-/// `NORMA_E2E_BOOT_ANIMATION=sync|awaken` pins a variant for acceptance; any other value means random.
-pub(crate) fn forced_boot_variant(value: Option<&str>) -> Option<&'static str> {
-    match value? {
-        "sync" => Some(BOOT_VARIANTS[0]),
-        "awaken" => Some(BOOT_VARIANTS[1]),
-        _ => None,
+/// `NORMA_E2E_BOOT_ANIMATION=sync|awaken` pins an older variant for acceptance; anything else plays Trace.
+pub(crate) fn boot_variant(e2e_value: Option<&str>) -> &'static str {
+    match e2e_value {
+        Some("sync") => SYNC,
+        Some("awaken") => AWAKEN,
+        _ => TRACE,
     }
 }
 
@@ -105,16 +113,17 @@ impl BootTimeline {
         }
     }
 
-    pub(crate) fn skip(&mut self, now: Duration) {
-        if now < SKIP_GRACE {
-            return;
+    /// Returns whether this call started the skip fade.
+    pub(crate) fn skip(&mut self, now: Duration) -> bool {
+        if now < SKIP_GRACE || !matches!(self.phase, Phase::Waiting { .. } | Phase::Playing { .. })
+        {
+            return false;
         }
-        if matches!(self.phase, Phase::Waiting { .. } | Phase::Playing { .. }) {
-            self.phase = Phase::Fading {
-                from: now,
-                length: SKIP_FADE,
-            };
-        }
+        self.phase = Phase::Fading {
+            from: now,
+            length: SKIP_FADE,
+        };
+        true
     }
 
     pub(crate) fn fail(&mut self) {

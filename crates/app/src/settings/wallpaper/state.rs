@@ -18,7 +18,7 @@ use super::import::{non_colliding_dest, ImportResult};
 use crate::app::wallpaper_resolvers::{
     builtin_wallpapers, canonical_builtin_wallpaper, resolve_builtin_asset, WallpaperKind,
 };
-use crate::assets::DEFAULT_WALLPAPER_ASSET;
+use crate::assets::{DEFAULT_WALLPAPER_ASSET, DEFAULT_WALLPAPER_SELECTION};
 use storage::SettingsStore;
 
 /// Settings row key holding the selection kind: `"builtin"` or `"custom"`.
@@ -103,9 +103,7 @@ impl WallpaperSettingsState {
 
     fn default_with(storage: Option<SettingsStore>) -> Self {
         Self {
-            selection: WallpaperSelection::Builtin {
-                rel: DEFAULT_WALLPAPER_ASSET,
-            },
+            selection: WallpaperSelection::default(),
             transition: None,
             storage,
             preferences: super::preferences::WallpaperPreferences::new(
@@ -255,9 +253,7 @@ impl WallpaperSettingsState {
         let is_current =
             matches!(&self.selection, WallpaperSelection::Custom { filename: f } if f == filename);
         if is_current {
-            self.selection = WallpaperSelection::Builtin {
-                rel: DEFAULT_WALLPAPER_ASSET,
-            };
+            self.selection = WallpaperSelection::default();
             self.persist();
         }
     }
@@ -439,7 +435,7 @@ pub(super) fn selection_resolves(sel: &WallpaperSelection) -> bool {
 impl Default for WallpaperSelection {
     fn default() -> Self {
         Self::Builtin {
-            rel: DEFAULT_WALLPAPER_ASSET,
+            rel: DEFAULT_WALLPAPER_SELECTION,
         }
     }
 }
