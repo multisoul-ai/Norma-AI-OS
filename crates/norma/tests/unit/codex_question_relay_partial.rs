@@ -21,6 +21,13 @@ use support::{read, send, timed};
 /// 预期：断连一律Unknown且不能重发；成功flush后才发完成回执，消费携带原delivery身份。
 #[test]
 fn partial_answer_ping_and_disconnect_keep_transport_ownership_accurate() {
+    for (readiness, factory) in super::transport::readiness_factories() {
+        eprintln!("partial answer readiness={readiness}");
+        partial_answer_case(factory);
+    }
+}
+
+fn partial_answer_case(factory: super::transport::ReadinessFactory) {
     for mode in ["drop", "tui-close", "complete"] {
         let dir = tempfile::Builder::new()
             .prefix("nqp-")
@@ -93,15 +100,15 @@ fn partial_answer_ping_and_disconnect_keep_transport_ownership_accurate() {
         let relay = CodexQuestionRelay::connect_with(
             bridge,
             || {
-                Ok(ControlledStream {
-                    stream: UnixStream::connect(&path)?,
-                    budget: write_budget,
-                    blocked: None,
-                })
+                Ok(ControlledStream::budgeted(
+                    UnixStream::connect(&path)?,
+                    write_budget,
+                ))
             },
             false,
             true,
             false,
+            factory,
         )
         .unwrap();
         let lease = loop {
@@ -245,6 +252,13 @@ pub(super) struct ControlledStream {
     blocked: Option<Arc<AtomicUsize>>,
 }
 impl ControlledStream {
+    pub(super) fn budgeted(stream: UnixStream, budget: Arc<AtomicUsize>) -> Self {
+        Self {
+            stream,
+            budget,
+            blocked: None,
+        }
+    }
     pub(super) fn observing(stream: UnixStream, blocked: Arc<AtomicUsize>) -> Self {
         Self {
             stream,

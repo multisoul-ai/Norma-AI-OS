@@ -1,7 +1,7 @@
 # Norma OS Windows 预览包
 
 解压整个文件夹，双击 `norma-os.exe`。请保留同目录的三个 CLI/helper、DLL 与 `Resources/`。
-要求 Windows 11 x64，以及 Microsoft Edge WebView2 Evergreen Runtime。
+兼容目标为 Windows 10 22H2（Build 19045）及以上的 x64 系统，需要 Microsoft Edge WebView2 Evergreen Runtime。实际覆盖的系统以本候选包验收记录为准；Server runner 结果不替代 Windows 10 / 11 真机验收。
 
 这是未签名的便携预览包。版本、源码提交和逐文件 SHA-256 记录在 `manifest.json`，ZIP 校验和位于旁边的 `.sha256` 文件。
 无需安装 WSL 或 Git Bash；终端使用 Windows PowerShell。Claude/Codex 等外部 CLI 仍需用户自行安装并登录。
@@ -24,7 +24,7 @@ runner 冻结的 CLI 版本为 Codex `0.166.0`、Claude Code `2.1.316`。先记�
 
 ## English
 
-Extract the entire folder and launch `norma-os.exe` on Windows 11 x64 with Microsoft Edge WebView2 Evergreen Runtime installed.
+Extract the entire folder and launch `norma-os.exe` with Microsoft Edge WebView2 Evergreen Runtime installed. The compatibility target is x64 Windows 10 22H2 (build 19045) or newer; consult the candidate's acceptance evidence for tested systems. Server runner results do not replace Windows 10 / 11 device acceptance.
 Keep the bundled helpers, DLLs and Resources directory together. This unsigned portable preview includes its source commit and file hashes in `manifest.json`.
 PowerShell is used for terminals; external Agent CLIs require a separate installation and sign-in.
 Ego screen capture, macOS video wallpaper, Sparkle updates and physical audio have not completed Windows acceptance.

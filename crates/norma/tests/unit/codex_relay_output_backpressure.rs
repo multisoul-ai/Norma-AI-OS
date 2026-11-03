@@ -25,6 +25,13 @@ fn timed(stream: UnixStream) -> UnixStream {
 /// 预期：不是外部writer瞬时背压的假阳性；前提不成立也必须失败，关闭后不能遗留relay。
 #[test]
 fn actual_relay_output_backpressure_detects_native_shutdown() {
+    for (mode, factory) in super::transport::readiness_factories() {
+        eprintln!("output backpressure readiness={mode}");
+        output_backpressure_case(factory);
+    }
+}
+
+fn output_backpressure_case(factory: super::transport::ReadinessFactory) {
     let dir = tempfile::Builder::new()
         .prefix("nob-")
         .tempdir_in(if cfg!(windows) {
@@ -52,6 +59,7 @@ fn actual_relay_output_backpressure_detects_native_shutdown() {
             false,
             true,
             false,
+            factory,
         )
         .unwrap()
     });

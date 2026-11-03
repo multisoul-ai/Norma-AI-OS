@@ -7,6 +7,19 @@ use tungstenite::{Error, Message};
 mod windows;
 #[cfg(windows)]
 pub(super) use windows::Readiness;
+pub(super) type ReadinessFactory = fn(&Socket, &Socket) -> Result<Readiness, String>;
+
+#[cfg(test)]
+pub(super) fn readiness_factories() -> Vec<(&'static str, ReadinessFactory)> {
+    let modes: Vec<(&'static str, ReadinessFactory)> = vec![("auto", Readiness::new)];
+    #[cfg(windows)]
+    let modes = {
+        let mut modes = modes;
+        modes.push(("missing-api", Readiness::without_socket_notifications));
+        modes
+    };
+    modes
+}
 
 #[cfg(unix)]
 pub(super) struct Readiness;

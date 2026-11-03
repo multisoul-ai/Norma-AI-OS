@@ -53,17 +53,45 @@ use std::{
     time::{Duration, Instant},
 };
 use windows_sys::Win32::Networking::WinSock::{
-    ProcessSocketNotifications, SOCK_NOTIFY_EVENT_ERR, SOCK_NOTIFY_EVENT_HANGUP,
-    SOCK_NOTIFY_EVENT_REMOVE, SOCK_NOTIFY_OP_ENABLE, SOCK_NOTIFY_OP_REMOVE,
-    SOCK_NOTIFY_REGISTER_EVENT_HANGUP, SOCK_NOTIFY_REGISTRATION, SOCK_NOTIFY_TRIGGER_LEVEL,
-    SOCK_NOTIFY_TRIGGER_PERSISTENT,
+    SOCK_NOTIFY_EVENT_ERR, SOCK_NOTIFY_EVENT_HANGUP, SOCK_NOTIFY_EVENT_REMOVE,
+    SOCK_NOTIFY_OP_ENABLE, SOCK_NOTIFY_OP_REMOVE, SOCK_NOTIFY_REGISTER_EVENT_HANGUP,
+    SOCK_NOTIFY_REGISTRATION, SOCK_NOTIFY_TRIGGER_LEVEL, SOCK_NOTIFY_TRIGGER_PERSISTENT,
 };
+use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
 use windows_sys::Win32::{
     Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE},
     System::IO::{CreateIoCompletionPort, OVERLAPPED_ENTRY},
 };
 
+type NotifySockets = unsafe extern "system" fn(
+    HANDLE,
+    u32,
+    *mut SOCK_NOTIFY_REGISTRATION,
+    u32,
+    u32,
+    *mut OVERLAPPED_ENTRY,
+    *mut u32,
+) -> u32;
+
+fn notification_api() -> Option<NotifySockets> {
+    static API: std::sync::OnceLock<Option<NotifySockets>> = std::sync::OnceLock::new();
+    *API.get_or_init(|| {
+        // WSAPoll is a static import, so ws2_32 remains loaded for the process lifetime.
+        let module = unsafe { GetModuleHandleA(c"ws2_32.dll".as_ptr().cast()) };
+        if module.is_null() {
+            return None;
+        }
+        let symbol =
+            unsafe { GetProcAddress(module, c"ProcessSocketNotifications".as_ptr().cast()) }?;
+        // The SDK's documented WINAPI signature matches NotifySockets exactly.
+        Some(unsafe {
+            std::mem::transmute::<unsafe extern "system" fn() -> isize, NotifySockets>(symbol)
+        })
+    })
+}
+
 pub(crate) struct Readiness {
+    notify: Option<NotifySockets>,
     port: HANDLE,
     sockets: [Option<OwnedSocket>; 2],
     registered: [bool; 2],
@@ -73,29 +101,60 @@ pub(crate) struct Readiness {
 
 impl Readiness {
     pub(crate) fn new(native: &Socket, server: &Socket) -> Result<Self, String> {
+        Self::with_api(native, server, notification_api())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn without_socket_notifications(
+        native: &Socket,
+        server: &Socket,
+    ) -> Result<Self, String> {
+        let this = Self::with_api(native, server, None)?;
+        assert!(this.notify.is_none(), "测试必须真实选择缺API路径");
+        assert!(this.port.is_null(), "缺API路径不能创建IOCP");
+        assert!(
+            this.sockets.iter().all(Option::is_none),
+            "缺API路径不能持有额外socket句柄"
+        );
+        Ok(this)
+    }
+
+    fn with_api(
+        native: &Socket,
+        server: &Socket,
+        notify: Option<NotifySockets>,
+    ) -> Result<Self, String> {
+        let mut this = Self {
+            notify,
+            port: null_mut(),
+            sockets: [None, None],
+            registered: [false; 2],
+            closed: [false; 2],
+            last_probe: [Instant::now(); 2],
+        };
+        // Older systems retain bounded WSAPoll and the existing guarded Ping probes.
+        if this.notify.is_none() {
+            return Ok(this);
+        }
         let clone = |socket: &Socket| {
             unsafe { BorrowedSocket::borrow_raw(socket.get_ref().as_raw_socket()) }
                 .try_clone_to_owned()
                 .map(Some)
                 .map_err(|error| error.to_string())
         };
-        let sockets = [clone(native)?, clone(server)?];
-        let port = unsafe { CreateIoCompletionPort(INVALID_HANDLE_VALUE, null_mut(), 0, 1) };
-        if port.is_null() {
+        this.sockets = [clone(native)?, clone(server)?];
+        this.port = unsafe { CreateIoCompletionPort(INVALID_HANDLE_VALUE, null_mut(), 0, 1) };
+        if this.port.is_null() {
             return Err(std::io::Error::last_os_error().to_string());
         }
-        let mut this = Self {
-            port,
-            sockets,
-            registered: [false; 2],
-            closed: [false; 2],
-            last_probe: [Instant::now(); 2],
-        };
         this.register(SOCK_NOTIFY_OP_ENABLE)?;
         Ok(this)
     }
 
     fn register(&mut self, operation: u32) -> Result<(), String> {
+        let Some(notify) = self.notify else {
+            return Ok(());
+        };
         let indices: Vec<_> = (0..2)
             .filter(|i| operation == SOCK_NOTIFY_OP_ENABLE || self.registered[*i])
             .collect();
@@ -114,7 +173,7 @@ impl Readiness {
             })
             .collect();
         let code = unsafe {
-            ProcessSocketNotifications(
+            notify(
                 self.port,
                 registrations.len() as u32,
                 registrations.as_mut_ptr(),
@@ -142,10 +201,13 @@ impl Readiness {
     }
 
     fn notifications(&mut self, timeout: u32) -> Result<(), String> {
+        let Some(notify) = self.notify else {
+            return Ok(());
+        };
         let mut entries = [OVERLAPPED_ENTRY::default(); 8];
         let mut count = 0;
         let code = unsafe {
-            ProcessSocketNotifications(
+            notify(
                 self.port,
                 0,
                 null_mut(),
@@ -245,8 +307,14 @@ impl Drop for Readiness {
         self.sockets.iter_mut().for_each(|socket| {
             drop(socket.take());
         });
-        unsafe {
-            CloseHandle(self.port);
+        if !self.port.is_null() {
+            unsafe {
+                CloseHandle(self.port);
+            }
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/windows_readiness_compat.rs"]
+mod tests;

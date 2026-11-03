@@ -19,4 +19,10 @@
 | release交付 | 固定修复SHA、新release ZIP及hash，新runner下载相同hash实际启动与中文创建重开 |
 | Windows10真实验证 | 用户19045设备复测；Server2022/2025或强制缺API测试都不标为Win10真机通过 |
 
-状态：根因已由实际导入表、用户系统版本与官方API下限确认；正在建立runner RED，尚未修改生产实现。
+## 当前进度
+
+- 已取得真实 RED：[run 41669112175](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41669112175)，检查同一旧包真实导入表，失败为 `Mandatory ProcessSocketNotifications import prevents loading on Windows 10 build 19045`。artifact 13247980606 SHA256 为 67274862f1ef1e48dc457befa0a2966bed87bc4c014140ab7ffed5ff1c2e9915。
+- 实现改为通过已加载的 ws2_32.dll 动态解析可选 API；缺 API 时不创建 IOCP/额外 socket，保留 5ms WSAPoll、250ms Ping 及 pending answer 的写入所有权。
+- 验证 seam：包内真实 PE 导入表；真实 AF_UNIX relay 的部分写入、全部源句柄关闭；底层恢复可写时 pending answer 不能被探测 flush。缺 API 通过实例级工厂强制选择，无全局覆盖或环境开关。
+- 新旧系统路径将在 windows-2022、windows-2025 runner 运行，macOS 只回归受影响 norma crate；测试、Clippy、构建均不在本地运行（正常 commit hook 除外）。
+- 状态：实现待 runner 验证；release ZIP 和同包 App 验收尚未执行。Windows 10 19045.6093 真机仍待用户复测，不发布、不合并。

@@ -153,6 +153,7 @@ impl CodexQuestionRelay {
             check_version,
             forwarding,
             full_access,
+            transport::Readiness::new,
         )
     }
 
@@ -162,6 +163,7 @@ impl CodexQuestionRelay {
         check_version: bool,
         forwarding: bool,
         full_access: bool,
+        readiness: transport::ReadinessFactory,
     ) -> Result<Self, String> {
         let native = RelayStream::from(native);
         let owner = crate::agent_hook::fresh_control_id().map_err(|error| error.to_string())?;
@@ -234,7 +236,7 @@ impl CodexQuestionRelay {
                 {
                     std::thread::sleep(Duration::from_millis(1));
                 }
-                let result = relay.pump();
+                let result = relay.pump(readiness);
                 if let Err(reason) = &result {
                     tracing::warn!(%reason, "native Codex relay disconnected");
                 }
@@ -330,8 +332,8 @@ struct Relay {
 }
 
 impl Relay {
-    fn pump(&mut self) -> Result<(), String> {
-        let mut readiness = transport::Readiness::new(&self.native, &self.server)?;
+    fn pump(&mut self, factory: transport::ReadinessFactory) -> Result<(), String> {
+        let mut readiness = factory(&self.native, &self.server)?;
         while self.running.load(Ordering::Acquire) {
             let mut active = false;
             // A WouldBlock send has buffered its frame. Flush before reading more into that side.

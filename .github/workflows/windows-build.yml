@@ -108,6 +108,19 @@ jobs:
         run: |
           python scripts/windows/package.py --crt-dir $env:NORMA_WINDOWS_CRT_DIR
           exit $LASTEXITCODE
+      - name: Reject mandatory newer WinSock imports in the release package
+        shell: pwsh
+        run: |
+          $package = @(Get-ChildItem build/windows -Directory)
+          if ($package.Count -ne 1) { throw 'Expected exactly one packaged candidate' }
+          ./scripts/windows/assert-winsock-imports.ps1 -Package $package[0].FullName -Output artifacts/release-imports
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: norma-os-windows-imports-${{ github.sha }}
+          path: artifacts/release-imports/
+          if-no-files-found: warn
+          retention-days: 3
       - uses: actions/upload-artifact@v4
         with:
           name: norma-os-windows-x64-${{ github.sha }}

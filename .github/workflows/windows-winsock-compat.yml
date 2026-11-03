@@ -1,0 +1,64 @@
+name: Windows optional WinSock compatibility
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/windows-startup-winsock-*']
+    paths: ['.github/workflows/windows-winsock-compat.yml']
+permissions:
+  contents: read
+jobs:
+  relay:
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Record the exact environment
+        shell: bash
+        run: |
+          mkdir -p artifacts/winsock
+          python -c 'import json,os,platform; print(json.dumps({"source_sha":os.environ["GITHUB_SHA"],"run_id":os.environ["GITHUB_RUN_ID"],"attempt":os.environ["GITHUB_RUN_ATTEMPT"],"platform":platform.platform(),"image":os.environ.get("ImageVersion"),"scope":"Server runner; not Windows 10 device acceptance"}))' | tee artifacts/winsock/environment.json
+          rustc -Vv | tee artifacts/winsock/rustc.log
+      - name: Require the affected norma crate contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --locked --no-fail-fast -p norma -- --nocapture 2>&1 | tee artifacts/winsock/norma.log
+      # 场景：动态API路径与缺API回退都须保留同一真实背压/部分答案契约。
+      # 构造/执行：原fixture自动执行两种工厂，三轮原断言；每轮日志独立留存。
+      # 预期：全部轮次通过，不能串行化或放宽测试内部3秒关闭预算来掩盖失败。
+      - name: Repeat focused transport ownership and shutdown checks
+        shell: bash
+        run: |
+          set -o pipefail
+          for iteration in 1 2 3; do
+            cargo test --locked -p norma --lib codex::relay -- --nocapture 2>&1 | tee "artifacts/winsock/relay-${iteration}.log"
+          done
+      - name: Require norma Clippy and formatting
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --locked -p norma --all-targets -- -D warnings 2>&1 | tee artifacts/winsock/clippy.log
+          cargo fmt --all --check
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: winsock-${{ matrix.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/winsock/
+          if-no-files-found: error
+          retention-days: 3
