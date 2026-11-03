@@ -92,7 +92,16 @@ fn voice_redesign_task_layout_and_mode_persistence() {
         azure_source.right() < recognition.right(),
         "来源入口不能超出卡片右边界"
     );
+    eprintln!(
+        "[azure-click-probe] source={azure_source:?} viewport={:?}",
+        cx.debug_bounds("settings-content-scroll")
+    );
     cx.simulate_click(azure_source.center(), Modifiers::none());
+    assert_eq!(
+        host.read_with(cx, |app, _| app.voice_settings.setup_asr_source()),
+        asr::AsrProviderId::CloudAzure,
+        "真实点击必须切换设置浏览来源，不能仅检查未绘制输入框"
+    );
     cx.update(|window, cx| window.draw(cx).clear());
     let region = cx
         .debug_bounds("settings-voice-field-azure-region")
