@@ -101,8 +101,8 @@ impl Directory {
 
     fn child_names(&self) -> io::Result<Vec<String>> {
         // 1024 u64s = 8 KiB, aligned for FILE_ID_BOTH_DIR_INFO and larger than a maximal NTFS name.
-        let mut storage = vec![0u64; 1024];
-        let capacity = storage.len() * size_of::<u64>();
+        let mut storage = [0u64; 1024];
+        let capacity = std::mem::size_of_val(&storage);
         let header = offset_of!(FILE_ID_BOTH_DIR_INFO, FileName);
         let mut names = Vec::new();
         let mut class = FileIdBothDirectoryRestartInfo;

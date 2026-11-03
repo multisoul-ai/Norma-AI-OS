@@ -1,5 +1,5 @@
-use super::*;
-use crate::shortcuts::EffectiveShortcutEntry;
+use crate::app::MultisoulApp;
+use crate::shortcuts::{EffectiveShortcutEntry, ShortcutCommandId};
 use gpui::{AppContext, TestAppContext};
 use std::{cell::Cell, rc::Rc};
 
