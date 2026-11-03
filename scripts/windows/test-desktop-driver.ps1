@@ -19,6 +19,25 @@ try {
     if (Test-NormaNativeReady $root) { throw 'Queued placeholder must not count as native creation' }
     Write-Output 'PASS: four native readiness log contracts'
 
+    # 场景：首次包启动有ERROR但退出0，后续启动干净，不能因此获得同包验收PASS。
+    # 构造：真实双流日志文件；干净INFO/WARN、ANSI Rust ERROR、Chromium ERROR和panic。
+    # 执行：调用共用App日志检查，分别向stdout/stderr写入每个反例。
+    # 预期：干净日志通过；任意流的三类错误均拒绝，普通WARN不能误判。
+    Set-Content (Join-Path $root 'stdout.log') 'INFO ready' -Encoding utf8
+    Set-Content (Join-Path $root 'stderr.log') 'WARN optional feature unavailable' -Encoding utf8
+    Assert-NormaAppLogs $root
+    foreach ($stream in @('stdout.log','stderr.log')) {
+        foreach ($line in @("2026-11-03T00:00:00Z $([char]27)[31mERROR$([char]27)[0m native startup", '[123:456:ERROR:browser.cc:1] native failure', "thread 'main' panicked at startup.rs:1")) {
+            Set-Content (Join-Path $root $stream) $line -Encoding utf8
+            $rejected=$false
+            try { Assert-NormaAppLogs $root }
+            catch { if ($_.Exception.Message -notlike '*Actual App emitted an error*') { throw }; $rejected=$true }
+            if (-not $rejected) { throw "App errors must fail acceptance even when process exit is zero: $stream / $line" }
+            Set-Content (Join-Path $root $stream) 'INFO ready' -Encoding utf8
+        }
+    }
+    Write-Output 'PASS: clean App logs and six zero-exit error rejection contracts'
+
     # 场景：截图必须只覆盖真实窗口client，不能夹带边框、桌面或任务栏。
     # 构造：640×360的真实WinForms client；随后将同一窗口移出可见桌面。
     # 执行：走生产Save-NormaScreenshot并读PNG尺寸，再检查不可见窗口明确失败。
