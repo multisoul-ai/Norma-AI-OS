@@ -48,7 +48,13 @@ mod native {
     pub(super) fn run() {
         let mode = std::env::args().nth(1).expect("lifecycle mode required");
         assert!(
-            ["native-close", "queued-active-close", "remove-window"].contains(&mode.as_str()),
+            [
+                "native-close",
+                "queued-active-close",
+                "queued-window-ops-close",
+                "remove-window"
+            ]
+            .contains(&mode.as_str()),
             "unknown lifecycle mode: {mode}"
         );
         log::set_logger(&Capture).expect("install native error capture");
@@ -125,6 +131,14 @@ mod native {
                 .spawn(async move {
                     Timer::after(Duration::from_millis(250)).await;
                     let hwnd = HWND(hwnd as *mut std::ffi::c_void);
+                    if requested_mode == "queued-window-ops-close" {
+                        app.update_window(handle.into(), |_, window, _| {
+                            window.activate_window();
+                            window.resize(size(px(450.), px(350.)));
+                            window.toggle_fullscreen();
+                        })
+                        .expect("queue operations while the target is still logically live");
+                    }
                     // SAFETY: this task runs on the HWND's owning UI thread outside an App borrow.
                     unsafe {
                         assert!(
@@ -136,7 +150,7 @@ mod native {
                                 SendMessageW(hwnd, WM_ACTIVATE, Some(WPARAM(0)), Some(LPARAM(0)));
                                 SendMessageW(hwnd, WM_CLOSE, Some(WPARAM(0)), Some(LPARAM(0)));
                             }
-                            "native-close" => {
+                            "native-close" | "queued-window-ops-close" => {
                                 SendMessageW(hwnd, WM_CLOSE, Some(WPARAM(0)), Some(LPARAM(0)));
                             }
                             _ => {
