@@ -28,9 +28,11 @@ pub fn observe_zero_send(label: &str, stream: &UnixStream) {
     let raw_event = unsafe { CreateEventW(ptr::null(), 1, 0, ptr::null()) };
     assert!(!raw_event.is_null(), "零字节异步诊断必须有真实event");
     let event = unsafe { OwnedHandle::from_raw_handle(raw_event) };
-    let mut overlapped = OVERLAPPED::default();
     // The low bit suppresses an IO completion packet on any notification port sharing the socket.
-    overlapped.hEvent = event.as_raw_handle().map_addr(|address| address | 1);
+    let mut overlapped = OVERLAPPED {
+        hEvent: event.as_raw_handle().map_addr(|address| address | 1),
+        ..OVERLAPPED::default()
+    };
     let mut byte = 0u8;
     let buffer = WSABUF {
         len: 0,
