@@ -54,6 +54,12 @@ fn quit_shortcut_routes_before_focused_input_keymap() {
         );
     });
     cx.run_until_parked();
+    app.update_in(cx, |app, window, cx| {
+        assert!(
+            app.command_input_focused(window, cx),
+            "派发前的实际焦点必须仍在输入框，防止root路径假阳性"
+        );
+    });
     cx.simulate_keystrokes(key);
     cx.run_until_parked();
     assert_eq!(
