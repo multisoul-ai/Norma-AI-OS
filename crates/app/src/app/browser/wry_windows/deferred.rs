@@ -116,17 +116,20 @@ impl DeferredWebView {
             .spawn(async move {
                 let Some(state) = weak.upgrade() else { return };
                 if state.cancelled.get() || !state.lease.alive() {
+                    state.cancel();
                     return;
                 }
                 // No App/Window/RefCell borrow may span this call: Wry dispatches arbitrary Win32 messages.
                 let create_started = std::time::Instant::now();
                 let result = builder.build_as_child(&Parent(parent));
                 if state.cancelled.get() || !state.lease.alive() {
+                    state.cancel();
                     drop(result);
                     return;
                 }
                 match result {
                     Ok(view) => {
+                        tracing::info!(node_id = ?node, create_ms = create_started.elapsed().as_secs_f64() * 1000.0, "native_webview_ready");
                         state.native.replace(Some(view));
                     }
                     Err(error) => {
