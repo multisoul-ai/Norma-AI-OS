@@ -33,12 +33,22 @@ jobs:
           shared-key: windows-native-contracts
           cache-workspace-crates: true
           cache-on-failure: true
-      - name: Require workspace tests including clone directory ownership
+      - name: Record the actual compiler
         shell: bash
         run: |
           set -o pipefail
           mkdir -p artifacts/clone-ownership
           rustc -vV | tee artifacts/clone-ownership/rustc.log
+      - name: Require clone target ownership independently of integration test compilation
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --locked -p workspace --lib clone_target_cleanup -- --nocapture 2>&1 | tee artifacts/clone-ownership/ownership.log
+      - name: Require the complete workspace test harness
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
           cargo test --locked --no-fail-fast -p workspace -- --nocapture 2>&1 | tee artifacts/clone-ownership/tests.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
