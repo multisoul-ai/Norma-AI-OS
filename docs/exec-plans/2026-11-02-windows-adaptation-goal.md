@@ -13,6 +13,11 @@
 
 ## 当前事实与检查点
 
+- 最新检查点（下列新事实优先于后续历史记录）：`fb279225`已将Quit反例改为生产`Root → GateRoot → MultisoulApp`挂载；run `41592676431`、attempt 1正在Mac runner编译完整App harness，尚无GREEN。`f69a5544`的pre-binding实现已推送，但独立审查确认它只识别直接Root工作台，真实GateRoot下会错误回退默认键；不得将直接Root夹具结果当成产品通过。下一步复用精确window handle的DesktopHosts查询，保留直接项目窗解析、录制保护及held抑制。
+- 最新workspace全套`1d0198af` run `41590735968`、attempt 1：Mac PASS；Windows聚焦clone ownership 6/0/0 PASS，但完整workspace FAIL。完整unit 32过/2败，均在DACL夹具真实`SetFileAttributesW(NORMAL)`应被拒绝的前提失败（实际返回1）；project_review 6过/1败，残留`/usr/bin/git`取HEAD导致NotFound。后者已由`66cd5aaf`改用统一原生Git，已推送、待runner复验；不放宽安全断言或忽略前两项。Windows原日志`/private/tmp/norma-workspace-1d0198af-41590735968.log`；日志artifact `13210715021` SHA256 `5264feeca03cb0ee2dd49d04acf2a4b6206b57b3c085dea07b20eec13f7ec9fa`，Mac日志artifact `13209767842` SHA256 `166a331f1984f16222e56a0401a1d32d2c5069a30ea926461a30773310435066`，均不是发行ZIP。
+- Windows clone清理已有聚焦GREEN（`9b6bc8f9` run `41589313421`），但创建阶段`create_dir → capture`仍有身份竞争，capture失败后的按路径remove也未收口；整个clone所有权安全仍未完成。须原子创建并取得身份后再授予清理权，不能仅依据清理阶段通过关闭W02。
+- 真正App默认Quit `7706fed2` run `41584529677`已PASS：WM_CLOSE、Ctrl+Shift+Q、打开Settings后Ctrl+Shift+Q三项均退出0、无ERROR/panic；Settings原图已查看。仅覆盖默认键和无项目流程，不覆盖自定义键、手机后台/PTY与同包验收。
+
 - 自定义Quit输入优先级反例已在`286f1d9a`冻结并派出Mac定向run `41585721066`（包含真实Root/InputState派发，预期旧root capture计数为0而失败）。当前没有改pre-binding拦截；现有真实App默认Quit run `41584529677`仍在构建，不能用默认键结果覆盖自定义键缺口。
 - Windows App本体lint前沿已完整取回：`23453202` run `41583956356`整体FAIL，App-only诊断在`-D warnings`下61条错误；原严格依赖检查仍先失败于workspace clone metadata，完整App测试仍有11条编译错误。日志`/private/tmp/norma-app-clippy-frontier-23453202`。除了机械导入与div_ceil，未接线的PageInteraction、角落裁剪、媒体/Boot、剪贴板图片、性能采样与系统打开路径也表现为dead_code；需逐条按真实平台调用补齐或准确限定测试/原生专用边界，不能统一cfg/allow掩盖默认功能缺口。
 
