@@ -12,6 +12,10 @@ use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
 
+#[cfg(test)]
+#[path = "../../tests/unit/git_clone_target_ownership.rs"]
+mod target_ownership_tests;
+
 const CHILD_POLL_INTERVAL: Duration = Duration::from_millis(25);
 const MAX_DIAGNOSTIC_BYTES: usize = 16 * 1024;
 
