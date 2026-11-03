@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     ffi::OsStr,
     mem::ManuallyDrop,
     path::{Path, PathBuf},
@@ -45,6 +45,7 @@ pub(crate) struct WindowsPlatform {
 
 struct WindowsPlatformInner {
     state: RefCell<WindowsPlatformState>,
+    draining_shutdown: Cell<bool>,
     raw_window_handles: std::sync::Weak<RwLock<SmallVec<[SafeHwnd; 4]>>>,
     // The below members will never change throughout the entire lifecycle of the app.
     validation_number: usize,
@@ -275,35 +276,53 @@ impl WindowsPlatform {
     }
 
     fn drain_shutdown_tasks(&self) {
+        self.inner.draining_shutdown.set(true);
         let mut message = MSG::default();
         // A finite cleanup chain must run, but unrelated self-waking work cannot keep quit alive.
         let deadline = Instant::now() + Duration::from_secs(1);
         let mut timed_out = false;
-        'drain: loop {
+        loop {
+            let mut progressed = false;
+            // Retire destroyed HWND registrations even when ordinary work keeps waking.
+            if unsafe {
+                PeekMessageW(
+                    &mut message,
+                    Some(self.handle),
+                    WM_GPUI_CLOSE_ONE_WINDOW,
+                    WM_GPUI_CLOSE_ONE_WINDOW,
+                    PM_REMOVE,
+                )
+            }
+            .as_bool()
+            {
+                if message.message != WM_QUIT {
+                    unsafe { DispatchMessageW(&message) };
+                }
+                progressed = true;
+            }
             if Instant::now() >= deadline {
                 timed_out = true;
                 break;
             }
-            let _ = self.inner.run_foreground_task();
-            let mut dispatched = false;
-            for kind in [
-                WM_GPUI_TASK_DISPATCHED_ON_MAIN_THREAD,
-                WM_GPUI_CLOSE_ONE_WINDOW,
-            ] {
-                while unsafe {
-                    PeekMessageW(&mut message, Some(self.handle), kind, kind, PM_REMOVE)
-                }
-                .as_bool()
-                {
-                    if Instant::now() >= deadline {
-                        timed_out = true;
-                        break 'drain;
-                    }
-                    unsafe { DispatchMessageW(&message) };
-                    dispatched = true;
-                }
+            if let Ok(runnable) = self.inner.main_receiver.try_recv() {
+                runnable.run();
+                progressed = true;
             }
-            if !dispatched && self.inner.main_receiver.is_empty() {
+            // Consume one notification without dispatching a whole runnable snapshot.
+            if unsafe {
+                PeekMessageW(
+                    &mut message,
+                    Some(self.handle),
+                    WM_GPUI_TASK_DISPATCHED_ON_MAIN_THREAD,
+                    WM_GPUI_TASK_DISPATCHED_ON_MAIN_THREAD,
+                    PM_REMOVE,
+                )
+            }
+            .as_bool()
+            {
+                progressed = true;
+            }
+            if !progressed && self.inner.main_receiver.is_empty() {
                 break;
             }
         }
@@ -312,6 +331,11 @@ impl WindowsPlatform {
         }
         // Closing the last native HWND can post another quit message while draining.
         while unsafe { PeekMessageW(&mut message, None, WM_QUIT, WM_QUIT, PM_REMOVE) }.as_bool() {}
+        let remaining = self.raw_window_handles.read().len();
+        if remaining != 0 {
+            log::error!("native window registrations remain after shutdown: {remaining}");
+        }
+        self.inner.draining_shutdown.set(false);
     }
 }
 
@@ -733,6 +757,7 @@ impl WindowsPlatformInner {
         ));
         Ok(Rc::new(Self {
             state,
+            draining_shutdown: Cell::new(false),
             raw_window_handles: context.raw_window_handles.clone(),
             validation_number: context.validation_number,
             main_receiver: context.main_receiver.take().unwrap(),
@@ -800,6 +825,10 @@ impl WindowsPlatformInner {
 
     #[inline]
     fn run_foreground_task(&self) -> Option<isize> {
+        // Native COM calls may pump posted messages; the shutdown loop owns task polling then.
+        if self.draining_shutdown.get() {
+            return Some(0);
+        }
         for runnable in self.main_receiver.drain() {
             runnable.run();
         }
