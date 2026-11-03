@@ -44,10 +44,10 @@ try {
         Save-NormaScreenshot $window (Join-Path $Output 'workspace-create-dialog.png')
         [NormaDesktop]::Text($name)
         Send-NormaChord @(0x0D)
-        Start-Sleep -Seconds 2
-        Save-NormaScreenshot $window (Join-Path $Output 'workspace-created.png')
-        python "$PSScriptRoot/read-workspace.py" --database $database --name $name --output (Join-Path $Output 'workspace-created.json')
+        python "$PSScriptRoot/read-workspace.py" --database $database --name $name --output (Join-Path $Output 'workspace-created.json') --wait-seconds 10
         if ($LASTEXITCODE -ne 0) { throw 'Native workspace creation did not persist the exact Unicode name' }
+        Start-Sleep -Milliseconds 300
+        Save-NormaScreenshot $window (Join-Path $Output 'workspace-created.png')
         Close-NormaWindow $process $window
         $process.Dispose(); $process=$null
         $reopened=Join-Path $Output 'reopened'
@@ -65,8 +65,12 @@ try {
         Save-NormaScreenshot $window (Join-Path $Output 'workspace-reopened.png')
         python "$PSScriptRoot/read-workspace.py" --database $database --name $name --output (Join-Path $Output 'workspace-reopened.json')
         if ($LASTEXITCODE -ne 0) { throw 'Created workspace did not survive close and reopen' }
+        $createdRows=@(Get-Content (Join-Path $Output 'workspace-created.json') -Raw | ConvertFrom-Json)
+        $reopenedRows=@(Get-Content (Join-Path $Output 'workspace-reopened.json') -Raw | ConvertFrom-Json)
+        if ($createdRows[0].id -ne $reopenedRows[0].id) { throw 'Reopen must preserve the exact workspace identity' }
         Close-NormaWindow $process $window
         $report.workspace_name=$name
+        $report.workspace_id=$createdRows[0].id
         $report.workspace_persisted=$true
         $report.visual_verification='PENDING'
     } elseif ($ExitMode -eq 'window-close') {

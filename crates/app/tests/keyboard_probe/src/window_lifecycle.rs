@@ -49,6 +49,8 @@ mod native {
         let raw = Rc::new(Cell::new(0isize));
         let observed = Rc::new(Cell::new(false));
         let finished = Rc::new(Cell::new(false));
+        let polls = Rc::new(Cell::new(0usize));
+        let counted = polls.clone();
         let captured = raw.clone();
         let quit_observed = observed.clone();
         let drained = finished.clone();
@@ -63,8 +65,13 @@ mod native {
                     })
                     .detach();
                 if self_waking {
+                    let counted = counted.clone();
                     cx.foreground_executor()
-                        .spawn(std::future::poll_fn(|cx| {
+                        .spawn(std::future::poll_fn(move |cx| {
+                            counted.set(counted.get().saturating_add(1));
+                            if counted.get() == 2 {
+                                println!("self-waking foreground future was polled twice");
+                            }
                             cx.waker().wake_by_ref();
                             std::task::Poll::<()>::Pending
                         }))
@@ -116,6 +123,11 @@ mod native {
         );
         let errors = ERRORS.lock().expect("inspect explicit quit native errors");
         if self_waking {
+            assert!(
+                polls.get() >= 2,
+                "任务至少poll两次才证明自唤醒后确实再次被调度，实际{}次",
+                polls.get()
+            );
             assert_eq!(
                 errors.len(),
                 1,
