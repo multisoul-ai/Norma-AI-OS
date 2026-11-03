@@ -109,7 +109,6 @@ fn legacy_database_is_imported_once_including_committed_wal_data() {
 /// 数据构造：两个名为 project 的目录，各保存 node_id=7；甲还有一个符号链接别名。
 /// 执行过程：同一全局目录初始化甲乙，另用 Production 目录初始化甲，再通过别名打开甲。
 /// 预期结果：甲的别名复用会话，乙与 Production 不包含甲的会话；所有项目目录保持空。
-#[cfg(unix)]
 #[test]
 fn project_identity_and_database_mode_remain_isolated() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -118,7 +117,10 @@ fn project_identity_and_database_mode_remain_isolated() {
     std::fs::create_dir_all(&root_a).expect("应创建甲项目");
     std::fs::create_dir_all(&root_b).expect("应创建乙项目");
     let alias = temp.path().join("alias");
+    #[cfg(unix)]
     std::os::unix::fs::symlink(&root_a, &alias).expect("应创建路径别名");
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(&root_a, &alias).expect("应创建路径别名");
     let test = DatabasePaths::local_test_for_home(temp.path());
     let production = DatabasePaths::production_for_home(temp.path());
     let alpha = ProjectStore::initialize_for_database_paths(&test, &root_a).expect("应初始化甲");

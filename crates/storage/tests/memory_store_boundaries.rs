@@ -1,5 +1,8 @@
 use agent::{MemoryEntryId, MemoryMutation, MemoryRevision, MemoryScope};
-use std::os::unix::fs::symlink;
+#[cfg(unix)]
+use std::os::unix::fs::{symlink as symlink_dir, symlink as symlink_file};
+#[cfg(windows)]
+use std::os::windows::fs::{symlink_dir, symlink_file};
 use storage::{DatabasePaths, MemoryError, MemoryStore};
 
 const CHILD_ROOT: &str = "NORMA_MEMORY_LOCK_PROBE_ROOT";
@@ -148,7 +151,7 @@ fn symlink_scope_and_pointer_are_rejected() {
     let sentinel = outside.join("pointer.json");
     std::fs::write(&sentinel, "外部指针占位").expect("应创建外部 sentinel");
     let personal = store.root().join("personal");
-    symlink(&outside, &personal).expect("应创建范围逃逸链接");
+    symlink_dir(&outside, &personal).expect("应创建范围逃逸链接");
     let id = MemoryEntryId::parse("preferences").expect("主题 ID 应有效");
     assert!(
         store
@@ -164,7 +167,10 @@ fn symlink_scope_and_pointer_are_rejected() {
         !outside.join("revisions").exists(),
         "不得在链接指向的外部范围准备任何版本"
     );
+    #[cfg(unix)]
     std::fs::remove_file(&personal).expect("应移除测试范围链接");
+    #[cfg(windows)]
+    std::fs::remove_dir(&personal).expect("应移除测试范围链接");
     store
         .commit(
             &MemoryScope::Personal,
@@ -175,7 +181,7 @@ fn symlink_scope_and_pointer_are_rejected() {
     let pointer = std::fs::read(personal.join("CURRENT")).expect("应读取有效指针作为外部 fixture");
     std::fs::write(&sentinel, &pointer).expect("应构造有效外部指针；不能靠 JSON 错误伪装路径防护");
     std::fs::remove_file(personal.join("CURRENT")).expect("应移除测试指针");
-    symlink(&sentinel, personal.join("CURRENT")).expect("应创建指针链接");
+    symlink_file(&sentinel, personal.join("CURRENT")).expect("应创建指针链接");
     assert!(
         store.snapshot(&MemoryScope::Personal).is_err(),
         "CURRENT 符号链接必须被拒绝"

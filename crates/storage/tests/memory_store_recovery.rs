@@ -1,5 +1,8 @@
 use agent::{MemoryEntryId, MemoryMutation, MemoryRevision, MemoryScope};
+#[cfg(unix)]
 use std::os::unix::fs::{symlink, PermissionsExt};
+#[cfg(windows)]
+use std::os::windows::fs::symlink_file as symlink;
 use storage::{DatabasePaths, MemoryError, MemoryStore};
 
 fn put(id: &MemoryEntryId, body: &str) -> MemoryMutation {
@@ -15,6 +18,7 @@ fn put(id: &MemoryEntryId, body: &str) -> MemoryMutation {
 /// 数据构造：
 ///   - 个人库 V1 保存“旧偏好”。scope 目录从 0700 改为 0500：保留读取/遍历，移除写权限。
 ///   - revisions 子目录仍为 0700，因此候选可准备，最终 CURRENT 临时文件不能创建。
+///   - Windows 将 CURRENT 设为只读，revisions 仍可写，最终原子替换必须被文件系统拒绝。
 ///
 /// 执行过程：
 ///   1. 去除 scope 写权限，基于 V1 提交“未发布偏好”，预期 IO 失败。
@@ -34,11 +38,17 @@ fn publication_failure_keeps_previous_revision_and_allows_retry() {
         .commit(&scope, MemoryRevision::INITIAL, &[put(&id, "旧偏好")])
         .expect("V1 应发布");
     let personal = store.root().join("personal");
+    #[cfg(unix)]
     std::fs::set_permissions(&personal, std::fs::Permissions::from_mode(0o500))
         .expect("应移除发布目录写权限");
+    #[cfg(windows)]
+    set_pointer_readonly(&personal, true);
     let failed = store.commit(&scope, first.revision, &[put(&id, "未发布偏好")]);
+    #[cfg(unix)]
     std::fs::set_permissions(&personal, std::fs::Permissions::from_mode(0o700))
         .expect("应恢复发布目录写权限");
+    #[cfg(windows)]
+    set_pointer_readonly(&personal, false);
     assert!(
         matches!(failed, Err(MemoryError::Io(ref error)) if error.kind() == std::io::ErrorKind::PermissionDenied),
         "指针发布权限失败必须明确返回 IO 错误"
@@ -76,6 +86,24 @@ fn publication_failure_keeps_previous_revision_and_allows_retry() {
             .markdown,
         "新偏好",
         "重试应发布正确正文"
+    );
+}
+
+#[cfg(windows)]
+fn set_pointer_readonly(scope: &std::path::Path, readonly: bool) {
+    let pointer = scope.join("CURRENT");
+    let mut permissions = std::fs::metadata(&pointer)
+        .expect("应读取真实指针权限")
+        .permissions();
+    permissions.set_readonly(readonly);
+    std::fs::set_permissions(&pointer, permissions).expect("应修改真实指针只读属性");
+    assert_eq!(
+        std::fs::metadata(pointer)
+            .expect("应核验指针属性")
+            .permissions()
+            .readonly(),
+        readonly,
+        "夹具必须真实切换Windows只读属性，不能伪造发布失败"
     );
 }
 
