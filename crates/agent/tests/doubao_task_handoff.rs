@@ -351,3 +351,38 @@ async fn preservation_does_not_duplicate_or_invent_tasks() {
         );
     }
 }
+
+/// 场景：模型只去掉了开头的称呼（如“克洛伊，”），其余原话逐字保留。
+/// 构造：原话为称呼加完整请求，模型任务正文为去掉称呼后的后缀。
+/// 执行：经公开 assign_agent_task 派发，检查 Adapter 实际收到的正文。
+/// 预期：只发送一次原话，不再用分隔线追加几乎相同的副本；被去掉的否定词也不会丢失。
+#[tokio::test]
+async fn stripped_address_does_not_duplicate_request() {
+    for (original, model_task) in [
+        (
+            "克洛伊，你提交一下 PR，合并到 DV。",
+            "你提交一下 PR，合并到 DV。",
+        ),
+        ("别删除本地草稿。", "删除本地草稿。"),
+        ("提交 PR，谢谢克洛伊。", "提交 PR"),
+    ] {
+        let adapter = Arc::new(RecordingAdapter::default());
+        NormaToolRuntime::new(adapter.clone())
+            .execute(
+                "assign_agent_task",
+                json!({"agent":"Claude", "task":model_task}),
+                &context(original),
+            )
+            .await
+            .expect("交接应成功");
+        let commands = adapter.0.lock().expect("实际派发记录");
+        assert_eq!(
+            commands[0],
+            AdapterCommand::AssignAgentTask {
+                agent: "Claude".into(),
+                task: original.into()
+            },
+            "只差几个字时发送一次原话，不得重复或丢失否定词"
+        );
+    }
+}
