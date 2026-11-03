@@ -24,6 +24,10 @@ try {
         Save-NormaScreenshot $window (Join-Path $Output "frame-$frame.png")
     }
     Close-NormaWindow $process $window
+    foreach ($stream in @('stdout.log', 'stderr.log')) {
+        $content=(Get-Content (Join-Path $Output $stream) -Raw) -replace '\x1b\[[0-9;]*m', ''
+        if ($content -match '(?m)^\S+\s+ERROR\b|panicked at') { throw "Actual App emitted an error during startup/close; inspect $stream" }
+    }
     $report.status='PASS'
 } catch { $report.error=$_.Exception.Message; throw }
 finally {

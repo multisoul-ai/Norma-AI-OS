@@ -6,6 +6,7 @@ on:
     paths:
       - 'crates/app/tests/keyboard_probe/src/window_lifecycle.rs'
       - 'vendor/gpui-0.2.2/src/platform/windows/window.rs'
+      - 'vendor/gpui-0.2.2/src/platform/windows/window/**'
       - 'vendor/gpui-0.2.2/src/platform/windows/events.rs'
       - '.github/workflows/windows-window-lifecycle.yml'
 permissions:
