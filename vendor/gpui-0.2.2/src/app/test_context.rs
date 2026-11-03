@@ -219,10 +219,22 @@ impl TestAppContext {
         }
         // Release the RefCell borrow before callbacks drop their retained visual contexts.
         let callbacks = std::mem::take(&mut *self.on_quit.borrow_mut());
+        let mut failure = None;
         for callback in callbacks {
-            callback();
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(callback));
+            if failure.is_none() {
+                failure = result.err();
+            }
         }
-        self.app.borrow_mut().shutdown();
+        let shutdown = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.app.borrow_mut().shutdown();
+        }));
+        if failure.is_none() {
+            failure = shutdown.err();
+        }
+        if let Some(failure) = failure {
+            std::panic::resume_unwind(failure);
+        }
     }
 
     /// Register cleanup to run when the test ends.
