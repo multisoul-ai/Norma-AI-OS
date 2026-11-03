@@ -40,12 +40,19 @@ jobs:
         with:
           path: target/sherpa-onnx-prebuilt
           key: sherpa-prebuilt-${{ runner.os }}-${{ runner.arch }}-1.13.3-static
-      - name: Require original foreground and exact QR round trip
+      - name: Build the complete App test harness once
+        id: app_tests
         shell: bash
         run: |
           set -o pipefail
           mkdir -p artifacts/macos-fixes
           rustc -vV | tee artifacts/macos-fixes/rustc.log
+          cargo test --locked -p app --lib --no-run 2>&1 | tee artifacts/macos-fixes/app-build.log
+      - name: Require original foreground and exact QR round trip
+        if: always() && steps.app_tests.outcome == 'success'
+        shell: bash
+        run: |
+          set -o pipefail
           cargo test --locked -p app --lib native_qr_pixels_round_trip_through_vision -- --nocapture 2>&1 | tee artifacts/macos-fixes/qr.log
       - name: Require original foreground session and receipt history
         if: always()
@@ -54,19 +61,19 @@ jobs:
           set -o pipefail
           cargo test --locked -p runtime --test opencode_foreground -- --nocapture 2>&1 | tee artifacts/macos-fixes/foreground.log
       - name: Reproduce Azure source click independently of the full suite
-        if: always()
+        if: always() && steps.app_tests.outcome == 'success'
         shell: bash
         run: |
           set -o pipefail
           cargo test --locked -p app --lib voice_redesign_task_layout_and_mode_persistence -- --nocapture 2>&1 | tee artifacts/macos-fixes/azure.log
       - name: Require the complete macOS App regression harness
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.full_app
+        if: always() && steps.app_tests.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.full_app
         shell: bash
         run: |
           set -o pipefail
           cargo test --locked --no-fail-fast -p app --lib 2>&1 | tee artifacts/macos-fixes/app-full.log
       - name: Diagnose the existing question retry failure
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.retry_diagnostics
+        if: always() && steps.app_tests.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.retry_diagnostics
         shell: bash
         run: |
           set -o pipefail
@@ -76,7 +83,7 @@ jobs:
           done
           exit "$had_failure"
       - name: Require the remaining full-suite regressions through production event paths
-        if: always()
+        if: always() && steps.app_tests.outcome == 'success'
         shell: bash
         run: |
           had_failure=0

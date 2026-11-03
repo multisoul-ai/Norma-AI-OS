@@ -47,13 +47,13 @@ fn quit_shortcut_routes_before_focused_input_keymap() {
             modified: true,
         });
         app.focus_command_input(window, cx);
-        app.set_command_query("selection must not consume Quit".into(), false, window, cx);
         assert!(
             app.command_input_focused(window, cx),
             "反例必须实际聚焦InputState"
         );
     });
     cx.run_until_parked();
+    cx.simulate_input("selection");
     app.update_in(cx, |app, window, cx| {
         assert!(
             app.command_input_focused(window, cx),
