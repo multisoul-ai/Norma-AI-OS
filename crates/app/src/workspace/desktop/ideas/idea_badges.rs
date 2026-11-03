@@ -6,52 +6,19 @@
 
 use super::super::idea_drag::Rect;
 use crate::app::MultisoulApp;
-use crate::shortcuts::idea_assign::new_agent_profile;
+use crate::shortcuts::idea_assign::{badge_mode, new_agent_hint, BadgeMode};
 use gpui::{div, prelude::*, px, rgba, Context, Div, Window};
-use norma::protocol::AgentProfile;
 use ui::component::StyledExt;
 
 #[cfg(test)]
 #[path = "../../../../tests/unit/desktop_idea_badges_tests.rs"]
 mod tests;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(in crate::workspace::desktop) enum BadgeMode {
-    Hidden,
-    Cards,
-    NewAgent,
-}
-
-/// 只在单独按住 ⌃ 或 ⌃⇧ 且有待办想法时显示。
-pub(in crate::workspace::desktop) fn badge_mode(
-    control: bool,
-    shift: bool,
-    alt: bool,
-    platform: bool,
-    todo_count: usize,
-) -> BadgeMode {
-    if !control || alt || platform || todo_count == 0 {
-        return BadgeMode::Hidden;
-    }
-    if shift {
-        BadgeMode::NewAgent
-    } else {
-        BadgeMode::Cards
-    }
-}
-
 /// 第 i 张卡片的序号；`⌃1…9` 之外的卡片没有序号。
 pub(in crate::workspace::desktop) fn card_numbers(count: usize) -> Vec<Option<u8>> {
     (0..count)
         .map(|index| u8::try_from(index + 1).ok().filter(|n| *n <= 9))
         .collect()
-}
-
-pub(in crate::workspace::desktop) fn new_agent_hint(default: AgentProfile) -> String {
-    let typed: Vec<String> = (2..=9)
-        .filter_map(|slot| new_agent_profile(slot).map(|profile| format!("{slot} {profile:?}")))
-        .collect();
-    format!("⌃0 {default:?}　⌃⇧ {}", typed.join(" · "))
 }
 
 impl MultisoulApp {

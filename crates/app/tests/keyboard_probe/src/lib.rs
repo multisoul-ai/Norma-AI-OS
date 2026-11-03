@@ -5,6 +5,82 @@ mod shortcuts;
 use gpui::Keystroke;
 use shortcuts::{ShortcutCommandId, ShortcutSettingsState};
 
+/// 场景：按住默认派发修饰键时，提示必须匹配当前平台的生产命令。
+/// 数据构造：Windows Alt派给已有卡片、Ctrl+Shift新建；macOS保持Ctrl与Ctrl+Shift。
+/// 执行过程：调用实际渲染使用的badge_mode，包含控制/系统键混合及零待办反例。
+/// 预期结果：只为可执行的默认派发显示提示，Windows裸Ctrl不显示派发序号。
+#[test]
+fn native_idea_badges_match_assignment_modifiers() {
+    use shortcuts::idea_assign::{badge_mode, BadgeMode};
+    let cards = if cfg!(windows) {
+        (false, false, true)
+    } else {
+        (true, false, false)
+    };
+    assert_eq!(
+        badge_mode(cards.0, cards.1, cards.2, false, 2),
+        BadgeMode::Cards,
+        "默认已有卡片派发键必须显示序号"
+    );
+    assert_eq!(
+        badge_mode(true, true, false, false, 2),
+        BadgeMode::NewAgent,
+        "Ctrl+Shift必须显示新建类型"
+    );
+    for (control, shift, alt, platform, count) in [
+        (false, false, false, false, 2),
+        (true, false, true, false, 2),
+        (true, true, false, true, 2),
+        (cards.0, cards.1, cards.2, false, 0),
+    ] {
+        assert_eq!(
+            badge_mode(control, shift, alt, platform, count),
+            BadgeMode::Hidden,
+            "混合修饰键或无待办不能展示默认提示"
+        );
+    }
+    if cfg!(windows) {
+        assert_eq!(
+            badge_mode(true, false, false, false, 2),
+            BadgeMode::Hidden,
+            "Windows裸Ctrl用于创建卡片，不能显示Alt派发提示"
+        );
+        assert_eq!(
+            badge_mode(false, true, true, false, 2),
+            BadgeMode::Hidden,
+            "Alt+Shift不是默认派发键"
+        );
+    }
+}
+
+/// 场景：新建智能体提示应展示平台默认键及准确类型。
+/// 数据构造：默认类型Codex和2/3/9槽位。
+/// 执行过程：读取生产渲染使用的new_agent_hint。
+/// 预期结果：Windows使用Ctrl文字，macOS使用原生符号；槽位类型不变。
+#[test]
+fn native_idea_hint_uses_platform_key_labels() {
+    let hint = shortcuts::idea_assign::new_agent_hint(norma::protocol::AgentProfile::Codex);
+    let (default, typed) = if cfg!(windows) {
+        ("Ctrl+0 Codex", "Ctrl+Shift+")
+    } else {
+        ("⌃0 Codex", "⌃⇧")
+    };
+    assert!(
+        hint.contains(default) && hint.contains(typed),
+        "提示必须匹配平台默认键: {hint}"
+    );
+    assert!(
+        hint.contains("2 Claude") && hint.contains("3 Codex") && hint.contains("9 Hermes"),
+        "类型必须匹配生产registry: {hint}"
+    );
+    if cfg!(windows) {
+        assert!(
+            !hint.contains('⌃'),
+            "Windows提示不能残留macOS修饰键符号: {hint}"
+        );
+    }
+}
+
 /// 场景：原生粘贴必须进入已聚焦节点的剪贴板路径。
 /// 数据构造：Windows的Ctrl+V、macOS的Cmd+V与裸V、系统键、控制键反例。
 /// 执行过程：调用生产focused路径的粘贴判定。
