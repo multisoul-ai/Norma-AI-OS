@@ -33,11 +33,21 @@ jobs:
         shell: pwsh
         run: python scripts/check-i18n.py
       - name: Build the actual App with native debug symbol locations
+        id: build
         shell: pwsh
         run: cargo build --locked -p app --features production-data --bin norma-os
       - name: Require stable real window and normal close
+        if: always() && steps.build.outcome == 'success'
         shell: pwsh
         run: ./scripts/windows/probe-startup.ps1 -Executable target/debug/norma-os.exe -Output artifacts/startup
+      - name: Require actual Ctrl Shift Q through the existing App quit chain
+        if: always() && steps.build.outcome == 'success'
+        shell: pwsh
+        run: ./scripts/windows/probe-startup.ps1 -Executable target/debug/norma-os.exe -Output artifacts/startup/quit-shortcut -ExitMode quit-shortcut
+      - name: Request Settings and require the same native quit path
+        if: always() && steps.build.outcome == 'success'
+        shell: pwsh
+        run: ./scripts/windows/probe-startup.ps1 -Executable target/debug/norma-os.exe -Output artifacts/startup/settings-then-quit -ExitMode settings-then-quit
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
