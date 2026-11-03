@@ -78,8 +78,8 @@ def package(binaries, output, crt):
                 shutil.copy2(path, folder / path.name)
     resources = folder / 'Resources'
     resources.mkdir()
-    for name in ('home', 'boot', 'browser-auth-extension'):
-        shutil.copytree(ROOT / 'crates/app/assets' / name, resources / name)
+    for group in ('home', 'boot', 'browser-auth-extension'):
+        shutil.copytree(ROOT / 'crates/app/assets' / group, resources / group)
     media = ROOT / 'build/release-media'
     for path in media.iterdir():
         if path.is_dir():
