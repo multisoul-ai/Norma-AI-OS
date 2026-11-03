@@ -13,6 +13,10 @@
 
 ## 当前事实与检查点
 
+- 产品feature锁冻结：`8e2a1b3a` run `41575256058`，Windows/macOS的`cargo update --workspace`均只移除测试feature专用依赖、升级0包，product dependency identity检查均PASS；两端Cargo.lock逐字节一致，SHA256 `41f79d5e1da16f78301970737c4fd1bfe5a35549d49dbc679c75ed59a42e7feb`。`dc82c76e`提交相同锁文件；新的native run `41575727720`及shortcut run `41575727697`进行中。`a7a23002`的失败是旧锁与feature不匹配，未到行为断言，不冒充产品功能失败或成功。
+- 实际App复验已dispatch `8e2a1b3a` startup run `41575429677`：采用产品feature和修正后的client捕获，正常关闭后拒绝ERROR/panic日志；当前进行中，不以最小GPUI探针代替App验收。Mac剩余回归run `41574377560`（`f902836c`）也仍在执行。
+- W07确定缺口：App层`on_window_closed`已按mobile/后台项目决定是否退出，但WindowsPlatform最后原生窗口关闭仍直接PostQuit，覆盖了保活决定。Windows `on_reopen`只存回调、未驱动，`activate`为空；第二实例endpoint失败后仍继续启动。固定Cmd+Q在Windows为Win+Q，主动Quit入口不可达。不能只取消自动退出而制造无法重开的无窗进程；后续需同时完成App接管最后关窗决策、单实例reopen/ACK、原宿主/Runtime复用及可达Quit入口，并以真实服务/PTY跨关窗保活→重开同会话→主动退出验证。当前四模式native关闭契约不等于W07已通过。
+
 - `61a6e64b` combined shortcut run `41568535811`两平台均6/0/0 PASS；Ctrl+V focused/selection、默认registry和badge策略/提示均通过。实际App键盘/重绘/焦点验收仍待执行。
 - native窗口真实RED：`67b2086c` run `41570402448`三模式都已通过close计数、明确drain和两个原HWND销毁前提，最后在errors断言失败。日志精确定位`window.rs:1130`到`handle_activate_msg`迟到任务，及Windows `window.rs:510/511`重复Revoke/Destroy。`1c6db17d` run `41571554479`补第四模式queued activate/resize/fullscreen后同步关闭，实际捕到旧HWND操作失败。
 - `ef748246`/`e68e2e84`实现逻辑脱离、原生销毁、拖放注册及平台注册各自所有权；先撤销callbacks/IME handler，在借用外drop和COM/native清理。异步操作执行前、回调后及默认proc续执行前校验closed，WM_DESTROY仍完成平台注销；构造失败的未登记窗口不发平台注销。静态独立审查未见前述反例残留；构造失败注入尚未验证。
