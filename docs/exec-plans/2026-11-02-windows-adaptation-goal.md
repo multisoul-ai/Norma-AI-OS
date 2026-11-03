@@ -13,6 +13,12 @@
 
 ## 当前事实与检查点
 
+- W07平台退出策略GREEN：`3f257cdc` run `41581943206`、attempt 1、job `125738555114`五模式全部exit0。无keeper模式确认close_count=1、drain_finished=true、原生窗口销毁、keeper_present=false、errors=0；原四模式继续PASS。证据`/private/tmp/norma-background-last-close-green-3f257cdc`。仅平台策略通过，Norma尚未启用；单实例重开/ACK、可达Quit和真实服务/PTY保活复用仍未完成。
+- 原W07 RED日志artifact `13206177551`的SHA256为`50b40159d7deb877344c720f03aa775db2ecedb3641c4de56e55d5a02c1353e5`（日志archive，不是发行包）。
+- Mac诊断`a0714e14` run `41580160481`整体PASS，原测试10次均通过，但没有复现原全套第三次失败，不能将其视为修复。`eaca5a41`把故障改为原scope的真实checkpoint解码失败，先断言无旧state/events、防止覆盖状态；加强具体错误、唯一lease/receipt和非空delivery断言。独立审查另发现原测试只在Submitting显式poll，`02942cb1`补了Failed等待期的生产poll。`eaca5a41`全套run `41583403268`在缓存恢复阶段因缺这项覆盖被新来源取代并取消，非PASS；新来源完整+10次定向run `41583624505`进行中。原全套失败仍未关闭。
+- Windows完整App门禁`95fc57ab` run `41581512783`、attempt 1、job `125737198998`已FAIL：App测试harness是11条编译错误（Unix socket/symlink/shell夹具、Mac视频槽和Windows测试Noop sink），尚未执行测试。Clippy先失败于workspace clone runner的Windows未使用metadata，尚未到App本体；补充App-only诊断以读取后续lint，但保留原严格依赖门禁，不能用诊断替代。原始日志`/private/tmp/norma-windows-app-gates-95fc57ab`。
+- Windows可配置退出入口RED测试已提交`69200ded`，run `41582834327`进行中：生产registry必须包含`quit_norma_os`、默认Ctrl+Shift+Q、支持正式录制与恢复；保留Ctrl+C用于PTY。尚未实现或宣称实际App退出通过。参考apple-design的可发现性、用户控制和熟悉性，复用现有Settings状态反馈；实际App键盘与保存/进程清理链仍待验证。
+
 - W07平台候选`3f257cdc`已正常提交推送，复验run `41581943206`进行中，尚无GREEN。独立只读对抗审查核验默认true、先注销窗口再检查策略及无跨App回调借用；Norma仍未启用此开关。原RED日志在`/private/tmp/norma-background-last-close-red-5b772aa3`。
 - Mac诊断run `41580160481`在2026-11-03 05:11 UTC仍为in_progress，job `125732862258`的首个测试步骤自04:49:38未结束；job日志API此时返回BlobNotFound，尚不能区分构建/测试执行。继续等待同一job，不将观察超时当进程终止，也不重启覆盖失败。完整Windows门禁run `41581512783`也仍进行中。
 
