@@ -1,5 +1,45 @@
 use super::*;
 
+/// 场景：创建目录与授予clone清理权之间，别的操作尝试替换同一路径。
+/// 构造：生产创建边界中的真实rename；旧实现能移走目录并换入foreign正文。
+/// 执行：创建后、身份归属前尝试rename；返回后再rename，替换目录并调用cleanup。
+/// 预期：创建边界内必须真实报sharing violation 32；返回后不长期持锁，替换目录不能被删除。
+#[cfg(windows)]
+#[test]
+fn clone_target_creation_pins_identity_before_granting_cleanup() {
+    let temp = tempfile::tempdir().unwrap();
+    let target = temp.path().join("checkout 中文");
+    let parked = temp.path().join("parked");
+    let mut during_creation = None;
+    let owned = OwnedTarget::create_with(target.clone(), || {
+        let moved = fs::rename(&target, &parked);
+        if moved.is_ok() {
+            fs::create_dir(&target).unwrap();
+            fs::write(target.join("foreign.txt"), b"foreign project").unwrap();
+        }
+        during_creation = Some(moved);
+    })
+    .expect("创建本次clone目录");
+    assert_eq!(
+        during_creation
+            .unwrap()
+            .err()
+            .and_then(|error| error.raw_os_error()),
+        Some(32),
+        "创建到取得身份之间必须短暂固定同一目录，不能给替换来的普通目录授予清理权"
+    );
+    fs::rename(&target, &parked).expect("完成创建后必须允许用户移走目录，不能长期持锁");
+    fs::create_dir(&target).unwrap();
+    fs::write(target.join("foreign.txt"), b"foreign project").unwrap();
+    owned.cleanup();
+    assert_eq!(
+        fs::read(target.join("foreign.txt")).unwrap(),
+        b"foreign project",
+        "创建时的清理权不能转移到同名的新目录"
+    );
+    assert!(parked.is_dir(), "不按路径追踪或删除用户已移走的原目录");
+}
+
 /// 场景：clone失败或取消后应清理本次创建的目录，不能保留半成品。
 /// 构造：隔离父目录、一个含partial文件的目标，以及父目录中的独立哨兵。
 /// 执行：捕获目标所有权后调用生产cleanup。

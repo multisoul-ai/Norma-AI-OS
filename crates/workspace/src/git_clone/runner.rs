@@ -3,7 +3,6 @@ use super::{
     CloneTransport, ClonedWorkspaceSecurityError, GitHubRemote,
 };
 use std::fmt;
-use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -12,9 +11,9 @@ use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
 
-#[cfg(test)]
-#[path = "../../tests/unit/git_clone_target_ownership.rs"]
-mod target_ownership_tests;
+#[path = "owned_target.rs"]
+mod owned_target;
+use owned_target::OwnedTarget;
 
 const CHILD_POLL_INTERVAL: Duration = Duration::from_millis(25);
 const MAX_DIAGNOSTIC_BYTES: usize = 16 * 1024;
@@ -162,19 +161,10 @@ impl GitCloneRunner {
             return Err(cancelled_failure(target));
         }
 
-        fs::create_dir(&target).map_err(|error| {
+        let owned_target = OwnedTarget::create(target.clone()).map_err(|error| {
             CloneFailure::new(
                 CloneFailureKind::DestinationUnavailable,
                 format!("Could not create the project folder: {error}"),
-                target.clone(),
-                false,
-            )
-        })?;
-        let owned_target = OwnedTarget::capture(target.clone()).map_err(|error| {
-            let _ = fs::remove_dir(&target);
-            CloneFailure::new(
-                CloneFailureKind::DestinationUnavailable,
-                format!("Could not verify the project folder: {error}"),
                 target.clone(),
                 false,
             )
@@ -397,75 +387,4 @@ fn cancelled_failure(target: PathBuf) -> CloneFailure {
         target,
         false,
     )
-}
-
-struct OwnedTarget {
-    path: PathBuf,
-    #[cfg(windows)]
-    identity: (u32, u64),
-    #[cfg(unix)]
-    device: u64,
-    #[cfg(unix)]
-    inode: u64,
-}
-
-impl OwnedTarget {
-    fn capture(path: PathBuf) -> std::io::Result<Self> {
-        let metadata = fs::symlink_metadata(&path)?;
-        if !metadata.is_dir() || metadata.file_type().is_symlink() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "clone target is not an owned directory",
-            ));
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::MetadataExt;
-            Ok(Self {
-                path,
-                device: metadata.dev(),
-                inode: metadata.ino(),
-            })
-        }
-        #[cfg(not(unix))]
-        {
-            #[cfg(windows)]
-            let identity = crate::scoped_directory::Directory::open(&path, false)?.identity()?;
-            Ok(Self {
-                path,
-                #[cfg(windows)]
-                identity,
-            })
-        }
-    }
-
-    fn cleanup(&self) {
-        let Ok(metadata) = fs::symlink_metadata(&self.path) else {
-            return;
-        };
-        if metadata.file_type().is_symlink() || !metadata.is_dir() {
-            return;
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::MetadataExt;
-            if metadata.dev() != self.device || metadata.ino() != self.inode {
-                return;
-            }
-        }
-        #[cfg(windows)]
-        {
-            let Some(parent) = self.path.parent() else {
-                return;
-            };
-            let Some(name) = self.path.file_name().and_then(|name| name.to_str()) else {
-                return;
-            };
-            if let Ok(parent) = crate::scoped_directory::Directory::open(parent, true) {
-                let _ = parent.remove_child_tree(name, self.identity);
-            }
-        }
-        #[cfg(not(windows))]
-        let _ = fs::remove_dir_all(&self.path);
-    }
 }
