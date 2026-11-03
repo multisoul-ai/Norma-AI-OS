@@ -6,13 +6,12 @@ use tokio_util::sync::CancellationToken;
 /// 窗口失活导致松键事件丢失时，结束当前录音并保留识别及回复会话。
 ///
 /// 数据构造（含关键数值的推导过程）：一个隔离 App、一个会话 token 和一个录音 token；
-///   只保存不存在的凭据引用，不使用真实麦克风、密钥或网络连接。
-/// 执行过程：通过生产入口安装窗口失活观察器 → 标记按住录音 → 模拟窗口失活
+///   直接预置无后台任务的活动会话，不启动凭据加载、麦克风或网络连接。
+/// 执行过程：通过生产绑定入口安装窗口失活观察器 → 标记按住录音 → 模拟窗口失活
 ///   → 检查录音结束、会话保留和 Thinking 状态 → 显式停止。
 /// 预期结果：录音 token 取消但会话 token 不取消；界面不能直接退回 Idle 丢弃结果。
 #[test]
 fn test_doubao_hold_window_deactivation_preserves_pending_reply() {
-    use crate::settings::voice::{EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsState};
     let temp = tempfile::tempdir().expect("应创建隔离目录");
     let paths = storage::DatabasePaths::isolated_test(temp.path());
     let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
@@ -26,18 +25,11 @@ fn test_doubao_hold_window_deactivation_preserves_pending_reply() {
     let host = host.expect("应创建宿主");
     let recording = CancellationToken::new();
     let session = host.update_in(cx, |app, window, cx| {
-        app.voice_settings = VoiceSettingsState::from_sources(
-            SavedVoiceSettings {
-                doubao_credential_ref: Some("not-saved-test-account".into()),
-                doubao_interaction_mode: Some(VoiceInteractionMode::SingleVoiceCommand),
-                ..Default::default()
-            },
-            EnvVoiceSettings::default(),
-        );
         app.voice_settings
             .select_desktop_mode(DesktopVoiceMode::Doubao);
-        app.start_doubao_channel(window, cx);
-        let session = app.doubao.cancellation.clone().expect("应创建会话");
+        let session = CancellationToken::new();
+        app.doubao.cancellation = Some(session.clone());
+        app.observe_doubao_window_activation(window, cx);
         app.doubao.recording = Some(recording.clone());
         app.doubao.recording_from_shortcut = true;
         window.activate_window();

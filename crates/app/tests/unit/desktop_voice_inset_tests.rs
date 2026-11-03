@@ -8,6 +8,7 @@ struct WorkspaceFixture {
     host: Entity<MultisoulApp>,
     projects: [Entity<MultisoulApp>; 2],
     area_ids: [String; 2],
+    _test_owner: TestAppContext,
     _directory: tempfile::TempDir,
 }
 
@@ -70,6 +71,7 @@ impl WorkspaceFixture {
             host,
             projects,
             area_ids: areas.map(|area| area.id),
+            _test_owner: test,
             _directory: directory,
         }
     }

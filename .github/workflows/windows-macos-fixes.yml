@@ -8,7 +8,7 @@ on:
         default: false
   push:
     branches: ['codex/windows-audio-*']
-    paths: ['crates/app/tests/unit/voice_settings_redesign_tests.rs', 'vendor/gpui-0.2.2/src/app/test_context.rs', 'scripts/check-norma-qr.swift', 'crates/app/src/mobile/qr.rs', 'crates/runtime/tests/opencode_foreground.rs', 'crates/runtime/tests/support/opencode_foreground.rs']
+    paths: ['crates/app/tests/unit/voice_settings_redesign_tests.rs', 'crates/app/tests/unit/browser_view_tests.rs', 'crates/app/tests/unit/browser_page_interaction_tests.rs', 'crates/app/tests/unit/desktop_voice_inset_tests.rs', 'crates/app/tests/unit/desktop_master_visibility_tests.rs', 'crates/app/tests/unit/doubao_hold_keyboard_tests.rs', 'crates/app/src/app/doubao/session.rs', 'vendor/gpui-0.2.2/src/app/test_context.rs', 'scripts/check-norma-qr.swift', 'crates/app/src/mobile/qr.rs', 'crates/runtime/tests/opencode_foreground.rs', 'crates/runtime/tests/support/opencode_foreground.rs']
 permissions:
   contents: read
 env:
@@ -61,6 +61,15 @@ jobs:
         run: |
           set -o pipefail
           cargo test --locked --no-fail-fast -p app --lib 2>&1 | tee artifacts/macos-fixes/app-full.log
+      - name: Require the remaining full-suite regressions through production event paths
+        if: always()
+        shell: bash
+        run: |
+          had_failure=0
+          for filter in browser_page_interaction desktop_doubao_inset desktop_master_first test_doubao_hold_window_deactivation; do
+            if ! cargo test --locked -p app --lib "$filter" -- --nocapture 2>&1 | tee "artifacts/macos-fixes/$filter.log"; then had_failure=1; fi
+          done
+          exit "$had_failure"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

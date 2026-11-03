@@ -1,5 +1,6 @@
 use super::*;
 use canvas::{CanvasNodeKind, TermSpec};
+use gpui::AppContext as _;
 
 /// 场景：桌面可见终端作为 Master 时，旧 Browser 不得占据 detail 格子。
 /// 数据构造：1454×925 画布、24px 间距，两张终端和一张隐藏 Browser；
@@ -169,10 +170,17 @@ fn desktop_master_first_size_sync_repairs_missing_or_hidden_master() {
         let paths = storage::DatabasePaths::isolated_test(temp.path());
         let store = storage::AppStore::initialize(&paths).expect("隔离存储");
         let mut test = TestAppContext::single();
-        let (app, cx) =
-            test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        let (app, cx) = test.add_window_view(|_, cx| {
+            MultisoulApp::new_with_database_context(cx, paths.clone(), store.clone())
+        });
+        let host = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        assert_ne!(
+            host.entity_id(),
+            app.entity_id(),
+            "项目必须引用独立宿主，不能读取正在更新的自身"
+        );
         app.update_in(cx, |app, window, cx| {
-            app.desktop_host = Some(cx.entity().downgrade());
+            app.desktop_host = Some(host.downgrade());
             app.motion.reduce_motion = true;
             app.layout_strategy.chrome_in_parent = true;
             let strip = CanvasRect::new(969.0, 8.0, 476.0, 62.0);
@@ -308,10 +316,17 @@ fn desktop_master_first_sync_reflows_details_missing_from_original_snapshot() {
     let paths = storage::DatabasePaths::isolated_test(temp.path());
     let store = storage::AppStore::initialize(&paths).expect("隔离存储");
     let mut test = TestAppContext::single();
-    let (app, cx) =
-        test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
+    let (app, cx) = test.add_window_view(|_, cx| {
+        MultisoulApp::new_with_database_context(cx, paths.clone(), store.clone())
+    });
+    let host = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+    assert_ne!(
+        host.entity_id(),
+        app.entity_id(),
+        "项目必须引用独立宿主，不能读取正在更新的自身"
+    );
     app.update_in(cx, |app, window, cx| {
-        app.desktop_host = Some(cx.entity().downgrade());
+        app.desktop_host = Some(host.downgrade());
         app.motion.reduce_motion = true;
         let first = CanvasRect::new(40.0, 30.0, 340.0, 230.0);
         let second = CanvasRect::new(420.0, 50.0, 350.0, 240.0);

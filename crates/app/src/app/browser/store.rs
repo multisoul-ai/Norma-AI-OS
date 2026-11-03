@@ -421,3 +421,7 @@ mod view;
 #[cfg(test)]
 #[path = "../../../tests/unit/browser_scene_tests.rs"]
 mod scene_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/browser_page_interaction_tests.rs"]
+mod page_interaction_tests;

@@ -349,12 +349,11 @@ fn test_browser_address_edit_uses_native_cursor_and_selection() {
 ///
 /// 预期结果：
 ///   - 正断言：Wry 同时向主/子 frame 注册初始化脚本和 IPC handler，跨导航仍能收到网页交互。
-///   - 正断言：BrowserEvent 有 PageInteraction，app drain 后调用 select_only(node_id)。
+///   - 事件队列与Runtime选中行为由browser_page_interaction_tests.rs直接驱动验证。
 ///   - 负断言：不能只依赖 GPUI canvas mouse-down；原生 WebView 不会把该事件冒泡回来。
 ///   - 负断言：IPC handler 不能把任意网页消息都当作 PageInteraction。
 #[test]
 fn test_browser_page_interaction_bridges_native_webview_to_runtime_selection() {
-    let browser_source = include_str!("../../src/app/browser.rs");
     let wry_source = include_str!("../../src/app/browser/wry_backend.rs");
 
     assert!(
@@ -366,14 +365,6 @@ fn test_browser_page_interaction_bridges_native_webview_to_runtime_selection() {
     assert!(
         wry_source.contains("with_ipc_handler"),
         "Wry Browser 必须注册 IPC handler，才能把网页内 pointerdown/focusin 传回 Rust"
-    );
-    assert!(
-        browser_source.contains("PageInteraction { node_id"),
-        "BrowserEvent 必须显式表达网页交互，不能把焦点状态隐含在标题更新等无关事件中"
-    );
-    assert!(
-        browser_source.contains("self.runtime.selection.select_only(node_id)"),
-        "收到网页交互后必须把对应 Browser 写入 Runtime selection，蓝色选中边框才有状态来源"
     );
     assert!(
         !wry_source.contains(
