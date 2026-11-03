@@ -5,6 +5,42 @@ mod shortcuts;
 use gpui::Keystroke;
 use shortcuts::{ShortcutCommandId, ShortcutSettingsState};
 
+/// 场景：粘贴既可作用于已聚焦节点，也能进入方向键选中的节点。
+/// 数据构造：Windows的Ctrl+V、macOS的Cmd+V与裸V、系统键、控制键反例。
+/// 执行过程：调用生产focused路径的粘贴判定和selection路径的修饰键准入。
+/// 预期结果：原生粘贴同时通过两层；终端Ctrl+C不被粘贴截获，也不触发选中卡片自动聚焦。
+#[test]
+fn native_clipboard_shortcut_reaches_focused_and_selected_nodes() {
+    use shortcuts::clipboard::{is_paste_shortcut, selection_accepts_modifiers};
+    let source = if cfg!(windows) { "ctrl-v" } else { "cmd-v" };
+    let paste = Keystroke::parse(source).expect("原生粘贴按键合法");
+    assert!(
+        is_paste_shortcut(&paste),
+        "{source}必须进入聚焦节点的剪贴板路径"
+    );
+    assert!(
+        selection_accepts_modifiers(&paste),
+        "{source}必须通过选中节点的外层准入"
+    );
+    for source in ["v", "ctrl-c", "ctrl-shift-v", "ctrl-alt-v", "cmd-ctrl-v"] {
+        let key = Keystroke::parse(source).expect("反例按键合法");
+        assert!(!is_paste_shortcut(&key), "{source}不能被当成原生粘贴");
+    }
+    let interrupt = Keystroke::parse("ctrl-c").expect("终端中断按键合法");
+    assert!(
+        !selection_accepts_modifiers(&interrupt),
+        "Ctrl+C不能自动聚焦选中卡片"
+    );
+    if cfg!(windows) {
+        let system = Keystroke::parse("cmd-v").expect("系统键反例合法");
+        assert!(!is_paste_shortcut(&system), "Win+V必须保留给系统剪贴板历史");
+        assert!(
+            !selection_accepts_modifiers(&system),
+            "Win+V不能自动聚焦卡片"
+        );
+    }
+}
+
 /// 场景：原生桌面用户以平台主修饰键新建工作区。
 /// 数据构造：无偏好覆盖的生产注册表；macOS使用Cmd+N，Windows使用Ctrl+N。
 /// 执行过程：解析真实GPUI按键并经生产command_for_keystroke分派。

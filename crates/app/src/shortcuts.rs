@@ -7,6 +7,8 @@ use storage::SettingsStore;
 
 #[path = "shortcuts/catalog.rs"]
 mod catalog;
+#[path = "shortcuts/clipboard.rs"]
+pub(crate) mod clipboard;
 #[path = "shortcuts/idea_assign.rs"]
 pub(crate) mod idea_assign;
 #[cfg(windows)]

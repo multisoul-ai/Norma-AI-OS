@@ -4,6 +4,7 @@ use crate::app::{clipboard_image, AppScreen, CopyCardContent, MultisoulApp};
 use crate::canvas::text_selection::TextSelection;
 use crate::cards::term::selection::{terminal_selected_text, terminal_text_from_absolute_rows};
 use crate::cards::term::view::keystroke_to_input;
+use crate::shortcuts::clipboard::{is_paste_shortcut, selection_accepts_modifiers};
 use crate::shortcuts::ShortcutCommandId;
 use canvas::{navigate_card, NavigationDirection, NodeId};
 use gpui::{
@@ -147,15 +148,11 @@ fn should_auto_focus_keyboard_selection(keystroke: &Keystroke) -> bool {
     if keystroke.key == "space" && !keystroke.modifiers.modified() {
         return false;
     }
-    if keystroke.modifiers.platform {
-        return keystroke.key == "v"
-            && !keystroke.modifiers.control
-            && !keystroke.modifiers.alt
-            && !keystroke.modifiers.shift
-            && !keystroke.modifiers.function;
-    }
-    if keystroke.modifiers.control || keystroke.modifiers.function {
+    if !selection_accepts_modifiers(keystroke) {
         return false;
+    }
+    if is_paste_shortcut(keystroke) {
+        return true;
     }
     if keystroke.key == "escape" {
         return false;
@@ -397,7 +394,7 @@ impl MultisoulApp {
                 if should_auto_focus_keyboard_selection(&ev.keystroke) {
                     self.runtime.focus.focus_node(node_id);
                     self.interaction.keyboard_selected_node = None;
-                    if ev.keystroke.modifiers.platform && ev.keystroke.key == "v" {
+                    if is_paste_shortcut(&ev.keystroke) {
                         self.paste_clipboard_to_node(node_id, cx);
                         cx.notify();
                         return;
@@ -425,7 +422,7 @@ impl MultisoulApp {
             if route(&self.runtime.focus.mode(), &InputEvent::Key)
                 == Route::SendInputToNode(node_id)
             {
-                if ev.keystroke.modifiers.platform && ev.keystroke.key == "v" {
+                if is_paste_shortcut(&ev.keystroke) {
                     if self.paste_clipboard_to_node(node_id, cx) {
                         cx.notify();
                     }
