@@ -43,8 +43,10 @@ jobs:
           $media = $LASTEXITCODE
           python -X utf8=0 scripts/check-i18n.py 2>&1 | Tee-Object artifacts/windows-script-contracts/i18n-native-encoding.log
           $i18n = $LASTEXITCODE
-          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; report_exit = $report; package_exit = $package; media_exit = $media; i18n_exit = $i18n } | ConvertTo-Json | Set-Content artifacts/windows-script-contracts/report.json
-          if ($report -ne 0 -or $package -ne 0 -or $media -ne 0 -or $i18n -ne 0) { exit 1 }
+          pwsh -NoProfile -File scripts/windows/test-desktop-driver.ps1 2>&1 | Tee-Object artifacts/windows-script-contracts/desktop-driver.log
+          $desktop = $LASTEXITCODE
+          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; report_exit = $report; package_exit = $package; media_exit = $media; i18n_exit = $i18n; desktop_exit = $desktop } | ConvertTo-Json | Set-Content artifacts/windows-script-contracts/report.json
+          if ($report -ne 0 -or $package -ne 0 -or $media -ne 0 -or $i18n -ne 0 -or $desktop -ne 0) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

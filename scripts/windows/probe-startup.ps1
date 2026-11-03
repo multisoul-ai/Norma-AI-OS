@@ -11,7 +11,7 @@ try {
     $window=Get-NormaWindow $process
     Focus-NormaWindow $window
     $readyDeadline=[DateTime]::UtcNow.AddSeconds(45)
-    while (-not (Select-String -Path (Join-Path $Output 'stdout.log') -Pattern 'native_webview_ready' -Quiet)) {
+    while (-not (Test-NormaNativeReady $Output)) {
         $process.Refresh()
         if ($process.HasExited) { throw "Actual App exited during native browser creation: $($process.ExitCode)" }
         if ([DateTime]::UtcNow -ge $readyDeadline) { throw 'WebView2 did not finish real native creation' }

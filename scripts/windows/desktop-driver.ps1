@@ -61,3 +61,6 @@ function Close-NormaWindow($Process, [IntPtr]$Window) {
     if (-not $Process.WaitForExit(10000)) { throw 'Last-window close did not exit App' }
     if ($Process.ExitCode -ne 0) { throw "App exit code $($Process.ExitCode)" }
 }
+function Test-NormaNativeReady([string]$Directory) {
+    return [bool](Select-String -Path (Join-Path $Directory 'stdout.log') -Pattern 'native_webview_ready' -Quiet)
+}
