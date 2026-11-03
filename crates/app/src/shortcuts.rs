@@ -9,6 +9,9 @@ use storage::SettingsStore;
 mod catalog;
 #[path = "shortcuts/idea_assign.rs"]
 pub(crate) mod idea_assign;
+#[cfg(windows)]
+#[path = "shortcuts/windows_defaults.rs"]
+mod windows_defaults;
 pub(crate) use catalog::{default_shortcut_entries, read_only_behaviors};
 
 const SHORTCUT_PREFS_KEY: &str = "keyboard.shortcuts.v1";

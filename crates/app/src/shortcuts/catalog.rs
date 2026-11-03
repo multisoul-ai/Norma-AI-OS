@@ -418,14 +418,12 @@ const fn entry(
     category: &'static str,
     title: &'static str,
     hint: &'static str,
-    default_keystroke: Option<&'static str>,
+    _default_keystroke: Option<&'static str>,
 ) -> ShortcutEntry {
     #[cfg(windows)]
-    let default_keystroke = if matches!(command, ShortcutCommandId::NewWorkspace) {
-        Some("ctrl-n")
-    } else {
-        default_keystroke
-    };
+    let default_keystroke = super::windows_defaults::key(command);
+    #[cfg(not(windows))]
+    let default_keystroke = _default_keystroke;
     ShortcutEntry {
         command,
         category,
@@ -440,7 +438,7 @@ const READ_ONLY_BEHAVIORS: &[ReadOnlyShortcutBehavior] = &[
     ReadOnlyShortcutBehavior {
         title: "common.paste",
         hint: "shortcuts.send_clipboard_text_to_the_focused_or_keyboard_selected_node",
-        keystroke: "cmd-v",
+        keystroke: if cfg!(windows) { "ctrl-v" } else { "cmd-v" },
         scope: "shortcuts.system",
     },
     ReadOnlyShortcutBehavior {
