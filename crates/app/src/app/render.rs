@@ -47,6 +47,7 @@ impl Render for MultisoulApp {
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)
+            .capture_key_down(cx.listener(Self::capture_quit_shortcut))
             .capture_key_down(cx.listener(Self::capture_home_key))
             .capture_key_down(cx.listener(Self::capture_directory_key))
             .capture_key_down(cx.listener(Self::capture_command_dock_key))

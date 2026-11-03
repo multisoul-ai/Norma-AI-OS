@@ -1,6 +1,30 @@
 use super::*;
 
 impl MultisoulApp {
+    pub(crate) fn capture_quit_shortcut(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.shortcuts.command_for_keystroke(&event.keystroke)
+            != Some(ShortcutCommandId::QuitNormaOs)
+        {
+            return;
+        }
+        let recording = self.shortcuts.recording.is_some()
+            || self
+                .expanded_desktop_project()
+                .is_some_and(|project| project.read(cx).shortcuts.recording.is_some());
+        if recording {
+            return;
+        }
+        if !event.is_held {
+            self.dispatch_shortcut_command(ShortcutCommandId::QuitNormaOs, window, cx);
+        }
+        cx.stop_propagation();
+    }
+
     pub(super) fn dispatch_shortcut_command(
         &mut self,
         command: ShortcutCommandId,
@@ -8,6 +32,10 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         match command {
+            ShortcutCommandId::QuitNormaOs => {
+                // The global quit guard reads project entities after this input lease ends.
+                gpui::App::defer(cx, |cx| cx.dispatch_action(&crate::app::QuitNormaOs));
+            }
             ShortcutCommandId::FocusCommandInput => self.focus_command_input(window, cx),
             ShortcutCommandId::SavePreviewFile => {
                 if self

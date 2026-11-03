@@ -3,6 +3,7 @@ use super::ShortcutCommandId as Command;
 
 pub(super) const fn key(command: Command) -> Option<&'static str> {
     Some(match command {
+        Command::QuitNormaOs => "ctrl-shift-q",
         Command::FocusCommandInput => "ctrl-k",
         Command::NewWindow => "ctrl-shift-n",
         Command::NewWorkspace => "ctrl-n",

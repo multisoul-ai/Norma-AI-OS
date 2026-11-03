@@ -1,6 +1,14 @@
 use super::{ReadOnlyShortcutBehavior, ShortcutCommandId, ShortcutEntry};
 
 const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
+    #[cfg(windows)]
+    entry(
+        ShortcutCommandId::QuitNormaOs,
+        "common.workspace",
+        "menu.quit_norma_os",
+        "shortcuts.quit_norma_os_hint",
+        Some("ctrl-shift-q"),
+    ),
     entry(
         ShortcutCommandId::NewWorkspace,
         "common.workspace",

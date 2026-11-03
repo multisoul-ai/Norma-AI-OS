@@ -348,6 +348,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
         return row;
     }
     match command {
+        ShortcutCommandId::QuitNormaOs => "settings-shortcut-quit-norma-os",
         ShortcutCommandId::NewWorkspace => "settings-shortcut-new-workspace",
         ShortcutCommandId::AddProject => "settings-shortcut-add-project",
         ShortcutCommandId::FocusCommandInput => "settings-shortcut-command-input",
@@ -402,6 +403,7 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
         return restore;
     }
     match command {
+        ShortcutCommandId::QuitNormaOs => "settings-shortcut-restore-quit-norma-os",
         ShortcutCommandId::NewWorkspace => "settings-shortcut-restore-new-workspace",
         ShortcutCommandId::AddProject => "settings-shortcut-restore-add-project",
         ShortcutCommandId::FocusCommandInput => "settings-shortcut-restore-command-input",
