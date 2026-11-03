@@ -92,3 +92,27 @@ fn failing_test_unwind_still_releases_window_resources() {
     );
     assert!(released.load(Ordering::Acquire), "panic展开仍须释放窗口");
 }
+
+/// 场景：一个退出回调失败，仍须执行后续窗口释放和App关闭。
+/// 数据构造：最先注册受控panic回调，再创建有Drop见证的真实窗口。
+/// 执行过程：离开根上下文作用域，在外层捕获清理失败。
+/// 预期结果：首个清理错误保留，窗口资源仍释放，不能把一次失败变成全套资源泄漏。
+#[test]
+fn failing_cleanup_callback_does_not_skip_window_release() {
+    let released = Arc::new(AtomicBool::new(false));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let mut test = TestAppContext::single();
+        test.on_quit(|| std::panic::panic_any("first cleanup failure"));
+        let (_, _visual) = test.add_window_view(|_, _| WindowResource(released.clone()));
+    }));
+    let original = result.expect_err("清理回调失败必须向外报告");
+    assert_eq!(
+        original.downcast_ref::<&str>(),
+        Some(&"first cleanup failure"),
+        "必须保留首个清理失败"
+    );
+    assert!(
+        released.load(Ordering::Acquire),
+        "一个回调失败不能跳过后续窗口释放"
+    );
+}
