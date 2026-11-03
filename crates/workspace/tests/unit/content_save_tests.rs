@@ -1,6 +1,10 @@
 use super::*;
 use std::io::Write;
 
+#[cfg(windows)]
+#[path = "../support/windows_privileges.rs"]
+mod windows_privileges;
+
 /// 场景：最终替换之前，外部编辑器已经保存另一版本。
 /// 数据构造：用户看到 before，准备 draft 后把磁盘改为 external。
 /// 执行过程：原子交换并校验被置换的真实文件。
@@ -42,6 +46,7 @@ fn exchange_preserves_external_edit_arriving_before_replace() {
 #[test]
 fn failed_rollback_and_keep_preserve_both_versions() {
     let temp = tempfile::tempdir().expect("隔离ACL夹具");
+    let _access = windows_privileges::WithoutTokenPrivileges::new();
     let target = temp.path().join("a.txt");
     std::fs::write(&target, "external").expect("外部版本");
     deny_write_attributes(&target);
@@ -79,6 +84,7 @@ fn failed_rollback_and_keep_preserve_both_versions() {
 #[test]
 fn restored_conflict_keeps_draft_when_attributes_cannot_be_persisted() {
     let temp = tempfile::tempdir().expect("隔离keep失败");
+    let _access = windows_privileges::WithoutTokenPrivileges::new();
     let target = temp.path().join("a.txt");
     std::fs::write(&target, "external").expect("已恢复的外部版本");
     let mut draft = tempfile::NamedTempFile::new_in(temp.path()).expect("归档草稿");
@@ -158,19 +164,6 @@ fn deny_write_attributes(target: &Path) {
     let error = std::io::Error::last_os_error();
     unsafe { LocalFree(descriptor) };
     assert_ne!(applied, 0, "必须实际应用拒绝属性的DACL：{error}");
-    for (program, arguments) in [
-        ("icacls", vec![target.as_os_str()]),
-        ("whoami", vec![std::ffi::OsStr::new("/all")]),
-    ] {
-        let result = std::process::Command::new(program)
-            .args(arguments)
-            .output()
-            .expect("真实ACL和token诊断");
-        eprintln!(
-            "[DEBUG-keep-acl] {program}: {}",
-            String::from_utf8_lossy(&result.stdout)
-        );
-    }
     let handle = unsafe {
         CreateFileW(
             path.as_ptr(),
@@ -183,19 +176,17 @@ fn deny_write_attributes(target: &Path) {
         )
     };
     let open_error = std::io::Error::last_os_error();
-    eprintln!(
-        "[DEBUG-keep-acl] write-attributes handle invalid={} error={open_error:?}",
-        handle == INVALID_HANDLE_VALUE
-    );
     if handle != INVALID_HANDLE_VALUE {
         unsafe { CloseHandle(handle) };
     }
+    assert_eq!(handle, INVALID_HANDLE_VALUE, "真实DACL必须拒绝写属性句柄");
+    assert_eq!(
+        open_error.raw_os_error(),
+        Some(5),
+        "拒绝句柄必须是AccessDenied"
+    );
     let denied = unsafe { SetFileAttributesW(path.as_ptr(), FILE_ATTRIBUTE_NORMAL) };
     let error = std::io::Error::last_os_error();
-    eprintln!(
-        "[DEBUG-keep-acl] SetFileAttributesW={denied} error={error:?} final_attributes={:#x}",
-        unsafe { GetFileAttributesW(path.as_ptr()) }
-    );
     assert_eq!(
         denied, 0,
         "生产keep使用的实际属性更新必须被DACL拒绝，不能伪造故障"
