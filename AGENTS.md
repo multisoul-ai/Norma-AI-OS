@@ -66,6 +66,7 @@ Workspace 分层：
 - **Agent 指南 ≤ 300 行**：`AGENTS.md` 与 `CLAUDE.md` 由 [`scripts/check-agent-guide-lines.sh`](scripts/check-agent-guide-lines.sh) 拦截；超长内容归档到 `docs/`，并在 §4 增加指针。
 - **禁止 `#[allow(...)]`**：Rust 源码不得用 allow 压制编译器或 clippy 诊断；由 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截，必须修根因。
 - **本地 hook 可安装**：运行 `bash scripts/install-git-hooks.sh` 后，原生 pre-commit 会跑 staged 约束和轻量 Rust 检查。
+- **`dev` 合并门禁**：所有变更必须通过 PR 合并到 `dev`；合并前必须确认 PR 最新提交的 CI（含 `rust checks`）已全部完成并通过，禁止直接推送、绕过 CI 或使用管理员权限强制合并。
 - **Agent 不得绕过提交验证**：禁止 `git commit --no-verify`、`git commit -n` 及关闭/替换 hook；完整规则与按范围提速流程见 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md)。
 - **写代码前先 TDD**：新功能或 bugfix 先补能失败的聚焦测试，再实现。
 - **测试目录按 crate 维护**：大型独立单元测试放 `crates/<crate>/tests/unit/` 并从源码模块用 `#[path]` 挂载；集成测试放 `crates/<crate>/tests/*.rs`；crate 专用 helper 放 `crates/<crate>/tests/support/`。
