@@ -41,6 +41,71 @@ mod native {
         }
     }
 
+    /// 场景：显式quit结束消息循环后，退出观察器和实体析构排队的前台收尾仍须完成。
+    /// 构造：真实顶层HWND、独立退出观察器标志和观察器排队的前台marker。
+    /// 执行：窗口存活250毫秒后直接cx.quit；Application::run返回后查询marker和IsWindow。
+    /// 预期：观察器及marker均执行，原HWND已销毁，无native错误；不依赖正常关窗回调。
+    fn explicit_quit() {
+        let raw = Rc::new(Cell::new(0isize));
+        let observed = Rc::new(Cell::new(false));
+        let finished = Rc::new(Cell::new(false));
+        let captured = raw.clone();
+        let quit_observed = observed.clone();
+        let drained = finished.clone();
+        Application::new().run(move |cx| {
+            cx.on_app_quit(move |cx| {
+                quit_observed.set(true);
+                let drained = drained.clone();
+                cx.foreground_executor()
+                    .spawn(async move { drained.set(true) })
+                    .detach();
+                async {}
+            })
+            .detach();
+            cx.open_window(WindowOptions::default(), move |window, cx| {
+                let RawWindowHandle::Win32(handle) = HasWindowHandle::window_handle(window)
+                    .expect("explicit quit native handle")
+                    .as_raw()
+                else {
+                    panic!("expected explicit quit HWND")
+                };
+                captured.set(handle.hwnd.get());
+                cx.new(|_| Probe)
+            })
+            .expect("open actual window before explicit quit");
+            let mut app = cx.to_async();
+            cx.foreground_executor()
+                .spawn(async move {
+                    Timer::after(Duration::from_millis(250)).await;
+                    app.update(|cx| {
+                        assert_eq!(cx.windows().len(), 1, "显式退出时必须仍有一个真实窗口");
+                        cx.quit();
+                    })
+                    .expect("request quit while the native window is live");
+                })
+                .detach();
+        });
+        assert_ne!(raw.get(), 0, "必须实际创建顶层HWND，不能由无窗口样本假阳性");
+        let alive = unsafe { IsWindow(Some(HWND(raw.get() as *mut std::ffi::c_void))) }.as_bool();
+        println!(
+            "explicit-quit: observer={}; foreground_marker={}; native_window_alive={alive}",
+            observed.get(),
+            finished.get()
+        );
+        assert!(observed.get(), "退出观察器必须确实执行");
+        assert!(
+            finished.get(),
+            "退出观察器排队的前台收尾必须完成，实际HWND仍活={alive}"
+        );
+        assert!(
+            !alive,
+            "Application::run返回前必须销毁显式退出遗留的顶层HWND"
+        );
+        let errors = ERRORS.lock().expect("inspect explicit quit native errors");
+        assert!(errors.is_empty(), "显式退出不能产生native错误：{errors:#?}");
+        println!("PASS: explicit-quit; quit_observed=true; drain_finished=true; all_native_windows_destroyed=true; errors=0");
+    }
+
     /// 场景：窗口完整收口；App选择后台保活时，关闭最后窗口不能退出消息循环。
     /// 数据构造：实际500×400目标窗；既有四模式带隐藏keeper，后台模式完全没有keeper。
     /// 执行过程：250毫秒后关窗，100毫秒后记录排空；后台模式此时才显式quit。
@@ -53,7 +118,8 @@ mod native {
                 "queued-active-close",
                 "queued-window-ops-close",
                 "remove-window",
-                "background-last-close"
+                "background-last-close",
+                "explicit-quit"
             ]
             .contains(&mode.as_str()),
             "unknown lifecycle mode: {mode}"
@@ -61,6 +127,10 @@ mod native {
         let background = mode == "background-last-close";
         log::set_logger(&Capture).expect("install native error capture");
         log::set_max_level(log::LevelFilter::Error);
+        if mode == "explicit-quit" {
+            explicit_quit();
+            return;
+        }
         let closed = Rc::new(Cell::new(0));
         let close_count = closed.clone();
         let raw = Rc::new(Cell::new(0isize));

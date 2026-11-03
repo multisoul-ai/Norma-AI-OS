@@ -49,7 +49,7 @@ jobs:
         shell: pwsh
         run: |
           $results=@{}
-          foreach ($mode in @('native-close', 'queued-active-close', 'queued-window-ops-close', 'remove-window', 'background-last-close')) {
+          foreach ($mode in @('native-close', 'queued-active-close', 'queued-window-ops-close', 'remove-window', 'background-last-close', 'explicit-quit')) {
             $process=Start-Process ./target/debug/norma-window-lifecycle.exe -ArgumentList $mode -PassThru -RedirectStandardOutput "artifacts/window-lifecycle/$mode-stdout.log" -RedirectStandardError "artifacts/window-lifecycle/$mode-stderr.log"
             try {
               if ($process.WaitForExit(15000)) { $results[$mode]=$process.ExitCode }
