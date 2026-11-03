@@ -49,6 +49,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.91.1
+      - name: Require the independent App adapter lock before compiling
+        shell: pwsh
+        run: |
+          cargo metadata --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --format-version 1 > $null
+          exit $LASTEXITCODE
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
