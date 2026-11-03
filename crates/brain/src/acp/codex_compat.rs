@@ -1,11 +1,15 @@
-//! codex-acp 2.2.2 的权限展示丢失了 shell 参数边界。只在模块加载时保留原始命令，
+//! codex-acp 2.2.2 的权限展示丢失了 shell 参数边界，且线程默认落盘进用户会话列表。只在模块加载时保留原始命令，
 //! 不改用户安装包；格式或版本不匹配则拒绝启动，绝不降级为猜测引号。
 
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 
-const NEEDLE: &str = "command: stripShellPrefix(params.command)";
+/// 加载器要改写的语句，须与 codex_loader.mjs 一致：保留 shell 参数边界、线程不落盘。
+const NEEDLES: [&str; 2] = [
+    "command: stripShellPrefix(params.command)",
+    r#"method: "thread/start", params }"#,
+];
 
 pub(super) struct Adapter {
     pub program: PathBuf,
@@ -25,7 +29,9 @@ impl Adapter {
         let source = std::fs::read_to_string(&entry)?;
         if manifest["name"] != "@agentclientprotocol/codex-acp"
             || manifest["version"] != "2.2.2"
-            || source.matches(NEEDLE).count() != 1
+            || NEEDLES
+                .iter()
+                .any(|needle| source.matches(needle).count() != 1)
         {
             return Err(io::Error::other(
                 "Codex 权限适配只支持已验证的 codex-acp 2.2.2，请重新安装适配器",

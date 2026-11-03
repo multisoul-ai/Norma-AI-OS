@@ -4,7 +4,11 @@ import { pathToFileURL } from "node:url";
 
 const entry = process.argv[2];
 const target = pathToFileURL(entry).href;
-const needle = "command: stripShellPrefix(params.command)";
+// 每处补丁必须恰好命中一次；第二处让大脑线程不落盘，不出现在用户的 Codex 会话列表里。
+const patches = [
+  ["command: stripShellPrefix(params.command)", "command: {normaShellCommand: params.command}"],
+  ['method: "thread/start", params }', 'method: "thread/start", params: { ...params, ephemeral: true } }'],
+];
 try {
 const { registerHooks } = await import("node:module");
 if (typeof registerHooks !== "function") {
@@ -16,11 +20,14 @@ registerHooks({
     if (url !== target) return loaded;
     const source = typeof loaded.source === "string"
       ? loaded.source : Buffer.from(loaded.source).toString("utf8");
-    if (source.split(needle).length !== 2) {
-      throw new Error("Codex permission source changed; refusing lossy command decoding");
+    let patched = source;
+    for (const [needle, replacement] of patches) {
+      if (patched.split(needle).length !== 2) {
+        throw new Error(`Codex source changed; refusing to start without patch: ${needle}`);
+      }
+      patched = patched.replace(needle, replacement);
     }
-    return { ...loaded, source: source.replace(needle,
-      "command: {normaShellCommand: params.command}") };
+    return { ...loaded, source: patched };
   },
 });
 process.argv = [process.argv[0], entry, ...process.argv.slice(3)];
