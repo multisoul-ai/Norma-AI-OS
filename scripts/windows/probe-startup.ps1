@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory)][string]$Executable,
     [Parameter(Mandatory)][string]$Output,
-    [ValidateSet('window-close','quit-shortcut','settings-then-quit','configured-input-quit')][string]$ExitMode='window-close'
+    [ValidateSet('window-close','quit-shortcut','settings-then-quit','configured-input-quit','workspace-reopen')][string]$ExitMode='window-close'
 )
 $ErrorActionPreference='Stop'
 . "$PSScriptRoot/desktop-driver.ps1"
@@ -36,7 +36,40 @@ try {
         if ($process.HasExited) { throw "Actual App exited before stable rendering: $($process.ExitCode)" }
         Save-NormaScreenshot $window (Join-Path $Output "frame-$frame.png")
     }
-    if ($ExitMode -eq 'window-close') {
+    if ($ExitMode -eq 'workspace-reopen') {
+        $report.scope='Actual development App: native Ctrl+N, Unicode workspace creation, close and reopen; screenshots require visual verification; no package acceptance'
+        $name="Runner 中文 workspace $env:GITHUB_RUN_ID"
+        Send-NormaChord @(0x11,0x4E)
+        Start-Sleep -Seconds 1
+        Save-NormaScreenshot $window (Join-Path $Output 'workspace-create-dialog.png')
+        [NormaDesktop]::Text($name)
+        Send-NormaChord @(0x0D)
+        Start-Sleep -Seconds 2
+        Save-NormaScreenshot $window (Join-Path $Output 'workspace-created.png')
+        python "$PSScriptRoot/read-workspace.py" --database $database --name $name --output (Join-Path $Output 'workspace-created.json')
+        if ($LASTEXITCODE -ne 0) { throw 'Native workspace creation did not persist the exact Unicode name' }
+        Close-NormaWindow $process $window
+        $process.Dispose(); $process=$null
+        $reopened=Join-Path $Output 'reopened'
+        New-Item -ItemType Directory -Force $reopened | Out-Null
+        $process=Start-Process $exe -WorkingDirectory (Split-Path $exe) -PassThru -RedirectStandardOutput (Join-Path $reopened 'stdout.log') -RedirectStandardError (Join-Path $reopened 'stderr.log')
+        $window=Get-NormaWindow $process
+        Focus-NormaWindow $window
+        $readyDeadline=[DateTime]::UtcNow.AddSeconds(45)
+        while (-not (Test-NormaNativeReady $reopened)) {
+            if ($process.WaitForExit(0)) { throw 'App exited before reopening the persisted workspace' }
+            if ([DateTime]::UtcNow -ge $readyDeadline) { throw 'Reopened App did not finish native browser creation' }
+            Start-Sleep -Milliseconds 250
+        }
+        Start-Sleep -Seconds 1
+        Save-NormaScreenshot $window (Join-Path $Output 'workspace-reopened.png')
+        python "$PSScriptRoot/read-workspace.py" --database $database --name $name --output (Join-Path $Output 'workspace-reopened.json')
+        if ($LASTEXITCODE -ne 0) { throw 'Created workspace did not survive close and reopen' }
+        Close-NormaWindow $process $window
+        $report.workspace_name=$name
+        $report.workspace_persisted=$true
+        $report.visual_verification='PENDING'
+    } elseif ($ExitMode -eq 'window-close') {
         Close-NormaWindow $process $window
     } else {
         if ($ExitMode -eq 'settings-then-quit') {
@@ -70,7 +103,9 @@ try {
         if (-not $process.WaitForExit(10000)) { throw 'Native quit shortcut did not exit App' }
         if ($process.ExitCode -ne 0) { throw "Native quit shortcut exit code $($process.ExitCode)" }
     }
-    foreach ($stream in @('stdout.log', 'stderr.log')) {
+    $streams=@('stdout.log','stderr.log')
+    if ($ExitMode -eq 'workspace-reopen') { $streams += @('reopened/stdout.log','reopened/stderr.log') }
+    foreach ($stream in $streams) {
         $content=(Get-Content (Join-Path $Output $stream) -Raw) -replace '\x1b\[[0-9;]*m', ''
         if ($content -match '(?m)^\S+\s+ERROR\b|^\[[^\r\n]*:ERROR:|panicked at') { throw "Actual App emitted an error during startup/close; inspect $stream" }
     }

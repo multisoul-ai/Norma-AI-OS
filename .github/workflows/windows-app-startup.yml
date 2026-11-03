@@ -52,6 +52,10 @@ jobs:
         if: always() && steps.build.outcome == 'success'
         shell: pwsh
         run: ./scripts/windows/probe-startup.ps1 -Executable target/debug/norma-os.exe -Output artifacts/startup/configured-input-quit -ExitMode configured-input-quit
+      - name: Create a Unicode workspace through native input and reopen the actual App
+        if: always() && steps.build.outcome == 'success'
+        shell: pwsh
+        run: ./scripts/windows/probe-startup.ps1 -Executable target/debug/norma-os.exe -Output artifacts/startup/workspace-reopen -ExitMode workspace-reopen
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
