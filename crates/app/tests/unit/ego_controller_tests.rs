@@ -1,5 +1,4 @@
 use super::*;
-use std::os::unix::fs::PermissionsExt;
 
 /// Ego helper 成功回执：即使官方 `cliLog` 把带前缀结果写到 stderr，也必须完成 Task Space 绑定。
 ///
@@ -10,7 +9,7 @@ use std::os::unix::fs::PermissionsExt;
 ///   候选结果 = stdout(1) + stderr(1) = 2 行，但只有 stderr 行带可信前缀
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 启动真实临时 helper 进程，并向其 stdin 写入占位脚本。
+///   1. 在runner构建并启动原生Rust helper，通过正式调用路径写stdin占位脚本。
 ///   2. helper 成功退出；普通 JSON 写 stdout，`NORMA_EGO_RESULT` 回执写 stderr。
 ///   3. 将 helper 成功输出交给 Task Space 结果解析器。
 ///
@@ -20,21 +19,25 @@ use std::os::unix::fs::PermissionsExt;
 #[test]
 fn test_successful_helper_result_on_stderr_is_parsed() {
     let fixture_dir = tempfile::tempdir().expect("测试必须创建隔离的 helper fixture 目录");
-    let helper = fixture_dir.path().join("ego-browser-fixture");
-    std::fs::write(
-        &helper,
-        "#!/bin/sh\n\
-         /bin/cat >/dev/null\n\
-         printf '%s\\n' '{\"task_space_id\":\"99\",\"task_space_name\":\"普通日志\"}'\n\
-         printf '%s\\n' 'NORMA_EGO_RESULT={\"task_space_id\":\"5\",\"task_space_name\":\"Norma · Ego\"}' >&2\n",
-    )
-    .expect("测试必须写入可执行的 helper fixture");
-    let mut permissions = std::fs::metadata(&helper)
-        .expect("测试必须读取 helper fixture 权限")
-        .permissions();
-    // executable mode = owner(7) + group(5) + other(5) = 0o755。
-    permissions.set_mode(0o755);
-    std::fs::set_permissions(&helper, permissions).expect("测试必须把 helper fixture 标记为可执行");
+    let source = fixture_dir.path().join("ego_fixture.rs");
+    std::fs::write(&source, include_str!("../support/ego_helper_fixture.rs"))
+        .expect("应写入同一份原生helper源代码");
+    let helper = fixture_dir.path().join(format!(
+        "ego-browser-fixture{}",
+        std::env::consts::EXE_SUFFIX
+    ));
+    let compiled = std::process::Command::new("rustc")
+        .arg("--edition=2021")
+        .arg(&source)
+        .arg("-o")
+        .arg(&helper)
+        .output()
+        .expect("runner必须用原生Rust工具链构建helper夹具");
+    assert!(
+        compiled.status.success(),
+        "原生helper必须构建成功：{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
 
     let output =
         run_helper(&helper, "fixture script").expect("退出码为 0 的 helper 必须返回可解析输出");
