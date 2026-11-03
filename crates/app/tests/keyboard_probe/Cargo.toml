@@ -11,7 +11,7 @@ path = "src/window_lifecycle.rs"
 [workspace]
 
 [dependencies]
-gpui = { version = "=0.2.2", path = "../../../../vendor/gpui-0.2.2", features = ["test-support"] }
+gpui = { version = "=0.2.2", path = "../../../../vendor/gpui-0.2.2" }
 ui = { path = "../../../ui" }
 storage = { path = "../../../storage" }
 norma = { path = "../../../norma" }
