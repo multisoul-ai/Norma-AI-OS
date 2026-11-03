@@ -16,6 +16,10 @@ pub(crate) mod idea_assign;
 mod windows_defaults;
 pub(crate) use catalog::{default_shortcut_entries, read_only_behaviors};
 
+#[cfg(all(test, windows))]
+#[path = "../tests/unit/windows_quit_shortcut_tests.rs"]
+mod quit_tests;
+
 const SHORTCUT_PREFS_KEY: &str = "keyboard.shortcuts.v1";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
