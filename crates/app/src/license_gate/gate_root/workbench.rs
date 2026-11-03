@@ -68,3 +68,7 @@ impl GateRoot {
 #[cfg(test)]
 #[path = "../../../tests/unit/gated_desktop_host_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/quit_shortcut_input_tests.rs"]
+mod quit_input_tests;

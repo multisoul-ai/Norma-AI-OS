@@ -1,10 +1,10 @@
-use crate::app::MultisoulApp;
+use super::*;
 use crate::shortcuts::{EffectiveShortcutEntry, ShortcutCommandId};
 use gpui::{AppContext, KeyDownEvent, Keystroke, TestAppContext};
 use std::{cell::Cell, rc::Rc};
 
 /// 场景：可配置的App退出键必须先于输入框的SelectAll等局部键图执行。
-/// 构造：真实Root与MultisoulApp、已聚焦命令输入，Quit映射为原生全选键（Win Ctrl+A/Mac Cmd+A）。
+/// 构造：生产Root→GateRoot→MultisoulApp、已聚焦命令输入，Quit映射为原生全选键。
 /// 执行：通过GPUI输入派发发送该键，全局Quit回调读取原App实体以检查借用已释放。
 /// 预期：正常按键收到Quit；长按和录制不触发；结束录制后可再次退出，不重入读取实体。
 #[test]
@@ -16,9 +16,13 @@ fn quit_shortcut_routes_before_focused_input_keymap() {
     let mut app = None;
     let (_, cx) = test.add_window_view(|window, cx| {
         ui::init_components(cx);
-        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
-        app = Some(entity.clone());
-        ui::component::Root::new(entity, window, cx)
+        let gate = cx.new(|cx| {
+            let mut gate = GateRoot::new(BootPhase::Activation, window, cx);
+            gate.mount_workbench_from_context(paths, store, window, cx);
+            app = gate.workbench.clone();
+            gate
+        });
+        ui::component::Root::new(gate, window, cx)
     });
     let app = app.unwrap();
     let quits = Rc::new(Cell::new(0));

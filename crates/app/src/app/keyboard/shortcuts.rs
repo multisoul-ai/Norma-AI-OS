@@ -1,9 +1,5 @@
 use super::*;
 
-#[cfg(test)]
-#[path = "../../../tests/unit/quit_shortcut_input_tests.rs"]
-mod quit_input_tests;
-
 impl MultisoulApp {
     pub(super) fn dispatch_shortcut_command(
         &mut self,
