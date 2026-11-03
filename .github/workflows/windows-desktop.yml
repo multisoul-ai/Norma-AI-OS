@@ -44,6 +44,15 @@ jobs:
           "CANDIDATE_ZIP_SHA256=$expected" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           New-Item -ItemType Directory -Force artifacts/desktop | Out-Null
           @{ producer_run=$env:CANDIDATE_RUN; producer_attempt=$run.run_attempt; producer_url=$run.html_url; source_sha=$run.head_sha; probe_sha=$env:GITHUB_SHA; consumer_run=$env:GITHUB_RUN_ID; zip_name=$zip[0].Name; zip_sha256=$expected; zip_size=$zip[0].Length; rebuilt=$false } | ConvertTo-Json | Set-Content artifacts/desktop/download.json -Encoding utf8
+      # 场景：19045缺少20348新增的WinSock入口，静态导入会在main前失败。
+      # 构造/执行：仅检查下载的同一包，使用MSVC dumpbin读取四个真实exe导入表。
+      # 预期：不存在强制ProcessSocketNotifications导入；不是在Server上启动成功就推断Win10通过。
+      - name: Reject a mandatory newer WinSock entry point before App launch
+        shell: pwsh
+        run: |
+          $package = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'Norma 中文 candidate') -Directory)
+          if ($package.Count -ne 1) { throw 'Unexpected package layout' }
+          ./scripts/windows/assert-winsock-imports.ps1 -Package $package[0].FullName -Output artifacts/desktop/imports
       - name: Exercise native keyboard workspace creation and persistence
         shell: pwsh
         run: |
