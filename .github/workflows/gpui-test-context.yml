@@ -24,6 +24,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: windows-port-macos-regression-native-watch-v2
+          cache-workspace-crates: true
           cache-on-failure: true
       - name: Require window resource release at root test scope exit
         shell: bash

@@ -28,6 +28,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: windows-native-keyboard
+          cache-workspace-crates: true
           cache-on-failure: true
       - uses: actions/cache@v4
         with:
