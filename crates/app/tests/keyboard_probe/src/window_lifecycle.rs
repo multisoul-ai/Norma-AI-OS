@@ -36,8 +36,8 @@ mod native {
     }
 
     /// 场景：原生关窗、激活通知排队后关窗、App主动移除三条路径都必须完整收口。
-    /// 数据构造：一个实际500×400 GPUI窗，无WebView；原生消息在同一UI任务内发送。
-    /// 执行过程：等待250毫秒让窗口初始化，再触发指定路径；关窗回调后保留100毫秒排空队列。
+    /// 数据构造：一个实际500×400目标窗与一个隐藏keeper，无WebView；消息在同一UI任务内发送。
+    /// 执行过程：初始化250毫秒后触发路径；keeper阻止最后窗口自动退出，100毫秒后明确记录排空。
     /// 预期结果：只关闭一次，HWND真实销毁，GPUI不再访问已移除窗口或重复销毁句柄。
     pub(super) fn run() {
         let mode = std::env::args().nth(1).expect("lifecycle mode required");
@@ -52,15 +52,43 @@ mod native {
         let raw = Rc::new(Cell::new(0isize));
         let observed_raw = raw.clone();
         let retired_raw = raw.clone();
+        let keeper_raw = Rc::new(Cell::new(0isize));
+        let retired_keeper = keeper_raw.clone();
+        let drained = Rc::new(Cell::new(false));
+        let finished = drained.clone();
         let requested_mode = mode.clone();
         Application::new().run(move |cx| {
+            let keeper = cx
+                .open_window(
+                    WindowOptions {
+                        show: false,
+                        ..Default::default()
+                    },
+                    move |window, cx| {
+                        let RawWindowHandle::Win32(handle) = HasWindowHandle::window_handle(window)
+                            .expect("keeper native handle")
+                            .as_raw()
+                        else {
+                            panic!("expected keeper HWND")
+                        };
+                        keeper_raw.set(handle.hwnd.get());
+                        cx.new(|_| Probe)
+                    },
+                )
+                .expect("open hidden keeper to prevent early native quit");
             cx.on_window_closed(move |cx| {
+                if cx.windows().len() != 1 {
+                    return;
+                }
                 close_count.set(close_count.get() + 1);
                 let mut app = cx.to_async();
+                let finished = finished.clone();
                 cx.foreground_executor()
                     .spawn(async move {
                         Timer::after(Duration::from_millis(100)).await;
-                        app.update(|cx| cx.quit()).expect("quit after drain");
+                        finished.set(true);
+                        app.update_window(keeper.into(), |_, window, _| window.remove_window())
+                            .expect("remove keeper after verified drain");
                     })
                     .detach();
             })
@@ -122,17 +150,31 @@ mod native {
             1,
             "{mode} must emit exactly one close callback"
         );
+        assert!(
+            drained.get(),
+            "{mode} must finish the post-close drain before quitting"
+        );
         // SAFETY: querying the captured numeric handle does not dereference the former window.
         assert!(
             !unsafe { IsWindow(Some(HWND(retired_raw.get() as *mut std::ffi::c_void))) }.as_bool(),
             "{mode} must destroy the original native HWND"
+        );
+        assert_ne!(
+            retired_keeper.get(),
+            0,
+            "the keeper must have a real native HWND"
+        );
+        assert!(
+            !unsafe { IsWindow(Some(HWND(retired_keeper.get() as *mut std::ffi::c_void))) }
+                .as_bool(),
+            "{mode} must also destroy the keeper HWND"
         );
         let errors = ERRORS.lock().expect("inspect captured native errors");
         assert!(
             errors.is_empty(),
             "{mode} must close without native errors: {errors:#?}"
         );
-        println!("PASS: {mode}; close_count=1; native_window_destroyed=true; errors=0");
+        println!("PASS: {mode}; close_count=1; drain_finished=true; both_native_windows_destroyed=true; errors=0");
     }
 }
 

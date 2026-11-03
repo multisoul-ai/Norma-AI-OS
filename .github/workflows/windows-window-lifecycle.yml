@@ -44,8 +44,11 @@ jobs:
         run: |
           $results=@{}
           foreach ($mode in @('native-close', 'queued-active-close', 'remove-window')) {
-            & ./target/debug/norma-window-lifecycle.exe $mode 2>&1 | Tee-Object "artifacts/window-lifecycle/$mode.log"
-            $results[$mode]=$LASTEXITCODE
+            $process=Start-Process ./target/debug/norma-window-lifecycle.exe -ArgumentList $mode -PassThru -RedirectStandardOutput "artifacts/window-lifecycle/$mode-stdout.log" -RedirectStandardError "artifacts/window-lifecycle/$mode-stderr.log"
+            try {
+              if ($process.WaitForExit(15000)) { $results[$mode]=$process.ExitCode }
+              else { $results[$mode]=124; $process.Kill($true); $process.WaitForExit(5000) | Out-Null }
+            } finally { $process.Dispose() }
           }
           @{ source_sha=$env:GITHUB_SHA; run_id=$env:GITHUB_RUN_ID; run_attempt=$env:GITHUB_RUN_ATTEMPT; exits=$results } | ConvertTo-Json -Depth 4 | Set-Content artifacts/window-lifecycle/report.json
           if (@($results.Values | Where-Object { $_ -ne 0 }).Count -ne 0) { exit 1 }
