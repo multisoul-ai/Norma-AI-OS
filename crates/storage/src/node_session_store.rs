@@ -88,6 +88,15 @@ impl NodeSessionStore {
         current_nodes: &[(NodeId, NodeSessionKind)],
         observed_sessions: &[NodeSession],
     ) -> StorageResult<()> {
+        self.reconcile_sessions_after_read(current_nodes, observed_sessions, || {})
+    }
+
+    fn reconcile_sessions_after_read(
+        &self,
+        current_nodes: &[(NodeId, NodeSessionKind)],
+        observed_sessions: &[NodeSession],
+        after_read: impl FnOnce(),
+    ) -> StorageResult<()> {
         let mut conn = Connection::open(&self.path)?;
         let tx = conn.transaction()?;
         let existing = {
@@ -111,6 +120,7 @@ impl NodeSessionStore {
             .iter()
             .map(|session| (session.node_id, session))
             .collect::<HashMap<_, _>>();
+        after_read();
         let reconciled = current_nodes
             .iter()
             .map(|(node_id, kind)| {
@@ -191,3 +201,7 @@ impl NodeSessionStore {
 #[cfg(test)]
 #[path = "../tests/unit/node_session_store_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/node_session_concurrency_tests.rs"]
+mod concurrency_tests;
