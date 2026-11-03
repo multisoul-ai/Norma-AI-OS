@@ -5,35 +5,68 @@ mod shortcuts;
 use gpui::Keystroke;
 use shortcuts::{ShortcutCommandId, ShortcutSettingsState};
 
-/// 场景：粘贴既可作用于已聚焦节点，也能进入方向键选中的节点。
+/// 场景：原生粘贴必须进入已聚焦节点的剪贴板路径。
 /// 数据构造：Windows的Ctrl+V、macOS的Cmd+V与裸V、系统键、控制键反例。
-/// 执行过程：调用生产focused路径的粘贴判定和selection路径的修饰键准入。
-/// 预期结果：原生粘贴同时通过两层；终端Ctrl+C不被粘贴截获，也不触发选中卡片自动聚焦。
+/// 执行过程：调用生产focused路径的粘贴判定。
+/// 预期结果：只接受精确原生组合；裸V、终端Ctrl+C和其他修饰组合不被粘贴截获。
 #[test]
-fn native_clipboard_shortcut_reaches_focused_and_selected_nodes() {
-    use shortcuts::clipboard::{is_paste_shortcut, selection_accepts_modifiers};
+fn native_clipboard_shortcut_reaches_focused_node() {
+    use shortcuts::clipboard::is_paste_shortcut;
     let source = if cfg!(windows) { "ctrl-v" } else { "cmd-v" };
     let paste = Keystroke::parse(source).expect("原生粘贴按键合法");
     assert!(
         is_paste_shortcut(&paste),
         "{source}必须进入聚焦节点的剪贴板路径"
     );
-    assert!(
-        selection_accepts_modifiers(&paste),
-        "{source}必须通过选中节点的外层准入"
-    );
-    for source in ["v", "ctrl-c", "ctrl-shift-v", "ctrl-alt-v", "cmd-ctrl-v"] {
+    for source in [
+        "v",
+        "ctrl-c",
+        "ctrl-shift-v",
+        "ctrl-alt-v",
+        "cmd-ctrl-v",
+        "cmd-shift-v",
+        "cmd-alt-v",
+        "cmd-fn-v",
+    ] {
         let key = Keystroke::parse(source).expect("反例按键合法");
         assert!(!is_paste_shortcut(&key), "{source}不能被当成原生粘贴");
     }
-    let interrupt = Keystroke::parse("ctrl-c").expect("终端中断按键合法");
-    assert!(
-        !selection_accepts_modifiers(&interrupt),
-        "Ctrl+C不能自动聚焦选中卡片"
-    );
     if cfg!(windows) {
         let system = Keystroke::parse("cmd-v").expect("系统键反例合法");
         assert!(!is_paste_shortcut(&system), "Win+V必须保留给系统剪贴板历史");
+    }
+}
+
+/// 场景：方向键选中的节点必须接受原生粘贴，但不能因其他控制组合自动聚焦。
+/// 数据构造：平台粘贴、Ctrl+C和附带Shift/Alt/系统/Fn修饰的V。
+/// 执行过程：独立调用生产selection修饰键准入，避免被focused路径的首个失败遮蔽。
+/// 预期结果：原生粘贴通过外层；其他控制组合拒绝，不能聚焦后向PTY发送0x16。
+#[test]
+fn native_clipboard_shortcut_enters_keyboard_selection() {
+    use shortcuts::clipboard::selection_accepts_modifiers;
+    let source = if cfg!(windows) { "ctrl-v" } else { "cmd-v" };
+    let paste = Keystroke::parse(source).expect("原生粘贴按键合法");
+    assert!(
+        selection_accepts_modifiers(&paste),
+        "{source}必须通过选中节点外层准入"
+    );
+    for source in [
+        "ctrl-c",
+        "ctrl-shift-v",
+        "ctrl-alt-v",
+        "cmd-ctrl-v",
+        "cmd-shift-v",
+        "cmd-alt-v",
+        "cmd-fn-v",
+    ] {
+        let key = Keystroke::parse(source).expect("反例按键合法");
+        assert!(
+            !selection_accepts_modifiers(&key),
+            "{source}不能自动聚焦选中节点"
+        );
+    }
+    if cfg!(windows) {
+        let system = Keystroke::parse("cmd-v").expect("系统键反例合法");
         assert!(
             !selection_accepts_modifiers(&system),
             "Win+V不能自动聚焦卡片"
