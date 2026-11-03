@@ -3,7 +3,9 @@
 import importlib.util
 import hashlib
 import json
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import shutil
 import zipfile
@@ -54,6 +56,31 @@ class PackageTests(unittest.TestCase):
             self.complete_fixture(root)
             manifest = module.verify(root)
             self.assertEqual(manifest['source_sha'], 'fixture', '完整布局须保留来源身份')
+
+    @unittest.skipUnless(os.name == 'nt', 'Native PowerShell consumer runs on Windows')
+    def test_consumer_rejects_wrong_source_before_executing_helpers(self):
+        """场景：验收脚本提交与候选源码不同，且候选不是指定来源。
+        构造：完整微型包、不同的GITHUB_SHA和ExpectedSourceSha；微型PE不可执行。
+        执行：调用公开smoke脚本；预期先拒绝来源，不执行helper，并分别保留两个SHA。
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package, output = root / 'package', root / 'evidence'
+            package.mkdir()
+            self.complete_fixture(package)
+            script = Path(__file__).parent / 'windows/smoke-package.ps1'
+            run = subprocess.run([
+                'pwsh', '-NoProfile', '-File', str(script), '-Package', str(package),
+                '-Output', str(output), '-ExpectedSourceSha', 'requested-candidate',
+            ], capture_output=True, text=True, encoding='utf-8',
+                env={**os.environ, 'GITHUB_SHA': 'consumer-harness'})
+            self.assertNotEqual(run.returncode, 0, '来源错误不得运行候选或获得PASS')
+            report = json.loads((output / 'report.json').read_text(encoding='utf-8-sig'))
+            self.assertIn('Candidate source identity', report['error'],
+                          '必须在尝试执行微型helper之前拒绝来源')
+            self.assertEqual(report['status'], 'FAIL', '错误来源必须留下FAIL证据')
+            self.assertEqual(report['source_sha'], 'fixture', '包源码不能误写为验收脚本提交')
+            self.assertEqual(report['probe_sha'], 'consumer-harness', '脚本来源须独立保留')
 
     def test_missing_crt_is_rejected_even_when_manifest_is_self_consistent(self):
         """场景：有完整Resources和exe但遗漏MSVC运行库；重写自洽清单后verify；
