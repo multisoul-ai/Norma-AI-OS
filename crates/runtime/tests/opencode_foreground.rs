@@ -9,9 +9,12 @@ use std::{
 mod support;
 use support::*;
 
-fn wait(runtime: &mut Runtime, predicate: impl Fn(&Runtime) -> bool) {
+fn wait(runtime: &mut Runtime, route_path: &std::path::Path, predicate: impl Fn(&Runtime) -> bool) {
     let deadline = Instant::now() + Duration::from_secs(4);
     while !predicate(runtime) {
+        // The original TUI publishes a heartbeat; keep the fixture live under the unchanged
+        // 1500 ms production TTL while retaining this test's strict 4 second deadline.
+        heartbeat(route_path);
         runtime.drain_native_question_hosts("p");
         assert!(
             Instant::now() < deadline,
@@ -63,7 +66,7 @@ fn runtime_tracks_foreground_and_settles_retired_original_receipt() {
         OpenCodeQuestionHost::start_following(client, node, process, path.clone(), "owned".into())
             .unwrap();
     runtime.adopt_opencode_question_host(host, "p").unwrap();
-    wait(&mut runtime, |r| {
+    wait(&mut runtime, &path, |r| {
         r.questions()
             .iter()
             .any(|q| q.question.target.session_id == "ses_a" && q.state == QuestionState::Pending)
@@ -92,11 +95,11 @@ fn runtime_tracks_foreground_and_settles_retired_original_receipt() {
         .unwrap()
         .unwrap();
     runtime.deliver_native_question(&submission).unwrap();
-    wait(&mut runtime, |r| {
+    wait(&mut runtime, &path, |r| {
         r.question_snapshot(&target).unwrap().state == QuestionState::Unknown
     });
     route(&path, 2, Some("ses_b"));
-    wait(&mut runtime, |r| {
+    wait(&mut runtime, &path, |r| {
         r.questions()
             .iter()
             .any(|q| q.question.target.session_id == "ses_b" && q.state == QuestionState::Pending)
@@ -111,7 +114,7 @@ fn runtime_tracks_foreground_and_settles_retired_original_receipt() {
         "卡片跟随原 TUI 的可信会话"
     );
     server.consumed.store(true, Ordering::Release);
-    wait(&mut runtime, |r| {
+    wait(&mut runtime, &path, |r| {
         r.question_snapshot(&target).unwrap().state == QuestionState::ConsumedUnattributed
     });
     assert!(
@@ -182,7 +185,7 @@ fn opencode_consumed_history_survives_run_rotation_and_receipt_handoff() {
         OpenCodeQuestionHost::start_following(client, node, process, path.clone(), "owned".into())
             .unwrap();
     runtime.adopt_opencode_question_host(host, "p").unwrap();
-    wait(&mut runtime, |r| {
+    wait(&mut runtime, &path, |r| {
         r.questions()
             .iter()
             .any(|q| q.question.target.session_id == "ses_a" && q.state == QuestionState::Pending)
@@ -210,7 +213,7 @@ fn opencode_consumed_history_survives_run_rotation_and_receipt_handoff() {
         .unwrap()
         .unwrap();
     server.consumed.store(true, Ordering::Release);
-    wait(&mut runtime, |r| {
+    wait(&mut runtime, &path, |r| {
         r.question_snapshot(&target).unwrap().state == QuestionState::AnsweredElsewhere
     });
     assert!(
@@ -223,7 +226,7 @@ fn opencode_consumed_history_survives_run_rotation_and_receipt_handoff() {
     );
     runtime.acknowledge_question_receipt(&submission);
     route(&path, 2, Some("ses_b"));
-    wait(&mut runtime, |r| {
+    wait(&mut runtime, &path, |r| {
         r.questions()
             .iter()
             .any(|q| q.question.target.session_id == "ses_b" && q.state == QuestionState::Pending)
@@ -259,12 +262,12 @@ fn opencode_consumed_history_survives_run_rotation_and_receipt_handoff() {
     );
     server.consumed.store(false, Ordering::Release);
     route(&path, 3, Some("ses_a"));
-    wait(&mut runtime, |r| {
+    wait(&mut runtime, &path, |r| {
         r.agent_session_id(node).as_deref() == Some("ses_a")
             && r.mobile_agent_run_id(node) != Some(target.run_id.as_str())
     });
     let queries = server.queries.load(Ordering::Acquire);
-    wait(&mut runtime, |_| {
+    wait(&mut runtime, &path, |_| {
         server.queries.load(Ordering::Acquire) >= queries + 2
     });
     runtime.drain_native_question_hosts("p");

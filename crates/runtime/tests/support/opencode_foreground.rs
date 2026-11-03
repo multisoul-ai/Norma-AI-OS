@@ -22,6 +22,15 @@ pub fn route(path: &std::path::Path, revision: u64, session: Option<&str>) {
     .unwrap();
     std::fs::rename(pending, path).unwrap();
 }
+pub fn heartbeat(path: &std::path::Path) {
+    let current: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    route(
+        path,
+        current["revision"].as_u64().expect("fixture revision"),
+        current["session"].as_str(),
+    );
+}
+
 pub struct Server {
     pub endpoint: String,
     stop: Arc<AtomicBool>,

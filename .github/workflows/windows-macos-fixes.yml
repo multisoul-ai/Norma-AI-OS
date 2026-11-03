@@ -37,6 +37,12 @@ jobs:
           mkdir -p artifacts/macos-fixes
           rustc -vV | tee artifacts/macos-fixes/rustc.log
           cargo test --locked -p app --lib native_qr_pixels_round_trip_through_vision -- --nocapture 2>&1 | tee artifacts/macos-fixes/qr.log
+      - name: Require original foreground session and receipt history
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --locked -p runtime --test opencode_foreground -- --nocapture 2>&1 | tee artifacts/macos-fixes/foreground.log
       - name: Reproduce standalone test-context resource ownership
         if: always()
         shell: bash
