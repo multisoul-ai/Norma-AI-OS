@@ -50,6 +50,16 @@ jobs:
           rustc -vV | tee artifacts/workspace-create/rustc.log
           cargo test --locked -p storage --test desktop_workspace_platform -- --nocapture 2>&1 | tee artifacts/workspace-create/focused.log
           grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' artifacts/workspace-create/focused.log
+      - name: Require storage boundaries and Rust source guards
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/workspace-create
+          bash scripts/check-storage-boundaries.sh 2>&1 | tee artifacts/workspace-create/boundaries.log
+          bash scripts/check-max-file-lines.sh 2>&1 | tee artifacts/workspace-create/file-lines.log
+          bash scripts/check-no-allow.sh 2>&1 | tee artifacts/workspace-create/no-allow.log
+          echo 'PASS: storage boundaries and Rust source guards' | tee -a artifacts/workspace-create/boundaries.log
       - name: Require affected storage tests
         if: always() && github.event_name == 'workflow_dispatch' && inputs.full_storage
         shell: bash
