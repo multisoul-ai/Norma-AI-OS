@@ -1,0 +1,11 @@
+Bridge Claude/Codex/OpenCode lifecycle hooks back to Norma OS
+
+Usage: multisoul-agent-hook.exe <COMMAND>
+
+Commands:
+  forward  
+  install  
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help

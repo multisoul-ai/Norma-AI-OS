@@ -1,0 +1,111 @@
+{
+  "source_sha": "15338abf2ad49406b1447bda0da648e4e3052010",
+  "windows_run": 41675679325,
+  "macos_run": 41673358826,
+  "windows": {
+    "windows-2022": {
+      "environment": {
+        "source_sha": "15338abf2ad49406b1447bda0da648e4e3052010",
+        "run_id": "41675679325",
+        "attempt": "1",
+        "platform": "Windows-2022Server-10.0.20348-SP0",
+        "image": "20261026.347.1",
+        "scope": "Server runner; not Windows 10 device acceptance"
+      },
+      "passed": 81,
+      "failed": 0,
+      "ignored": 0,
+      "auto_registered": true,
+      "repeats": [
+        {
+          "file": "relay-1.log",
+          "result": [
+            "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 2.14s"
+          ],
+          "auto_registered": true,
+          "missing_api_partial": true,
+          "missing_api_output": true,
+          "both_direction_shutdown": true,
+          "slow_payload": true,
+          "pending_guard": true
+        },
+        {
+          "file": "relay-2.log",
+          "result": [
+            "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 2.13s"
+          ],
+          "auto_registered": true,
+          "missing_api_partial": true,
+          "missing_api_output": true,
+          "both_direction_shutdown": true,
+          "slow_payload": true,
+          "pending_guard": true
+        },
+        {
+          "file": "relay-3.log",
+          "result": [
+            "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 2.14s"
+          ],
+          "auto_registered": true,
+          "missing_api_partial": true,
+          "missing_api_output": true,
+          "both_direction_shutdown": true,
+          "slow_payload": true,
+          "pending_guard": true
+        }
+      ]
+    },
+    "windows-2025": {
+      "environment": {
+        "source_sha": "15338abf2ad49406b1447bda0da648e4e3052010",
+        "run_id": "41675679325",
+        "attempt": "1",
+        "platform": "Windows-2025Server-10.0.26100-SP0",
+        "image": "20261030.294.1",
+        "scope": "Server runner; not Windows 10 device acceptance"
+      },
+      "passed": 81,
+      "failed": 0,
+      "ignored": 0,
+      "auto_registered": true,
+      "repeats": [
+        {
+          "file": "relay-1.log",
+          "result": [
+            "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 2.13s"
+          ],
+          "auto_registered": true,
+          "missing_api_partial": true,
+          "missing_api_output": true,
+          "both_direction_shutdown": true,
+          "slow_payload": true,
+          "pending_guard": true
+        },
+        {
+          "file": "relay-2.log",
+          "result": [
+            "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 2.14s"
+          ],
+          "auto_registered": true,
+          "missing_api_partial": true,
+          "missing_api_output": true,
+          "both_direction_shutdown": true,
+          "slow_payload": true,
+          "pending_guard": true
+        },
+        {
+          "file": "relay-3.log",
+          "result": [
+            "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 2.13s"
+          ],
+          "auto_registered": true,
+          "missing_api_partial": true,
+          "missing_api_output": true,
+          "both_direction_shutdown": true,
+          "slow_payload": true,
+          "pending_guard": true
+        }
+      ]
+    }
+  }
+}

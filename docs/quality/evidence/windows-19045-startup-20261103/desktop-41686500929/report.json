@@ -1,0 +1,14 @@
+{
+  "source_sha": "15338abf2ad49406b1447bda0da648e4e3052010",
+  "run_id": "41686500929",
+  "scope": "Same packaged App: helpers, native startup, exact Unicode workspace query, normal close and reopen with identical ID; no model task",
+  "workspace_id": "230be8db-bfd6-4b7a-b02a-9f353217b92f",
+  "status": "PASS",
+  "probe_sha": "15338abf2ad49406b1447bda0da648e4e3052010",
+  "visual_verification": "PENDING",
+  "run_attempt": "1",
+  "workspace_name": "Runner 中文 workspace 41686500929",
+  "producer_run": "41676826809",
+  "workspace_persisted": true,
+  "zip_sha256": "e590276bdb5ee5bf2b4a939257600180d79a2098bcfc35a50b1c5652a783e6d1"
+}

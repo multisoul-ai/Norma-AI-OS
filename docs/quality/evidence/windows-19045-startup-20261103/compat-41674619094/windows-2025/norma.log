@@ -1,0 +1,514 @@
+    Updating crates.io index
+   Compiling mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+   Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1m 18s
+     Running unittests src\lib.rs (target\debug\deps\norma-28bf09d9bccd9e80.exe)
+
+running 34 tests
+test agent_hook::event::tests::session_start_from_every_agent_provider_maps_to_ready ... ok
+test agent_hook::event::tests::test_extract_prompt_text_fallback_keys_and_none ... ok
+test agent_hook::event::tests::test_extract_prompt_text_short_and_truncated ... ok
+test agent_hook::session_claim::tests::test_marker_name_distinguishes_sessions_that_sanitize_alike ... ok
+test agent_hook::session_title::session_title_tests::codex_takes_last_thread_name_for_the_session ... ok
+test agent_hook::session_title::session_title_tests::claude_takes_last_non_empty_ai_title ... ok
+test agent_hook::session_title::session_title_tests::claude_title_found_by_session_id_across_project_dirs ... ok
+test agent_hook::session_title::session_title_tests::refresh_events_and_per_profile_dispatch ... ok
+test agent_hook::session_claim::tests::test_claim_is_once_per_session_and_release_reopens_it ... ok
+test agent_hook::session_title::session_title_tests::untrusted_paths_and_ids_are_rejected ... ok
+test agent_hook::zcode::tests::install_refuses_to_overwrite_foreign_or_malformed_config ... ok
+test agent_hook::zcode::tests::install_refuses_when_dormant_user_hooks_would_be_activated ... ok
+test agent_hook::zcode::tests::install_writes_seven_verified_events_and_enables_hooks ... ok
+test agent_hook::zcode::tests::real_payload_fixtures_map_to_states ... ok
+test agent_hook::session_title::session_title_tests::title_is_found_when_file_is_larger_than_the_tail_window ... ok
+test client::tests::debug_build_uses_an_isolated_norma_socket_name ... ok
+test agent_hook::zcode::tests::install_is_idempotent_and_uninstall_keeps_user_data ... ok
+test agent_hook::zcode::tests::installed_requires_enabled_flag ... ok
+test codex::relay::input::tests::completed_question_history_does_not_exhaust_pending_capacity ... ok
+test codex::relay::input::tests::old_turn_outside_history_window_cannot_hold_current_input ... ok
+test codex::relay::input::tests::ordinary_turn_history_never_creates_pending_input ... ok
+output backpressure readiness=auto
+test agent_hook::zcode::tests::uninstall_keeps_user_owned_empty_groups_and_events ... ok
+partial answer readiness=auto
+auto WinSock readiness: notifications=true, registered=[true, true]
+auto WinSock readiness: notifications=true, registered=[true, true]
+auto WinSock readiness: notifications=true, registered=[true, true]
+relay output pre-close consecutive WouldBlock=8; complete source frames=5
+auto WinSock readiness: notifications=true, registered=[true, true]
+relay close all source handles released=true
+partial answer readiness=missing-api
+test codex::relay::partial_tests::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... ok
+test codex::relay::transport::windows::tests::missing_socket_api_probe_does_not_flush_a_pending_answer ... ok
+test file_identity::tests::file_identity_survives_append ... ok
+test file_identity::tests::replacement_is_distinct_even_with_equal_length ... ok
+test orchestration::file_ops::tests::credential_permissions_reject_file_symlinks ... ok
+test orchestration::file_ops::tests::managed_credential_detects_and_repairs_broader_permissions ... ok
+test orchestration::file_ops::tests::managed_file_replacement_preserves_content_and_private_permissions ... ok
+test orchestration::file_ops::tests::private_directory_rejects_junction_instead_of_validating_its_own_acl ... ok
+test orchestration::file_ops::tests::private_session_directory_is_reusable_without_losing_markers ... ok
+relay close native FIONREAD: status=0, unread_bytes=0
+relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+output backpressure readiness=missing-api
+test codex::relay::compat_tests::missing_socket_api_preserves_both_direction_shutdown_contracts ... ok
+relay output pre-close consecutive WouldBlock=8; complete source frames=5
+relay close all source handles released=true
+relay close native FIONREAD: status=0, unread_bytes=0
+relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+test codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown ... ok
+方向=true，真实来源收到Ping=3
+方向=false，真实来源收到Ping=3
+test codex::relay::compat_tests::missing_socket_api_preserves_slow_peer_payload_and_liveness ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.21s
+
+     Running unittests src\bin\multisoul_agent_hook.rs (target\debug\deps\multisoul_agent_hook-374a23466c60cdac.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\norma.rs (target\debug\deps\norma-565f9b12b1d2ad82.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\bundled_helpers_platform.rs (target\debug\deps\bundled_helpers_platform-3c4d4e5baaf3e7da.exe)
+
+running 3 tests
+test orchestration_sources_and_managed_targets_keep_windows_executable_names ... ok
+test native_hook_home_does_not_require_a_unix_home_variable ... ok
+test portable_hook_is_resolved_and_executed_from_its_real_exe_sibling ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\client_platform.rs (target\debug\deps\client_platform-e92ae6e8406859d2.exe)
+
+running 2 tests
+test local_socket_client_round_trips_the_existing_wire_protocol ... ok
+test local_socket_client_rejects_a_response_for_another_request ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\codex_approvals.rs (target\debug\deps\codex_approvals-977abd19a3099873.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\codex_connection.rs (target\debug\deps\codex_connection-afa1ee4327f36fdc.exe)
+
+running 2 tests
+test event_overflow_fails_pending_requests_and_disables_decisions ... ok
+test unix_connection_routes_replies_and_permissions_without_truncation ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\codex_control_handshake.rs (target\debug\deps\codex_control_handshake-3d3893e620923aff.exe)
+
+running 1 test
+test fragmented_handshake_on_nonblocking_accepted_stream_waits_for_the_rest ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\codex_control_platform.rs (target\debug\deps\codex_control_platform-41c9221cd49feed5.exe)
+
+running 2 tests
+test platform_control_errors_and_drop_resolve_pending_requests_without_replay ... ok
+test platform_host_preserves_attachment_answer_cancel_and_peer_shutdown ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\codex_control_shutdown.rs (target\debug\deps\codex_control_shutdown-625f0f747dc05026.exe)
+
+running 1 test
+test backpressured_relay_closes_when_either_peer_exits_in_both_directions ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+     Running tests\codex_question.rs (target\debug\deps\codex_question-3bece82499a161d2.exe)
+
+running 5 tests
+test codex_preserves_option_descriptions_without_changing_answer_labels ... ok
+test codex_multiple_questions_preserve_secret_and_custom_capabilities ... ok
+test codex_question_preserves_rpc_identity_and_confirms_exact_original_consumption ... ok
+test codex_question_maps_free_text_and_rejects_ambiguous_or_partial_answers ... ok
+test codex_question_rejects_connector_approval_unknown_and_mismatched_sources ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\codex_question_connections.rs (target\debug\deps\codex_question_connections-67cd7353b095cb9b.exe)
+
+running 3 tests
+test native_input_lock_is_live_when_question_frame_reaches_tui ... ok
+test new_connection_holds_input_before_forwarding_or_attachment_delivery ... ok
+test picker_disconnect_preserves_owner_and_resume_transfers_question_identity ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests\codex_question_forward.rs (target\debug\deps\codex_question_forward-5892890b496481db.exe)
+
+running 1 test
+test native_bridge_returns_only_validated_answers_for_original_question ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\codex_question_history.rs (target\debug\deps\codex_question_history-31825146a1eab858.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\codex_question_host.rs (target\debug\deps\codex_question_host-ddc8421533f88d89.exe)
+
+running 1 test
+test same_process_host_carries_owned_attachment_ticket_and_consumption ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\codex_question_ledger.rs (target\debug\deps\codex_question_ledger-83cbbe7c16c67d68.exe)
+
+running 5 tests
+test replay_timestamps_do_not_change_question_identity ... ok
+test conflicting_consumption_and_retired_turn_never_reopen_a_request ... ok
+test native_resolution_waits_for_consumption_instead_of_fabricating_an_answer ... ok
+test native_answer_cancellation_and_disconnect_revoke_stale_submission ... ok
+test replayed_pending_is_one_question_and_resolved_is_not_consumption ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\codex_question_relay.rs (target\debug\deps\codex_question_relay-0f83d98b2cda36ef.exe)
+
+running 3 tests
+test resumed_same_rpc_requires_the_new_attachment_identity ... ok
+test native_relay_preserves_session_and_answers_original_rpc_without_extra_turn ... ok
+test native_answer_and_observer_disable_keep_the_original_tui_usable ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\codex_question_relay_backpressure.rs (target\debug\deps\codex_question_relay_backpressure-f89a99561ec06450.exe)
+
+running 1 test
+方向=true，真实来源收到Ping=3
+方向=false，真实来源收到Ping=3
+test slow_server_applies_backpressure_without_closing_the_native_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.12s
+
+     Running tests\codex_question_relay_ephemeral.rs (target\debug\deps\codex_question_relay_ephemeral-9dc3be0179b28ac7.exe)
+
+running 1 test
+test ephemeral_thread_never_rebinds_or_holds_main_question ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running tests\codex_question_relay_identity.rs (target\debug\deps\codex_question_relay_identity-0d4f2c4b58ed496a.exe)
+
+running 1 test
+test a_question_lease_cannot_cross_relay_instances ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\codex_question_relay_large.rs (target\debug\deps\codex_question_relay_large-db178eb8242da434.exe)
+
+running 1 test
+test native_large_configuration_frame_does_not_break_original_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests\codex_question_relay_permissions.rs (target\debug\deps\codex_question_relay_permissions-9c57fcc6b93f58c8.exe)
+
+running 2 tests
+test default_relay_never_escalates_session_permissions ... ok
+test full_access_relay_carries_yolo_on_every_session_request ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\codex_question_ticket.rs (target\debug\deps\codex_question_ticket-e854d507949b2959.exe)
+
+running 3 tests
+test codex_native_question_uses_the_revocable_host_ticket_with_exact_identity ... ok
+test codex_final_gate_revokes_first_write_but_keeps_owned_flush ... ok
+test live_codex_question_outlives_hook_timeout_but_remains_revocable ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\codex_question_version.rs (target\debug\deps\codex_question_version-7ddafd8a353cee67.exe)
+
+running 1 test
+test verified_relay_gates_experimental_answers_on_original_initialize ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests\control_identity_platform.rs (target\debug\deps\control_identity_platform-bd883d052561b51e.exe)
+
+running 1 test
+test control_identity_uses_os_entropy_and_preserves_uuid_v4_contract ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\protocol_tests.rs (target\debug\deps\protocol_tests-60adb3ba8f136ada.exe)
+
+running 5 tests
+test test_list_result_uses_neutral_card_summary ... ok
+test test_wire_response_preserves_success_and_error_results ... ok
+test test_preview_create_command_round_trips_through_json ... ok
+test brain_answer_commands_preserve_wire_shape_with_bounded_inline_storage ... ok
+test wire_request_preserves_workspace_routing_and_decodes_legacy_v1 ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\socket_close_platform.rs (target\debug\deps\socket_close_platform-d9261c7d047ca820.exe)
+
+running 2 tests
+alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+alive: getpeername=0, length=57, error=0
+alive: FIONREAD=0, bytes=131072
+source_clone=false/receiver_clone=false/saturate=false: accepted=131072, blocked=false
+source_clone=false/receiver_clone=false/saturate=false/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=false/receiver_clone=false/saturate=false/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=false/receiver_clone=false/saturate=false/alive: getpeername=0, length=57, error=0
+source_clone=false/receiver_clone=false/saturate=false/alive: FIONREAD=0, bytes=131072
+source_clone=false/receiver_clone=false/saturate=false/alive: poll=0, interest=0, events=0, error=0
+source_clone=false/receiver_clone=false/saturate=false/alive: poll=1, interest=256, events=256, error=0
+source_clone=false/receiver_clone=false/saturate=false/alive: poll=1, interest=16, events=16, error=0
+source_clone=false/receiver_clone=false/saturate=false/alive: empty send=0, error=0
+alive: poll=0, interest=0, events=0, error=0
+source_clone=false/receiver_clone=false/saturate=false/alive: WSASend(0)=0, sent=0, error=0
+alive: poll=1, interest=256, events=256, error=0
+source_clone=false/receiver_clone=false/saturate=false/alive: peer-state ioctl=0, bytes=0, error=0
+alive: poll=1, interest=16, events=16, error=0
+source_clone=false/receiver_clone=false/saturate=false/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+alive: empty send=0, error=0
+source_clone=false/receiver_clone=false/saturate=false/closed: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+alive: WSASend(0)=0, sent=0, error=0
+source_clone=false/receiver_clone=false/saturate=false/closed: getpeername=0, length=57, error=0
+alive: peer-state ioctl=0, bytes=0, error=0
+source_clone=false/receiver_clone=false/saturate=false/closed: FIONREAD=0, bytes=131072
+shutdown: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=false/receiver_clone=false/saturate=false/closed: poll=1, interest=0, events=2, error=0
+shutdown: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=false/receiver_clone=false/saturate=false/closed: poll=1, interest=256, events=258, error=0
+shutdown: getpeername=0, length=57, error=0
+shutdown: FIONREAD=0, bytes=131072
+source_clone=false/receiver_clone=false/saturate=false/closed: poll=1, interest=16, events=18, error=0
+shutdown: poll=1, interest=0, events=2, error=0
+source_clone=false/receiver_clone=false/saturate=false/closed: empty send=0, error=0
+shutdown: poll=1, interest=256, events=258, error=0
+source_clone=false/receiver_clone=false/saturate=false/closed: WSASend(0)=0, sent=0, error=0
+shutdown: poll=1, interest=16, events=18, error=0
+source_clone=false/receiver_clone=false/saturate=false/closed: peer-state ioctl=0, bytes=0, error=0
+shutdown: empty send=0, error=0
+shutdown: WSASend(0)=0, sent=0, error=0
+shutdown: peer-state ioctl=0, bytes=0, error=0
+closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+closed: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+closed: getpeername=0, length=57, error=0
+closed: FIONREAD=0, bytes=131072
+closed: poll=1, interest=0, events=2, error=0
+closed: poll=1, interest=256, events=258, error=0
+closed: poll=1, interest=16, events=18, error=0
+closed: empty send=0, error=0
+closed: WSASend(0)=0, sent=0, error=0
+closed: peer-state ioctl=0, bytes=0, error=0
+test unread_socket_close_notification_diagnostics_preserve_payload ... ok
+socket notification configuration: operation=1, return=0, registration=0
+source_clone=false/receiver_clone=false/saturate=true: accepted=1048576, blocked=true
+source_clone=false/receiver_clone=false/saturate=true/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=false/receiver_clone=false/saturate=true/alive: getpeername=0, length=57, error=0
+source_clone=false/receiver_clone=false/saturate=true/alive: FIONREAD=0, bytes=131072
+source_clone=false/receiver_clone=false/saturate=true/alive: poll=0, interest=0, events=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/alive: poll=1, interest=256, events=256, error=0
+source_clone=false/receiver_clone=false/saturate=true/alive: poll=1, interest=16, events=16, error=0
+source_clone=false/receiver_clone=false/saturate=true/alive: empty send=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/alive: WSASend(0)=0, sent=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/alive: peer-state ioctl=0, bytes=0, error=0
+source_clone=false/receiver_clone=false/saturate=true: close observation after 3.0007477s, events=256, IOCP=0
+source_clone=false/receiver_clone=false/saturate=true/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/closed: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+source_clone=false/receiver_clone=false/saturate=true/closed: getpeername=0, length=57, error=0
+source_clone=false/receiver_clone=false/saturate=true/closed: FIONREAD=0, bytes=131072
+source_clone=false/receiver_clone=false/saturate=true/closed: poll=0, interest=0, events=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/closed: poll=1, interest=256, events=256, error=0
+source_clone=false/receiver_clone=false/saturate=true/closed: poll=1, interest=16, events=16, error=0
+source_clone=false/receiver_clone=false/saturate=true/closed: empty send=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/closed: WSASend(0)=0, sent=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/closed: peer-state ioctl=0, bytes=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/after-drain: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/after-drain: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+source_clone=false/receiver_clone=false/saturate=true/after-drain: getpeername=0, length=57, error=0
+source_clone=false/receiver_clone=false/saturate=true/after-drain: FIONREAD=0, bytes=0
+source_clone=false/receiver_clone=false/saturate=true/after-drain: poll=1, interest=0, events=2, error=0
+source_clone=false/receiver_clone=false/saturate=true/after-drain: poll=1, interest=256, events=2, error=0
+source_clone=false/receiver_clone=false/saturate=true/after-drain: poll=1, interest=16, events=18, error=0
+source_clone=false/receiver_clone=false/saturate=true/after-drain: empty send=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/after-drain: WSASend(0)=0, sent=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/after-drain: peer-state ioctl=0, bytes=0, error=0
+source_clone=false/receiver_clone=false/saturate=true/after-drain: IOCP=4
+socket notification configuration: operation=4, return=0, registration=0
+source_clone=false/receiver_clone=true/saturate=false: accepted=131072, blocked=false
+source_clone=false/receiver_clone=true/saturate=false/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=false/receiver_clone=true/saturate=false/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=false/receiver_clone=true/saturate=false/alive: getpeername=0, length=57, error=0
+source_clone=false/receiver_clone=true/saturate=false/alive: FIONREAD=0, bytes=131072
+source_clone=false/receiver_clone=true/saturate=false/alive: poll=0, interest=0, events=0, error=0
+source_clone=false/receiver_clone=true/saturate=false/alive: poll=1, interest=256, events=256, error=0
+source_clone=false/receiver_clone=true/saturate=false/alive: poll=1, interest=16, events=16, error=0
+source_clone=false/receiver_clone=true/saturate=false/alive: empty send=0, error=0
+source_clone=false/receiver_clone=true/saturate=false/alive: WSASend(0)=0, sent=0, error=0
+source_clone=false/receiver_clone=true/saturate=false/alive: peer-state ioctl=0, bytes=0, error=0
+source_clone=false/receiver_clone=true/saturate=false/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=false/receiver_clone=true/saturate=false/closed: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=false/receiver_clone=true/saturate=false/closed: getpeername=0, length=57, error=0
+source_clone=false/receiver_clone=true/saturate=false/closed: FIONREAD=0, bytes=131072
+source_clone=false/receiver_clone=true/saturate=false/closed: poll=1, interest=0, events=2, error=0
+source_clone=false/receiver_clone=true/saturate=false/closed: poll=1, interest=256, events=258, error=0
+source_clone=false/receiver_clone=true/saturate=false/closed: poll=1, interest=16, events=18, error=0
+source_clone=false/receiver_clone=true/saturate=false/closed: empty send=0, error=0
+source_clone=false/receiver_clone=true/saturate=false/closed: WSASend(0)=0, sent=0, error=0
+source_clone=false/receiver_clone=true/saturate=false/closed: peer-state ioctl=0, bytes=0, error=0
+source_clone=false/receiver_clone=true/saturate=true: accepted=1048576, blocked=true
+source_clone=false/receiver_clone=true/saturate=true/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=false/receiver_clone=true/saturate=true/alive: getpeername=0, length=57, error=0
+source_clone=false/receiver_clone=true/saturate=true/alive: FIONREAD=0, bytes=131072
+source_clone=false/receiver_clone=true/saturate=true/alive: poll=0, interest=0, events=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/alive: poll=1, interest=256, events=256, error=0
+source_clone=false/receiver_clone=true/saturate=true/alive: poll=1, interest=16, events=16, error=0
+source_clone=false/receiver_clone=true/saturate=true/alive: empty send=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/alive: WSASend(0)=0, sent=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/alive: peer-state ioctl=0, bytes=0, error=0
+source_clone=false/receiver_clone=true/saturate=true: close observation after 3.0005351s, events=256, IOCP=0
+source_clone=false/receiver_clone=true/saturate=true/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/closed: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+source_clone=false/receiver_clone=true/saturate=true/closed: getpeername=0, length=57, error=0
+source_clone=false/receiver_clone=true/saturate=true/closed: FIONREAD=0, bytes=131072
+source_clone=false/receiver_clone=true/saturate=true/closed: poll=0, interest=0, events=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/closed: poll=1, interest=256, events=256, error=0
+source_clone=false/receiver_clone=true/saturate=true/closed: poll=1, interest=16, events=16, error=0
+source_clone=false/receiver_clone=true/saturate=true/closed: empty send=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/closed: WSASend(0)=0, sent=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/closed: peer-state ioctl=0, bytes=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/after-drain: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/after-drain: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+source_clone=false/receiver_clone=true/saturate=true/after-drain: getpeername=0, length=57, error=0
+source_clone=false/receiver_clone=true/saturate=true/after-drain: FIONREAD=0, bytes=0
+source_clone=false/receiver_clone=true/saturate=true/after-drain: poll=1, interest=0, events=2, error=0
+source_clone=false/receiver_clone=true/saturate=true/after-drain: poll=1, interest=256, events=2, error=0
+source_clone=false/receiver_clone=true/saturate=true/after-drain: poll=1, interest=16, events=18, error=0
+source_clone=false/receiver_clone=true/saturate=true/after-drain: empty send=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/after-drain: WSASend(0)=0, sent=0, error=0
+source_clone=false/receiver_clone=true/saturate=true/after-drain: peer-state ioctl=0, bytes=0, error=0
+source_clone=true/receiver_clone=false/saturate=false: accepted=131072, blocked=false
+source_clone=true/receiver_clone=false/saturate=false/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=true/receiver_clone=false/saturate=false/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=true/receiver_clone=false/saturate=false/alive: getpeername=0, length=57, error=0
+source_clone=true/receiver_clone=false/saturate=false/alive: FIONREAD=0, bytes=131072
+source_clone=true/receiver_clone=false/saturate=false/alive: poll=0, interest=0, events=0, error=0
+source_clone=true/receiver_clone=false/saturate=false/alive: poll=1, interest=256, events=256, error=0
+source_clone=true/receiver_clone=false/saturate=false/alive: poll=1, interest=16, events=16, error=0
+source_clone=true/receiver_clone=false/saturate=false/alive: empty send=0, error=0
+source_clone=true/receiver_clone=false/saturate=false/alive: WSASend(0)=0, sent=0, error=0
+source_clone=true/receiver_clone=false/saturate=false/alive: peer-state ioctl=0, bytes=0, error=0
+source_clone=true/receiver_clone=false/saturate=false/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=true/receiver_clone=false/saturate=false/closed: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=true/receiver_clone=false/saturate=false/closed: getpeername=0, length=57, error=0
+source_clone=true/receiver_clone=false/saturate=false/closed: FIONREAD=0, bytes=131072
+source_clone=true/receiver_clone=false/saturate=false/closed: poll=1, interest=0, events=2, error=0
+source_clone=true/receiver_clone=false/saturate=false/closed: poll=1, interest=256, events=258, error=0
+source_clone=true/receiver_clone=false/saturate=false/closed: poll=1, interest=16, events=18, error=0
+source_clone=true/receiver_clone=false/saturate=false/closed: empty send=0, error=0
+source_clone=true/receiver_clone=false/saturate=false/closed: WSASend(0)=0, sent=0, error=0
+source_clone=true/receiver_clone=false/saturate=false/closed: peer-state ioctl=0, bytes=0, error=0
+source_clone=true/receiver_clone=false/saturate=true: accepted=1048576, blocked=true
+source_clone=true/receiver_clone=false/saturate=true/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=true/receiver_clone=false/saturate=true/alive: getpeername=0, length=57, error=0
+source_clone=true/receiver_clone=false/saturate=true/alive: FIONREAD=0, bytes=131072
+source_clone=true/receiver_clone=false/saturate=true/alive: poll=0, interest=0, events=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/alive: poll=1, interest=256, events=256, error=0
+source_clone=true/receiver_clone=false/saturate=true/alive: poll=1, interest=16, events=16, error=0
+source_clone=true/receiver_clone=false/saturate=true/alive: empty send=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/alive: WSASend(0)=0, sent=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/alive: peer-state ioctl=0, bytes=0, error=0
+source_clone=true/receiver_clone=false/saturate=true: close observation after 3.001396s, events=256, IOCP=0
+source_clone=true/receiver_clone=false/saturate=true/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/closed: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+source_clone=true/receiver_clone=false/saturate=true/closed: getpeername=0, length=57, error=0
+source_clone=true/receiver_clone=false/saturate=true/closed: FIONREAD=0, bytes=131072
+source_clone=true/receiver_clone=false/saturate=true/closed: poll=0, interest=0, events=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/closed: poll=1, interest=256, events=256, error=0
+source_clone=true/receiver_clone=false/saturate=true/closed: poll=1, interest=16, events=16, error=0
+source_clone=true/receiver_clone=false/saturate=true/closed: empty send=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/closed: WSASend(0)=0, sent=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/closed: peer-state ioctl=0, bytes=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/after-drain: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/after-drain: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+source_clone=true/receiver_clone=false/saturate=true/after-drain: getpeername=0, length=57, error=0
+source_clone=true/receiver_clone=false/saturate=true/after-drain: FIONREAD=0, bytes=0
+source_clone=true/receiver_clone=false/saturate=true/after-drain: poll=1, interest=0, events=2, error=0
+source_clone=true/receiver_clone=false/saturate=true/after-drain: poll=1, interest=256, events=2, error=0
+source_clone=true/receiver_clone=false/saturate=true/after-drain: poll=1, interest=16, events=18, error=0
+source_clone=true/receiver_clone=false/saturate=true/after-drain: empty send=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/after-drain: WSASend(0)=0, sent=0, error=0
+source_clone=true/receiver_clone=false/saturate=true/after-drain: peer-state ioctl=0, bytes=0, error=0
+source_clone=true/receiver_clone=true/saturate=false: accepted=131072, blocked=false
+source_clone=true/receiver_clone=true/saturate=false/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=true/receiver_clone=true/saturate=false/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=true/receiver_clone=true/saturate=false/alive: getpeername=0, length=57, error=0
+source_clone=true/receiver_clone=true/saturate=false/alive: FIONREAD=0, bytes=131072
+source_clone=true/receiver_clone=true/saturate=false/alive: poll=0, interest=0, events=0, error=0
+source_clone=true/receiver_clone=true/saturate=false/alive: poll=1, interest=256, events=256, error=0
+source_clone=true/receiver_clone=true/saturate=false/alive: poll=1, interest=16, events=16, error=0
+source_clone=true/receiver_clone=true/saturate=false/alive: empty send=0, error=0
+source_clone=true/receiver_clone=true/saturate=false/alive: WSASend(0)=0, sent=0, error=0
+source_clone=true/receiver_clone=true/saturate=false/alive: peer-state ioctl=0, bytes=0, error=0
+source_clone=true/receiver_clone=true/saturate=false/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=true/receiver_clone=true/saturate=false/closed: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=true/receiver_clone=true/saturate=false/closed: getpeername=0, length=57, error=0
+source_clone=true/receiver_clone=true/saturate=false/closed: FIONREAD=0, bytes=131072
+source_clone=true/receiver_clone=true/saturate=false/closed: poll=1, interest=0, events=2, error=0
+source_clone=true/receiver_clone=true/saturate=false/closed: poll=1, interest=256, events=258, error=0
+source_clone=true/receiver_clone=true/saturate=false/closed: poll=1, interest=16, events=18, error=0
+source_clone=true/receiver_clone=true/saturate=false/closed: empty send=0, error=0
+source_clone=true/receiver_clone=true/saturate=false/closed: WSASend(0)=0, sent=0, error=0
+source_clone=true/receiver_clone=true/saturate=false/closed: peer-state ioctl=0, bytes=0, error=0
+source_clone=true/receiver_clone=true/saturate=true: accepted=1048576, blocked=true
+source_clone=true/receiver_clone=true/saturate=true/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+source_clone=true/receiver_clone=true/saturate=true/alive: getpeername=0, length=57, error=0
+source_clone=true/receiver_clone=true/saturate=true/alive: FIONREAD=0, bytes=131072
+source_clone=true/receiver_clone=true/saturate=true/alive: poll=0, interest=0, events=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/alive: poll=1, interest=256, events=256, error=0
+source_clone=true/receiver_clone=true/saturate=true/alive: poll=1, interest=16, events=16, error=0
+source_clone=true/receiver_clone=true/saturate=true/alive: empty send=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/alive: WSASend(0)=0, sent=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/alive: peer-state ioctl=0, bytes=0, error=0
+source_clone=true/receiver_clone=true/saturate=true: close observation after 3.0006517s, events=256, IOCP=0
+source_clone=true/receiver_clone=true/saturate=true/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/closed: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+source_clone=true/receiver_clone=true/saturate=true/closed: getpeername=0, length=57, error=0
+source_clone=true/receiver_clone=true/saturate=true/closed: FIONREAD=0, bytes=131072
+source_clone=true/receiver_clone=true/saturate=true/closed: poll=0, interest=0, events=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/closed: poll=1, interest=256, events=256, error=0
+source_clone=true/receiver_clone=true/saturate=true/closed: poll=1, interest=16, events=16, error=0
+source_clone=true/receiver_clone=true/saturate=true/closed: empty send=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/closed: WSASend(0)=0, sent=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/closed: peer-state ioctl=0, bytes=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/after-drain: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/after-drain: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+source_clone=true/receiver_clone=true/saturate=true/after-drain: getpeername=0, length=57, error=0
+source_clone=true/receiver_clone=true/saturate=true/after-drain: FIONREAD=0, bytes=0
+source_clone=true/receiver_clone=true/saturate=true/after-drain: poll=1, interest=0, events=2, error=0
+source_clone=true/receiver_clone=true/saturate=true/after-drain: poll=1, interest=256, events=2, error=0
+source_clone=true/receiver_clone=true/saturate=true/after-drain: poll=1, interest=16, events=18, error=0
+source_clone=true/receiver_clone=true/saturate=true/after-drain: empty send=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/after-drain: WSASend(0)=0, sent=0, error=0
+source_clone=true/receiver_clone=true/saturate=true/after-drain: peer-state ioctl=0, bytes=0, error=0
+test socket_close_with_clones_and_saturated_sender_preserves_payload ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.16s
+

@@ -1,0 +1,42 @@
+{
+  "artifacts": [
+    {
+      "id": 13250542950,
+      "name": "winsock-windows-2025-41675679325-1",
+      "size_in_bytes": 9891,
+      "url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13250542950",
+      "archive_download_url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13250542950/zip",
+      "expired": false,
+      "created_at": "2026-11-03T16:41:25Z",
+      "expires_at": "2026-11-06T16:41:25Z",
+      "updated_at": "2026-11-03T16:41:25Z",
+      "digest": "sha256:a8ff72a92813c2d8af8cd5471381f74da084c542aaa7aa1b704b739e394be723",
+      "workflow_run": {
+        "id": 41675679325,
+        "repository_id": 1274971992,
+        "head_repository_id": 1274971992,
+        "head_branch": "codex/windows-startup-winsock-20261103",
+        "head_sha": "15338abf2ad49406b1447bda0da648e4e3052010"
+      }
+    },
+    {
+      "id": 13249519168,
+      "name": "winsock-windows-2022-41675679325-1",
+      "size_in_bytes": 9863,
+      "url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13249519168",
+      "archive_download_url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13249519168/zip",
+      "expired": false,
+      "created_at": "2026-11-03T16:39:10Z",
+      "expires_at": "2026-11-06T16:39:10Z",
+      "updated_at": "2026-11-03T16:39:10Z",
+      "digest": "sha256:e6db773d21bae03e170064dc1530850ec90dc98e16657eb914046ccc3916c961",
+      "workflow_run": {
+        "id": 41675679325,
+        "repository_id": 1274971992,
+        "head_repository_id": 1274971992,
+        "head_branch": "codex/windows-startup-winsock-20261103",
+        "head_sha": "15338abf2ad49406b1447bda0da648e4e3052010"
+      }
+    }
+  ]
+}

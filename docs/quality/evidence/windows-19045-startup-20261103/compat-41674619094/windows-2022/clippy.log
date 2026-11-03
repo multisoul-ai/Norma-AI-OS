@@ -1,0 +1,147 @@
+    Checking cfg-if v1.0.4
+    Checking windows-link v0.2.1
+    Checking stable_deref_trait v1.2.1
+    Checking zerofrom v0.1.8
+    Checking windows-sys v0.61.2
+    Checking typenum v1.20.1
+    Checking subtle v2.6.1
+    Checking yoke v0.8.3
+    Checking once_cell v1.21.4
+    Checking zerovec v0.11.6
+    Checking getrandom v0.2.17
+    Checking zerocopy v0.8.53
+    Checking zeroize v1.9.0
+    Checking rustls-pki-types v1.15.0
+    Checking generic-array v0.14.7
+    Checking tinystr v0.8.3
+    Checking litemap v0.8.2
+    Checking writeable v0.6.3
+    Checking block-buffer v0.10.4
+    Checking crypto-common v0.1.7
+    Checking untrusted v0.9.0
+    Checking digest v0.10.7
+    Checking ring v0.17.14
+    Checking icu_locale_core v2.2.0
+    Checking potential_utf v0.1.5
+    Checking zerotrie v0.2.4
+    Checking cpufeatures v0.2.17
+    Checking utf8_iter v1.0.4
+    Checking icu_collections v2.2.0
+    Checking icu_provider v2.2.0
+    Checking smallvec v1.15.2
+    Checking itoa v1.0.18
+    Checking icu_normalizer_data v2.2.0
+    Checking getrandom v0.3.4
+    Checking icu_properties_data v2.2.0
+    Checking bytes v1.12.0
+    Checking anstyle v1.0.14
+    Checking log v0.4.33
+    Checking once_cell_polyfill v1.70.2
+    Checking utf8parse v0.2.2
+    Checking anstyle-parse v1.0.0
+    Checking http v1.4.2
+    Checking icu_properties v2.2.0
+    Checking ppv-lite86 v0.2.21
+    Checking ahash v0.8.12
+    Checking rand_core v0.9.5
+    Checking icu_normalizer v2.2.0
+    Checking serde_core v1.0.228
+    Checking httparse v1.10.1
+    Checking rustls-webpki v0.103.13
+    Checking hmac v0.12.1
+    Checking rand_core v0.6.4
+    Checking colorchoice v1.0.5
+    Checking deranged v0.5.8
+    Checking percent-encoding v2.3.2
+    Checking is_terminal_polyfill v1.70.2
+    Checking time-core v0.1.9
+    Checking simd-adler32 v0.3.9
+    Checking num-conv v0.2.2
+    Checking adler2 v2.0.1
+    Checking powerfmt v0.2.0
+    Checking miniz_oxide v0.8.9
+    Checking time v0.3.53
+    Checking rustls v0.23.41
+    Checking curve25519-dalek v4.1.3
+    Checking hkdf v0.12.4
+    Checking anstyle-wincon v3.0.11
+    Checking anstyle-query v1.1.5
+    Checking schannel v0.1.29
+    Checking idna_adapter v1.2.2
+    Checking anstream v1.0.0
+    Checking rand_chacha v0.9.0
+    Checking getrandom v0.4.3
+    Checking hashbrown v0.14.5
+    Checking crc32fast v1.5.0
+    Checking zmij v1.0.21
+    Checking winapi v0.3.9
+    Checking sha2 v0.10.9
+    Checking strsim v0.11.1
+    Checking clap_lex v1.1.0
+    Checking byteorder v1.5.0
+    Checking base64 v0.22.1
+    Checking option-ext v0.2.0
+    Checking memchr v2.8.2
+    Checking fastrand v2.4.1
+    Checking tempfile v3.27.0
+    Checking ureq-proto v0.6.0
+    Checking serde_json v1.0.150
+    Checking dirs-sys v0.5.0
+    Checking clap_builder v4.6.0
+    Checking socks v0.3.4
+    Checking spake2 v0.4.0
+    Checking serde v1.0.228
+    Checking thiserror v2.0.18
+    Checking hashlink v0.9.1
+    Checking flate2 v1.1.9
+    Checking memoffset v0.9.1
+    Checking rustls-native-certs v0.8.4
+    Checking libsqlite3-sys v0.30.1
+    Checking rand v0.9.4
+    Checking idna v1.1.0
+    Checking yasna v0.5.2
+    Checking anyhow v1.0.103
+    Checking crossbeam-utils v0.8.22
+    Checking form_urlencoded v1.2.2
+    Checking sha1 v0.10.7
+    Checking webpki-roots v1.0.8
+    Checking tracing-core v0.1.36
+    Checking fallible-streaming-iterator v0.1.9
+    Checking bitflags v2.13.0
+    Checking data-encoding v2.11.0
+    Checking utf8-zero v0.8.1
+    Checking pin-project-lite v0.2.17
+    Checking utf-8 v0.7.6
+    Checking fallible-iterator v0.3.0
+    Checking tracing v0.1.44
+    Checking ureq v3.3.0
+    Checking tungstenite v0.28.0
+    Checking clap v4.6.1
+    Checking crossbeam-channel v0.5.16
+    Checking rusqlite v0.32.1
+    Checking url v2.5.8
+    Checking rcgen v0.13.2
+    Checking mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+    Checking uds_windows v1.2.1
+    Checking libc v0.2.186
+    Checking dirs v6.0.0
+    Checking md-5 v0.10.6
+    Checking hex v0.4.3
+    Checking norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+error: field assignment outside of initializer for an instance created with Default::default()
+  --> crates\norma\tests\support\socket_notifications.rs:33:5
+   |
+33 |     overlapped.hEvent = event.as_raw_handle().map_addr(|address| address | 1);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: consider initializing the variable with `windows_sys::Win32::System::IO::OVERLAPPED { hEvent: event.as_raw_handle().map_addr(|address| address | 1), ..Default::default() }` and removing relevant reassignments
+  --> crates\norma\tests\support\socket_notifications.rs:31:5
+   |
+31 |     let mut overlapped = OVERLAPPED::default();
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#field_reassign_with_default
+   = note: `-D clippy::field-reassign-with-default` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::field_reassign_with_default)]`
+
+error: could not compile `norma` (test "socket_close_platform") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

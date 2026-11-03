@@ -1,0 +1,195 @@
+Microsoft (R) COFF/PE Dumper Version 14.51.36260.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file D:\a\_temp\Norma 中文 candidate\norma-os-0.1.77-windows-x64-15338abf\norma-browser-auth-host.exe
+
+File Type: EXECUTABLE IMAGE
+
+  Section contains the following imports:
+
+    kernel32.dll
+             140035158 Import Address Table
+             14004B970 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                           0 GetConsoleOutputCP
+                           0 CreateThread
+                           0 GetConsoleMode
+                           0 FormatMessageW
+                           0 GetStdHandle
+                           0 WriteConsoleW
+                         49B SetUnhandledExceptionFilter
+                           0 GetModuleHandleW
+                           0 MultiByteToWideChar
+                          10 AddVectoredExceptionHandler
+                         1AE GetCurrentDirectoryW
+                         1D5 GetEnvironmentVariableW
+                         17F GetCommandLineW
+                         406 RtlCaptureContext
+                         412 RtlVirtualUnwind
+                           0 ReadConsoleW
+                           0 HeapAlloc
+                           0 RtlLookupFunctionEntry
+                           0 WaitForSingleObject
+                           0 ExitProcess
+                           0 GetModuleHandleA
+                           0 GetCurrentThreadId
+                           0 GetModuleFileNameW
+                           0 GetLastError
+                           0 SetLastError
+                           0 GetCurrentThread
+                           0 SetThreadStackGuarantee
+                           0 ReleaseMutex
+                           0 CreateMutexA
+                           0 GetCurrentProcessId
+                           0 LoadLibraryA
+                           0 WaitForSingleObjectEx
+                           0 WideCharToMultiByte
+                           0 GetProcAddress
+                           0 GetCurrentProcess
+                           0 SetHandleInformation
+                           0 lstrlenW
+                           0 QueryPerformanceCounter
+                           0 CloseHandle
+                           0 GetSystemTimeAsFileTime
+                         2FF InitializeSListHead
+                           0 HeapReAlloc
+                           0 HeapFree
+                           0 GetProcessHeap
+
+    ws2_32.dll
+             140035300 Import Address Table
+             14004BB18 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                           0 WSAStartup
+                           0 WSASocketW
+                           0 connect
+                           0 WSADuplicateSocketW
+                           0 send
+                           0 closesocket
+                           0 WSAGetLastError
+                           0 recv
+
+    api-ms-win-core-synch-l1-2-0.dll
+             140035050 Import Address Table
+             14004B868 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                           0 WakeByAddressSingle
+                           0 WaitOnAddress
+                           0 WakeByAddressAll
+
+    shell32.dll
+             1400352F0 Import Address Table
+             14004BB08 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                           0 SHGetKnownFolderPath
+
+    ole32.dll
+             1400352E0 Import Address Table
+             14004BAF8 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                           0 CoTaskMemFree
+
+    ntdll.dll
+             1400352C0 Import Address Table
+             14004BAD8 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                           0 NtWriteFile
+                           0 RtlNtStatusToDosError
+                           0 NtReadFile
+
+    VCRUNTIME140.dll
+             140035000 Import Address Table
+             14004B818 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                          1B __current_exception
+                          3C memcpy
+                           E __CxxFrameHandler3
+                          3B memcmp
+                          3E memset
+                           1 _CxxThrowException
+                          3D memmove
+                           8 __C_specific_handler
+                          1C __current_exception_context
+
+    api-ms-win-crt-runtime-l1-1-0.dll
+             1400350A8 Import Address Table
+             14004B8C0 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                          1E _crt_atexit
+                           4 __p___argc
+                          40 _seh_filter_exe
+                          42 _set_app_type
+                          16 _cexit
+                          15 _c_exit
+                          3D _register_thread_local_exe_atexit_callback
+                          18 _configure_narrow_argv
+                          33 _initialize_narrow_environment
+                          28 _get_initial_narrow_environment
+                          36 _initterm
+                          37 _initterm_e
+                          55 exit
+                          34 _initialize_onexit_table
+                          3C _register_onexit_function
+                          23 _exit
+                           5 __p___argv
+                          67 terminate
+
+    api-ms-win-crt-math-l1-1-0.dll
+             140035098 Import Address Table
+             14004B8B0 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                           9 __setusermatherr
+
+    api-ms-win-crt-stdio-l1-1-0.dll
+             140035140 Import Address Table
+             14004B958 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                          54 _set_fmode
+                           1 __p__commode
+
+    api-ms-win-crt-locale-l1-1-0.dll
+             140035088 Import Address Table
+             14004B8A0 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                           8 _configthreadlocale
+
+    api-ms-win-crt-heap-l1-1-0.dll
+             140035070 Import Address Table
+             14004B888 Import Name Table
+                     0 time date stamp
+                     0 Index of first forwarder reference
+
+                          18 free
+                          16 _set_new_mode
+
+  Summary
+
+        1000 .data
+        4000 .pdata
+       18000 .rdata
+        1000 .reloc
+        1000 .rsrc
+       34000 .text

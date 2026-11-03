@@ -25,4 +25,8 @@
 - 实现改为通过已加载的 ws2_32.dll 动态解析可选 API；缺 API 时不创建 IOCP/额外 socket，保留 5ms WSAPoll、250ms Ping 及 pending answer 的写入所有权。
 - 验证 seam：包内真实 PE 导入表；真实 AF_UNIX relay 的部分写入、全部源句柄关闭；底层恢复可写时 pending answer 不能被探测 flush。缺 API 通过实例级工厂强制选择，无全局覆盖或环境开关。
 - 新旧系统路径将在 windows-2022、windows-2025 runner 运行，macOS 只回归受影响 norma crate；测试、Clippy、构建均不在本地运行（正常 commit hook 除外）。
-- 状态：实现待 runner 验证；release ZIP 和同包 App 验收尚未执行。Windows 10 19045.6093 真机仍待用户复测，不发布、不合并。
+- 受影响 Windows 测试已完成：[41675679325](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41675679325)，Server 2022 / 2025 各 81 通过、0 失败、0 忽略，聚焦各三轮均 8 通过，Clippy/fmt 均通过。macOS 复用同实现 [41673358826](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41673358826)，351 通过、0 失败、1 既有真实 Grok ignored，三轮和 Clippy/fmt 通过。
+- 首轮 Windows 完整 norma crate 编译被未改动的 Unix 权限测试阻塞，完整失败日志保留；该全套状态仍为 COMPILE_BLOCKED，不以受影响测试通过替代。第二轮旧诊断 helper 的 Clippy 初始化警告已原值修正，不增加 allow。
+- release 固定提交 `15338abf2ad49406b1447bda0da648e4e3052010`，[41676826809](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41676826809) 的 build / verify-candidate 均 SUCCESS。修复 ZIP SHA256 `e590276bdb5ee5bf2b4a939257600180d79a2098bcfc35a50b1c5652a783e6d1`；[下载](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41676826809/artifacts/13255067769)。
+- 独立新 runner [41686500929](https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41686500929) 下载同一哈希包、不重编译；四 exe 导入检查、helper / App 启动、中文创建、精确查询、关闭重开保持 ID 均 PASS，原图已核对。完整证据见 `docs/quality/evidence/windows-19045-startup-20261103/README.md`。
+- Windows 10 19045.6093 真机仍待用户复测；存储 15 项失败和其他暂停范围不恢复，真实模型由用户验收。不发布、不合并。

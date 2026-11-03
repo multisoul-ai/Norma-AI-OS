@@ -1,0 +1,16 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 1.83s
+     Running unittests src/lib.rs (target/debug/deps/norma-76ae5f5c8581ca42)
+
+running 5 tests
+test codex::relay::input::tests::ordinary_turn_history_never_creates_pending_input ... ok
+test codex::relay::input::tests::old_turn_outside_history_window_cannot_hold_current_input ... ok
+partial answer readiness=auto
+output backpressure readiness=auto
+test codex::relay::input::tests::completed_question_history_does_not_exhaust_pending_capacity ... ok
+test codex::relay::partial_tests::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... ok
+relay output pre-close consecutive WouldBlock=8; complete source frames=1
+relay close all source handles released=true
+test codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.26s
+

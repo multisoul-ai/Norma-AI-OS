@@ -1,0 +1,29 @@
+{
+  "scope": "Known mandatory import regression only; not complete Windows 10 device acceptance",
+  "source_sha": "94e4bc83a7940a39ef0888d97d5f90669c5ccacd",
+  "tool": "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\dumpbin.exe",
+  "status": "FAIL",
+  "error": "Mandatory ProcessSocketNotifications import prevents loading on Windows 10 build 19045",
+  "run_id": "41669112175",
+  "probe_sha": "89dca382fe8f4973f5f315f53c056ae2248f9ef8",
+  "zip_sha256": "87ee66f8985766bbc611e5d4530e9edd3533fa27f26777037ffd3fcdcde9eba7",
+  "checks": [
+    {
+      "binary": "norma-os.exe",
+      "mandatory_ProcessSocketNotifications": true
+    },
+    {
+      "binary": "norma.exe",
+      "mandatory_ProcessSocketNotifications": false
+    },
+    {
+      "binary": "multisoul-agent-hook.exe",
+      "mandatory_ProcessSocketNotifications": false
+    },
+    {
+      "binary": "norma-browser-auth-host.exe",
+      "mandatory_ProcessSocketNotifications": false
+    }
+  ],
+  "run_attempt": "1"
+}

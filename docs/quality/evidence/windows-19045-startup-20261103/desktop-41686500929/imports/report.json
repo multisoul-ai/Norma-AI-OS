@@ -1,0 +1,28 @@
+{
+  "run_attempt": "1",
+  "tool": "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\dumpbin.exe",
+  "run_id": "41686500929",
+  "scope": "Known mandatory import regression only; not complete Windows 10 device acceptance",
+  "zip_sha256": "e590276bdb5ee5bf2b4a939257600180d79a2098bcfc35a50b1c5652a783e6d1",
+  "status": "PASS",
+  "checks": [
+    {
+      "mandatory_ProcessSocketNotifications": false,
+      "binary": "norma-os.exe"
+    },
+    {
+      "mandatory_ProcessSocketNotifications": false,
+      "binary": "norma.exe"
+    },
+    {
+      "mandatory_ProcessSocketNotifications": false,
+      "binary": "multisoul-agent-hook.exe"
+    },
+    {
+      "mandatory_ProcessSocketNotifications": false,
+      "binary": "norma-browser-auth-host.exe"
+    }
+  ],
+  "probe_sha": "15338abf2ad49406b1447bda0da648e4e3052010",
+  "source_sha": "15338abf2ad49406b1447bda0da648e4e3052010"
+}

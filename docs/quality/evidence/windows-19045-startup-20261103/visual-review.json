@@ -1,0 +1,34 @@
+{
+  "status": "PASS",
+  "reviewer": "primary agent multimodal original-image inspection",
+  "run_id": 41686500929,
+  "producer_run": 41676826809,
+  "source_sha": "15338abf2ad49406b1447bda0da648e4e3052010",
+  "zip_sha256": "e590276bdb5ee5bf2b4a939257600180d79a2098bcfc35a50b1c5652a783e6d1",
+  "workspace_id": "230be8db-bfd6-4b7a-b02a-9f353217b92f",
+  "raw_report_visual_status": "PENDING (retained unchanged; this file records the completed image review)",
+  "checks": [
+    {
+      "path": "desktop-41686500929/workspace/workspace-name-entered.png",
+      "sha256": "d22901599735756e63a1757080f4a959b082949ad67c24c5197eb9fffa38273d",
+      "detail": "original",
+      "status": "PASS",
+      "observation": "名称框完整显示 Runner 中文 workspace 41686500929；中文未变为乱码；提交按钮可见。"
+    },
+    {
+      "path": "desktop-41686500929/workspace/workspace-created.png",
+      "sha256": "433152d51144bc54594dc6a8a85acd14efa4870b3bfb58782395362f9d4e3f04",
+      "detail": "original",
+      "status": "PASS",
+      "observation": "创建弹窗已退出；画布顶部显示完整原名称，空项目态正常，无错误弹窗。"
+    },
+    {
+      "path": "desktop-41686500929/workspace/workspace-reopened.png",
+      "sha256": "40a86e4e8466716144f929cebb696f63648a28ad9af89ca3199b572ccd6f4cff",
+      "detail": "original",
+      "status": "PASS",
+      "observation": "真实重开后首页显示 1 个工作区，最近访问卡片保留中文名称前缀；完整名称和同一 ID 由对应 CLI JSON 精确确认。"
+    }
+  ],
+  "scope": "Server 2025 same-package startup and Chinese workspace flow; Windows 10 real-device acceptance remains pending"
+}
