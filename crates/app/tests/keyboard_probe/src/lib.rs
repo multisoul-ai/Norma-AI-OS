@@ -1,5 +1,5 @@
 //! Exercise the production App registry with native GPUI keystrokes.
-#[path = "../src/shortcuts.rs"]
+#[path = "../../../src/shortcuts.rs"]
 mod shortcuts;
 
 use gpui::Keystroke;
