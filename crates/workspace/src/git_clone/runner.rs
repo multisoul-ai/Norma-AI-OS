@@ -401,6 +401,8 @@ fn cancelled_failure(target: PathBuf) -> CloneFailure {
 
 struct OwnedTarget {
     path: PathBuf,
+    #[cfg(windows)]
+    identity: (u32, u64),
     #[cfg(unix)]
     device: u64,
     #[cfg(unix)]
@@ -410,6 +412,12 @@ struct OwnedTarget {
 impl OwnedTarget {
     fn capture(path: PathBuf) -> std::io::Result<Self> {
         let metadata = fs::symlink_metadata(&path)?;
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "clone target is not an owned directory",
+            ));
+        }
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
@@ -421,7 +429,13 @@ impl OwnedTarget {
         }
         #[cfg(not(unix))]
         {
-            Ok(Self { path })
+            #[cfg(windows)]
+            let identity = crate::scoped_directory::Directory::open(&path, false)?.identity()?;
+            Ok(Self {
+                path,
+                #[cfg(windows)]
+                identity,
+            })
         }
     }
 
@@ -439,6 +453,19 @@ impl OwnedTarget {
                 return;
             }
         }
+        #[cfg(windows)]
+        {
+            let Some(parent) = self.path.parent() else {
+                return;
+            };
+            let Some(name) = self.path.file_name().and_then(|name| name.to_str()) else {
+                return;
+            };
+            if let Ok(parent) = crate::scoped_directory::Directory::open(parent, true) {
+                let _ = parent.remove_child_tree(name, self.identity);
+            }
+        }
+        #[cfg(not(windows))]
         let _ = fs::remove_dir_all(&self.path);
     }
 }

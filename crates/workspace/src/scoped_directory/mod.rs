@@ -1,5 +1,6 @@
 //! Windows directory capabilities shared by memory publication and read-only project review.
 //! Names are single components, opened relative to a pinned directory without following reparses.
+mod remove_tree;
 mod security;
 use std::{
     fs::{File, OpenOptions},

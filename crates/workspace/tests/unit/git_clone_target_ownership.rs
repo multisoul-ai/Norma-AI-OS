@@ -156,3 +156,29 @@ fn clone_target_cleanup_preserves_external_readonly_hardlink() {
     assert_eq!(contents, b"linked data", "树外hardlink的字节必须保持完整");
     assert!(readonly, "清理不能通过修改共享文件属性来绕过只读保护");
 }
+
+/// 场景：单层clone目录超过一批原生枚举缓冲，取消不能漏掉后续条目。
+/// 构造：257个长Unicode文件名，仅60字符填充的UTF16字节就有257×60×2=30840，超过8KiB。
+/// 执行：捕获所有权并清理全部条目。
+/// 预期：多批续读后根目录完整消失，父目录保持可用；不能只删除第一批。
+#[test]
+fn clone_target_cleanup_reads_all_directory_enumeration_batches() {
+    let temp = tempfile::tempdir().unwrap();
+    let target = temp.path().join("checkout 中文");
+    fs::create_dir(&target).unwrap();
+    for index in 0..257 {
+        let name = format!("文件-{index:03}-{}.txt", "x".repeat(60));
+        fs::write(target.join(name), b"owned").unwrap();
+    }
+
+    OwnedTarget::capture(target.clone()).unwrap().cleanup();
+
+    assert!(
+        !target.exists(),
+        "原生枚举必须读完全部批次，不能留下后续文件"
+    );
+    assert!(
+        temp.path().is_dir(),
+        "清理范围必须停在本次目标，不删除父目录"
+    );
+}
