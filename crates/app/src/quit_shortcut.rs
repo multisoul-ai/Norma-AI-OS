@@ -18,9 +18,9 @@ pub(crate) fn install(cx: &mut App) {
             app.shortcuts.command_for_keystroke(&event.keystroke)
                 == Some(ShortcutCommandId::QuitNormaOs)
                 && app.shortcuts.recording.is_none()
-                && !app
+                && app
                     .expanded_desktop_project()
-                    .is_some_and(|project| project.read(cx).shortcuts.recording.is_some())
+                    .is_none_or(|project| project.read(cx).shortcuts.recording.is_none())
         } else {
             defaults.command_for_keystroke(&event.keystroke) == Some(ShortcutCommandId::QuitNormaOs)
         };
