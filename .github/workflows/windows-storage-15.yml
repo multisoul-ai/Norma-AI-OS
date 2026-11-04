@@ -5,7 +5,7 @@ on:
       suite:
         description: Full storage or affected groups only; every failure remains recorded
         type: choice
-        options: [full, focused, paths-sessions, memory, legacy, concurrency]
+        options: [full, focused, paths-sessions, memory, legacy, concurrency, atomic]
         default: full
       repeats:
         description: Repetitions of the complete unchanged concurrency test files
@@ -71,8 +71,10 @@ jobs:
           cases = [('full-storage', 'storage', [])] if suite == 'full' else []
           selected = list(groups) if suite in ('full', 'focused') else {
               'paths-sessions': ['paths', 'sessions'], 'memory': ['memory'],
-              'legacy': ['legacy'], 'concurrency': []}[suite]
+              'legacy': ['legacy'], 'concurrency': [], 'atomic': []}[suite]
           cases += [groups[name] for name in selected]
+          if suite == 'atomic':
+              cases.append(('atomic-migration', 'storage', ['--test', 'app_migration_atomic']))
           if platform.system() == 'Windows' and suite in ('full', 'focused', 'memory'):
               cases.append(('workspace-native', 'workspace', ['--lib', '--test', 'scoped_directory']))
           if suite in ('full', 'focused', 'concurrency'):
