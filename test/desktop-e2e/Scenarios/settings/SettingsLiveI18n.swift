@@ -30,7 +30,7 @@ public enum SettingsLiveI18n {
             try await session.step("\(language)：GPT-Live 标题与周边文案") {
                 if index == 0 {
                     try session.launch(language: "zh-Hans")
-                    try await session.resize(width: 1280, height: 900)
+                    try await session.resize(width: 1280, height: 860)
                     try await session.shortcut(key: 43, modifiers: [0x37])
                 } else {
                     try await session.visualClick("点击设置左侧的基础设置 / Basic Settings 分类")
