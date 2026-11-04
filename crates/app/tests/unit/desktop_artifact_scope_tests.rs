@@ -154,8 +154,7 @@ fn norma_artifact_tool_opens_exact_version_in_right_drawer_without_switching_pro
         app.desktop_workspace.areas = vec![area.clone()];
         app.desktop_workspace.content_artifacts = vec![artifact];
         let stale = app.norma_open_workspace_artifact(
-            &workspace.id,
-            &area.id,
+            (&workspace.id, &area.id),
             7,
             "turn-b",
             "plan.md",
@@ -169,8 +168,7 @@ fn norma_artifact_tool_opens_exact_version_in_right_drawer_without_switching_pro
         );
         let accepted = app
             .norma_open_workspace_artifact(
-                &workspace.id,
-                &area.id,
+                (&workspace.id, &area.id),
                 7,
                 "turn-b",
                 "plan.md",

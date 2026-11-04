@@ -58,7 +58,8 @@ fn workspace_task_tool_targets_exact_agent_through_coordinator() {
     };
     let session_a = make_session(prepared_a, writes_a.clone(), cx);
     let session_b = make_session(prepared_b, writes_b.clone(), cx);
-    for session in [&session_a] {
+    {
+        let session = &session_a;
         let service = session.update(cx, |app, _| app.shared_context_service().unwrap());
         crate::app::shared_tokio_runtime()
             .unwrap()
@@ -334,8 +335,15 @@ fn workspace_task_tool_targets_exact_agent_through_coordinator() {
     // 执行过程：从 A 的 update 回调发起定位，随后执行延后导航。
     // 预期结果：不重入 A；画布切到 B，且 B 的目标卡片获得选择。
     let cross_project = session_a.update_in(cx, |app, window, cx| {
-        app.norma_locate_workspace_agent(&workspace.id, &area_b.id, node_b, None, None, window, cx)
-            .expect("跨项目定位不应在来源项目更新期间导航")
+        app.norma_locate_workspace_agent(
+            (&workspace.id, &area_b.id),
+            node_b,
+            None,
+            None,
+            window,
+            cx,
+        )
+        .expect("跨项目定位不应在来源项目更新期间导航")
     });
     assert_eq!(
         cross_project.node_id,
@@ -412,8 +420,7 @@ fn workspace_agent_locator_rejects_stale_approval_then_focuses_exact_card() {
     });
     let stale = host.update_in(cx, |app, window, cx| {
         app.norma_locate_workspace_agent(
-            &workspace.id,
-            &area.id,
+            (&workspace.id, &area.id),
             node_id,
             Some("old-run"),
             Some("old-turn"),
@@ -433,7 +440,7 @@ fn workspace_agent_locator_rejects_stale_approval_then_focuses_exact_card() {
             area.id.clone(),
             ui::i18n::LocalizedText::new("workspace.project_directory_is_still_unavailable"),
         );
-        app.norma_locate_workspace_agent(&workspace.id, &area.id, node_id, None, None, window, cx)
+        app.norma_locate_workspace_agent((&workspace.id, &area.id), node_id, None, None, window, cx)
     });
     assert!(unavailable.is_err(), "目录不可用时定位不得谎报成功");
     host.update(cx, |app, _| {
@@ -444,7 +451,7 @@ fn workspace_agent_locator_rejects_stale_approval_then_focuses_exact_card() {
         app.desktop_workspace.area_errors.remove(&area.id);
     });
     let accepted = host.update_in(cx, |app, window, cx| {
-        app.norma_locate_workspace_agent(&workspace.id, &area.id, node_id, None, None, window, cx)
+        app.norma_locate_workspace_agent((&workspace.id, &area.id), node_id, None, None, window, cx)
             .expect("有效 Agent 卡片应可定位")
     });
     assert_eq!(accepted.node_id, Some(node_id), "定位回执应指向原卡片");
@@ -473,7 +480,7 @@ fn workspace_agent_locator_rejects_stale_approval_then_focuses_exact_card() {
     // 执行过程：在项目实体的 update 回调内调用真实定位工具，再执行延后导航。
     // 预期结果：工具不重入读取或更新项目；最终仍选中目标卡片。
     let from_project = session.update_in(cx, |app, window, cx| {
-        app.norma_locate_workspace_agent(&workspace.id, &area.id, node_id, None, None, window, cx)
+        app.norma_locate_workspace_agent((&workspace.id, &area.id), node_id, None, None, window, cx)
             .expect("项目会话定位自身 Agent 不应重入")
     });
     assert_eq!(

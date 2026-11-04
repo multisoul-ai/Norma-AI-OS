@@ -1,0 +1,194 @@
+{
+  "run_id": "41312023075",
+  "attempt": 1,
+  "source_sha": "e0e75071fb431d9ff93d432f7f95f899802f57a4",
+  "run_url": "https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41312023075",
+  "conclusion": "failure",
+  "files": [
+    {
+      "path": "agents/claude_help.log",
+      "bytes": 22344,
+      "sha256": "5ca3a9dac2026e56c221fdd34380c7d7d45ebbb51c1d01b7c17c75cb076a0be8"
+    },
+    {
+      "path": "agents/claude_version.log",
+      "bytes": 22,
+      "sha256": "70042ea11d403c6f2d687a5ae7b2c1c2108f2fec29ccf250750ed8efe319a6c2"
+    },
+    {
+      "path": "agents/codex-initialize.log",
+      "bytes": 224,
+      "sha256": "1bcc607b14f8b6648a76bb0b706d721aebfff0d589c3faa1f37a36d78d7c736f"
+    },
+    {
+      "path": "agents/codex_help.log",
+      "bytes": 5944,
+      "sha256": "c45272069305746def807625680ee74891c9b367bff346ff776206b98c79331a"
+    },
+    {
+      "path": "agents/codex_server_help.log",
+      "bytes": 3703,
+      "sha256": "d2854a3ad9c9733f8be8034feb198ba017ddce07d539d8e777167fc96dffbd10"
+    },
+    {
+      "path": "agents/codex_version.log",
+      "bytes": 18,
+      "sha256": "728b255fa6d47ac8019747aaf2876baaafacdb93dfba1e4697257224bbc75a5c"
+    },
+    {
+      "path": "agents/npm_install.log",
+      "bytes": 25,
+      "sha256": "39bf1ea11eceb1f748e61df3a82ebc442057f85d14a7c74bea807a12ca4e0d67"
+    },
+    {
+      "path": "agents/report.json",
+      "bytes": 3122,
+      "sha256": "527a2a0799e3c780d6c895d604de347f3ddf97ea9560e7623b8af2d87f9e00b0"
+    },
+    {
+      "path": "artifacts.json",
+      "bytes": 3768,
+      "sha256": "7854d9f398e0506235673db2db75eccd2a8a4a713cd54478357434549e4580fb"
+    },
+    {
+      "path": "compile/app_compile.log",
+      "bytes": 37798,
+      "sha256": "76093a2cb114edc8a11edf28eb9a18973fc6791060b7ca54ed4aa56d2999d637"
+    },
+    {
+      "path": "compile/canvas_tests.log",
+      "bytes": 5917,
+      "sha256": "27bf402ae50d83678b1dc772c776472fa12fb32e3336314456f3cfdcbf593e52"
+    },
+    {
+      "path": "compile/norma_compile.log",
+      "bytes": 9440,
+      "sha256": "c63d72a6d4fb3bfb31d7629b220c6b6fbed5f8ae796d1766842c50cea148e3a4"
+    },
+    {
+      "path": "compile/norma_platform_tests.log",
+      "bytes": 9298,
+      "sha256": "94a6a1dae24dd5d725265e92324c476ff17c490a92462eb6b93f0d20e8d24d39"
+    },
+    {
+      "path": "compile/report.json",
+      "bytes": 2153,
+      "sha256": "3a95fe887003fde09c84c0c928c72b10d77d50e481599de9d914f62f850cdbb0"
+    },
+    {
+      "path": "compiler-blockers.json",
+      "bytes": 5920,
+      "sha256": "3c37bbde4659f4e2270a1cf6d82d3969c66dcafb3495475bcf83b40503a2eb99"
+    },
+    {
+      "path": "environment/cargo.log",
+      "bytes": 36,
+      "sha256": "c43fbe5f8cae7a0247183777f1cddb8064ce94d57246f3261300f7767f72404a"
+    },
+    {
+      "path": "environment/git.log",
+      "bytes": 29,
+      "sha256": "3617bc4f3a2cb9f90eb1c5ac0c23738475bddfbfae80b85872b63c6eb93be9d1"
+    },
+    {
+      "path": "environment/native.json",
+      "bytes": 1205,
+      "sha256": "4568e2c1d9013de4cbbf32aa7fa50a00d5ae88e7eb321d2f1ba46dc34cfa9214"
+    },
+    {
+      "path": "environment/native.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "environment/node.log",
+      "bytes": 10,
+      "sha256": "31d84dc2908d3a965a81239624d11353c9fa77f007a2b4f2c20022f250ea3751"
+    },
+    {
+      "path": "environment/report.json",
+      "bytes": 2908,
+      "sha256": "dd09a334145c92a746cd774138604f31cda935cbd9059be552bd60bd42e6e068"
+    },
+    {
+      "path": "environment/rustc.log",
+      "bytes": 194,
+      "sha256": "9b87872b7f5cc3e8e369bc0ed837cc0b6eb7a3195954f9ff0b9b55fbaab66bf4"
+    },
+    {
+      "path": "feasibility.json",
+      "bytes": 9806,
+      "sha256": "b9dffbd13ff8dd739e10ae0830a1a74d83181c266a0ae14037c7757f0923282e"
+    },
+    {
+      "path": "graphics/gpui-window.png",
+      "bytes": 12717,
+      "sha256": "2dd34f30bd4411c8228a5b21144ea6cd96e929e4079af1b02a990e4c5e5aa401"
+    },
+    {
+      "path": "graphics/gpui.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "graphics/gpui.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "graphics/gpui_build.log",
+      "bytes": 29305,
+      "sha256": "e8348c97966fdd2745e655d2855da2177612a1f1ea1ef904c6bf1d5a1ebc9632"
+    },
+    {
+      "path": "graphics/native.json",
+      "bytes": 2011,
+      "sha256": "0db3f2cf0992a5a5ee8ae273d8cfb84efbf2b4db9ffd66b45604cd92f55a9db9"
+    },
+    {
+      "path": "graphics/native.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "graphics/report.json",
+      "bytes": 3665,
+      "sha256": "25ad272be8b023fa1bd400e569790accba612b15e6ad7cf66b4441786b0ee83a"
+    },
+    {
+      "path": "jobs.json",
+      "bytes": 12173,
+      "sha256": "feb19910215e9964ea44093b5f71a5a6a1e6fac9c01ded4de978e5761fecf8e8"
+    },
+    {
+      "path": "run.json",
+      "bytes": 13093,
+      "sha256": "fdb56964b0cbcc27cd2c304401e611cc3c193bfd9fe9f54f70971502f1968555"
+    },
+    {
+      "path": "speech/report.json",
+      "bytes": 1391,
+      "sha256": "027d196870e48334e6c774e1cf9632f8fcc9b4f8343b9259309bb80dc1294494"
+    },
+    {
+      "path": "speech/speech_tests.log",
+      "bytes": 8754,
+      "sha256": "d58be8a405ef8726a08a86521e6ca286272b7144715b4ac0ffe3a0f51c31038d"
+    },
+    {
+      "path": "speech/voice_input_compile.log",
+      "bytes": 6614,
+      "sha256": "c3c2340e3960c848fb9053091bd3c4b3570f839c2fd41d55149107499ee1a0a1"
+    },
+    {
+      "path": "summary.md",
+      "bytes": 361,
+      "sha256": "a2952fb6b6482fac52aab7cd5778a510a0afa86e6059a51d1e24b695b53bf916"
+    },
+    {
+      "path": "workflow.log",
+      "bytes": 440431,
+      "sha256": "27ae8fbdbd80a5a751431afe811f79afe61313a4ffef5be8c6435e19f08e7170"
+    }
+  ]
+}

@@ -1,0 +1,357 @@
+{
+  "kind": "feasibility_only",
+  "source_shas": [
+    "dae96214474474dffe6e0fc96efabb9d2e14990f"
+  ],
+  "source_consistent": true,
+  "provenance_consistent": true,
+  "missing_reports": [],
+  "checks": [
+    {
+      "id": "rustc",
+      "command": [
+        "rustc",
+        "-vV"
+      ],
+      "log": "rustc.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 1.58,
+      "task": "environment"
+    },
+    {
+      "id": "cargo",
+      "command": [
+        "cargo",
+        "--version"
+      ],
+      "log": "cargo.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.72,
+      "task": "environment"
+    },
+    {
+      "id": "node",
+      "command": [
+        "node",
+        "--version"
+      ],
+      "log": "node.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.59,
+      "task": "environment"
+    },
+    {
+      "id": "git",
+      "command": [
+        "git",
+        "--version"
+      ],
+      "log": "git.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.05,
+      "task": "environment"
+    },
+    {
+      "id": "native",
+      "command": [
+        "pwsh",
+        "-NoLogo",
+        "-NoProfile",
+        "-File",
+        "D:\\a\\Norma-AI-OS\\Norma-AI-OS\\scripts\\windows\\native.ps1",
+        "-Mode",
+        "environment",
+        "-Output",
+        "D:\\a\\Norma-AI-OS\\Norma-AI-OS\\artifacts\\windows-feasibility\\environment"
+      ],
+      "log": "native.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 5.33,
+      "task": "environment"
+    },
+    {
+      "detail": "OS, displays and D3D11 device creation were queried",
+      "id": "native_environment",
+      "status": "PASS",
+      "task": "environment"
+    },
+    {
+      "detail": "HRESULT=0x00000000;feature_level=0xB000",
+      "id": "d3d11_hardware",
+      "status": "PASS",
+      "task": "environment"
+    },
+    {
+      "detail": "HRESULT=0x00000000;feature_level=0xB000",
+      "id": "d3d11_warp",
+      "status": "PASS",
+      "task": "environment"
+    },
+    {
+      "id": "canvas_tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "canvas",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "log": "canvas_tests.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 58.67,
+      "task": "compile"
+    },
+    {
+      "id": "norma_compile",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "norma",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc",
+        "--message-format=short"
+      ],
+      "log": "norma_compile.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 185.69,
+      "task": "compile"
+    },
+    {
+      "id": "app_compile",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "app",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc",
+        "--message-format=short"
+      ],
+      "log": "app_compile.log",
+      "status": "FAIL",
+      "exit_code": 101,
+      "duration_seconds": 808.72,
+      "task": "compile"
+    },
+    {
+      "id": "norma_platform_tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "norma",
+        "--lib",
+        "--test",
+        "client_platform",
+        "--test",
+        "codex_question",
+        "--test",
+        "cursor_questions",
+        "--test",
+        "client_tests",
+        "--test",
+        "protocol_tests",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "log": "norma_platform_tests.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 153.86,
+      "task": "compile"
+    },
+    {
+      "id": "gpui_build",
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--manifest-path",
+        "D:\\a\\Norma-AI-OS\\Norma-AI-OS\\test\\windows-probe\\Cargo.toml",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "log": "gpui_build.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 290.34,
+      "task": "graphics"
+    },
+    {
+      "id": "native",
+      "command": [
+        "pwsh",
+        "-NoLogo",
+        "-NoProfile",
+        "-File",
+        "D:\\a\\Norma-AI-OS\\Norma-AI-OS\\scripts\\windows\\native.ps1",
+        "-Mode",
+        "graphics",
+        "-Output",
+        "D:\\a\\Norma-AI-OS\\Norma-AI-OS\\artifacts\\windows-feasibility\\graphics",
+        "-Executable",
+        "D:\\a\\_temp\\norma-windows-probe-target\\x86_64-pc-windows-msvc\\debug\\norma-gpui-probe.exe"
+      ],
+      "log": "native.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 9.7,
+      "task": "graphics"
+    },
+    {
+      "detail": "OS, displays and D3D11 device creation were queried",
+      "id": "native_environment",
+      "status": "PASS",
+      "task": "graphics"
+    },
+    {
+      "detail": "HRESULT=0x00000000;feature_level=0xB000",
+      "id": "d3d11_hardware",
+      "status": "PASS",
+      "task": "graphics"
+    },
+    {
+      "detail": "HRESULT=0x00000000;feature_level=0xB000",
+      "id": "d3d11_warp",
+      "status": "PASS",
+      "task": "graphics"
+    },
+    {
+      "detail": "Owned Zed::Window and expected GPUI RGB pixels captured",
+      "id": "gpui_window",
+      "status": "PASS",
+      "screenshot": "gpui-window.png",
+      "task": "graphics"
+    },
+    {
+      "detail": "Alt+F4 through the OS keyboard path; only the owned foreground sample was targeted",
+      "id": "gpui_os_keyboard_close",
+      "status": "PASS",
+      "task": "graphics"
+    },
+    {
+      "id": "npm_install",
+      "command": [
+        "node",
+        "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js",
+        "install",
+        "--prefix",
+        "D:\\a\\_temp\\norma-probe-tools",
+        "--no-audit",
+        "--no-fund",
+        "@openai/codex@0.166.0",
+        "@anthropic-ai/claude-code@2.1.316"
+      ],
+      "log": "npm_install.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 28.91,
+      "task": "agents"
+    },
+    {
+      "id": "codex_version",
+      "command": [
+        "node",
+        "D:\\a\\_temp\\norma-probe-tools\\node_modules\\@openai\\codex\\bin\\codex.js",
+        "--version"
+      ],
+      "log": "codex_version.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.7,
+      "task": "agents"
+    },
+    {
+      "id": "codex_help",
+      "command": [
+        "node",
+        "D:\\a\\_temp\\norma-probe-tools\\node_modules\\@openai\\codex\\bin\\codex.js",
+        "--help"
+      ],
+      "log": "codex_help.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.12,
+      "task": "agents"
+    },
+    {
+      "id": "codex_server_help",
+      "command": [
+        "node",
+        "D:\\a\\_temp\\norma-probe-tools\\node_modules\\@openai\\codex\\bin\\codex.js",
+        "app-server",
+        "--help"
+      ],
+      "log": "codex_server_help.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.12,
+      "task": "agents"
+    },
+    {
+      "id": "codex_stdio_initialize",
+      "status": "PASS",
+      "log": "codex-initialize.log",
+      "task": "agents"
+    },
+    {
+      "id": "claude_version",
+      "command": [
+        "D:\\a\\_temp\\norma-probe-tools\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+        "--version"
+      ],
+      "log": "claude_version.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.06,
+      "task": "agents"
+    },
+    {
+      "id": "claude_help",
+      "command": [
+        "D:\\a\\_temp\\norma-probe-tools\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+        "--help"
+      ],
+      "log": "claude_help.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.2,
+      "task": "agents"
+    },
+    {
+      "id": "live_agent_tasks",
+      "status": "NOT_RUN",
+      "detail": "No credentials or paid model calls are used; no real task was submitted",
+      "task": "agents"
+    },
+    {
+      "id": "native_codex_tui_relay",
+      "status": "NOT_RUN",
+      "detail": "stdio initialization does not validate Norma's Unix TUI relay",
+      "task": "agents"
+    }
+  ],
+  "goal_gates": {
+    "product_compile": "FAIL",
+    "gpui_graphics": "PASS",
+    "live_agents": "NOT_RUN",
+    "candidate_package": "NOT_RUN"
+  },
+  "goal_complete": false
+}

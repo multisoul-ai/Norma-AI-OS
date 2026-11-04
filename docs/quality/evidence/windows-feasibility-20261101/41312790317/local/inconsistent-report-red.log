@@ -1,0 +1,17 @@
+......F..
+======================================================================
+FAIL: test_summary_rejects_speech_pass_with_nonzero_exit_code (__main__.FeasibilityReportTests)
+场景：语音报告出现 PASS 与非零退出码矛盾；构造 exit=101 的 PASS；
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/norma-windows-feasibility-20261101/scripts/test-windows-probe.py", line 171, in test_summary_rejects_speech_pass_with_nonzero_exit_code
+    self.assertEqual(report["goal_gates"]["speech_default_checks"], "FAIL",
+AssertionError: 'PASS' != 'FAIL'
+- PASS
++ FAIL
+ : nonzero exit codes must not be shown as a passed speech sub-gate
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.490s
+
+FAILED (failures=1)

@@ -8,7 +8,12 @@ license.workspace = true
 default = []
 test-support = []
 
+[[test]]
+name = "app_audio_platform"
+required-features = ["test-support"]
+
 [dependencies]
+sherpa-onnx = "1.13"
 async-channel.workspace = true
 audio.workspace = true
 crossbeam-channel.workspace = true
@@ -20,6 +25,9 @@ tracing.workspace = true
 asr.workspace = true
 tempfile.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.61.3", features = ["Devices_Enumeration", "Win32_Devices_FunctionDiscovery", "Win32_Media_Audio", "Win32_Media_KernelStreaming", "Win32_Media_Multimedia", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_System_WinRT", "Win32_UI_Shell_PropertiesSystem"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"
 objc2 = "0.6"
@@ -27,4 +35,3 @@ objc2-av-foundation = { version = "0.3.2", features = ["AVCaptureDevice", "AVMed
 objc2-avf-audio = { version = "0.3.2", features = ["AVAudioBuffer", "AVAudioConverter", "AVAudioEngine", "AVAudioFormat", "AVAudioIONode", "AVAudioNode", "AVAudioTime", "AVAudioTypes", "block2"] }
 objc2-core-foundation = { version = "0.3.2", features = ["CFDate", "CFRunLoop", "CFString"] }
 objc2-foundation = { version = "0.3.2", features = ["NSError", "NSObject", "NSString"] }
-sherpa-onnx = "1.13"

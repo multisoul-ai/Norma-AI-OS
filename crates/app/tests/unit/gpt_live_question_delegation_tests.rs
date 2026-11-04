@@ -1,7 +1,6 @@
 use super::super::bridge::LiveBridge;
 use super::*;
-#[path = "../support/brain_question.rs"]
-mod support;
+use crate::test_support::brain_question as support;
 
 /// 场景：GPT Live 的可信话语委派必须回答当前题，不得另进普通任务规划。
 /// 构造：隔离 App/原 Claude 问题和 LiveBridge；覆盖独立命令、闲聊后命令、分片、否定、取消。

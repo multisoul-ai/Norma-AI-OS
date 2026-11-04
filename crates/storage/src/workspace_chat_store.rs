@@ -312,13 +312,11 @@ pub(crate) fn migrate(conn: &rusqlite::Connection) -> StorageResult<()> {
         return Ok(());
     }
     // Only legacy upgrades need a writer. Recheck under the lock when another opener got there first.
-    let tx = rusqlite::Transaction::new_unchecked(conn, TransactionBehavior::Immediate)?;
     crate::migrations::ensure_column(
-        &tx,
+        conn,
         "workspace_chat_events",
         "created_at_unix_ms",
         "created_at_unix_ms INTEGER NOT NULL DEFAULT 0",
     )?;
-    tx.commit()?;
     Ok(())
 }

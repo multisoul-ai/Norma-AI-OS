@@ -1,0 +1,9 @@
+   Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1.63s
+     Running tests\opencode_question_transport.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\opencode_question_transport-805c38f2cd040b6b.exe)
+
+running 1 test
+test opencode_replies_only_through_own_instance_and_original_request ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+

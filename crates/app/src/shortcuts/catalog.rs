@@ -1,6 +1,14 @@
 use super::{ReadOnlyShortcutBehavior, ShortcutCommandId, ShortcutEntry};
 
 const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
+    #[cfg(windows)]
+    entry(
+        ShortcutCommandId::QuitNormaOs,
+        "common.workspace",
+        "menu.quit_norma_os",
+        "shortcuts.quit_norma_os_hint",
+        Some("ctrl-shift-q"),
+    ),
     entry(
         ShortcutCommandId::NewWorkspace,
         "common.workspace",
@@ -418,8 +426,12 @@ const fn entry(
     category: &'static str,
     title: &'static str,
     hint: &'static str,
-    default_keystroke: Option<&'static str>,
+    _default_keystroke: Option<&'static str>,
 ) -> ShortcutEntry {
+    #[cfg(windows)]
+    let default_keystroke = super::windows_defaults::key(command);
+    #[cfg(not(windows))]
+    let default_keystroke = _default_keystroke;
     ShortcutEntry {
         command,
         category,
@@ -434,7 +446,7 @@ const READ_ONLY_BEHAVIORS: &[ReadOnlyShortcutBehavior] = &[
     ReadOnlyShortcutBehavior {
         title: "common.paste",
         hint: "shortcuts.send_clipboard_text_to_the_focused_or_keyboard_selected_node",
-        keystroke: "cmd-v",
+        keystroke: if cfg!(windows) { "ctrl-v" } else { "cmd-v" },
         scope: "shortcuts.system",
     },
     ReadOnlyShortcutBehavior {

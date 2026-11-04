@@ -1,0 +1,1197 @@
+2026-11-03T12:15:25.5242334Z ##[group]Run cargo build --locked --release -p app --features production-data --bins
+2026-11-03T12:15:25.5243049Z [36;1mcargo build --locked --release -p app --features production-data --bins[0m
+2026-11-03T12:15:25.5243525Z [36;1mif ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }[0m
+2026-11-03T12:15:25.5243894Z [36;1mcargo build --locked --release -p norma --bins[0m
+2026-11-03T12:15:25.5244197Z [36;1mexit $LASTEXITCODE[0m
+2026-11-03T12:15:25.5313615Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-11-03T12:15:25.5313949Z env:
+2026-11-03T12:15:25.5314116Z   CARGO_INCREMENTAL: 0
+2026-11-03T12:15:25.5314314Z   CARGO_BUILD_JOBS: 2
+2026-11-03T12:15:25.5314504Z   CARGO_TERM_COLOR: never
+2026-11-03T12:15:25.5314700Z   PYTHONUTF8: 1
+2026-11-03T12:15:25.5314904Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T12:15:25.5315180Z   CACHE_ON_FAILURE: true
+2026-11-03T12:15:25.5315723Z   NORMA_WINDOWS_CRT_DIR: C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Redist\MSVC\14.51.36231\x64\Microsoft.VC145.CRT
+2026-11-03T12:15:25.5316259Z ##[endgroup]
+2026-11-03T12:15:27.3191466Z    Compiling proc-macro2 v1.0.106
+2026-11-03T12:15:27.3192927Z    Compiling quote v1.0.46
+2026-11-03T12:15:27.5390911Z    Compiling unicode-ident v1.0.24
+2026-11-03T12:15:27.6663721Z    Compiling serde_core v1.0.228
+2026-11-03T12:15:28.9324984Z    Compiling syn v2.0.118
+2026-11-03T12:15:30.5755917Z    Compiling cfg-if v1.0.4
+2026-11-03T12:15:30.6609987Z    Compiling windows-link v0.2.1
+2026-11-03T12:15:30.7025750Z    Compiling getrandom v0.4.3
+2026-11-03T12:15:31.0420026Z    Compiling jobserver v0.1.35
+2026-11-03T12:15:31.3208356Z    Compiling find-msvc-tools v0.1.9
+2026-11-03T12:15:32.2294552Z    Compiling shlex v2.0.1
+2026-11-03T12:15:32.3960291Z    Compiling cc v1.2.66
+2026-11-03T12:15:34.1631003Z    Compiling windows-sys v0.61.2
+2026-11-03T12:15:35.0564908Z    Compiling typeid v1.0.3
+2026-11-03T12:15:35.3001483Z    Compiling memchr v2.8.2
+2026-11-03T12:15:36.3172948Z    Compiling erased-serde v0.4.10
+2026-11-03T12:15:37.2465394Z    Compiling serde_fmt v1.1.0
+2026-11-03T12:15:37.4116656Z    Compiling value-bag-serde1 v1.12.0
+2026-11-03T12:15:37.4572383Z    Compiling value-bag v1.12.0
+2026-11-03T12:15:38.0642462Z    Compiling log v0.4.33
+2026-11-03T12:15:38.5177793Z    Compiling version_check v0.9.5
+2026-11-03T12:15:38.8046355Z    Compiling pin-project-lite v0.2.17
+2026-11-03T12:15:38.8622769Z    Compiling serde_derive v1.0.228
+2026-11-03T12:15:42.2320432Z    Compiling synstructure v0.13.2
+2026-11-03T12:15:42.8240495Z    Compiling once_cell v1.21.4
+2026-11-03T12:15:43.0410845Z    Compiling crossbeam-utils v0.8.22
+2026-11-03T12:15:43.3160201Z    Compiling zerofrom-derive v0.1.7
+2026-11-03T12:15:44.7534549Z    Compiling autocfg v1.5.1
+2026-11-03T12:15:45.7306339Z    Compiling yoke-derive v0.8.2
+2026-11-03T12:15:45.9720526Z    Compiling futures-core v0.3.32
+2026-11-03T12:15:46.0763674Z    Compiling serde v1.0.228
+2026-11-03T12:15:46.9898281Z    Compiling zerovec-derive v0.11.3
+2026-11-03T12:15:47.1158280Z    Compiling smallvec v1.15.2
+2026-11-03T12:15:47.3253857Z    Compiling displaydoc v0.2.6
+2026-11-03T12:15:48.0778085Z    Compiling bitflags v2.13.0
+2026-11-03T12:15:48.1665227Z    Compiling generic-array v0.14.7
+2026-11-03T12:15:48.3267786Z    Compiling itoa v1.0.18
+2026-11-03T12:15:48.4654993Z    Compiling hashbrown v0.17.1
+2026-11-03T12:15:48.5180411Z    Compiling equivalent v1.0.2
+2026-11-03T12:15:48.5676210Z    Compiling zmij v1.0.21
+2026-11-03T12:15:48.7770920Z    Compiling stable_deref_trait v1.2.1
+2026-11-03T12:15:48.8228576Z    Compiling futures-io v0.3.32
+2026-11-03T12:15:48.9656228Z    Compiling libm v0.2.16
+2026-11-03T12:15:49.2250632Z    Compiling indexmap v2.14.0
+2026-11-03T12:15:49.2275060Z    Compiling subtle v2.6.1
+2026-11-03T12:15:50.1464800Z    Compiling icu_properties_data v2.2.0
+2026-11-03T12:15:50.3044661Z    Compiling thiserror v2.0.18
+2026-11-03T12:15:50.5952932Z    Compiling crc32fast v1.5.0
+2026-11-03T12:15:50.8120037Z    Compiling icu_normalizer_data v2.2.0
+2026-11-03T12:15:50.9697949Z    Compiling slab v0.4.12
+2026-11-03T12:15:50.9699218Z    Compiling zeroize v1.9.0
+2026-11-03T12:15:51.1502887Z    Compiling thiserror-impl v2.0.18
+2026-11-03T12:15:51.1807910Z    Compiling getrandom v0.2.17
+2026-11-03T12:15:51.3083724Z    Compiling typenum v1.20.1
+2026-11-03T12:15:52.1373838Z    Compiling bytes v1.12.0
+2026-11-03T12:15:52.5636552Z    Compiling libc v0.2.186
+2026-11-03T12:15:53.6182151Z    Compiling fastrand v2.4.1
+2026-11-03T12:15:53.7460110Z    Compiling num-traits v0.2.19
+2026-11-03T12:15:53.8757345Z    Compiling pkg-config v0.3.33
+2026-11-03T12:15:54.0340836Z    Compiling crypto-common v0.1.7
+2026-11-03T12:15:54.1308481Z    Compiling block-buffer v0.10.4
+2026-11-03T12:15:54.2480900Z    Compiling zerofrom v0.1.8
+2026-11-03T12:15:54.3608939Z    Compiling yoke v0.8.3
+2026-11-03T12:15:54.4781587Z    Compiling digest v0.10.7
+2026-11-03T12:15:54.6916146Z    Compiling cmake v0.1.58
+2026-11-03T12:15:55.0935841Z    Compiling dunce v1.0.5
+2026-11-03T12:15:55.2066387Z    Compiling fs_extra v1.3.0
+2026-11-03T12:15:55.4722067Z    Compiling aws-lc-sys v0.43.0
+2026-11-03T12:15:55.4964411Z    Compiling ring v0.17.14
+2026-11-03T12:15:55.9762870Z    Compiling windows-link v0.1.3
+2026-11-03T12:15:59.5805348Z    Compiling zerovec v0.11.6
+2026-11-03T12:16:00.2532966Z    Compiling http v1.4.2
+2026-11-03T12:16:01.8825236Z    Compiling rustls-pki-types v1.15.0
+2026-11-03T12:16:02.6677671Z    Compiling serde_json v1.0.150
+2026-11-03T12:16:02.8443891Z    Compiling simd-adler32 v0.3.9
+2026-11-03T12:16:03.1043637Z    Compiling futures-sink v0.3.32
+2026-11-03T12:16:03.1828296Z    Compiling zerocopy v0.8.53
+2026-11-03T12:16:06.0958667Z    Compiling zerocopy-derive v0.8.53
+2026-11-03T12:16:07.6883370Z    Compiling crossbeam-epoch v0.9.20
+2026-11-03T12:16:07.8829878Z    Compiling cpufeatures v0.2.17
+2026-11-03T12:16:07.9331341Z    Compiling arrayvec v0.7.8
+2026-11-03T12:16:08.1667152Z    Compiling untrusted v0.9.0
+2026-11-03T12:16:08.2695488Z    Compiling atomic-waker v1.1.2
+2026-11-03T12:16:08.3509548Z    Compiling aws-lc-rs v1.17.3
+2026-11-03T12:16:20.4134226Z    Compiling concurrent-queue v2.5.0
+2026-11-03T12:16:20.6013076Z    Compiling tracing-core v0.1.36
+2026-11-03T12:16:21.4997635Z    Compiling percent-encoding v2.3.2
+2026-11-03T12:16:21.6825554Z    Compiling adler2 v2.0.1
+2026-11-03T12:16:21.8383103Z    Compiling miniz_oxide v0.8.9
+2026-11-03T12:16:23.1048682Z    Compiling tinystr v0.8.3
+2026-11-03T12:16:23.2756877Z    Compiling windows-result v0.3.4
+2026-11-03T12:16:23.6215223Z    Compiling tracing-attributes v0.1.31
+2026-11-03T12:16:25.0312713Z    Compiling httparse v1.10.1
+2026-11-03T12:16:25.3131412Z    Compiling base64 v0.22.1
+2026-11-03T12:16:25.7271485Z    Compiling crossbeam-deque v0.8.7
+2026-11-03T12:16:25.9302701Z    Compiling litemap v0.8.2
+2026-11-03T12:16:26.1472239Z    Compiling writeable v0.6.3
+2026-11-03T12:16:26.3358138Z    Compiling icu_locale_core v2.2.0
+2026-11-03T12:16:28.9346505Z    Compiling tracing v0.1.44
+2026-11-03T12:16:29.4109462Z    Compiling futures-channel v0.3.32
+2026-11-03T12:16:29.6398682Z    Compiling potential_utf v0.1.5
+2026-11-03T12:16:29.7580992Z    Compiling windows-strings v0.4.2
+2026-11-03T12:16:30.2622954Z    Compiling zerotrie v0.2.4
+2026-11-03T12:16:30.6498549Z    Compiling utf8_iter v1.0.4
+2026-11-03T12:16:30.9210509Z    Compiling rustls v0.23.41
+2026-11-03T12:16:31.0633126Z    Compiling parking v2.2.1
+2026-11-03T12:16:31.1894955Z    Compiling icu_collections v2.2.0
+2026-11-03T12:16:31.8669353Z    Compiling icu_provider v2.2.0
+2026-11-03T12:16:32.3814107Z    Compiling flate2 v1.1.9
+2026-11-03T12:16:33.2884832Z    Compiling futures-macro v0.3.32
+2026-11-03T12:16:34.0922549Z    Compiling futures-task v0.3.32
+2026-11-03T12:16:34.2325606Z    Compiling futures-util v0.3.32
+2026-11-03T12:16:37.4774659Z    Compiling socket2 v0.6.4
+2026-11-03T12:16:38.2186683Z    Compiling mio v1.2.1
+2026-11-03T12:16:39.3435734Z    Compiling tokio-macros v2.7.0
+2026-11-03T12:16:40.0205409Z    Compiling winapi v0.3.9
+2026-11-03T12:16:40.4705052Z    Compiling tokio v1.52.3
+2026-11-03T12:16:49.3784999Z    Compiling icu_normalizer v2.2.0
+2026-11-03T12:16:50.4114801Z    Compiling icu_properties v2.2.0
+2026-11-03T12:16:51.9796817Z    Compiling sha2 v0.10.9
+2026-11-03T12:16:53.9258323Z    Compiling anyhow v1.0.103
+2026-11-03T12:16:54.4814816Z    Compiling idna_adapter v1.2.2
+2026-11-03T12:16:57.7491946Z    Compiling form_urlencoded v1.2.2
+2026-11-03T12:16:58.2162614Z    Compiling idna v1.1.0
+2026-11-03T12:17:01.8587260Z    Compiling schannel v0.1.29
+2026-11-03T12:17:03.6321304Z    Compiling aho-corasick v1.1.4
+2026-11-03T12:17:09.2443150Z    Compiling regex-syntax v0.8.11
+2026-11-03T12:17:15.2353157Z    Compiling utf-8 v0.7.6
+2026-11-03T12:17:15.3742720Z    Compiling semver v1.0.28
+2026-11-03T12:17:15.6927387Z    Compiling either v1.16.0
+2026-11-03T12:17:15.9121698Z    Compiling rustc_version v0.4.1
+2026-11-03T12:17:16.2268538Z    Compiling regex-automata v0.4.14
+2026-11-03T12:17:28.8991041Z    Compiling rustls-native-certs v0.8.4
+2026-11-03T12:17:29.5597350Z    Compiling url v2.5.8
+2026-11-03T12:17:31.6387489Z    Compiling event-listener v5.4.1
+2026-11-03T12:17:31.9165331Z    Compiling windows_x86_64_msvc v0.52.6
+2026-11-03T12:17:32.0942290Z    Compiling heck v0.5.0
+2026-11-03T12:17:33.6571709Z    Compiling event-listener-strategy v0.5.4
+2026-11-03T12:17:34.3558618Z    Compiling winapi-util v0.1.11
+2026-11-03T12:17:34.6324897Z    Compiling getrandom v0.3.4
+2026-11-03T12:17:36.9858790Z    Compiling tempfile v3.27.0
+2026-11-03T12:17:37.7017805Z    Compiling http-body v1.0.1
+2026-11-03T12:17:42.6088738Z    Compiling rustversion v1.0.23
+2026-11-03T12:17:42.9213346Z    Compiling vcpkg v0.2.15
+2026-11-03T12:17:47.6766204Z    Compiling async-channel v2.5.0
+2026-11-03T12:17:48.0511216Z    Compiling tokio-util v0.7.18
+2026-11-03T12:17:48.9507708Z    Compiling tower-service v0.3.3
+2026-11-03T12:17:49.0186804Z    Compiling try-lock v0.2.5
+2026-11-03T12:17:49.1090209Z    Compiling fnv v1.0.7
+2026-11-03T12:17:49.1704172Z    Compiling scopeguard v1.2.0
+2026-11-03T12:17:49.2324352Z    Compiling lock_api v0.4.14
+2026-11-03T12:17:49.4591266Z    Compiling h2 v0.4.15
+2026-11-03T12:17:55.1678298Z    Compiling want v0.3.1
+2026-11-03T12:17:55.2940290Z    Compiling same-file v1.0.6
+2026-11-03T12:17:55.4112560Z    Compiling rand_core v0.9.5
+2026-11-03T12:17:56.3995065Z    Compiling futures-lite v2.6.1
+2026-11-03T12:17:57.2418615Z    Compiling ppv-lite86 v0.2.21
+2026-11-03T12:17:57.6318666Z    Compiling piper v0.2.5
+2026-11-03T12:17:57.8549803Z    Compiling bzip2-sys v0.1.13+1.0.8
+2026-11-03T12:17:58.1015767Z    Compiling bstr v1.12.3
+2026-11-03T12:17:58.5754386Z    Compiling unicase v2.9.0
+2026-11-03T12:17:59.0997210Z    Compiling parking_lot_core v0.9.12
+2026-11-03T12:18:01.0696862Z    Compiling mime_guess v2.0.5
+2026-11-03T12:18:01.5534108Z    Compiling globset v0.4.18
+2026-11-03T12:18:02.2940511Z    Compiling rand_chacha v0.9.0
+2026-11-03T12:18:02.8150565Z    Compiling walkdir v2.5.0
+2026-11-03T12:18:03.1273410Z    Compiling hyper v1.10.1
+2026-11-03T12:18:06.5414448Z    Compiling windows-registry v0.5.3
+2026-11-03T12:18:07.0272211Z    Compiling polling v3.11.0
+2026-11-03T12:18:08.2391708Z    Compiling sync_wrapper v1.0.2
+2026-11-03T12:18:08.3088326Z    Compiling bytemuck_derive v1.10.2
+2026-11-03T12:18:09.7342797Z    Compiling siphasher v1.0.3
+2026-11-03T12:18:09.8902492Z    Compiling new_debug_unreachable v1.0.6
+2026-11-03T12:18:10.5983677Z    Compiling thiserror v1.0.69
+2026-11-03T12:18:10.8298954Z    Compiling tower-layer v0.3.3
+2026-11-03T12:18:11.0952361Z    Compiling ipnet v2.12.0
+2026-11-03T12:18:12.0648561Z    Compiling hyper-util v0.1.20
+2026-11-03T12:18:14.6538178Z    Compiling tower v0.5.3
+2026-11-03T12:18:15.8337273Z    Compiling bytemuck v1.25.0
+2026-11-03T12:18:16.6488206Z    Compiling rand v0.9.4
+2026-11-03T12:18:17.3595779Z    Compiling rustls-webpki v0.103.13
+2026-11-03T12:18:20.6514039Z    Compiling windows-interface v0.59.3
+2026-11-03T12:18:21.4019180Z    Compiling thiserror-impl v1.0.69
+2026-11-03T12:18:22.6913299Z    Compiling tokio-rustls v0.26.4
+2026-11-03T12:18:22.9677215Z    Compiling pin-project-internal v1.1.13
+2026-11-03T12:18:24.1407396Z    Compiling windows-implement v0.60.2
+2026-11-03T12:18:25.4444666Z    Compiling num-conv v0.2.2
+2026-11-03T12:18:25.5706924Z    Compiling mime v0.3.17
+2026-11-03T12:18:25.9309056Z    Compiling async-task v4.7.1
+2026-11-03T12:18:26.1136765Z    Compiling rayon-core v1.13.0
+2026-11-03T12:18:26.2571787Z    Compiling bitflags v1.3.2
+2026-11-03T12:18:26.3023378Z    Compiling rustix v1.1.4
+2026-11-03T12:18:26.6144552Z    Compiling time-core v0.1.9
+2026-11-03T12:18:26.7974917Z    Compiling time-macros v0.2.31
+2026-11-03T12:18:32.0186560Z    Compiling windows-core v0.61.2
+2026-11-03T12:18:32.6017093Z    Compiling pin-project v1.1.13
+2026-11-03T12:18:32.6575081Z    Compiling hyper-rustls v0.27.9
+2026-11-03T12:18:33.4630150Z    Compiling parking_lot v0.12.5
+2026-11-03T12:18:34.5048991Z    Compiling http-body-util v0.1.3
+2026-11-03T12:18:34.8769603Z    Compiling curve25519-dalek v4.1.3
+2026-11-03T12:18:35.0757340Z    Compiling futures-executor v0.3.32
+2026-11-03T12:18:35.4788612Z    Compiling async-io v2.6.0
+2026-11-03T12:18:35.6125150Z    Compiling errno v0.3.14
+2026-11-03T12:18:35.6425051Z    Compiling encoding_rs v0.8.35
+2026-11-03T12:18:37.3334877Z    Compiling deranged v0.5.8
+2026-11-03T12:18:38.6434150Z    Compiling powerfmt v0.2.0
+2026-11-03T12:18:38.8453595Z    Compiling time v0.3.53
+2026-11-03T12:18:41.8084000Z    Compiling futures v0.3.32
+2026-11-03T12:18:43.2045137Z    Compiling blocking v1.6.2
+2026-11-03T12:18:43.6296355Z    Compiling rand_core v0.6.4
+2026-11-03T12:18:43.7661018Z    Compiling ahash v0.8.12
+2026-11-03T12:18:43.9349513Z    Compiling curve25519-dalek-derive v0.1.1
+2026-11-03T12:18:44.5947316Z    Compiling option-ext v0.2.0
+2026-11-03T12:18:44.7380468Z    Compiling unicode-width v0.2.2
+2026-11-03T12:18:44.9963894Z    Compiling ref-cast v1.0.25
+2026-11-03T12:18:45.3014508Z    Compiling dirs-sys v0.5.0
+2026-11-03T12:18:45.4008989Z    Compiling rand v0.8.6
+2026-11-03T12:18:50.7578368Z    Compiling phf_shared v0.11.3
+2026-11-03T12:18:50.9005195Z    Compiling sha1 v0.10.7
+2026-11-03T12:18:51.2089237Z    Compiling windows-threading v0.1.0
+2026-11-03T12:18:51.2418549Z    Compiling hmac v0.12.1
+2026-11-03T12:18:51.3381082Z    Compiling equator-macro v0.4.2
+2026-11-03T12:18:51.3616682Z    Compiling ref-cast-impl v1.0.25
+2026-11-03T12:18:51.8450067Z    Compiling serde_derive_internals v0.29.1
+2026-11-03T12:18:51.9981725Z    Compiling filetime v0.2.29
+2026-11-03T12:18:52.1065029Z    Compiling anstyle v1.0.14
+2026-11-03T12:18:52.5518417Z    Compiling windows_x86_64_msvc v0.53.1
+2026-11-03T12:18:52.9118854Z    Compiling once_cell_polyfill v1.70.2
+2026-11-03T12:18:52.9819576Z    Compiling utf8parse v0.2.2
+2026-11-03T12:18:53.0509128Z    Compiling lazy_static v1.5.0
+2026-11-03T12:18:53.0552572Z    Compiling byteorder v1.5.0
+2026-11-03T12:18:53.1164944Z    Compiling mac v0.1.1
+2026-11-03T12:18:53.1644961Z    Compiling object v0.37.3
+2026-11-03T12:18:53.2990953Z    Compiling ryu v1.0.23
+2026-11-03T12:18:53.3910565Z    Compiling data-encoding v2.11.0
+2026-11-03T12:18:53.5727087Z    Compiling socks v0.3.4
+2026-11-03T12:18:53.9184311Z    Compiling tungstenite v0.28.0
+2026-11-03T12:18:55.7341145Z    Compiling futf v0.1.5
+2026-11-03T12:18:55.8334708Z    Compiling anstyle-parse v1.0.0
+2026-11-03T12:18:56.6141127Z    Compiling anstyle-wincon v3.0.11
+2026-11-03T12:18:56.9103517Z    Compiling schemars_derive v1.2.1
+2026-11-03T12:18:57.4525960Z    Compiling equator v0.4.2
+2026-11-03T12:18:57.8622800Z    Compiling windows-future v0.2.1
+2026-11-03T12:18:58.4972844Z    Compiling phf_generator v0.11.3
+2026-11-03T12:18:59.3311226Z    Compiling dirs v6.0.0
+2026-11-03T12:18:59.8386807Z    Compiling rayon v1.12.0
+2026-11-03T12:19:01.3152615Z    Compiling windows-collections v0.2.0
+2026-11-03T12:19:01.5378077Z    Compiling windows-numerics v0.2.0
+2026-11-03T12:19:01.6964019Z    Compiling webpki-roots v1.0.8
+2026-11-03T12:19:02.4368628Z    Compiling libsqlite3-sys v0.30.1
+2026-11-03T12:19:02.7489957Z    Compiling async-lock v3.4.2
+2026-11-03T12:19:03.4606976Z    Compiling ureq-proto v0.6.0
+2026-11-03T12:19:04.0694595Z    Compiling num-integer v0.1.46
+2026-11-03T12:19:04.5010688Z    Compiling crossbeam-channel v0.5.16
+2026-11-03T12:19:05.1165537Z    Compiling memoffset v0.9.1
+2026-11-03T12:19:05.2812855Z    Compiling anstyle-query v1.1.5
+2026-11-03T12:19:05.3316808Z    Compiling is_terminal_polyfill v1.70.2
+2026-11-03T12:19:05.3875973Z    Compiling colorchoice v1.0.5
+2026-11-03T12:19:05.4134993Z    Compiling dyn-clone v1.0.20
+2026-11-03T12:19:05.4702358Z    Compiling hex v0.4.3
+2026-11-03T12:19:05.7533203Z    Compiling utf8-zero v0.8.1
+2026-11-03T12:19:05.8451919Z    Compiling tinyvec_macros v0.1.1
+2026-11-03T12:19:05.8871233Z    Compiling tinyvec v1.11.0
+2026-11-03T12:19:05.8933288Z    Compiling ureq v3.3.0
+2026-11-03T12:19:12.5084784Z    Compiling schemars v1.2.1
+2026-11-03T12:19:12.8855220Z    Compiling anstream v1.0.0
+2026-11-03T12:19:13.4944760Z    Compiling num-bigint v0.4.8
+2026-11-03T12:19:16.6419992Z    Compiling webpki-roots v0.26.11
+2026-11-03T12:19:16.6910853Z    Compiling windows v0.61.3
+2026-11-03T12:19:43.0342134Z    Compiling hashbrown v0.14.5
+2026-11-03T12:19:44.0839109Z    Compiling aligned-vec v0.6.4
+2026-11-03T12:19:44.3149286Z    Compiling tendril v0.4.3
+2026-11-03T12:19:48.1964093Z    Compiling hkdf v0.12.4
+2026-11-03T12:19:48.3281952Z    Compiling async-executor v1.14.0
+2026-11-03T12:19:48.7967362Z    Compiling half v2.7.1
+2026-11-03T12:19:49.4261603Z    Compiling euclid v0.22.14
+2026-11-03T12:19:50.2082200Z    Compiling home v0.5.12
+2026-11-03T12:19:50.3414728Z    Compiling slotmap v1.1.1
+2026-11-03T12:19:50.5207227Z    Compiling vswhom-sys v0.1.3
+2026-11-03T12:19:51.3113856Z    Compiling clap_lex v1.1.0
+2026-11-03T12:19:51.7648119Z    Compiling strsim v0.11.1
+2026-11-03T12:19:52.5137223Z    Compiling ash v0.38.0+1.3.281
+2026-11-03T12:19:52.6841230Z    Compiling clap_builder v4.6.0
+2026-11-03T12:20:02.4305596Z    Compiling ureq v2.12.1
+2026-11-03T12:20:03.9402654Z    Compiling tar v0.4.46
+2026-11-03T12:20:05.5149174Z    Compiling spake2 v0.4.0
+2026-11-03T12:20:05.9789886Z    Compiling ar_archive_writer v0.5.2
+2026-11-03T12:20:06.9763393Z    Compiling windows-targets v0.53.5
+2026-11-03T12:20:07.0333255Z    Compiling v_frame v0.3.9
+2026-11-03T12:20:07.2599796Z    Compiling hashlink v0.9.1
+2026-11-03T12:20:07.8034958Z    Compiling windows-targets v0.52.6
+2026-11-03T12:20:07.8819183Z    Compiling bzip2 v0.4.4
+2026-11-03T12:20:08.0460575Z    Compiling ignore v0.4.28
+2026-11-03T12:20:09.4907943Z    Compiling num-rational v0.4.2
+2026-11-03T12:20:10.8580272Z    Compiling string_cache_codegen v0.5.4
+2026-11-03T12:20:11.2634998Z    Compiling phf_codegen v0.11.3
+2026-11-03T12:20:11.3539940Z    Compiling async-process v2.5.0
+2026-11-03T12:20:13.0317998Z    Compiling yasna v0.5.2
+2026-11-03T12:20:14.3594110Z    Compiling rustls-platform-verifier v0.7.0
+2026-11-03T12:20:14.8700658Z    Compiling tower-http v0.6.11
+2026-11-03T12:20:15.7622268Z    Compiling libz-sys v1.1.29
+2026-11-03T12:20:16.0705139Z    Compiling clap_derive v4.6.1
+2026-11-03T12:20:18.1907030Z    Compiling regex v1.12.4
+2026-11-03T12:20:19.1673523Z    Compiling itertools v0.14.0
+2026-11-03T12:20:20.8505590Z    Compiling fdeflate v0.3.7
+2026-11-03T12:20:21.5587577Z    Compiling core_maths v0.1.1
+2026-11-03T12:20:21.6278866Z    Compiling as-slice v0.2.1
+2026-11-03T12:20:21.6811864Z    Compiling profiling-procmacros v1.0.18
+2026-11-03T12:20:21.9785732Z    Compiling libloading v0.8.9
+2026-11-03T12:20:22.1845284Z    Compiling av-scenechange v0.14.1
+2026-11-03T12:20:22.3699010Z    Compiling compression-core v0.4.32
+2026-11-03T12:20:22.4878971Z    Compiling syn v1.0.109
+2026-11-03T12:20:22.7469785Z    Compiling sha1_smol v1.0.1
+2026-11-03T12:20:22.9828404Z    Compiling tree-sitter-language v0.1.7
+2026-11-03T12:20:23.2033214Z    Compiling fallible-iterator v0.3.0
+2026-11-03T12:20:23.5649236Z    Compiling raw-window-handle v0.6.2
+2026-11-03T12:20:23.7803441Z    Compiling fallible-streaming-iterator v0.1.9
+2026-11-03T12:20:23.9061144Z    Compiling cfg_aliases v0.2.1
+2026-11-03T12:20:23.9537612Z    Compiling deflate64 v0.1.12
+2026-11-03T12:20:24.4156728Z    Compiling float-cmp v0.9.0
+2026-11-03T12:20:24.5201907Z    Compiling built v0.8.1
+2026-11-03T12:20:25.0750670Z    Compiling paste v1.0.15
+2026-11-03T12:20:25.2814357Z    Compiling winnow v1.0.3
+2026-11-03T12:20:25.6137248Z    Compiling toml_parser v1.1.2+spec-1.1.0
+2026-11-03T12:20:26.3186220Z    Compiling rav1e v0.8.1
+2026-11-03T12:20:26.5091500Z    Compiling strict-num v0.1.1
+2026-11-03T12:20:26.6222949Z    Compiling compression-codecs v0.4.38
+2026-11-03T12:20:26.9354375Z    Compiling naga v25.0.1
+2026-11-03T12:20:27.1944507Z    Compiling rusqlite v0.32.1
+2026-11-03T12:20:29.1819960Z    Compiling globwalk v0.8.1
+2026-11-03T12:20:29.3805333Z    Compiling uuid v1.23.4
+2026-11-03T12:20:34.8105597Z    Compiling profiling v1.0.18
+2026-11-03T12:20:34.8532988Z    Compiling aligned v0.4.3
+2026-11-03T12:20:34.9433441Z    Compiling ttf-parser v0.25.1
+2026-11-03T12:20:39.7029769Z    Compiling clap v4.6.1
+2026-11-03T12:20:43.1654347Z    Compiling reqwest v0.13.4
+2026-11-03T12:20:43.7175336Z    Compiling rcgen v0.13.2
+2026-11-03T12:20:51.7769656Z    Compiling markup5ever v0.12.1
+2026-11-03T12:20:52.2186408Z    Compiling uds_windows v1.2.1
+2026-11-03T12:20:52.7845015Z    Compiling sherpa-onnx-sys v1.13.3 (D:\a\Norma-AI-OS\Norma-AI-OS\vendor\sherpa-onnx-sys-1.13.3)
+2026-11-03T12:20:53.4405521Z    Compiling windows-sys v0.59.0
+2026-11-03T12:20:56.8015828Z    Compiling psm v0.1.31
+2026-11-03T12:20:57.2264367Z    Compiling mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+2026-11-03T12:20:57.7360646Z    Compiling rust-embed-utils v8.11.0
+2026-11-03T12:20:57.9276362Z    Compiling lyon_geom v1.0.19
+2026-11-03T12:20:58.0809137Z    Compiling toml_datetime v0.6.11
+2026-11-03T12:20:58.2895738Z    Compiling serde_spanned v0.6.9
+2026-11-03T12:20:58.3831163Z    Compiling strum_macros v0.26.4
+2026-11-03T12:20:58.8959757Z    Compiling termcolor v1.4.1
+2026-11-03T12:20:59.4518793Z    Compiling toml_datetime v1.1.1+spec-1.1.0
+2026-11-03T12:20:59.7316595Z    Compiling serde_spanned v1.1.1
+2026-11-03T12:20:59.8421708Z    Compiling md-5 v0.10.6
+2026-11-03T12:20:59.9516008Z    Compiling gpu-alloc-types v0.3.1
+2026-11-03T12:21:00.3142479Z    Compiling no_std_io2 v0.9.4
+2026-11-03T12:21:00.3713653Z    Compiling nom v8.0.0
+2026-11-03T12:21:00.3990442Z    Compiling arg_enum_proc_macro v0.3.4
+2026-11-03T12:21:00.9459506Z    Compiling precomputed-hash v0.1.1
+2026-11-03T12:21:01.0046343Z    Compiling toml_write v0.1.2
+2026-11-03T12:21:01.1677711Z    Compiling pastey v0.1.1
+2026-11-03T12:21:01.6648968Z    Compiling arrayref v0.3.9
+2026-11-03T12:21:01.7089369Z    Compiling y4m v0.8.0
+2026-11-03T12:21:01.9926130Z    Compiling bit-vec v0.8.0
+2026-11-03T12:21:02.2443346Z    Compiling toml_writer v1.1.1+spec-1.1.0
+2026-11-03T12:21:02.4371450Z    Compiling winnow v0.7.15
+2026-11-03T12:21:03.7752529Z    Compiling serde_json_lenient v0.2.4
+2026-11-03T12:21:03.9367711Z    Compiling quick-error v2.0.1
+2026-11-03T12:21:03.9997799Z    Compiling event-listener v2.5.3
+2026-11-03T12:21:04.1887515Z    Compiling foldhash v0.1.5
+2026-11-03T12:21:04.2167019Z    Compiling async-channel v1.9.0
+2026-11-03T12:21:04.3551291Z    Compiling hashbrown v0.15.5
+2026-11-03T12:21:04.3587692Z    Compiling toml_edit v0.22.27
+2026-11-03T12:21:05.0371810Z    Compiling av1-grain v0.2.5
+2026-11-03T12:21:07.3526196Z    Compiling toml v1.1.2+spec-1.1.0
+2026-11-03T12:21:07.7155913Z    Compiling bit-set v0.8.0
+2026-11-03T12:21:08.8594380Z    Compiling tiny-skia-path v0.11.4
+2026-11-03T12:21:08.8673858Z    Compiling string_cache v0.8.9
+2026-11-03T12:21:09.1370500Z    Compiling strum v0.26.3
+2026-11-03T12:21:09.1992730Z    Compiling bitstream-io v4.10.0
+2026-11-03T12:21:09.8851133Z    Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+2026-11-03T12:21:09.9881089Z    Compiling codespan-reporting v0.12.0
+2026-11-03T12:21:11.0170117Z    Compiling lyon_path v1.0.19
+2026-11-03T12:21:11.7260916Z    Compiling rust-embed-impl v8.11.0
+2026-11-03T12:21:12.4553972Z    Compiling vswhom v0.1.0
+2026-11-03T12:21:12.6176959Z    Compiling winreg v0.55.0
+2026-11-03T12:21:17.3731339Z    Compiling async-compression v0.4.42
+2026-11-03T12:21:18.3399644Z    Compiling phf v0.11.3
+2026-11-03T12:21:18.4953140Z    Compiling async-global-executor v2.4.1
+2026-11-03T12:21:20.0945708Z    Compiling async-fs v2.2.0
+2026-11-03T12:21:20.8123327Z    Compiling maybe-rayon v0.1.1
+2026-11-03T12:21:20.8583889Z    Compiling async-net v2.0.0
+2026-11-03T12:21:22.0383228Z    Compiling rgb v0.8.53
+2026-11-03T12:21:28.2647999Z    Compiling arc-swap v1.9.2
+2026-11-03T12:21:28.5119152Z    Compiling dirs-sys v0.3.7
+2026-11-03T12:21:28.6017757Z    Compiling kurbo v0.11.3
+2026-11-03T12:21:30.9848329Z    Compiling windows-strings v0.3.1
+2026-11-03T12:21:31.4573839Z    Compiling libgit2-sys v0.18.5+1.9.4
+2026-11-03T12:21:31.9097316Z    Compiling spirv v0.3.0+sdk-1.3.268.0
+2026-11-03T12:21:34.0156586Z    Compiling audio v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\audio)
+2026-11-03T12:21:34.2433495Z    Compiling kv-log-macro v1.0.7
+2026-11-03T12:21:34.3427167Z    Compiling num-derive v0.4.2
+2026-11-03T12:21:35.2816799Z    Compiling stacker v0.1.24
+2026-11-03T12:21:35.5093013Z    Compiling proc-macro-error-attr2 v2.0.0
+2026-11-03T12:21:35.8385707Z    Compiling simd_helpers v0.1.0
+2026-11-03T12:21:36.2840333Z    Compiling imgref v1.12.2
+2026-11-03T12:21:36.6251870Z    Compiling minimal-lexical v0.2.1
+2026-11-03T12:21:36.8691184Z    Compiling cfg_aliases v0.1.1
+2026-11-03T12:21:36.9159653Z    Compiling zune-core v0.5.1
+2026-11-03T12:21:37.1723974Z    Compiling waker-fn v1.2.0
+2026-11-03T12:21:37.2317698Z    Compiling pin-utils v0.1.0
+2026-11-03T12:21:37.2779628Z    Compiling hexf-parse v0.2.1
+2026-11-03T12:21:37.4172953Z    Compiling rustc-hash v1.1.0
+2026-11-03T12:21:39.6369721Z    Compiling noop_proc_macro v0.3.0
+2026-11-03T12:21:39.8606573Z    Compiling unicode-bidi-mirroring v0.4.0
+2026-11-03T12:21:39.9472918Z    Compiling winsafe v0.0.19
+2026-11-03T12:21:44.5151395Z    Compiling unicode-properties v0.1.4
+2026-11-03T12:21:44.6863206Z    Compiling memmap2 v0.9.11
+2026-11-03T12:21:44.8811406Z    Compiling fastrand v1.9.0
+2026-11-03T12:21:45.2772913Z    Compiling unicode-script v0.5.8
+2026-11-03T12:21:45.7369355Z    Compiling rustc-hash v2.1.3
+2026-11-03T12:21:45.8156032Z    Compiling unsafe-libyaml v0.2.11
+2026-11-03T12:21:46.5942417Z    Compiling unicode-ccc v0.4.0
+2026-11-03T12:21:46.7045648Z    Compiling weezl v0.1.12
+2026-11-03T12:21:47.5664933Z    Compiling gpui_collections v0.2.2
+2026-11-03T12:21:47.6208432Z    Compiling rustybuzz v0.20.1
+2026-11-03T12:21:56.0412943Z    Compiling serde_yaml v0.9.34+deprecated
+2026-11-03T12:21:57.7735892Z    Compiling itertools v0.11.0
+2026-11-03T12:21:58.9566707Z    Compiling futures-lite v1.13.0
+2026-11-03T12:21:59.7534299Z    Compiling fontdb v0.23.0
+2026-11-03T12:22:00.9672322Z    Compiling which v6.0.3
+2026-11-03T12:22:11.5833844Z    Compiling async-std v1.13.2
+2026-11-03T12:22:16.1084088Z    Compiling zune-jpeg v0.5.15
+2026-11-03T12:22:17.4738820Z    Compiling nix v0.28.0
+2026-11-03T12:22:17.8174571Z    Compiling nom v7.1.3
+2026-11-03T12:22:19.6990139Z    Compiling loop9 v0.1.5
+2026-11-03T12:22:19.7780571Z    Compiling proc-macro-error2 v2.0.1
+2026-11-03T12:22:54.8744100Z    Compiling windows-registry v0.4.0
+2026-11-03T12:22:55.2953155Z    Compiling svgtypes v0.15.3
+2026-11-03T12:22:56.7267016Z    Compiling dirs v4.0.0
+2026-11-03T12:22:56.7970171Z    Compiling triomphe v0.1.16
+2026-11-03T12:22:57.1270023Z    Compiling rust-embed v8.11.0
+2026-11-03T12:22:57.2199083Z    Compiling smol v2.0.2
+2026-11-03T12:22:59.2972300Z    Compiling async_zip v0.0.17
+2026-11-03T12:23:00.2446472Z    Compiling hidden-trait v0.1.2
+2026-11-03T12:23:02.2501635Z    Compiling embed-resource v3.0.11
+2026-11-03T12:23:02.6092231Z    Compiling toml v0.8.23
+2026-11-03T12:23:05.8844288Z    Compiling gpu-alloc-ash v0.7.1
+2026-11-03T12:23:06.2471816Z    Compiling gpu-alloc v0.6.2
+2026-11-03T12:23:06.9803837Z    Compiling ash-window v0.13.0
+2026-11-03T12:23:07.0832175Z    Compiling png v0.17.16
+2026-11-03T12:23:09.0385200Z    Compiling serde_urlencoded v0.7.1
+2026-11-03T12:23:14.3888960Z    Compiling tokio-socks v0.5.3
+2026-11-03T12:23:15.1514346Z    Compiling normpath v1.5.1
+2026-11-03T12:23:15.3856868Z    Compiling avif-serialize v0.8.9
+2026-11-03T12:23:16.3063440Z    Compiling zune-inflate v0.2.54
+2026-11-03T12:23:16.7724870Z    Compiling rustls-pemfile v2.2.0
+2026-11-03T12:23:17.0010451Z    Compiling simplecss v0.2.2
+2026-11-03T12:23:18.0637893Z    Compiling html5ever v0.27.0
+2026-11-03T12:23:19.1222030Z    Compiling async-stream-impl v0.3.6
+2026-11-03T12:23:19.8194562Z    Compiling xmlwriter v0.1.0
+2026-11-03T12:23:20.2362219Z    Compiling take-until v0.2.0
+2026-11-03T12:23:20.3181667Z    Compiling shlex v1.3.0
+2026-11-03T12:23:20.6114658Z    Compiling fax v0.2.7
+2026-11-03T12:23:22.7759912Z    Compiling imagesize v0.13.0
+2026-11-03T12:23:23.7709860Z    Compiling bit_field v0.10.3
+2026-11-03T12:23:23.9026584Z    Compiling unicode-vo v0.1.0
+2026-11-03T12:23:24.0098545Z    Compiling winreg v0.10.1
+2026-11-03T12:23:24.1693561Z    Compiling pico-args v0.5.0
+2026-11-03T12:23:24.4494301Z    Compiling color_quant v1.1.0
+2026-11-03T12:23:24.6834122Z    Compiling byteorder-lite v0.1.0
+2026-11-03T12:23:25.0257866Z    Compiling unicode-bidi v0.3.18
+2026-11-03T12:23:26.2792464Z    Compiling lebe v0.5.3
+2026-11-03T12:23:26.4770201Z    Compiling pxfm v0.1.30
+2026-11-03T12:23:33.0135859Z    Compiling float_next_after v1.0.0
+2026-11-03T12:23:33.0926161Z    Compiling mint v0.5.9
+2026-11-03T12:23:33.4554488Z    Compiling data-url v0.3.2
+2026-11-03T12:23:34.1102312Z    Compiling convert_case v0.4.0
+2026-11-03T12:23:34.4609354Z    Compiling base62 v2.2.4
+2026-11-03T12:23:34.6785000Z    Compiling dtor-proc-macro v0.0.5
+2026-11-03T12:23:34.9558527Z    Compiling roxmltree v0.20.0
+2026-11-03T12:23:36.6756015Z    Compiling usvg v0.45.1
+2026-11-03T12:23:46.8690829Z    Compiling dtor v0.0.6
+2026-11-03T12:23:46.9198072Z    Compiling rust-i18n-support v3.1.5
+2026-11-03T12:23:47.9119676Z    Compiling derive_more v0.99.20
+2026-11-03T12:23:50.8388429Z    Compiling blade-graphics v0.7.1
+2026-11-03T12:23:57.5297707Z    Compiling lyon_tessellation v1.0.20
+2026-11-03T12:23:59.4685189Z    Compiling moxcms v0.8.1
+2026-11-03T12:24:18.1834644Z    Compiling exr v1.74.0
+2026-11-03T12:24:25.3342524Z    Compiling image-webp v0.2.4
+2026-11-03T12:24:25.6994027Z    Compiling gif v0.14.2
+2026-11-03T12:24:27.9111566Z    Compiling tiff v0.11.3
+2026-11-03T12:24:30.4559620Z    Compiling gpui_util v0.2.2
+2026-11-03T12:24:33.2886634Z    Compiling async-stream v0.3.6
+2026-11-03T12:24:33.5050320Z    Compiling zed-reqwest v0.12.15-zed
+2026-11-03T12:24:34.5393925Z    Compiling ravif v0.13.0
+2026-11-03T12:24:48.2752252Z    Compiling tiny-skia v0.11.4
+2026-11-03T12:24:53.3380346Z    Compiling gpui v0.2.2 (D:\a\Norma-AI-OS\Norma-AI-OS\vendor\gpui-0.2.2)
+2026-11-03T12:24:53.6755398Z    Compiling sherpa-onnx v1.13.3
+2026-11-03T12:24:55.3315423Z    Compiling bzip2 v0.5.2
+2026-11-03T12:24:55.5068555Z    Compiling webview2-com-sys v0.38.2
+2026-11-03T12:24:55.7259325Z    Compiling stacksafe-macro v0.1.4
+2026-11-03T12:24:56.0651502Z    Compiling eventsource-stream v0.2.3
+2026-11-03T12:24:56.8138029Z    Compiling zed-async-tar v0.5.0-zed
+2026-11-03T12:25:00.2409336Z    Compiling gpui_perf v0.2.2
+2026-11-03T12:25:00.6349069Z    Compiling lyon_algorithms v1.0.20
+2026-11-03T12:25:01.5162189Z    Compiling rust-i18n v3.1.5
+2026-11-03T12:25:01.9324677Z    Compiling png v0.18.1
+2026-11-03T12:25:04.1000377Z    Compiling tracing-futures v0.2.5
+2026-11-03T12:25:04.2156559Z    Compiling tree-sitter v0.25.10
+2026-11-03T12:25:04.2574013Z    Compiling qoi v0.4.1
+2026-11-03T12:25:04.4481777Z    Compiling spin v0.9.8
+2026-11-03T12:25:04.5050978Z    Compiling strum_macros v0.27.2
+2026-11-03T12:25:06.1353181Z    Compiling ordered-float v5.3.0
+2026-11-03T12:25:06.5305076Z    Compiling nanorand v0.7.0
+2026-11-03T12:25:06.7405573Z    Compiling crossbeam-queue v0.3.13
+2026-11-03T12:25:06.8942020Z    Compiling gpui_derive_refineable v0.2.2
+2026-11-03T12:25:07.2183031Z    Compiling tree-sitter-json v0.24.8
+2026-11-03T12:25:07.4322800Z    Compiling instant v0.1.13
+2026-11-03T12:25:07.4962906Z    Compiling static_assertions v1.1.0
+2026-11-03T12:25:07.5556572Z    Compiling svg_fmt v0.4.5
+2026-11-03T12:25:07.6051478Z    Compiling grid v0.18.0
+2026-11-03T12:25:07.8022966Z    Compiling glob v0.3.3
+2026-11-03T12:25:08.1749484Z    Compiling hound v3.5.1
+2026-11-03T12:25:08.5177727Z    Compiling cursor-icon v1.2.0
+2026-11-03T12:25:08.6050464Z    Compiling ctor-proc-macro v0.0.6
+2026-11-03T12:25:08.8774454Z    Compiling pollster v0.2.5
+2026-11-03T12:25:08.9740778Z    Compiling atomic v0.5.3
+2026-11-03T12:25:09.0195793Z    Compiling as-any v0.3.2
+2026-11-03T12:25:09.0820418Z    Compiling futures-timer v3.0.4
+2026-11-03T12:25:09.1424669Z    Compiling postage v0.5.0
+2026-11-03T12:25:09.6050954Z    Compiling rig-core v0.40.0
+2026-11-03T12:25:13.9492380Z    Compiling ctor v0.4.3
+2026-11-03T12:25:14.0090940Z    Compiling vte v0.15.0
+2026-11-03T12:25:14.7859638Z    Compiling rust-i18n-macro v3.1.5
+2026-11-03T12:25:15.8823110Z    Compiling taffy v0.9.0
+2026-11-03T12:25:18.2579963Z    Compiling etagere v0.2.15
+2026-11-03T12:25:18.6262704Z    Compiling gpui_refineable v0.2.2
+2026-11-03T12:25:18.7055625Z    Compiling notify-types v1.0.1
+2026-11-03T12:25:19.1742905Z    Compiling strum v0.27.2
+2026-11-03T12:25:19.2556111Z    Compiling flume v0.11.1
+2026-11-03T12:25:19.5646542Z    Compiling image v0.25.10
+2026-11-03T12:25:56.1830020Z    Compiling lyon v1.0.19
+2026-11-03T12:25:56.2311234Z    Compiling gpui_util_macros v0.2.2
+2026-11-03T12:25:56.6554282Z    Compiling gpui_http_client v0.2.2
+2026-11-03T12:25:58.6266161Z    Compiling stacksafe v0.1.4
+2026-11-03T12:26:00.4174965Z    Compiling resvg v0.45.1
+2026-11-03T12:26:03.7186144Z    Compiling git2 v0.20.4
+2026-11-03T12:26:10.5335902Z    Compiling blade-util v0.3.0
+2026-11-03T12:26:10.7779627Z    Compiling xml5ever v0.18.1
+2026-11-03T12:26:11.7473816Z    Compiling windows-sys v0.52.0
+2026-11-03T12:26:14.2774998Z    Compiling gpui_sum_tree v0.2.2
+2026-11-03T12:26:14.7294985Z    Compiling shared_library v0.1.9
+2026-11-03T12:26:15.0110593Z    Compiling filedescriptor v0.8.3
+2026-11-03T12:26:15.2299273Z    Compiling fluent-uri v0.1.4
+2026-11-03T12:26:15.7359950Z    Compiling gpui-macros v0.2.2
+2026-11-03T12:26:17.2021810Z    Compiling gpui_semantic_version v0.2.2
+2026-11-03T12:26:17.4424212Z    Compiling serial2 v0.2.37
+2026-11-03T12:26:17.9355080Z    Compiling miow v0.6.1
+2026-11-03T12:26:18.3909280Z    Compiling cookie v0.18.1
+2026-11-03T12:26:18.5497298Z    Compiling serde_repr v0.1.20
+2026-11-03T12:26:18.9946414Z    Compiling enum-iterator-derive v1.5.0
+2026-11-03T12:26:19.8442956Z    Compiling blade-macros v0.3.0
+2026-11-03T12:26:20.3079625Z    Compiling downcast-rs v1.2.1
+2026-11-03T12:26:20.3672858Z    Compiling str_indices v0.4.4
+2026-11-03T12:26:20.5264635Z    Compiling num_cpus v1.17.0
+2026-11-03T12:26:20.6165894Z    Compiling unicode-id v0.3.6
+2026-11-03T12:26:20.7031833Z    Compiling inventory v0.3.24
+2026-11-03T12:26:20.7795744Z    Compiling shell-words v1.1.1
+2026-11-03T12:26:20.9432337Z    Compiling signature v2.2.0
+2026-11-03T12:26:21.0348786Z    Compiling seahash v4.1.0
+2026-11-03T12:26:21.1818143Z    Compiling workspace-hack v0.1.0
+2026-11-03T12:26:21.2282874Z    Compiling streaming-iterator v0.1.9
+2026-11-03T12:26:22.1292864Z    Compiling zed-sum-tree v0.2.0
+2026-11-03T12:26:22.8364449Z    Compiling ed25519 v2.2.3
+2026-11-03T12:26:23.0069612Z    Compiling portable-pty v0.9.0 (D:\a\Norma-AI-OS\Norma-AI-OS\vendor\portable-pty-0.9.0)
+2026-11-03T12:26:24.9177449Z    Compiling markdown v1.0.0
+2026-11-03T12:26:29.7379567Z    Compiling ropey v2.0.0-beta.1
+2026-11-03T12:26:31.4720034Z    Compiling enum-iterator v2.3.0
+2026-11-03T12:26:32.9480073Z    Compiling lsp-types v0.97.0
+2026-11-03T12:26:43.6839431Z    Compiling alacritty_terminal v0.26.0
+2026-11-03T12:26:47.4061794Z    Compiling notify v7.0.0
+2026-11-03T12:26:50.8418057Z    Compiling markup5ever_rcdom v0.3.0
+2026-11-03T12:26:51.5560464Z    Compiling workspace v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace)
+2026-11-03T12:27:01.2337748Z    Compiling agent v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\agent)
+2026-11-03T12:27:52.4249427Z    Compiling voice_input v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\voice_input)
+2026-11-03T12:27:52.7557240Z warning: struct `LinearResampler` is never constructed
+2026-11-03T12:27:52.7558502Z   --> crates\voice_input\src\resample.rs:11:19
+2026-11-03T12:27:52.7559504Z    |
+2026-11-03T12:27:52.7560108Z 11 | pub(crate) struct LinearResampler {
+2026-11-03T12:27:52.7560825Z    |                   ^^^^^^^^^^^^^^^
+2026-11-03T12:27:52.7561318Z    |
+2026-11-03T12:27:52.7561825Z    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+2026-11-03T12:27:52.7562347Z 
+2026-11-03T12:27:52.7562626Z warning: associated items `new` and `process` are never used
+2026-11-03T12:27:52.7563216Z   --> crates\voice_input\src\resample.rs:21:19
+2026-11-03T12:27:52.7563575Z    |
+2026-11-03T12:27:52.7563811Z 20 | impl LinearResampler {
+2026-11-03T12:27:52.7564292Z    | -------------------- associated items in this implementation
+2026-11-03T12:27:52.7564755Z 21 |     pub(crate) fn new(src_rate: f64, dst_rate: f64) -> Self {
+2026-11-03T12:27:52.7565280Z    |                   ^^^
+2026-11-03T12:27:52.7566134Z ...
+2026-11-03T12:27:52.7566568Z 36 |     pub(crate) fn process(&mut self, input: &[f32]) -> Vec<f32> {
+2026-11-03T12:27:52.7566958Z    |                   ^^^^^^^
+2026-11-03T12:27:52.7567147Z 
+2026-11-03T12:27:55.4163329Z warning: `voice_input` (lib) generated 2 warnings
+2026-11-03T12:27:55.4164301Z    Compiling model_store v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\model_store)
+2026-11-03T12:27:56.7247937Z    Compiling sharded-slab v0.1.7
+2026-11-03T12:27:57.3847448Z    Compiling ui v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\ui)
+2026-11-03T12:27:57.6522900Z    Compiling matchers v0.2.0
+2026-11-03T12:27:57.7526095Z    Compiling itertools v0.13.0
+2026-11-03T12:27:59.4425520Z    Compiling tracing-log v0.2.0
+2026-11-03T12:27:59.7204030Z    Compiling canvas v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\canvas)
+2026-11-03T12:28:01.3325019Z    Compiling chrono v0.4.45
+2026-11-03T12:28:03.7215709Z    Compiling nu-ansi-term v0.50.3
+2026-11-03T12:28:04.1849099Z    Compiling webview2-com-macros v0.8.1
+2026-11-03T12:28:04.6237016Z    Compiling gpui-component-macros v0.5.1
+2026-11-03T12:28:04.9442186Z    Compiling thread_local v1.1.9
+2026-11-03T12:28:05.2016131Z    Compiling pulldown-cmark v0.10.3
+2026-11-03T12:28:05.3508630Z    Compiling unicode-segmentation v1.13.3
+2026-11-03T12:28:05.9338916Z    Compiling rfd v0.16.0
+2026-11-03T12:28:06.1126772Z    Compiling wry v0.55.1
+2026-11-03T12:28:06.4329595Z    Compiling gpui-component v0.5.1
+2026-11-03T12:28:26.8029047Z    Compiling tracing-subscriber v0.3.23
+2026-11-03T12:28:31.8989839Z    Compiling webview2-com v0.38.2
+2026-11-03T12:28:37.2681635Z    Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+2026-11-03T12:29:25.0461985Z    Compiling tts v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\tts)
+2026-11-03T12:29:32.2389807Z    Compiling dialogue v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\dialogue)
+2026-11-03T12:29:33.1169312Z    Compiling terminal v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\terminal)
+2026-11-03T12:29:33.4318057Z warning: unused variable: `root`
+2026-11-03T12:29:33.4318890Z   --> crates\terminal\src\process_tree.rs:49:5
+2026-11-03T12:29:33.4319758Z    |
+2026-11-03T12:29:33.4322305Z 49 |     root: ManagedProcess,
+2026-11-03T12:29:33.4322990Z    |     ^^^^ help: if this is intentional, prefix it with an underscore: `_root`
+2026-11-03T12:29:33.4323900Z    |
+2026-11-03T12:29:33.4324472Z    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+2026-11-03T12:29:33.4325056Z 
+2026-11-03T12:29:38.7617263Z warning: `terminal` (lib) generated 1 warning
+2026-11-03T12:29:40.4249629Z    Compiling ed25519-dalek v2.2.0
+2026-11-03T12:29:40.7435154Z    Compiling asr v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\asr)
+2026-11-03T12:29:46.7837935Z    Compiling windows-sys v0.60.2
+2026-11-03T12:29:47.4137198Z    Compiling tokio-tungstenite v0.28.0
+2026-11-03T12:29:47.7888568Z    Compiling getopts v0.2.24
+2026-11-03T12:29:48.6385413Z    Compiling windows-version v0.1.7
+2026-11-03T12:29:48.6774308Z    Compiling pulldown-cmark-escape v0.10.1
+2026-11-03T12:29:48.7354090Z    Compiling dpi v0.1.2
+2026-11-03T12:29:48.7755321Z    Compiling symlink v0.1.0
+2026-11-03T12:29:48.8947072Z    Compiling app v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\app)
+2026-11-03T12:29:49.0978199Z    Compiling tracing-appender v0.2.5
+2026-11-03T12:29:53.5097906Z    Compiling live_voice v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\live_voice)
+2026-11-03T12:29:54.2521425Z    Compiling voice_sherpa v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\voice_sherpa)
+2026-11-03T12:29:56.8687463Z    Compiling license v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\license)
+2026-11-03T12:29:57.7556832Z    Compiling runtime v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\runtime)
+2026-11-03T12:29:58.0103319Z warning: unused imports: `HashSet` and `VecDeque`
+2026-11-03T12:29:58.0104138Z  --> crates\runtime\src\agent_descendants.rs:4:24
+2026-11-03T12:29:58.0104752Z   |
+2026-11-03T12:29:58.0105554Z 4 | use std::collections::{HashSet, VecDeque};
+2026-11-03T12:29:58.0106151Z   |                        ^^^^^^^  ^^^^^^^^
+2026-11-03T12:29:58.0106677Z   |
+2026-11-03T12:29:58.0107266Z   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+2026-11-03T12:29:58.0107844Z 
+2026-11-03T12:29:59.4736489Z warning: constant `MAX_DEPTH` is never used
+2026-11-03T12:29:59.4737243Z  --> crates\runtime\src\agent_descendants.rs:6:7
+2026-11-03T12:29:59.4737763Z   |
+2026-11-03T12:29:59.4738094Z 6 | const MAX_DEPTH: u8 = 8;
+2026-11-03T12:29:59.4738490Z   |       ^^^^^^^^^
+2026-11-03T12:29:59.4738858Z   |
+2026-11-03T12:29:59.4739311Z   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+2026-11-03T12:29:59.4739749Z 
+2026-11-03T12:29:59.4739926Z warning: constant `MAX_VISITS` is never used
+2026-11-03T12:29:59.4740428Z  --> crates\runtime\src\agent_descendants.rs:7:7
+2026-11-03T12:29:59.4740909Z   |
+2026-11-03T12:29:59.4741233Z 7 | const MAX_VISITS: usize = 64;
+2026-11-03T12:29:59.4741664Z   |       ^^^^^^^^^^
+2026-11-03T12:29:59.4741862Z 
+2026-11-03T12:29:59.4742084Z warning: constant `MAX_CHILDREN` is never used
+2026-11-03T12:29:59.4742638Z  --> crates\runtime\src\agent_descendants.rs:8:7
+2026-11-03T12:29:59.4743145Z   |
+2026-11-03T12:29:59.4743814Z 8 | const MAX_CHILDREN: usize = 64;
+2026-11-03T12:29:59.4744285Z   |       ^^^^^^^^^^^^
+2026-11-03T12:29:59.4744513Z 
+2026-11-03T12:30:08.0635649Z    Compiling brain v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\brain)
+2026-11-03T12:30:16.6626656Z    Compiling analytics v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\analytics)
+2026-11-03T12:30:18.1424135Z warning: `runtime` (lib) generated 4 warnings (run `cargo fix --lib -p runtime` to apply 1 suggestion)
+2026-11-03T12:30:18.1425392Z    Compiling media_store v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\media_store)
+2026-11-03T12:30:19.5975256Z    Compiling qrcodegen v1.8.0
+2026-11-03T12:30:22.8316159Z warning: unused import: `Context as _`
+2026-11-03T12:30:22.8317584Z  --> crates\app\src\mobile\controller\..\qr.rs:1:22
+2026-11-03T12:30:22.8318112Z   |
+2026-11-03T12:30:22.8318540Z 1 | use anyhow::{ensure, Context as _, Result};
+2026-11-03T12:30:22.8319068Z   |                      ^^^^^^^^^^^^
+2026-11-03T12:30:22.8319890Z   |
+2026-11-03T12:30:22.8320619Z   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+2026-11-03T12:30:22.8321199Z 
+2026-11-03T12:30:22.8557596Z warning: unused import: `std::path::Path`
+2026-11-03T12:30:22.8559005Z  --> crates\app\src\performance_monitor.rs:6:5
+2026-11-03T12:30:22.8559841Z   |
+2026-11-03T12:30:22.8560699Z 6 | use std::path::Path;
+2026-11-03T12:30:22.8561073Z   |     ^^^^^^^^^^^^^^^
+2026-11-03T12:30:22.8561330Z 
+2026-11-03T12:30:22.8561868Z warning: unused import: `RecvTimeoutError`
+2026-11-03T12:30:22.8562836Z  --> crates\app\src\performance_monitor.rs:8:39
+2026-11-03T12:30:22.8563507Z   |
+2026-11-03T12:30:22.8564119Z 8 | use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+2026-11-03T12:30:22.8564706Z   |                                       ^^^^^^^^^^^^^^^^
+2026-11-03T12:30:22.8565010Z 
+2026-11-03T12:30:22.8565136Z warning: unused import: `self`
+2026-11-03T12:30:22.8565535Z   --> crates\app\src\performance_monitor.rs:10:19
+2026-11-03T12:30:22.8565992Z    |
+2026-11-03T12:30:22.8566284Z 10 | use std::thread::{self, JoinHandle};
+2026-11-03T12:30:22.8566675Z    |                   ^^^^
+2026-11-03T12:30:22.8566865Z 
+2026-11-03T12:30:22.8567072Z warning: unused imports: `SystemTime` and `UNIX_EPOCH`
+2026-11-03T12:30:22.8567777Z   --> crates\app\src\performance_monitor.rs:11:36
+2026-11-03T12:30:22.8568172Z    |
+2026-11-03T12:30:22.8568666Z 11 | use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+2026-11-03T12:30:22.8569171Z    |                                    ^^^^^^^^^^  ^^^^^^^^^^
+2026-11-03T12:30:22.8569468Z 
+2026-11-03T12:30:22.8569835Z warning: unused imports: `DiagnosticCapture`, `PerformanceRecorder`, and `PerformanceSummary`
+2026-11-03T12:30:22.8570561Z   --> crates\app\src\performance_monitor.rs:15:17
+2026-11-03T12:30:22.8570961Z    |
+2026-11-03T12:30:22.8571403Z 15 | use recording::{DiagnosticCapture, PerformanceRecorder, PerformanceSummary};
+2026-11-03T12:30:22.8572022Z    |                 ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:22.8572315Z 
+2026-11-03T12:30:22.8572594Z warning: unused imports: `ProcessCounters` and `RawPerformanceSample`
+2026-11-03T12:30:22.8573153Z   --> crates\app\src\performance_monitor.rs:16:46
+2026-11-03T12:30:22.8573546Z    |
+2026-11-03T12:30:22.8574014Z 16 | pub(crate) use recording::{PerformanceState, ProcessCounters, RawPerformanceSample};
+2026-11-03T12:30:22.8574676Z    |                                              ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:22.8575014Z 
+2026-11-03T12:30:33.0657152Z warning: unused variable: `url`
+2026-11-03T12:30:33.0657915Z    --> crates\app\src\app\browser.rs:186:58
+2026-11-03T12:30:33.0658617Z     |
+2026-11-03T12:30:33.0659279Z 186 |     pub(crate) fn open_url_in_default_browser(&mut self, url: String) {
+2026-11-03T12:30:33.0660497Z     |                                                          ^^^ help: if this is intentional, prefix it with an underscore: `_url`
+2026-11-03T12:30:33.0661489Z     |
+2026-11-03T12:30:33.0662244Z     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+2026-11-03T12:30:33.0662967Z 
+2026-11-03T12:30:33.9032329Z warning: unused variable: `window`
+2026-11-03T12:30:33.9032850Z   --> crates\app\src\app\state.rs:17:46
+2026-11-03T12:30:33.9033218Z    |
+2026-11-03T12:30:33.9033636Z 17 | pub(crate) fn window_visible_for_voice_inset(window: &Window) -> bool {
+2026-11-03T12:30:33.9034446Z    |                                              ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+2026-11-03T12:30:33.9034916Z 
+2026-11-03T12:30:39.9167358Z warning: variant `PageInteraction` is never constructed
+2026-11-03T12:30:39.9169386Z    --> crates\app\src\app\browser.rs:103:5
+2026-11-03T12:30:39.9170757Z     |
+2026-11-03T12:30:39.9171339Z  83 | pub(crate) enum BrowserEvent {
+2026-11-03T12:30:39.9172103Z     |                 ------------ variant in this enum
+2026-11-03T12:30:39.9173227Z ...
+2026-11-03T12:30:39.9173731Z 103 |     PageInteraction {
+2026-11-03T12:30:39.9174326Z     |     ^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9175096Z     |
+2026-11-03T12:30:39.9175875Z     = note: `BrowserEvent` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+2026-11-03T12:30:39.9176910Z     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+2026-11-03T12:30:39.9177427Z 
+2026-11-03T12:30:39.9177734Z warning: struct `CornerClipState` is never constructed
+2026-11-03T12:30:39.9178468Z   --> crates\app\src\app\browser\load_timeline.rs:88:19
+2026-11-03T12:30:39.9178991Z    |
+2026-11-03T12:30:39.9179258Z 88 | pub(crate) struct CornerClipState {
+2026-11-03T12:30:39.9179600Z    |                   ^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9179914Z 
+2026-11-03T12:30:39.9180126Z warning: method `needs_apply` is never used
+2026-11-03T12:30:39.9180789Z   --> crates\app\src\app\browser\load_timeline.rs:93:19
+2026-11-03T12:30:39.9181396Z    |
+2026-11-03T12:30:39.9181759Z 92 | impl CornerClipState {
+2026-11-03T12:30:39.9182127Z    | -------------------- method in this implementation
+2026-11-03T12:30:39.9182790Z 93 |     pub(crate) fn needs_apply(&mut self, radius_px: f64) -> bool {
+2026-11-03T12:30:39.9183496Z    |                   ^^^^^^^^^^^
+2026-11-03T12:30:39.9183832Z 
+2026-11-03T12:30:39.9184045Z warning: variant `Complete` is never constructed
+2026-11-03T12:30:39.9184706Z   --> crates\app\src\app\browser\native.rs:12:5
+2026-11-03T12:30:39.9185303Z    |
+2026-11-03T12:30:39.9185732Z 11 | pub(crate) enum CookieImportStatus {
+2026-11-03T12:30:39.9186543Z    |                 ------------------ variant in this enum
+2026-11-03T12:30:39.9187145Z 12 |     Complete(usize),
+2026-11-03T12:30:39.9187573Z    |     ^^^^^^^^
+2026-11-03T12:30:39.9187779Z 
+2026-11-03T12:30:39.9188133Z warning: constant `IMAGE_FORMATS_BY_PASTE_PRIORITY` is never used
+2026-11-03T12:30:39.9188851Z   --> crates\app\src\app\clipboard_image.rs:13:7
+2026-11-03T12:30:39.9189390Z    |
+2026-11-03T12:30:39.9189923Z 13 | const IMAGE_FORMATS_BY_PASTE_PRIORITY: &[ImageFormat] = &[
+2026-11-03T12:30:39.9190323Z    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9190609Z 
+2026-11-03T12:30:39.9190892Z warning: constant `BOOT_VARIANTS` is never used
+2026-11-03T12:30:39.9191531Z   --> crates\app\src\boot_splash\mod.rs:14:7
+2026-11-03T12:30:39.9192090Z    |
+2026-11-03T12:30:39.9192689Z 14 | const BOOT_VARIANTS: [&str; 2] = ["boot/boot-sync.mp4", "boot/boot-awaken.mp4"];
+2026-11-03T12:30:39.9193458Z    |       ^^^^^^^^^^^^^
+2026-11-03T12:30:39.9193759Z 
+2026-11-03T12:30:39.9193983Z warning: constant `MAIN_DURATION` is never used
+2026-11-03T12:30:39.9194603Z   --> crates\app\src\boot_splash\mod.rs:16:7
+2026-11-03T12:30:39.9195051Z    |
+2026-11-03T12:30:39.9195412Z 16 | const MAIN_DURATION: Duration = Duration::from_millis(6000);
+2026-11-03T12:30:39.9196078Z    |       ^^^^^^^^^^^^^
+2026-11-03T12:30:39.9196338Z 
+2026-11-03T12:30:39.9196617Z warning: constant `AWAKEN_DURATION` is never used
+2026-11-03T12:30:39.9197097Z   --> crates\app\src\boot_splash\mod.rs:17:7
+2026-11-03T12:30:39.9197406Z    |
+2026-11-03T12:30:39.9197706Z 17 | const AWAKEN_DURATION: Duration = Duration::from_millis(9000);
+2026-11-03T12:30:39.9198133Z    |       ^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9198444Z 
+2026-11-03T12:30:39.9198641Z warning: constant `FADE_OUT` is never used
+2026-11-03T12:30:39.9199209Z   --> crates\app\src\boot_splash\mod.rs:18:7
+2026-11-03T12:30:39.9199835Z    |
+2026-11-03T12:30:39.9200359Z 18 | const FADE_OUT: Duration = Duration::from_millis(450);
+2026-11-03T12:30:39.9200971Z    |       ^^^^^^^^
+2026-11-03T12:30:39.9201181Z 
+2026-11-03T12:30:39.9201489Z warning: constant `SKIP_FADE` is never used
+2026-11-03T12:30:39.9202055Z   --> crates\app\src\boot_splash\mod.rs:19:7
+2026-11-03T12:30:39.9202585Z    |
+2026-11-03T12:30:39.9202989Z 19 | const SKIP_FADE: Duration = Duration::from_millis(250);
+2026-11-03T12:30:39.9203733Z    |       ^^^^^^^^^
+2026-11-03T12:30:39.9203948Z 
+2026-11-03T12:30:39.9204164Z warning: constant `SKIP_GRACE` is never used
+2026-11-03T12:30:39.9204854Z   --> crates\app\src\boot_splash\mod.rs:21:7
+2026-11-03T12:30:39.9205382Z    |
+2026-11-03T12:30:39.9205890Z 21 | const SKIP_GRACE: Duration = Duration::from_millis(800);
+2026-11-03T12:30:39.9206816Z    |       ^^^^^^^^^^
+2026-11-03T12:30:39.9207504Z 
+2026-11-03T12:30:39.9207826Z warning: constant `FIRST_FRAME_TIMEOUT` is never used
+2026-11-03T12:30:39.9208828Z   --> crates\app\src\boot_splash\mod.rs:23:7
+2026-11-03T12:30:39.9209404Z    |
+2026-11-03T12:30:39.9210511Z 23 | const FIRST_FRAME_TIMEOUT: Duration = Duration::from_millis(1500);
+2026-11-03T12:30:39.9211300Z    |       ^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9211633Z 
+2026-11-03T12:30:39.9212264Z warning: static `COLD_START_CLAIMED` is never used
+2026-11-03T12:30:39.9213339Z   --> crates\app\src\boot_splash\mod.rs:25:8
+2026-11-03T12:30:39.9214379Z    |
+2026-11-03T12:30:39.9216008Z 25 | static COLD_START_CLAIMED: AtomicBool = AtomicBool::new(false);
+2026-11-03T12:30:39.9218933Z    |        ^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9220332Z 
+2026-11-03T12:30:39.9222017Z warning: function `claim_cold_start` is never used
+2026-11-03T12:30:39.9224632Z   --> crates\app\src\boot_splash\mod.rs:28:15
+2026-11-03T12:30:39.9226728Z    |
+2026-11-03T12:30:39.9227191Z 28 | pub(crate) fn claim_cold_start() -> bool {
+2026-11-03T12:30:39.9228497Z    |               ^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9229499Z 
+2026-11-03T12:30:39.9229805Z warning: function `variant_duration` is never used
+2026-11-03T12:30:39.9233265Z   --> crates\app\src\boot_splash\mod.rs:33:15
+2026-11-03T12:30:39.9233889Z    |
+2026-11-03T12:30:39.9234413Z 33 | pub(crate) fn variant_duration(asset: &str) -> Duration {
+2026-11-03T12:30:39.9235077Z    |               ^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9235420Z 
+2026-11-03T12:30:39.9235659Z warning: function `boot_variant_for` is never used
+2026-11-03T12:30:39.9236310Z   --> crates\app\src\boot_splash\mod.rs:41:15
+2026-11-03T12:30:39.9236882Z    |
+2026-11-03T12:30:39.9238337Z 41 | pub(crate) fn boot_variant_for(seed: u64) -> &'static str {
+2026-11-03T12:30:39.9239554Z    |               ^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9239874Z 
+2026-11-03T12:30:39.9240175Z warning: function `forced_boot_variant` is never used
+2026-11-03T12:30:39.9240933Z   --> crates\app\src\boot_splash\mod.rs:46:15
+2026-11-03T12:30:39.9241506Z    |
+2026-11-03T12:30:39.9242131Z 46 | pub(crate) fn forced_boot_variant(value: Option<&str>) -> Option<&'static str> {
+2026-11-03T12:30:39.9242933Z    |               ^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9243281Z 
+2026-11-03T12:30:39.9243510Z warning: function `should_play_boot_splash` is never used
+2026-11-03T12:30:39.9243938Z   --> crates\app\src\boot_splash\mod.rs:55:15
+2026-11-03T12:30:39.9244286Z    |
+2026-11-03T12:30:39.9244533Z 55 | pub(crate) fn should_play_boot_splash(
+2026-11-03T12:30:39.9244856Z    |               ^^^^^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9245044Z 
+2026-11-03T12:30:39.9245175Z warning: enum `Phase` is never used
+2026-11-03T12:30:39.9245508Z   --> crates\app\src\boot_splash\mod.rs:64:6
+2026-11-03T12:30:39.9245819Z    |
+2026-11-03T12:30:39.9246033Z 64 | enum Phase {
+2026-11-03T12:30:39.9246270Z    |      ^^^^^
+2026-11-03T12:30:39.9246415Z 
+2026-11-03T12:30:39.9246551Z warning: struct `BootTimeline` is never constructed
+2026-11-03T12:30:39.9246917Z   --> crates\app\src\boot_splash\mod.rs:81:19
+2026-11-03T12:30:39.9247257Z    |
+2026-11-03T12:30:39.9247488Z 81 | pub(crate) struct BootTimeline {
+2026-11-03T12:30:39.9247785Z    |                   ^^^^^^^^^^^^
+2026-11-03T12:30:39.9247956Z 
+2026-11-03T12:30:39.9248116Z warning: multiple associated items are never used
+2026-11-03T12:30:39.9248491Z    --> crates\app\src\boot_splash\mod.rs:92:19
+2026-11-03T12:30:39.9248797Z     |
+2026-11-03T12:30:39.9249017Z  86 | impl BootTimeline {
+2026-11-03T12:30:39.9249341Z     | ----------------- associated items in this implementation
+2026-11-03T12:30:39.9249869Z ...
+2026-11-03T12:30:39.9250197Z  92 |     pub(crate) fn with_duration(now: Duration, length: Duration) -> Self {
+2026-11-03T12:30:39.9250721Z     |                   ^^^^^^^^^^^^^
+2026-11-03T12:30:39.9250994Z ...
+2026-11-03T12:30:39.9251284Z  99 |     pub(crate) fn on_first_frame(&mut self, now: Duration) {
+2026-11-03T12:30:39.9251655Z     |                   ^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9251923Z ...
+2026-11-03T12:30:39.9252191Z 108 |     pub(crate) fn skip(&mut self, now: Duration) {
+2026-11-03T12:30:39.9252607Z     |                   ^^^^
+2026-11-03T12:30:39.9252862Z ...
+2026-11-03T12:30:39.9253091Z 120 |     pub(crate) fn fail(&mut self) {
+2026-11-03T12:30:39.9253387Z     |                   ^^^^
+2026-11-03T12:30:39.9253633Z ...
+2026-11-03T12:30:39.9253903Z 124 |     pub(crate) fn advance(&mut self, now: Duration) {
+2026-11-03T12:30:39.9254333Z     |                   ^^^^^^^
+2026-11-03T12:30:39.9254696Z ...
+2026-11-03T12:30:39.9254975Z 141 |     pub(crate) fn opacity(&self, now: Duration) -> f32 {
+2026-11-03T12:30:39.9255362Z     |                   ^^^^^^^
+2026-11-03T12:30:39.9255623Z ...
+2026-11-03T12:30:39.9255879Z 154 |     pub(crate) fn is_done(&self) -> bool {
+2026-11-03T12:30:39.9256209Z     |                   ^^^^^^^
+2026-11-03T12:30:39.9257558Z 
+2026-11-03T12:30:39.9257765Z warning: constant `SAMPLE_INTERVAL` is never used
+2026-11-03T12:30:39.9258328Z   --> crates\app\src\performance_monitor.rs:18:7
+2026-11-03T12:30:39.9258901Z    |
+2026-11-03T12:30:39.9259647Z 18 | const SAMPLE_INTERVAL: Duration = Duration::from_secs(1);
+2026-11-03T12:30:39.9260218Z    |       ^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9260433Z 
+2026-11-03T12:30:39.9260651Z warning: method `snapshot` is never used
+2026-11-03T12:30:39.9261215Z    --> crates\app\src\performance_monitor.rs:123:8
+2026-11-03T12:30:39.9261735Z     |
+2026-11-03T12:30:39.9262098Z 113 | impl WindowSignals {
+2026-11-03T12:30:39.9262577Z     | ------------------ method in this implementation
+2026-11-03T12:30:39.9263103Z ...
+2026-11-03T12:30:39.9263602Z 123 |     fn snapshot(&self, observed_at_ms: u64) -> WindowSignalSnapshot {
+2026-11-03T12:30:39.9264296Z     |        ^^^^^^^^
+2026-11-03T12:30:39.9264445Z 
+2026-11-03T12:30:39.9264644Z warning: struct `WindowSignalSnapshot` is never constructed
+2026-11-03T12:30:39.9265069Z    --> crates\app\src\performance_monitor.rs:144:8
+2026-11-03T12:30:39.9265398Z     |
+2026-11-03T12:30:39.9265646Z 144 | struct WindowSignalSnapshot {
+2026-11-03T12:30:39.9265941Z     |        ^^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9266133Z 
+2026-11-03T12:30:39.9266244Z warning: method `snapshot` is never used
+2026-11-03T12:30:39.9266603Z    --> crates\app\src\performance_monitor.rs:172:8
+2026-11-03T12:30:39.9266928Z     |
+2026-11-03T12:30:39.9267155Z 155 | impl WindowSignalRegistry {
+2026-11-03T12:30:39.9267516Z     | ------------------------- method in this implementation
+2026-11-03T12:30:39.9267847Z ...
+2026-11-03T12:30:39.9268128Z 172 |     fn snapshot(&self) -> Option<WindowSignalSnapshot> {
+2026-11-03T12:30:39.9268501Z     |        ^^^^^^^^
+2026-11-03T12:30:39.9268638Z 
+2026-11-03T12:30:39.9268811Z warning: constant `RAW_SAMPLE_CAPACITY` is never used
+2026-11-03T12:30:39.9269216Z  --> crates\app\src\performance_monitor\recording.rs:7:7
+2026-11-03T12:30:39.9269551Z   |
+2026-11-03T12:30:39.9269789Z 7 | const RAW_SAMPLE_CAPACITY: usize = 120;
+2026-11-03T12:30:39.9270105Z   |       ^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9270281Z 
+2026-11-03T12:30:39.9270449Z warning: constant `SUMMARY_SAMPLE_COUNT` is never used
+2026-11-03T12:30:39.9270854Z  --> crates\app\src\performance_monitor\recording.rs:9:7
+2026-11-03T12:30:39.9271192Z   |
+2026-11-03T12:30:39.9271447Z 9 | const SUMMARY_SAMPLE_COUNT: usize = 30 * 60;
+2026-11-03T12:30:39.9271786Z   |       ^^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9271975Z 
+2026-11-03T12:30:39.9272123Z warning: constant `HIGH_CPU_SAMPLE_COUNT` is never used
+2026-11-03T12:30:39.9272566Z   --> crates\app\src\performance_monitor\recording.rs:10:7
+2026-11-03T12:30:39.9273136Z    |
+2026-11-03T12:30:39.9273396Z 10 | const HIGH_CPU_SAMPLE_COUNT: usize = 5;
+2026-11-03T12:30:39.9273814Z    |       ^^^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9274006Z 
+2026-11-03T12:30:39.9274171Z warning: constant `BYTES_PER_MEBIBYTE` is never used
+2026-11-03T12:30:39.9274574Z   --> crates\app\src\performance_monitor\recording.rs:11:7
+2026-11-03T12:30:39.9274920Z    |
+2026-11-03T12:30:39.9275184Z 11 | const BYTES_PER_MEBIBYTE: f64 = 1024.0 * 1024.0;
+2026-11-03T12:30:39.9275526Z    |       ^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9275708Z 
+2026-11-03T12:30:39.9275858Z warning: variant `TerminalActive` is never constructed
+2026-11-03T12:30:39.9276272Z   --> crates\app\src\performance_monitor\recording.rs:19:5
+2026-11-03T12:30:39.9276609Z    |
+2026-11-03T12:30:39.9276854Z 15 | pub(crate) enum PerformanceState {
+2026-11-03T12:30:39.9277222Z    |                 ---------------- variant in this enum
+2026-11-03T12:30:39.9277529Z ...
+2026-11-03T12:30:39.9277754Z 19 |     TerminalActive,
+2026-11-03T12:30:39.9278007Z    |     ^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9278239Z    |
+2026-11-03T12:30:39.9278791Z    = note: `PerformanceState` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+2026-11-03T12:30:39.9279743Z 
+2026-11-03T12:30:39.9279986Z warning: associated items `cpu_threshold_percent` and `from_code` are never used
+2026-11-03T12:30:39.9280497Z   --> crates\app\src\performance_monitor\recording.rs:24:19
+2026-11-03T12:30:39.9280852Z    |
+2026-11-03T12:30:39.9281084Z 23 | impl PerformanceState {
+2026-11-03T12:30:39.9281459Z    | --------------------- associated items in this implementation
+2026-11-03T12:30:39.9281879Z 24 |     pub(crate) fn cpu_threshold_percent(self) -> f64 {
+2026-11-03T12:30:39.9282234Z    |                   ^^^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9282526Z ...
+2026-11-03T12:30:39.9282776Z 42 |     pub(crate) fn from_code(code: u8) -> Self {
+2026-11-03T12:30:39.9283114Z    |                   ^^^^^^^^^
+2026-11-03T12:30:39.9283298Z 
+2026-11-03T12:30:39.9283444Z warning: struct `ProcessCounters` is never constructed
+2026-11-03T12:30:39.9283849Z   --> crates\app\src\performance_monitor\recording.rs:71:19
+2026-11-03T12:30:39.9284198Z    |
+2026-11-03T12:30:39.9284433Z 71 | pub(crate) struct ProcessCounters {
+2026-11-03T12:30:39.9284773Z    |                   ^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9284944Z 
+2026-11-03T12:30:39.9285138Z warning: struct `RawPerformanceSample` is never constructed
+2026-11-03T12:30:39.9285556Z   --> crates\app\src\performance_monitor\recording.rs:82:19
+2026-11-03T12:30:39.9285900Z    |
+2026-11-03T12:30:39.9286163Z 82 | pub(crate) struct RawPerformanceSample {
+2026-11-03T12:30:39.9286489Z    |                   ^^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9286702Z 
+2026-11-03T12:30:39.9286837Z warning: associated function `between` is never used
+2026-11-03T12:30:39.9287229Z   --> crates\app\src\performance_monitor\recording.rs:94:19
+2026-11-03T12:30:39.9287600Z    |
+2026-11-03T12:30:39.9287869Z 93 | impl RawPerformanceSample {
+2026-11-03T12:30:39.9288240Z    | ------------------------- associated function in this implementation
+2026-11-03T12:30:39.9288631Z 94 |     pub(crate) fn between(
+2026-11-03T12:30:39.9288912Z    |                   ^^^^^^^
+2026-11-03T12:30:39.9289065Z 
+2026-11-03T12:30:39.9289248Z warning: struct `PerformanceSummary` is never constructed
+2026-11-03T12:30:39.9289684Z    --> crates\app\src\performance_monitor\recording.rs:125:19
+2026-11-03T12:30:39.9290036Z     |
+2026-11-03T12:30:39.9307292Z 125 | pub(crate) struct PerformanceSummary {
+2026-11-03T12:30:39.9307826Z     |                   ^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9308110Z 
+2026-11-03T12:30:39.9308315Z warning: struct `DiagnosticCapture` is never constructed
+2026-11-03T12:30:39.9308796Z    --> crates\app\src\performance_monitor\recording.rs:139:19
+2026-11-03T12:30:39.9309371Z     |
+2026-11-03T12:30:39.9309742Z 139 | pub(crate) struct DiagnosticCapture {
+2026-11-03T12:30:39.9310293Z     |                   ^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9310507Z 
+2026-11-03T12:30:39.9310759Z warning: struct `RecorderOutcome` is never constructed
+2026-11-03T12:30:39.9311236Z    --> crates\app\src\performance_monitor\recording.rs:149:19
+2026-11-03T12:30:39.9311590Z     |
+2026-11-03T12:30:39.9311834Z 149 | pub(crate) struct RecorderOutcome {
+2026-11-03T12:30:39.9312140Z     |                   ^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9312311Z 
+2026-11-03T12:30:39.9312500Z warning: struct `PerformanceRecorder` is never constructed
+2026-11-03T12:30:39.9312933Z    --> crates\app\src\performance_monitor\recording.rs:154:19
+2026-11-03T12:30:39.9313275Z     |
+2026-11-03T12:30:39.9313528Z 154 | pub(crate) struct PerformanceRecorder {
+2026-11-03T12:30:39.9313855Z     |                   ^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9314063Z 
+2026-11-03T12:30:39.9314168Z warning: method `push` is never used
+2026-11-03T12:30:39.9314546Z    --> crates\app\src\performance_monitor\recording.rs:175:19
+2026-11-03T12:30:39.9314892Z     |
+2026-11-03T12:30:39.9315125Z 174 | impl PerformanceRecorder {
+2026-11-03T12:30:39.9315461Z     | ------------------------ method in this implementation
+2026-11-03T12:30:39.9315947Z 175 |     pub(crate) fn push(&mut self, sample: RawPerformanceSample) -> RecorderOutcome {
+2026-11-03T12:30:39.9316399Z     |                   ^^^^
+2026-11-03T12:30:39.9316574Z 
+2026-11-03T12:30:39.9316701Z warning: function `summarize` is never used
+2026-11-03T12:30:39.9317072Z    --> crates\app\src\performance_monitor\recording.rs:228:4
+2026-11-03T12:30:39.9317411Z     |
+2026-11-03T12:30:39.9317776Z 228 | fn summarize(samples: &[RawPerformanceSample]) -> PerformanceSummary {
+2026-11-03T12:30:39.9318190Z     |    ^^^^^^^^^
+2026-11-03T12:30:39.9318317Z 
+2026-11-03T12:30:39.9318450Z warning: function `median` is never used
+2026-11-03T12:30:39.9318820Z    --> crates\app\src\performance_monitor\recording.rs:259:4
+2026-11-03T12:30:39.9319162Z     |
+2026-11-03T12:30:39.9319393Z 259 | fn median(ordered: &[f64]) -> f64 {
+2026-11-03T12:30:39.9320057Z     |    ^^^^^^
+2026-11-03T12:30:39.9320218Z 
+2026-11-03T12:30:39.9320332Z warning: function `mean` is never used
+2026-11-03T12:30:39.9320691Z    --> crates\app\src\performance_monitor\recording.rs:268:4
+2026-11-03T12:30:39.9321031Z     |
+2026-11-03T12:30:39.9321479Z 268 | fn mean(samples: &[RawPerformanceSample], value: impl Fn(&RawPerformanceSample) -> f64) -> f64 {
+2026-11-03T12:30:39.9321979Z     |    ^^^^
+2026-11-03T12:30:39.9322096Z 
+2026-11-03T12:30:39.9322231Z warning: enum `SystemOpen` is never used
+2026-11-03T12:30:39.9322593Z   --> crates\app\src\preview\terminal_route.rs:22:17
+2026-11-03T12:30:39.9322922Z    |
+2026-11-03T12:30:39.9323154Z 22 | pub(crate) enum SystemOpen {
+2026-11-03T12:30:39.9323440Z    |                 ^^^^^^^^^^
+2026-11-03T12:30:39.9323621Z 
+2026-11-03T12:30:39.9323766Z warning: constant `LAUNCHABLE_EXTENSIONS` is never used
+2026-11-03T12:30:39.9324165Z   --> crates\app\src\preview\terminal_route.rs:27:7
+2026-11-03T12:30:39.9324523Z    |
+2026-11-03T12:30:39.9324776Z 27 | const LAUNCHABLE_EXTENSIONS: &[&str] = &[
+2026-11-03T12:30:39.9325094Z    |       ^^^^^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9325279Z 
+2026-11-03T12:30:39.9325455Z warning: function `system_open_mode` is never used
+2026-11-03T12:30:39.9325836Z   --> crates\app\src\preview\terminal_route.rs:62:15
+2026-11-03T12:30:39.9326164Z    |
+2026-11-03T12:30:39.9326563Z 62 | pub(crate) fn system_open_mode(path: &Path, is_dir: bool, unix_mode: Option<u32>) -> SystemOpen {
+2026-11-03T12:30:39.9327051Z    |               ^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9327250Z 
+2026-11-03T12:30:39.9327382Z warning: function `probe_system_open` is never used
+2026-11-03T12:30:39.9327782Z   --> crates\app\src\preview\terminal_route.rs:80:15
+2026-11-03T12:30:39.9328100Z    |
+2026-11-03T12:30:39.9328387Z 80 | pub(crate) fn probe_system_open(path: &Path) -> SystemOpen {
+2026-11-03T12:30:39.9328751Z    |               ^^^^^^^^^^^^^^^^^
+2026-11-03T12:30:39.9329037Z 
+2026-11-03T12:30:39.9329181Z warning: method `resolve_path` is never used
+2026-11-03T12:30:39.9330410Z    --> crates\app\src\settings\wallpaper\state.rs:178:19
+2026-11-03T12:30:39.9330793Z     |
+2026-11-03T12:30:39.9331043Z  60 | impl WallpaperSettingsState {
+2026-11-03T12:30:39.9331406Z     | --------------------------- method in this implementation
+2026-11-03T12:30:39.9331755Z ...
+2026-11-03T12:30:39.9332065Z 178 |     pub(crate) fn resolve_path(&self) -> Option<PathBuf> {
+2026-11-03T12:30:39.9332428Z     |                   ^^^^^^^^^^^^
+2026-11-03T12:30:39.9332600Z 
+2026-11-03T12:37:24.3830921Z warning: `app` (lib) generated 56 warnings (run `cargo fix --lib -p app` to apply 7 suggestions)
+2026-11-03T12:45:36.3300395Z     Finished `release` profile [optimized] target(s) in 30m 10s
+2026-11-03T12:45:37.0244077Z    Compiling proc-macro2 v1.0.106
+2026-11-03T12:45:37.0252398Z    Compiling cc v1.2.66
+2026-11-03T12:45:38.1644637Z    Compiling quote v1.0.46
+2026-11-03T12:45:38.4483079Z    Compiling syn v2.0.118
+2026-11-03T12:45:38.5814616Z    Compiling windows-sys v0.61.2
+2026-11-03T12:45:44.3468529Z    Compiling synstructure v0.13.2
+2026-11-03T12:45:44.9739797Z    Compiling zerofrom-derive v0.1.7
+2026-11-03T12:45:46.3754998Z    Compiling zerofrom v0.1.8
+2026-11-03T12:45:46.4824132Z    Compiling yoke-derive v0.8.2
+2026-11-03T12:45:46.5161374Z    Compiling zerovec-derive v0.11.3
+2026-11-03T12:45:47.6759985Z    Compiling displaydoc v0.2.6
+2026-11-03T12:45:47.7018659Z    Compiling yoke v0.8.3
+2026-11-03T12:45:47.8723598Z    Compiling zerovec v0.11.6
+2026-11-03T12:45:48.4552013Z    Compiling getrandom v0.2.17
+2026-11-03T12:45:48.5721171Z    Compiling zerocopy v0.8.53
+2026-11-03T12:45:48.5772560Z    Compiling ring v0.17.14
+2026-11-03T12:45:51.4184184Z    Compiling zeroize v1.9.0
+2026-11-03T12:45:51.5631171Z    Compiling rustls-pki-types v1.15.0
+2026-11-03T12:45:52.2732917Z    Compiling tinystr v0.8.3
+2026-11-03T12:45:52.4553217Z    Compiling icu_locale_core v2.2.0
+2026-11-03T12:45:54.8892713Z    Compiling potential_utf v0.1.5
+2026-11-03T12:45:55.0185105Z    Compiling zerotrie v0.2.4
+2026-11-03T12:45:55.3898864Z    Compiling icu_collections v2.2.0
+2026-11-03T12:45:56.0296851Z    Compiling icu_provider v2.2.0
+2026-11-03T12:45:56.5366071Z    Compiling smallvec v1.15.2
+2026-11-03T12:45:56.7460643Z    Compiling serde_core v1.0.228
+2026-11-03T12:45:57.0419977Z    Compiling curve25519-dalek v4.1.3
+2026-11-03T12:45:57.2418737Z    Compiling log v0.4.33
+2026-11-03T12:45:57.4201285Z    Compiling winapi v0.3.9
+2026-11-03T12:45:57.4326349Z    Compiling anstyle-wincon v3.0.11
+2026-11-03T12:45:57.7282901Z    Compiling libsqlite3-sys v0.30.1
+2026-11-03T12:45:58.0210437Z    Compiling rustls v0.23.41
+2026-11-03T12:45:58.0316751Z    Compiling icu_properties v2.2.0
+2026-11-03T12:45:58.6292805Z    Compiling icu_normalizer v2.2.0
+2026-11-03T12:45:59.6152656Z    Compiling ahash v0.8.12
+2026-11-03T12:45:59.7834423Z    Compiling rustls-webpki v0.103.13
+2026-11-03T12:46:02.2277420Z    Compiling ppv-lite86 v0.2.21
+2026-11-03T12:46:02.4355793Z    Compiling rand_core v0.6.4
+2026-11-03T12:46:02.5932778Z    Compiling anstyle-query v1.1.5
+2026-11-03T12:46:02.6003671Z    Compiling curve25519-dalek-derive v0.1.1
+2026-11-03T12:46:02.7172906Z    Compiling serde_json v1.0.150
+2026-11-03T12:46:02.8927098Z    Compiling serde v1.0.228
+2026-11-03T12:46:03.1553974Z    Compiling simd-adler32 v0.3.9
+2026-11-03T12:46:03.2199440Z    Compiling time v0.3.53
+2026-11-03T12:46:03.7041181Z    Compiling miniz_oxide v0.8.9
+2026-11-03T12:46:03.9922618Z    Compiling anstream v1.0.0
+2026-11-03T12:46:04.9875019Z    Compiling crossbeam-utils v0.8.22
+2026-11-03T12:46:05.0113466Z    Compiling rand_chacha v0.9.0
+2026-11-03T12:46:07.5134478Z    Compiling hashbrown v0.14.5
+2026-11-03T12:46:08.1807702Z    Compiling idna_adapter v1.2.2
+2026-11-03T12:46:27.1203376Z    Compiling schannel v0.1.29
+2026-11-03T12:46:27.9739588Z    Compiling serde_derive v1.0.228
+2026-11-03T12:46:32.8627301Z    Compiling thiserror-impl v2.0.18
+2026-11-03T12:46:33.7331523Z    Compiling memchr v2.8.2
+2026-11-03T12:46:34.3958192Z    Compiling socks v0.3.4
+2026-11-03T12:46:34.7430325Z    Compiling libc v0.2.186
+2026-11-03T12:46:34.7757161Z    Compiling thiserror v2.0.18
+2026-11-03T12:46:34.8457499Z    Compiling clap_builder v4.6.0
+2026-11-03T12:46:36.8769846Z    Compiling clap_derive v4.6.1
+2026-11-03T12:46:38.7562910Z    Compiling ureq-proto v0.6.0
+2026-11-03T12:46:40.5994631Z    Compiling tempfile v3.27.0
+2026-11-03T12:46:41.2964941Z    Compiling dirs-sys v0.5.0
+2026-11-03T12:46:42.2713707Z    Compiling rustls-native-certs v0.8.4
+2026-11-03T12:46:42.8999605Z    Compiling spake2 v0.4.0
+2026-11-03T12:46:43.3611839Z    Compiling flate2 v1.1.9
+2026-11-03T12:46:43.8911511Z    Compiling idna v1.1.0
+2026-11-03T12:46:44.4347660Z    Compiling hashlink v0.9.1
+2026-11-03T12:46:44.7776265Z    Compiling rand v0.9.4
+2026-11-03T12:46:45.7199045Z    Compiling yasna v0.5.2
+2026-11-03T12:46:46.1026272Z    Compiling form_urlencoded v1.2.2
+2026-11-03T12:46:46.2916965Z    Compiling webpki-roots v1.0.8
+2026-11-03T12:46:46.3854219Z    Compiling tracing-core v0.1.36
+2026-11-03T12:46:47.0554539Z    Compiling tracing-attributes v0.1.31
+2026-11-03T12:46:47.2310711Z    Compiling bitflags v2.13.0
+2026-11-03T12:46:47.5466623Z    Compiling tungstenite v0.28.0
+2026-11-03T12:46:48.4458142Z    Compiling tracing v0.1.44
+2026-11-03T12:46:48.7793059Z    Compiling rusqlite v0.32.1
+2026-11-03T12:46:50.7290389Z    Compiling ureq v3.3.0
+2026-11-03T12:46:50.9552662Z    Compiling rcgen v0.13.2
+2026-11-03T12:46:57.4505413Z    Compiling url v2.5.8
+2026-11-03T12:46:58.9990336Z    Compiling crossbeam-channel v0.5.16
+2026-11-03T12:46:59.4238701Z    Compiling mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+2026-11-03T12:46:59.6551050Z    Compiling uds_windows v1.2.1
+2026-11-03T12:46:59.8719719Z    Compiling dirs v6.0.0
+2026-11-03T12:46:59.9430493Z    Compiling clap v4.6.1
+2026-11-03T12:47:00.1271391Z    Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+2026-11-03T12:48:15.3483444Z     Finished `release` profile [optimized] target(s) in 2m 38s
+2026-11-03T12:48:15.4546619Z ##[group]Run python scripts/windows/package.py --crt-dir $env:NORMA_WINDOWS_CRT_DIR
+2026-11-03T12:48:15.4548099Z [36;1mpython scripts/windows/package.py --crt-dir $env:NORMA_WINDOWS_CRT_DIR[0m
+2026-11-03T12:48:15.4548778Z [36;1mexit $LASTEXITCODE[0m
+2026-11-03T12:48:15.4628468Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-11-03T12:48:15.4628905Z env:
+2026-11-03T12:48:15.4629180Z   CARGO_INCREMENTAL: 0
+2026-11-03T12:48:15.4629449Z   CARGO_BUILD_JOBS: 2
+2026-11-03T12:48:15.4629711Z   CARGO_TERM_COLOR: never
+2026-11-03T12:48:15.4629978Z   PYTHONUTF8: 1
+2026-11-03T12:48:15.4630278Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T12:48:15.4630603Z   CACHE_ON_FAILURE: true
+2026-11-03T12:48:15.4631167Z   NORMA_WINDOWS_CRT_DIR: C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Redist\MSVC\14.51.36231\x64\Microsoft.VC145.CRT
+2026-11-03T12:48:15.4631784Z ##[endgroup]
+2026-11-03T12:48:24.2578662Z {"verified_files": 59, "source_sha": "94e4bc83a7940a39ef0888d97d5f90669c5ccacd"}
+2026-11-03T12:48:24.2580351Z {"archive": "D:\\a\\Norma-AI-OS\\Norma-AI-OS\\build\\windows\\norma-os-0.1.77-windows-x64-94e4bc83.zip", "sha256": "87ee66f8985766bbc611e5d4530e9edd3533fa27f26777037ffd3fcdcde9eba7", "size": 95184305}

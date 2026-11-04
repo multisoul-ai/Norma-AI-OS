@@ -1,0 +1,17 @@
+{
+  "source_sha": "7cf61b94a846c750f6355e1465d1d4d275eb27b8",
+  "run_id": 41617015436,
+  "run_attempt": 1,
+  "visual_verification": "PASS by current agent, original-resolution images viewed; raw native report remains unchanged",
+  "red_image_source_sha": "43eab9b2aebd2a36b0211652d62cf4b596366168",
+  "red_image_run_id": 41610285377,
+  "files": {
+    "red-submit.png": "8e46ae602b23fda726e9ffb4dc1d0a1d264e28f62437b2ca4032e4f6a96b3d3c",
+    "created.png": "af29c42bddaadedee10e2a3f3a5fb9a1ede91dd9894e58f9e7b39a821be4df61",
+    "reopened.png": "40a86e4e8466716144f929cebb696f63648a28ad9af89ca3199b572ccd6f4cff",
+    "native-report.json": "d9c6296451db6b438822d013d66ffc04cba0333427557cf0714f1c4551dca5eb",
+    "workspace-created.json": "6645a3c21d6c01801ad8d672b237f823d2eec82cbf88f7967e975bdc6f604b06",
+    "workspace-reopened.json": "0fe962ddf5b1fe8684ddc628fc6a4bcdee394376e6798fb12c23673854875796",
+    "storage-comparison.json": "e8453516740e6002165f95ffe914a1f39c17277e1f1383415cdd96331850de52"
+  }
+}

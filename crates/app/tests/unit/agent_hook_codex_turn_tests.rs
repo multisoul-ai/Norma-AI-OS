@@ -1,11 +1,10 @@
 use super::*;
+use crate::test_support::codex_relay as transport;
 use norma::agent_hook::{parse_hook_event, HookSource};
 use norma::codex::{native_questions::CodexQuestionHost, relay::CodexQuestionRelay};
+use norma::codex::{UnixListener, UnixStream};
 use serde_json::json;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Duration, Instant};
-#[path = "../../../norma/tests/support/codex_relay.rs"]
-mod transport;
 use transport::{read, send, timed};
 
 /// 场景：App 的生产 drain 在后台终端等待时不得结算任务或通知幕僚完成。
@@ -16,7 +15,11 @@ use transport::{read, send, timed};
 fn app_drain_waits_for_native_codex_completion_and_publishes_it_once() {
     let dir = tempfile::Builder::new()
         .prefix("nct-app-")
-        .tempdir_in("/tmp")
+        .tempdir_in(if cfg!(windows) {
+            std::env::temp_dir()
+        } else {
+            std::path::PathBuf::from("/tmp")
+        })
         .unwrap();
     let path = dir.path().join("s.sock");
     let listener = UnixListener::bind(&path).unwrap();

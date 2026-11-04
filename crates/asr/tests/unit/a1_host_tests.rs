@@ -1,16 +1,21 @@
 use super::*;
+use crate::providers::local::a1::test_python as a1_python;
 use crate::RecognizerFactory;
 
 fn fixture() -> A1RecognizerFactory {
+    fixture_with_pressure(|| true)
+}
+
+fn fixture_with_pressure(pressure: fn() -> bool) -> A1RecognizerFactory {
     let config = A1Config {
         protocol: 1,
-        python: "/usr/bin/python3".into(),
+        python: a1_python::executable(),
         python_sha256: String::new(),
-        zipformer: "/unused".into(),
-        qwen: "/unused".into(),
+        zipformer: std::env::temp_dir().join("unused-zipformer"),
+        qwen: std::env::temp_dir().join("unused-qwen"),
     };
     let spawn = || {
-        let mut cmd = std::process::Command::new("/usr/bin/python3");
+        let mut cmd = std::process::Command::new(a1_python::executable());
         cmd.arg("-B")
             .arg(concat!(
                 env!("CARGO_MANIFEST_DIR"),
@@ -25,7 +30,10 @@ fn fixture() -> A1RecognizerFactory {
         finalizer: spawn(),
         _script: None,
     };
-    let host = Arc::new(A1EngineHost::default());
+    let host = Arc::new(A1EngineHost {
+        state: Default::default(),
+        pressure,
+    });
     {
         let mut state = host.state.lock().unwrap();
         state.children = vec![engine.preview.control(), engine.finalizer.control()];
@@ -134,7 +142,50 @@ fn preparation_waits_for_cancelled_reservation_to_unwind() {
         "不能把已取消会话误报成活动录音"
     );
     assert!(
-        result.to_string().contains("integrity"),
-        "夹具工件不完整应在槽回收后明确报完整性错误"
+        result.to_string().contains(if cfg!(windows) {
+            "Apple Silicon"
+        } else {
+            "integrity"
+        }),
+        "槽回收后应保留平台/工件校验错误，不能伪造模型已就绪"
     );
+}
+
+/// 场景：资源压力拒绝真实宿主启动；数据为高压力监测器与真实协议 worker。
+/// 执行：调用 create/prepare，再尝试已取消的 prepare。
+/// 预期：普通请求明确报压力并且不占槽；取消优先收口，不能放宽生产资源护栏。
+#[test]
+fn elevated_pressure_rejects_start_without_reserving_and_cancel_still_wins() {
+    let factory = fixture_with_pressure(|| false);
+    let result = factory.create().err().expect("高压力必须拒绝启动");
+    assert!(
+        result.to_string().contains("memory pressure"),
+        "必须保留资源拒绝原因"
+    );
+    assert!(
+        factory
+            .prepare()
+            .expect_err("高压力必须拒绝准备")
+            .to_string()
+            .contains("memory pressure"),
+        "准备也必须遵守压力护栏"
+    );
+    assert!(
+        factory
+            .host
+            .state
+            .lock()
+            .expect("宿主状态")
+            .active
+            .is_none(),
+        "资源拒绝不能占用活动槽"
+    );
+    let token = RecognitionCancellation::new();
+    token.cancel();
+    assert_eq!(
+        factory.prepare_with_cancellation(token),
+        Err(AsrError::SessionClosed),
+        "取消请求必须优先结束，不受当前机器压力影响"
+    );
+    factory.host.shutdown();
 }

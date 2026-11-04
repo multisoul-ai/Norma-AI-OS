@@ -1,0 +1,6 @@
+
+running 1 test
+test app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_error_shortcut_dismisses_feedback_without_stopping ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1736 filtered out; finished in 0.01s
+

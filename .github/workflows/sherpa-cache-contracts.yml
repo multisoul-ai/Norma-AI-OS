@@ -1,0 +1,115 @@
+name: Sherpa native cache contract
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/windows-feasibility-*', 'codex/windows-audio-*']
+    paths:
+      - '.github/workflows/sherpa-cache-contracts.yml'
+      - 'vendor/sherpa-onnx-sys-1.13.3/**'
+
+permissions:
+  contents: read
+
+jobs:
+  missing-native-library:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: sherpa-native-cache-contract
+          cache-on-failure: true
+      - name: Build the real native dependency
+        shell: bash
+        run: |
+          mkdir -p artifacts/sherpa-cache
+          rustc -vV | tee artifacts/sherpa-cache/rustc.log
+          python3 -c "import shutil; shutil.rmtree('target/sherpa-onnx-prebuilt', ignore_errors=True)"
+          cargo build --locked -p sherpa-onnx-sys 2>&1 | tee artifacts/sherpa-cache/initial-build.log
+      - name: Simulate native archive and Rust artifact pruning while retaining build script outputs
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          root = Path('target')
+          libraries = list((root / 'sherpa-onnx-prebuilt').glob('*/lib'))
+          artifacts = [p for p in (root / 'debug/deps').glob('*sherpa_onnx_sys*') if p.suffix in ('.rlib', '.rmeta')]
+          assert libraries and artifacts, 'The initial build must produce real native and Rust libraries'
+          for library in libraries:
+              shutil.rmtree(library)
+          for artifact in artifacts:
+              artifact.unlink()
+          Path('artifacts/sherpa-cache/pruned.txt').write_text('\n'.join(str(p) for p in libraries + artifacts) + '\n')
+          PY
+      - name: Require rebuild to restore the missing native libraries
+        shell: bash
+        run: |
+          cargo build --locked -p sherpa-onnx-sys 2>&1 | tee artifacts/sherpa-cache/rebuild.log
+          python3 - <<'PY'
+          from pathlib import Path
+          assert list(Path('target/sherpa-onnx-prebuilt').glob('*/lib/*sherpa-onnx-c-api.*')), 'The native library must actually be restored'
+          PY
+      - name: Prune only native archive files while retaining their directories
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('target')
+          directories = list((root / 'sherpa-onnx-prebuilt').glob('*/lib'))
+          libraries = [path for directory in directories for path in directory.iterdir() if path.suffix in ('.a', '.lib')]
+          artifacts = [p for p in (root / 'debug/deps').glob('*sherpa_onnx_sys*') if p.suffix in ('.rlib', '.rmeta')]
+          assert directories and libraries and artifacts, 'The previous build must provide actual libraries'
+          for path in libraries + artifacts:
+              path.unlink()
+          assert all(path.is_dir() for path in directories), 'This regression must retain empty lib directories'
+          Path('artifacts/sherpa-cache/pruned-files.txt').write_text('\n'.join(str(p) for p in libraries + artifacts) + '\n')
+          PY
+      - name: Require real native library restoration from an empty cached directory
+        shell: bash
+        run: |
+          cargo build --locked -p sherpa-onnx-sys 2>&1 | tee artifacts/sherpa-cache/empty-directory-rebuild.log
+          python3 -c "from pathlib import Path; assert list(Path('target/sherpa-onnx-prebuilt').glob('*/lib/*sherpa-onnx-c-api.*')), 'An empty native lib directory is not a reusable dependency'"
+      - name: Keep the C API library but prune another required native archive
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('target')
+          libraries = sorted(p for directory in (root / 'sherpa-onnx-prebuilt').glob('*/lib')
+                             for p in directory.iterdir() if p.suffix in ('.a', '.lib'))
+          missing = next(p for p in libraries if 'sherpa-onnx-c-api' not in p.name)
+          missing.unlink()
+          for artifact in (root / 'debug/deps').glob('*sherpa_onnx_sys*'):
+              if artifact.suffix in ('.rlib', '.rmeta'):
+                  artifact.unlink()
+          assert list((root / 'sherpa-onnx-prebuilt').glob('*/lib/*sherpa-onnx-c-api.*')), 'The C API must remain present for this partial-cache case'
+          Path('artifacts/sherpa-cache/partially-pruned.txt').write_text(str(missing))
+          PY
+      - name: Require restoration of every required archive, not just the C API
+        shell: bash
+        run: |
+          cargo build --locked -p sherpa-onnx-sys 2>&1 | tee artifacts/sherpa-cache/partial-rebuild.log
+          python3 -c "from pathlib import Path; missing=Path(Path('artifacts/sherpa-cache/partially-pruned.txt').read_text()); assert missing.is_file(), f'Required native archive was not restored: {missing}'"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: sherpa-cache-${{ runner.os }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/sherpa-cache/
+          if-no-files-found: error
+          retention-days: 14

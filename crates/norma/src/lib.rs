@@ -1,15 +1,18 @@
 pub mod agent_hook;
-#[cfg(unix)]
 pub mod claude;
 pub mod cli;
 pub mod cli_runtime;
 pub mod client;
-#[cfg(unix)]
 pub mod codex;
-#[cfg(unix)]
 pub mod cursor;
 pub mod mobile;
 pub mod opencode;
 pub mod orchestration;
 pub mod presentation;
 pub mod protocol;
+
+mod file_identity;
+pub mod private_fs;
+
+mod route_id;
+pub use route_id::new_route_id;

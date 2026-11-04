@@ -1,7 +1,7 @@
 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
 use super::cef_backend::CefBrowserView;
 use super::chrome_auth::BrowserCookie;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
 use super::wry_backend::WryBrowserView;
 use super::{BrowserEngineKind, BrowserEvent};
 use canvas::NodeId;
@@ -44,13 +44,19 @@ pub(crate) fn browser_native_view_bounds(
 }
 
 pub(crate) enum NativeBrowserView {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", windows))]
     Wry(WryBrowserView),
     #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
     Cef(CefBrowserView),
 }
 
 impl NativeBrowserView {
+    #[cfg(windows)]
+    pub(crate) fn is_attached_to(&self, window: &Window) -> bool {
+        match self {
+            Self::Wry(view) => view.is_attached_to(window),
+        }
+    }
     pub(crate) fn present(
         &mut self,
         placement: gpui::ScenePresentation,
@@ -58,7 +64,7 @@ impl NativeBrowserView {
         window: &Window,
     ) {
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(view) => view.present(placement, interactive, window),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.present(placement, interactive, window),
@@ -72,22 +78,29 @@ impl NativeBrowserView {
         bounds: BrowserViewBounds,
         window: &mut Window,
         event_sender: Sender<BrowserEvent>,
+        _cx: &gpui::App,
     ) -> Result<Self, String> {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", windows))]
         {
             match engine {
-                BrowserEngineKind::Wry => {
-                    WryBrowserView::create(node_id, url, bounds, window, event_sender)
-                        .map(Self::Wry)
-                        .map_err(|err| err.to_string())
-                }
+                BrowserEngineKind::Wry => WryBrowserView::create(
+                    node_id,
+                    url,
+                    bounds,
+                    window,
+                    event_sender,
+                    #[cfg(windows)]
+                    _cx,
+                )
+                .map(Self::Wry)
+                .map_err(|err| err.to_string()),
                 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
                 BrowserEngineKind::Cef => {
                     create_cef_view(node_id, url, bounds, window, event_sender)
                 }
             }
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(any(target_os = "macos", windows)))]
         {
             let _ = (engine, node_id, url, bounds, window, event_sender);
             Err("native Browser views are only implemented on macOS".to_string())
@@ -96,7 +109,7 @@ impl NativeBrowserView {
 
     pub(crate) fn load_url(&mut self, url: &str) {
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(view) => view.load_url(url),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.load_url(url),
@@ -105,7 +118,7 @@ impl NativeBrowserView {
 
     pub(crate) fn report_resource_timing(&self, node_id: NodeId) {
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(view) => view.report_resource_timing(node_id),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(_) => {
@@ -116,7 +129,7 @@ impl NativeBrowserView {
 
     pub(crate) fn current_url_for_polling(&self) -> Option<String> {
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(_) => None,
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.current_url(),
@@ -125,7 +138,7 @@ impl NativeBrowserView {
 
     pub(crate) fn go_back(&mut self) {
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(view) => view.go_back(),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.go_back(),
@@ -134,7 +147,7 @@ impl NativeBrowserView {
 
     pub(crate) fn go_forward(&mut self) {
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(view) => view.go_forward(),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.go_forward(),
@@ -143,7 +156,7 @@ impl NativeBrowserView {
 
     pub(crate) fn reload(&mut self) {
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(view) => view.reload(),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.reload(),
@@ -152,7 +165,7 @@ impl NativeBrowserView {
 
     pub(crate) fn stop_loading(&self) {
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(view) => view.stop_loading(),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(_) => {}
@@ -161,7 +174,7 @@ impl NativeBrowserView {
 
     pub(crate) fn set_bounds(&mut self, bounds: BrowserViewBounds) {
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(view) => view.set_bounds(bounds),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.set_bounds(bounds),
@@ -170,7 +183,7 @@ impl NativeBrowserView {
 
     pub(crate) fn set_visible(&mut self, visible: bool) {
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(view) => view.set_visible(visible),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.set_visible(visible),
@@ -179,7 +192,7 @@ impl NativeBrowserView {
 
     pub(crate) fn release_input(&mut self) {
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(view) => view.release_input(),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.release_input(),
@@ -196,7 +209,7 @@ impl NativeBrowserView {
         #[cfg(not(all(target_os = "macos", feature = "chromium-browser")))]
         let _ = source_url;
         match self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", windows))]
             Self::Wry(view) => view.import_cookies(node_id, source_url, cookies, skipped),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view

@@ -1,7 +1,6 @@
-use super::{
-    default_assistant_audio_sink, interrupt_assistant_playback, AssistantAudioSink,
-    RecordingAssistantAudioSink,
-};
+#[cfg(target_os = "macos")]
+use super::default_assistant_audio_sink;
+use super::{interrupt_assistant_playback, AssistantAudioSink, RecordingAssistantAudioSink};
 use audio::{PcmAudioChunk, PcmFormat};
 #[cfg(target_os = "macos")]
 use dialogue::{

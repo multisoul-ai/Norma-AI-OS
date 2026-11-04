@@ -1,9 +1,9 @@
 use super::*;
 use gpui::{size, AppContext, Modifiers, TestAppContext};
-
 /// 工作空间首次打开时先显示完整画布，Norma 对话保留显式展开入口。
 /// 数据构造：空工作空间与 1280×800 的真实 GPUI 视图树。
 /// 执行过程：打开工作空间并绘制，再点击左侧展开按钮。
+///
 /// 预期结果：首帧左栏不占宽且对话不可见；点击后显示同一对话输入。
 #[test]
 fn workspace_starts_with_left_drawer_collapsed_and_reopens_on_click() {
@@ -59,10 +59,10 @@ fn workspace_starts_with_left_drawer_collapsed_and_reopens_on_click() {
         "用户点击后应能打开 Norma 对话"
     );
 }
-
 /// 场景：左抽屉展示当前 Norma 会话的两轮历史。
 /// 数据构造：隔离工作空间，分别记录两次用户提问和 Norma 回复。
 /// 执行过程：打开工作空间并绘制实际 GPUI 树。
+///
 /// 预期结果：第一轮和第二轮消息节点同时存在，未被最近一轮覆盖。
 #[test]
 fn left_drawer_renders_all_current_session_messages() {
@@ -115,10 +115,10 @@ fn left_drawer_renders_all_current_session_messages() {
         "用户消息应靠右，Norma 回复应靠左，符合原型的对话层级"
     );
 }
-
 /// 场景：左栏的展开/收起只由用户决定，进入与离开项目都不得改写。
 /// 数据构造：隔离工作空间内有一个真实项目目录，总览左栏默认收起。
 /// 执行过程：展开项目（左栏收起）、在项目内手动打开左栏，再返回工作空间总览。
+///
 /// 预期结果：收起的左栏进入项目后保持收起且无滑出动画；项目内仍能按需打开；
 ///   返回总览时保持用户最后一次选择（展开），不被"恢复"成进入前的状态。
 #[test]
@@ -176,13 +176,13 @@ fn project_entry_and_exit_never_rewrite_left_drawer_state() {
         );
     });
 }
-
 /// 场景：用户在总览打开左栏（Run Overview / Chat）后进入 agent 画布，左栏不得被强制收起。
 /// 数据构造：窗口 1280×800；展开左栏的目标宽 = 1280×0.31−150 = 246.8px，画布宽 = 1280 − 246.8 = 1033.2px。
 /// 执行过程：
 ///   1. 总览中展开左栏并落稳（motion 展开度 1.0）。
 ///   2. 展开项目并完成缩放：检查逻辑状态、动效展开度、画布可用宽度。
 ///   3. 返回总览：再次检查三者。
+///
 /// 预期结果：
 ///   - 进入项目后 `left_open` 仍为 true（旧实现会改为 false）；
 ///   - 动效展开度仍为 1.0 且仍渲染左栏（旧实现会收起到 0.0）；
@@ -254,6 +254,7 @@ fn project_entry_keeps_open_left_drawer_with_matching_canvas_width() {
 /// 场景：进入项目后，项目目录在后台加载前不可用。
 /// 数据构造：工作空间已保存项目，先手动展开左栏，再在请求展开前移走目录。
 /// 执行过程：请求展开并等待后台加载失败。
+///
 /// 预期结果：加载期间与失败后左栏始终保持展开；留在工作空间总览并展示加载错误。
 #[test]
 fn failed_project_entry_keeps_workspace_left_drawer_open() {
@@ -331,6 +332,7 @@ fn failed_project_entry_keeps_workspace_left_drawer_open() {
 /// 场景：项目 A 直接导航到另一个工作空间 B。
 /// 数据构造：A 有项目，B 为空，用户在 A 总览手动展开左栏。
 /// 执行过程：进入 A 项目，再直接打开 B 并完成导航动效。
+///
 /// 预期结果：进入项目后左栏仍展开；B 总览同样展开，不被项目进出改写。
 #[test]
 fn opening_another_workspace_keeps_left_drawer_state() {
@@ -388,6 +390,7 @@ fn opening_another_workspace_keeps_left_drawer_state() {
 /// 场景：同一工作空间在总览与项目视图之间切换。
 /// 数据构造：总览已有一轮对话，项目内继续产生一轮对话。
 /// 执行过程：进入项目、手动打开左栏并返回总览。
+///
 /// 预期结果：左栏始终使用同一连续历史，两个视图都能看到两轮内容。
 #[test]
 fn workspace_and_project_share_assistant_conversation_history() {
@@ -448,6 +451,7 @@ fn workspace_and_project_share_assistant_conversation_history() {
 /// 场景：工作空间 A 的旧加载在 A→B→A 快速导航后才返回。
 /// 数据构造：两个隔离工作空间，依次完成三次导航发起。
 /// 执行过程：记录每次加载令牌，并比较第一次 A 与第二次 A。
+///
 /// 预期结果：每次导航更新令牌，旧 A 回调不能满足新 A 的令牌校验。
 #[test]
 fn workspace_navigation_invalidates_stale_load_generation() {

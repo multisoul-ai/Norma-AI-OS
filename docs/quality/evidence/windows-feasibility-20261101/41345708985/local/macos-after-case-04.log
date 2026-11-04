@@ -1,0 +1,6 @@
+
+running 1 test
+test app::dialogue::app_dialogue_shell_tests::test_dialogue_stop_returns_idle_but_models_remain_resident ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1736 filtered out; finished in 0.02s
+

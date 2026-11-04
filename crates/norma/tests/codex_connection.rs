@@ -1,7 +1,7 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::codex::CodexConnection;
+use norma::codex::UnixListener;
 use serde_json::{json, Value};
-use std::os::unix::net::UnixListener;
 use std::time::Duration;
 use tungstenite::Message;
 

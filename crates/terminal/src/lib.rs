@@ -18,3 +18,10 @@ pub use process_tree::ChildProcessObserver;
 pub use pty::{PtyBackend, PtyCommand, PtyError, PtyHandle};
 pub use session::{TerminalSession, TerminalSessionId, TerminalStatus};
 pub use test_backend::{ScriptRule, TestPtyBackend};
+
+#[cfg(any(windows, test))]
+mod windows_launch;
+
+#[cfg(test)]
+#[path = "../tests/support/native_command.rs"]
+mod native_test_command;

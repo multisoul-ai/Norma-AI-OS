@@ -1,0 +1,289 @@
+{
+  "run_id": "41312790317",
+  "attempt": 1,
+  "source_sha": "e29f676e6fce66894b87a8ab7fb1e23e3538d8b0",
+  "run_url": "https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41312790317",
+  "conclusion": "failure",
+  "files": [
+    {
+      "path": "agents/claude_help.log",
+      "bytes": 22344,
+      "sha256": "5ca3a9dac2026e56c221fdd34380c7d7d45ebbb51c1d01b7c17c75cb076a0be8"
+    },
+    {
+      "path": "agents/claude_version.log",
+      "bytes": 22,
+      "sha256": "70042ea11d403c6f2d687a5ae7b2c1c2108f2fec29ccf250750ed8efe319a6c2"
+    },
+    {
+      "path": "agents/codex-initialize.log",
+      "bytes": 224,
+      "sha256": "1bcc607b14f8b6648a76bb0b706d721aebfff0d589c3faa1f37a36d78d7c736f"
+    },
+    {
+      "path": "agents/codex_help.log",
+      "bytes": 5944,
+      "sha256": "c45272069305746def807625680ee74891c9b367bff346ff776206b98c79331a"
+    },
+    {
+      "path": "agents/codex_server_help.log",
+      "bytes": 3703,
+      "sha256": "d2854a3ad9c9733f8be8034feb198ba017ddce07d539d8e777167fc96dffbd10"
+    },
+    {
+      "path": "agents/codex_version.log",
+      "bytes": 18,
+      "sha256": "728b255fa6d47ac8019747aaf2876baaafacdb93dfba1e4697257224bbc75a5c"
+    },
+    {
+      "path": "agents/npm_install.log",
+      "bytes": 25,
+      "sha256": "39bf1ea11eceb1f748e61df3a82ebc442057f85d14a7c74bea807a12ca4e0d67"
+    },
+    {
+      "path": "agents/report.json",
+      "bytes": 3121,
+      "sha256": "42d8a6962f4ef91fda7f0b68e6692d29f7e17d1bf357b261887c65ae99db0921"
+    },
+    {
+      "path": "artifacts.json",
+      "bytes": 3768,
+      "sha256": "93c0b4a1fb9c46c2b51704c4722b6ef8387678013ed25071db90d5e89cc61d7d"
+    },
+    {
+      "path": "compile/app_compile.log",
+      "bytes": 37798,
+      "sha256": "fd7d493d48cee06fa0724395cfc63b74b317a6ee6284c05e48336fb0f0ae9ccc"
+    },
+    {
+      "path": "compile/canvas_tests.log",
+      "bytes": 5917,
+      "sha256": "0804a241e0e9764a8b6845070fa9a06eba61df43040cc6e28837868d119801f7"
+    },
+    {
+      "path": "compile/norma_compile.log",
+      "bytes": 9440,
+      "sha256": "bbda180e8ff27b981e46e985cea6f265cdde26477672876730a451023db5203e"
+    },
+    {
+      "path": "compile/norma_platform_tests.log",
+      "bytes": 9298,
+      "sha256": "c16a7f6edfd0605ad189e1f7ea949368f47dac5eb258a85a73cb3fa5fcc9ef94"
+    },
+    {
+      "path": "compile/report.json",
+      "bytes": 2154,
+      "sha256": "816877a31b959b4dedfde8758a6281f099140fd198df31834ef01f69b03060ee"
+    },
+    {
+      "path": "compiler-blockers.json",
+      "bytes": 5919,
+      "sha256": "f88a21353f7e70f49aa91e588d6caa187f7400835d624b3cf48f04509f602649"
+    },
+    {
+      "path": "environment/cargo.log",
+      "bytes": 36,
+      "sha256": "c43fbe5f8cae7a0247183777f1cddb8064ce94d57246f3261300f7767f72404a"
+    },
+    {
+      "path": "environment/git.log",
+      "bytes": 29,
+      "sha256": "3617bc4f3a2cb9f90eb1c5ac0c23738475bddfbfae80b85872b63c6eb93be9d1"
+    },
+    {
+      "path": "environment/native.json",
+      "bytes": 1205,
+      "sha256": "c316c6944653a999ab80ff24d75f43efa704ccc628886aa7fff4bdda76ae32c5"
+    },
+    {
+      "path": "environment/native.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "environment/node.log",
+      "bytes": 10,
+      "sha256": "31d84dc2908d3a965a81239624d11353c9fa77f007a2b4f2c20022f250ea3751"
+    },
+    {
+      "path": "environment/report.json",
+      "bytes": 2909,
+      "sha256": "f6afbe8ad2e460b87cb4997d13a1a97a381e24b42aeaeb4c56b1e2ea03a8652a"
+    },
+    {
+      "path": "environment/rustc.log",
+      "bytes": 194,
+      "sha256": "9b87872b7f5cc3e8e369bc0ed837cc0b6eb7a3195954f9ff0b9b55fbaab66bf4"
+    },
+    {
+      "path": "feasibility.json",
+      "bytes": 9807,
+      "sha256": "0a8cc5e15d7eac117bdd809cdef7257079118b1adc0c552cdf518f51dd309c84"
+    },
+    {
+      "path": "graphics/gpui-window.png",
+      "bytes": 9057,
+      "sha256": "be835bf81ca389d4bc2be113c023046cba657bdabddafbbb44095ffb2e078f95"
+    },
+    {
+      "path": "graphics/gpui.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "graphics/gpui.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "graphics/gpui_build.log",
+      "bytes": 29305,
+      "sha256": "c9a99d27c8083e6a454de47d97863b196d4fb9c45f2e66332e7a914d0e8eb4d1"
+    },
+    {
+      "path": "graphics/native.json",
+      "bytes": 2015,
+      "sha256": "a766f7889fa91ee99c040e898aaf4ca08257769de6b61d7cd729e6acf18baa66"
+    },
+    {
+      "path": "graphics/native.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "graphics/report.json",
+      "bytes": 3670,
+      "sha256": "4504122d9aefb0d9b26466541dbe1c6ade6726495a12b12a7cdeca2773cf84e3"
+    },
+    {
+      "path": "jobs.json",
+      "bytes": 12173,
+      "sha256": "849cb7ff2e32bbe28f626bbf5c010a399cc3bc70966188ab039848515e15888a"
+    },
+    {
+      "path": "local/cargo-fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local/dependency-regression-green.log",
+      "bytes": 98,
+      "sha256": "ff6ca8940e9767bf9f507fe9b5c66bb3c2092025721773b40c4ec85fa168fd60"
+    },
+    {
+      "path": "local/dependency-regression-red.log",
+      "bytes": 3398,
+      "sha256": "21c6eac208b3b5b7b293a58f6682a3c5a0b3eefdd2306d7e05b19317b8913e8a"
+    },
+    {
+      "path": "local/i18n-check.log",
+      "bytes": 128,
+      "sha256": "f677da4bf6cb7446608873e44adb6ebb834cbf428e437314eb84667424f29a32"
+    },
+    {
+      "path": "local/inconsistent-report-red.log",
+      "bytes": 834,
+      "sha256": "6945c12c4b0104f3af9b7ff109724932bec3bf756ae5728e36ca30e6cca92239"
+    },
+    {
+      "path": "local/local-validation.json",
+      "bytes": 1497,
+      "sha256": "f90ee6b87d36f092168c590539b38a0d90a7989301dcd044b4c83c8aaa00cf69"
+    },
+    {
+      "path": "local/macos-env-baseline.json",
+      "bytes": 333,
+      "sha256": "4c2a2fd35847678113fb61c85e5acd397f4f72cd02643ce7669c3e07721e224b"
+    },
+    {
+      "path": "local/macos-memory-pressure-level.log",
+      "bytes": 39,
+      "sha256": "676692b7e2565231c97d6ea2184b97dbeb8b2d41f5a06b8e0088e2ec86e738ac"
+    },
+    {
+      "path": "local/macos-memory-pressure.log",
+      "bytes": 110,
+      "sha256": "39cec108043370adfd7421e7c2702eb5bb2d3b1ab4099c043de164f74ea2b990"
+    },
+    {
+      "path": "local/macos-speech-tests-retry.log",
+      "bytes": 16469,
+      "sha256": "89831473d2fbb6d9441a67829bd84ce9d478c71a119fabe01754096d7276d20c"
+    },
+    {
+      "path": "local/macos-speech-tests.log",
+      "bytes": 13146,
+      "sha256": "f62284c7e5e4527136dacb5d9be670596a6118b15ca0d90d4d0650a8b00c56d2"
+    },
+    {
+      "path": "local/macos-workspace-check.log",
+      "bytes": 21866,
+      "sha256": "bd2668912b1c36e64349d3186c93016509f15fa747cd78956d6627e4039b592f"
+    },
+    {
+      "path": "local/report-regression-green.log",
+      "bytes": 107,
+      "sha256": "0e5c3f65e06e84aaaf8ab3c7118f10828f4c6cafceffb6acf97774f22eb3da2c"
+    },
+    {
+      "path": "local/report-regression-red.log",
+      "bytes": 1455,
+      "sha256": "90b98f6ef6d131185074eedcb77b19282723a570f4e930cbba96e683ae81aeb4"
+    },
+    {
+      "path": "local/speech-gate-red.log",
+      "bytes": 833,
+      "sha256": "d36d06d02981d521aa9d13ed8ba9e8706fb55257053bd87f6c44ba1334e78a39"
+    },
+    {
+      "path": "local/task-cache-cleanup.log",
+      "bytes": 142,
+      "sha256": "61d79e28a2de5c38ef82e03e256e19d2af49fe4a8a9eaf64d4c95233f9681548"
+    },
+    {
+      "path": "local/unchanged-product-sources.json",
+      "bytes": 915,
+      "sha256": "509a16aedc49da9c3f59a7f38b2968b1206263649612ddfa5ced8fd57c0b3cbd"
+    },
+    {
+      "path": "local/upstream-windows-archives.json",
+      "bytes": 632,
+      "sha256": "fdb959b8d47516ffeeca8394e55fe6879bd113ed3107b83fa791e934953bc115"
+    },
+    {
+      "path": "run.json",
+      "bytes": 13071,
+      "sha256": "0baddc9ee3950c03210e760a9218206c06144e49e818a0b168209aee481ca154"
+    },
+    {
+      "path": "speech/report.json",
+      "bytes": 1390,
+      "sha256": "98e6d57b3878331d32a85bcfdc1f59cbc22a8ffd69affedb6ad23b74720c835b"
+    },
+    {
+      "path": "speech/speech_tests.log",
+      "bytes": 8754,
+      "sha256": "133c8772f24d41eaa37df4fe19d84cdf6b349ee04edea89919c66f016b178070"
+    },
+    {
+      "path": "speech/voice_input_compile.log",
+      "bytes": 6614,
+      "sha256": "423f6b1e62f7d6b8dc9207c1ae349f7b6016e00dc6e9ddd4e7d835b6676ebfb1"
+    },
+    {
+      "path": "summary.md",
+      "bytes": 361,
+      "sha256": "a2952fb6b6482fac52aab7cd5778a510a0afa86e6059a51d1e24b695b53bf916"
+    },
+    {
+      "path": "visual-observation.md",
+      "bytes": 920,
+      "sha256": "10f1896e726c364c05d493b4602a93ce03341bec1d4db6d2f64fe962499a88f5"
+    },
+    {
+      "path": "workflow.log",
+      "bytes": 440558,
+      "sha256": "149dc4563dfa46f8e2b4657c8258fac52a60f67f1a428159e62da60db8b2e4ee"
+    }
+  ]
+}

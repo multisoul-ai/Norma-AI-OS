@@ -1,6 +1,6 @@
 use crate::{StorageError, StorageResult};
 use canvas::NodeId;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, TransactionBehavior};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -88,8 +88,18 @@ impl NodeSessionStore {
         current_nodes: &[(NodeId, NodeSessionKind)],
         observed_sessions: &[NodeSession],
     ) -> StorageResult<()> {
+        self.reconcile_sessions_after_read(current_nodes, observed_sessions, || {})
+    }
+
+    fn reconcile_sessions_after_read(
+        &self,
+        current_nodes: &[(NodeId, NodeSessionKind)],
+        observed_sessions: &[NodeSession],
+        after_read: impl FnOnce(),
+    ) -> StorageResult<()> {
         let mut conn = Connection::open(&self.path)?;
-        let tx = conn.transaction()?;
+        // Reserve the writer before reading; a deferred read cannot safely upgrade past another writer.
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let existing = {
             let mut statement =
                 tx.prepare("SELECT node_id, kind, cwd, session_id FROM node_sessions")?;
@@ -111,6 +121,7 @@ impl NodeSessionStore {
             .iter()
             .map(|session| (session.node_id, session))
             .collect::<HashMap<_, _>>();
+        after_read();
         let reconciled = current_nodes
             .iter()
             .map(|(node_id, kind)| {
@@ -191,3 +202,7 @@ impl NodeSessionStore {
 #[cfg(test)]
 #[path = "../tests/unit/node_session_store_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/node_session_concurrency_tests.rs"]
+mod concurrency_tests;

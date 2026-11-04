@@ -3,15 +3,14 @@ use gpui::TestAppContext;
 use norma::agent_hook::QuestionHookStatus;
 
 /// 场景：已持久化但未发送的答案重试时遇到上下文读取故障，轮询不能丢掉发送资格。
-/// 构造：真实原Hook和隔离SQLite，首次准备中切换scope，第二次临时阻断数据库路径。
-/// 执行：每次开始后运行生产问题轮询；前两次失败，恢复条件后第三次提交。
+/// 构造：真实原Hook和隔离SQLite，首次切换scope，第二次仅给原scope注入无效checkpoint。
+/// 执行：准备中和前两次失败后都明确运行生产轮询；恢复条件后第三次提交。
 /// 预期：前两次没有Hook响应，最终复用唯一delivery并只产生一次原答案。
 #[test]
 fn question_prepared_lease_survives_poll_and_context_read_failure() {
     let dir = tempfile::tempdir().unwrap();
     let paths = storage::DatabasePaths::isolated_test(&dir.path().join("data"));
     let database = paths.app_db_path().to_path_buf();
-    let saved = database.with_extension("saved");
     let mut test = TestAppContext::single();
     let (source, cx) = test.add_window_view(|_, cx| {
         MultisoulApp::new_with_pty_factory_and_database_paths(
@@ -25,10 +24,24 @@ fn question_prepared_lease_survives_poll_and_context_read_failure() {
     });
     let mut original_delivery = None;
     for attempt in 0..3 {
-        if attempt == 1 {
-            std::fs::rename(&database, &saved).unwrap();
-            std::fs::create_dir(&database).unwrap();
-        }
+        let fault = (attempt == 1).then(|| {
+            let scope = source.read_with(cx, |app, _| {
+                let mut scope = app.shared_context_scope.clone().unwrap();
+                scope.area_id = "a".into();
+                serde_json::to_string(&scope).unwrap()
+            });
+            let db = rusqlite::Connection::open(&database).unwrap();
+            let existing: u64 = db.query_row(
+                "SELECT (SELECT COUNT(*) FROM shared_context_state WHERE scope=?1) + (SELECT COUNT(*) FROM shared_context_events WHERE scope=?1)",
+                [&scope], |row| row.get(0),
+            ).unwrap();
+            assert_eq!(existing, 0, "故障夹具只能占用空scope，不能覆盖或清除真实checkpoint和事件");
+            db.execute(
+                "INSERT INTO shared_context_state(scope,revision,payload) VALUES(?1,0,?2)",
+                [&scope, "\"injected-context-read-failure\""],
+            ).unwrap();
+            (db, scope)
+        });
         let work = source.update(cx, |app, cx| {
             app.shared_context_scope.as_mut().unwrap().area_id = "a".into();
             let permit = app
@@ -59,11 +72,19 @@ fn question_prepared_lease_survives_poll_and_context_read_failure() {
             );
             std::thread::sleep(Duration::from_millis(1));
         }
-        if attempt == 1 {
-            std::fs::remove_dir(&database).unwrap();
-            std::fs::rename(&saved, &database).unwrap();
+        if let Some((db, scope)) = fault {
+            assert_eq!(
+                db.execute("DELETE FROM shared_context_state WHERE scope=?1", [&scope])
+                    .unwrap(),
+                1,
+                "准备明确结束后只恢复原scope的故障行，不移动活跃SQLite文件"
+            );
         }
-        source.read_with(cx, |app, _| {
+        source.update(cx, |app, _| {
+            if attempt != 2 {
+                assert_eq!(app.runtime.question(&target).unwrap().state, QuestionState::Failed, "必须明确在失败等待期间轮询，不能只覆盖Submitting");
+                app.poll_brain_questions();
+            }
             let snapshot = app.runtime.question(&target).unwrap();
             assert_eq!(
                 snapshot.state,
@@ -72,10 +93,18 @@ fn question_prepared_lease_survives_poll_and_context_read_failure() {
                 } else {
                     QuestionState::Failed
                 },
-                "未发送失败可重试，轮询不能转成未知结果"
+                "未发送失败可重试，轮询不能转成未知结果；attempt={attempt}；snapshot={snapshot:?}"
             );
+            match attempt {
+                0 => assert_eq!(snapshot.error.as_deref(), Some("question_authorization_expired"), "首次失败必须来自scope切换"),
+                1 => assert!(snapshot.error.as_deref().is_some_and(|error| error.contains("injected-context-read-failure")), "第二次必须经过生产snapshot真实解码失败，不能被其他错误假阳性替代：{snapshot:?}"),
+                _ => assert!(snapshot.error.is_none(), "恢复后必须清除准备错误：{snapshot:?}"),
+            }
+            assert_eq!(app.brain.questions.prepared.len(), usize::from(attempt != 2), "失败时保留唯一准备lease，成功发送后才移除");
+            assert_eq!(app.brain.questions.receipts.len(), 1, "三次准备必须只跟踪一份持久回执");
             if attempt == 0 {
                 original_delivery = snapshot.delivery_id.clone();
+                assert!(original_delivery.as_deref().is_some_and(|id| !id.is_empty()), "首次准备必须生成非空持久delivery身份");
             }
             assert_eq!(
                 snapshot.delivery_id, original_delivery,

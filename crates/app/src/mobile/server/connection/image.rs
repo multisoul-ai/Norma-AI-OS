@@ -6,8 +6,6 @@ use serde::Deserialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{
-    fs,
-    io::Write,
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
@@ -15,7 +13,7 @@ use std::{
 
 #[path = "image_store.rs"]
 mod store;
-const LIMIT: usize = 2 * 1024 * 1024;
+use store::LIMIT;
 const CHUNK: usize = 64 * 1024;
 
 #[derive(Deserialize)]

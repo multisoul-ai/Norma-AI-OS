@@ -4,14 +4,24 @@ use crate::{AsrError, RecognitionCancellation};
 use serde_json::{json, Value};
 use std::{
     io::{Read, Write},
-    os::{
-        fd::OwnedFd,
-        unix::{net::UnixStream, process::CommandExt},
-    },
-    process::{Child, Command, Stdio},
+    process::{Child, Command},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
+
+#[cfg(unix)]
+use std::os::{
+    fd::OwnedFd,
+    unix::{net::UnixStream, process::CommandExt},
+};
+#[cfg(unix)]
+use std::process::Stdio;
+#[cfg(windows)]
+mod windows;
+#[cfg(unix)]
+type Channel = UnixStream;
+#[cfg(windows)]
+type Channel = windows::Pipe;
 
 #[derive(Default, Clone)]
 pub(super) struct Guard {
@@ -29,13 +39,28 @@ impl Guard {
 }
 
 #[derive(Clone)]
-pub(super) struct ProcessControl(Arc<Mutex<Child>>);
+pub(super) struct ProcessControl {
+    child: Arc<Mutex<Child>>,
+    #[cfg(windows)]
+    job: Arc<std::os::windows::io::OwnedHandle>,
+}
 impl ProcessControl {
     pub fn terminate(&self) {
-        let mut child = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let mut child = self.child.lock().unwrap_or_else(|e| e.into_inner());
+        #[cfg(windows)]
+        {
+            use std::os::windows::io::AsRawHandle;
+            unsafe {
+                windows_sys::Win32::System::JobObjects::TerminateJobObject(
+                    self.job.as_raw_handle(),
+                    1,
+                );
+            }
+        }
         if matches!(child.try_wait(), Ok(Some(_))) {
             return;
         }
+        #[cfg(unix)]
         unsafe {
             libc::killpg(child.id() as i32, libc::SIGKILL);
         }
@@ -44,17 +69,17 @@ impl ProcessControl {
     }
     #[cfg(test)]
     pub(super) fn exited(&self) -> bool {
-        self.0.lock().unwrap().try_wait().unwrap().is_some()
+        self.child.lock().unwrap().try_wait().unwrap().is_some()
     }
     #[cfg(test)]
     fn id(&self) -> u32 {
-        self.0.lock().unwrap().id()
+        self.child.lock().unwrap().id()
     }
 }
 
 pub(super) struct Transport {
     child: ProcessControl,
-    socket: UnixStream,
+    socket: Channel,
     role: &'static str,
 }
 
@@ -73,25 +98,34 @@ impl Transport {
         Self::spawn_registered(command, role, guard, timeout, |_| {})
     }
     pub fn spawn_registered(
-        mut command: Command,
+        command: Command,
         role: &'static str,
         guard: &Guard,
         timeout: Duration,
         register: impl FnOnce(ProcessControl),
     ) -> Result<Self, AsrError> {
         guard.check()?;
-        let (socket, child_socket) = UnixStream::pair().map_err(error)?;
-        socket.set_nonblocking(true).map_err(error)?;
-        let input: OwnedFd = child_socket.try_clone().map_err(error)?.into();
-        let output: OwnedFd = child_socket.into();
-        let child = command
-            .stdin(Stdio::from(input))
-            .stdout(Stdio::from(output))
-            .stderr(Stdio::null())
-            .process_group(0)
-            .spawn()
-            .map_err(error)?;
-        let child = ProcessControl(Arc::new(Mutex::new(child)));
+        #[cfg(unix)]
+        let (child, socket) = {
+            let mut command = command;
+            let (socket, child_socket) = UnixStream::pair().map_err(error)?;
+            socket.set_nonblocking(true).map_err(error)?;
+            let input: OwnedFd = child_socket.try_clone().map_err(error)?.into();
+            let output: OwnedFd = child_socket.into();
+            let child = command
+                .stdin(Stdio::from(input))
+                .stdout(Stdio::from(output))
+                .stderr(Stdio::null())
+                .process_group(0)
+                .spawn()
+                .map_err(error)?;
+            let child = ProcessControl {
+                child: Arc::new(Mutex::new(child)),
+            };
+            (child, socket)
+        };
+        #[cfg(windows)]
+        let (child, socket) = windows::spawn(command).map_err(error)?;
         register(child.clone());
         let mut worker = Self {
             child,

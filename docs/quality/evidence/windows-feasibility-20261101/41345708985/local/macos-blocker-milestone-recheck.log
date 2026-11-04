@@ -1,0 +1,10 @@
+任务缓存：/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target
+   Compiling runtime v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/runtime)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1.82s
+     Running tests/codex_question_blocker.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/codex_question_blocker-c650fb87a9ef7cde)
+
+running 1 test
+test unverified_native_request_blocks_tasks_without_becoming_answerable ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+

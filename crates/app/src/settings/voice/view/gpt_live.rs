@@ -67,7 +67,7 @@ fn connection(
                         .child(
                             div()
                                 .settings_text(TextRole::Headline, theme)
-                                .child("GPT-Live"),
+                                .child(ui::i18n::text("voice.live_name")),
                         )
                         .child(helper(theme, ui::i18n::text("voice.live_settings_intro"))),
                 )

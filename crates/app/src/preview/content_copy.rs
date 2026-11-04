@@ -39,9 +39,14 @@ pub(crate) fn content_error(error: ContentError) -> LocalizedText {
         ContentError::GitFailed(detail) => {
             return LocalizedText::new("drawers.content_git_failed").with_arg("error", detail)
         }
-        ContentError::SaveConflictRestored { recovery } => {
-            return LocalizedText::new("drawers.content_save_restored")
-                .with_arg("path", recovery.display())
+        ContentError::SaveConflictRestored { recovery, warning } => {
+            return match warning {
+                Some(detail) => LocalizedText::new("drawers.content_save_restored_warning")
+                    .with_arg("path", recovery.display())
+                    .with_arg("error", detail),
+                None => LocalizedText::new("drawers.content_save_restored")
+                    .with_arg("path", recovery.display()),
+            }
         }
         ContentError::SaveConflictRecovery { recovery, detail } => {
             return LocalizedText::new("drawers.content_save_recovery")

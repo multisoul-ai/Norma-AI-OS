@@ -1,4 +1,5 @@
 {
+  "shortcuts.quit_norma_os_hint": "停止后台服务和终端会话，然后退出 Norma OS",
   "shortcuts.type_a_new_shortcut": "输入新的快捷键",
   "shortcuts.shortcut_restored": "快捷键已恢复",
   "shortcuts.keyboard_shortcuts_restored": "键盘快捷键已恢复",

@@ -2,12 +2,15 @@
 use crossbeam_channel::{bounded, Receiver, Sender};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::os::unix::net::UnixStream;
+#[cfg(unix)]
+pub use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tungstenite::{protocol::WebSocketConfig, Error, Message, WebSocket};
+#[cfg(windows)]
+pub use uds_windows::{UnixListener, UnixStream};
 
 mod approvals;
 pub mod native_questions;

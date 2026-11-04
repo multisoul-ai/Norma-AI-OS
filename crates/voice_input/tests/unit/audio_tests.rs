@@ -244,7 +244,7 @@ fn test_audio_capture_sends_pcm_chunks() {
     let capture =
         audio_capture_for_test(tx).expect("AudioCapture::start should succeed with mic permission");
     std::thread::sleep(Duration::from_millis(300));
-    capture.stop();
+    capture.stop().expect("capture停止必须成功收口音频后端");
 
     let mut chunks_received = 0usize;
     while rx.try_recv().is_ok() {
@@ -288,7 +288,7 @@ fn test_audio_capture_on_blocked_owner_thread_still_sends_pcm_chunks() {
                 .send(Ok(()))
                 .expect("测试应报告 capture 启动成功");
             let _ = stop_rx.recv();
-            capture.stop();
+            capture.stop().expect("capture停止必须成功收口音频后端");
         }
         Err(error) => {
             started_tx

@@ -8,8 +8,21 @@ use super::*;
 ///   - 负断言：无修饰键、⌃⌘、⌃⌥、仅 ⇧ 或没有待办都不显示。
 #[test]
 fn badges_follow_exact_modifier_combinations() {
-    assert_eq!(badge_mode(true, false, false, false, 2), BadgeMode::Cards);
-    assert_eq!(badge_mode(true, true, false, false, 2), BadgeMode::NewAgent);
+    let (control, alt) = if cfg!(windows) {
+        (false, true)
+    } else {
+        (true, false)
+    };
+    assert_eq!(
+        badge_mode(control, false, alt, false, 2),
+        BadgeMode::Cards,
+        "默认派发修饰键显示卡片序号"
+    );
+    assert_eq!(
+        badge_mode(true, true, false, false, 2),
+        BadgeMode::NewAgent,
+        "Ctrl+Shift显示新建类型"
+    );
     assert_eq!(
         badge_mode(false, false, false, false, 2),
         BadgeMode::Hidden,
@@ -57,7 +70,12 @@ fn card_numbers_stop_at_nine() {
 #[test]
 fn new_agent_hint_lists_digit_to_profile() {
     let hint = new_agent_hint(norma::protocol::AgentProfile::Codex);
-    assert!(hint.contains("⌃0 Codex"), "{hint}");
+    let key = if cfg!(windows) {
+        "Ctrl+0 Codex"
+    } else {
+        "⌃0 Codex"
+    };
+    assert!(hint.contains(key), "默认类型提示必须使用平台键位: {hint}");
     assert!(
         hint.contains("2 Claude") && hint.contains("3 Codex") && hint.contains("9 Hermes"),
         "{hint}"

@@ -1,0 +1,297 @@
+{
+  "baseline_run": 41756328226,
+  "baseline_source": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+  "baseline_totals": {
+    "passed": 267,
+    "failed": 15,
+    "ignored": 0
+  },
+  "final_run": 41760987212,
+  "final_source": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+  "final_windows_totals": {
+    "passed": 286,
+    "failed": 0,
+    "ignored": 0
+  },
+  "final_macos_totals": {
+    "passed": 287,
+    "failed": 0,
+    "ignored": 0
+  },
+  "resolved_original_failures": 15,
+  "remaining_original_failures": [],
+  "new_storage_failures": [],
+  "new_storage_tests": [
+    "session_rejects_unsafe_paths_without_persisting_an_identity",
+    "replacement_at_the_same_plain_path_cannot_inherit_memory_identity",
+    "app_migration_failure_preserves_original_schema_and_can_retry",
+    "user_version_one_does_not_skip_the_remaining_app_schema"
+  ],
+  "count_reconciliation": "267 + 15 resolved + 4 new = 286 Windows; 283 + 4 new = 287 macOS",
+  "environment_match": {
+    "platform": "Windows-2025Server-10.0.26100-SP0",
+    "image": "20261030.294.1",
+    "compiler": "rustc 1.91.1 (ed61e7d7e 2025-11-07)\nbinary: rustc\ncommit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb\ncommit-date: 2025-11-07\nhost: x86_64-pc-windows-msvc\nrelease: 1.91.1\nLLVM version: 21.1.2\n",
+    "processors": 4,
+    "note": "Same image/compiler/CPU count; separate runner VMs. Server results do not replace Win10 device acceptance."
+  },
+  "tests": [
+    {
+      "test": "concurrent_creation_migrates_legacy_chat_time_once",
+      "group": "concurrency",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/workspace_chat_time-01.log",
+      "evidence_sha256": "aab63041421023a090df994a0a0fbc71a7a4043e536e5806dfe394d168e7fdcb",
+      "direct_named_pass": true
+    },
+    {
+      "test": "concurrent_initialization_publishes_one_complete_database",
+      "group": "legacy",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/legacy.log",
+      "evidence_sha256": "9192f52806d066a242b299d2ba8955ea134ef5623351064ddf9d50546c051372",
+      "direct_named_pass": true
+    },
+    {
+      "test": "constructing_a_project_store_cannot_bypass_legacy_import",
+      "group": "legacy",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/legacy.log",
+      "evidence_sha256": "9192f52806d066a242b299d2ba8955ea134ef5623351064ddf9d50546c051372",
+      "direct_named_pass": true
+    },
+    {
+      "test": "cursor_session_persists_bound_transcript_reference",
+      "group": "sessions",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/sessions.log",
+      "evidence_sha256": "258898b9b21c8a675ae63529fa40b2e003ff44887712922a4c78eb306366ea02",
+      "direct_named_pass": true
+    },
+    {
+      "test": "database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary",
+      "group": "paths",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/paths.log",
+      "evidence_sha256": "4397d1321ac14a4218bd855ba4b90940dc24817be2be393e9167945f54ea1bc2",
+      "direct_named_pass": true
+    },
+    {
+      "test": "failed_import_does_not_publish_an_empty_database_and_can_retry",
+      "group": "legacy",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/legacy.log",
+      "evidence_sha256": "9192f52806d066a242b299d2ba8955ea134ef5623351064ddf9d50546c051372",
+      "direct_named_pass": true
+    },
+    {
+      "test": "legacy_database_is_imported_once_including_committed_wal_data",
+      "group": "legacy",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/legacy.log",
+      "evidence_sha256": "9192f52806d066a242b299d2ba8955ea134ef5623351064ddf9d50546c051372",
+      "direct_named_pass": true
+    },
+    {
+      "test": "live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown",
+      "group": "concurrency",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/live_operation_store-01.log",
+      "evidence_sha256": "96800fd57fd27bc6a4ee2323baaec0123a9f60fb4611acbc7a07f60282c99d05",
+      "direct_named_pass": true
+    },
+    {
+      "test": "mobile_command_is_reserved_once_and_receipt_is_immutable",
+      "group": "concurrency",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/mobile_commands-01.log",
+      "evidence_sha256": "853321105214f6b6bc3c3282959981e6dacf60afde186a9135b46ff221964c5d",
+      "direct_named_pass": true
+    },
+    {
+      "test": "native_events_preserve_session_identity_and_record_exact_turn",
+      "group": "sessions",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/sessions.log",
+      "evidence_sha256": "258898b9b21c8a675ae63529fa40b2e003ff44887712922a4c78eb306366ea02",
+      "direct_named_pass": true
+    },
+    {
+      "test": "repository_worktrees_share_only_project_memory",
+      "group": "memory",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/memory.log",
+      "evidence_sha256": "d8c79468fc0715e1461343b188dc36a873a151541b16440288118c4d2415fba3",
+      "direct_named_pass": true
+    },
+    {
+      "test": "session_history_pages_without_duplicates",
+      "group": "sessions",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/sessions.log",
+      "evidence_sha256": "258898b9b21c8a675ae63529fa40b2e003ff44887712922a4c78eb306366ea02",
+      "direct_named_pass": true
+    },
+    {
+      "test": "session_index_is_durable_scoped_and_immutable",
+      "group": "sessions",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/sessions.log",
+      "evidence_sha256": "258898b9b21c8a675ae63529fa40b2e003ff44887712922a4c78eb306366ea02",
+      "direct_named_pass": true
+    },
+    {
+      "test": "test_mode_never_imports_the_production_legacy_database",
+      "group": "legacy",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/legacy.log",
+      "evidence_sha256": "9192f52806d066a242b299d2ba8955ea134ef5623351064ddf9d50546c051372",
+      "direct_named_pass": true
+    },
+    {
+      "test": "transcript_reference_uses_existing_writer_and_cannot_be_rebound",
+      "group": "sessions",
+      "baseline": "FAIL",
+      "final": "PASS",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "evidence_log": "full-fix-41760987212/windows-2025/sessions.log",
+      "evidence_sha256": "258898b9b21c8a675ae63529fa40b2e003ff44887712922a4c78eb306366ea02",
+      "direct_named_pass": true
+    }
+  ],
+  "concurrency_repeats": {
+    "live_operation_store": {
+      "rounds": 20,
+      "passed_rounds": 20,
+      "tests_per_round": 5,
+      "failed": 0,
+      "ignored": 0,
+      "default_parallel": true,
+      "logs": [
+        "live_operation_store-01.log",
+        "live_operation_store-02.log",
+        "live_operation_store-03.log",
+        "live_operation_store-04.log",
+        "live_operation_store-05.log",
+        "live_operation_store-06.log",
+        "live_operation_store-07.log",
+        "live_operation_store-08.log",
+        "live_operation_store-09.log",
+        "live_operation_store-10.log",
+        "live_operation_store-11.log",
+        "live_operation_store-12.log",
+        "live_operation_store-13.log",
+        "live_operation_store-14.log",
+        "live_operation_store-15.log",
+        "live_operation_store-16.log",
+        "live_operation_store-17.log",
+        "live_operation_store-18.log",
+        "live_operation_store-19.log",
+        "live_operation_store-20.log"
+      ]
+    },
+    "mobile_commands": {
+      "rounds": 20,
+      "passed_rounds": 20,
+      "tests_per_round": 3,
+      "failed": 0,
+      "ignored": 0,
+      "default_parallel": true,
+      "logs": [
+        "mobile_commands-01.log",
+        "mobile_commands-02.log",
+        "mobile_commands-03.log",
+        "mobile_commands-04.log",
+        "mobile_commands-05.log",
+        "mobile_commands-06.log",
+        "mobile_commands-07.log",
+        "mobile_commands-08.log",
+        "mobile_commands-09.log",
+        "mobile_commands-10.log",
+        "mobile_commands-11.log",
+        "mobile_commands-12.log",
+        "mobile_commands-13.log",
+        "mobile_commands-14.log",
+        "mobile_commands-15.log",
+        "mobile_commands-16.log",
+        "mobile_commands-17.log",
+        "mobile_commands-18.log",
+        "mobile_commands-19.log",
+        "mobile_commands-20.log"
+      ]
+    },
+    "workspace_chat_time": {
+      "rounds": 20,
+      "passed_rounds": 20,
+      "tests_per_round": 2,
+      "failed": 0,
+      "ignored": 0,
+      "default_parallel": true,
+      "logs": [
+        "workspace_chat_time-01.log",
+        "workspace_chat_time-02.log",
+        "workspace_chat_time-03.log",
+        "workspace_chat_time-04.log",
+        "workspace_chat_time-05.log",
+        "workspace_chat_time-06.log",
+        "workspace_chat_time-07.log",
+        "workspace_chat_time-08.log",
+        "workspace_chat_time-09.log",
+        "workspace_chat_time-10.log",
+        "workspace_chat_time-11.log",
+        "workspace_chat_time-12.log",
+        "workspace_chat_time-13.log",
+        "workspace_chat_time-14.log",
+        "workspace_chat_time-15.log",
+        "workspace_chat_time-16.log",
+        "workspace_chat_time-17.log",
+        "workspace_chat_time-18.log",
+        "workspace_chat_time-19.log",
+        "workspace_chat_time-20.log"
+      ]
+    }
+  }
+}

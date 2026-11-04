@@ -72,7 +72,7 @@ impl MultisoulApp {
             let cleanup = cx.background_executor().spawn(async move {
                 release.wait();
             });
-            async move { cleanup.await }
+            cleanup
         })
         .detach();
         let mobile = crate::mobile::controller::attach(app_store.clone(), cx);

@@ -1,0 +1,257 @@
+{
+  "source_sha": "94e4bc83a7940a39ef0888d97d5f90669c5ccacd",
+  "probe_sha": "cdc35620a926f282bcb80307a414afdb36bcacfd",
+  "producer_run": 41629601361,
+  "producer_attempt": 1,
+  "producer_jobs": [
+    {
+      "id": 125895500210,
+      "name": "build",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 41629601361,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Verify and stage trusted media before the long native build",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Run dtolnay/rust-toolchain@master",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Require the independent App adapter lock before compiling",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Run Swatinem/rust-cache@v2",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Resolve the matching native Visual Studio runtime before building",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Diagnose unread AF_UNIX close",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Require relay closure and platform contracts",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Require App adapters",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Check Windows App",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Require executable helpers and native user configuration",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Test native browser helper and bundled paths",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        },
+        {
+          "name": "Build Windows release candidate",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14
+        },
+        {
+          "name": "Package Windows portable candidate",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16
+        },
+        {
+          "name": "Post Run Swatinem/rust-cache@v2",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 31
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 32
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 33
+        }
+      ]
+    },
+    {
+      "id": 125927765081,
+      "name": "verify-candidate",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 41629601361,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Verify and launch the exact uploaded package",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        }
+      ]
+    }
+  ],
+  "producer_artifacts": [
+    {
+      "id": 13231717118,
+      "name": "norma-os-windows-x64-94e4bc83a7940a39ef0888d97d5f90669c5ccacd",
+      "size_in_bytes": 95101037,
+      "url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13231717118",
+      "archive_download_url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13231717118/zip",
+      "expired": false,
+      "created_at": "2026-11-03T12:48:29Z",
+      "expires_at": "2026-11-04T12:48:25Z",
+      "updated_at": "2026-11-03T12:48:29Z",
+      "digest": "sha256:ec7a249654e6d1f18e7f5a5be6fd71cf2786f3fb4b4bbf4876d9ef20da3e0dae",
+      "workflow_run": {
+        "id": 41629601361,
+        "repository_id": 1274971992,
+        "head_repository_id": 1274971992,
+        "head_branch": "codex/windows-workspace-create-20261103",
+        "head_sha": "94e4bc83a7940a39ef0888d97d5f90669c5ccacd"
+      }
+    }
+  ],
+  "consumer_run": 41638906755,
+  "consumer_attempt": 1,
+  "consumer_artifacts": [
+    {
+      "id": 13231424159,
+      "name": "windows-desktop-41638906755-1",
+      "size_in_bytes": 9303461,
+      "url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13231424159",
+      "archive_download_url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13231424159/zip",
+      "expired": false,
+      "created_at": "2026-11-03T12:50:13Z",
+      "expires_at": "2026-11-06T12:50:11Z",
+      "updated_at": "2026-11-03T12:50:13Z",
+      "digest": "sha256:1b292a5bf5070ed7118363ba3bb553876c66649f4709a5508cd1f0775913d8a0",
+      "workflow_run": {
+        "id": 41638906755,
+        "repository_id": 1274971992,
+        "head_repository_id": 1274971992,
+        "head_branch": "codex/windows-workspace-create-20261103",
+        "head_sha": "cdc35620a926f282bcb80307a414afdb36bcacfd"
+      }
+    }
+  ],
+  "consumer_job": 125927076450,
+  "candidate_zip_sha256": "87ee66f8985766bbc611e5d4530e9edd3533fa27f26777037ffd3fcdcde9eba7",
+  "candidate_zip_size": 95184305,
+  "results": {
+    "release_build": "PASS",
+    "release_zip": "PASS",
+    "same_zip_native_startup": "PASS",
+    "same_zip_chinese_workspace_persistence": "PASS",
+    "visual_review": "PASS",
+    "full_windows_storage": "KNOWN_FAIL_15",
+    "live_claude_codex": "USER_VALIDATION_PENDING"
+  },
+  "visual_review": {
+    "reviewer": "current primary Agent; original resolution PNGs",
+    "input": "Exact complete Chinese name visible, 31/80, create enabled",
+    "created": "Full name visible in workspace header",
+    "reopened": "One workspace in catalog; name card is truncated by existing layout; exact full name and identical ID verified separately by read-only query",
+    "raw_native_visual_verification": "PENDING (preserved unchanged)"
+  },
+  "workspace": {
+    "name": "Runner 中文 workspace 41638906755",
+    "id": "4a34cb6a-72d9-46c3-bec1-f05b9d7fa092",
+    "exact_match_rows_created": 1,
+    "exact_match_rows_reopened": 1
+  },
+  "published": false,
+  "merged": false,
+  "overall_goal_status": "paused",
+  "scope": "Only fixed Windows release ZIP and same-package native workspace acceptance. Other paused work is not resumed."
+}

@@ -254,8 +254,11 @@ impl InstallPaths {
         let hermes_home = non_empty(&overrides.hermes_home).unwrap_or_else(|| home.join(".hermes"));
         Self {
             managed_root: home.join("Library/Application Support/Norma OS"),
-            bundled_cli: bundle_bin.join("norma"),
-            bundled_hook: bundle_bin.join("multisoul-agent-hook"),
+            bundled_cli: bundle_bin.join(format!("norma{}", std::env::consts::EXE_SUFFIX)),
+            bundled_hook: bundle_bin.join(format!(
+                "multisoul-agent-hook{}",
+                std::env::consts::EXE_SUFFIX
+            )),
             hook_paths: HookInstallPaths {
                 claude_settings: home.join(".claude/settings.json"),
                 codex_hooks: home.join(".codex/hooks.json"),
@@ -302,11 +305,16 @@ impl InstallPaths {
     }
 
     pub fn managed_cli_path(&self) -> PathBuf {
-        self.managed_root.join("bin").join("norma")
+        self.managed_root
+            .join("bin")
+            .join(format!("norma{}", std::env::consts::EXE_SUFFIX))
     }
 
     pub fn managed_hook_path(&self) -> PathBuf {
-        self.managed_root.join("bin").join("multisoul-agent-hook")
+        self.managed_root.join("bin").join(format!(
+            "multisoul-agent-hook{}",
+            std::env::consts::EXE_SUFFIX
+        ))
     }
 
     pub fn credential_path(&self, provider: OrchestrationProvider) -> PathBuf {

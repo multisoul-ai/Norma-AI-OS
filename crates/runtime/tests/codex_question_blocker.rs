@@ -1,8 +1,8 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::codex::{native_questions::CodexQuestionHost, relay::CodexQuestionRelay};
+use norma::codex::{UnixListener, UnixStream};
 use runtime::{AgentHookRuntimeConfig, Runtime};
 use serde_json::{json, Value};
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Duration, Instant};
 #[path = "support/codex_relay.rs"]
 mod support;
@@ -17,7 +17,11 @@ fn unverified_native_request_blocks_tasks_without_becoming_answerable() {
     for connector in [false, true] {
         let dir = tempfile::Builder::new()
             .prefix("nqb-")
-            .tempdir_in("/tmp")
+            .tempdir_in(if cfg!(windows) {
+                std::env::temp_dir()
+            } else {
+                "/tmp".into()
+            })
             .unwrap();
         let path = dir.path().join("s.sock");
         let listener = UnixListener::bind(&path).unwrap();
@@ -147,14 +151,24 @@ fn unverified_native_request_blocks_tasks_without_becoming_answerable() {
         switch.send(()).unwrap();
         ready_rx.recv_timeout(Duration::from_secs(5)).unwrap();
         let deadline = Instant::now() + Duration::from_secs(3);
-        while runtime.agent_session_id(node).as_deref() != Some("next-thread")
-            && Instant::now() < deadline
-        {
+        let mut saved_sessions = Vec::new();
+        // Attached 与 SessionUsed 分别异步发布；切换身份不能代替持久化历史的回执。
+        loop {
             runtime.drain_native_question_hosts("p");
+            saved_sessions.extend(runtime.take_unprobed_session_titles());
+            if runtime.agent_session_id(node).as_deref() == Some("next-thread")
+                && saved_sessions
+                    .iter()
+                    .any(|(id, _, session)| *id == node && session == "next-thread")
+            {
+                break;
+            }
+            if Instant::now() >= deadline {
+                break;
+            }
             std::thread::sleep(Duration::from_millis(5));
         }
         let switched_state = runtime.agent_task_state(node);
-        let saved_sessions = runtime.take_unprobed_session_titles();
         finish.send(()).unwrap();
         tui.join().unwrap();
         server.join().unwrap();

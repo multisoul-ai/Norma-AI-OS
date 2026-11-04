@@ -2,14 +2,14 @@ use super::*;
 
 pub(super) fn spawn_turn(
     runtime: &TurnRuntime,
-    input: String,
-    input_source: AgentInputSource,
+    request: (String, AgentInputSource),
     canvas: Option<agent::CurrentCanvasContext>,
     desktop_context: Option<agent::DesktopContext>,
     roster: Vec<agent::AgentRosterEntry>,
     response: async_channel::Sender<Result<Vec<AgentEvent>, String>>,
     turn_generation: u64,
 ) {
+    let (input, input_source) = request;
     let runtime = runtime.clone();
     shared_tokio_runtime()
         .expect("Norma Tokio runtime was initialized before spawning a turn")

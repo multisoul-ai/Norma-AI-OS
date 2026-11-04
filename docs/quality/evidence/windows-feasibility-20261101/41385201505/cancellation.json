@@ -1,0 +1,7 @@
+{
+  "status": "CANCELLED_NOT_ACCEPTANCE",
+  "source_sha": "bc8cdc1391abe2c6b87c61aa0fe3d23c740be5c5",
+  "reason": "新的审查发现强关闭见证仍有source句柄存活；由120492ca补明确释放前提。主动取消本SHA运行后重跑完整标准runner。普通取消请求未收口compile，随后force-cancel该同一run。",
+  "replacement_run": "41386261217",
+  "pass_claims": []
+}

@@ -1,0 +1,2447 @@
+﻿2026-11-04T02:28:40.0347896Z Current runner version: '2.338.2'
+2026-11-04T02:28:40.0368858Z ##[group]Runner Image Provisioner
+2026-11-04T02:28:40.0369483Z Hosted Compute Agent
+2026-11-04T02:28:40.0369968Z Version: 20261021.618
+2026-11-04T02:28:40.0370436Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-11-04T02:28:40.0371022Z Build Date: 2026-10-21T00:45:21Z
+2026-11-04T02:28:40.0371532Z Worker ID: {18f788a5-e423-4c07-b8e7-ecb59fad3e85}
+2026-11-04T02:28:40.0372069Z Region: westus3
+2026-11-04T02:28:40.0372470Z Cloud: Azure
+2026-11-04T02:28:40.0372884Z ##[endgroup]
+2026-11-04T02:28:40.0373981Z ##[group]Operating System
+2026-11-04T02:28:40.0374453Z Microsoft Windows Server 2025
+2026-11-04T02:28:40.0374889Z 10.0.26100
+2026-11-04T02:28:40.0375240Z Datacenter
+2026-11-04T02:28:40.0375617Z ##[endgroup]
+2026-11-04T02:28:40.0376046Z ##[group]Runner Image
+2026-11-04T02:28:40.0376498Z Image: windows-2025-vs2026
+2026-11-04T02:28:40.0376948Z Version: 20261030.294.1
+2026-11-04T02:28:40.0378163Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20261030.294/images/windows/Windows2025-VS2026-Readme.md
+2026-11-04T02:28:40.0379427Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20261030.294
+2026-11-04T02:28:40.0380204Z ##[endgroup]
+2026-11-04T02:28:40.0381044Z ##[group]GITHUB_TOKEN Permissions
+2026-11-04T02:28:40.0382794Z Contents: read
+2026-11-04T02:28:40.0383260Z Metadata: read
+2026-11-04T02:28:40.0383821Z ##[endgroup]
+2026-11-04T02:28:40.0385433Z Secret source: Actions
+2026-11-04T02:28:40.0386106Z Cache mode: write
+2026-11-04T02:28:40.0386711Z Prepare workflow directory
+2026-11-04T02:28:40.0701277Z Prepare all required actions
+2026-11-04T02:28:40.0756321Z Getting action download info
+2026-11-04T02:28:40.3847474Z Download action repository 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-04T02:28:40.5043785Z Download action repository 'dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8' (SHA:683b588c487a69d01f6c6ddf40f036ff682cc2c8)
+2026-11-04T02:28:40.7350007Z Download action repository 'Swatinem/rust-cache@v2' (SHA:d1527c8f67ef9af357290475d4af4b0fab8f12e0)
+2026-11-04T02:28:41.3736418Z Download action repository 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-11-04T02:28:41.7843232Z Complete job name: storage (windows-2025)
+2026-11-04T02:28:41.9340197Z ##[group]Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+2026-11-04T02:28:41.9341572Z with:
+2026-11-04T02:28:41.9342117Z   persist-credentials: false
+2026-11-04T02:28:41.9342781Z   repository: multisoul-ai/Norma-AI-OS
+2026-11-04T02:28:41.9348268Z   token: ***
+2026-11-04T02:28:41.9348796Z   ssh-strict: true
+2026-11-04T02:28:41.9349333Z   ssh-user: git
+2026-11-04T02:28:41.9349852Z   clean: true
+2026-11-04T02:28:41.9350400Z   sparse-checkout-cone-mode: true
+2026-11-04T02:28:41.9351050Z   fetch-depth: 1
+2026-11-04T02:28:41.9351581Z   fetch-tags: false
+2026-11-04T02:28:41.9352148Z   show-progress: true
+2026-11-04T02:28:41.9352702Z   lfs: false
+2026-11-04T02:28:41.9353224Z   submodules: false
+2026-11-04T02:28:41.9353782Z   set-safe-directory: true
+2026-11-04T02:28:41.9354403Z   allow-unsafe-pr-checkout: false
+2026-11-04T02:28:41.9355286Z env:
+2026-11-04T02:28:41.9355776Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:28:41.9356350Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:28:41.9356950Z   CARGO_TERM_COLOR: never
+2026-11-04T02:28:41.9357525Z   RUST_BACKTRACE: 1
+2026-11-04T02:28:41.9358055Z   PYTHONUTF8: 1
+2026-11-04T02:28:41.9358561Z ##[endgroup]
+2026-11-04T02:28:42.0508707Z Syncing repository: multisoul-ai/Norma-AI-OS
+2026-11-04T02:28:42.0511082Z ##[group]Getting Git version info
+2026-11-04T02:28:42.0511877Z Working directory is 'D:\a\Norma-AI-OS\Norma-AI-OS'
+2026-11-04T02:28:42.1206638Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-11-04T02:28:42.4485432Z git version 2.56.0.windows.4
+2026-11-04T02:28:42.4526012Z ##[endgroup]
+2026-11-04T02:28:42.4542661Z Temporarily overriding HOME='D:\a\_temp\063bddfd-b5db-4040-8ddb-fea0a18da82c' before making global git config changes
+2026-11-04T02:28:42.4544191Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-04T02:28:42.4551369Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-04T02:28:42.5190191Z Deleting the contents of 'D:\a\Norma-AI-OS\Norma-AI-OS'
+2026-11-04T02:28:42.5194855Z ##[group]Initializing the repository
+2026-11-04T02:28:42.5202711Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-04T02:28:42.6096730Z Initialized empty Git repository in D:/a/Norma-AI-OS/Norma-AI-OS/.git/
+2026-11-04T02:28:42.6134545Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/multisoul-ai/Norma-AI-OS
+2026-11-04T02:28:42.6845300Z ##[endgroup]
+2026-11-04T02:28:42.6846259Z ##[group]Disabling automatic garbage collection
+2026-11-04T02:28:42.6851876Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-11-04T02:28:42.7143790Z ##[endgroup]
+2026-11-04T02:28:42.7144907Z ##[group]Setting up auth
+2026-11-04T02:28:42.7153833Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-04T02:28:42.7452764Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-04T02:28:44.0843442Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-04T02:28:44.1180888Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-04T02:28:44.5648283Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-04T02:28:44.5944207Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-04T02:28:45.0236535Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-11-04T02:28:45.0534722Z ##[endgroup]
+2026-11-04T02:28:45.0535156Z ##[group]Fetching the repository
+2026-11-04T02:28:45.0544375Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +90522917d26fd2fec8f554d9765950d3c97eb4f0:refs/remotes/origin/codex/windows-storage-15-20261103
+2026-11-04T02:28:55.5412079Z From https://github.com/multisoul-ai/Norma-AI-OS
+2026-11-04T02:28:55.5413377Z  * [new ref]         90522917d26fd2fec8f554d9765950d3c97eb4f0 -> origin/codex/windows-storage-15-20261103
+2026-11-04T02:28:55.5445791Z ##[endgroup]
+2026-11-04T02:28:55.5446242Z ##[group]Determining the checkout info
+2026-11-04T02:28:55.5448097Z ##[endgroup]
+2026-11-04T02:28:55.5458130Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-11-04T02:28:55.5935304Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-11-04T02:28:55.6240054Z ##[group]Checking out the ref
+2026-11-04T02:28:55.6247838Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B codex/windows-storage-15-20261103 refs/remotes/origin/codex/windows-storage-15-20261103
+2026-11-04T02:28:57.4559397Z Updating files:   5% (324/6213)
+2026-11-04T02:28:57.4883163Z Updating files:   6% (373/6213)
+2026-11-04T02:28:57.6973355Z Updating files:   7% (435/6213)
+2026-11-04T02:28:57.7071879Z Updating files:   7% (495/6213)
+2026-11-04T02:28:57.8017925Z Updating files:   8% (498/6213)
+2026-11-04T02:28:57.8145895Z Updating files:   9% (560/6213)
+2026-11-04T02:28:57.8269119Z Updating files:  10% (622/6213)
+2026-11-04T02:28:57.8389196Z Updating files:  11% (684/6213)
+2026-11-04T02:28:57.8515668Z Updating files:  12% (746/6213)
+2026-11-04T02:28:57.8634435Z Updating files:  13% (808/6213)
+2026-11-04T02:28:57.8753592Z Updating files:  14% (870/6213)
+2026-11-04T02:28:57.8876481Z Updating files:  15% (932/6213)
+2026-11-04T02:28:57.9000223Z Updating files:  16% (995/6213)
+2026-11-04T02:28:57.9125560Z Updating files:  17% (1057/6213)
+2026-11-04T02:28:57.9242100Z Updating files:  18% (1119/6213)
+2026-11-04T02:28:57.9368606Z Updating files:  19% (1181/6213)
+2026-11-04T02:28:57.9489294Z Updating files:  20% (1243/6213)
+2026-11-04T02:28:57.9617344Z Updating files:  21% (1305/6213)
+2026-11-04T02:28:57.9749687Z Updating files:  22% (1367/6213)
+2026-11-04T02:28:57.9876108Z Updating files:  23% (1429/6213)
+2026-11-04T02:28:57.9999941Z Updating files:  24% (1492/6213)
+2026-11-04T02:28:58.0125605Z Updating files:  25% (1554/6213)
+2026-11-04T02:28:58.0254533Z Updating files:  26% (1616/6213)
+2026-11-04T02:28:58.0387422Z Updating files:  27% (1678/6213)
+2026-11-04T02:28:58.0517897Z Updating files:  28% (1740/6213)
+2026-11-04T02:28:58.0659618Z Updating files:  29% (1802/6213)
+2026-11-04T02:28:58.0793194Z Updating files:  30% (1864/6213)
+2026-11-04T02:28:58.0915200Z Updating files:  31% (1927/6213)
+2026-11-04T02:28:58.1036353Z Updating files:  32% (1989/6213)
+2026-11-04T02:28:58.1154960Z Updating files:  33% (2051/6213)
+2026-11-04T02:28:58.1280080Z Updating files:  34% (2113/6213)
+2026-11-04T02:28:58.1395458Z Updating files:  35% (2175/6213)
+2026-11-04T02:28:58.1513623Z Updating files:  36% (2237/6213)
+2026-11-04T02:28:58.1640674Z Updating files:  37% (2299/6213)
+2026-11-04T02:28:58.1767195Z Updating files:  38% (2361/6213)
+2026-11-04T02:28:58.1890179Z Updating files:  39% (2424/6213)
+2026-11-04T02:28:58.2013045Z Updating files:  40% (2486/6213)
+2026-11-04T02:28:58.2139352Z Updating files:  41% (2548/6213)
+2026-11-04T02:28:58.2261028Z Updating files:  42% (2610/6213)
+2026-11-04T02:28:58.2389687Z Updating files:  43% (2672/6213)
+2026-11-04T02:28:58.2513481Z Updating files:  44% (2734/6213)
+2026-11-04T02:28:58.2641049Z Updating files:  45% (2796/6213)
+2026-11-04T02:28:58.2772170Z Updating files:  46% (2858/6213)
+2026-11-04T02:28:58.6261549Z Updating files:  47% (2921/6213)
+2026-11-04T02:28:58.6953784Z Updating files:  48% (2983/6213)
+2026-11-04T02:28:58.7804199Z Updating files:  48% (2995/6213)
+2026-11-04T02:28:58.8635777Z Updating files:  49% (3045/6213)
+2026-11-04T02:28:58.9083678Z Updating files:  50% (3107/6213)
+2026-11-04T02:28:58.9881910Z Updating files:  51% (3169/6213)
+2026-11-04T02:28:59.0225708Z Updating files:  52% (3231/6213)
+2026-11-04T02:28:59.1142491Z Updating files:  53% (3293/6213)
+2026-11-04T02:28:59.3306683Z Updating files:  54% (3356/6213)
+2026-11-04T02:28:59.3933257Z Updating files:  55% (3418/6213)
+2026-11-04T02:28:59.5028149Z Updating files:  56% (3480/6213)
+2026-11-04T02:28:59.5846173Z Updating files:  57% (3542/6213)
+2026-11-04T02:28:59.6101926Z Updating files:  58% (3604/6213)
+2026-11-04T02:28:59.6392036Z Updating files:  59% (3666/6213)
+2026-11-04T02:28:59.7108270Z Updating files:  60% (3728/6213)
+2026-11-04T02:28:59.7122516Z Updating files:  60% (3783/6213)
+2026-11-04T02:28:59.7258704Z Updating files:  61% (3790/6213)
+2026-11-04T02:28:59.7379665Z Updating files:  62% (3853/6213)
+2026-11-04T02:28:59.7528628Z Updating files:  63% (3915/6213)
+2026-11-04T02:28:59.7642515Z Updating files:  64% (3977/6213)
+2026-11-04T02:28:59.7773017Z Updating files:  65% (4039/6213)
+2026-11-04T02:28:59.7922031Z Updating files:  66% (4101/6213)
+2026-11-04T02:28:59.8053359Z Updating files:  67% (4163/6213)
+2026-11-04T02:28:59.8177344Z Updating files:  68% (4225/6213)
+2026-11-04T02:28:59.8334557Z Updating files:  69% (4287/6213)
+2026-11-04T02:28:59.8449166Z Updating files:  70% (4350/6213)
+2026-11-04T02:28:59.8537027Z Updating files:  71% (4412/6213)
+2026-11-04T02:28:59.8656944Z Updating files:  72% (4474/6213)
+2026-11-04T02:28:59.8785967Z Updating files:  73% (4536/6213)
+2026-11-04T02:28:59.8916631Z Updating files:  74% (4598/6213)
+2026-11-04T02:28:59.9081298Z Updating files:  75% (4660/6213)
+2026-11-04T02:28:59.9202696Z Updating files:  76% (4722/6213)
+2026-11-04T02:28:59.9862665Z Updating files:  77% (4785/6213)
+2026-11-04T02:29:00.0025205Z Updating files:  78% (4847/6213)
+2026-11-04T02:29:00.0180229Z Updating files:  79% (4909/6213)
+2026-11-04T02:29:00.0738211Z Updating files:  80% (4971/6213)
+2026-11-04T02:29:00.0906702Z Updating files:  81% (5033/6213)
+2026-11-04T02:29:00.1031872Z Updating files:  82% (5095/6213)
+2026-11-04T02:29:00.2387551Z Updating files:  83% (5157/6213)
+2026-11-04T02:29:00.2639045Z Updating files:  84% (5219/6213)
+2026-11-04T02:29:00.2758903Z Updating files:  85% (5282/6213)
+2026-11-04T02:29:00.6280121Z Updating files:  86% (5344/6213)
+2026-11-04T02:29:00.6393773Z Updating files:  87% (5406/6213)
+2026-11-04T02:29:00.6508195Z Updating files:  88% (5468/6213)
+2026-11-04T02:29:00.6678738Z Updating files:  89% (5530/6213)
+2026-11-04T02:29:00.6791118Z Updating files:  90% (5592/6213)
+2026-11-04T02:29:00.6911139Z Updating files:  91% (5654/6213)
+2026-11-04T02:29:00.7040847Z Updating files:  92% (5716/6213)
+2026-11-04T02:29:00.7168848Z Updating files:  93% (5779/6213)
+2026-11-04T02:29:00.7189621Z Updating files:  94% (5841/6213)
+2026-11-04T02:29:00.7289328Z Updating files:  94% (5852/6213)
+2026-11-04T02:29:00.7394660Z Updating files:  95% (5903/6213)
+2026-11-04T02:29:00.7836203Z Updating files:  96% (5965/6213)
+2026-11-04T02:29:00.7999580Z Updating files:  97% (6027/6213)
+2026-11-04T02:29:00.8147387Z Updating files:  98% (6089/6213)
+2026-11-04T02:29:00.8279373Z Updating files:  99% (6151/6213)
+2026-11-04T02:29:00.8279894Z Updating files: 100% (6213/6213)
+2026-11-04T02:29:00.8280120Z Updating files: 100% (6213/6213), done.
+2026-11-04T02:29:00.8445249Z Switched to a new branch 'codex/windows-storage-15-20261103'
+2026-11-04T02:29:00.8464090Z branch 'codex/windows-storage-15-20261103' set up to track 'origin/codex/windows-storage-15-20261103'.
+2026-11-04T02:29:01.2236289Z ##[endgroup]
+2026-11-04T02:29:01.2634095Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-11-04T02:29:01.2898490Z 90522917d26fd2fec8f554d9765950d3c97eb4f0
+2026-11-04T02:29:01.2930718Z ##[group]Removing auth
+2026-11-04T02:29:01.2938437Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-04T02:29:01.3218136Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-04T02:29:01.7745011Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-04T02:29:01.8022547Z http.https://github.com/.extraheader
+2026-11-04T02:29:01.8055474Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-11-04T02:29:01.8367947Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-04T02:29:02.2667767Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-04T02:29:02.2953411Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-04T02:29:02.7610377Z ##[endgroup]
+2026-11-04T02:29:02.8004974Z ##[group]Run dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+2026-11-04T02:29:02.8005348Z with:
+2026-11-04T02:29:02.8005496Z   toolchain: 1.91.1
+2026-11-04T02:29:02.8005643Z env:
+2026-11-04T02:29:02.8005778Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:02.8005938Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:02.8006092Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:02.8006429Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:02.8006573Z   PYTHONUTF8: 1
+2026-11-04T02:29:02.8006713Z ##[endgroup]
+2026-11-04T02:29:02.8059504Z ##[start-action display=Parse toolchain version;id=__dtolnay_rust-toolchain.parse]
+2026-11-04T02:29:02.8188667Z ##[group]Run if [[ -z $toolchain ]]; then
+2026-11-04T02:29:02.8188973Z [36;1mif [[ -z $toolchain ]]; then[0m
+2026-11-04T02:29:02.8189377Z [36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070[0m
+2026-11-04T02:29:02.8189793Z [36;1m  echo "'toolchain' is a required input" >&2[0m
+2026-11-04T02:29:02.8190044Z [36;1m  exit 1[0m
+2026-11-04T02:29:02.8190293Z [36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then[0m
+2026-11-04T02:29:02.8190791Z [36;1m  if [[ Windows == macOS ]]; then[0m
+2026-11-04T02:29:02.8191197Z [36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:29:02.8191584Z [36;1m  else[0m
+2026-11-04T02:29:02.8191893Z [36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:29:02.8192236Z [36;1m  fi[0m
+2026-11-04T02:29:02.8192453Z [36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then[0m
+2026-11-04T02:29:02.8193014Z [36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:29:02.8193356Z [36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then[0m
+2026-11-04T02:29:02.8193736Z [36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:29:02.8194080Z [36;1melse[0m
+2026-11-04T02:29:02.8194221Z [36;1m  delimiter=EOF[0m
+2026-11-04T02:29:02.8194438Z [36;1m  while [[ $toolchain == *$delimiter* ]]; do delimiter+=_; done[0m
+2026-11-04T02:29:02.8194817Z [36;1m  printf 'toolchain<<%s\n%s\n%s\n' "$delimiter" "$toolchain" "$delimiter" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:29:02.8195114Z [36;1mfi[0m
+2026-11-04T02:29:02.8212154Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:02.8212508Z env:
+2026-11-04T02:29:02.8212680Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:02.8212840Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:02.8212992Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:02.8213160Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:02.8213318Z   PYTHONUTF8: 1
+2026-11-04T02:29:02.8213470Z   toolchain: 1.91.1
+2026-11-04T02:29:02.8213622Z ##[endgroup]
+2026-11-04T02:29:02.9995387Z ##[end-action id=__dtolnay_rust-toolchain.parse;outcome=success;conclusion=success;duration_ms=193]
+2026-11-04T02:29:02.9999371Z ##[start-action display=Set $CARGO_HOME;id=__dtolnay_rust-toolchain.__run]
+2026-11-04T02:29:03.0119339Z ##[group]Run echo CARGO_HOME=${CARGO_HOME:-"$USERPROFILE\.cargo"} >> $GITHUB_ENV
+2026-11-04T02:29:03.0119728Z [36;1mecho CARGO_HOME=${CARGO_HOME:-"$USERPROFILE\.cargo"} >> $GITHUB_ENV[0m
+2026-11-04T02:29:03.0130779Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:03.0131074Z env:
+2026-11-04T02:29:03.0131220Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:03.0131378Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:03.0131533Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:03.0131700Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:03.0131850Z   PYTHONUTF8: 1
+2026-11-04T02:29:03.0131994Z ##[endgroup]
+2026-11-04T02:29:03.0474526Z ##[end-action id=__dtolnay_rust-toolchain.__run;outcome=success;conclusion=success;duration_ms=47]
+2026-11-04T02:29:03.0476503Z ##[start-action display=Install rustup if needed;id=__dtolnay_rust-toolchain.__run_2]
+2026-11-04T02:29:03.0485236Z ##[end-action id=__dtolnay_rust-toolchain.__run_2;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-11-04T02:29:03.0487277Z ##[start-action display=Install rustup if needed on windows;id=__dtolnay_rust-toolchain.__run_3]
+2026-11-04T02:29:03.0587650Z ##[group]Run if ! command -v rustup &>/dev/null; then
+2026-11-04T02:29:03.0587921Z [36;1mif ! command -v rustup &>/dev/null; then[0m
+2026-11-04T02:29:03.0588487Z [36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://win.rustup.rs/x86_64 --output 'D:\a\_temp\rustup-init.exe'[0m
+2026-11-04T02:29:03.0589107Z [36;1m  'D:\a\_temp\rustup-init.exe' --default-toolchain none --no-modify-path -y[0m
+2026-11-04T02:29:03.0589425Z [36;1m  echo "$CARGO_HOME\bin" >> $GITHUB_PATH[0m
+2026-11-04T02:29:03.0589627Z [36;1mfi[0m
+2026-11-04T02:29:03.0599171Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:03.0599459Z env:
+2026-11-04T02:29:03.0599600Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:03.0599765Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:03.0599916Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:03.0600075Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:03.0600224Z   PYTHONUTF8: 1
+2026-11-04T02:29:03.0600393Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:29:03.0600587Z ##[endgroup]
+2026-11-04T02:29:03.1067885Z ##[end-action id=__dtolnay_rust-toolchain.__run_3;outcome=success;conclusion=success;duration_ms=57]
+2026-11-04T02:29:03.1081602Z ##[start-action display=rustup toolchain install 1.91.1;id=__dtolnay_rust-toolchain.__run_4]
+2026-11-04T02:29:03.1181761Z ##[group]Run set -f  # split targets and components on commas and whitespace, without glob expansion
+2026-11-04T02:29:03.1182269Z [36;1mset -f  # split targets and components on commas and whitespace, without glob expansion[0m
+2026-11-04T02:29:03.1182602Z [36;1mflags=()[0m
+2026-11-04T02:29:03.1182813Z [36;1mfor t in ${targets//,/ }; do flags+=(--target "$t"); done[0m
+2026-11-04T02:29:03.1183110Z [36;1mfor c in ${components//,/ }; do flags+=(--component "$c"); done[0m
+2026-11-04T02:29:03.1183474Z [36;1mif [[ $toolchain == nightly && -n $components ]]; then flags+=(--allow-downgrade); fi[0m
+2026-11-04T02:29:03.1183788Z [36;1mlog=$(mktemp)[0m
+2026-11-04T02:29:03.1183969Z [36;1mtrap 'rm -f "$log"' EXIT[0m
+2026-11-04T02:29:03.1184159Z [36;1mfor attempt in 1 2 3 4 5; do[0m
+2026-11-04T02:29:03.1184575Z [36;1m  if rustup toolchain install "$toolchain" "${flags[@]}" --profile minimal --no-self-update --force-non-host 2>&1 | tee "$log"; then[0m
+2026-11-04T02:29:03.1184974Z [36;1m    break[0m
+2026-11-04T02:29:03.1185122Z [36;1m  else[0m
+2026-11-04T02:29:03.1185260Z [36;1m    status=$?[0m
+2026-11-04T02:29:03.1185410Z [36;1m  fi[0m
+2026-11-04T02:29:03.1185627Z [36;1m  if [[ $attempt == 5 ]] || ! grep -Fq 'checksum failed for ' "$log" \[0m
+2026-11-04T02:29:03.1186042Z [36;1m      || ! grep -Fq 'this is likely due to an ongoing update of the official release server' "$log"; then[0m
+2026-11-04T02:29:03.1186375Z [36;1m    exit "$status"[0m
+2026-11-04T02:29:03.1186537Z [36;1m  fi[0m
+2026-11-04T02:29:03.1186794Z [36;1m  echo "Retrying rustup toolchain install in 30 seconds (retry $attempt of 4)" >&2[0m
+2026-11-04T02:29:03.1187102Z [36;1m  sleep 30[0m
+2026-11-04T02:29:03.1187250Z [36;1mdone[0m
+2026-11-04T02:29:03.1196719Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:03.1197008Z env:
+2026-11-04T02:29:03.1197153Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:03.1197315Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:03.1197474Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:03.1197649Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:03.1197799Z   PYTHONUTF8: 1
+2026-11-04T02:29:03.1197962Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:29:03.1198159Z   toolchain: 1.91.1
+2026-11-04T02:29:03.1198867Z   targets: 
+2026-11-04T02:29:03.1199019Z   components: 
+2026-11-04T02:29:03.1199171Z   RUSTUP_PERMIT_COPY_RENAME: 1
+2026-11-04T02:29:03.1199342Z ##[endgroup]
+2026-11-04T02:29:03.9544090Z info: syncing channel updates for 1.91.1-x86_64-pc-windows-msvc
+2026-11-04T02:29:04.6327416Z info: latest update on 2025-11-10 for version 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-04T02:29:04.6482156Z info: downloading 3 components
+2026-11-04T02:29:10.5343429Z 
+2026-11-04T02:29:11.7197367Z   1.91.1-x86_64-pc-windows-msvc installed - rustc 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-04T02:29:11.7197841Z 
+2026-11-04T02:29:11.7449386Z ##[end-action id=__dtolnay_rust-toolchain.__run_4;outcome=success;conclusion=success;duration_ms=8636]
+2026-11-04T02:29:11.7455644Z ##[start-action display=rustup default 1.91.1;id=__dtolnay_rust-toolchain.__run_5]
+2026-11-04T02:29:11.7565148Z ##[group]Run rustup default "$toolchain" --force-non-host
+2026-11-04T02:29:11.7565493Z [36;1mrustup default "$toolchain" --force-non-host[0m
+2026-11-04T02:29:11.7577732Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:11.7578224Z env:
+2026-11-04T02:29:11.7578448Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:11.7578712Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:11.7578969Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:11.7579240Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:11.7579497Z   PYTHONUTF8: 1
+2026-11-04T02:29:11.7579758Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:29:11.7580083Z   toolchain: 1.91.1
+2026-11-04T02:29:11.7580318Z ##[endgroup]
+2026-11-04T02:29:11.8125410Z info: using existing install for 1.91.1-x86_64-pc-windows-msvc
+2026-11-04T02:29:11.8210998Z info: default toolchain set to 1.91.1-x86_64-pc-windows-msvc
+2026-11-04T02:29:11.8211490Z 
+2026-11-04T02:29:11.8371467Z   1.91.1-x86_64-pc-windows-msvc unchanged - rustc 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-04T02:29:11.8371735Z 
+2026-11-04T02:29:11.8432390Z info: note that the toolchain '1.91.1-x86_64-pc-windows-msvc' is currently in use (overridden by 'D:\a\Norma-AI-OS\Norma-AI-OS\rust-toolchain.toml')
+2026-11-04T02:29:11.8488894Z ##[end-action id=__dtolnay_rust-toolchain.__run_5;outcome=success;conclusion=success;duration_ms=103]
+2026-11-04T02:29:11.8491997Z ##[start-action display=Create cachekey;id=__dtolnay_rust-toolchain.rustc-version]
+2026-11-04T02:29:11.8589541Z ##[group]Run DATE=$(rustc +"$toolchain" --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')
+2026-11-04T02:29:11.8590188Z [36;1mDATE=$(rustc +"$toolchain" --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')[0m
+2026-11-04T02:29:11.8590689Z [36;1mHASH=$(rustc +"$toolchain" --version --verbose | sed -ne 's/^commit-hash: //p')[0m
+2026-11-04T02:29:11.8591082Z [36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:29:11.8601079Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:11.8601382Z env:
+2026-11-04T02:29:11.8601525Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:11.8601688Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:11.8601840Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:11.8602006Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:11.8602152Z   PYTHONUTF8: 1
+2026-11-04T02:29:11.8602313Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:29:11.8602515Z   toolchain: 1.91.1
+2026-11-04T02:29:11.8602658Z ##[endgroup]
+2026-11-04T02:29:12.6569017Z ##[end-action id=__dtolnay_rust-toolchain.rustc-version;outcome=success;conclusion=success;duration_ms=807]
+2026-11-04T02:29:12.6571219Z ##[start-action display=Disable incremental compilation;id=__dtolnay_rust-toolchain.__run_6]
+2026-11-04T02:29:12.6667531Z ##[group]Run if [ -z "${CARGO_INCREMENTAL+set}" ]; then
+2026-11-04T02:29:12.6667833Z [36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then[0m
+2026-11-04T02:29:12.6668079Z [36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV[0m
+2026-11-04T02:29:12.6668290Z [36;1mfi[0m
+2026-11-04T02:29:12.6677585Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:12.6677877Z env:
+2026-11-04T02:29:12.6678022Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:12.6678180Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:12.6678332Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:12.6678497Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:12.6678647Z   PYTHONUTF8: 1
+2026-11-04T02:29:12.6678935Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:29:12.6679132Z ##[endgroup]
+2026-11-04T02:29:12.6973583Z ##[end-action id=__dtolnay_rust-toolchain.__run_6;outcome=success;conclusion=success;duration_ms=40]
+2026-11-04T02:29:12.6975341Z ##[start-action display=Enable colors in Cargo output;id=__dtolnay_rust-toolchain.__run_7]
+2026-11-04T02:29:12.7068151Z ##[group]Run if [ -z "${CARGO_TERM_COLOR+set}" ]; then
+2026-11-04T02:29:12.7068428Z [36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then[0m
+2026-11-04T02:29:12.7068680Z [36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV[0m
+2026-11-04T02:29:12.7068910Z [36;1mfi[0m
+2026-11-04T02:29:12.7078121Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:12.7078419Z env:
+2026-11-04T02:29:12.7078574Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:12.7078871Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:12.7079255Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:12.7079425Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:12.7079599Z   PYTHONUTF8: 1
+2026-11-04T02:29:12.7079773Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:29:12.7079977Z ##[endgroup]
+2026-11-04T02:29:12.7376434Z ##[end-action id=__dtolnay_rust-toolchain.__run_7;outcome=success;conclusion=success;duration_ms=40]
+2026-11-04T02:29:12.7379503Z ##[start-action display=Enable Cargo sparse registry;id=__dtolnay_rust-toolchain.__run_8]
+2026-11-04T02:29:12.7486507Z ##[group]Run # implemented in 1.66, stabilized in 1.68, made default in 1.70
+2026-11-04T02:29:12.7487149Z [36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70[0m
+2026-11-04T02:29:12.7487985Z [36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol ]; then[0m
+2026-11-04T02:29:12.7488843Z [36;1m  if rustc +"$toolchain" --version --verbose | grep -q '^release: 1\.6[89]\.'; then[0m
+2026-11-04T02:29:12.7489536Z [36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-11-04T02:29:12.7490171Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV[0m
+2026-11-04T02:29:12.7490809Z [36;1m  elif rustc +"$toolchain" --version --verbose | grep -q '^release: 1\.6[67]\.'; then[0m
+2026-11-04T02:29:12.7491469Z [36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-11-04T02:29:12.7492061Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV[0m
+2026-11-04T02:29:12.7492491Z [36;1m  fi[0m
+2026-11-04T02:29:12.7492706Z [36;1mfi[0m
+2026-11-04T02:29:12.7507665Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:12.7508237Z env:
+2026-11-04T02:29:12.7508440Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:12.7508704Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:12.7508937Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:12.7509192Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:12.7509420Z   PYTHONUTF8: 1
+2026-11-04T02:29:12.7509672Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:29:12.7510001Z   toolchain: 1.91.1
+2026-11-04T02:29:12.7510226Z ##[endgroup]
+2026-11-04T02:29:12.9109370Z ##[end-action id=__dtolnay_rust-toolchain.__run_8;outcome=success;conclusion=success;duration_ms=172]
+2026-11-04T02:29:12.9112667Z ##[start-action display=Work around spurious network errors in curl 8.0;id=__dtolnay_rust-toolchain.__run_9]
+2026-11-04T02:29:12.9265884Z ##[group]Run # https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation
+2026-11-04T02:29:12.9266772Z [36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation[0m
+2026-11-04T02:29:12.9267807Z [36;1mif rustc +"$toolchain" --version --verbose | grep -q '^release: 1\.7[01]\.'; then[0m
+2026-11-04T02:29:12.9268371Z [36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV[0m
+2026-11-04T02:29:12.9268697Z [36;1mfi[0m
+2026-11-04T02:29:12.9285924Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:12.9286617Z env:
+2026-11-04T02:29:12.9286828Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:12.9287064Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:12.9287294Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:12.9287546Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:12.9287805Z   PYTHONUTF8: 1
+2026-11-04T02:29:12.9288121Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:29:12.9288442Z   toolchain: 1.91.1
+2026-11-04T02:29:12.9288649Z ##[endgroup]
+2026-11-04T02:29:13.0522742Z ##[end-action id=__dtolnay_rust-toolchain.__run_9;outcome=success;conclusion=success;duration_ms=140]
+2026-11-04T02:29:13.0526497Z ##[start-action display=rustc +1.91.1 --version --verbose;id=__dtolnay_rust-toolchain.__run_10]
+2026-11-04T02:29:13.0624640Z ##[group]Run rustc +"$toolchain" --version --verbose
+2026-11-04T02:29:13.0624917Z [36;1mrustc +"$toolchain" --version --verbose[0m
+2026-11-04T02:29:13.0634424Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:13.0634718Z env:
+2026-11-04T02:29:13.0634879Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:13.0635105Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:13.0635348Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:13.0635539Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:13.0635691Z   PYTHONUTF8: 1
+2026-11-04T02:29:13.0635852Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:29:13.0636059Z   toolchain: 1.91.1
+2026-11-04T02:29:13.0636207Z ##[endgroup]
+2026-11-04T02:29:13.1267616Z rustc 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-04T02:29:13.1267912Z binary: rustc
+2026-11-04T02:29:13.1268120Z commit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb
+2026-11-04T02:29:13.1268383Z commit-date: 2025-11-07
+2026-11-04T02:29:13.1268555Z host: x86_64-pc-windows-msvc
+2026-11-04T02:29:13.1268731Z release: 1.91.1
+2026-11-04T02:29:13.1269589Z LLVM version: 21.1.2
+2026-11-04T02:29:13.1365363Z ##[end-action id=__dtolnay_rust-toolchain.__run_10;outcome=success;conclusion=success;duration_ms=83]
+2026-11-04T02:29:13.1543344Z ##[group]Run Swatinem/rust-cache@v2
+2026-11-04T02:29:13.1543621Z with:
+2026-11-04T02:29:13.1543791Z   shared-key: windows-native-contracts
+2026-11-04T02:29:13.1544004Z   cache-workspace-crates: true
+2026-11-04T02:29:13.1544190Z   cache-on-failure: true
+2026-11-04T02:29:13.1544352Z   prefix-key: v0-rust
+2026-11-04T02:29:13.1544505Z   add-job-id-key: true
+2026-11-04T02:29:13.1544669Z   add-rust-environment-hash-key: true
+2026-11-04T02:29:13.1544860Z   cache-targets: true
+2026-11-04T02:29:13.1545013Z   cache-all-crates: false
+2026-11-04T02:29:13.1545170Z   save-if: true
+2026-11-04T02:29:13.1545313Z   cache-provider: github
+2026-11-04T02:29:13.1545473Z   cache-bin: true
+2026-11-04T02:29:13.1545616Z   lookup-only: false
+2026-11-04T02:29:13.1545758Z   cmd-format: {0}
+2026-11-04T02:29:13.1545889Z env:
+2026-11-04T02:29:13.1546023Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:13.1546183Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:13.1546330Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:13.1546524Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:13.1546664Z   PYTHONUTF8: 1
+2026-11-04T02:29:13.1546821Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:29:13.1547017Z ##[endgroup]
+2026-11-04T02:29:20.0616405Z ##[group]Cache Configuration
+2026-11-04T02:29:20.0616757Z Cache Provider:
+2026-11-04T02:29:20.0616987Z     github
+2026-11-04T02:29:20.0617196Z Workspaces:
+2026-11-04T02:29:20.0617429Z     D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-04T02:29:20.0617720Z Cache Paths:
+2026-11-04T02:29:20.0617992Z     C:\Users\runneradmin\.cargo\bin
+2026-11-04T02:29:20.0618799Z     C:\Users\runneradmin\.cargo\.crates.toml
+2026-11-04T02:29:20.0619173Z     C:\Users\runneradmin\.cargo\.crates2.json
+2026-11-04T02:29:20.0619535Z     C:\Users\runneradmin\.cargo\registry
+2026-11-04T02:29:20.0619861Z     C:\Users\runneradmin\.cargo\git
+2026-11-04T02:29:20.0620175Z     D:\a\Norma-AI-OS\Norma-AI-OS\target
+2026-11-04T02:29:20.0620479Z Restore Key:
+2026-11-04T02:29:20.0620834Z     v0-rust-windows-native-contracts-Windows_NT-x64-8f12d873
+2026-11-04T02:29:20.0621233Z Cache Key:
+2026-11-04T02:29:20.0622652Z     v0-rust-windows-native-contracts-Windows_NT-x64-8f12d873-a0d1a65b
+2026-11-04T02:29:20.0623093Z .. Prefix:
+2026-11-04T02:29:20.0623362Z   - v0-rust-windows-native-contracts-Windows_NT-x64
+2026-11-04T02:29:20.0623742Z .. Environment considered:
+2026-11-04T02:29:20.0623996Z   - Rust Versions:
+2026-11-04T02:29:20.0624365Z     - 1.91.1 x86_64-pc-windows-msvc ed61e7d7e242494fb7057f2657300d9e77bb4fcb
+2026-11-04T02:29:20.0624900Z     - 1.99.1 x86_64-pc-windows-msvc 58cf8f9c35b355199727627d07ae34a4e2846d67
+2026-11-04T02:29:20.0625296Z   - CARGO_BUILD_JOBS
+2026-11-04T02:29:20.0625531Z   - CARGO_HOME
+2026-11-04T02:29:20.0625746Z   - CARGO_INCREMENTAL
+2026-11-04T02:29:20.0625974Z   - CARGO_TERM_COLOR
+2026-11-04T02:29:20.0626194Z   - RUST_BACKTRACE
+2026-11-04T02:29:20.0626421Z .. Lockfiles considered:
+2026-11-04T02:29:20.0626713Z   - D:\a\Norma-AI-OS\Norma-AI-OS\.cargo\config.toml
+2026-11-04T02:29:20.0627076Z   - D:\a\Norma-AI-OS\Norma-AI-OS\Cargo.lock
+2026-11-04T02:29:20.0627473Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\agent\Cargo.toml
+2026-11-04T02:29:20.0627912Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\analytics\Cargo.toml
+2026-11-04T02:29:20.0628346Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\app\Cargo.toml
+2026-11-04T02:29:20.0628761Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\asr\Cargo.toml
+2026-11-04T02:29:20.0629233Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\audio\Cargo.toml
+2026-11-04T02:29:20.0629655Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\brain\Cargo.toml
+2026-11-04T02:29:20.0630072Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\canvas\Cargo.toml
+2026-11-04T02:29:20.0630729Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\dialogue\Cargo.toml
+2026-11-04T02:29:20.0631173Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\license\Cargo.toml
+2026-11-04T02:29:20.0631617Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\live_voice\Cargo.toml
+2026-11-04T02:29:20.0632073Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\media_store\Cargo.toml
+2026-11-04T02:29:20.0634799Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing\Cargo.toml
+2026-11-04T02:29:20.0635416Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\model_store\Cargo.toml
+2026-11-04T02:29:20.0635866Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma\Cargo.toml
+2026-11-04T02:29:20.0636340Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\runtime\Cargo.toml
+2026-11-04T02:29:20.0636765Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage\Cargo.toml
+2026-11-04T02:29:20.0637186Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\terminal\Cargo.toml
+2026-11-04T02:29:20.0637625Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\tts\Cargo.toml
+2026-11-04T02:29:20.0638025Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\ui\Cargo.toml
+2026-11-04T02:29:20.0638463Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\voice_input\Cargo.toml
+2026-11-04T02:29:20.0638933Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\voice_sherpa\Cargo.toml
+2026-11-04T02:29:20.0639398Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace\Cargo.toml
+2026-11-04T02:29:20.0639832Z   - D:\a\Norma-AI-OS\Norma-AI-OS\rust-toolchain.toml
+2026-11-04T02:29:20.0640410Z ##[endgroup]
+2026-11-04T02:29:20.0640544Z 
+2026-11-04T02:29:20.0640656Z ... Restoring cache ...
+2026-11-04T02:29:20.3755307Z Cache hit for: v0-rust-windows-native-contracts-Windows_NT-x64-8f12d873-a0d1a65b
+2026-11-04T02:29:21.6084138Z Received 75497472 of 451678685 (16.7%), 71.8 MBs/sec
+2026-11-04T02:29:22.9677045Z Received 134217728 of 451678685 (29.7%), 54.2 MBs/sec
+2026-11-04T02:29:24.2476337Z Received 268435456 of 451678685 (59.4%), 70.3 MBs/sec
+2026-11-04T02:29:25.5578926Z Received 402653184 of 451678685 (89.1%), 77.6 MBs/sec
+2026-11-04T02:29:26.0666182Z Received 451678685 of 451678685 (100.0%), 79.0 MBs/sec
+2026-11-04T02:29:26.0666655Z Cache Size: ~431 MB (451678685 B)
+2026-11-04T02:29:26.0667616Z [command]"C:\Program Files\Git\usr\bin\tar.exe" -xf D:/a/_temp/09c094e8-550e-4fa8-8c9b-f32ca727c00c/cache.tzst -P -C D:/a/Norma-AI-OS/Norma-AI-OS --force-local --use-compress-program "zstd -d"
+2026-11-04T02:29:40.6871688Z Cache restored successfully
+2026-11-04T02:29:40.7062496Z Restored from cache key "v0-rust-windows-native-contracts-Windows_NT-x64-8f12d873-a0d1a65b" full match: true.
+2026-11-04T02:29:40.7283948Z ##[group]Run python - <<'PYCODE'
+2026-11-04T02:29:40.7284300Z [36;1mpython - <<'PYCODE'[0m
+2026-11-04T02:29:40.7284576Z [36;1mimport json, os, pathlib, platform, re, subprocess, sys, time[0m
+2026-11-04T02:29:40.7284899Z [36;1mroot = pathlib.Path('artifacts/storage-15')[0m
+2026-11-04T02:29:40.7285170Z [36;1mroot.mkdir(parents=True, exist_ok=True)[0m
+2026-11-04T02:29:40.7285438Z [36;1mcount = int(os.environ['STORAGE_REPEATS'])[0m
+2026-11-04T02:29:40.7285670Z [36;1mif not 1 <= count <= 30:[0m
+2026-11-04T02:29:40.7285915Z [36;1m    raise ValueError('Repetitions must be 1..30')[0m
+2026-11-04T02:29:40.7286280Z [36;1mreport = {'source_sha': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'],[0m
+2026-11-04T02:29:40.7286717Z [36;1m          'attempt': os.environ['GITHUB_RUN_ATTEMPT'], 'platform': platform.platform(),[0m
+2026-11-04T02:29:40.7287127Z [36;1m          'image': os.environ.get('ImageVersion'), 'processors': os.cpu_count(),[0m
+2026-11-04T02:29:40.7287540Z [36;1m          'suite': os.environ.get('STORAGE_SUITE', 'full'), 'repeats': count,[0m
+2026-11-04T02:29:40.7287956Z [36;1m          'compiler': subprocess.check_output(['rustc', '-vV'], text=True), 'commands': []}[0m
+2026-11-04T02:29:40.7288294Z [36;1msuite = os.environ['STORAGE_SUITE'][0m
+2026-11-04T02:29:40.7288507Z [36;1mgroups = {[0m
+2026-11-04T02:29:40.7288889Z [36;1m    'paths': ('paths', 'storage', ['--lib', 'database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary']),[0m
+2026-11-04T02:29:40.7289365Z [36;1m    'legacy': ('legacy', 'storage', ['--test', 'global_project_storage']),[0m
+2026-11-04T02:29:40.7289702Z [36;1m    'memory': ('memory', 'storage', ['--test', 'memory_scope']),[0m
+2026-11-04T02:29:40.7290045Z [36;1m    'sessions': ('sessions', 'storage', ['--test', 'mobile_sessions']),[0m
+2026-11-04T02:29:40.7290311Z [36;1m}[0m
+2026-11-04T02:29:40.7290550Z [36;1mcases = [('full-storage', 'storage', [])] if suite == 'full' else [][0m
+2026-11-04T02:29:40.7290896Z [36;1mselected = list(groups) if suite in ('full', 'focused') else {[0m
+2026-11-04T02:29:40.7291245Z [36;1m    'paths-sessions': ['paths', 'sessions'], 'memory': ['memory'],[0m
+2026-11-04T02:29:40.7291576Z [36;1m    'legacy': ['legacy'], 'concurrency': [], 'atomic': []}[suite][0m
+2026-11-04T02:29:40.7291871Z [36;1mcases += [groups[name] for name in selected][0m
+2026-11-04T02:29:40.7292137Z [36;1mif suite in ('full', 'focused', 'atomic'):[0m
+2026-11-04T02:29:40.7292483Z [36;1m    cases.append(('atomic-migration', 'storage', ['--test', 'app_migration_atomic']))[0m
+2026-11-04T02:29:40.7292854Z [36;1mif suite in ('full', 'focused', 'atomic', 'concurrency'):[0m
+2026-11-04T02:29:40.7293347Z [36;1m    cases.append(('warm-read-with-writer', 'storage', ['--test', 'mobile_access', 'authentication_does_not_write_or_wait_for_a_writer']))[0m
+2026-11-04T02:29:40.7293886Z [36;1mif platform.system() == 'Windows' and suite in ('full', 'focused', 'memory'):[0m
+2026-11-04T02:29:40.7294355Z [36;1m    cases.append(('workspace-native', 'workspace', ['--lib', '--test', 'scoped_directory']))[0m
+2026-11-04T02:29:40.7294735Z [36;1mif suite in ('full', 'focused', 'concurrency'):[0m
+2026-11-04T02:29:40.7294992Z [36;1m    for i in range(1, count + 1):[0m
+2026-11-04T02:29:40.7295306Z [36;1m        for name in ('live_operation_store', 'mobile_commands', 'workspace_chat_time'):[0m
+2026-11-04T02:29:40.7295692Z [36;1m            cases.append((f'{name}-{i:02}', 'storage', ['--test', name]))[0m
+2026-11-04T02:29:40.7295981Z [36;1mfor label, package, args in cases:[0m
+2026-11-04T02:29:40.7296665Z [36;1m    command = ['cargo', 'test', '--locked', '--no-fail-fast', '-p', package, *args, '--', '--nocapture'][0m
+2026-11-04T02:29:40.7297025Z [36;1m    started = time.monotonic()[0m
+2026-11-04T02:29:40.7297303Z [36;1m    report['active_command'] = {'label': label, 'command': command}[0m
+2026-11-04T02:29:40.7298986Z [36;1m    (root / 'report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')[0m
+2026-11-04T02:29:40.7299525Z [36;1m    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,[0m
+2026-11-04T02:29:40.7299925Z [36;1m                               encoding='utf-8', errors='replace')[0m
+2026-11-04T02:29:40.7300168Z [36;1m    lines = [][0m
+2026-11-04T02:29:40.7300423Z [36;1m    with (root / f'{label}.log').open('w', encoding='utf-8') as log:[0m
+2026-11-04T02:29:40.7300704Z [36;1m        for line in process.stdout:[0m
+2026-11-04T02:29:40.7300919Z [36;1m            log.write(line)[0m
+2026-11-04T02:29:40.7301147Z [36;1m            log.flush()[0m
+2026-11-04T02:29:40.7301360Z [36;1m            print(line, end='', flush=True)[0m
+2026-11-04T02:29:40.7301588Z [36;1m            lines.append(line)[0m
+2026-11-04T02:29:40.7301790Z [36;1m    code = process.wait()[0m
+2026-11-04T02:29:40.7301986Z [36;1m    output = ''.join(lines)[0m
+2026-11-04T02:29:40.7302350Z [36;1m    summaries = re.findall(r'test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;', output)[0m
+2026-11-04T02:29:40.7302871Z [36;1m    totals = {key: sum(int(row[i]) for row in summaries) for i, key in enumerate(('passed', 'failed', 'ignored'), 1)}[0m
+2026-11-04T02:29:40.7303371Z [36;1m    valid = bool(summaries) and totals['passed'] + totals['failed'] > 0 and totals['ignored'] == 0[0m
+2026-11-04T02:29:40.7303844Z [36;1m    failures = sorted(set(re.findall(r'^test (\S+) \.\.\. FAILED\s*$', output, re.MULTILINE)))[0m
+2026-11-04T02:29:40.7304274Z [36;1m    report['commands'].append({'label': label, 'command': command, 'exit_code': code,[0m
+2026-11-04T02:29:40.7304802Z [36;1m        'valid_counts': valid, **totals, 'failed_names': failures, 'seconds': round(time.monotonic()-started, 3), 'log': f'{label}.log'})[0m
+2026-11-04T02:29:40.7305250Z [36;1m    report.pop('active_command', None)[0m
+2026-11-04T02:29:40.7305607Z [36;1m    (root / 'report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')[0m
+2026-11-04T02:29:40.7306073Z [36;1msys.exit(1 if any(c['exit_code'] or not c['valid_counts'] for c in report['commands']) else 0)[0m
+2026-11-04T02:29:40.7306406Z [36;1mPYCODE[0m
+2026-11-04T02:29:40.7315791Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:29:40.7316106Z env:
+2026-11-04T02:29:40.7316261Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:29:40.7316751Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:29:40.7316949Z   CARGO_TERM_COLOR: never
+2026-11-04T02:29:40.7317137Z   RUST_BACKTRACE: 1
+2026-11-04T02:29:40.7317293Z   PYTHONUTF8: 1
+2026-11-04T02:29:40.7317465Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:29:40.7317682Z   CACHE_ON_FAILURE: true
+2026-11-04T02:29:40.7317865Z   STORAGE_REPEATS: 20
+2026-11-04T02:29:40.7318030Z   STORAGE_SUITE: full
+2026-11-04T02:29:40.7318187Z ##[endgroup]
+2026-11-04T02:29:42.4577846Z     Updating crates.io index
+2026-11-04T02:29:54.0618706Z    Compiling mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+2026-11-04T02:29:54.0627739Z    Compiling workspace v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace)
+2026-11-04T02:29:54.8013055Z    Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+2026-11-04T02:30:03.1417155Z    Compiling agent v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\agent)
+2026-11-04T02:30:57.3384328Z    Compiling canvas v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\canvas)
+2026-11-04T02:30:59.2546595Z    Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+2026-11-04T02:32:40.3345907Z     Finished `test` profile [optimized + debuginfo] target(s) in 2m 58s
+2026-11-04T02:32:40.4315066Z      Running unittests src\lib.rs (target\debug\deps\storage-142fd333ac84b1b8.exe)
+2026-11-04T02:32:40.4423887Z 
+2026-11-04T02:32:40.4424486Z running 76 tests
+2026-11-04T02:32:43.4836171Z test agent_conversation_tail_store::tests::project_migration_creates_agent_conversation_tails_table ... ok
+2026-11-04T02:32:44.2898762Z test agent_definition_store::migration_tests::test_legacy_migration_disables_builtin_alias_that_conflicts_with_formal_name ... ok
+2026-11-04T02:32:45.0231886Z test agent_conversation_tail_store::tests::delete_tail_on_session_end_or_card_removal ... ok
+2026-11-04T02:32:47.0741281Z test agent_definition_store::origin_tests::test_agent_definition_store_distinguishes_explicit_and_quick_card_origins ... ok
+2026-11-04T02:32:48.1041965Z test agent_conversation_tail_store::tests::upsert_tail_overwrites_same_definition_session_and_isolates_projects ... ok
+2026-11-04T02:32:48.2290815Z test agent_definition_store::origin_tests::test_delete_if_quick_only_removes_quick_card_definitions ... ok
+2026-11-04T02:32:49.3825289Z test agent_definition_store::origin_tests::test_delete_if_quick_removes_definition_even_with_lingering_conversation_tail ... ok
+2026-11-04T02:32:51.1990683Z test agent_definition_store::origin_tests::test_delete_removes_definition_with_conversation_tail ... ok
+2026-11-04T02:32:52.4473111Z test agent_definition_store::tests::test_agent_definition_store_create_list_update_delete_round_trips ... ok
+2026-11-04T02:32:52.9226513Z test agent_definition_store::origin_tests::test_purge_quick_except_removes_only_leaked_quick_definitions ... ok
+2026-11-04T02:32:53.9339074Z test agent_definition_store::tests::test_agent_definition_store_delete_clears_dispatch_history_and_releases_name ... ok
+2026-11-04T02:32:54.3965321Z test agent_definition_store::tests::test_agent_definition_store_invalid_runtime_profile_returns_typed_error ... ok
+2026-11-04T02:32:55.6719107Z test agent_definition_store::tests::test_agent_definition_store_rejects_case_insensitive_duplicate_names ... ok
+2026-11-04T02:32:56.2487916Z test agent_definition_store::tests::test_agent_definition_store_rejects_cross_namespace_speech_alias_conflict ... ok
+2026-11-04T02:32:56.7669107Z test agent_definition_store::tests::test_agent_definition_store_rejects_invalid_name_at_storage_boundary ... ok
+2026-11-04T02:32:57.1055868Z test agent_definition_store::tests::test_agent_definition_store_update_missing_id_returns_typed_error ... ok
+2026-11-04T02:32:58.3828238Z test agent_definition_store::tests::test_agent_definitions_migration_creates_table_and_unique_index ... ok
+2026-11-04T02:33:00.2082986Z test agent_dispatch_store::orchestration_tests::background_dispatch_store_persists_orchestration_lineage_without_foreground_sqlite ... ok
+2026-11-04T02:33:00.5861044Z test agent_dispatch_store::orchestration_tests::orchestration_task_persists_runtime_source_parent_root_and_target_fields ... ok
+2026-11-04T02:33:02.0857958Z test agent_dispatch_store::orchestration_tests::terminal_update_persists_result_for_exact_runtime_task ... ok
+2026-11-04T02:33:02.8565798Z test agent_dispatch_store::orchestration_tests::restart_cleanup_interrupts_accepted_queued_submitted_and_untracked_only ... ok
+2026-11-04T02:33:05.0246909Z test agent_dispatch_store::tests::background_dispatch_store_handoff_orders_old_interrupt_before_new_create ... ok
+2026-11-04T02:33:05.5464247Z test agent_dispatch_store::tests::background_dispatch_store_serializes_create_and_terminal_transitions ... ok
+2026-11-04T02:33:05.5470735Z test app_store::tests::test_app_data_paths_use_norma_os_with_multisoul_legacy_path ... ok
+2026-11-04T02:33:05.5978744Z test app_store::tests::test_app_store_initialization_failure_reports_test_path_without_fallback ... ok
+2026-11-04T02:33:05.7693538Z test app_store::tests::test_app_store_open_with_test_paths_never_copies_legacy_production_db ... ok
+2026-11-04T02:33:05.8080091Z test app_store::tests::test_migrate_default_app_db_path_copies_legacy_db_without_deleting_it ... ok
+2026-11-04T02:33:06.7164623Z test agent_dispatch_store::tests::cancellation_uses_runtime_task_id_when_task_text_is_duplicated ... ok
+2026-11-04T02:33:06.7167297Z test database_paths::tests::isolated_test_database_preserves_the_explicit_app_database_file ... ok
+2026-11-04T02:33:06.7168967Z test database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary ... ok
+2026-11-04T02:33:06.7171422Z test database_paths::tests::production_and_local_test_database_paths_are_physically_isolated ... ok
+2026-11-04T02:33:06.7173098Z test database_paths::tests::rebinding_app_database_preserves_mode_and_uses_the_actual_instance_directory ... ok
+2026-11-04T02:33:06.7241528Z test database_paths::tests::test_project_store_initialization_failure_reports_test_path_without_fallback ... ok
+2026-11-04T02:33:08.0591045Z test agent_dispatch_store::tests::dispatch_store_persists_fifo_and_interrupts_only_incomplete_tasks ... ok
+2026-11-04T02:33:08.8218487Z test canvas_store::tests::test_canvas_snapshot_round_trips_and_preserves_next_node_id ... ok
+2026-11-04T02:33:09.5844883Z test database_paths::tests::test_project_store_migration_never_creates_the_production_project_db ... ok
+2026-11-04T02:33:10.0260487Z test agent_dispatch_store::tests::dispatch_store_persists_requested_and_confirmed_cancellation_states ... ok
+2026-11-04T02:33:10.6540262Z test migrations::desktop::tests::wallpaper_migration_waits_for_writer_before_reading ... ok
+2026-11-04T02:33:11.0232430Z test migrations::tests::concurrent_column_migration_rechecks_after_write_lock ... ok
+2026-11-04T02:33:11.3843384Z test layout_store::tests::test_active_master_layout_state_round_trips ... ok
+2026-11-04T02:33:11.9082811Z test layout_store::tests::test_invalid_layout_mode_returns_typed_error ... ok
+2026-11-04T02:33:12.9973704Z test layout_store::tests::test_tiled_state_overwrites_previous_active_state ... ok
+2026-11-04T02:33:14.2997447Z test migrations::tests::test_app_and_project_migrations_are_idempotent ... ok
+2026-11-04T02:33:14.5011313Z test node_session_store::concurrency_tests::node_session_reconcile_owns_write_intent_before_reading_history ... ok
+2026-11-04T02:33:14.5468253Z test node_session_store::tests::test_load_empty_returns_empty_vec ... ok
+2026-11-04T02:33:15.9540870Z test node_session_store::tests::test_null_cwd_round_trips ... ok
+2026-11-04T02:33:16.4223473Z test orchestration_authorization_store::tests::authorization_cache_verifies_hashed_records_without_sqlite_on_hot_path ... ok
+2026-11-04T02:33:16.8383619Z test orchestration_authorization_store::tests::provider_tokens_are_hashed_and_cannot_cross_provider_boundaries ... ok
+2026-11-04T02:33:17.2860201Z test orchestration_authorization_store::tests::revocation_invalidates_token_immediately_but_preserves_audit_record ... ok
+2026-11-04T02:33:17.5818755Z test node_session_store::tests::test_replace_all_sessions_prunes_stale_rows ... ok
+2026-11-04T02:33:17.6048208Z test node_session_store::tests::test_session_id_round_trips ... ok
+2026-11-04T02:33:17.8550995Z test node_session_store::tests::test_upsert_overwrites_same_node_id ... ok
+2026-11-04T02:33:18.1786733Z test orchestration_task_route_store::tests::operation_id_reservation_is_idempotent_persistent_and_conflict_safe ... ok
+2026-11-04T02:33:18.3263431Z test orchestration_task_route_store::tests::task_control_operation_reservation_replays_cancel_and_rejects_conflicts ... ok
+2026-11-04T02:33:18.4415253Z test orchestration_task_route_store::tests::target_runtime_task_lookup_preserves_cross_workspace_parent_and_root ... ok
+2026-11-04T02:33:18.7789915Z test orchestration_task_route_store::tests::terminal_result_is_persisted_separately_from_dispatch_replay ... ok
+2026-11-04T02:33:18.8307736Z test recent_store::tests::test_record_opened_persists_sqlite_and_dedupes_by_path ... ok
+2026-11-04T02:33:19.0068914Z test recent_store::tests::test_remove_deletes_exact_recent_workspace_from_sqlite ... ok
+2026-11-04T02:33:19.0271432Z test recent_store::tests::test_save_and_load_round_trips_recent_records ... ok
+2026-11-04T02:33:21.8504030Z test session_store::tests::grok_session_checkpoint_round_trips_restore_metadata ... ok
+2026-11-04T02:33:22.3922229Z test session_store::tests::test_replace_all_checkpoints_prunes_stale_rows ... ok
+2026-11-04T02:33:22.5561934Z test session_store::tests::test_session_checkpoint_migrates_legacy_table_with_defaults ... ok
+2026-11-04T02:33:23.0375058Z test settings_store::tests::conditional_settings_changes_reject_stale_reference_without_partial_writes ... ok
+2026-11-04T02:33:23.3558741Z test orchestration_task_route_store::tests::lineage_reservation_rejects_self_cycle_and_descendant_budget_before_side_effects ... ok
+2026-11-04T02:33:23.7397521Z test settings_store::tests::conditional_settings_changes_roll_back_on_write_failure ... ok
+2026-11-04T02:33:23.9464183Z test settings_store::tests::test_settings_store_applies_related_string_changes_atomically ... ok
+2026-11-04T02:33:24.1627059Z test settings_store::tests::test_settings_store_deletes_string_values ... ok
+2026-11-04T02:33:24.1964568Z test settings_store::tests::test_settings_store_get_or_insert_preserves_first_identity ... ok
+2026-11-04T02:33:24.5445775Z test settings_store::tests::test_settings_store_round_trips_and_overwrites_string_values ... ok
+2026-11-04T02:33:25.3156586Z test session_store::tests::test_session_checkpoint_overwrites_by_node_id ... ok
+2026-11-04T02:33:25.7788683Z test session_store::tests::test_session_checkpoint_round_trips_restore_metadata ... ok
+2026-11-04T02:33:26.5641829Z test workspace_identity_store::tests::list_returns_only_persisted_identities_for_this_app ... ok
+2026-11-04T02:33:27.3388995Z test workspace_identity_store::tests::resolve_or_create_reuses_canonical_root_and_separates_workspaces ... ok
+2026-11-04T02:33:27.6587843Z test voice_history_store::tests::test_voice_history_round_trips_minimal_audit_record ... ok
+2026-11-04T02:33:27.7223886Z test voice_history_store::tests::test_voice_history_recent_order_and_limit ... ok
+2026-11-04T02:33:27.8376880Z test voice_history_store::tests::test_voice_history_stores_raw_and_refined_transcripts ... ok
+2026-11-04T02:33:27.8379033Z 
+2026-11-04T02:33:27.8379489Z test result: ok. 76 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 47.39s
+2026-11-04T02:33:27.8379862Z 
+2026-11-04T02:33:27.8399382Z      Running tests\agent_creation.rs (target\debug\deps\agent_creation-955f630e9a180551.exe)
+2026-11-04T02:33:27.8502044Z 
+2026-11-04T02:33:27.8502294Z running 3 tests
+2026-11-04T02:33:28.4953943Z test creation_claim_and_identity_survive_retry_and_restart ... ok
+2026-11-04T02:33:28.5274525Z test verified_recovery_requires_original_card_identity ... ok
+2026-11-04T02:33:28.5442982Z test interrupted_creation_never_replays_but_new_invocation_can_run ... ok
+2026-11-04T02:33:28.5443363Z 
+2026-11-04T02:33:28.5443565Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
+2026-11-04T02:33:28.5443823Z 
+2026-11-04T02:33:28.5462201Z      Running tests\app_migration_atomic.rs (target\debug\deps\app_migration_atomic-107f8b82d29836e2.exe)
+2026-11-04T02:33:28.5565800Z 
+2026-11-04T02:33:28.5566180Z running 2 tests
+2026-11-04T02:33:28.5659629Z test user_version_one_does_not_skip_the_remaining_app_schema ... ok
+2026-11-04T02:33:28.6782893Z test app_migration_failure_preserves_original_schema_and_can_retry ... ok
+2026-11-04T02:33:28.6783185Z 
+2026-11-04T02:33:28.6783433Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+2026-11-04T02:33:28.6783701Z 
+2026-11-04T02:33:28.6801220Z      Running tests\approval_audit.rs (target\debug\deps\approval_audit-ca4075dc7eb799f4.exe)
+2026-11-04T02:33:28.6903163Z 
+2026-11-04T02:33:28.6905704Z running 1 test
+2026-11-04T02:33:29.9223167Z test approval_audit_is_durable_idempotent_and_project_scoped ... ok
+2026-11-04T02:33:29.9223568Z 
+2026-11-04T02:33:29.9223853Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s
+2026-11-04T02:33:29.9224229Z 
+2026-11-04T02:33:29.9241351Z      Running tests\brain_activity.rs (target\debug\deps\brain_activity-b23d20fb25dc279d.exe)
+2026-11-04T02:33:29.9341050Z 
+2026-11-04T02:33:29.9341292Z running 10 tests
+2026-11-04T02:33:29.9358925Z test an_empty_batch_is_a_noop ... ok
+2026-11-04T02:33:30.5778184Z test prune_removes_only_data_older_than_seven_days ... ok
+2026-11-04T02:33:30.8554523Z test clear_empties_everything ... ok
+2026-11-04T02:33:30.8658641Z test clear_keeps_the_seen_marker ... ok
+2026-11-04T02:33:30.8993607Z test saved_batch_is_read_back_in_pages ... ok
+2026-11-04T02:33:30.9070841Z test prune_enforces_the_text_byte_cap_oldest_turns_first ... ok
+2026-11-04T02:33:31.2577888Z test the_same_turn_number_in_different_launches_does_not_collide ... ok
+2026-11-04T02:33:31.2703174Z test turn_previews_summarise_kinds_and_pick_the_last_reply ... ok
+2026-11-04T02:33:31.3212433Z test turn_end_updates_the_existing_turn_without_losing_its_start ... ok
+2026-11-04T02:33:31.3968476Z test unseen_actions_count_only_those_after_the_last_mark ... ok
+2026-11-04T02:33:31.3968811Z 
+2026-11-04T02:33:31.3969014Z test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.46s
+2026-11-04T02:33:31.3969288Z 
+2026-11-04T02:33:31.3987587Z      Running tests\context_access.rs (target\debug\deps\context_access-3f0151d3b2960caf.exe)
+2026-11-04T02:33:31.4086130Z 
+2026-11-04T02:33:31.4086720Z running 5 tests
+2026-11-04T02:33:31.7705186Z test native_input_limit_accounts_for_serialization_expansion ... ok
+2026-11-04T02:33:31.9741695Z test state_updates_do_not_invent_enforcement_or_reuse_other_turns ... ok
+2026-11-04T02:33:32.0057100Z test replacing_constraint_cannot_silently_relax_enforcement ... ok
+2026-11-04T02:33:32.0535976Z test bound_access_authenticates_input_and_state_candidates ... ok
+2026-11-04T02:33:32.0743170Z test targets_are_canonical_and_native_input_limit_is_preserved ... ok
+2026-11-04T02:33:32.0743563Z 
+2026-11-04T02:33:32.0743837Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
+2026-11-04T02:33:32.0744222Z 
+2026-11-04T02:33:32.0763961Z      Running tests\context_events.rs (target\debug\deps\context_events-0bddf448007a8eb8.exe)
+2026-11-04T02:33:32.0860649Z 
+2026-11-04T02:33:32.0861121Z running 1 test
+2026-11-04T02:33:32.2484813Z test input_and_receipts_preserve_origin_without_replaying_operations ... ok
+2026-11-04T02:33:32.2485132Z 
+2026-11-04T02:33:32.2485343Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+2026-11-04T02:33:32.2503059Z 
+2026-11-04T02:33:32.2503462Z      Running tests\context_recovery.rs (target\debug\deps\context_recovery-46abbaa62145ae99.exe)
+2026-11-04T02:33:32.2602536Z 
+2026-11-04T02:33:32.2602948Z running 1 test
+2026-11-04T02:33:32.4421676Z test checkpoint_failure_rolls_back_event_and_can_be_retried ... ok
+2026-11-04T02:33:32.4422059Z 
+2026-11-04T02:33:32.4422346Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+2026-11-04T02:33:32.4422747Z 
+2026-11-04T02:33:32.4441093Z      Running tests\context_report_recovery.rs (target\debug\deps\context_report_recovery-2d507c9b77f6c824.exe)
+2026-11-04T02:33:32.4540239Z 
+2026-11-04T02:33:32.4540782Z running 1 test
+2026-11-04T02:33:32.6897586Z test report_recovery_cas_preserves_concurrent_terminal_receipt ... ok
+2026-11-04T02:33:32.6897971Z 
+2026-11-04T02:33:32.6898317Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+2026-11-04T02:33:32.6898717Z 
+2026-11-04T02:33:32.6916946Z      Running tests\context_reports.rs (target\debug\deps\context_reports-7454387e03b99c88.exe)
+2026-11-04T02:33:32.7014502Z 
+2026-11-04T02:33:32.7014885Z running 4 tests
+2026-11-04T02:33:33.6203897Z test report_provenance_and_delivery_are_separate_facts ... ok
+2026-11-04T02:33:33.7462201Z test late_transport_ack_does_not_regress_playback ... ok
+2026-11-04T02:33:36.8327934Z test active_reports_are_never_evicted_or_mislabelled_as_heard ... ok
+2026-11-04T02:33:38.1567448Z test recovered_unknown_reports_are_terminal_and_release_capacity ... ok
+2026-11-04T02:33:38.1567862Z 
+2026-11-04T02:33:38.1568169Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.46s
+2026-11-04T02:33:38.1568442Z 
+2026-11-04T02:33:38.1586528Z      Running tests\context_store.rs (target\debug\deps\context_store-a572955fa6534bb4.exe)
+2026-11-04T02:33:38.1682652Z 
+2026-11-04T02:33:38.1682827Z running 2 tests
+2026-11-04T02:33:38.3318235Z test durable_state_is_idempotent_and_does_not_cross_areas ... ok
+2026-11-04T02:33:38.3910341Z test revision_and_source_order_guard_constraint_revisions ... ok
+2026-11-04T02:33:38.3910736Z 
+2026-11-04T02:33:38.3911012Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+2026-11-04T02:33:38.3911438Z 
+2026-11-04T02:33:38.3929964Z      Running tests\desktop_agent_audit.rs (target\debug\deps\desktop_agent_audit-4ff5737a3dc39cd6.exe)
+2026-11-04T02:33:38.4025265Z 
+2026-11-04T02:33:38.4025951Z running 2 tests
+2026-11-04T02:33:43.1117194Z test desktop_audit_migration_preserves_existing_rows_and_legacy_constraints ... ok
+2026-11-04T02:33:43.4218393Z test desktop_audit_uses_external_definition_without_duplicating_configuration ... ok
+2026-11-04T02:33:43.4219024Z 
+2026-11-04T02:33:43.4219361Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.02s
+2026-11-04T02:33:43.4219837Z 
+2026-11-04T02:33:43.4238106Z      Running tests\desktop_area_status.rs (target\debug\deps\desktop_area_status-3990565f1a7a3910.exe)
+2026-11-04T02:33:43.4343010Z 
+2026-11-04T02:33:43.4343404Z running 1 test
+2026-11-04T02:33:43.6944951Z test last_known_agent_status_is_scoped_ordered_and_removed_with_area ... ok
+2026-11-04T02:33:43.6945460Z 
+2026-11-04T02:33:43.6945840Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+2026-11-04T02:33:43.6946301Z 
+2026-11-04T02:33:43.6964503Z      Running tests\desktop_content_tabs.rs (target\debug\deps\desktop_content_tabs-c9f036c2333903f1.exe)
+2026-11-04T02:33:43.7072280Z 
+2026-11-04T02:33:43.7072776Z running 5 tests
+2026-11-04T02:33:44.5859931Z test background_browser_navigation_preserves_selected_duplicate_tab ... ok
+2026-11-04T02:33:44.7295489Z test browser_tab_is_reused_and_restored_with_workspace_scope ... ok
+2026-11-04T02:33:44.7343252Z test browser_navigation_updates_selected_tab_and_merges_duplicate_location ... ok
+2026-11-04T02:33:44.9359798Z test project_files_tab_round_trips ... ok
+2026-11-04T02:33:44.9810324Z test file_versions_and_removed_project_tabs_survive_selection_changes ... ok
+2026-11-04T02:33:44.9810815Z 
+2026-11-04T02:33:44.9811063Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.27s
+2026-11-04T02:33:44.9811344Z 
+2026-11-04T02:33:44.9831377Z      Running tests\desktop_dispatch_effect.rs (target\debug\deps\desktop_dispatch_effect-ba6ffe9f69f85479.exe)
+2026-11-04T02:33:44.9936329Z 
+2026-11-04T02:33:44.9936641Z running 5 tests
+2026-11-04T02:33:45.5042105Z test corrupt_json_reads_as_follow ... ok
+2026-11-04T02:33:45.5510520Z test unknown_style_is_kept_and_invalid_ids_are_rejected ... ok
+2026-11-04T02:33:45.8320425Z test clearing_a_workspace_returns_it_to_unset ... ok
+2026-11-04T02:33:45.9615949Z test list_returns_only_valid_rows ... ok
+2026-11-04T02:33:46.0177073Z test workspace_and_project_effects_persist_independently ... ok
+2026-11-04T02:33:46.0177540Z 
+2026-11-04T02:33:46.0177893Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
+2026-11-04T02:33:46.0178339Z 
+2026-11-04T02:33:46.0197994Z      Running tests\desktop_drawer_layout.rs (target\debug\deps\desktop_drawer_layout-acd596f99ee8224e.exe)
+2026-11-04T02:33:46.0305706Z 
+2026-11-04T02:33:46.0306328Z running 2 tests
+2026-11-04T02:33:46.3670398Z test floating_overview_layout_roundtrips_per_workspace ... ok
+2026-11-04T02:33:46.3685295Z test drawer_layout_persists_per_desktop_workspace ... ok
+2026-11-04T02:33:46.3685624Z 
+2026-11-04T02:33:46.3685858Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+2026-11-04T02:33:46.3686171Z 
+2026-11-04T02:33:46.3704834Z      Running tests\desktop_legacy_content.rs (target\debug\deps\desktop_legacy_content-1942bb8a9b78b3b7.exe)
+2026-11-04T02:33:46.3806564Z 
+2026-11-04T02:33:46.3806920Z running 2 tests
+2026-11-04T02:33:48.6055986Z test legacy_desktop_content_cleanup_is_idempotent_and_preserves_ego ... ok
+2026-11-04T02:33:48.7651450Z test desktop_preview_catalog_prunes_legacy_content_before_display ... ok
+2026-11-04T02:33:48.7651891Z 
+2026-11-04T02:33:48.7652241Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.38s
+2026-11-04T02:33:48.7652708Z 
+2026-11-04T02:33:48.7671849Z      Running tests\desktop_presentation.rs (target\debug\deps\desktop_presentation-95b7cfde2419c3e6.exe)
+2026-11-04T02:33:48.7779294Z 
+2026-11-04T02:33:48.7779784Z running 3 tests
+2026-11-04T02:33:49.4243036Z test presentation_duplicates_and_explicit_types_survive_reopen ... ok
+2026-11-04T02:33:49.6249538Z test first_copy_can_be_reused_and_navigation_keeps_independent_copies ... ok
+2026-11-04T02:33:49.7624534Z test presentation_migration_preserves_existing_content_tabs ... ok
+2026-11-04T02:33:49.7624850Z 
+2026-11-04T02:33:49.7625091Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.98s
+2026-11-04T02:33:49.7625414Z 
+2026-11-04T02:33:49.7644597Z      Running tests\desktop_project_instances.rs (target\debug\deps\desktop_project_instances-48978fe2d95d1a29.exe)
+2026-11-04T02:33:49.7752734Z 
+2026-11-04T02:33:49.7753173Z running 5 tests
+2026-11-04T02:33:50.8498593Z test project_canvas_rename_is_scoped_validated_and_persistent ... ok
+2026-11-04T02:33:51.1870545Z test legacy_project_catalog_migration_preserves_data_and_revision_triggers ... ok
+2026-11-04T02:33:51.4769967Z test revision_guarded_additions_allow_independent_instances ... ok
+2026-11-04T02:33:51.5547248Z test desktop_project_area_preserves_independent_git_worktree_canvases ... ok
+2026-11-04T02:33:52.5061559Z test repeated_project_additions_keep_canvases_independent ... ok
+2026-11-04T02:33:52.5061923Z 
+2026-11-04T02:33:52.5062146Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.73s
+2026-11-04T02:33:52.5062457Z 
+2026-11-04T02:33:52.5082069Z      Running tests\desktop_wallpaper.rs (target\debug\deps\desktop_wallpaper-39bc6cdd70c8184d.exe)
+2026-11-04T02:33:52.5182810Z 
+2026-11-04T02:33:52.5183122Z running 5 tests
+2026-11-04T02:33:52.9431876Z test earth_home_asset_is_a_valid_wallpaper_reference ... ok
+2026-11-04T02:33:53.5362281Z test legacy_wallpaper_migration_is_idempotent ... ok
+2026-11-04T02:33:53.5969571Z test workspace_wallpapers_persist_independently_after_copy ... ok
+2026-11-04T02:33:53.6014447Z test project_override_is_owned_by_workspace_area ... ok
+2026-11-04T02:33:53.7127958Z test shared_asset_cleanup_only_resets_referencing_scopes ... ok
+2026-11-04T02:33:53.7128243Z 
+2026-11-04T02:33:53.7128484Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.19s
+2026-11-04T02:33:53.7128806Z 
+2026-11-04T02:33:53.7149253Z      Running tests\desktop_workspace.rs (target\debug\deps\desktop_workspace-df0fdbd78fc351ce.exe)
+2026-11-04T02:33:53.7257193Z 
+2026-11-04T02:33:53.7257646Z running 7 tests
+2026-11-04T02:33:54.4926642Z test desktop_overview_scroll_positions_are_independent_and_persistent ... ok
+2026-11-04T02:33:54.6217694Z test desktop_expanded_area_survives_reopen_and_clears_on_remove ... ok
+2026-11-04T02:33:55.4651394Z test desktop_workspace_catalog_persists_independent_empty_workspaces ... ok
+2026-11-04T02:33:55.8143298Z test desktop_workspace_rejects_blank_names_without_writing ... ok
+2026-11-04T02:33:57.7791443Z test desktop_preview_preserves_saved_canvas_card_positions ... ok
+2026-11-04T02:33:59.0698113Z test deleting_desktop_area_and_workspace_only_removes_owned_canvas_files ... ok
+2026-11-04T02:33:59.4329765Z test desktop_area_canvas_files_are_isolated_from_each_other_and_legacy_project ... ok
+2026-11-04T02:33:59.4330290Z 
+2026-11-04T02:33:59.4330596Z test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.71s
+2026-11-04T02:33:59.4331047Z 
+2026-11-04T02:33:59.4350493Z      Running tests\desktop_workspace_names.rs (target\debug\deps\desktop_workspace_names-322541c5c498edae.exe)
+2026-11-04T02:33:59.4456376Z 
+2026-11-04T02:33:59.4456819Z running 1 test
+2026-11-04T02:33:59.6030557Z test desktop_workspace_names_preserve_unicode_boundaries_and_identity ... ok
+2026-11-04T02:33:59.6031060Z 
+2026-11-04T02:33:59.6031376Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+2026-11-04T02:33:59.6031862Z 
+2026-11-04T02:33:59.6049542Z      Running tests\desktop_workspace_platform.rs (target\debug\deps\desktop_workspace_platform-4a75a4899c03b84b.exe)
+2026-11-04T02:33:59.6159022Z 
+2026-11-04T02:33:59.6159480Z running 1 test
+2026-11-04T02:33:59.7276714Z test native_chinese_workspace_creation_persists_across_reopen ... ok
+2026-11-04T02:33:59.7277176Z 
+2026-11-04T02:33:59.7277477Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+2026-11-04T02:33:59.7277940Z 
+2026-11-04T02:33:59.7296418Z      Running tests\global_appearance.rs (target\debug\deps\global_appearance-f80046a294a7eefb.exe)
+2026-11-04T02:33:59.7403652Z 
+2026-11-04T02:33:59.7404044Z running 1 test
+2026-11-04T02:34:00.1428375Z test global_appearance_migrates_latest_project_once ... ok
+2026-11-04T02:34:00.1428678Z 
+2026-11-04T02:34:00.1428893Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+2026-11-04T02:34:00.1429203Z 
+2026-11-04T02:34:00.1447652Z      Running tests\global_project_storage.rs (target\debug\deps\global_project_storage-73071c07d0c1dcbf.exe)
+2026-11-04T02:34:00.1559410Z 
+2026-11-04T02:34:00.1559918Z running 7 tests
+2026-11-04T02:34:03.5217071Z test failed_import_does_not_publish_an_empty_database_and_can_retry ... ok
+2026-11-04T02:34:03.5388340Z test constructing_a_project_store_cannot_bypass_legacy_import ... ok
+2026-11-04T02:34:03.6565579Z test concurrent_initialization_publishes_one_complete_database ... ok
+2026-11-04T02:34:03.8654588Z test legacy_database_is_imported_once_including_committed_wal_data ... ok
+2026-11-04T02:34:06.2398815Z test opening_project_keeps_database_outside_the_repository ... ok
+2026-11-04T02:34:08.5127501Z test test_mode_never_imports_the_production_legacy_database ... ok
+2026-11-04T02:34:08.9787764Z test project_identity_and_database_mode_remain_isolated ... ok
+2026-11-04T02:34:08.9788111Z 
+2026-11-04T02:34:08.9788335Z test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.82s
+2026-11-04T02:34:08.9788650Z 
+2026-11-04T02:34:08.9805714Z      Running tests\grok_agent_profile.rs (target\debug\deps\grok_agent_profile-fd59504e06c1ff9e.exe)
+2026-11-04T02:34:08.9903742Z 
+2026-11-04T02:34:08.9903965Z running 1 test
+2026-11-04T02:34:09.6295111Z test grok_agent_definition_round_trips_through_storage ... ok
+2026-11-04T02:34:09.6295497Z 
+2026-11-04T02:34:09.6297210Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+2026-11-04T02:34:09.6297645Z 
+2026-11-04T02:34:09.6313134Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:34:09.6414649Z 
+2026-11-04T02:34:09.6414952Z running 5 tests
+2026-11-04T02:34:10.2564539Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:34:10.3505027Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:34:10.4614295Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:34:10.4674616Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:34:10.5707264Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:34:10.5707799Z 
+2026-11-04T02:34:10.5708118Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.93s
+2026-11-04T02:34:10.5708561Z 
+2026-11-04T02:34:10.5727800Z      Running tests\live_task_facts.rs (target\debug\deps\live_task_facts-1d9ce5bc329f6975.exe)
+2026-11-04T02:34:10.5847688Z 
+2026-11-04T02:34:10.5848225Z running 1 test
+2026-11-04T02:34:10.9904926Z test live_task_facts_persist_deduplicate_and_isolate_runtime_and_project ... ok
+2026-11-04T02:34:10.9906171Z 
+2026-11-04T02:34:10.9906414Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+2026-11-04T02:34:10.9906729Z 
+2026-11-04T02:34:10.9923952Z      Running tests\memory_access.rs (target\debug\deps\memory_access-4a031607763122d7.exe)
+2026-11-04T02:34:11.0031250Z 
+2026-11-04T02:34:11.0031760Z running 5 tests
+2026-11-04T02:34:12.0478614Z test explicit_memory_is_persistent_with_source ... ok
+2026-11-04T02:34:12.6056399Z test cancelled_write_and_versioned_long_read ... ok
+2026-11-04T02:34:13.1620266Z test refreshing_catalog_does_not_authorize_stale_topic_overwrite ... ok
+2026-11-04T02:34:13.4405928Z test stale_dialogue_cannot_overwrite_manual_correction ... ok
+2026-11-04T02:34:13.9580657Z test write_depends_on_model_call_not_phrasing_but_respects_save_switch ... ok
+2026-11-04T02:34:13.9581002Z 
+2026-11-04T02:34:13.9581216Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.95s
+2026-11-04T02:34:13.9581541Z 
+2026-11-04T02:34:13.9601740Z      Running tests\memory_durability.rs (target\debug\deps\memory_durability-ad200b5b7530fc59.exe)
+2026-11-04T02:34:13.9708875Z 
+2026-11-04T02:34:13.9709523Z running 2 tests
+2026-11-04T02:34:14.5835479Z test lost_receipt_reconciles_without_republishing ... ok
+2026-11-04T02:34:14.6384157Z test partial_read_cannot_authorize_overwriting_unseen_text ... ok
+2026-11-04T02:34:14.6384522Z 
+2026-11-04T02:34:14.6384734Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
+2026-11-04T02:34:14.6385175Z 
+2026-11-04T02:34:14.6405035Z      Running tests\memory_merge.rs (target\debug\deps\memory_merge-a707899bd1ce1e21.exe)
+2026-11-04T02:34:14.6506850Z 
+2026-11-04T02:34:14.6507241Z running 6 tests
+2026-11-04T02:34:16.1759583Z test reconciliation_requires_deletions_and_binds_their_operation_identity ... ok
+2026-11-04T02:34:16.3352438Z test later_dialogue_atomically_merges_and_removes_duplicate_topics ... ok
+2026-11-04T02:34:16.7002922Z test missing_deletion_target_cannot_be_reconciled_as_a_successful_merge ... ok
+2026-11-04T02:34:17.3005762Z test lost_merge_receipt_reconciles_without_rereading_deleted_topics ... ok
+2026-11-04T02:34:17.5003682Z test rejected_unread_merge_can_retry_after_reading_with_the_same_identity ... ok
+2026-11-04T02:34:17.9223438Z test unread_cancelled_disabled_or_stale_merge_preserves_all_topics ... ok
+2026-11-04T02:34:17.9223742Z 
+2026-11-04T02:34:17.9223981Z test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.27s
+2026-11-04T02:34:17.9224285Z 
+2026-11-04T02:34:17.9244204Z      Running tests\memory_platform.rs (target\debug\deps\memory_platform-a68eaa366c76f14d.exe)
+2026-11-04T02:34:17.9347545Z 
+2026-11-04T02:34:17.9348083Z running 1 test
+2026-11-04T02:34:18.2114214Z test native_publication_reopens_and_rejects_hardlinked_pointer ... ok
+2026-11-04T02:34:18.2114532Z 
+2026-11-04T02:34:18.2114748Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+2026-11-04T02:34:18.2115090Z 
+2026-11-04T02:34:18.2130955Z      Running tests\memory_preferences.rs (target\debug\deps\memory_preferences-ede5a2f7d0fd3bb4.exe)
+2026-11-04T02:34:18.2233029Z 
+2026-11-04T02:34:18.2233716Z running 2 tests
+2026-11-04T02:34:18.6144812Z test recall_revocation_survives_disable_then_enable ... ok
+2026-11-04T02:34:18.6832193Z test independent_switch_updates_preserve_other_saved_preference ... ok
+2026-11-04T02:34:18.6832668Z 
+2026-11-04T02:34:18.6832990Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+2026-11-04T02:34:18.6833452Z 
+2026-11-04T02:34:18.6851633Z      Running tests\memory_revision_metadata.rs (target\debug\deps\memory_revision_metadata-ec4f57dabe1915a2.exe)
+2026-11-04T02:34:18.6950402Z 
+2026-11-04T02:34:18.6951270Z running 1 test
+2026-11-04T02:34:18.8401170Z test memory_revision_metadata_validates_publication_without_reading_bodies ... ok
+2026-11-04T02:34:18.8402177Z 
+2026-11-04T02:34:18.8402887Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+2026-11-04T02:34:18.8403512Z 
+2026-11-04T02:34:18.8423708Z      Running tests\memory_scope.rs (target\debug\deps\memory_scope-1f9942eae30ecdca.exe)
+2026-11-04T02:34:18.8544234Z 
+2026-11-04T02:34:18.8544669Z running 2 tests
+2026-11-04T02:34:20.3792527Z test replacement_at_the_same_plain_path_cannot_inherit_memory_identity ... ok
+2026-11-04T02:34:20.8102144Z test repository_worktrees_share_only_project_memory ... ok
+2026-11-04T02:34:20.8102571Z 
+2026-11-04T02:34:20.8102833Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.96s
+2026-11-04T02:34:20.8103164Z 
+2026-11-04T02:34:20.8121991Z      Running tests\memory_store.rs (target\debug\deps\memory_store-f25710012a1bc790.exe)
+2026-11-04T02:34:20.8231464Z 
+2026-11-04T02:34:20.8232078Z running 4 tests
+2026-11-04T02:34:21.1770531Z test source_references_are_preserved_and_invalid_references_rejected ... ok
+2026-11-04T02:34:21.2157986Z test chinese_memory_survives_reopening_with_its_generated_catalog ... ok
+2026-11-04T02:34:21.3761472Z test project_shared_and_worktree_scopes_do_not_leak ... ok
+2026-11-04T02:34:21.3837713Z test snapshots_conflicts_and_restore_preserve_complete_revisions ... ok
+2026-11-04T02:34:21.3838157Z 
+2026-11-04T02:34:21.3838377Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+2026-11-04T02:34:21.3838687Z 
+2026-11-04T02:34:21.3854743Z      Running tests\memory_store_boundaries.rs (target\debug\deps\memory_store_boundaries-9bdbab0fe7c34608.exe)
+2026-11-04T02:34:21.3957142Z 
+2026-11-04T02:34:21.3957565Z running 4 tests
+2026-11-04T02:34:21.3960623Z test child_commit_respects_os_lock ... ok
+2026-11-04T02:34:21.7003798Z test symlink_scope_and_pointer_are_rejected ... ok
+2026-11-04T02:34:21.7022249Z test test_database_paths_and_revision_integrity_are_enforced ... ok
+2026-11-04T02:34:21.7522009Z test another_process_cannot_publish_while_scope_is_locked ... ok
+2026-11-04T02:34:21.7522435Z 
+2026-11-04T02:34:21.7522784Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+2026-11-04T02:34:21.7540112Z 
+2026-11-04T02:34:21.7540668Z      Running tests\memory_store_pointer_recovery.rs (target\debug\deps\memory_store_pointer_recovery-163018bb0cc72bf5.exe)
+2026-11-04T02:34:21.7655464Z 
+2026-11-04T02:34:21.7655895Z running 1 test
+2026-11-04T02:34:21.8591049Z test stale_pointer_from_a_reused_process_id_does_not_block_publication ... ok
+2026-11-04T02:34:21.8591369Z 
+2026-11-04T02:34:21.8591579Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+2026-11-04T02:34:21.8591882Z 
+2026-11-04T02:34:21.8607118Z      Running tests\memory_store_recovery.rs (target\debug\deps\memory_store_recovery-631b3277d7699bef.exe)
+2026-11-04T02:34:21.8704778Z 
+2026-11-04T02:34:21.8705012Z running 4 tests
+2026-11-04T02:34:22.1570054Z test symlink_topic_cannot_escape_the_revision ... ok
+2026-11-04T02:34:22.3432614Z test interrupted_preparation_is_never_a_read_or_restore_source ... ok
+2026-11-04T02:34:22.3452249Z test invalid_and_empty_candidates_preserve_live_memory ... ok
+2026-11-04T02:34:22.3558624Z test publication_failure_keeps_previous_revision_and_allows_retry ... ok
+2026-11-04T02:34:22.3559053Z 
+2026-11-04T02:34:22.3559408Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+2026-11-04T02:34:22.3559888Z 
+2026-11-04T02:34:22.3580207Z      Running tests\mobile_access.rs (target\debug\deps\mobile_access-7652ab17e3c5d552.exe)
+2026-11-04T02:34:22.3688286Z 
+2026-11-04T02:34:22.3688788Z running 5 tests
+2026-11-04T02:34:22.7745842Z test invalid_or_corrupt_grants_fail_closed ... ok
+2026-11-04T02:34:22.8128539Z MOBILE_AUTH_32_READS_MS=160.668
+2026-11-04T02:34:22.8169856Z MOBILE_AUTH_WITH_WRITER_MS=3.989 DB_CHANGED=false
+2026-11-04T02:34:23.0170489Z test authentication_does_not_write_or_wait_for_a_writer ... ok
+2026-11-04T02:34:23.2375944Z test device_grants_are_durable_scoped_and_revocable ... ok
+2026-11-04T02:34:23.3005285Z test legacy_mobile_grant_migrates_without_all_project_access ... ok
+2026-11-04T02:34:23.3087648Z test explicit_all_project_grant_includes_future_registered_projects_only ... ok
+2026-11-04T02:34:23.3088159Z 
+2026-11-04T02:34:23.3088461Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
+2026-11-04T02:34:23.3088836Z 
+2026-11-04T02:34:23.3110528Z      Running tests\mobile_activity.rs (target\debug\deps\mobile_activity-e03169d960aadc2c.exe)
+2026-11-04T02:34:23.3215733Z 
+2026-11-04T02:34:23.3216317Z running 4 tests
+2026-11-04T02:34:23.3221592Z test automatic_registration_does_not_require_a_workspace_selection ... ok
+2026-11-04T02:34:23.9381696Z test dismissed_activity_becomes_eligible_only_after_observed_idle ... ok
+2026-11-04T02:34:23.9496469Z test activity_registration_is_independent_and_revision_guarded ... ok
+2026-11-04T02:34:24.0706382Z test activity_start_reservation_and_token_recovery_are_durable ... ok
+2026-11-04T02:34:24.0706863Z 
+2026-11-04T02:34:24.0707172Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
+2026-11-04T02:34:24.0707649Z 
+2026-11-04T02:34:24.0726154Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:34:24.0830350Z 
+2026-11-04T02:34:24.0831093Z running 3 tests
+2026-11-04T02:34:24.4015145Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:34:24.4410990Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:34:24.5221432Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:34:24.5221882Z 
+2026-11-04T02:34:24.5222128Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+2026-11-04T02:34:24.5222409Z 
+2026-11-04T02:34:24.5240082Z      Running tests\mobile_delivery_acceptance.rs (target\debug\deps\mobile_delivery_acceptance-0b810d460c3d7631.exe)
+2026-11-04T02:34:24.5338950Z 
+2026-11-04T02:34:24.5339258Z running 1 test
+2026-11-04T02:34:26.1939984Z test acceptance_is_atomic_exact_and_never_transfers_to_another_turn ... ok
+2026-11-04T02:34:26.1940460Z 
+2026-11-04T02:34:26.1940798Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.66s
+2026-11-04T02:34:26.1941209Z 
+2026-11-04T02:34:26.1960021Z      Running tests\mobile_delivery_feedback.rs (target\debug\deps\mobile_delivery_feedback-91d39c557c600aae.exe)
+2026-11-04T02:34:26.2062937Z 
+2026-11-04T02:34:26.2063400Z running 1 test
+2026-11-04T02:34:27.2583714Z test feedback_preserves_origin_and_only_binds_a_new_turn_in_the_original_session ... ok
+2026-11-04T02:34:27.2584205Z 
+2026-11-04T02:34:27.2584526Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.05s
+2026-11-04T02:34:27.2584981Z 
+2026-11-04T02:34:27.2607280Z      Running tests\mobile_delivery_inbox.rs (target\debug\deps\mobile_delivery_inbox-71debe1ee76b063b.exe)
+2026-11-04T02:34:27.2719188Z 
+2026-11-04T02:34:27.2719679Z running 1 test
+2026-11-04T02:34:35.0831129Z test pending_deliveries_count_and_pages_are_scoped_and_indexed ... ok
+2026-11-04T02:34:35.0831423Z 
+2026-11-04T02:34:35.0831656Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.81s
+2026-11-04T02:34:35.0831955Z 
+2026-11-04T02:34:35.0847875Z      Running tests\mobile_desktop_scope.rs (target\debug\deps\mobile_desktop_scope-238bfa0ba1ab6c84.exe)
+2026-11-04T02:34:35.0947055Z 
+2026-11-04T02:34:35.0947349Z running 1 test
+2026-11-04T02:34:36.3423738Z test desktop_scope_keeps_delivery_and_acceptance_isolated ... ok
+2026-11-04T02:34:36.3424159Z 
+2026-11-04T02:34:36.3424499Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.25s
+2026-11-04T02:34:36.3424918Z 
+2026-11-04T02:34:36.3442619Z      Running tests\mobile_message_queue.rs (target\debug\deps\mobile_message_queue-c0884500d99c8726.exe)
+2026-11-04T02:34:36.3544493Z 
+2026-11-04T02:34:36.3545038Z running 4 tests
+2026-11-04T02:34:38.4956804Z test queue_cancel_competes_atomically_and_old_owners_never_replay ... ok
+2026-11-04T02:34:38.5114446Z test queue_retries_only_confirmed_pre_input_rejections ... ok
+2026-11-04T02:34:38.5319635Z test queue_persists_exact_content_and_serializes_each_card ... ok
+2026-11-04T02:34:45.0725956Z test queue_ack_rolls_back_on_insert_failure_and_capacity_never_evicts_messages ... ok
+2026-11-04T02:34:45.0726367Z 
+2026-11-04T02:34:45.0726610Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.72s
+2026-11-04T02:34:45.0726909Z 
+2026-11-04T02:34:45.0745026Z      Running tests\mobile_message_queue_cursor.rs (target\debug\deps\mobile_message_queue_cursor-2a22d87777154226.exe)
+2026-11-04T02:34:45.0848035Z 
+2026-11-04T02:34:45.0848533Z running 1 test
+2026-11-04T02:34:45.4168655Z test queue_migrates_legacy_profile_constraint_and_accepts_cursor ... ok
+2026-11-04T02:34:45.4169019Z 
+2026-11-04T02:34:45.4169272Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+2026-11-04T02:34:45.4169561Z 
+2026-11-04T02:34:45.4186521Z      Running tests\mobile_push_subscriptions.rs (target\debug\deps\mobile_push_subscriptions-47b059b382cda44f.exe)
+2026-11-04T02:34:45.4287027Z 
+2026-11-04T02:34:45.4287377Z running 1 test
+2026-11-04T02:34:46.0324567Z test subscriptions_cannot_outlive_revocation_or_replace_newer_registration ... ok
+2026-11-04T02:34:46.0324938Z 
+2026-11-04T02:34:46.0325186Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
+2026-11-04T02:34:46.0325464Z 
+2026-11-04T02:34:46.0343324Z      Running tests\mobile_realtime_recovery.rs (target\debug\deps\mobile_realtime_recovery-de923e65f5657157.exe)
+2026-11-04T02:34:46.0446532Z 
+2026-11-04T02:34:46.0447043Z running 2 tests
+2026-11-04T02:34:46.3201031Z test interrupted_reservation_remains_frozen_until_proven ... ok
+2026-11-04T02:34:48.2841109Z test durable_turn_budget_survives_reopening_and_replay ... ok
+2026-11-04T02:34:48.2841385Z 
+2026-11-04T02:34:48.2841624Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.24s
+2026-11-04T02:34:48.2842028Z 
+2026-11-04T02:34:48.2857859Z      Running tests\mobile_repairing.rs (target\debug\deps\mobile_repairing-571e2dd6315908fb.exe)
+2026-11-04T02:34:48.2955297Z 
+2026-11-04T02:34:48.2955636Z running 1 test
+2026-11-04T02:34:48.5408640Z test desktop_reapproval_reuses_revoked_device_without_old_permissions ... ok
+2026-11-04T02:34:48.5408986Z 
+2026-11-04T02:34:48.5409202Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+2026-11-04T02:34:48.5409507Z 
+2026-11-04T02:34:48.5426324Z      Running tests\mobile_sessions.rs (target\debug\deps\mobile_sessions-b3959a89ea5bec68.exe)
+2026-11-04T02:34:48.5526952Z 
+2026-11-04T02:34:48.5527210Z running 6 tests
+2026-11-04T02:34:49.2960751Z test cursor_session_persists_bound_transcript_reference ... ok
+2026-11-04T02:34:49.3299896Z test session_index_is_durable_scoped_and_immutable ... ok
+2026-11-04T02:34:49.3598069Z test native_events_preserve_session_identity_and_record_exact_turn ... ok
+2026-11-04T02:35:23.0399276Z test transcript_reference_uses_existing_writer_and_cannot_be_rebound ... ok
+2026-11-04T02:35:24.7441336Z test session_rejects_unsafe_paths_without_persisting_an_identity ... ok
+2026-11-04T02:35:35.9624419Z test session_history_pages_without_duplicates ... ok
+2026-11-04T02:35:35.9624763Z 
+2026-11-04T02:35:35.9625112Z test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 47.41s
+2026-11-04T02:35:35.9625564Z 
+2026-11-04T02:35:35.9643930Z      Running tests\mobile_task_baselines.rs (target\debug\deps\mobile_task_baselines-236b62fca4773ef1.exe)
+2026-11-04T02:35:35.9754446Z 
+2026-11-04T02:35:35.9755528Z running 4 tests
+2026-11-04T02:35:36.7671362Z test task_baseline_is_durable_scoped_and_immutable ... ok
+2026-11-04T02:35:36.9010873Z test baseline_failure_is_explicit_and_invalid_content_is_not_saved ... ok
+2026-11-04T02:35:36.9782411Z test command_turn_lookup_is_durable_and_scope_checked ... ok
+2026-11-04T02:35:37.8790154Z test delivery_metadata_follows_original_operation_not_latest_node ... ok
+2026-11-04T02:35:37.8790614Z 
+2026-11-04T02:35:37.8790922Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.90s
+2026-11-04T02:35:37.8791351Z 
+2026-11-04T02:35:37.8810256Z      Running tests\mobile_task_deliveries.rs (target\debug\deps\mobile_task_deliveries-033c19fb94460c0b.exe)
+2026-11-04T02:35:37.8915385Z 
+2026-11-04T02:35:37.8915963Z running 4 tests
+2026-11-04T02:35:42.0855546Z test frozen_file_version_resolves_exact_task_source ... ok
+2026-11-04T02:35:42.5121116Z test delivery_is_frozen_scoped_and_requires_a_real_outcome ... ok
+2026-11-04T02:35:44.8095133Z test reviewable_file_refs_keep_task_source_and_skip_deleted_files ... ok
+2026-11-04T02:35:46.9607183Z test project_delivery_pages_span_cards_without_crossing_workspaces ... ok
+2026-11-04T02:35:46.9607671Z 
+2026-11-04T02:35:46.9608014Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.07s
+2026-11-04T02:35:46.9608441Z 
+2026-11-04T02:35:46.9627469Z      Running tests\mobile_thread_commands.rs (target\debug\deps\mobile_thread_commands-752f0c6b2b03f219.exe)
+2026-11-04T02:35:46.9732348Z 
+2026-11-04T02:35:46.9733086Z running 5 tests
+2026-11-04T02:35:46.9753938Z test missing_execution_lookup_does_not_create_a_project_database ... ok
+2026-11-04T02:35:48.1083850Z test thread_command_keeps_identity_across_routes_and_restarts ... ok
+2026-11-04T02:35:48.4799029Z test thread_binding_failure_does_not_reserve_or_hijack_a_command ... ok
+2026-11-04T02:35:48.5013512Z test thread_execution_events_are_durable_bound_and_monotonic ... ok
+2026-11-04T02:35:49.1989886Z test thread_execution_only_attaches_the_original_commands_delivery ... ok
+2026-11-04T02:35:49.1990226Z 
+2026-11-04T02:35:49.1990510Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.23s
+2026-11-04T02:35:49.1990804Z 
+2026-11-04T02:35:49.2009563Z      Running tests\mobile_thread_delivery.rs (target\debug\deps\mobile_thread_delivery-709a810c33e138de.exe)
+2026-11-04T02:35:49.2110069Z 
+2026-11-04T02:35:49.2110815Z running 2 tests
+2026-11-04T02:35:49.4993567Z test durable_receipt_survives_reopen_and_rejects_changed_identity ... ok
+2026-11-04T02:35:49.5008185Z test event_write_failure_rolls_back_the_entire_receipt ... ok
+2026-11-04T02:35:49.5008485Z 
+2026-11-04T02:35:49.5008724Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+2026-11-04T02:35:49.5009034Z 
+2026-11-04T02:35:49.5027028Z      Running tests\mobile_thread_followup.rs (target\debug\deps\mobile_thread_followup-90934d07dc4e05e3.exe)
+2026-11-04T02:35:49.5130250Z 
+2026-11-04T02:35:49.5130644Z running 3 tests
+2026-11-04T02:35:49.9333189Z test thread_followup_queue_is_atomic_bound_and_never_retargeted ... ok
+2026-11-04T02:35:50.1097532Z test failed_followup_binding_rolls_back_queue_and_cannot_hijack_legacy_commands ... ok
+2026-11-04T02:35:50.2791885Z test followup_predecessor_is_confirmed_scoped_and_precedes_current_queue ... ok
+2026-11-04T02:35:50.2792388Z 
+2026-11-04T02:35:50.2792708Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.77s
+2026-11-04T02:35:50.2793138Z 
+2026-11-04T02:35:50.2811118Z      Running tests\mobile_turn_outcomes.rs (target\debug\deps\mobile_turn_outcomes-a35879bf3d4f45c6.exe)
+2026-11-04T02:35:50.2914269Z 
+2026-11-04T02:35:50.2914757Z running 2 tests
+2026-11-04T02:35:52.4055192Z test turn_outcomes_in_app_database_remain_workspace_scoped ... ok
+2026-11-04T02:35:53.0640554Z test turn_outcomes_are_durable_exact_and_immutable ... ok
+2026-11-04T02:35:53.0640842Z 
+2026-11-04T02:35:53.0641084Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.77s
+2026-11-04T02:35:53.0641580Z 
+2026-11-04T02:35:53.0659930Z      Running tests\new_cli_agent_profiles.rs (target\debug\deps\new_cli_agent_profiles-2ac23f3928494543.exe)
+2026-11-04T02:35:53.0761868Z 
+2026-11-04T02:35:53.0762203Z running 1 test
+2026-11-04T02:35:54.0486847Z test new_cli_agent_definitions_round_trip_through_storage ... ok
+2026-11-04T02:35:54.0487144Z 
+2026-11-04T02:35:54.0487360Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.97s
+2026-11-04T02:35:54.0487663Z 
+2026-11-04T02:35:54.0505066Z      Running tests\orchestration_self_identity.rs (target\debug\deps\orchestration_self_identity-7ac13a5a5e3e6570.exe)
+2026-11-04T02:35:54.0607923Z 
+2026-11-04T02:35:54.0608251Z running 1 test
+2026-11-04T02:35:54.1640928Z test cross_workspace_same_definition_is_not_self_dispatch ... ok
+2026-11-04T02:35:54.1641244Z 
+2026-11-04T02:35:54.1641483Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+2026-11-04T02:35:54.1641775Z 
+2026-11-04T02:35:54.1659358Z      Running tests\project_plans.rs (target\debug\deps\project_plans-c839013e5429131c.exe)
+2026-11-04T02:35:54.1765621Z 
+2026-11-04T02:35:54.1766017Z running 2 tests
+2026-11-04T02:35:54.5275177Z test direction_publication_checks_latest_plan_atomically ... ok
+2026-11-04T02:35:54.5951458Z test plans_preserve_directions_and_page_without_cross_project_reads ... ok
+2026-11-04T02:35:54.5951942Z 
+2026-11-04T02:35:54.5952238Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+2026-11-04T02:35:54.5952703Z 
+2026-11-04T02:35:54.5970504Z      Running tests\project_todo_decisions.rs (target\debug\deps\project_todo_decisions-e7d863362a6ff60b.exe)
+2026-11-04T02:35:54.6078799Z 
+2026-11-04T02:35:54.6079441Z running 4 tests
+2026-11-04T02:35:55.2656941Z test todo_claim_and_command_commit_once_across_devices ... ok
+2026-11-04T02:35:55.5361318Z test retry::todo_explicit_retry_requires_exact_non_delivery_and_keeps_old_receipt ... ok
+2026-11-04T02:35:55.6482754Z test todo_rejection_and_queue_preserve_original_instruction ... ok
+2026-11-04T02:35:55.6658254Z test retry::todo_retry_cancels_old_owner_queue_atomically_but_never_replays_claimed_input ... ok
+2026-11-04T02:35:55.6658572Z 
+2026-11-04T02:35:55.6658779Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.06s
+2026-11-04T02:35:55.6659042Z 
+2026-11-04T02:35:55.6678578Z      Running tests\question_delivery.rs (target\debug\deps\question_delivery-f614819c06e921f8.exe)
+2026-11-04T02:35:55.6779323Z 
+2026-11-04T02:35:55.6779825Z running 3 tests
+2026-11-04T02:35:56.0727828Z test delivery_intent_is_durable_exclusive_and_never_reclaimed ... ok
+2026-11-04T02:35:56.2627267Z test question_outcome_migration_preserves_legacy_confirmed_receipt ... ok
+2026-11-04T02:35:56.5180699Z test question_terminal_outcomes_are_durable_immutable_and_not_replayable ... ok
+2026-11-04T02:35:56.5181136Z 
+2026-11-04T02:35:56.5181423Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.84s
+2026-11-04T02:35:56.5181861Z 
+2026-11-04T02:35:56.5200360Z      Running tests\workspace_chat.rs (target\debug\deps\workspace_chat-f7b2e4d716c38f4b.exe)
+2026-11-04T02:35:56.5325060Z 
+2026-11-04T02:35:56.5325828Z running 9 tests
+2026-11-04T02:35:56.9231344Z test receipt_survives_restart_and_transport_retry ... ok
+2026-11-04T02:35:57.1978572Z test claim_once_and_resume_events ... ok
+2026-11-04T02:35:57.2137977Z test event_pages_respect_relay_byte_budget ... ok
+2026-11-04T02:35:57.2259098Z test desktop_agent_changes_invalidate_mobile_configuration ... ok
+2026-11-04T02:35:57.7272396Z test stale_configuration_cannot_overwrite_desktop_change ... ok
+2026-11-04T02:35:57.8736256Z test removed_area_invalidates_queued_scope ... ok
+2026-11-04T02:35:58.0769080Z test shared_context_is_scoped_durable_and_bounded ... ok
+2026-11-04T02:35:58.0796456Z test restart_preserves_execution_reference_and_late_result ... ok
+2026-11-04T02:35:58.1930859Z test uncertain_finish_retains_bound_execution ... ok
+2026-11-04T02:35:58.1931356Z 
+2026-11-04T02:35:58.1931700Z test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.66s
+2026-11-04T02:35:58.1931966Z 
+2026-11-04T02:35:58.1952045Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:35:58.2054261Z 
+2026-11-04T02:35:58.2054679Z running 2 tests
+2026-11-04T02:35:58.5821111Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:35:58.6644114Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:35:58.6644367Z 
+2026-11-04T02:35:58.6644571Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+2026-11-04T02:35:58.6644840Z 
+2026-11-04T02:35:58.6663351Z      Running tests\workspace_ideas.rs (target\debug\deps\workspace_ideas-8d9bf99cfdfabb0a.exe)
+2026-11-04T02:35:58.6771738Z 
+2026-11-04T02:35:58.6772232Z running 9 tests
+2026-11-04T02:35:59.3543475Z test capture_generates_distinct_ids_for_identical_bodies ... ok
+2026-11-04T02:35:59.4417615Z test begin_dispatch_succeeds_exactly_once_under_contention ... ok
+2026-11-04T02:35:59.9387535Z test deleting_workspace_removes_its_ideas ... ok
+2026-11-04T02:36:00.1171853Z test assignment_completion_failure_and_retract_follow_state_machine ... ok
+2026-11-04T02:36:00.6195526Z test ideas_keep_images_multiline_bodies_and_build_dispatch_text ... ok
+2026-11-04T02:36:00.6731503Z test ideas_are_scoped_ordered_durable_and_hide_dismissed ... ok
+2026-11-04T02:36:01.3034854Z test deleting_ideas_removes_their_image_files ... ok
+2026-11-04T02:36:01.5084624Z test restore_returns_to_original_position_and_dispatching_cannot_be_dismissed ... ok
+2026-11-04T02:36:01.5540155Z test reconcile_resolves_dispatching_by_task_ref_and_leaves_others_alone ... ok
+2026-11-04T02:36:01.5540597Z 
+2026-11-04T02:36:01.5540905Z test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.88s
+2026-11-04T02:36:01.5541304Z 
+2026-11-04T02:36:01.5560573Z      Running tests\workspace_ideas_lifecycle.rs (target\debug\deps\workspace_ideas_lifecycle-db723bade601be7f.exe)
+2026-11-04T02:36:01.5668802Z 
+2026-11-04T02:36:01.5669494Z running 9 tests
+2026-11-04T02:36:03.2433430Z test adopt_task_ref_replaces_only_placeholders ... ok
+2026-11-04T02:36:04.3261251Z test deleting_done_by_ids_only_removes_listed_done_ideas ... ok
+2026-11-04T02:36:04.3784933Z test completing_assigned_by_ids_skips_unlisted_and_foreign_ideas ... ok
+2026-11-04T02:36:04.9483929Z test applying_task_phases_completes_or_retracts_idempotently ... ok
+2026-11-04T02:36:05.7166283Z test reconcile_skips_fresh_dispatching_ideas ... ok
+2026-11-04T02:36:06.0239364Z test purge_removes_only_old_done_ideas ... ok
+2026-11-04T02:36:06.1904831Z test reconcile_unknown_keeps_dispatching ... ok
+2026-11-04T02:36:16.9383438Z test mobile_view_is_bounded_coarse_and_hides_dismissed ... ok
+2026-11-04T02:36:30.8140390Z test mobile_view_sanitizes_titles_and_keeps_todos_first ... ok
+2026-11-04T02:36:30.8140739Z 
+2026-11-04T02:36:30.8140968Z test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.25s
+2026-11-04T02:36:30.8141282Z 
+2026-11-04T02:36:30.8160947Z      Running tests\workspace_ideas_reorder.rs (target\debug\deps\workspace_ideas_reorder-596b9f6ec44624ba.exe)
+2026-11-04T02:36:30.8272213Z 
+2026-11-04T02:36:30.8272652Z running 3 tests
+2026-11-04T02:36:31.7860439Z test move_before_rejects_non_todo_and_invalid_targets ... ok
+2026-11-04T02:36:31.8192149Z test move_before_reorders_and_persists ... ok
+2026-11-04T02:36:32.2524704Z test move_before_survives_gap_exhaustion ... ok
+2026-11-04T02:36:32.2524952Z 
+2026-11-04T02:36:32.2525194Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.43s
+2026-11-04T02:36:32.2525493Z 
+2026-11-04T02:36:32.2542987Z    Doc-tests storage
+2026-11-04T02:36:32.7565210Z 
+2026-11-04T02:36:32.7565825Z running 0 tests
+2026-11-04T02:36:32.7566089Z 
+2026-11-04T02:36:32.7566461Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-11-04T02:36:32.7567441Z 
+2026-11-04T02:36:33.3027143Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.48s
+2026-11-04T02:36:33.3327957Z      Running unittests src\lib.rs (target\debug\deps\storage-142fd333ac84b1b8.exe)
+2026-11-04T02:36:33.3403793Z 
+2026-11-04T02:36:33.3404311Z running 1 test
+2026-11-04T02:36:33.3407533Z test database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary ... ok
+2026-11-04T02:36:33.3407959Z 
+2026-11-04T02:36:33.3408318Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 75 filtered out; finished in 0.00s
+2026-11-04T02:36:33.3408620Z 
+2026-11-04T02:36:33.8047764Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:36:33.8327842Z      Running tests\global_project_storage.rs (target\debug\deps\global_project_storage-73071c07d0c1dcbf.exe)
+2026-11-04T02:36:33.8395229Z 
+2026-11-04T02:36:33.8395744Z running 7 tests
+2026-11-04T02:36:37.2507077Z test concurrent_initialization_publishes_one_complete_database ... ok
+2026-11-04T02:36:37.3525911Z test failed_import_does_not_publish_an_empty_database_and_can_retry ... ok
+2026-11-04T02:36:37.5055009Z test constructing_a_project_store_cannot_bypass_legacy_import ... ok
+2026-11-04T02:36:37.6276100Z test legacy_database_is_imported_once_including_committed_wal_data ... ok
+2026-11-04T02:36:39.7870581Z test opening_project_keeps_database_outside_the_repository ... ok
+2026-11-04T02:36:41.9401738Z test test_mode_never_imports_the_production_legacy_database ... ok
+2026-11-04T02:36:42.5310398Z test project_identity_and_database_mode_remain_isolated ... ok
+2026-11-04T02:36:42.5310805Z 
+2026-11-04T02:36:42.5311192Z test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.69s
+2026-11-04T02:36:42.5311533Z 
+2026-11-04T02:36:42.9934638Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:36:43.0180224Z      Running tests\memory_scope.rs (target\debug\deps\memory_scope-1f9942eae30ecdca.exe)
+2026-11-04T02:36:43.0250362Z 
+2026-11-04T02:36:43.0250775Z running 2 tests
+2026-11-04T02:36:43.8016967Z test replacement_at_the_same_plain_path_cannot_inherit_memory_identity ... ok
+2026-11-04T02:36:44.2336636Z test repository_worktrees_share_only_project_memory ... ok
+2026-11-04T02:36:44.2336934Z 
+2026-11-04T02:36:44.2337148Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.21s
+2026-11-04T02:36:44.2337454Z 
+2026-11-04T02:36:44.6910818Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:36:44.7152987Z      Running tests\mobile_sessions.rs (target\debug\deps\mobile_sessions-b3959a89ea5bec68.exe)
+2026-11-04T02:36:44.7218506Z 
+2026-11-04T02:36:44.7218920Z running 6 tests
+2026-11-04T02:36:45.3939324Z test cursor_session_persists_bound_transcript_reference ... ok
+2026-11-04T02:36:45.4233524Z test session_index_is_durable_scoped_and_immutable ... ok
+2026-11-04T02:36:45.4606499Z test native_events_preserve_session_identity_and_record_exact_turn ... ok
+2026-11-04T02:36:48.1913188Z test transcript_reference_uses_existing_writer_and_cannot_be_rebound ... ok
+2026-11-04T02:36:48.3510690Z test session_rejects_unsafe_paths_without_persisting_an_identity ... ok
+2026-11-04T02:36:49.3233867Z test session_history_pages_without_duplicates ... ok
+2026-11-04T02:36:49.3234214Z 
+2026-11-04T02:36:49.3234542Z test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.60s
+2026-11-04T02:36:49.3235015Z 
+2026-11-04T02:36:49.7920424Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.41s
+2026-11-04T02:36:49.8166974Z      Running tests\app_migration_atomic.rs (target\debug\deps\app_migration_atomic-107f8b82d29836e2.exe)
+2026-11-04T02:36:49.8231444Z 
+2026-11-04T02:36:49.8231891Z running 2 tests
+2026-11-04T02:36:49.8320313Z test user_version_one_does_not_skip_the_remaining_app_schema ... ok
+2026-11-04T02:36:49.9793935Z test app_migration_failure_preserves_original_schema_and_can_retry ... ok
+2026-11-04T02:36:49.9795122Z 
+2026-11-04T02:36:49.9795353Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+2026-11-04T02:36:49.9795658Z 
+2026-11-04T02:36:50.4380844Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:36:50.4626186Z      Running tests\mobile_access.rs (target\debug\deps\mobile_access-7652ab17e3c5d552.exe)
+2026-11-04T02:36:50.4696571Z 
+2026-11-04T02:36:50.4697016Z running 1 test
+2026-11-04T02:36:50.6833552Z MOBILE_AUTH_32_READS_MS=128.176
+2026-11-04T02:36:50.6872640Z MOBILE_AUTH_WITH_WRITER_MS=3.945 DB_CHANGED=false
+2026-11-04T02:36:50.7223044Z test authentication_does_not_write_or_wait_for_a_writer ... ok
+2026-11-04T02:36:50.7223429Z 
+2026-11-04T02:36:50.7223751Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.25s
+2026-11-04T02:36:50.7224202Z 
+2026-11-04T02:36:51.0532267Z    Compiling syn v2.0.118
+2026-11-04T02:36:51.0548751Z    Compiling smallvec v1.15.2
+2026-11-04T02:36:51.2355813Z    Compiling windows-sys v0.61.2
+2026-11-04T02:36:54.3215824Z    Compiling synstructure v0.13.2
+2026-11-04T02:36:59.4399034Z    Compiling serde_core v1.0.228
+2026-11-04T02:36:59.9541360Z    Compiling percent-encoding v2.3.2
+2026-11-04T02:37:00.1722421Z    Compiling form_urlencoded v1.2.2
+2026-11-04T02:37:00.4526691Z    Compiling serde v1.0.228
+2026-11-04T02:37:00.9587362Z    Compiling dirs-sys v0.5.0
+2026-11-04T02:37:03.1812429Z    Compiling once_cell v1.21.4
+2026-11-04T02:37:03.3496567Z    Compiling tempfile v3.27.0
+2026-11-04T02:37:04.4429173Z    Compiling dirs v6.0.0
+2026-11-04T02:37:06.0639002Z    Compiling zerofrom-derive v0.1.7
+2026-11-04T02:37:06.0639517Z    Compiling yoke-derive v0.8.2
+2026-11-04T02:37:13.6234000Z    Compiling zerovec-derive v0.11.3
+2026-11-04T02:37:14.7259255Z    Compiling zerofrom v0.1.8
+2026-11-04T02:37:14.8058564Z    Compiling yoke v0.8.3
+2026-11-04T02:37:14.9515208Z    Compiling displaydoc v0.2.6
+2026-11-04T02:37:19.8623949Z    Compiling zerovec v0.11.6
+2026-11-04T02:37:20.0422520Z    Compiling zerotrie v0.2.4
+2026-11-04T02:37:20.4488439Z    Compiling tinystr v0.8.3
+2026-11-04T02:37:20.4844452Z    Compiling potential_utf v0.1.5
+2026-11-04T02:37:20.6022304Z    Compiling icu_locale_core v2.2.0
+2026-11-04T02:37:20.6455759Z    Compiling icu_collections v2.2.0
+2026-11-04T02:37:21.4694981Z    Compiling icu_provider v2.2.0
+2026-11-04T02:37:22.0884688Z    Compiling icu_properties v2.2.0
+2026-11-04T02:37:23.7843373Z    Compiling icu_normalizer v2.2.0
+2026-11-04T02:37:23.8500178Z    Compiling serde_derive v1.0.228
+2026-11-04T02:37:25.2858665Z    Compiling idna_adapter v1.2.2
+2026-11-04T02:37:25.3673009Z    Compiling idna v1.1.0
+2026-11-04T02:37:28.3983572Z    Compiling url v2.5.8
+2026-11-04T02:37:31.3235593Z    Compiling git2 v0.20.4
+2026-11-04T02:37:39.9057746Z    Compiling workspace v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace)
+2026-11-04T02:37:41.0488818Z warning: unused import: `std::sync::mpsc`
+2026-11-04T02:37:41.0489702Z  --> crates\workspace\src\git_clone\..\..\tests\unit\git_clone_runner_tests.rs:7:5
+2026-11-04T02:37:41.0490221Z   |
+2026-11-04T02:37:41.0490512Z 7 | use std::sync::mpsc;
+2026-11-04T02:37:41.0490822Z   |     ^^^^^^^^^^^^^^^
+2026-11-04T02:37:41.0491087Z   |
+2026-11-04T02:37:41.0491498Z   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+2026-11-04T02:37:41.0491846Z 
+2026-11-04T02:37:41.0491987Z warning: unused imports: `Duration` and `Instant`
+2026-11-04T02:37:41.0492503Z  --> crates\workspace\src\git_clone\..\..\tests\unit\git_clone_runner_tests.rs:8:17
+2026-11-04T02:37:41.0493178Z   |
+2026-11-04T02:37:41.0493582Z 8 | use std::time::{Duration, Instant};
+2026-11-04T02:37:41.0493903Z   |                 ^^^^^^^^  ^^^^^^^
+2026-11-04T02:37:41.0494088Z 
+2026-11-04T02:37:41.6142798Z warning: associated function `with_binary_for_test` is never used
+2026-11-04T02:37:41.6143687Z    --> crates\workspace\src\git_clone\runner.rs:149:19
+2026-11-04T02:37:41.6144551Z     |
+2026-11-04T02:37:41.6144990Z 141 | impl GitCloneRunner {
+2026-11-04T02:37:41.6145485Z     | ------------------- associated function in this implementation
+2026-11-04T02:37:41.6145891Z ...
+2026-11-04T02:37:41.6146233Z 149 |     pub(crate) fn with_binary_for_test(git_binary: PathBuf) -> Self {
+2026-11-04T02:37:41.6146670Z     |                   ^^^^^^^^^^^^^^^^^^^^
+2026-11-04T02:37:41.6146973Z     |
+2026-11-04T02:37:41.6147280Z     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+2026-11-04T02:37:41.6147610Z 
+2026-11-04T02:37:49.1384076Z warning: `workspace` (lib test) generated 3 warnings (run `cargo fix --lib -p workspace --tests` to apply 2 suggestions)
+2026-11-04T02:37:49.3779949Z     Finished `test` profile [optimized + debuginfo] target(s) in 58.59s
+2026-11-04T02:37:49.3922637Z      Running unittests src\lib.rs (target\debug\deps\workspace-fbde2e24ceec713f.exe)
+2026-11-04T02:37:49.4022186Z 
+2026-11-04T02:37:49.4022513Z running 35 tests
+2026-11-04T02:37:49.4045993Z test git_clone::destination_tests::clone_destination_accepts_new_direct_child_without_creating_it ... ok
+2026-11-04T02:37:49.4063322Z test git_clone::destination_tests::clone_destination_rejects_existing_target_and_missing_parent ... ok
+2026-11-04T02:37:49.4070206Z test content::atomic::tests::restored_conflict_keeps_draft_when_attributes_cannot_be_persisted ... ok
+2026-11-04T02:37:49.4071655Z test git_clone::destination_tests::clone_destination_rejects_path_traversal_and_non_segment_names ... ok
+2026-11-04T02:37:49.4072512Z test git_clone::failure_tests::git_failure_classifier_groups_https_and_ssh_authentication_errors ... ok
+2026-11-04T02:37:49.4075207Z test git_clone::failure_tests::git_failure_classifier_separates_repository_host_and_network_failures ... ok
+2026-11-04T02:37:49.4077102Z test git_clone::progress_tests::git_progress_parser_discards_out_of_range_or_malformed_percentages ... ok
+2026-11-04T02:37:49.4077931Z test git_clone::progress_tests::git_progress_parser_handles_remote_prefix_and_ignores_unknown_noise ... ok
+2026-11-04T02:37:49.4079549Z test git_clone::progress_tests::git_progress_parser_maps_clone_stages_and_percentages ... ok
+2026-11-04T02:37:49.4082172Z test git_clone::remote_tests::github_remote_normalizes_supported_https_and_ssh_forms ... ok
+2026-11-04T02:37:49.4084101Z test git_clone::remote_tests::github_remote_rejects_ambiguous_or_unsafe_addresses ... ok
+2026-11-04T02:37:49.4085814Z test git_clone::remote_tests::github_remote_trims_outer_whitespace_without_accepting_invalid_names ... ok
+2026-11-04T02:37:49.4111042Z test git_clone::runner::owned_target::tests::clone_target_capture_rejects_directory_links ... ok
+2026-11-04T02:37:49.4137671Z test content::atomic::tests::failed_rollback_and_keep_preserve_both_versions ... ok
+2026-11-04T02:37:49.4154645Z test git_clone::runner::owned_target::tests::clone_target_cleanup_preserves_external_readonly_hardlink ... ok
+2026-11-04T02:37:49.4165113Z test content::atomic::tests::exchange_preserves_external_edit_arriving_before_replace ... ok
+2026-11-04T02:37:49.4222095Z test git_clone::runner::owned_target::tests::clone_target_cleanup_preserves_replacement_directory ... ok
+2026-11-04T02:37:49.4234809Z test git_clone::runner::owned_target::tests::clone_target_cleanup_removes_owned_directory ... ok
+2026-11-04T02:37:49.4282323Z test git_clone::runner::owned_target::tests::clone_target_creation_pins_identity_before_granting_cleanup ... ok
+2026-11-04T02:37:49.4303336Z test git_clone::runner::owned_target::tests::clone_target_cleanup_does_not_follow_nested_junction ... ok
+2026-11-04T02:37:49.6640791Z warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+2026-11-04T02:37:49.6646721Z warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+2026-11-04T02:37:49.6943198Z test git_clone::runner_tests::git_clone_runner_cleans_owned_target_after_git_failure ... ok
+2026-11-04T02:37:49.7998901Z warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+2026-11-04T02:37:49.8260254Z test git_clone::runner::owned_target::tests::clone_target_cleanup_reads_all_directory_enumeration_batches ... ok
+2026-11-04T02:37:49.8664205Z raw verbatim clone: status=exit code: 128 stderr=fatal: could not create work tree dir '\\?\C:\Users\runneradmin\AppData\Local\Temp\.tmpKT1q9p\中文 projects\raw-probe': Invalid argument
+2026-11-04T02:37:49.8665092Z 
+2026-11-04T02:37:49.9230819Z warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+2026-11-04T02:37:49.9525599Z test git_clone::runner_tests::git_clone_runner_honors_preflight_cancellation_without_side_effects ... ok
+2026-11-04T02:37:50.0148681Z ordinary clone: status=exit code: 0 stderr=Cloning into 'C:\Users\runneradmin\AppData\Local\Temp\.tmpKT1q9p\中文 projects\ordinary-probe'...
+2026-11-04T02:37:50.0149487Z done.
+2026-11-04T02:37:50.0149780Z 
+2026-11-04T02:37:50.1251325Z test git_clone::runner_tests::git_clone_runner_completes_local_clone_and_security_finalize ... ok
+2026-11-04T02:37:50.1263713Z test git_clone::security_tests::cloned_workspace_adds_norma_to_local_exclude_idempotently ... ok
+2026-11-04T02:37:50.1588932Z test git_clone::security_tests::cloned_workspace_rejects_non_git_directory_without_creating_metadata ... ok
+2026-11-04T02:37:50.1592149Z test recent::tests::test_recent_workspaces_retains_latest_fifty_records ... ok
+2026-11-04T02:37:50.1593997Z test recent::tests::test_record_opened_sorts_by_latest_and_dedupes_path ... ok
+2026-11-04T02:37:50.1595749Z test recent::tests::test_remove_path_removes_only_the_requested_recent_workspace ... ok
+2026-11-04T02:37:50.2646587Z test git_clone::security_tests::cloned_workspace_blocks_tracked_norma_state_without_deleting_repository ... ok
+2026-11-04T02:37:50.2647617Z test review::process::windows_tests::review_inherited_stdout_helper ... ok
+2026-11-04T02:37:50.2682408Z test scoped_directory::remove_tree::tests::scoped_delete_pins_root_and_nested_directories_after_identity_check ... ok
+2026-11-04T02:37:50.2796667Z test git_clone::runner_tests::git_clone_runner_accepts_verbatim_destination_with_unicode_and_spaces ... ok
+2026-11-04T02:37:50.3395281Z test git_clone::runner_tests::git_clone_runner_preserves_clone_but_blocks_tracked_norma_workspace_state ... ok
+2026-11-04T02:37:51.6650234Z test review::process::windows_tests::expired_parent_with_inherited_stdout_reaps_descendant_and_returns ... ok
+2026-11-04T02:37:51.6650787Z 
+2026-11-04T02:37:51.6651058Z test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.26s
+2026-11-04T02:37:51.6651475Z 
+2026-11-04T02:37:51.6667314Z      Running tests\scoped_directory.rs (target\debug\deps\scoped_directory-1f7603a91c2fa098.exe)
+2026-11-04T02:37:51.6764153Z 
+2026-11-04T02:37:51.6764364Z running 5 tests
+2026-11-04T02:37:51.6799364Z test read_only_root_pins_root_and_every_ancestor ... ok
+2026-11-04T02:37:51.6812706Z native parent directory flush: Ok(())
+2026-11-04T02:37:51.7073520Z test windows_aliases_and_junction_never_escape_scope ... ok
+2026-11-04T02:37:51.7076359Z test directory_identity_with_birth_distinguishes_same_path_replacement ... ok
+2026-11-04T02:37:51.7188281Z test open_pointer_reader_does_not_block_atomic_publication ... ok
+2026-11-04T02:37:51.7205453Z test native_directory_flush_and_relative_rename_are_real ... ok
+2026-11-04T02:37:51.7205809Z 
+2026-11-04T02:37:51.7206129Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+2026-11-04T02:37:51.7206578Z 
+2026-11-04T02:37:52.1758627Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:37:52.1997252Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:37:52.2063212Z 
+2026-11-04T02:37:52.2063714Z running 5 tests
+2026-11-04T02:37:52.9500958Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:37:53.0732379Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:37:53.0744347Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:37:53.0896473Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:37:53.2181257Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:37:53.2181582Z 
+2026-11-04T02:37:53.2181777Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+2026-11-04T02:37:53.2182043Z 
+2026-11-04T02:37:53.6873979Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.41s
+2026-11-04T02:37:53.7110057Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:37:53.7173610Z 
+2026-11-04T02:37:53.7173966Z running 3 tests
+2026-11-04T02:37:54.0254860Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:37:54.1048688Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:37:54.1571522Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:37:54.1571795Z 
+2026-11-04T02:37:54.1571995Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+2026-11-04T02:37:54.1572253Z 
+2026-11-04T02:37:54.6066101Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:37:54.6307663Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:37:54.6372538Z 
+2026-11-04T02:37:54.6372992Z running 2 tests
+2026-11-04T02:37:55.1255744Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:37:55.1988215Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:37:55.1988493Z 
+2026-11-04T02:37:55.1988689Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+2026-11-04T02:37:55.1988959Z 
+2026-11-04T02:37:55.6617843Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:37:55.6860355Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:37:55.6926534Z 
+2026-11-04T02:37:55.6927067Z running 5 tests
+2026-11-04T02:37:56.1343708Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:37:56.3200649Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:37:56.3683691Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:37:56.3740692Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:37:56.5092795Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:37:56.5093261Z 
+2026-11-04T02:37:56.5093552Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s
+2026-11-04T02:37:56.5093952Z 
+2026-11-04T02:37:56.9682982Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:37:56.9922679Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:37:56.9986583Z 
+2026-11-04T02:37:56.9986931Z running 3 tests
+2026-11-04T02:37:57.2629909Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:37:57.3722372Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:37:57.4265365Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:37:57.4265752Z 
+2026-11-04T02:37:57.4266095Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+2026-11-04T02:37:57.4266471Z 
+2026-11-04T02:37:57.8864935Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:37:57.9103926Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:37:57.9167838Z 
+2026-11-04T02:37:57.9168648Z running 2 tests
+2026-11-04T02:37:58.3202103Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:37:58.4104647Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:37:58.4105026Z 
+2026-11-04T02:37:58.4105326Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+2026-11-04T02:37:58.4105748Z 
+2026-11-04T02:37:58.8476574Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.38s
+2026-11-04T02:37:58.8713958Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:37:58.8779342Z 
+2026-11-04T02:37:58.8779853Z running 5 tests
+2026-11-04T02:37:59.3713958Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:37:59.6180442Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:37:59.6276142Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:37:59.6321819Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:37:59.7289382Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:37:59.7289703Z 
+2026-11-04T02:37:59.7289909Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.85s
+2026-11-04T02:37:59.7290177Z 
+2026-11-04T02:38:00.1769831Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:00.2004668Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:00.2068137Z 
+2026-11-04T02:38:00.2068457Z running 3 tests
+2026-11-04T02:38:00.4475966Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:00.4780116Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:00.5731522Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:00.5731913Z 
+2026-11-04T02:38:00.5732250Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+2026-11-04T02:38:00.5732644Z 
+2026-11-04T02:38:01.0251956Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:01.0498634Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:01.0567869Z 
+2026-11-04T02:38:01.0568264Z running 2 tests
+2026-11-04T02:38:01.4596780Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:01.5489827Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:01.5490186Z 
+2026-11-04T02:38:01.5490460Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+2026-11-04T02:38:01.5490892Z 
+2026-11-04T02:38:02.0111561Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:38:02.0357312Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:02.0421115Z 
+2026-11-04T02:38:02.0421788Z running 5 tests
+2026-11-04T02:38:02.5049622Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:02.6387945Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:02.7588247Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:02.7692296Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:02.8813750Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:02.8814231Z 
+2026-11-04T02:38:02.8814516Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.84s
+2026-11-04T02:38:02.8814930Z 
+2026-11-04T02:38:03.3366829Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:03.3618902Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:03.3682469Z 
+2026-11-04T02:38:03.3682788Z running 3 tests
+2026-11-04T02:38:03.6321012Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:03.6591442Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:03.9157112Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:03.9157669Z 
+2026-11-04T02:38:03.9157955Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+2026-11-04T02:38:03.9158351Z 
+2026-11-04T02:38:04.3982164Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.42s
+2026-11-04T02:38:04.4246503Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:04.4312194Z 
+2026-11-04T02:38:04.4312632Z running 2 tests
+2026-11-04T02:38:05.1675588Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:05.2486618Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:05.2486910Z 
+2026-11-04T02:38:05.2487125Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s
+2026-11-04T02:38:05.2487384Z 
+2026-11-04T02:38:05.7060502Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:05.7292867Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:05.7355979Z 
+2026-11-04T02:38:05.7356384Z running 5 tests
+2026-11-04T02:38:06.2094508Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:06.3344210Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:06.3350518Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:06.3477615Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:06.4748377Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:06.4748882Z 
+2026-11-04T02:38:06.4749197Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.74s
+2026-11-04T02:38:06.4749591Z 
+2026-11-04T02:38:06.9435283Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.41s
+2026-11-04T02:38:06.9678653Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:06.9743050Z 
+2026-11-04T02:38:06.9743502Z running 3 tests
+2026-11-04T02:38:07.2471857Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:07.2820889Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:07.3620298Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:07.3620729Z 
+2026-11-04T02:38:07.3620930Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+2026-11-04T02:38:07.3621197Z 
+2026-11-04T02:38:07.8189947Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:38:07.8422777Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:07.8485530Z 
+2026-11-04T02:38:07.8485738Z running 2 tests
+2026-11-04T02:38:08.1994602Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:08.2561397Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:08.2561798Z 
+2026-11-04T02:38:08.2562121Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+2026-11-04T02:38:08.2562565Z 
+2026-11-04T02:38:08.7208981Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:38:08.7465006Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:08.7530706Z 
+2026-11-04T02:38:08.7531174Z running 5 tests
+2026-11-04T02:38:09.2199026Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:09.3260208Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:09.3776394Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:09.3943711Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:09.5342176Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:09.5342509Z 
+2026-11-04T02:38:09.5342707Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+2026-11-04T02:38:09.5342965Z 
+2026-11-04T02:38:09.9869405Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:10.0103680Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:10.0167061Z 
+2026-11-04T02:38:10.0167397Z running 3 tests
+2026-11-04T02:38:10.2587631Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:10.3086372Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:10.3746003Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:10.3746404Z 
+2026-11-04T02:38:10.3746671Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+2026-11-04T02:38:10.3747079Z 
+2026-11-04T02:38:10.8153440Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.38s
+2026-11-04T02:38:10.8383501Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:10.8446155Z 
+2026-11-04T02:38:10.8446367Z running 2 tests
+2026-11-04T02:38:11.3486352Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:11.4233202Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:11.4233588Z 
+2026-11-04T02:38:11.4233890Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+2026-11-04T02:38:11.4234342Z 
+2026-11-04T02:38:11.8757737Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:11.9000938Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:11.9066249Z 
+2026-11-04T02:38:11.9066608Z running 5 tests
+2026-11-04T02:38:12.4223833Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:12.5610905Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:12.5621694Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:12.5743919Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:12.7021990Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:12.7022465Z 
+2026-11-04T02:38:12.7022756Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.80s
+2026-11-04T02:38:12.7023200Z 
+2026-11-04T02:38:13.1719252Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.41s
+2026-11-04T02:38:13.1966865Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:13.2031009Z 
+2026-11-04T02:38:13.2031390Z running 3 tests
+2026-11-04T02:38:13.4636056Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:13.4872238Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:13.6136302Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:13.6136619Z 
+2026-11-04T02:38:13.6136842Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+2026-11-04T02:38:13.6137119Z 
+2026-11-04T02:38:14.0765837Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:38:14.1010227Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:14.1073972Z 
+2026-11-04T02:38:14.1074856Z running 2 tests
+2026-11-04T02:38:14.4796814Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:14.5637691Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:14.5638041Z 
+2026-11-04T02:38:14.5638249Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+2026-11-04T02:38:14.5638520Z 
+2026-11-04T02:38:15.0202167Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:15.0440112Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:15.0504385Z 
+2026-11-04T02:38:15.0504841Z running 5 tests
+2026-11-04T02:38:15.5250508Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:15.7084798Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:15.7093188Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:15.7239705Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:15.8660692Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:15.8661169Z 
+2026-11-04T02:38:15.8661453Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s
+2026-11-04T02:38:15.8661857Z 
+2026-11-04T02:38:16.3267494Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:38:16.3509538Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:16.3572838Z 
+2026-11-04T02:38:16.3573280Z running 3 tests
+2026-11-04T02:38:16.6177012Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:16.6978834Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:16.7715251Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:16.7715557Z 
+2026-11-04T02:38:16.7715761Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+2026-11-04T02:38:16.7716031Z 
+2026-11-04T02:38:17.2182255Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:17.2431233Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:17.2495023Z 
+2026-11-04T02:38:17.2495443Z running 2 tests
+2026-11-04T02:38:17.6564465Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:17.7286776Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:17.7287035Z 
+2026-11-04T02:38:17.7287238Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+2026-11-04T02:38:17.7287509Z 
+2026-11-04T02:38:18.2048086Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.41s
+2026-11-04T02:38:18.2293137Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:18.2357327Z 
+2026-11-04T02:38:18.2357694Z running 5 tests
+2026-11-04T02:38:18.6395023Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:18.7911453Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:18.8128670Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:18.8212792Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:18.9370610Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:18.9371078Z 
+2026-11-04T02:38:18.9371372Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.70s
+2026-11-04T02:38:18.9371775Z 
+2026-11-04T02:38:19.3980479Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:38:19.4226981Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:19.4290083Z 
+2026-11-04T02:38:19.4290585Z running 3 tests
+2026-11-04T02:38:19.7269493Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:19.7821356Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:19.8542247Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:19.8542645Z 
+2026-11-04T02:38:19.8542939Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+2026-11-04T02:38:19.8543315Z 
+2026-11-04T02:38:20.3086599Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:20.3321095Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:20.3384198Z 
+2026-11-04T02:38:20.3384471Z running 2 tests
+2026-11-04T02:38:20.6791312Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:20.7588156Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:20.7588548Z 
+2026-11-04T02:38:20.7588830Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+2026-11-04T02:38:20.7589217Z 
+2026-11-04T02:38:21.2031191Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.38s
+2026-11-04T02:38:21.2267896Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:21.2333571Z 
+2026-11-04T02:38:21.2334446Z running 5 tests
+2026-11-04T02:38:21.8051900Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:21.9726131Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:22.0249368Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:22.1102406Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:22.1814613Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:22.1814980Z 
+2026-11-04T02:38:22.1815175Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.95s
+2026-11-04T02:38:22.1815446Z 
+2026-11-04T02:38:22.6227963Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.38s
+2026-11-04T02:38:22.6470684Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:22.6534928Z 
+2026-11-04T02:38:22.6535175Z running 3 tests
+2026-11-04T02:38:22.9911064Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:23.0007637Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:23.0864007Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:23.0864290Z 
+2026-11-04T02:38:23.0864499Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+2026-11-04T02:38:23.0864807Z 
+2026-11-04T02:38:23.5464376Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:38:23.5715155Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:23.5783048Z 
+2026-11-04T02:38:23.5783686Z running 2 tests
+2026-11-04T02:38:23.9541925Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:24.0173802Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:24.0174077Z 
+2026-11-04T02:38:24.0174289Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+2026-11-04T02:38:24.0174560Z 
+2026-11-04T02:38:24.4703873Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:24.4952142Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:24.5016514Z 
+2026-11-04T02:38:24.5016728Z running 5 tests
+2026-11-04T02:38:25.0108539Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:25.2419598Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:25.2539624Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:25.2619015Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:25.4610374Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:25.4610864Z 
+2026-11-04T02:38:25.4611148Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.96s
+2026-11-04T02:38:25.4611555Z 
+2026-11-04T02:38:25.9133980Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:25.9379118Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:25.9442513Z 
+2026-11-04T02:38:25.9442893Z running 3 tests
+2026-11-04T02:38:26.2267099Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:26.2983716Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:26.3696761Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:26.3697164Z 
+2026-11-04T02:38:26.3697461Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+2026-11-04T02:38:26.3697880Z 
+2026-11-04T02:38:26.8184766Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:26.8430602Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:26.8495741Z 
+2026-11-04T02:38:26.8496114Z running 2 tests
+2026-11-04T02:38:27.1769711Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:27.2457004Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:27.2457356Z 
+2026-11-04T02:38:27.2457631Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+2026-11-04T02:38:27.2458078Z 
+2026-11-04T02:38:27.6957376Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:27.7199028Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:27.7262681Z 
+2026-11-04T02:38:27.7263167Z running 5 tests
+2026-11-04T02:38:28.1879400Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:28.4771525Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:28.4837397Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:28.4888312Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:28.6041122Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:28.6041605Z 
+2026-11-04T02:38:28.6041878Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+2026-11-04T02:38:28.6042325Z 
+2026-11-04T02:38:29.0546537Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:29.0824234Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:29.0888033Z 
+2026-11-04T02:38:29.0888468Z running 3 tests
+2026-11-04T02:38:29.3527035Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:29.3776278Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:29.4765676Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:29.4773921Z 
+2026-11-04T02:38:29.4774270Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+2026-11-04T02:38:29.4774678Z 
+2026-11-04T02:38:29.9230801Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:29.9467105Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:29.9530343Z 
+2026-11-04T02:38:29.9530553Z running 2 tests
+2026-11-04T02:38:30.3012484Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:30.3635974Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:30.3636395Z 
+2026-11-04T02:38:30.3636688Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+2026-11-04T02:38:30.3637091Z 
+2026-11-04T02:38:30.8139796Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:30.8427229Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:30.8490226Z 
+2026-11-04T02:38:30.8490554Z running 5 tests
+2026-11-04T02:38:31.3449174Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:31.4368911Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:31.4736656Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:31.5118227Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:31.6708415Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:31.6708902Z 
+2026-11-04T02:38:31.6709186Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s
+2026-11-04T02:38:31.6709621Z 
+2026-11-04T02:38:32.1156770Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:32.1390994Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:32.1454342Z 
+2026-11-04T02:38:32.1454695Z running 3 tests
+2026-11-04T02:38:32.4319711Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:32.5043947Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:32.5691317Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:32.5692026Z 
+2026-11-04T02:38:32.5692242Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+2026-11-04T02:38:32.5692523Z 
+2026-11-04T02:38:33.0168535Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:33.0405025Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:33.0468456Z 
+2026-11-04T02:38:33.0468756Z running 2 tests
+2026-11-04T02:38:33.3711625Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:33.4344852Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:33.4345168Z 
+2026-11-04T02:38:33.4345382Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+2026-11-04T02:38:33.4345652Z 
+2026-11-04T02:38:33.8840232Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:33.9077605Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:33.9140930Z 
+2026-11-04T02:38:33.9142151Z running 5 tests
+2026-11-04T02:38:34.4249858Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:34.6011598Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:34.6022143Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:34.6146877Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:34.7684899Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:34.7685364Z 
+2026-11-04T02:38:34.7685657Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.85s
+2026-11-04T02:38:34.7686047Z 
+2026-11-04T02:38:35.2390167Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.41s
+2026-11-04T02:38:35.2641418Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:35.2705198Z 
+2026-11-04T02:38:35.2705531Z running 3 tests
+2026-11-04T02:38:35.5274680Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:35.5964514Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:35.8001724Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:35.8002112Z 
+2026-11-04T02:38:35.8002390Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+2026-11-04T02:38:35.8002805Z 
+2026-11-04T02:38:36.2558414Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:36.2797843Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:36.2863207Z 
+2026-11-04T02:38:36.2863651Z running 2 tests
+2026-11-04T02:38:36.6326211Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:36.7415522Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:36.7415934Z 
+2026-11-04T02:38:36.7416252Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+2026-11-04T02:38:36.7416690Z 
+2026-11-04T02:38:37.1893016Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:37.2131394Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:37.2193521Z 
+2026-11-04T02:38:37.2193879Z running 5 tests
+2026-11-04T02:38:38.4983132Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:38.6784169Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:38.6866499Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:38.6931322Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:38.9760155Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:38.9760646Z 
+2026-11-04T02:38:38.9761176Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.76s
+2026-11-04T02:38:38.9761598Z 
+2026-11-04T02:38:39.4154037Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.38s
+2026-11-04T02:38:39.4387104Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:39.4449432Z 
+2026-11-04T02:38:39.4449699Z running 3 tests
+2026-11-04T02:38:40.4415601Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:40.4648291Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:40.6493919Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:40.6494304Z 
+2026-11-04T02:38:40.6494581Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.20s
+2026-11-04T02:38:40.6495033Z 
+2026-11-04T02:38:41.0995289Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:41.1248799Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:41.1321286Z 
+2026-11-04T02:38:41.1321762Z running 2 tests
+2026-11-04T02:38:41.4503655Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:41.5080858Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:41.5081224Z 
+2026-11-04T02:38:41.5081498Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+2026-11-04T02:38:41.5081924Z 
+2026-11-04T02:38:41.9678187Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:38:41.9923833Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:41.9988174Z 
+2026-11-04T02:38:41.9988896Z running 5 tests
+2026-11-04T02:38:42.5102700Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:42.6119758Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:42.6693458Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:42.7537245Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:42.8457752Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:42.8458242Z 
+2026-11-04T02:38:42.8458463Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.85s
+2026-11-04T02:38:42.8458728Z 
+2026-11-04T02:38:43.2998002Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:43.3266436Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:43.3335158Z 
+2026-11-04T02:38:43.3335641Z running 3 tests
+2026-11-04T02:38:43.6035550Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:43.6642046Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:43.7364643Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:43.7365006Z 
+2026-11-04T02:38:43.7365217Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+2026-11-04T02:38:43.7365493Z 
+2026-11-04T02:38:44.1955263Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:44.2201210Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:44.2265072Z 
+2026-11-04T02:38:44.2265222Z running 2 tests
+2026-11-04T02:38:44.5906385Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:44.6669627Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:44.6669949Z 
+2026-11-04T02:38:44.6670191Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+2026-11-04T02:38:44.6670456Z 
+2026-11-04T02:38:45.1210687Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:45.1456096Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:45.1520269Z 
+2026-11-04T02:38:45.1520497Z running 5 tests
+2026-11-04T02:38:45.5822022Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:45.7060728Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:45.7300516Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:45.7598408Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:45.8648884Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:45.8649358Z 
+2026-11-04T02:38:45.8649674Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+2026-11-04T02:38:45.8650080Z 
+2026-11-04T02:38:46.3187900Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:46.3429879Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:46.3493646Z 
+2026-11-04T02:38:46.3494072Z running 3 tests
+2026-11-04T02:38:46.5993628Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:46.6912946Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:46.7608591Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:46.7608857Z 
+2026-11-04T02:38:46.7609056Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+2026-11-04T02:38:46.7609316Z 
+2026-11-04T02:38:47.2178102Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:38:47.2427800Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:47.2492503Z 
+2026-11-04T02:38:47.2492751Z running 2 tests
+2026-11-04T02:38:47.6339242Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:47.7227594Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:47.7227963Z 
+2026-11-04T02:38:47.7228241Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+2026-11-04T02:38:47.7228655Z 
+2026-11-04T02:38:48.1953446Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.41s
+2026-11-04T02:38:48.2206369Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:48.2272504Z 
+2026-11-04T02:38:48.2273397Z running 5 tests
+2026-11-04T02:38:48.7501738Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:48.9253787Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:48.9262006Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:48.9398123Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:49.0688249Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:49.0688721Z 
+2026-11-04T02:38:49.0689015Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.84s
+2026-11-04T02:38:49.0689412Z 
+2026-11-04T02:38:49.5245696Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:49.5484675Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:49.5548978Z 
+2026-11-04T02:38:49.5549381Z running 3 tests
+2026-11-04T02:38:49.8288552Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:49.8537427Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:49.9837101Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:49.9837708Z 
+2026-11-04T02:38:49.9837961Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+2026-11-04T02:38:49.9838229Z 
+2026-11-04T02:38:50.4376787Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:50.4620597Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:50.4691261Z 
+2026-11-04T02:38:50.4691627Z running 2 tests
+2026-11-04T02:38:51.1543944Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:51.2385240Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:51.2385618Z 
+2026-11-04T02:38:51.2385909Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.77s
+2026-11-04T02:38:51.2386295Z 
+2026-11-04T02:38:51.6891235Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.38s
+2026-11-04T02:38:51.7130632Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:51.7195197Z 
+2026-11-04T02:38:51.7195493Z running 5 tests
+2026-11-04T02:38:52.6826684Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:52.8517399Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:52.8598319Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:52.8735692Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:53.0337564Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:53.0338045Z 
+2026-11-04T02:38:53.0338333Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.31s
+2026-11-04T02:38:53.0338754Z 
+2026-11-04T02:38:53.4952218Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:38:53.5199152Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:53.5263703Z 
+2026-11-04T02:38:53.5264127Z running 3 tests
+2026-11-04T02:38:53.8342437Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:53.8488166Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:53.9324382Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:53.9324720Z 
+2026-11-04T02:38:53.9324926Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+2026-11-04T02:38:53.9325201Z 
+2026-11-04T02:38:54.3924845Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+2026-11-04T02:38:54.4165699Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:54.4229611Z 
+2026-11-04T02:38:54.4230002Z running 2 tests
+2026-11-04T02:38:54.8930662Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:54.9930467Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:54.9931440Z 
+2026-11-04T02:38:54.9931711Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+2026-11-04T02:38:54.9932090Z 
+2026-11-04T02:38:55.4524013Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.38s
+2026-11-04T02:38:55.4790801Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:38:55.4857340Z 
+2026-11-04T02:38:55.4857893Z running 5 tests
+2026-11-04T02:38:56.0144281Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:38:56.1393295Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:38:56.1526431Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:38:56.1604887Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:38:56.3325843Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:38:56.3326328Z 
+2026-11-04T02:38:56.3326610Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.85s
+2026-11-04T02:38:56.3327038Z 
+2026-11-04T02:38:56.7857697Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:56.8096830Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:38:56.8160224Z 
+2026-11-04T02:38:56.8160462Z running 3 tests
+2026-11-04T02:38:57.1414213Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:38:57.1675870Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:38:57.3022946Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+2026-11-04T02:38:57.3023343Z 
+2026-11-04T02:38:57.3023680Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+2026-11-04T02:38:57.3024087Z 
+2026-11-04T02:38:57.7534293Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+2026-11-04T02:38:57.7773103Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:38:57.7837390Z 
+2026-11-04T02:38:57.7839434Z running 2 tests
+2026-11-04T02:38:58.1681733Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:38:58.2419638Z test concurrent_creation_migrates_legacy_chat_time_once ... ok
+2026-11-04T02:38:58.2420004Z 
+2026-11-04T02:38:58.2420276Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+2026-11-04T02:38:58.2420691Z 
+2026-11-04T02:38:58.2778544Z ##[group]Run set -o pipefail
+2026-11-04T02:38:58.2778971Z [36;1mset -o pipefail[0m
+2026-11-04T02:38:58.2779326Z [36;1mbash scripts/check-storage-boundaries.sh 2>&1 | tee artifacts/storage-15/boundaries.log[0m
+2026-11-04T02:38:58.2780032Z [36;1mbash scripts/check-performance-guardrails.sh 2>&1 | tee artifacts/storage-15/performance.log[0m
+2026-11-04T02:38:58.2790447Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:38:58.2790773Z env:
+2026-11-04T02:38:58.2790930Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:38:58.2791103Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:38:58.2791276Z   CARGO_TERM_COLOR: never
+2026-11-04T02:38:58.2791452Z   RUST_BACKTRACE: 1
+2026-11-04T02:38:58.2791608Z   PYTHONUTF8: 1
+2026-11-04T02:38:58.2791778Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:38:58.2791997Z   CACHE_ON_FAILURE: true
+2026-11-04T02:38:58.2792171Z ##[endgroup]
+2026-11-04T02:39:02.2009893Z ##[group]Run set -o pipefail
+2026-11-04T02:39:02.2010326Z [36;1mset -o pipefail[0m
+2026-11-04T02:39:02.2011207Z [36;1mcargo clippy --locked -p storage --all-targets -- -D warnings 2>&1 | tee artifacts/storage-15/clippy.log[0m
+2026-11-04T02:39:02.2011892Z [36;1mcargo fmt --all --check[0m
+2026-11-04T02:39:02.2028888Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:39:02.2029353Z env:
+2026-11-04T02:39:02.2029565Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:39:02.2029816Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:39:02.2030055Z   CARGO_TERM_COLOR: never
+2026-11-04T02:39:02.2030322Z   RUST_BACKTRACE: 1
+2026-11-04T02:39:02.2030556Z   PYTHONUTF8: 1
+2026-11-04T02:39:02.2030819Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:39:02.2031449Z   CACHE_ON_FAILURE: true
+2026-11-04T02:39:02.2031730Z ##[endgroup]
+2026-11-04T02:39:03.7019853Z     Checking cfg-if v1.0.4
+2026-11-04T02:39:03.7021214Z     Checking windows-link v0.2.1
+2026-11-04T02:39:03.7335514Z     Checking windows-sys v0.61.2
+2026-11-04T02:39:03.7335934Z     Checking once_cell v1.21.4
+2026-11-04T02:39:03.8448151Z     Checking pin-project-lite v0.2.17
+2026-11-04T02:39:03.9079776Z     Checking zerofrom v0.1.8
+2026-11-04T02:39:03.9716496Z     Checking stable_deref_trait v1.2.1
+2026-11-04T02:39:04.0053276Z     Checking yoke v0.8.3
+2026-11-04T02:39:04.1302746Z     Checking bytes v1.12.0
+2026-11-04T02:39:04.5423584Z     Checking subtle v2.6.1
+2026-11-04T02:39:04.6375305Z     Checking futures-core v0.3.32
+2026-11-04T02:39:04.7008568Z     Checking zerovec v0.11.6
+2026-11-04T02:39:05.1144133Z     Checking getrandom v0.2.17
+2026-11-04T02:39:05.2068571Z     Checking itoa v1.0.18
+2026-11-04T02:39:05.3182005Z     Checking memchr v2.8.2
+2026-11-04T02:39:05.6671124Z     Checking zeroize v1.9.0
+2026-11-04T02:39:05.7624355Z     Checking smallvec v1.15.2
+2026-11-04T02:39:05.8892218Z     Checking futures-sink v0.3.32
+2026-11-04T02:39:05.9524758Z     Checking rustls-pki-types v1.15.0
+2026-11-04T02:39:06.1911828Z     Checking http v1.4.2
+2026-11-04T02:39:06.7788869Z     Checking tinystr v0.8.3
+2026-11-04T02:39:06.9059573Z     Checking untrusted v0.9.0
+2026-11-04T02:39:06.9695891Z     Checking typenum v1.20.1
+2026-11-04T02:39:07.6369779Z     Checking litemap v0.8.2
+2026-11-04T02:39:07.7482131Z     Checking writeable v0.6.3
+2026-11-04T02:39:07.8748920Z     Checking icu_locale_core v2.2.0
+2026-11-04T02:39:08.6219704Z     Checking generic-array v0.14.7
+2026-11-04T02:39:09.0660302Z     Checking ring v0.17.14
+2026-11-04T02:39:09.9070095Z     Checking zerotrie v0.2.4
+2026-11-04T02:39:10.0976121Z     Checking potential_utf v0.1.5
+2026-11-04T02:39:10.1928723Z     Checking log v0.4.33
+2026-11-04T02:39:10.2726031Z     Checking slab v0.4.12
+2026-11-04T02:39:10.3045241Z     Checking utf8_iter v1.0.4
+2026-11-04T02:39:10.3679227Z     Checking icu_collections v2.2.0
+2026-11-04T02:39:10.3837394Z     Checking icu_provider v2.2.0
+2026-11-04T02:39:10.5589121Z     Checking mio v1.2.1
+2026-11-04T02:39:10.6538540Z     Checking socket2 v0.6.4
+2026-11-04T02:39:10.9385237Z     Checking futures-channel v0.3.32
+2026-11-04T02:39:11.0178079Z     Checking aws-lc-sys v0.43.0
+2026-11-04T02:39:11.0814539Z     Checking percent-encoding v2.3.2
+2026-11-04T02:39:11.1767152Z     Checking tokio v1.52.3
+2026-11-04T02:39:11.5737754Z     Checking aws-lc-rs v1.17.3
+2026-11-04T02:39:12.4790263Z     Checking icu_normalizer_data v2.2.0
+2026-11-04T02:39:12.5148686Z     Checking icu_properties_data v2.2.0
+2026-11-04T02:39:12.6078125Z     Checking crypto-common v0.1.7
+2026-11-04T02:39:12.6697269Z     Checking block-buffer v0.10.4
+2026-11-04T02:39:12.7487515Z     Checking futures-io v0.3.32
+2026-11-04T02:39:12.8157254Z     Checking futures-task v0.3.32
+2026-11-04T02:39:12.9070156Z     Checking futures-util v0.3.32
+2026-11-04T02:39:14.2263592Z     Checking digest v0.10.7
+2026-11-04T02:39:14.3539015Z     Checking icu_properties v2.2.0
+2026-11-04T02:39:14.8747905Z     Checking icu_normalizer v2.2.0
+2026-11-04T02:39:15.1309214Z     Checking rustls-webpki v0.103.13
+2026-11-04T02:39:15.2083043Z     Checking serde_core v1.0.228
+2026-11-04T02:39:15.5566833Z     Checking zerocopy v0.8.53
+2026-11-04T02:39:16.8244665Z     Checking httparse v1.10.1
+2026-11-04T02:39:16.9985170Z     Checking libc v0.2.186
+2026-11-04T02:39:17.0777442Z     Checking tracing-core v0.1.36
+2026-11-04T02:39:17.3483049Z     Checking tracing v0.1.44
+2026-11-04T02:39:17.4755819Z     Checking rustls v0.23.41
+2026-11-04T02:39:18.6181242Z     Checking idna_adapter v1.2.2
+2026-11-04T02:39:18.6819461Z     Checking serde v1.0.228
+2026-11-04T02:39:19.0509519Z     Checking idna v1.1.0
+2026-11-04T02:39:19.2842056Z     Checking form_urlencoded v1.2.2
+2026-11-04T02:39:19.3793521Z     Checking http-body v1.0.1
+2026-11-04T02:39:19.4428919Z     Checking cpufeatures v0.2.17
+2026-11-04T02:39:19.4751571Z     Checking hashbrown v0.17.1
+2026-11-04T02:39:19.9338342Z     Checking bitflags v2.13.0
+2026-11-04T02:39:20.0454484Z     Checking base64 v0.22.1
+2026-11-04T02:39:20.2225687Z     Checking windows-link v0.1.3
+2026-11-04T02:39:20.2557468Z     Checking equivalent v1.0.2
+2026-11-04T02:39:20.2992820Z     Checking indexmap v2.14.0
+2026-11-04T02:39:20.7599092Z     Checking url v2.5.8
+2026-11-04T02:39:20.7757382Z     Checking zmij v1.0.21
+2026-11-04T02:39:20.9492963Z     Checking tokio-util v0.7.18
+2026-11-04T02:39:21.1876643Z     Checking atomic-waker v1.1.2
+2026-11-04T02:39:21.2512561Z     Checking tower-service v0.3.3
+2026-11-04T02:39:21.2852754Z     Checking fnv v1.0.7
+2026-11-04T02:39:21.3463456Z     Checking try-lock v0.2.5
+2026-11-04T02:39:21.3464015Z     Checking h2 v0.4.15
+2026-11-04T02:39:21.3940263Z     Checking want v0.3.1
+2026-11-04T02:39:21.4735359Z     Checking serde_json v1.0.150
+2026-11-04T02:39:22.0927622Z     Checking getrandom v0.3.4
+2026-11-04T02:39:22.1721884Z     Checking getrandom v0.4.3
+2026-11-04T02:39:22.2350223Z     Checking windows-result v0.3.4
+2026-11-04T02:39:22.3468032Z     Checking windows-strings v0.4.2
+2026-11-04T02:39:22.4906490Z     Checking fastrand v2.4.1
+2026-11-04T02:39:22.6146339Z     Checking anstyle v1.0.14
+2026-11-04T02:39:22.7285173Z     Checking utf8parse v0.2.2
+2026-11-04T02:39:22.7893172Z     Checking once_cell_polyfill v1.70.2
+2026-11-04T02:39:22.8371867Z     Checking anstyle-wincon v3.0.11
+2026-11-04T02:39:22.9478138Z     Checking anstyle-parse v1.0.0
+2026-11-04T02:39:23.0588986Z     Checking thiserror v2.0.18
+2026-11-04T02:39:23.1065755Z     Checking windows-registry v0.5.3
+2026-11-04T02:39:23.2351992Z     Checking rand_core v0.9.5
+2026-11-04T02:39:23.3601099Z     Checking ahash v0.8.12
+2026-11-04T02:39:23.4076906Z     Checking hyper v1.10.1
+2026-11-04T02:39:23.4704793Z     Checking ppv-lite86 v0.2.21
+2026-11-04T02:39:23.7244017Z     Checking hmac v0.12.1
+2026-11-04T02:39:23.8037979Z     Checking anstyle-query v1.1.5
+2026-11-04T02:39:23.8694773Z     Checking rand_core v0.6.4
+2026-11-04T02:39:23.9645769Z     Checking sync_wrapper v1.0.2
+2026-11-04T02:39:24.0141246Z     Checking adler2 v2.0.1
+2026-11-04T02:39:24.0894466Z     Checking ipnet v2.12.0
+2026-11-04T02:39:24.2162791Z     Checking deranged v0.5.8
+2026-11-04T02:39:24.3116723Z     Checking powerfmt v0.2.0
+2026-11-04T02:39:24.4069945Z     Checking option-ext v0.2.0
+2026-11-04T02:39:24.4546039Z     Checking time-core v0.1.9
+2026-11-04T02:39:24.5974518Z     Checking tower-layer v0.3.3
+2026-11-04T02:39:24.7241605Z     Checking num-conv v0.2.2
+2026-11-04T02:39:24.8194877Z     Checking colorchoice v1.0.5
+2026-11-04T02:39:24.8663679Z     Checking simd-adler32 v0.3.9
+2026-11-04T02:39:24.9770814Z     Checking is_terminal_polyfill v1.70.2
+2026-11-04T02:39:25.0241579Z     Checking anstream v1.0.0
+2026-11-04T02:39:25.1985331Z     Checking time v0.3.53
+2026-11-04T02:39:25.2303178Z     Checking miniz_oxide v0.8.9
+2026-11-04T02:39:25.5794280Z     Checking tower v0.5.3
+2026-11-04T02:39:25.7064085Z     Checking dirs-sys v0.5.0
+2026-11-04T02:39:25.7698312Z     Checking hyper-util v0.1.20
+2026-11-04T02:39:25.9757430Z     Checking curve25519-dalek v4.1.3
+2026-11-04T02:39:26.4344143Z     Checking hkdf v0.12.4
+2026-11-04T02:39:26.4980083Z     Checking rand_chacha v0.9.0
+2026-11-04T02:39:26.6408877Z     Checking hashbrown v0.14.5
+2026-11-04T02:39:26.6881935Z     Checking crc32fast v1.5.0
+2026-11-04T02:39:26.7680915Z     Checking winapi v0.3.9
+2026-11-04T02:39:27.0699417Z     Checking tempfile v3.27.0
+2026-11-04T02:39:27.2608529Z     Checking tokio-rustls v0.26.4
+2026-11-04T02:39:27.4354322Z     Checking sha2 v0.10.9
+2026-11-04T02:39:27.6422137Z     Checking futures-executor v0.3.32
+2026-11-04T02:39:27.7373382Z     Checking schannel v0.1.29
+2026-11-04T02:39:28.0219199Z     Checking byteorder v1.5.0
+2026-11-04T02:39:28.1329933Z     Checking mime v0.3.17
+2026-11-04T02:39:28.1805924Z     Checking unicase v2.9.0
+2026-11-04T02:39:28.2600655Z     Checking clap_lex v1.1.0
+2026-11-04T02:39:28.2918273Z     Checking strsim v0.11.1
+2026-11-04T02:39:28.3705740Z     Checking minimal-lexical v0.2.1
+2026-11-04T02:39:28.4180894Z     Checking clap_builder v4.6.0
+2026-11-04T02:39:28.5451261Z     Checking nom v7.1.3
+2026-11-04T02:39:29.5771690Z     Checking mime_guess v2.0.5
+2026-11-04T02:39:29.8611349Z     Checking socks v0.3.4
+2026-11-04T02:39:29.8918875Z     Checking pin-project v1.1.13
+2026-11-04T02:39:29.9394949Z     Checking ref-cast v1.0.25
+2026-11-04T02:39:29.9874909Z     Checking rustls-native-certs v0.8.4
+2026-11-04T02:39:30.0030741Z     Checking futures v0.3.32
+2026-11-04T02:39:30.0348205Z     Checking spake2 v0.4.0
+2026-11-04T02:39:30.1144606Z     Checking hyper-rustls v0.27.9
+2026-11-04T02:39:30.1618123Z     Checking hashlink v0.9.1
+2026-11-04T02:39:30.2579797Z     Checking flate2 v1.1.9
+2026-11-04T02:39:30.3546593Z     Checking rand v0.9.4
+2026-11-04T02:39:30.5117943Z     Checking memoffset v0.9.1
+2026-11-04T02:39:30.5454576Z     Checking num-traits v0.2.19
+2026-11-04T02:39:30.7814229Z     Checking libsqlite3-sys v0.30.1
+2026-11-04T02:39:30.9116740Z     Checking crossbeam-utils v0.8.22
+2026-11-04T02:39:31.0983344Z     Checking tower-http v0.6.11
+2026-11-04T02:39:31.1937366Z     Checking dirs v6.0.0
+2026-11-04T02:39:31.2568874Z     Checking anyhow v1.0.103
+2026-11-04T02:39:31.3522756Z     Checking yasna v0.5.2
+2026-11-04T02:39:31.4308332Z     Checking libz-sys v1.1.29
+2026-11-04T02:39:31.4785355Z     Checking rustls-platform-verifier v0.7.0
+2026-11-04T02:39:31.6369457Z     Checking ureq-proto v0.6.0
+2026-11-04T02:39:31.7482618Z     Checking sha1 v0.10.7
+2026-11-04T02:39:31.8588685Z     Checking http-body-util v0.1.3
+2026-11-04T02:39:31.9382002Z     Checking webpki-roots v1.0.8
+2026-11-04T02:39:32.0017774Z     Checking encoding_rs v0.8.35
+2026-11-04T02:39:32.0335554Z     Checking dyn-clone v1.0.20
+2026-11-04T02:39:32.0970365Z     Checking data-encoding v2.11.0
+2026-11-04T02:39:32.3507987Z     Checking fallible-streaming-iterator v0.1.9
+2026-11-04T02:39:32.4293131Z     Checking utf-8 v0.7.6
+2026-11-04T02:39:32.5088155Z     Checking utf8-zero v0.8.1
+2026-11-04T02:39:32.5876819Z     Checking fallible-iterator v0.3.0
+2026-11-04T02:39:32.8086724Z     Checking rusqlite v0.32.1
+2026-11-04T02:39:33.0947630Z     Checking reqwest v0.13.4
+2026-11-04T02:39:33.4595603Z     Checking ureq v3.3.0
+2026-11-04T02:39:33.8872287Z     Checking tungstenite v0.28.0
+2026-11-04T02:39:34.2049752Z     Checking schemars v1.2.1
+2026-11-04T02:39:34.3953557Z     Checking async-stream v0.3.6
+2026-11-04T02:39:34.4614872Z     Checking rcgen v0.13.2
+2026-11-04T02:39:34.8244645Z     Checking libgit2-sys v0.18.5+1.9.4
+2026-11-04T02:39:34.8561827Z     Checking mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+2026-11-04T02:39:34.9506635Z     Checking crossbeam-channel v0.5.16
+2026-11-04T02:39:35.0160497Z     Checking ordered-float v5.3.0
+2026-11-04T02:39:35.2664142Z     Checking uds_windows v1.2.1
+2026-11-04T02:39:35.2824970Z     Checking tracing-futures v0.2.5
+2026-11-04T02:39:35.3767701Z     Checking clap v4.6.1
+2026-11-04T02:39:35.4253452Z     Checking eventsource-stream v0.2.3
+2026-11-04T02:39:35.4719821Z     Checking md-5 v0.10.6
+2026-11-04T02:39:35.5514989Z     Checking futures-timer v3.0.4
+2026-11-04T02:39:35.5515392Z     Checking hex v0.4.3
+2026-11-04T02:39:35.7103810Z     Checking as-any v0.3.2
+2026-11-04T02:39:35.7595267Z     Checking glob v0.3.3
+2026-11-04T02:39:35.7595871Z     Checking norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+2026-11-04T02:39:35.9657039Z     Checking rig-core v0.40.0
+2026-11-04T02:39:43.8579154Z     Checking git2 v0.20.4
+2026-11-04T02:39:46.0958124Z     Checking uuid v1.23.4
+2026-11-04T02:39:46.3025303Z     Checking dunce v1.0.5
+2026-11-04T02:39:46.3680283Z     Checking workspace v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace)
+2026-11-04T02:39:47.0638268Z     Checking canvas v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\canvas)
+2026-11-04T02:39:51.5140306Z     Checking agent v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\agent)
+2026-11-04T02:39:53.6358400Z     Checking storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+2026-11-04T02:40:02.3140902Z     Finished `dev` profile [optimized + debuginfo] target(s) in 59.15s
+2026-11-04T02:40:09.7491142Z ##[group]Run set -o pipefail
+2026-11-04T02:40:09.7491446Z [36;1mset -o pipefail[0m
+2026-11-04T02:40:09.7491944Z [36;1mcargo clippy --locked -p workspace --lib --test scoped_directory -- -D warnings 2>&1 | tee artifacts/storage-15/workspace-clippy.log[0m
+2026-11-04T02:40:09.7502293Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:40:09.7502595Z env:
+2026-11-04T02:40:09.7502748Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:40:09.7502920Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:40:09.7503096Z   CARGO_TERM_COLOR: never
+2026-11-04T02:40:09.7503270Z   RUST_BACKTRACE: 1
+2026-11-04T02:40:09.7503425Z   PYTHONUTF8: 1
+2026-11-04T02:40:09.7503596Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:40:09.7503811Z   CACHE_ON_FAILURE: true
+2026-11-04T02:40:09.7503988Z ##[endgroup]
+2026-11-04T02:40:10.1532573Z     Checking zerofrom v0.1.8
+2026-11-04T02:40:10.1532996Z     Checking smallvec v1.15.2
+2026-11-04T02:40:10.2327446Z     Checking yoke v0.8.3
+2026-11-04T02:40:10.2804100Z     Checking windows-sys v0.61.2
+2026-11-04T02:40:10.3478776Z     Checking zerovec v0.11.6
+2026-11-04T02:40:10.7623490Z     Checking tinystr v0.8.3
+2026-11-04T02:40:10.8846284Z     Checking icu_locale_core v2.2.0
+2026-11-04T02:40:11.5637828Z     Checking potential_utf v0.1.5
+2026-11-04T02:40:11.6432705Z     Checking zerotrie v0.2.4
+2026-11-04T02:40:11.8651277Z     Checking icu_provider v2.2.0
+2026-11-04T02:40:12.0397624Z     Checking icu_collections v2.2.0
+2026-11-04T02:40:12.2941439Z     Checking icu_normalizer v2.2.0
+2026-11-04T02:40:12.5637753Z     Checking icu_properties v2.2.0
+2026-11-04T02:40:12.8493870Z     Checking percent-encoding v2.3.2
+2026-11-04T02:40:12.9449165Z     Checking form_urlencoded v1.2.2
+2026-11-04T02:40:13.0400024Z     Checking dirs-sys v0.5.0
+2026-11-04T02:40:13.0888633Z     Checking serde_core v1.0.228
+2026-11-04T02:40:13.4057124Z     Checking idna_adapter v1.2.2
+2026-11-04T02:40:13.4829482Z     Checking idna v1.1.0
+2026-11-04T02:40:13.7043739Z     Checking url v2.5.8
+2026-11-04T02:40:14.1324081Z     Checking once_cell v1.21.4
+2026-11-04T02:40:14.2474799Z     Checking tempfile v3.27.0
+2026-11-04T02:40:14.4215634Z     Checking git2 v0.20.4
+2026-11-04T02:40:14.6868253Z     Checking serde v1.0.228
+2026-11-04T02:40:15.0223150Z     Checking dirs v6.0.0
+2026-11-04T02:40:16.5250765Z     Checking workspace v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace)
+2026-11-04T02:40:17.2694761Z     Finished `dev` profile [optimized + debuginfo] target(s) in 7.37s
+2026-11-04T02:40:17.3032555Z ##[group]Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+2026-11-04T02:40:17.3032919Z with:
+2026-11-04T02:40:17.3033213Z   name: storage-15-windows-2025-90522917d26fd2fec8f554d9765950d3c97eb4f0-41760987212-1
+2026-11-04T02:40:17.3033550Z   path: artifacts/storage-15/
+2026-11-04T02:40:17.3033743Z   if-no-files-found: error
+2026-11-04T02:40:17.3033913Z   retention-days: 3
+2026-11-04T02:40:17.3034075Z   compression-level: 6
+2026-11-04T02:40:17.3034236Z   overwrite: false
+2026-11-04T02:40:17.3034395Z   include-hidden-files: false
+2026-11-04T02:40:17.3034567Z env:
+2026-11-04T02:40:17.3034709Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:40:17.3034883Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:40:17.3035038Z   CARGO_TERM_COLOR: never
+2026-11-04T02:40:17.3035203Z   RUST_BACKTRACE: 1
+2026-11-04T02:40:17.3035352Z   PYTHONUTF8: 1
+2026-11-04T02:40:17.3035516Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:40:17.3035716Z   CACHE_ON_FAILURE: true
+2026-11-04T02:40:17.3035904Z ##[endgroup]
+2026-11-04T02:40:17.4600167Z (node:4148) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-04T02:40:17.4600720Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-04T02:40:17.4762986Z With the provided path, there will be 73 files uploaded
+2026-11-04T02:40:17.4767131Z Artifact name is valid!
+2026-11-04T02:40:17.4768116Z Root directory input is valid!
+2026-11-04T02:40:17.8184033Z Beginning upload of artifact content to blob storage
+2026-11-04T02:40:17.8972244Z (node:4148) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-11-04T02:40:18.1426624Z Uploaded bytes 44937
+2026-11-04T02:40:18.1994635Z Finished uploading artifact content to blob storage!
+2026-11-04T02:40:18.1995471Z SHA256 digest of uploaded artifact zip is ab02270d4a8c725473cd40c15daa14060c4996362612f9dabe2d8b9f0b142866
+2026-11-04T02:40:18.1996779Z Finalizing artifact upload
+2026-11-04T02:40:18.6842653Z Artifact storage-15-windows-2025-90522917d26fd2fec8f554d9765950d3c97eb4f0-41760987212-1.zip successfully finalized. Artifact ID 13291500842
+2026-11-04T02:40:18.6843841Z Artifact storage-15-windows-2025-90522917d26fd2fec8f554d9765950d3c97eb4f0-41760987212-1 has been successfully uploaded! Final size is 44937 bytes. Artifact ID is 13291500842
+2026-11-04T02:40:18.6852428Z Artifact download URL: https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41760987212/artifacts/13291500842
+2026-11-04T02:40:18.7149627Z Post job cleanup.
+2026-11-04T02:40:18.8366294Z Cache up-to-date.
+2026-11-04T02:40:18.8624445Z Post job cleanup.
+2026-11-04T02:40:19.0089107Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-11-04T02:40:19.0377294Z git version 2.56.0.windows.4
+2026-11-04T02:40:19.0433403Z Temporarily overriding HOME='D:\a\_temp\7968e243-e2bf-496c-a4da-286cf1714ae1' before making global git config changes
+2026-11-04T02:40:19.0434312Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-04T02:40:19.0442785Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-04T02:40:19.0753609Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-04T02:40:19.1063674Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-04T02:40:19.5940369Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-04T02:40:19.6251476Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-04T02:40:20.1029133Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-04T02:40:20.1410628Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-04T02:40:20.6064922Z Cleaning up orphan processes
+2026-11-04T02:40:20.6245996Z Terminate orphan process: pid (8372) (vctip)
+2026-11-04T02:40:20.6641843Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@11d5960a326750d5838078e36cf38b85af677262, actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

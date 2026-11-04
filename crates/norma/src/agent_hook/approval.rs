@@ -3,7 +3,9 @@ use super::AgentHookEvent;
 use crate::protocol::AgentProfile;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::io::{self, Read};
+use std::io;
+#[cfg(not(windows))]
+use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -161,7 +163,15 @@ pub fn claude_permission_output(decision: ApprovalDecision) -> Value {
 /// Call during background preparation, not on a UI hot path.
 pub fn fresh_control_id() -> io::Result<String> {
     let mut bytes = [0_u8; 16];
+    #[cfg(not(windows))]
     std::fs::File::open("/dev/urandom")?.read_exact(&mut bytes)?;
+    #[cfg(windows)]
+    {
+        use ring::rand::SecureRandom;
+        ring::rand::SystemRandom::new()
+            .fill(&mut bytes)
+            .map_err(|_| io::Error::other("OS random source unavailable"))?;
+    }
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
     let hex = hex::encode(bytes);

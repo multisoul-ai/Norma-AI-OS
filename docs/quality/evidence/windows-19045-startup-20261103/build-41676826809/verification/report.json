@@ -1,0 +1,12 @@
+{
+  "run_id": "41676826809",
+  "width": 1044,
+  "scope": "Packaged CLI, hook help, browser caller rejection, window and normal last-window close; no model task",
+  "exit_code": 0,
+  "status": "PASS",
+  "source_sha": "15338abf2ad49406b1447bda0da648e4e3052010",
+  "version": "norma 0.1.77",
+  "height": 788,
+  "probe_sha": "15338abf2ad49406b1447bda0da648e4e3052010",
+  "run_attempt": "1"
+}

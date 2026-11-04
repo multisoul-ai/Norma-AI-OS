@@ -3,9 +3,19 @@ use crate::message::PtyEvent;
 use crossbeam_channel::Sender;
 use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, PtySize};
 use std::ffi::OsStr;
-use std::io::{Read, Write};
+#[cfg(not(windows))]
+use std::io::Read;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+#[cfg(not(windows))]
 use std::thread;
+
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+use windows::Master;
+#[cfg(not(windows))]
+type Master = Box<dyn portable_pty::MasterPty + Send>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PtyError {
@@ -81,7 +91,7 @@ pub trait PtyBackend {
 }
 
 pub struct PtyHandle {
-    master: Box<dyn portable_pty::MasterPty + Send>,
+    master: Master,
     writer: Box<dyn Write + Send>,
     child: Box<dyn ChildKiller + Send + Sync>,
     child_process: crate::process_tree::ManagedProcess,
@@ -105,6 +115,8 @@ impl PtyHandle {
         rows: u16,
         tx: Sender<PtyEvent>,
     ) -> Result<PtyHandle, PtyError> {
+        #[cfg(windows)]
+        let command = crate::windows_launch::prepare(command)?;
         let pty_system = native_pty_system();
         let pair = pty_system
             .openpty(PtySize {
@@ -127,7 +139,7 @@ impl PtyHandle {
         }
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
-        let mut child = pair
+        let child = pair
             .slave
             .spawn_command(cmd)
             .map_err(|e| PtyError::Spawn(e.to_string()))?;
@@ -140,45 +152,21 @@ impl PtyHandle {
             .master
             .take_writer()
             .map_err(|e| PtyError::Spawn(e.to_string()))?;
-        let mut reader = pair
+        let reader = pair
             .master
             .try_clone_reader()
             .map_err(|e| PtyError::Spawn(e.to_string()))?;
 
-        // 读线程：阻塞读 → 发 Output；EOF → wait 子进程后发 Exited 并退出。
-        thread::Builder::new()
-            .name("pty-reader".into())
-            .spawn(move || {
-                let mut buf = [0u8; 8192];
-                loop {
-                    match reader.read(&mut buf) {
-                        Ok(0) => {
-                            let _ = tx.send(PtyEvent::Exited {
-                                code: child_exit_code(child.wait()),
-                            });
-                            break;
-                        }
-                        Ok(n) => {
-                            // 通道断开（app 已关闭）→ 退出读线程，避免僵尸。
-                            if tx.send(PtyEvent::Output(buf[..n].to_vec())).is_err() {
-                                let _ = child.kill();
-                                let _ = child.wait();
-                                break;
-                            }
-                        }
-                        Err(_) => {
-                            let _ = tx.send(PtyEvent::Exited {
-                                code: child_exit_code(child.wait()),
-                            });
-                            break;
-                        }
-                    }
-                }
-            })
-            .map_err(PtyError::Io)?;
+        #[cfg(windows)]
+        let master = windows::start(pair.master, reader, child, tx)?;
+        #[cfg(not(windows))]
+        let master = {
+            start_reader(reader, child, tx)?;
+            pair.master
+        };
 
         Ok(PtyHandle {
-            master: pair.master,
+            master,
             writer,
             child: child_killer,
             child_process,
@@ -206,6 +194,38 @@ impl PtyHandle {
     pub fn kill(&mut self) {
         crate::process_tree::terminate_or_signal(self.child_process, self.child.as_mut());
     }
+}
+
+#[cfg(not(windows))]
+fn start_reader(
+    mut reader: Box<dyn Read + Send>,
+    mut child: Box<dyn portable_pty::Child + Send + Sync>,
+    tx: Sender<PtyEvent>,
+) -> Result<(), PtyError> {
+    thread::Builder::new()
+        .name("pty-reader".into())
+        .spawn(move || {
+            let mut buf = [0u8; 8192];
+            loop {
+                match reader.read(&mut buf) {
+                    Ok(0) | Err(_) => {
+                        let _ = tx.send(PtyEvent::Exited {
+                            code: child_exit_code(child.wait()),
+                        });
+                        break;
+                    }
+                    Ok(n) => {
+                        if tx.send(PtyEvent::Output(buf[..n].to_vec())).is_err() {
+                            let _ = child.kill();
+                            let _ = child.wait();
+                            break;
+                        }
+                    }
+                }
+            }
+        })
+        .map_err(PtyError::Io)?;
+    Ok(())
 }
 
 /// 默认实现：PtyHandle 即真实 PTY 后端，全限定委托固有方法，不改动其公开 API。

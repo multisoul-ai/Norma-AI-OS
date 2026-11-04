@@ -1,0 +1,12 @@
+   Compiling asr v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/asr)
+    Finished `test` profile [optimized + debuginfo] target(s) in 3.43s
+     Running unittests src/lib.rs (target/debug/deps/asr-33a594438fde1e5f)
+
+running 4 tests
+test providers::local::a1::transport::tests::worker_roundtrip_reuses_process_and_reaps_on_drop ... ok
+test providers::local::a1::transport::tests::deadline_bounds_a_hung_worker ... ok
+test providers::local::a1::transport::tests::invalid_or_degraded_responses_never_become_final_text ... ok
+test providers::local::a1::transport::tests::cancellation_interrupts_waiting_and_reaps_worker ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.16s
+

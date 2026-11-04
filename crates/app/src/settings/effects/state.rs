@@ -63,7 +63,7 @@ pub(crate) const KEY_SPEED: &str = "effects.speed";
 /// 卡片运行特效风格：全局偏好，所有项目共用。
 pub(crate) const KEY_RUN_STYLE: &str = "effects.run_style";
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct EffectsSettingsState {
     pub global: Option<Pref>,
     pub speed: PlaybackSpeed,
@@ -82,26 +82,6 @@ pub(crate) struct EffectsSettingsState {
     pub run_saved: RunStyle,
     pub run_saved_generation: u64,
     pub run_generation: u64,
-}
-
-impl Default for EffectsSettingsState {
-    fn default() -> Self {
-        Self {
-            global: None,
-            speed: PlaybackSpeed::default(),
-            generation: 0,
-            speed_generation: 0,
-            status: None,
-            busy: false,
-            undo: None,
-            run_style: RunStyle::default(),
-            run_status: None,
-            run_undo: None,
-            run_saved: RunStyle::default(),
-            run_saved_generation: 0,
-            run_generation: 0,
-        }
-    }
 }
 
 impl gpui::Global for EffectsSettingsState {}

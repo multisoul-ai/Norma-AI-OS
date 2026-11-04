@@ -95,14 +95,14 @@ impl MultisoulApp {
                 answers,
                 reason,
             } => {
-                self.propose_question_answer(target, answers, reason)
+                self.propose_question_answer(*target, answers, reason)
                     .map_err(|error| reject(&error))?;
                 cx.notify();
                 output(json!({"status":"waiting_user"}))
             }
             BrainOp::Answer { target, answers } => {
                 let snapshot = self
-                    .answer_question_from_brain(target, answers, cx)
+                    .answer_question_from_brain(*target, answers, cx)
                     .map_err(|error| reject(&error))?;
                 output(json!({"question":snapshot}))
             }

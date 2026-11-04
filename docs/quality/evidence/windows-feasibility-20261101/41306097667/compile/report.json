@@ -1,0 +1,69 @@
+{
+  "task": "compile",
+  "source_sha": "bf03d7ef434a77dc5268d7ef257a4290c45cb031",
+  "checks": [
+    {
+      "id": "canvas_tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "canvas",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "log": "canvas_tests.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 51.42
+    },
+    {
+      "id": "norma_compile",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "norma",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc",
+        "--message-format=short"
+      ],
+      "log": "norma_compile.log",
+      "status": "FAIL",
+      "exit_code": 101,
+      "duration_seconds": 176.42
+    },
+    {
+      "id": "app_compile",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "app",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc",
+        "--message-format=short"
+      ],
+      "log": "app_compile.log",
+      "status": "FAIL",
+      "exit_code": 101,
+      "duration_seconds": 501.67
+    }
+  ],
+  "metadata": {
+    "target": "x86_64-pc-windows-msvc",
+    "release_build": "NOT_RUN"
+  },
+  "timestamp": "2026-11-01T12:34:14.555377+00:00",
+  "os": "Windows-2025Server-10.0.26100-SP0",
+  "run_id": "41306097667",
+  "run_attempt": "1",
+  "image_version": "20261021.278.1",
+  "disk_free_bytes": 156060549120
+}

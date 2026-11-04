@@ -8,6 +8,54 @@ use norma::protocol::AgentProfile;
 #[path = "../../tests/unit/idea_assign_shortcuts_tests.rs"]
 mod tests;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BadgeMode {
+    Hidden,
+    Cards,
+    NewAgent,
+}
+
+/// 默认派发键的按住提示；与用户覆盖键位无关。
+pub(crate) fn badge_mode(
+    control: bool,
+    shift: bool,
+    alt: bool,
+    platform: bool,
+    todo_count: usize,
+) -> BadgeMode {
+    if platform || todo_count == 0 {
+        return BadgeMode::Hidden;
+    }
+    if control && shift && !alt {
+        BadgeMode::NewAgent
+    } else if !shift
+        && if cfg!(windows) {
+            alt && !control
+        } else {
+            control && !alt
+        }
+    {
+        BadgeMode::Cards
+    } else {
+        BadgeMode::Hidden
+    }
+}
+
+pub(crate) fn new_agent_hint(default: AgentProfile) -> String {
+    let typed: Vec<String> = (2..=9)
+        .filter_map(|slot| new_agent_profile(slot).map(|profile| format!("{slot} {profile:?}")))
+        .collect();
+    let (default_key, typed_key) = if cfg!(windows) {
+        ("Ctrl+0", "Ctrl+Shift+")
+    } else {
+        ("⌃0", "⌃⇧")
+    };
+    format!(
+        "{default_key} {default:?}　{typed_key} {}",
+        typed.join(" · ")
+    )
+}
+
 /// 数字槽位对应的新建类型；`0` 与未绑定的槽位返回 `None`，由调用方使用默认类型。
 pub(crate) fn new_agent_profile(slot: u8) -> Option<AgentProfile> {
     match slot {

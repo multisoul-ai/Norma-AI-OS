@@ -1,0 +1,1340 @@
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded block-buffer v0.10.4
+  Downloaded zerofrom-derive v0.1.7
+  Downloaded zerovec v0.11.6
+  Downloaded utf8-zero v0.8.1
+  Downloaded zmij v1.0.21
+  Downloaded ureq v3.3.0
+  Downloaded ureq-proto v0.6.0
+  Downloaded yoke v0.8.3
+  Downloaded utf-8 v0.7.6
+  Downloaded zerovec-derive v0.11.3
+  Downloaded icu_properties v2.2.0
+  Downloaded rustls v0.23.41
+  Downloaded icu_locale_core v2.2.0
+  Downloaded zerocopy v0.8.53
+  Downloaded typenum v1.20.1
+  Downloaded time v0.3.53
+  Downloaded syn v2.0.118
+  Downloaded spake2 v0.4.0
+  Downloaded idna_adapter v1.2.2
+  Downloaded memchr v2.8.2
+  Downloaded md-5 v0.10.6
+  Downloaded rustix v1.1.4
+  Downloaded num-conv v0.2.2
+  Downloaded equivalent v1.0.2
+  Downloaded displaydoc v0.2.6
+  Downloaded dirs-sys v0.5.0
+  Downloaded core-foundation-sys v0.8.7
+  Downloaded zerotrie v0.2.4
+  Downloaded tungstenite v0.28.0
+  Downloaded ppv-lite86 v0.2.21
+  Downloaded litrs v1.0.0
+  Downloaded idna v1.1.0
+  Downloaded icu_normalizer_data v2.2.0
+  Downloaded hkdf v0.12.4
+  Downloaded tracing-core v0.1.36
+  Downloaded tinystr v0.8.3
+  Downloaded httparse v1.10.1
+  Downloaded fastrand v2.4.1
+  Downloaded webpki-roots v1.0.8
+  Downloaded getrandom v0.3.4
+  Downloaded getrandom v0.2.17
+  Downloaded clap_builder v4.6.0
+  Downloaded subtle v2.6.1
+  Downloaded rusqlite v0.32.1
+  Downloaded rcgen v0.13.2
+  Downloaded pkg-config v0.3.33
+  Downloaded pin-project-lite v0.2.17
+  Downloaded litemap v0.8.2
+  Downloaded icu_properties_data v2.2.0
+  Downloaded hex v0.4.3
+  Downloaded heck v0.5.0
+  Downloaded hashbrown v0.17.1
+  Downloaded hashbrown v0.14.5
+  Downloaded libc v0.2.186
+  Downloaded data-encoding v2.11.0
+  Downloaded colorchoice v1.0.5
+  Downloaded cfg-if v1.0.4
+  Downloaded untrusted v0.9.0
+  Downloaded socks v0.3.4
+  Downloaded rustls-native-certs v0.8.4
+  Downloaded rand_core v0.6.4
+  Downloaded rand v0.9.4
+  Downloaded percent-encoding v2.3.2
+  Downloaded ring v0.17.14
+  Downloaded itoa v1.0.18
+  Downloaded icu_collections v2.2.0
+  Downloaded http v1.4.2
+  Downloaded flate2 v1.1.9
+  Downloaded fallible-streaming-iterator v0.1.9
+  Downloaded fallible-iterator v0.3.0
+  Downloaded core-foundation v0.10.0
+  Downloaded cookie_store v0.22.1
+  Downloaded cookie v0.18.1
+  Downloaded cc v1.2.66
+  Downloaded base64 v0.22.1
+  Downloaded zerofrom v0.1.8
+  Downloaded yasna v0.5.2
+  Downloaded version_check v0.9.5
+  Downloaded vcpkg v0.2.15
+  Downloaded utf8parse v0.2.2
+  Downloaded unicode-ident v1.0.24
+  Downloaded time-macros v0.2.31
+  Downloaded stable_deref_trait v1.2.1
+  Downloaded smallvec v1.15.2
+  Downloaded shlex v2.0.1
+  Downloaded quote v1.0.46
+  Downloaded once_cell v1.21.4
+  Downloaded miniz_oxide v0.8.9
+  Downloaded is_terminal_polyfill v1.70.2
+  Downloaded icu_provider v2.2.0
+  Downloaded icu_normalizer v2.2.0
+  Downloaded hmac v0.12.1
+  Downloaded hashlink v0.9.1
+  Downloaded generic-array v0.14.7
+  Downloaded form_urlencoded v1.2.2
+  Downloaded find-msvc-tools v0.1.9
+  Downloaded errno v0.3.14
+  Downloaded document-features v0.2.12
+  Downloaded dirs v6.0.0
+  Downloaded digest v0.10.7
+  Downloaded deranged v0.5.8
+  Downloaded clap_derive v4.6.1
+  Downloaded anstyle-query v1.1.5
+  Downloaded ahash v0.8.12
+  Downloaded url v2.5.8
+  Downloaded tracing-attributes v0.1.31
+  Downloaded tracing v0.1.44
+  Downloaded time-core v0.1.9
+  Downloaded thiserror-impl v2.0.18
+  Downloaded tempfile v3.27.0
+  Downloaded serde_json v1.0.150
+  Downloaded serde_core v1.0.228
+  Downloaded rustls-pki-types v1.15.0
+  Downloaded rustc_version v0.4.1
+  Downloaded rand_core v0.9.5
+  Downloaded rand_chacha v0.9.0
+  Downloaded proc-macro2 v1.0.106
+  Downloaded powerfmt v0.2.0
+  Downloaded potential_utf v0.1.5
+  Downloaded option-ext v0.2.0
+  Downloaded log v0.4.33
+  Downloaded indexmap v2.14.0
+  Downloaded getrandom v0.4.3
+  Downloaded cpufeatures v0.2.17
+  Downloaded clap v4.6.1
+  Downloaded anyhow v1.0.103
+  Downloaded adler2 v2.0.1
+  Downloaded zeroize v1.9.0
+  Downloaded thiserror v2.0.18
+  Downloaded simd-adler32 v0.3.9
+  Downloaded sha2 v0.10.9
+  Downloaded sha1 v0.10.7
+  Downloaded serde_derive v1.0.228
+  Downloaded serde v1.0.228
+  Downloaded semver v1.0.28
+  Downloaded security-framework-sys v2.17.0
+  Downloaded security-framework v3.7.0
+  Downloaded rustls-webpki v0.103.13
+  Downloaded curve25519-dalek v4.1.3
+  Downloaded crypto-common v0.1.7
+  Downloaded crossbeam-utils v0.8.22
+  Downloaded crossbeam-channel v0.5.16
+  Downloaded crc32fast v1.5.0
+  Downloaded clap_lex v1.1.0
+  Downloaded bitflags v2.13.0
+  Downloaded anstyle-parse v1.0.0
+  Downloaded anstream v1.0.0
+  Downloaded yoke-derive v0.8.2
+  Downloaded writeable v0.6.3
+  Downloaded utf8_iter v1.0.4
+  Downloaded synstructure v0.13.2
+  Downloaded strsim v0.11.1
+  Downloaded bytes v1.12.0
+  Downloaded byteorder v1.5.0
+  Downloaded anstyle v1.0.14
+  Downloaded libsqlite3-sys v0.30.1
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.46
+   Compiling unicode-ident v1.0.24
+   Compiling libc v0.2.186
+   Compiling cfg-if v1.0.4
+   Compiling version_check v0.9.5
+   Compiling shlex v2.0.1
+   Compiling syn v2.0.118
+   Compiling find-msvc-tools v0.1.9
+   Compiling cc v1.2.66
+   Compiling generic-array v0.14.7
+   Compiling stable_deref_trait v1.2.1
+   Compiling subtle v2.6.1
+   Compiling typenum v1.20.1
+   Compiling getrandom v0.2.17
+   Compiling once_cell v1.21.4
+   Compiling zerocopy v0.8.53
+   Compiling synstructure v0.13.2
+   Compiling ring v0.17.14
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling zeroize v1.9.0
+   Compiling rustls-pki-types v1.15.0
+   Compiling writeable v0.6.3
+   Compiling litemap v0.8.2
+   Compiling untrusted v0.9.0
+   Compiling utf8_iter v1.0.4
+   Compiling icu_properties_data v2.2.0
+   Compiling bitflags v2.13.0
+   Compiling semver v1.0.28
+   Compiling icu_normalizer_data v2.2.0
+   Compiling getrandom v0.3.4
+   Compiling rustc_version v0.4.1
+   Compiling ahash v0.8.12
+   Compiling cpufeatures v0.2.17
+   Compiling smallvec v1.15.2
+   Compiling serde_core v1.0.228
+   Compiling itoa v1.0.18
+   Compiling core-foundation-sys v0.8.7
+   Compiling httparse v1.10.1
+   Compiling curve25519-dalek v4.1.3
+   Compiling vcpkg v0.2.15
+   Compiling zmij v1.0.21
+   Compiling rustls v0.23.41
+   Compiling crc32fast v1.5.0
+   Compiling pkg-config v0.3.33
+   Compiling bytes v1.12.0
+   Compiling utf8parse v0.2.2
+   Compiling log v0.4.33
+   Compiling anstyle-parse v1.0.0
+   Compiling http v1.4.2
+   Compiling libsqlite3-sys v0.30.1
+   Compiling rand_core v0.9.5
+   Compiling core-foundation v0.10.0
+   Compiling security-framework-sys v2.17.0
+   Compiling rustls-webpki v0.103.13
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling displaydoc v0.2.6
+   Compiling ppv-lite86 v0.2.21
+   Compiling hmac v0.12.1
+   Compiling rand_core v0.6.4
+   Compiling percent-encoding v2.3.2
+   Compiling colorchoice v1.0.5
+   Compiling deranged v0.5.8
+   Compiling adler2 v2.0.1
+   Compiling serde v1.0.228
+   Compiling crossbeam-utils v0.8.22
+   Compiling anstyle-query v1.1.5
+   Compiling zerofrom v0.1.8
+   Compiling simd-adler32 v0.3.9
+   Compiling yoke v0.8.3
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling zerovec v0.11.6
+   Compiling zerotrie v0.2.4
+   Compiling powerfmt v0.2.0
+   Compiling num-conv v0.2.2
+   Compiling tinystr v0.8.3
+   Compiling potential_utf v0.1.5
+   Compiling serde_json v1.0.150
+   Compiling icu_locale_core v2.2.0
+   Compiling icu_collections v2.2.0
+   Compiling anyhow v1.0.103
+   Compiling time-core v0.1.9
+   Compiling thiserror v2.0.18
+   Compiling anstyle v1.0.14
+   Compiling icu_provider v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling idna_adapter v1.2.2
+   Compiling anstream v1.0.0
+   Compiling time v0.3.53
+   Compiling miniz_oxide v0.8.9
+   Compiling hkdf v0.12.4
+   Compiling rand_chacha v0.9.0
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling security-framework v3.7.0
+   Compiling hashbrown v0.14.5
+   Compiling sha2 v0.10.9
+   Compiling strsim v0.11.1
+   Compiling byteorder v1.5.0
+   Compiling memchr v2.8.2
+   Compiling option-ext v0.2.0
+   Compiling clap_lex v1.1.0
+   Compiling heck v0.5.0
+   Compiling base64 v0.22.1
+   Compiling ureq-proto v0.6.0
+   Compiling clap_derive v4.6.1
+   Compiling clap_builder v4.6.0
+   Compiling dirs-sys v0.5.0
+   Compiling socks v0.3.4
+   Compiling spake2 v0.4.0
+   Compiling flate2 v1.1.9
+   Compiling hashlink v0.9.1
+   Compiling rustls-native-certs v0.8.4
+   Compiling rand v0.9.4
+   Compiling yasna v0.5.2
+   Compiling idna v1.1.0
+   Compiling form_urlencoded v1.2.2
+   Compiling tracing-attributes v0.1.31
+   Compiling sha1 v0.10.7
+   Compiling webpki-roots v1.0.8
+   Compiling tracing-core v0.1.36
+   Compiling fallible-iterator v0.3.0
+   Compiling pin-project-lite v0.2.17
+   Compiling data-encoding v2.11.0
+   Compiling utf-8 v0.7.6
+   Compiling utf8-zero v0.8.1
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling rusqlite v0.32.1
+   Compiling ureq v3.3.0
+   Compiling tungstenite v0.28.0
+   Compiling tracing v0.1.44
+   Compiling url v2.5.8
+   Compiling mobile_pairing v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/mobile_pairing)
+   Compiling crossbeam-channel v0.5.16
+   Compiling rcgen v0.13.2
+   Compiling dirs v6.0.0
+   Compiling clap v4.6.1
+   Compiling md-5 v0.10.6
+   Compiling rustix v1.1.4
+   Compiling getrandom v0.4.3
+   Compiling hex v0.4.3
+   Compiling errno v0.3.14
+   Compiling norma v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/norma)
+   Compiling fastrand v2.4.1
+   Compiling tempfile v3.27.0
+    Finished `test` profile [optimized + debuginfo] target(s) in 4m 26s
+     Running unittests src/lib.rs (target/debug/deps/norma-76ae5f5c8581ca42)
+
+running 29 tests
+test agent_hook::event::tests::session_start_from_every_agent_provider_maps_to_ready ... ok
+test agent_hook::event::tests::test_extract_prompt_text_fallback_keys_and_none ... ok
+test agent_hook::session_claim::tests::test_marker_name_distinguishes_sessions_that_sanitize_alike ... ok
+test agent_hook::event::tests::test_extract_prompt_text_short_and_truncated ... ok
+test agent_hook::session_claim::tests::test_claim_is_once_per_session_and_release_reopens_it ... ok
+test agent_hook::session_title::session_title_tests::claude_title_found_by_session_id_across_project_dirs ... ok
+test agent_hook::session_title::session_title_tests::codex_takes_last_thread_name_for_the_session ... ok
+test agent_hook::session_title::session_title_tests::claude_takes_last_non_empty_ai_title ... ok
+test agent_hook::session_title::session_title_tests::refresh_events_and_per_profile_dispatch ... ok
+test agent_hook::session_title::session_title_tests::untrusted_paths_and_ids_are_rejected ... ok
+test agent_hook::session_title::session_title_tests::title_is_found_when_file_is_larger_than_the_tail_window ... ok
+test agent_hook::zcode::tests::install_refuses_to_overwrite_foreign_or_malformed_config ... ok
+test agent_hook::zcode::tests::install_is_idempotent_and_uninstall_keeps_user_data ... ok
+test agent_hook::zcode::tests::install_writes_seven_verified_events_and_enables_hooks ... ok
+test agent_hook::zcode::tests::install_refuses_when_dormant_user_hooks_would_be_activated ... ok
+test agent_hook::zcode::tests::installed_requires_enabled_flag ... ok
+test client::tests::debug_build_uses_an_isolated_norma_socket_name ... ok
+test codex::relay::input::tests::completed_question_history_does_not_exhaust_pending_capacity ... ok
+test codex::relay::input::tests::old_turn_outside_history_window_cannot_hold_current_input ... ok
+test codex::relay::input::tests::ordinary_turn_history_never_creates_pending_input ... ok
+output backpressure readiness=auto
+test agent_hook::zcode::tests::uninstall_keeps_user_owned_empty_groups_and_events ... ok
+partial answer readiness=auto
+test agent_hook::zcode::tests::real_payload_fixtures_map_to_states ... ok
+test file_identity::tests::file_identity_survives_append ... ok
+test file_identity::tests::replacement_is_distinct_even_with_equal_length ... ok
+test orchestration::file_ops::tests::managed_credential_detects_and_repairs_broader_permissions ... ok
+test orchestration::file_ops::tests::managed_file_replacement_preserves_content_and_private_permissions ... ok
+test orchestration::file_ops::tests::private_session_directory_is_reusable_without_losing_markers ... ok
+test codex::relay::partial_tests::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... ok
+relay output pre-close consecutive WouldBlock=8; complete source frames=1
+relay close all source handles released=true
+test codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.89s
+
+     Running unittests src/bin/multisoul_agent_hook.rs (target/debug/deps/multisoul_agent_hook-a07ceb0547c5c7be)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/norma.rs (target/debug/deps/norma-b9f8f581fe948bbb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_creation.rs (target/debug/deps/agent_creation-ea46ddcf4839c90d)
+
+running 1 test
+test create_request_requires_exact_scope_and_never_includes_a_task ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_completeness_tests.rs (target/debug/deps/agent_hook_completeness_tests-72ed9e4cc9a3a5ba)
+
+running 2 tests
+test cursor_requires_every_flat_hook_event ... ok
+test codex_requires_every_hook_event_and_repair_restores_missing_event ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/agent_hook_completion_grok_tests.rs (target/debug/deps/agent_hook_completion_grok_tests-a3e49f23bccf24fd)
+
+running 3 tests
+test grok_session_close_stop_is_not_completion ... ok
+test grok_subagent_lifecycle_events_are_dropped ... ok
+test grok_stop_with_background_tasks_keeps_thinking ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_completion_late_tests.rs (target/debug/deps/agent_hook_completion_late_tests-7f6b066cebac7bbb)
+
+running 5 tests
+test foreground_activity_does_not_disarm_an_unsettled_timeout ... ok
+test late_subagent_start_rearms_the_timeout_without_another_stop ... ok
+test late_background_registration_still_times_out_without_another_stop ... ok
+test session_end_with_open_work_does_not_confirm ... ok
+test stop_failure_during_a_quiet_window_does_not_confirm ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_completion_tests.rs (target/debug/deps/agent_hook_completion_tests-6243f16f597824e6)
+
+running 9 tests
+test foreground_failure_and_other_nodes_do_not_enter_the_ledger ... ok
+test missing_background_tasks_field_is_not_an_empty_snapshot ... ok
+test first_of_two_background_tasks_does_not_release_the_turn ... ok
+test non_claude_stop_stays_immediate ... ok
+test stop_arriving_before_background_registration_stays_open ... ok
+test single_background_bash_waits_for_empty_stop_and_window ... ok
+test task_notification_can_settle_by_tool_use_id_alias ... ok
+test subagent_stop_snapshot_does_not_finish_while_the_agent_is_still_listed ... ok
+test task_stop_clears_the_background_id_before_the_empty_stop ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_completion_window_tests.rs (target/debug/deps/agent_hook_completion_window_tests-6ad2f4eaa1359c67)
+
+running 9 tests
+test a_new_prompt_does_not_clear_unsettled_background_work ... ok
+test active_stop_hook_still_completes_after_the_window ... ok
+test activity_after_done_is_forwarded_without_another_confirm ... ok
+test emptying_the_ledger_restarts_the_timeout_clock ... ok
+test process_probe_defers_at_most_three_windows_and_cannot_undo_done ... ok
+test session_end_confirms_a_quiet_empty_window_before_forwarding ... ok
+test timeout_does_not_fire_before_the_turn_stops ... ok
+test running_notification_and_in_window_activity_keep_the_turn_open ... ok
+test unsettled_background_work_degrades_after_thirty_minutes ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_cursor_tests.rs (target/debug/deps/agent_hook_cursor_tests-c70f3da12a6cbe7d)
+
+running 4 tests
+test cursor_official_identity_fields_override_generic_compatibility_fields ... ok
+test cursor_generation_and_transcript_fields_preserve_exact_mobile_identity ... ok
+test test_cursor_before_submit_prompt_maps_to_thinking_and_caches_conversation ... ok
+test test_cursor_hook_config_is_idempotent_and_preserves_user_hooks ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/agent_hook_grok_tests.rs (target/debug/deps/agent_hook_grok_tests-ca0b75a305dd8699)
+
+running 2 tests
+test grok_camel_case_pre_tool_use_maps_to_running_tool ... ok
+test grok_hook_install_is_idempotent_and_uninstall_preserves_third_party_hooks ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/agent_hook_hermes_plugin_exec_tests.rs (target/debug/deps/agent_hook_hermes_plugin_exec_tests-38161b7b2ee30afb)
+
+running 3 tests
+test all_uninstall_keeps_hermes_dir_for_disable ... ok
+test hermes_plugin_executes_and_maps_events_to_payloads ... ok
+test hermes_plugin_ignores_proxy_environment ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.79s
+
+     Running tests/agent_hook_hermes_tests.rs (target/debug/deps/agent_hook_hermes_tests-2d58b37635767f03)
+
+running 5 tests
+test hermes_events_map_to_task_states ... ok
+test hermes_source_and_target_parse ... ok
+test hermes_stop_reply_feeds_conversation_observation ... ok
+test hermes_refuses_to_overwrite_or_remove_unmanaged_plugin ... ok
+test hermes_install_writes_marked_plugin_and_uninstall_removes_it ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/agent_hook_infcode_tests.rs (target/debug/deps/agent_hook_infcode_tests-7b1d066b78db5a68)
+
+running 2 tests
+test infcode_install_and_uninstall_preserve_user_settings_fields ... ok
+test infcode_installs_claude_style_command_hooks_into_settings_json ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/agent_hook_kimi_tests.rs (target/debug/deps/agent_hook_kimi_tests-fb4950738ab62739)
+
+running 6 tests
+test kimi_config_path_honors_kimi_code_home ... ok
+test kimi_events_map_to_five_states ... ok
+test kimi_only_events_do_not_leak_to_other_sources ... ok
+test kimi_prompt_array_feeds_conversation_evidence ... ok
+test kimi_install_refuses_unmergeable_config ... ok
+test kimi_install_is_idempotent_and_uninstall_keeps_user_content ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/agent_hook_opencode_subsession_tests.rs (target/debug/deps/agent_hook_opencode_subsession_tests-9823467a39b78ef6)
+
+running 2 tests
+test stale_managed_opencode_plugin_is_refreshed ... ok
+test opencode_child_session_lifecycle_does_not_reach_parent_card ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.87s
+
+     Running tests/agent_hook_opencode_tests.rs (target/debug/deps/agent_hook_opencode_tests-872ef8bc06f84b15)
+
+running 3 tests
+test test_opencode_pre_tool_use_maps_to_running_tool ... ok
+test test_opencode_install_rejects_unmanaged_same_path_plugin ... ok
+test test_opencode_install_writes_and_removes_plugin_file ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/agent_hook_path_convention_tests.rs (target/debug/deps/agent_hook_path_convention_tests-68c3080dbc1aff09)
+
+running 5 tests
+test test_cursor_json_and_kimi_first_prompt_only ... ok
+test test_env_switch_disables_injection ... ok
+test test_no_injection_outside_managed_session_start ... ok
+test test_prompt_states_the_rules_the_parser_relies_on ... ok
+test test_session_start_injects_path_convention_for_claude_and_codex ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_pi_tests.rs (target/debug/deps/agent_hook_pi_tests-631471af2ebfce09)
+
+running 8 tests
+test pi_events_map_to_five_states ... ok
+test pi_default_path_is_pi_agent_extensions ... ok
+test pi_extension_install_upgrade_uninstall_respects_ownership ... ok
+test pi_extension_forwards_success_run_in_order ... ok
+test pi_extension_ignores_non_quit_session_shutdown ... ok
+test pi_extension_is_silent_without_norma_env ... ok
+test pi_stop_event_maps_to_done_with_reply_evidence ... ok
+test pi_extension_reports_failure_and_abort_as_stop_failure ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.84s
+
+     Running tests/agent_hook_tests.rs (target/debug/deps/agent_hook_tests-3b508062c2d1dfea)
+
+running 9 tests
+test test_codex_pre_tool_use_maps_to_running_tool ... ok
+test test_claude_user_prompt_submit_maps_to_thinking ... ok
+test test_forward_hook_noops_when_multisoul_env_is_missing ... ok
+multisoul-agent-hook: ignored forward failure: Connection refused (os error 61)
+test test_permission_and_failure_events_map_to_expected_task_hints ... ok
+test test_forward_hook_ignores_unreachable_endpoint ... ok
+test test_uninstall_hook_config_is_idempotent_when_missing_or_clean ... ok
+test test_resolve_agent_hook_command_path_from_sibling_binary ... ok
+test test_uninstall_hook_config_removes_only_multisoul_hooks ... ok
+test test_install_hook_config_is_idempotent_for_claude_and_codex ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/app_browser_focus_platform.rs (target/debug/deps/app_browser_focus_platform-031d0d98d069f248)
+
+running 1 test
+test native_focus_return_requires_current_user_intent_and_source_ownership ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/app_browser_generation_platform.rs (target/debug/deps/app_browser_generation_platform-187a5e3eed10e548)
+
+running 2 tests
+test explicit_window_invalidation_rejects_already_queued_events ... ok
+test queued_old_view_events_are_rejected_at_consumption_after_host_replacement ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/app_route_id_platform.rs (target/debug/deps/app_route_id_platform-65e3ac8fba5a637b)
+
+running 1 test
+test app_routes_use_available_native_randomness_and_rfc4122_v4_ids ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/brain_cli_tests.rs (target/debug/deps/brain_cli_tests-0e0da0774bccdb32)
+
+running 6 tests
+test brain_commands_default_to_json_output ... ok
+test agents_approvals_and_assign_parse ... ok
+test history_parses_agent_last_and_grep ... ok
+test decide_parses_the_three_decisions_and_requires_a_reason ... ok
+test propose_parses_title_task_and_why ... ok
+test report_parses_text_and_priority ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/brain_decision_copy.rs (target/debug/deps/brain_decision_copy-5d2ae50d579d2758)
+
+running 4 tests
+test decision_copy_rejects_blank_and_multiline_text ... ok
+test decision_copy_counts_characters_instead_of_bytes ... ok
+test proposal_title_and_reason_share_one_budget ... ok
+test direct_protocol_and_cli_apply_the_same_limit ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/bundled_helpers_platform.rs (target/debug/deps/bundled_helpers_platform-6702755cf874d71a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/claude_question.rs (target/debug/deps/claude_question-9c7297ce17b2720e)
+
+running 1 test
+test claude_hook_preserves_input_and_requires_matching_tool_result ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/claude_transcript.rs (target/debug/deps/claude_transcript-858231f75ae376cb)
+
+running 2 tests
+test interrupt_evidence_starts_at_complete_eof_and_excludes_typed_markers ... ok
+test full_transcript_pages_are_scoped_and_resume_partial_lines ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/cli_tests.rs (target/debug/deps/cli_tests-99c4c42ef4a0a59b)
+
+running 7 tests
+test test_parse_create_codex_agent_command ... ok
+test test_parse_create_grok_agent_command ... ok
+test test_parse_create_cursor_agent_command ... ok
+test test_parse_create_opencode_agent_command ... ok
+test test_parse_create_terminal_command ... ok
+test test_parse_create_preview_command ... ok
+test test_parse_send_submit_command ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/client_platform.rs (target/debug/deps/client_platform-fefeb28b567f4cda)
+
+running 2 tests
+test local_socket_client_rejects_a_response_for_another_request ... ok
+test local_socket_client_round_trips_the_existing_wire_protocol ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/client_tests.rs (target/debug/deps/client_tests-6d89b43c10113f63)
+
+running 2 tests
+test test_request_codec_uses_single_newline_delimited_json ... ok
+test test_response_codec_round_trips_created_result ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_approvals.rs (target/debug/deps/codex_approvals-a9d81b8efdd73834)
+
+running 3 tests
+test choice_needs_a_durable_receipt_and_revalidation_before_send ... ok
+test decisions_are_once_per_live_request_and_keep_resolution_distinct ... ok
+test deny_uses_cancel_when_provider_does_not_offer_decline ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_connection.rs (target/debug/deps/codex_connection-411300328e9cc9f7)
+
+running 2 tests
+test event_overflow_fails_pending_requests_and_disables_decisions ... ok
+test unix_connection_routes_replies_and_permissions_without_truncation ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/codex_control_handshake.rs (target/debug/deps/codex_control_handshake-ed0fe3636e58937e)
+
+running 1 test
+test fragmented_handshake_on_nonblocking_accepted_stream_waits_for_the_rest ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+     Running tests/codex_control_platform.rs (target/debug/deps/codex_control_platform-62d21b4a87e383ed)
+
+running 2 tests
+test platform_control_errors_and_drop_resolve_pending_requests_without_replay ... ok
+test platform_host_preserves_attachment_answer_cancel_and_peer_shutdown ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/codex_control_shutdown.rs (target/debug/deps/codex_control_shutdown-f8dc932126858d91)
+
+running 1 test
+test backpressured_relay_closes_when_either_peer_exits_in_both_directions ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests/codex_question.rs (target/debug/deps/codex_question-075d5a22ee18c427)
+
+running 5 tests
+test codex_question_maps_free_text_and_rejects_ambiguous_or_partial_answers ... ok
+test codex_preserves_option_descriptions_without_changing_answer_labels ... ok
+test codex_multiple_questions_preserve_secret_and_custom_capabilities ... ok
+test codex_question_preserves_rpc_identity_and_confirms_exact_original_consumption ... ok
+test codex_question_rejects_connector_approval_unknown_and_mismatched_sources ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_question_connections.rs (target/debug/deps/codex_question_connections-430e942eb02bc775)
+
+running 3 tests
+test native_input_lock_is_live_when_question_frame_reaches_tui ... ok
+test new_connection_holds_input_before_forwarding_or_attachment_delivery ... ok
+test picker_disconnect_preserves_owner_and_resume_transfers_question_identity ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/codex_question_forward.rs (target/debug/deps/codex_question_forward-0fd1d831e6c85736)
+
+running 1 test
+test native_bridge_returns_only_validated_answers_for_original_question ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/codex_question_history.rs (target/debug/deps/codex_question_history-70a4ddb1e346cd3e)
+
+running 4 tests
+test late_consumption_reclaims_retired_unknown_requests ... ok
+test completed_history_releases_capacity_without_reopening_old_turns ... ok
+test retained_unknown_source_still_counts_against_ledger_budget ... ok
+test host_releases_consumed_tickets_across_long_session ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.65s
+
+     Running tests/codex_question_host.rs (target/debug/deps/codex_question_host-326ac9560362bb2b)
+
+running 1 test
+test same_process_host_carries_owned_attachment_ticket_and_consumption ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/codex_question_ledger.rs (target/debug/deps/codex_question_ledger-2fd34da6418b1a76)
+
+running 5 tests
+test conflicting_consumption_and_retired_turn_never_reopen_a_request ... ok
+test native_resolution_waits_for_consumption_instead_of_fabricating_an_answer ... ok
+test native_answer_cancellation_and_disconnect_revoke_stale_submission ... ok
+test replay_timestamps_do_not_change_question_identity ... ok
+test replayed_pending_is_one_question_and_resolved_is_not_consumption ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_question_relay.rs (target/debug/deps/codex_question_relay-ae3025b858b18561)
+
+running 3 tests
+test native_relay_preserves_session_and_answers_original_rpc_without_extra_turn ... ok
+test native_answer_and_observer_disable_keep_the_original_tui_usable ... ok
+test resumed_same_rpc_requires_the_new_attachment_identity ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/codex_question_relay_backpressure.rs (target/debug/deps/codex_question_relay_backpressure-411544a7d58c86f2)
+
+running 1 test
+方向=true，真实来源收到Ping=0
+方向=false，真实来源收到Ping=0
+test slow_server_applies_backpressure_without_closing_the_native_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.53s
+
+     Running tests/codex_question_relay_ephemeral.rs (target/debug/deps/codex_question_relay_ephemeral-a17faf6edbb86a6f)
+
+running 1 test
+test ephemeral_thread_never_rebinds_or_holds_main_question ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+
+     Running tests/codex_question_relay_identity.rs (target/debug/deps/codex_question_relay_identity-68751803b91e86fd)
+
+running 1 test
+test a_question_lease_cannot_cross_relay_instances ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/codex_question_relay_large.rs (target/debug/deps/codex_question_relay_large-c9b2662fd1aa07db)
+
+running 1 test
+test native_large_configuration_frame_does_not_break_original_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.26s
+
+     Running tests/codex_question_relay_permissions.rs (target/debug/deps/codex_question_relay_permissions-6ca98417701daf9f)
+
+running 2 tests
+test default_relay_never_escalates_session_permissions ... ok
+test full_access_relay_carries_yolo_on_every_session_request ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/codex_question_ticket.rs (target/debug/deps/codex_question_ticket-c25c197f844d5c77)
+
+running 3 tests
+test live_codex_question_outlives_hook_timeout_but_remains_revocable ... ok
+test codex_native_question_uses_the_revocable_host_ticket_with_exact_identity ... ok
+test codex_final_gate_revokes_first_write_but_keeps_owned_flush ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_question_version.rs (target/debug/deps/codex_question_version-feda4c55096121a7)
+
+running 1 test
+test verified_relay_gates_experimental_answers_on_original_initialize ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.73s
+
+     Running tests/context_protocol.rs (target/debug/deps/context_protocol-925716aee822322c)
+
+running 2 tests
+test legacy_reports_remain_unlinked_and_references_are_area_scoped ... ok
+test cli_preserves_report_sources_and_read_reference ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/control_identity_platform.rs (target/debug/deps/control_identity_platform-5621de29970e2735)
+
+running 1 test
+test control_identity_uses_os_entropy_and_preserves_uuid_v4_contract ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/conversation_observe_tests.rs (target/debug/deps/conversation_observe_tests-b292dab73f78608c)
+
+running 5 tests
+test claude_stop_event_extracts_complete_agent_reply_not_tool_output ... ok
+test duplicate_stop_events_are_idempotent_for_conversation_observation ... ok
+test provider_stop_events_map_to_same_conversation_contract ... ok
+test tool_output_and_partial_messages_do_not_become_complete_agent_replies ... ok
+test user_prompt_submit_captures_full_user_message_within_1200_chars ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cursor_question_screen.rs (target/debug/deps/cursor_question_screen-c977aa4b4cda5f24)
+
+running 6 tests
+test cursor_custom_answer_never_submits_existing_multiselect_options ... ok
+test cursor_enter_must_focus_an_intended_selection ... ok
+test cursor_native_steps_preserve_existing_custom_draft_and_check_all_selections ... ok
+test cursor_selected_placeholder_is_ambiguous_and_never_appended ... ok
+test cursor_native_frame_matches_original_items_before_each_step ... ok
+test cursor_step_acknowledges_only_the_expected_question_control_change ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cursor_question_store.rs (target/debug/deps/cursor_question_store-bddce7e643db7b85)
+
+running 3 tests
+test cursor_store_uses_exact_lexical_workspace_and_never_creates_a_database ... ok
+test current_cursor_root_owns_pending_question_and_linked_consumption ... ok
+test cursor_store_fails_closed_on_corrupt_current_root_without_scanning_old_blobs ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/cursor_question_ticket.rs (target/debug/deps/cursor_question_ticket-cd18cc63154a5a8c)
+
+running 1 test
+test cursor_ticket_revokes_unsent_and_partially_written_terminal_answers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cursor_questions.rs (target/debug/deps/cursor_questions-1a4b53184d5acbb8)
+
+running 4 tests
+test native_cursor_preserves_question_identity_and_exact_consumption ... ok
+test native_cursor_rejects_ambiguous_screen_mapping_and_incomplete_answers ... ok
+test cursor_trailing_other_alias_is_collapsed_like_native_display_options ... ok
+test cursor_multiselect_consumption_compares_original_ids_without_assuming_click_order ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cursor_transcript.rs (target/debug/deps/cursor_transcript-777d760a3869b7bd)
+
+running 2 tests
+test cursor_transcript_pages_losslessly_from_bound_project ... ok
+test cursor_transcript_rejects_cross_project_and_retries_partial_tail ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/ego_cli_tests.rs (target/debug/deps/ego_cli_tests-0478a5f1b481db18)
+
+running 2 tests
+test test_parse_ego_presentation_and_lifecycle_commands ... ok
+test test_parse_ego_agent_progress_commands ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/ego_protocol_tests.rs (target/debug/deps/ego_protocol_tests-2b89c44f6aea5bc3)
+
+running 2 tests
+test test_ego_busy_error_is_structured_and_non_retryable ... ok
+test test_ego_presented_json_exposes_external_mode_and_non_master_state ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hook_approval_bridge.rs (target/debug/deps/hook_approval_bridge-297fc8d41f0d442e)
+
+running 1 test
+test real_bridge_returns_only_the_bound_permission_response ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/hook_approval_tests.rs (target/debug/deps/hook_approval_tests-3b9e869bd377dca2)
+
+running 2 tests
+test approval_requires_precise_supported_identity ... ok
+test invocation_identity_and_single_decision_are_preserved ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_approvals.rs (target/debug/deps/mobile_approvals-13677add23f1303d)
+
+running 1 test
+test approval_delivery_requires_exact_identity_and_transport_stage ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_conversation.rs (target/debug/deps/mobile_conversation-e095667a8bbec8c1)
+
+running 2 tests
+test codex_full_history_preserves_content_and_orders_turns ... ok
+test claude_full_history_keeps_tools_and_resumes_incomplete_tail ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_conversation_events.rs (target/debug/deps/mobile_conversation_events-48eb759963397bd0)
+
+running 1 test
+test conversation_projection_tracks_changes_without_duplicate_heartbeats ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_conversation_transfer.rs (target/debug/deps/mobile_conversation_transfer-f404bf28aa0f1a56)
+
+running 1 test
+test conversation_fragments_preserve_unicode_and_bounded_json ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_pairing.rs (target/debug/deps/mobile_pairing-2f75df20fbac49cc)
+
+running 2 tests
+test claimed_phone_can_be_approved_after_qr_expiry ... ok
+test scan_requires_exact_desktop_approval_and_is_single_use ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/mobile_pairing_code.rs (target/debug/deps/mobile_pairing_code-cd702c77fa74448b)
+
+running 1 test
+test short_code_shares_offer_lifetime_and_bounded_attempts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/mobile_project_events.rs (target/debug/deps/mobile_project_events-344049a79072661e)
+
+running 4 tests
+test projection_sends_exact_changes_and_resets_on_route_replacement ... ok
+test summary_updates_are_display_only_deltas ... ok
+test progress_updates_and_removal_are_display_deltas ... ok
+test timing_updates_display_without_invalidating_command_target ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_relay_registration.rs (target/debug/deps/mobile_relay_registration-9061efee109b9e76)
+
+running 2 tests
+test registration_rejects_unsafe_origins_and_malformed_challenges ... ok
+test registration_binds_challenge_deployment_and_purpose ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+     Running tests/mobile_relay_session.rs (target/debug/deps/mobile_relay_session-e3cece8ebff1894b)
+
+running 2 tests
+test encrypted_session_rejects_invalid_handshakes ... ok
+test encrypted_session_interoperates_and_rejects_tampering_replay_and_reflection ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/mobile_tls.rs (target/debug/deps/mobile_tls-dc7a51dd3579b65d)
+
+running 3 tests
+test stored_identity_rejects_corruption_without_changing_certificate ... ok
+test pinned_machine_tls_rejects_another_computer ... ok
+test mobile_upgrade_enforces_route_origin_and_deadline ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/opencode_foreground.rs (target/debug/deps/opencode_foreground-33c148996a72ca47)
+
+running 6 tests
+test final_send_gate_rechecks_after_slow_prepare_get ... ok
+test foreground_change_during_pending_query_cannot_unlock_input ... ok
+test foreground_switch_revokes_old_question_and_follows_current_session ... ok
+test missing_foreground_evidence_keeps_ordinary_input_blocked ... ok
+test reconnect_reconciles_pending_before_restoring_unsent_question ... ok
+test foreground_return_does_not_reopen_an_uncertain_original_delivery ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.57s
+
+     Running tests/opencode_question_host.rs (target/debug/deps/opencode_question_host-0ccb2f20220ee054)
+
+running 4 tests
+test native_rejection_releases_only_the_original_question ... ok
+test lost_http_ack_consumes_question_without_inventing_delivery_attribution ... ok
+test native_skipped_item_is_consumed_elsewhere ... ok
+test native_host_answers_once_and_reconciles_original_tool_consumption ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.22s
+
+     Running tests/opencode_question_ticket.rs (target/debug/deps/opencode_question_ticket-5c9ac9450cf16fc2)
+
+running 3 tests
+test live_opencode_question_outlives_hook_timeout_without_replay ... ok
+test opencode_ticket_carries_original_question_and_revokes_before_send ... ok
+test http_send_lease_is_once_only_without_holding_ticket_lock ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/opencode_question_transport.rs (target/debug/deps/opencode_question_transport-93346d48401f8ab3)
+
+running 1 test
+test opencode_replies_only_through_own_instance_and_original_request ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/opencode_questions.rs (target/debug/deps/opencode_questions-10439e6dbb171195)
+
+running 2 tests
+test native_opencode_rejects_ambiguous_or_unsupported_answers ... ok
+test native_opencode_maps_ordered_answers_and_requires_exact_consumption ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/orchestration_ask_norma_installer_tests.rs (target/debug/deps/orchestration_ask_norma_installer_tests-0acef80c0feefff7)
+
+running 3 tests
+test ask_norma_user_conflict_is_reported_not_overwritten ... ok
+test ask_norma_skill_is_installed_as_managed_orchestration_entry_point ... ok
+test ask_norma_skill_is_removed_on_uninstall_but_preserves_user_file ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/orchestration_auto_repair_tests.rs (target/debug/deps/orchestration_auto_repair_tests-5ff5abdcd58efebf)
+
+running 4 tests
+test opencode_plugin_conflict_does_not_block_shared_hook_upgrade ... ok
+test app_upgrade_preserves_user_conflict_for_manual_repair ... ok
+test app_upgrade_reconciles_authorized_providers_without_installing_new_provider ... ok
+test revoked_provider_is_not_reenabled_or_repaired_during_app_upgrade ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/orchestration_cancel_cli_tests.rs (target/debug/deps/orchestration_cancel_cli_tests-62d182180f6d6359)
+
+running 1 test
+test cancel_accepts_replayable_operation_id_and_rejects_blank_identity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/orchestration_cli_self_tests.rs (target/debug/deps/orchestration_cli_self_tests-7e222ff4da6ae789)
+
+running 5 tests
+test project_self_matches_unique_active_node ... ok
+test project_self_rejects_ambiguous_active_nodes ... ok
+test project_self_rejects_unknown_node ... ok
+test agent_self_json_contract_has_single_self_and_no_roster_or_token ... ok
+test agent_self_parses_to_list_agents_with_self_projection ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/orchestration_cli_tests.rs (target/debug/deps/orchestration_cli_tests-96f97a8f291a7a06)
+
+running 7 tests
+test assign_rejects_multiple_targets_and_blank_task_before_transport ... ok
+test agent_command_tree_parses_narrow_commands_with_json_default ... ok
+test agent_parse_error_uses_json_envelope_with_empty_task_code ... ok
+test json_error_output_preserves_stable_error_code_and_exit_code ... ok
+test json_success_output_has_stable_envelope_and_no_diagnostics_or_token ... ok
+test text_output_preserves_roster_and_task_receipt_contract_fields ... ok
+test cross_workspace_cli_preserves_explicit_target_and_operation_identity ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/orchestration_client_tests.rs (target/debug/deps/orchestration_client_tests-4ae4922c8e90f6f4)
+
+running 2 tests
+test agent_request_rejects_missing_source_and_missing_provider_installation ... ok
+test agent_request_loads_managed_provider_context_and_redacts_token_from_debug ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/orchestration_diagnostics_cli_tests.rs (target/debug/deps/orchestration_diagnostics_cli_tests-8e6f03258d7d1b0b)
+
+running 2 tests
+test outcome_unknown_json_preserves_the_original_operation_identity ... ok
+test doctor_and_version_expose_local_diagnostic_contract ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/orchestration_grok_installer_tests.rs (target/debug/deps/orchestration_grok_installer_tests-51dbd5d10abfeb1f)
+
+running 5 tests
+test aggregate_status_requires_all_four_components_including_grok ... ok
+test grok_install_repair_uninstall_uses_native_discovery_paths ... ok
+test real_grok_discovers_installed_skills_and_hooks ... ignored, requires installed Grok Build; read-only discovery with isolated GROK_HOME
+test grok_authorization_keeps_shared_binaries_when_another_provider_is_removed ... ok
+test grok_installation_honors_process_home_override ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/orchestration_installer_diagnostics_tests.rs (target/debug/deps/orchestration_installer_diagnostics_tests-1476936dc2c66229)
+
+running 1 test
+test missing_bundled_cli_error_names_source_and_destination ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/orchestration_installer_security_regression_tests.rs (target/debug/deps/orchestration_installer_security_regression_tests-7d0fb2adceac3d37)
+
+running 2 tests
+test opencode_installer_surfaces_unmanaged_plugin_conflict_without_overwrite ... ok
+test insecure_managed_credential_is_not_ready_and_repair_restores_0600 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/orchestration_installer_tests.rs (target/debug/deps/orchestration_installer_tests-0b74610e1b4da131)
+
+running 4 tests
+test default_install_paths_are_user_scoped_and_provider_native ... ok
+test installer_reports_conflict_without_overwriting_unmanaged_user_skill ... ok
+test codex_install_is_idempotent_and_keeps_token_out_of_skill_and_status ... ok
+test uninstall_removes_only_managed_provider_content_and_preserves_user_hook ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/orchestration_new_cli_conflict_tests.rs (target/debug/deps/orchestration_new_cli_conflict_tests-07a075c64e524766)
+
+running 4 tests
+test delegation_unverified_marks_only_new_clis ... ok
+test unmanaged_hook_conflict_blocks_authorization_and_keeps_user_file ... ok
+test uninstall_hermes_disables_only_managed_plugin ... ok
+test shared_config_providers_preserve_user_settings ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/orchestration_new_cli_installer_tests.rs (target/debug/deps/orchestration_new_cli_installer_tests-97735dd0b69ecc8c)
+
+running 7 tests
+test all_contains_new_clis_with_skill_paths_including_grok ... ok
+test skill_dirs_follow_verified_defaults_and_env_overrides ... ok
+test authorization_is_isolated_between_new_clis ... ok
+test unmanaged_hook_files_report_conflict ... ok
+test skill_frontmatter_matches_each_cli_requirements ... ok
+test install_ready_then_uninstall_removes_only_owned_files ... ok
+test unmanaged_skill_is_conflict_and_never_overwritten ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests/orchestration_presentation_installer_tests.rs (target/debug/deps/orchestration_presentation_installer_tests-e5db5d9f999e5432)
+
+running 3 tests
+test prior_version_presentation_skill_is_repaired_with_ego_rules ... ok
+test same_version_stale_presentation_is_repaired_with_ego_page_retention ... ok
+test legacy_install_without_presentation_skill_needs_repair_and_is_upgraded_in_place ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/orchestration_skill_contract_tests.rs (target/debug/deps/orchestration_skill_contract_tests-752294de27ca150c)
+
+running 4 tests
+test managed_orchestration_skill_documents_global_cross_workspace_contract ... ok
+test managed_orchestration_skill_description_recalls_chinese_nested_delegation ... ok
+test managed_orchestration_skill_documents_self_identity_probe_before_assign ... ok
+test managed_orchestration_skill_stops_on_deterministic_rejection_codes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/orchestration_task_result_cli_tests.rs (target/debug/deps/orchestration_task_result_cli_tests-8af4d08c78d8a575)
+
+running 4 tests
+test task_result_not_ready_is_explicit_and_retryable ... ok
+test task_result_json_uses_the_same_stable_task_result_shape ... ok
+test terminal_wait_json_includes_bound_agent_result ... ok
+test task_result_command_maps_to_distinct_result_query ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/orchestration_uninstall_security_tests.rs (target/debug/deps/orchestration_uninstall_security_tests-13a0087f14d2d818)
+
+running 1 test
+test revoke_failure_stops_uninstall_before_removing_managed_components ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/orchestration_wait_tests.rs (target/debug/deps/orchestration_wait_tests-ae4dddba158aa930)
+
+running 3 tests
+test wait_classifies_terminal_untracked_and_running_states_truthfully ... ok
+test wait_returns_terminal_status_even_when_tracking_is_untracked ... ok
+test wait_uses_tracking_field_even_when_status_is_still_submitted ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/presentation_cli_tests.rs (target/debug/deps/presentation_cli_tests-159692257603ccee)
+
+running 5 tests
+test browser_preparation_normalizes_safe_urls_and_rejects_executable_schemes ... ok
+test presentation_protocol_output_is_flat_and_preserves_stable_error_codes ... ok
+test preview_preparation_canonicalizes_files_and_rejects_directories_or_unknown_types ... ok
+test present_command_tree_parses_browser_and_preview_with_json_default ... ok
+test missing_preview_returns_stable_json_before_app_connection ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/presentation_drawer.rs (target/debug/deps/presentation_drawer-9071a2f5bf6625ce)
+
+running 1 test
+test drawer_presentation_receipt_round_trips ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/protocol_tests.rs (target/debug/deps/protocol_tests-2c10e89c4d77a5d0)
+
+running 5 tests
+test test_preview_create_command_round_trips_through_json ... ok
+test test_list_result_uses_neutral_card_summary ... ok
+test wire_request_preserves_workspace_routing_and_decodes_legacy_v1 ... ok
+test brain_answer_commands_preserve_wire_shape_with_bounded_inline_storage ... ok
+test test_wire_response_preserves_success_and_error_results ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/question_cli.rs (target/debug/deps/question_cli-64a120d04e9f020b)
+
+running 2 tests
+test answer_cli_preserves_exact_question_identity ... ok
+test question_discovery_and_suggestion_are_distinct_from_delivery ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/question_forward.rs (target/debug/deps/question_forward-894ed3612d499330)
+
+running 3 tests
+test unsupported_question_notifies_host_before_returning_to_native_tui ... ok
+test real_question_bridge_returns_answer_to_native_stdout ... ok
+test bridge_preserves_question_and_falls_back_without_fake_success ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/question_protocol.rs (target/debug/deps/question_protocol-aa263addf4762712)
+
+running 1 test
+test answers_cover_every_question_without_loss ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/question_ticket.rs (target/debug/deps/question_ticket-f3432608e99a24b2)
+
+running 4 tests
+test claude_final_gate_stops_partial_response_without_false_unsent ... ok
+test claude_backpressure_preserves_expiry_after_partial_write ... ok
+test hook_ticket_is_single_use_and_revocable ... ok
+test partial_response_remains_revocable_until_last_byte ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/run_overview.rs (target/debug/deps/run_overview-9c22581fc8aff55e)
+
+running 4 tests
+test overview_groups_attention_before_running_and_idle_agents ... ok
+test agents_without_start_time_sort_last_and_missing_current_project_is_safe ... ok
+test loaded_other_projects_join_running_with_current_project_first ... ok
+test running_agent_action_prefers_live_summary_over_task_title ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/run_overview_attention.rs (target/debug/deps/run_overview_attention-809d8b13d6eff6ad)
+
+running 4 tests
+test current_project_is_loaded_for_attention_rows_even_without_presence ... ok
+test approval_without_task_uses_the_tool_name ... ok
+test awaiting_takeover_agents_need_attention_but_stay_running ... ok
+test status_capsule_counts_follow_the_run_overview ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/socket_close_platform.rs (target/debug/deps/socket_close_platform-d8b71a6d2bef03af)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/status_capsule.rs (target/debug/deps/status_capsule-3596c8da7b2faf84)
+
+running 3 tests
+test capsule_ranks_current_project_and_keeps_three_plus_overflow ... ok
+test missing_or_broken_progress_uses_status_text_not_a_fraction ... ok
+test same_rank_prefers_current_project_and_idle_is_only_overflow ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/workspace_activity.rs (target/debug/deps/workspace_activity-7658e583d315555e)
+
+running 7 tests
+test approvals_with_shared_provider_ids_keep_distinct_agents ... ok
+test automatic_overview_merges_workspaces_before_selecting_three_projects ... ok
+test coalesces_progress_and_never_restarts_the_eight_hour_cycle ... ok
+test duplicate_run_keeps_other_workspaces_pending_delivery ... ok
+test counts_only_frozen_reviewable_unaccepted_delivery ... ok
+test preserves_agent_progress_and_removes_only_current_approvals ... ok
+test selects_actionable_projects_without_losing_hidden_counts ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workspace_activity_refresh.rs (target/debug/deps/workspace_activity_refresh-84ba107c31ec5028)
+
+running 1 test
+test consecutive_activity_marks_schedule_one_recompute ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workspace_activity_view.rs (target/debug/deps/workspace_activity_view-dd02681b9906e79d)
+
+running 4 tests
+test pending_items_list_approvals_and_reviews_but_not_failures ... ok
+test full_agent_list_keeps_agents_hidden_from_the_summary_row ... ok
+test project_groups_keep_source_order_while_summary_stays_capped ... ok
+test review_status_matches_summary_and_start_time_stays_unformatted ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workspace_chat.rs (target/debug/deps/workspace_chat-0384daa053cc37f2)
+
+running 2 tests
+test exact_target_never_follows_name_or_selection ... ok
+test discussion_defaults_to_no_dispatch_and_target_is_complete ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workspace_terminal.rs (target/debug/deps/workspace_terminal-adf8ec47fe34d32b)
+
+running 2 tests
+test terminal_requests_require_exact_run_and_consistent_history_scope ... ok
+test rich_terminal_fragments_preserve_all_rows_within_relay_budget ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+   Doc-tests norma
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

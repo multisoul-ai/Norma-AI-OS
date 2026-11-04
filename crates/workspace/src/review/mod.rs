@@ -5,7 +5,9 @@ mod baseline;
 mod process;
 #[cfg(unix)]
 mod scoped;
-#[cfg(unix)]
+#[cfg(windows)]
+#[path = "scoped_windows.rs"]
+mod scoped;
 use scoped::Root;
 
 // Each side is bounded to1MiB; bytes plus diffs for the entire capture are bounded to8MiB.
@@ -121,7 +123,6 @@ pub enum ReviewError {
 }
 
 /// Blocking local-only read. Caller supplies the authorized root, never a remote filesystem path.
-#[cfg(unix)]
 pub fn capture(root: &Path, deadline: Instant) -> Result<ProjectReview, ReviewError> {
     capture_inner(root, None, deadline)
 }
@@ -203,6 +204,14 @@ fn capture_inner(
         };
         let after = root.read(&path)?;
         let index = index_version(&root, &path, deadline)?;
+        #[cfg(windows)]
+        let after = after.map(|mut version| {
+            // Windows Git keeps executable mode in its index; NTFS has no POSIX execute bits.
+            if version.kind != ContentKind::Symlink {
+                version.executable = index.as_ref().is_some_and(|entry| entry.executable);
+            }
+            version
+        });
         let initial_index = saved_file
             .map(|f| f.index.clone())
             .unwrap_or_else(|| before.clone());
@@ -251,7 +260,6 @@ fn capture_inner(
     })
 }
 
-#[cfg(unix)]
 fn head(root: &Root, deadline: Instant) -> Result<Option<String>, ReviewError> {
     let (code, bytes) = process::git(root, &["rev-parse", "--verify", "HEAD"], deadline, 128)?;
     if code == 128 {
@@ -266,7 +274,6 @@ fn head(root: &Root, deadline: Instant) -> Result<Option<String>, ReviewError> {
     }
     Ok(Some(hash.to_owned()))
 }
-#[cfg(unix)]
 fn status(root: &Root, prefix: &str, deadline: Instant) -> Result<Vec<u8>, ReviewError> {
     let (code, bytes) = process::git(
         root,
@@ -302,7 +309,6 @@ fn status(root: &Root, prefix: &str, deadline: Instant) -> Result<Vec<u8>, Revie
     }
     Ok(visible)
 }
-#[cfg(unix)]
 fn git_text(
     root: &Root,
     args: &[&str],
@@ -315,7 +321,6 @@ fn git_text(
     }
     String::from_utf8(bytes).map_err(|_| ReviewError::Unsupported)
 }
-#[cfg(unix)]
 fn baseline(
     root: &Root,
     commit: &str,
@@ -333,7 +338,6 @@ fn baseline(
     }
     version(root, fields[0], fields[2], deadline).map(Some)
 }
-#[cfg(unix)]
 fn index_version(
     root: &Root,
     path: &str,
@@ -359,7 +363,6 @@ fn index_version(
     }
     version(root, fields[0], fields[1], deadline).map(Some)
 }
-#[cfg(unix)]
 fn version(
     root: &Root,
     mode: &str,
@@ -405,19 +408,56 @@ fn text_diff(
     right
         .write_all(after.map_or(&[], |v| v.bytes.as_slice()))
         .map_err(|_| ReviewError::Unavailable)?;
+    #[cfg(unix)]
     let mut command = std::process::Command::new("/usr/bin/diff");
+    #[cfg(unix)]
     command
         .args(["-u", "-L", "before", "-L", "after"])
         .arg(left.path())
         .arg(right.path());
+    #[cfg(windows)]
+    let command = {
+        let mut command = std::process::Command::new("git.exe");
+        for (key, _) in std::env::vars_os() {
+            if key.to_string_lossy().starts_with("GIT_") {
+                command.env_remove(key);
+            }
+        }
+        command
+            .env("GIT_CONFIG_GLOBAL", "NUL")
+            .env("GIT_CONFIG_NOSYSTEM", "1");
+        command
+            .args([
+                "--no-pager",
+                "diff",
+                "--no-index",
+                "--no-color",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--unified=3",
+            ])
+            .arg(left.path())
+            .arg(right.path());
+        command
+    };
     // A full replacement can add one marker per byte-sized line: at most4MiB plus a small header.
     let (code, bytes) = process::run(command, deadline, 4 * MAX_FILE_BYTES + 4096)?;
     if !matches!(code, 0 | 1) {
         return Err(ReviewError::Unavailable);
     }
-    Ok(Some(
-        String::from_utf8(bytes).map_err(|_| ReviewError::Unsupported)?,
-    ))
+    let text = String::from_utf8(bytes).map_err(|_| ReviewError::Unsupported)?;
+    #[cfg(windows)]
+    let text = if code == 0 {
+        String::new()
+    } else {
+        let hunks = text
+            .lines()
+            .skip_while(|line| !line.starts_with("@@"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!("--- before\n+++ after\n{hunks}\n")
+    };
+    Ok(Some(text))
 }
 fn check_deadline(deadline: Instant) -> Result<(), ReviewError> {
     if Instant::now() >= deadline {

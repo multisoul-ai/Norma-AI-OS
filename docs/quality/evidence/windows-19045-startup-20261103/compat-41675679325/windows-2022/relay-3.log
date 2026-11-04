@@ -1,0 +1,35 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.31s
+     Running unittests src\lib.rs (target\debug\deps\norma-28bf09d9bccd9e80.exe)
+
+running 8 tests
+test codex::relay::input::tests::old_turn_outside_history_window_cannot_hold_current_input ... ok
+test codex::relay::input::tests::ordinary_turn_history_never_creates_pending_input ... ok
+test codex::relay::input::tests::completed_question_history_does_not_exhaust_pending_capacity ... ok
+output backpressure readiness=auto
+partial answer readiness=auto
+auto WinSock readiness: notifications=true, registered=[true, true]
+auto WinSock readiness: notifications=true, registered=[true, true]
+auto WinSock readiness: notifications=true, registered=[true, true]
+auto WinSock readiness: notifications=true, registered=[true, true]
+partial answer readiness=missing-api
+relay output pre-close consecutive WouldBlock=8; complete source frames=6
+relay close all source handles released=true
+test codex::relay::partial_tests::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... ok
+test codex::relay::transport::windows::tests::missing_socket_api_probe_does_not_flush_a_pending_answer ... ok
+relay close native FIONREAD: status=0, unread_bytes=0
+relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+output backpressure readiness=missing-api
+test codex::relay::compat_tests::missing_socket_api_preserves_both_direction_shutdown_contracts ... ok
+relay output pre-close consecutive WouldBlock=8; complete source frames=5
+relay close all source handles released=true
+relay close native FIONREAD: status=0, unread_bytes=0
+relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+test codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown ... ok
+方向=true，真实来源收到Ping=3
+方向=false，真实来源收到Ping=3
+test codex::relay::compat_tests::missing_socket_api_preserves_slow_peer_payload_and_liveness ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 2.14s
+

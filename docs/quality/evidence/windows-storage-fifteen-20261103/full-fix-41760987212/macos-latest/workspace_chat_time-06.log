@@ -1,0 +1,9 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.26s
+     Running tests/workspace_chat_time.rs (target/debug/deps/workspace_chat_time-76623efce94e3af0)
+
+running 2 tests
+test reconnect_retains_original_event_time ... ok
+test concurrent_creation_migrates_legacy_chat_time_once ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+

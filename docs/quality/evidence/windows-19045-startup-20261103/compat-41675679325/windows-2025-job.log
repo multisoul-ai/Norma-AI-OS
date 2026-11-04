@@ -1,0 +1,1352 @@
+﻿2026-11-03T16:35:07.3644608Z Current runner version: '2.338.2'
+2026-11-03T16:35:07.3671606Z ##[group]Runner Image Provisioner
+2026-11-03T16:35:07.3672452Z Hosted Compute Agent
+2026-11-03T16:35:07.3673018Z Version: 20261021.618
+2026-11-03T16:35:07.3673724Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-11-03T16:35:07.3675056Z Build Date: 2026-10-21T00:45:21Z
+2026-11-03T16:35:07.3675753Z Worker ID: {fb7ef69d-217f-486c-97a1-ea99819cd413}
+2026-11-03T16:35:07.3676502Z Region: eastus
+2026-11-03T16:35:07.3677037Z Cloud: Azure
+2026-11-03T16:35:07.3677604Z ##[endgroup]
+2026-11-03T16:35:07.3679191Z ##[group]Operating System
+2026-11-03T16:35:07.3680284Z Microsoft Windows Server 2025
+2026-11-03T16:35:07.3680906Z 10.0.26100
+2026-11-03T16:35:07.3681424Z Datacenter
+2026-11-03T16:35:07.3681928Z ##[endgroup]
+2026-11-03T16:35:07.3682878Z ##[group]Runner Image
+2026-11-03T16:35:07.3683953Z Image: windows-2025-vs2026
+2026-11-03T16:35:07.3685381Z Version: 20261030.294.1
+2026-11-03T16:35:07.3688319Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20261030.294/images/windows/Windows2025-VS2026-Readme.md
+2026-11-03T16:35:07.3691468Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20261030.294
+2026-11-03T16:35:07.3693263Z ##[endgroup]
+2026-11-03T16:35:07.3695180Z ##[group]GITHUB_TOKEN Permissions
+2026-11-03T16:35:07.3697992Z Contents: read
+2026-11-03T16:35:07.3698951Z Metadata: read
+2026-11-03T16:35:07.3699916Z ##[endgroup]
+2026-11-03T16:35:07.3702961Z Secret source: Actions
+2026-11-03T16:35:07.3704430Z Cache mode: write
+2026-11-03T16:35:07.3706001Z Prepare workflow directory
+2026-11-03T16:35:07.4147737Z Prepare all required actions
+2026-11-03T16:35:07.4210747Z Getting action download info
+2026-11-03T16:35:07.6253859Z Download action repository 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-03T16:35:07.7839178Z Download action repository 'dtolnay/rust-toolchain@master' (SHA:683b588c487a69d01f6c6ddf40f036ff682cc2c8)
+2026-11-03T16:35:07.8882528Z Download action repository 'Swatinem/rust-cache@v2' (SHA:d1527c8f67ef9af357290475d4af4b0fab8f12e0)
+2026-11-03T16:35:08.1374856Z Download action repository 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-11-03T16:35:08.5763795Z Complete job name: relay (windows-2025)
+2026-11-03T16:35:08.7544907Z ##[group]Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+2026-11-03T16:35:08.7546302Z with:
+2026-11-03T16:35:08.7546766Z   persist-credentials: false
+2026-11-03T16:35:08.7547347Z   repository: multisoul-ai/Norma-AI-OS
+2026-11-03T16:35:08.7551999Z   token: ***
+2026-11-03T16:35:08.7552470Z   ssh-strict: true
+2026-11-03T16:35:08.7552931Z   ssh-user: git
+2026-11-03T16:35:08.7553367Z   clean: true
+2026-11-03T16:35:08.7553827Z   sparse-checkout-cone-mode: true
+2026-11-03T16:35:08.7554377Z   fetch-depth: 1
+2026-11-03T16:35:08.7554834Z   fetch-tags: false
+2026-11-03T16:35:08.7555341Z   show-progress: true
+2026-11-03T16:35:08.7555811Z   lfs: false
+2026-11-03T16:35:08.7556248Z   submodules: false
+2026-11-03T16:35:08.7556717Z   set-safe-directory: true
+2026-11-03T16:35:08.7557253Z   allow-unsafe-pr-checkout: false
+2026-11-03T16:35:08.7558097Z env:
+2026-11-03T16:35:08.7558538Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:35:08.7559028Z   CARGO_TERM_COLOR: never
+2026-11-03T16:35:08.7559571Z ##[endgroup]
+2026-11-03T16:35:08.9146674Z Syncing repository: multisoul-ai/Norma-AI-OS
+2026-11-03T16:35:08.9149606Z ##[group]Getting Git version info
+2026-11-03T16:35:08.9150699Z Working directory is 'D:\a\Norma-AI-OS\Norma-AI-OS'
+2026-11-03T16:35:09.0117429Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-11-03T16:35:09.3486649Z git version 2.56.0.windows.4
+2026-11-03T16:35:09.3551404Z ##[endgroup]
+2026-11-03T16:35:09.3573782Z Temporarily overriding HOME='D:\a\_temp\c93a91c2-de23-414d-9e97-3812069b2cec' before making global git config changes
+2026-11-03T16:35:09.3578601Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-03T16:35:09.3587739Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-03T16:35:09.4255277Z Deleting the contents of 'D:\a\Norma-AI-OS\Norma-AI-OS'
+2026-11-03T16:35:09.4261702Z ##[group]Initializing the repository
+2026-11-03T16:35:09.4274518Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-03T16:35:09.5358317Z Initialized empty Git repository in D:/a/Norma-AI-OS/Norma-AI-OS/.git/
+2026-11-03T16:35:09.5416925Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/multisoul-ai/Norma-AI-OS
+2026-11-03T16:35:09.6282699Z ##[endgroup]
+2026-11-03T16:35:09.6284589Z ##[group]Disabling automatic garbage collection
+2026-11-03T16:35:09.6291311Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-11-03T16:35:09.6698935Z ##[endgroup]
+2026-11-03T16:35:09.6700736Z ##[group]Setting up auth
+2026-11-03T16:35:09.6710709Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-03T16:35:09.7113256Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-03T16:35:13.2277843Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-03T16:35:13.2715344Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-03T16:35:13.9796109Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-03T16:35:14.0204993Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-03T16:35:14.5886650Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-11-03T16:35:14.6374120Z ##[endgroup]
+2026-11-03T16:35:14.6376489Z ##[group]Fetching the repository
+2026-11-03T16:35:14.6384156Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +15338abf2ad49406b1447bda0da648e4e3052010:refs/remotes/origin/codex/windows-startup-winsock-20261103
+2026-11-03T16:38:12.4516349Z From https://github.com/multisoul-ai/Norma-AI-OS
+2026-11-03T16:38:12.4517724Z  * [new ref]         15338abf2ad49406b1447bda0da648e4e3052010 -> origin/codex/windows-startup-winsock-20261103
+2026-11-03T16:38:12.4551289Z ##[endgroup]
+2026-11-03T16:38:12.4552248Z ##[group]Determining the checkout info
+2026-11-03T16:38:12.4555817Z ##[endgroup]
+2026-11-03T16:38:12.4570589Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-11-03T16:38:12.5159804Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-11-03T16:38:12.5536905Z ##[group]Checking out the ref
+2026-11-03T16:38:12.5551274Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B codex/windows-startup-winsock-20261103 refs/remotes/origin/codex/windows-startup-winsock-20261103
+2026-11-03T16:38:14.3813481Z Updating files:   5% (323/6088)
+2026-11-03T16:38:14.4198355Z Updating files:   6% (366/6088)
+2026-11-03T16:38:14.4982479Z Updating files:   7% (427/6088)
+2026-11-03T16:38:14.6283875Z Updating files:   8% (488/6088)
+2026-11-03T16:38:14.7777368Z Updating files:   8% (493/6088)
+2026-11-03T16:38:14.7943602Z Updating files:   9% (548/6088)
+2026-11-03T16:38:14.8104164Z Updating files:  10% (609/6088)
+2026-11-03T16:38:14.8264076Z Updating files:  11% (670/6088)
+2026-11-03T16:38:14.8428677Z Updating files:  12% (731/6088)
+2026-11-03T16:38:14.8599022Z Updating files:  13% (792/6088)
+2026-11-03T16:38:14.8756508Z Updating files:  14% (853/6088)
+2026-11-03T16:38:14.8918812Z Updating files:  15% (914/6088)
+2026-11-03T16:38:14.9078849Z Updating files:  16% (975/6088)
+2026-11-03T16:38:14.9246945Z Updating files:  17% (1035/6088)
+2026-11-03T16:38:14.9424568Z Updating files:  18% (1096/6088)
+2026-11-03T16:38:14.9604209Z Updating files:  19% (1157/6088)
+2026-11-03T16:38:14.9762059Z Updating files:  20% (1218/6088)
+2026-11-03T16:38:14.9915776Z Updating files:  21% (1279/6088)
+2026-11-03T16:38:15.0083100Z Updating files:  22% (1340/6088)
+2026-11-03T16:38:15.0250170Z Updating files:  23% (1401/6088)
+2026-11-03T16:38:15.0409410Z Updating files:  24% (1462/6088)
+2026-11-03T16:38:15.0565569Z Updating files:  25% (1522/6088)
+2026-11-03T16:38:15.0735939Z Updating files:  26% (1583/6088)
+2026-11-03T16:38:15.0902756Z Updating files:  27% (1644/6088)
+2026-11-03T16:38:15.1066314Z Updating files:  28% (1705/6088)
+2026-11-03T16:38:15.1219191Z Updating files:  29% (1766/6088)
+2026-11-03T16:38:15.1384799Z Updating files:  30% (1827/6088)
+2026-11-03T16:38:15.1550107Z Updating files:  31% (1888/6088)
+2026-11-03T16:38:15.1711605Z Updating files:  32% (1949/6088)
+2026-11-03T16:38:15.1898706Z Updating files:  33% (2010/6088)
+2026-11-03T16:38:15.2058169Z Updating files:  34% (2070/6088)
+2026-11-03T16:38:15.2215454Z Updating files:  35% (2131/6088)
+2026-11-03T16:38:15.2371877Z Updating files:  36% (2192/6088)
+2026-11-03T16:38:15.2521996Z Updating files:  37% (2253/6088)
+2026-11-03T16:38:15.2697498Z Updating files:  38% (2314/6088)
+2026-11-03T16:38:15.2860244Z Updating files:  39% (2375/6088)
+2026-11-03T16:38:15.3020156Z Updating files:  40% (2436/6088)
+2026-11-03T16:38:15.3186566Z Updating files:  41% (2497/6088)
+2026-11-03T16:38:15.3352211Z Updating files:  42% (2557/6088)
+2026-11-03T16:38:15.3509339Z Updating files:  43% (2618/6088)
+2026-11-03T16:38:15.3676951Z Updating files:  44% (2679/6088)
+2026-11-03T16:38:15.3831728Z Updating files:  45% (2740/6088)
+2026-11-03T16:38:15.4027522Z Updating files:  46% (2801/6088)
+2026-11-03T16:38:15.4232001Z Updating files:  47% (2862/6088)
+2026-11-03T16:38:15.6429735Z Updating files:  48% (2923/6088)
+2026-11-03T16:38:15.7243852Z Updating files:  48% (2978/6088)
+2026-11-03T16:38:15.8604154Z Updating files:  49% (2984/6088)
+2026-11-03T16:38:15.9575654Z Updating files:  50% (3044/6088)
+2026-11-03T16:38:16.0084401Z Updating files:  51% (3105/6088)
+2026-11-03T16:38:16.0995038Z Updating files:  52% (3166/6088)
+2026-11-03T16:38:16.1406552Z Updating files:  53% (3227/6088)
+2026-11-03T16:38:16.2258634Z Updating files:  54% (3288/6088)
+2026-11-03T16:38:16.4960914Z Updating files:  55% (3349/6088)
+2026-11-03T16:38:16.5515868Z Updating files:  56% (3410/6088)
+2026-11-03T16:38:16.6385371Z Updating files:  57% (3471/6088)
+2026-11-03T16:38:16.6710938Z Updating files:  57% (3524/6088)
+2026-11-03T16:38:16.7710155Z Updating files:  58% (3532/6088)
+2026-11-03T16:38:16.8247795Z Updating files:  59% (3592/6088)
+2026-11-03T16:38:16.8461725Z Updating files:  60% (3653/6088)
+2026-11-03T16:38:16.8638415Z Updating files:  61% (3714/6088)
+2026-11-03T16:38:16.8803708Z Updating files:  62% (3775/6088)
+2026-11-03T16:38:16.8962019Z Updating files:  63% (3836/6088)
+2026-11-03T16:38:16.9141206Z Updating files:  64% (3897/6088)
+2026-11-03T16:38:16.9310305Z Updating files:  65% (3958/6088)
+2026-11-03T16:38:16.9494808Z Updating files:  66% (4019/6088)
+2026-11-03T16:38:16.9658912Z Updating files:  67% (4079/6088)
+2026-11-03T16:38:16.9845177Z Updating files:  68% (4140/6088)
+2026-11-03T16:38:17.0001905Z Updating files:  69% (4201/6088)
+2026-11-03T16:38:17.0136161Z Updating files:  70% (4262/6088)
+2026-11-03T16:38:17.0268868Z Updating files:  71% (4323/6088)
+2026-11-03T16:38:17.0502836Z Updating files:  72% (4384/6088)
+2026-11-03T16:38:17.0688775Z Updating files:  73% (4445/6088)
+2026-11-03T16:38:17.0879615Z Updating files:  74% (4506/6088)
+2026-11-03T16:38:17.1039242Z Updating files:  75% (4566/6088)
+2026-11-03T16:38:17.1331472Z Updating files:  76% (4627/6088)
+2026-11-03T16:38:17.1994583Z Updating files:  77% (4688/6088)
+2026-11-03T16:38:17.2207776Z Updating files:  78% (4749/6088)
+2026-11-03T16:38:17.2339183Z Updating files:  79% (4810/6088)
+2026-11-03T16:38:17.3067624Z Updating files:  80% (4871/6088)
+2026-11-03T16:38:17.3216503Z Updating files:  81% (4932/6088)
+2026-11-03T16:38:17.4555501Z Updating files:  82% (4993/6088)
+2026-11-03T16:38:17.5058445Z Updating files:  83% (5054/6088)
+2026-11-03T16:38:17.5211549Z Updating files:  84% (5114/6088)
+2026-11-03T16:38:17.9152853Z Updating files:  85% (5175/6088)
+2026-11-03T16:38:17.9166509Z Updating files:  85% (5233/6088)
+2026-11-03T16:38:17.9342194Z Updating files:  86% (5236/6088)
+2026-11-03T16:38:17.9495080Z Updating files:  87% (5297/6088)
+2026-11-03T16:38:17.9649759Z Updating files:  88% (5358/6088)
+2026-11-03T16:38:17.9854971Z Updating files:  89% (5419/6088)
+2026-11-03T16:38:18.0002629Z Updating files:  90% (5480/6088)
+2026-11-03T16:38:18.0168671Z Updating files:  91% (5541/6088)
+2026-11-03T16:38:18.0338557Z Updating files:  92% (5601/6088)
+2026-11-03T16:38:18.0524629Z Updating files:  93% (5662/6088)
+2026-11-03T16:38:18.0676046Z Updating files:  94% (5723/6088)
+2026-11-03T16:38:18.0819882Z Updating files:  95% (5784/6088)
+2026-11-03T16:38:18.1347581Z Updating files:  96% (5845/6088)
+2026-11-03T16:38:18.1549190Z Updating files:  97% (5906/6088)
+2026-11-03T16:38:18.1748336Z Updating files:  98% (5967/6088)
+2026-11-03T16:38:18.1924482Z Updating files:  99% (6028/6088)
+2026-11-03T16:38:18.1925258Z Updating files: 100% (6088/6088)
+2026-11-03T16:38:18.1925609Z Updating files: 100% (6088/6088), done.
+2026-11-03T16:38:18.2128534Z Switched to a new branch 'codex/windows-startup-winsock-20261103'
+2026-11-03T16:38:18.2153857Z branch 'codex/windows-startup-winsock-20261103' set up to track 'origin/codex/windows-startup-winsock-20261103'.
+2026-11-03T16:38:18.6726927Z ##[endgroup]
+2026-11-03T16:38:18.7119467Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-11-03T16:38:18.7448026Z 15338abf2ad49406b1447bda0da648e4e3052010
+2026-11-03T16:38:18.7488757Z ##[group]Removing auth
+2026-11-03T16:38:18.7497998Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-03T16:38:18.7858330Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-03T16:38:19.3363137Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-03T16:38:19.3691250Z http.https://github.com/.extraheader
+2026-11-03T16:38:19.3730714Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-11-03T16:38:19.4107072Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-03T16:38:19.9943501Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-03T16:38:20.0324764Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-03T16:38:20.5874139Z ##[endgroup]
+2026-11-03T16:38:20.6459450Z ##[group]Run dtolnay/rust-toolchain@master
+2026-11-03T16:38:20.6459867Z with:
+2026-11-03T16:38:20.6460135Z   toolchain: 1.91.1
+2026-11-03T16:38:20.6460378Z env:
+2026-11-03T16:38:20.6460676Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:20.6460938Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:20.6461198Z ##[endgroup]
+2026-11-03T16:38:20.6531573Z ##[start-action display=Parse toolchain version;id=__dtolnay_rust-toolchain.parse]
+2026-11-03T16:38:20.6705111Z ##[group]Run if [[ -z $toolchain ]]; then
+2026-11-03T16:38:20.6705762Z [36;1mif [[ -z $toolchain ]]; then[0m
+2026-11-03T16:38:20.6706358Z [36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070[0m
+2026-11-03T16:38:20.6706995Z [36;1m  echo "'toolchain' is a required input" >&2[0m
+2026-11-03T16:38:20.6707335Z [36;1m  exit 1[0m
+2026-11-03T16:38:20.6707715Z [36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then[0m
+2026-11-03T16:38:20.6708261Z [36;1m  if [[ Windows == macOS ]]; then[0m
+2026-11-03T16:38:20.6708841Z [36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-11-03T16:38:20.6709838Z [36;1m  else[0m
+2026-11-03T16:38:20.6710320Z [36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-11-03T16:38:20.6710828Z [36;1m  fi[0m
+2026-11-03T16:38:20.6711165Z [36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then[0m
+2026-11-03T16:38:20.6711778Z [36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT[0m
+2026-11-03T16:38:20.6712284Z [36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then[0m
+2026-11-03T16:38:20.6712842Z [36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT[0m
+2026-11-03T16:38:20.6713381Z [36;1melse[0m
+2026-11-03T16:38:20.6713615Z [36;1m  delimiter=EOF[0m
+2026-11-03T16:38:20.6713961Z [36;1m  while [[ $toolchain == *$delimiter* ]]; do delimiter+=_; done[0m
+2026-11-03T16:38:20.6714527Z [36;1m  printf 'toolchain<<%s\n%s\n%s\n' "$delimiter" "$toolchain" "$delimiter" >> $GITHUB_OUTPUT[0m
+2026-11-03T16:38:20.6714989Z [36;1mfi[0m
+2026-11-03T16:38:20.6738464Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:20.6738915Z env:
+2026-11-03T16:38:20.6739146Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:20.6739425Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:20.6739770Z   toolchain: 1.91.1
+2026-11-03T16:38:20.6740040Z ##[endgroup]
+2026-11-03T16:38:20.8519473Z ##[end-action id=__dtolnay_rust-toolchain.parse;outcome=success;conclusion=success;duration_ms=198]
+2026-11-03T16:38:20.8524735Z ##[start-action display=Set $CARGO_HOME;id=__dtolnay_rust-toolchain.__run]
+2026-11-03T16:38:20.8682491Z ##[group]Run echo CARGO_HOME=${CARGO_HOME:-"$USERPROFILE\.cargo"} >> $GITHUB_ENV
+2026-11-03T16:38:20.8683081Z [36;1mecho CARGO_HOME=${CARGO_HOME:-"$USERPROFILE\.cargo"} >> $GITHUB_ENV[0m
+2026-11-03T16:38:20.8699308Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:20.8699769Z env:
+2026-11-03T16:38:20.8699998Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:20.8700281Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:20.8700542Z ##[endgroup]
+2026-11-03T16:38:20.9103960Z ##[end-action id=__dtolnay_rust-toolchain.__run;outcome=success;conclusion=success;duration_ms=57]
+2026-11-03T16:38:20.9107090Z ##[start-action display=Install rustup if needed;id=__dtolnay_rust-toolchain.__run_2]
+2026-11-03T16:38:20.9120022Z ##[end-action id=__dtolnay_rust-toolchain.__run_2;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-11-03T16:38:20.9122546Z ##[start-action display=Install rustup if needed on windows;id=__dtolnay_rust-toolchain.__run_3]
+2026-11-03T16:38:20.9269751Z ##[group]Run if ! command -v rustup &>/dev/null; then
+2026-11-03T16:38:20.9272185Z [36;1mif ! command -v rustup &>/dev/null; then[0m
+2026-11-03T16:38:20.9273387Z [36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://win.rustup.rs/x86_64 --output 'D:\a\_temp\rustup-init.exe'[0m
+2026-11-03T16:38:20.9274350Z [36;1m  'D:\a\_temp\rustup-init.exe' --default-toolchain none --no-modify-path -y[0m
+2026-11-03T16:38:20.9274879Z [36;1m  echo "$CARGO_HOME\bin" >> $GITHUB_PATH[0m
+2026-11-03T16:38:20.9275211Z [36;1mfi[0m
+2026-11-03T16:38:20.9292571Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:20.9293012Z env:
+2026-11-03T16:38:20.9293242Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:20.9293503Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:20.9293832Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:38:20.9324943Z ##[endgroup]
+2026-11-03T16:38:20.9916638Z ##[end-action id=__dtolnay_rust-toolchain.__run_3;outcome=success;conclusion=success;duration_ms=79]
+2026-11-03T16:38:20.9933243Z ##[start-action display=rustup toolchain install 1.91.1;id=__dtolnay_rust-toolchain.__run_4]
+2026-11-03T16:38:21.0064811Z ##[group]Run set -f  # split targets and components on commas and whitespace, without glob expansion
+2026-11-03T16:38:21.0065472Z [36;1mset -f  # split targets and components on commas and whitespace, without glob expansion[0m
+2026-11-03T16:38:21.0065889Z [36;1mflags=()[0m
+2026-11-03T16:38:21.0066142Z [36;1mfor t in ${targets//,/ }; do flags+=(--target "$t"); done[0m
+2026-11-03T16:38:21.0067086Z [36;1mfor c in ${components//,/ }; do flags+=(--component "$c"); done[0m
+2026-11-03T16:38:21.0067587Z [36;1mif [[ $toolchain == nightly && -n $components ]]; then flags+=(--allow-downgrade); fi[0m
+2026-11-03T16:38:21.0068009Z [36;1mlog=$(mktemp)[0m
+2026-11-03T16:38:21.0068223Z [36;1mtrap 'rm -f "$log"' EXIT[0m
+2026-11-03T16:38:21.0068472Z [36;1mfor attempt in 1 2 3 4 5; do[0m
+2026-11-03T16:38:21.0069040Z [36;1m  if rustup toolchain install "$toolchain" "${flags[@]}" --profile minimal --no-self-update --force-non-host 2>&1 | tee "$log"; then[0m
+2026-11-03T16:38:21.0069596Z [36;1m    break[0m
+2026-11-03T16:38:21.0069776Z [36;1m  else[0m
+2026-11-03T16:38:21.0069953Z [36;1m    status=$?[0m
+2026-11-03T16:38:21.0070137Z [36;1m  fi[0m
+2026-11-03T16:38:21.0070398Z [36;1m  if [[ $attempt == 5 ]] || ! grep -Fq 'checksum failed for ' "$log" \[0m
+2026-11-03T16:38:21.0070941Z [36;1m      || ! grep -Fq 'this is likely due to an ongoing update of the official release server' "$log"; then[0m
+2026-11-03T16:38:21.0071399Z [36;1m    exit "$status"[0m
+2026-11-03T16:38:21.0071595Z [36;1m  fi[0m
+2026-11-03T16:38:21.0071922Z [36;1m  echo "Retrying rustup toolchain install in 30 seconds (retry $attempt of 4)" >&2[0m
+2026-11-03T16:38:21.0072320Z [36;1m  sleep 30[0m
+2026-11-03T16:38:21.0072497Z [36;1mdone[0m
+2026-11-03T16:38:21.0088578Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:21.0089043Z env:
+2026-11-03T16:38:21.0089213Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:21.0089420Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:21.0089644Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:38:21.0089895Z   toolchain: 1.91.1
+2026-11-03T16:38:21.0090068Z   targets: 
+2026-11-03T16:38:21.0090227Z   components: 
+2026-11-03T16:38:21.0090405Z   RUSTUP_PERMIT_COPY_RENAME: 1
+2026-11-03T16:38:21.0090614Z ##[endgroup]
+2026-11-03T16:38:21.8049228Z info: syncing channel updates for 1.91.1-x86_64-pc-windows-msvc
+2026-11-03T16:38:22.3263339Z info: latest update on 2025-11-10 for version 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-03T16:38:22.3400130Z info: downloading 3 components
+2026-11-03T16:38:29.9488347Z 
+2026-11-03T16:38:29.9807004Z   1.91.1-x86_64-pc-windows-msvc installed - rustc 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-03T16:38:29.9807362Z 
+2026-11-03T16:38:30.0118842Z ##[end-action id=__dtolnay_rust-toolchain.__run_4;outcome=success;conclusion=success;duration_ms=9018]
+2026-11-03T16:38:30.0127033Z ##[start-action display=rustup default 1.91.1;id=__dtolnay_rust-toolchain.__run_5]
+2026-11-03T16:38:30.0263980Z ##[group]Run rustup default "$toolchain" --force-non-host
+2026-11-03T16:38:30.0264352Z [36;1mrustup default "$toolchain" --force-non-host[0m
+2026-11-03T16:38:30.0279955Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:30.0280333Z env:
+2026-11-03T16:38:30.0280498Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:30.0280817Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:30.0281737Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:38:30.0281994Z   toolchain: 1.91.1
+2026-11-03T16:38:30.0282171Z ##[endgroup]
+2026-11-03T16:38:30.0953329Z info: using existing install for 1.91.1-x86_64-pc-windows-msvc
+2026-11-03T16:38:30.0999110Z info: default toolchain set to 1.91.1-x86_64-pc-windows-msvc
+2026-11-03T16:38:30.0999414Z 
+2026-11-03T16:38:30.1191931Z   1.91.1-x86_64-pc-windows-msvc unchanged - rustc 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-03T16:38:30.1192387Z 
+2026-11-03T16:38:30.1197639Z info: note that the toolchain '1.91.1-x86_64-pc-windows-msvc' is currently in use (overridden by 'D:\a\Norma-AI-OS\Norma-AI-OS\rust-toolchain.toml')
+2026-11-03T16:38:30.1277461Z ##[end-action id=__dtolnay_rust-toolchain.__run_5;outcome=success;conclusion=success;duration_ms=114]
+2026-11-03T16:38:30.1280750Z ##[start-action display=Create cachekey;id=__dtolnay_rust-toolchain.rustc-version]
+2026-11-03T16:38:30.1408560Z ##[group]Run DATE=$(rustc +"$toolchain" --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')
+2026-11-03T16:38:30.1409454Z [36;1mDATE=$(rustc +"$toolchain" --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')[0m
+2026-11-03T16:38:30.1410145Z [36;1mHASH=$(rustc +"$toolchain" --version --verbose | sed -ne 's/^commit-hash: //p')[0m
+2026-11-03T16:38:30.1410671Z [36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT[0m
+2026-11-03T16:38:30.1426010Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:30.1426404Z env:
+2026-11-03T16:38:30.1426575Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:30.1426775Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:30.1427000Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:38:30.1427246Z   toolchain: 1.91.1
+2026-11-03T16:38:30.1427424Z ##[endgroup]
+2026-11-03T16:38:30.9214479Z ##[end-action id=__dtolnay_rust-toolchain.rustc-version;outcome=success;conclusion=success;duration_ms=793]
+2026-11-03T16:38:30.9217332Z ##[start-action display=Disable incremental compilation;id=__dtolnay_rust-toolchain.__run_6]
+2026-11-03T16:38:30.9343665Z ##[group]Run if [ -z "${CARGO_INCREMENTAL+set}" ]; then
+2026-11-03T16:38:30.9344015Z [36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then[0m
+2026-11-03T16:38:30.9344316Z [36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV[0m
+2026-11-03T16:38:30.9344567Z [36;1mfi[0m
+2026-11-03T16:38:30.9359161Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:30.9359553Z env:
+2026-11-03T16:38:30.9359721Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:30.9359920Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:30.9360138Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:38:30.9360385Z ##[endgroup]
+2026-11-03T16:38:30.9740136Z ##[end-action id=__dtolnay_rust-toolchain.__run_6;outcome=success;conclusion=success;duration_ms=52]
+2026-11-03T16:38:30.9742246Z ##[start-action display=Enable colors in Cargo output;id=__dtolnay_rust-toolchain.__run_7]
+2026-11-03T16:38:30.9862959Z ##[group]Run if [ -z "${CARGO_TERM_COLOR+set}" ]; then
+2026-11-03T16:38:30.9863315Z [36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then[0m
+2026-11-03T16:38:30.9863628Z [36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV[0m
+2026-11-03T16:38:30.9863895Z [36;1mfi[0m
+2026-11-03T16:38:30.9878461Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:30.9878843Z env:
+2026-11-03T16:38:30.9879150Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:30.9879356Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:30.9879579Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:38:30.9879825Z ##[endgroup]
+2026-11-03T16:38:31.0271324Z ##[end-action id=__dtolnay_rust-toolchain.__run_7;outcome=success;conclusion=success;duration_ms=52]
+2026-11-03T16:38:31.0274966Z ##[start-action display=Enable Cargo sparse registry;id=__dtolnay_rust-toolchain.__run_8]
+2026-11-03T16:38:31.0409615Z ##[group]Run # implemented in 1.66, stabilized in 1.68, made default in 1.70
+2026-11-03T16:38:31.0410315Z [36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70[0m
+2026-11-03T16:38:31.0410993Z [36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol ]; then[0m
+2026-11-03T16:38:31.0411670Z [36;1m  if rustc +"$toolchain" --version --verbose | grep -q '^release: 1\.6[89]\.'; then[0m
+2026-11-03T16:38:31.0412192Z [36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-11-03T16:38:31.0412660Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV[0m
+2026-11-03T16:38:31.0413167Z [36;1m  elif rustc +"$toolchain" --version --verbose | grep -q '^release: 1\.6[67]\.'; then[0m
+2026-11-03T16:38:31.0413678Z [36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-11-03T16:38:31.0414125Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV[0m
+2026-11-03T16:38:31.0414454Z [36;1m  fi[0m
+2026-11-03T16:38:31.0414617Z [36;1mfi[0m
+2026-11-03T16:38:31.0430781Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:31.0431173Z env:
+2026-11-03T16:38:31.0431340Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:31.0431539Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:31.0431767Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:38:31.0432012Z   toolchain: 1.91.1
+2026-11-03T16:38:31.0432188Z ##[endgroup]
+2026-11-03T16:38:31.2539596Z ##[end-action id=__dtolnay_rust-toolchain.__run_8;outcome=success;conclusion=success;duration_ms=226]
+2026-11-03T16:38:31.2543572Z ##[start-action display=Work around spurious network errors in curl 8.0;id=__dtolnay_rust-toolchain.__run_9]
+2026-11-03T16:38:31.2742062Z ##[group]Run # https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation
+2026-11-03T16:38:31.2742790Z [36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation[0m
+2026-11-03T16:38:31.2743409Z [36;1mif rustc +"$toolchain" --version --verbose | grep -q '^release: 1\.7[01]\.'; then[0m
+2026-11-03T16:38:31.2743862Z [36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV[0m
+2026-11-03T16:38:31.2744146Z [36;1mfi[0m
+2026-11-03T16:38:31.2759215Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:31.2759596Z env:
+2026-11-03T16:38:31.2759760Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:31.2759965Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:31.2760470Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:38:31.2760722Z   toolchain: 1.91.1
+2026-11-03T16:38:31.2760903Z ##[endgroup]
+2026-11-03T16:38:31.3958244Z ##[end-action id=__dtolnay_rust-toolchain.__run_9;outcome=success;conclusion=success;duration_ms=141]
+2026-11-03T16:38:31.3962719Z ##[start-action display=rustc +1.91.1 --version --verbose;id=__dtolnay_rust-toolchain.__run_10]
+2026-11-03T16:38:31.4092996Z ##[group]Run rustc +"$toolchain" --version --verbose
+2026-11-03T16:38:31.4093378Z [36;1mrustc +"$toolchain" --version --verbose[0m
+2026-11-03T16:38:31.4107726Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:31.4108117Z env:
+2026-11-03T16:38:31.4108290Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:31.4108502Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:31.4108731Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:38:31.4108976Z   toolchain: 1.91.1
+2026-11-03T16:38:31.4109754Z ##[endgroup]
+2026-11-03T16:38:31.4933146Z rustc 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-03T16:38:31.4933630Z binary: rustc
+2026-11-03T16:38:31.4934037Z commit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb
+2026-11-03T16:38:31.4934550Z commit-date: 2025-11-07
+2026-11-03T16:38:31.4934892Z host: x86_64-pc-windows-msvc
+2026-11-03T16:38:31.4935242Z release: 1.91.1
+2026-11-03T16:38:31.4936062Z LLVM version: 21.1.2
+2026-11-03T16:38:31.5040919Z ##[end-action id=__dtolnay_rust-toolchain.__run_10;outcome=success;conclusion=success;duration_ms=107]
+2026-11-03T16:38:31.5265439Z ##[group]Run Swatinem/rust-cache@v2
+2026-11-03T16:38:31.5265744Z with:
+2026-11-03T16:38:31.5265931Z   cache-on-failure: true
+2026-11-03T16:38:31.5266142Z   prefix-key: v0-rust
+2026-11-03T16:38:31.5266339Z   add-job-id-key: true
+2026-11-03T16:38:31.5266550Z   add-rust-environment-hash-key: true
+2026-11-03T16:38:31.5266809Z   cache-targets: true
+2026-11-03T16:38:31.5267007Z   cache-all-crates: false
+2026-11-03T16:38:31.5267222Z   cache-workspace-crates: false
+2026-11-03T16:38:31.5267433Z   save-if: true
+2026-11-03T16:38:31.5267614Z   cache-provider: github
+2026-11-03T16:38:31.5267809Z   cache-bin: true
+2026-11-03T16:38:31.5267994Z   lookup-only: false
+2026-11-03T16:38:31.5268172Z   cmd-format: {0}
+2026-11-03T16:38:31.5268340Z env:
+2026-11-03T16:38:31.5268495Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:31.5268688Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:31.5268905Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:38:31.5269151Z ##[endgroup]
+2026-11-03T16:38:38.4543725Z ##[group]Cache Configuration
+2026-11-03T16:38:38.4544192Z Cache Provider:
+2026-11-03T16:38:38.4544484Z     github
+2026-11-03T16:38:38.4544748Z Workspaces:
+2026-11-03T16:38:38.4545042Z     D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-03T16:38:38.4545413Z Cache Paths:
+2026-11-03T16:38:38.4545712Z     C:\Users\runneradmin\.cargo\bin
+2026-11-03T16:38:38.4546149Z     C:\Users\runneradmin\.cargo\.crates.toml
+2026-11-03T16:38:38.4546628Z     C:\Users\runneradmin\.cargo\.crates2.json
+2026-11-03T16:38:38.4547094Z     C:\Users\runneradmin\.cargo\registry
+2026-11-03T16:38:38.4547528Z     C:\Users\runneradmin\.cargo\git
+2026-11-03T16:38:38.4547948Z     D:\a\Norma-AI-OS\Norma-AI-OS\target
+2026-11-03T16:38:38.4548348Z Restore Key:
+2026-11-03T16:38:38.4548660Z     v0-rust-relay-Windows_NT-x64-ca915323
+2026-11-03T16:38:38.4549069Z Cache Key:
+2026-11-03T16:38:38.4549404Z     v0-rust-relay-Windows_NT-x64-ca915323-a0d1a65b
+2026-11-03T16:38:38.4549884Z .. Prefix:
+2026-11-03T16:38:38.4550203Z   - v0-rust-relay-Windows_NT-x64
+2026-11-03T16:38:38.4550617Z .. Environment considered:
+2026-11-03T16:38:38.4550963Z   - Rust Versions:
+2026-11-03T16:38:38.4551447Z     - 1.91.1 x86_64-pc-windows-msvc ed61e7d7e242494fb7057f2657300d9e77bb4fcb
+2026-11-03T16:38:38.4552198Z     - 1.99.1 x86_64-pc-windows-msvc 58cf8f9c35b355199727627d07ae34a4e2846d67
+2026-11-03T16:38:38.4552767Z   - CARGO_HOME
+2026-11-03T16:38:38.4553056Z   - CARGO_INCREMENTAL
+2026-11-03T16:38:38.4553370Z   - CARGO_TERM_COLOR
+2026-11-03T16:38:38.4553688Z .. Lockfiles considered:
+2026-11-03T16:38:38.4554098Z   - D:\a\Norma-AI-OS\Norma-AI-OS\.cargo\config.toml
+2026-11-03T16:38:38.4555137Z   - D:\a\Norma-AI-OS\Norma-AI-OS\Cargo.lock
+2026-11-03T16:38:38.4555723Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\agent\Cargo.toml
+2026-11-03T16:38:38.4556366Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\analytics\Cargo.toml
+2026-11-03T16:38:38.4556993Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\app\Cargo.toml
+2026-11-03T16:38:38.4557611Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\asr\Cargo.toml
+2026-11-03T16:38:38.4558236Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\audio\Cargo.toml
+2026-11-03T16:38:38.4558873Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\brain\Cargo.toml
+2026-11-03T16:38:38.4559474Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\canvas\Cargo.toml
+2026-11-03T16:38:38.4560091Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\dialogue\Cargo.toml
+2026-11-03T16:38:38.4560700Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\license\Cargo.toml
+2026-11-03T16:38:38.4561305Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\live_voice\Cargo.toml
+2026-11-03T16:38:38.4561924Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\media_store\Cargo.toml
+2026-11-03T16:38:38.4562609Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing\Cargo.toml
+2026-11-03T16:38:38.4563329Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\model_store\Cargo.toml
+2026-11-03T16:38:38.4563993Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma\Cargo.toml
+2026-11-03T16:38:38.4564616Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\runtime\Cargo.toml
+2026-11-03T16:38:38.4572847Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage\Cargo.toml
+2026-11-03T16:38:38.4573582Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\terminal\Cargo.toml
+2026-11-03T16:38:38.4574247Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\tts\Cargo.toml
+2026-11-03T16:38:38.4575499Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\ui\Cargo.toml
+2026-11-03T16:38:38.4576260Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\voice_input\Cargo.toml
+2026-11-03T16:38:38.4576922Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\voice_sherpa\Cargo.toml
+2026-11-03T16:38:38.4577304Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace\Cargo.toml
+2026-11-03T16:38:38.4577909Z   - D:\a\Norma-AI-OS\Norma-AI-OS\rust-toolchain.toml
+2026-11-03T16:38:38.4578458Z ##[endgroup]
+2026-11-03T16:38:38.4578634Z 
+2026-11-03T16:38:38.4578766Z ... Restoring cache ...
+2026-11-03T16:38:38.6535483Z Cache hit for: v0-rust-relay-Windows_NT-x64-ca915323-a0d1a65b
+2026-11-03T16:38:39.7740152Z Received 134217728 of 320892532 (41.8%), 119.4 MBs/sec
+2026-11-03T16:38:40.7683405Z Received 320892532 of 320892532 (100.0%), 148.0 MBs/sec
+2026-11-03T16:38:40.7686648Z Cache Size: ~306 MB (320892532 B)
+2026-11-03T16:38:40.7726508Z [command]"C:\Program Files\Git\usr\bin\tar.exe" -xf D:/a/_temp/f2457e46-37ea-46da-8de8-7d9d48e33d69/cache.tzst -P -C D:/a/Norma-AI-OS/Norma-AI-OS --force-local --use-compress-program "zstd -d"
+2026-11-03T16:38:59.1421599Z Cache restored successfully
+2026-11-03T16:38:59.1600648Z Restored from cache key "v0-rust-relay-Windows_NT-x64-ca915323-a0d1a65b" full match: true.
+2026-11-03T16:38:59.1886485Z ##[group]Run mkdir -p artifacts/winsock
+2026-11-03T16:38:59.1886922Z [36;1mmkdir -p artifacts/winsock[0m
+2026-11-03T16:38:59.1888307Z [36;1mpython -c 'import json,os,platform; print(json.dumps({"source_sha":os.environ["GITHUB_SHA"],"run_id":os.environ["GITHUB_RUN_ID"],"attempt":os.environ["GITHUB_RUN_ATTEMPT"],"platform":platform.platform(),"image":os.environ.get("ImageVersion"),"scope":"Server runner; not Windows 10 device acceptance"}))' | tee artifacts/winsock/environment.json[0m
+2026-11-03T16:38:59.1889763Z [36;1mrustc -Vv | tee artifacts/winsock/rustc.log[0m
+2026-11-03T16:38:59.1904826Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:38:59.1905214Z env:
+2026-11-03T16:38:59.1905383Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:38:59.1905584Z   CARGO_TERM_COLOR: never
+2026-11-03T16:38:59.1905811Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:38:59.1906063Z   CACHE_ON_FAILURE: true
+2026-11-03T16:38:59.1906289Z ##[endgroup]
+2026-11-03T16:39:00.2072649Z {"source_sha": "15338abf2ad49406b1447bda0da648e4e3052010", "run_id": "41675679325", "attempt": "1", "platform": "Windows-2025Server-10.0.26100-SP0", "image": "20261030.294.1", "scope": "Server runner; not Windows 10 device acceptance"}
+2026-11-03T16:39:00.3022754Z rustc 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-03T16:39:00.3024095Z binary: rustc
+2026-11-03T16:39:00.3024912Z commit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb
+2026-11-03T16:39:00.3025399Z commit-date: 2025-11-07
+2026-11-03T16:39:00.3025786Z host: x86_64-pc-windows-msvc
+2026-11-03T16:39:00.3026085Z release: 1.91.1
+2026-11-03T16:39:00.3026337Z LLVM version: 21.1.2
+2026-11-03T16:39:00.3240178Z ##[group]Run set -o pipefail
+2026-11-03T16:39:00.3240728Z [36;1mset -o pipefail[0m
+2026-11-03T16:39:00.3241095Z [36;1mtargets=()[0m
+2026-11-03T16:39:00.3241475Z [36;1mif [[ "$RUNNER_OS" == Windows ]]; then[0m
+2026-11-03T16:39:00.3242269Z [36;1m  # Full Windows crate compilation is blocked by unchanged Unix permissions tests.[0m
+2026-11-03T16:39:00.3243374Z [36;1m  # Keep that failed run; select all affected Codex/relay and native platform contracts.[0m
+2026-11-03T16:39:00.3245064Z [36;1m  targets=(--lib --bins --test 'codex*' --test protocol_tests --test socket_close_platform --test bundled_helpers_platform --test client_platform --test control_identity_platform)[0m
+2026-11-03T16:39:00.3246437Z [36;1mfi[0m
+2026-11-03T16:39:00.3247204Z [36;1mcargo test --locked --no-fail-fast -p norma "${targets[@]}" -- --nocapture 2>&1 | tee artifacts/winsock/norma.log[0m
+2026-11-03T16:39:00.3272144Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:39:00.3272809Z env:
+2026-11-03T16:39:00.3273088Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:39:00.3273436Z   CARGO_TERM_COLOR: never
+2026-11-03T16:39:00.3273842Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:39:00.3274301Z   CACHE_ON_FAILURE: true
+2026-11-03T16:39:00.3274644Z ##[endgroup]
+2026-11-03T16:39:00.8391303Z     Updating crates.io index
+2026-11-03T16:39:07.7481956Z    Compiling mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+2026-11-03T16:39:08.3329619Z    Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+2026-11-03T16:40:19.0689137Z     Finished `test` profile [optimized + debuginfo] target(s) in 1m 18s
+2026-11-03T16:40:19.1005456Z      Running unittests src\lib.rs (target\debug\deps\norma-28bf09d9bccd9e80.exe)
+2026-11-03T16:40:19.1167076Z 
+2026-11-03T16:40:19.1172003Z running 34 tests
+2026-11-03T16:40:19.1182083Z test agent_hook::event::tests::test_extract_prompt_text_fallback_keys_and_none ... ok
+2026-11-03T16:40:19.1183275Z test agent_hook::event::tests::session_start_from_every_agent_provider_maps_to_ready ... ok
+2026-11-03T16:40:19.1184608Z test agent_hook::event::tests::test_extract_prompt_text_short_and_truncated ... ok
+2026-11-03T16:40:19.1185458Z test agent_hook::session_claim::tests::test_marker_name_distinguishes_sessions_that_sanitize_alike ... ok
+2026-11-03T16:40:19.1187248Z test agent_hook::session_title::session_title_tests::codex_takes_last_thread_name_for_the_session ... ok
+2026-11-03T16:40:19.1195751Z test agent_hook::session_title::session_title_tests::claude_takes_last_non_empty_ai_title ... ok
+2026-11-03T16:40:19.1199843Z test agent_hook::session_title::session_title_tests::claude_title_found_by_session_id_across_project_dirs ... ok
+2026-11-03T16:40:19.1323799Z test agent_hook::session_title::session_title_tests::refresh_events_and_per_profile_dispatch ... ok
+2026-11-03T16:40:19.1324712Z test agent_hook::session_title::session_title_tests::untrusted_paths_and_ids_are_rejected ... ok
+2026-11-03T16:40:19.1325385Z test agent_hook::session_claim::tests::test_claim_is_once_per_session_and_release_reopens_it ... ok
+2026-11-03T16:40:19.1344968Z test agent_hook::zcode::tests::install_refuses_to_overwrite_foreign_or_malformed_config ... ok
+2026-11-03T16:40:19.1482570Z test agent_hook::zcode::tests::install_refuses_when_dormant_user_hooks_would_be_activated ... ok
+2026-11-03T16:40:19.1643174Z test agent_hook::zcode::tests::install_writes_seven_verified_events_and_enables_hooks ... ok
+2026-11-03T16:40:19.1645839Z test agent_hook::zcode::tests::real_payload_fixtures_map_to_states ... ok
+2026-11-03T16:40:19.1646928Z test agent_hook::zcode::tests::installed_requires_enabled_flag ... ok
+2026-11-03T16:40:19.1647608Z test agent_hook::zcode::tests::install_is_idempotent_and_uninstall_keeps_user_data ... ok
+2026-11-03T16:40:19.1648169Z test client::tests::debug_build_uses_an_isolated_norma_socket_name ... ok
+2026-11-03T16:40:19.1669592Z test agent_hook::session_title::session_title_tests::title_is_found_when_file_is_larger_than_the_tail_window ... ok
+2026-11-03T16:40:19.1670453Z test codex::relay::input::tests::completed_question_history_does_not_exhaust_pending_capacity ... ok
+2026-11-03T16:40:19.1671141Z test codex::relay::input::tests::old_turn_outside_history_window_cannot_hold_current_input ... ok
+2026-11-03T16:40:19.1671742Z test codex::relay::input::tests::ordinary_turn_history_never_creates_pending_input ... ok
+2026-11-03T16:40:19.1801719Z output backpressure readiness=auto
+2026-11-03T16:40:19.2137070Z test agent_hook::zcode::tests::uninstall_keeps_user_owned_empty_groups_and_events ... ok
+2026-11-03T16:40:19.2138496Z partial answer readiness=auto
+2026-11-03T16:40:19.2139072Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:19.2140430Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:19.2431030Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:19.2578216Z test codex::relay::compat_tests::missing_socket_api_preserves_both_direction_shutdown_contracts ... ok
+2026-11-03T16:40:19.2579736Z test codex::relay::transport::windows::tests::missing_socket_api_probe_does_not_flush_a_pending_answer ... ok
+2026-11-03T16:40:19.2580813Z test file_identity::tests::file_identity_survives_append ... ok
+2026-11-03T16:40:19.2581651Z test file_identity::tests::replacement_is_distinct_even_with_equal_length ... ok
+2026-11-03T16:40:19.2583719Z test orchestration::file_ops::tests::credential_permissions_reject_file_symlinks ... ok
+2026-11-03T16:40:19.2735380Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:19.2895169Z test orchestration::file_ops::tests::managed_credential_detects_and_repairs_broader_permissions ... ok
+2026-11-03T16:40:19.2897052Z relay output pre-close consecutive WouldBlock=8; complete source frames=5
+2026-11-03T16:40:19.2897870Z relay close all source handles released=true
+2026-11-03T16:40:19.3052503Z test orchestration::file_ops::tests::managed_file_replacement_preserves_content_and_private_permissions ... ok
+2026-11-03T16:40:19.3053475Z partial answer readiness=missing-api
+2026-11-03T16:40:19.3210944Z test orchestration::file_ops::tests::private_directory_rejects_junction_instead_of_validating_its_own_acl ... ok
+2026-11-03T16:40:19.3213068Z test orchestration::file_ops::tests::private_session_directory_is_reusable_without_losing_markers ... ok
+2026-11-03T16:40:19.3845162Z test codex::relay::partial_tests::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... ok
+2026-11-03T16:40:19.4791964Z relay close native FIONREAD: status=0, unread_bytes=0
+2026-11-03T16:40:19.4792673Z relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+2026-11-03T16:40:19.4793432Z relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+2026-11-03T16:40:19.4793927Z output backpressure readiness=missing-api
+2026-11-03T16:40:19.5424114Z relay output pre-close consecutive WouldBlock=8; complete source frames=5
+2026-11-03T16:40:19.5572266Z relay close all source handles released=true
+2026-11-03T16:40:19.7448732Z relay close native FIONREAD: status=0, unread_bytes=0
+2026-11-03T16:40:19.7449471Z relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+2026-11-03T16:40:19.7450087Z relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+2026-11-03T16:40:19.7451403Z test codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown ... ok
+2026-11-03T16:40:20.2666803Z 方向=true，真实来源收到Ping=3
+2026-11-03T16:40:21.3423994Z 方向=false，真实来源收到Ping=4
+2026-11-03T16:40:21.3424868Z test codex::relay::compat_tests::missing_socket_api_preserves_slow_peer_payload_and_liveness ... ok
+2026-11-03T16:40:21.3425550Z 
+2026-11-03T16:40:21.3426000Z test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.22s
+2026-11-03T16:40:21.3426700Z 
+2026-11-03T16:40:21.3428391Z      Running unittests src\bin\multisoul_agent_hook.rs (target\debug\deps\multisoul_agent_hook-374a23466c60cdac.exe)
+2026-11-03T16:40:21.3583676Z 
+2026-11-03T16:40:21.3584251Z running 0 tests
+2026-11-03T16:40:21.3584516Z 
+2026-11-03T16:40:21.3585030Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-11-03T16:40:21.3585630Z 
+2026-11-03T16:40:21.3586068Z      Running unittests src\bin\norma.rs (target\debug\deps\norma-565f9b12b1d2ad82.exe)
+2026-11-03T16:40:21.3742521Z 
+2026-11-03T16:40:21.3742959Z running 0 tests
+2026-11-03T16:40:21.3743243Z 
+2026-11-03T16:40:21.3743826Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-11-03T16:40:21.3744590Z 
+2026-11-03T16:40:21.3745213Z      Running tests\bundled_helpers_platform.rs (target\debug\deps\bundled_helpers_platform-3c4d4e5baaf3e7da.exe)
+2026-11-03T16:40:21.3900956Z 
+2026-11-03T16:40:21.3901954Z running 3 tests
+2026-11-03T16:40:21.3902622Z test orchestration_sources_and_managed_targets_keep_windows_executable_names ... ok
+2026-11-03T16:40:21.4060811Z test native_hook_home_does_not_require_a_unix_home_variable ... ok
+2026-11-03T16:40:21.4218638Z test portable_hook_is_resolved_and_executed_from_its_real_exe_sibling ... ok
+2026-11-03T16:40:21.4219250Z 
+2026-11-03T16:40:21.4219663Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+2026-11-03T16:40:21.4220158Z 
+2026-11-03T16:40:21.4220496Z      Running tests\client_platform.rs (target\debug\deps\client_platform-e92ae6e8406859d2.exe)
+2026-11-03T16:40:21.4378124Z 
+2026-11-03T16:40:21.4378751Z running 2 tests
+2026-11-03T16:40:21.4379331Z test local_socket_client_rejects_a_response_for_another_request ... ok
+2026-11-03T16:40:21.4538042Z test local_socket_client_round_trips_the_existing_wire_protocol ... ok
+2026-11-03T16:40:21.4538618Z 
+2026-11-03T16:40:21.4539081Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+2026-11-03T16:40:21.4539739Z 
+2026-11-03T16:40:21.4540240Z      Running tests\codex_approvals.rs (target\debug\deps\codex_approvals-977abd19a3099873.exe)
+2026-11-03T16:40:21.4540914Z 
+2026-11-03T16:40:21.4541049Z running 0 tests
+2026-11-03T16:40:21.4541268Z 
+2026-11-03T16:40:21.4541678Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-11-03T16:40:21.4542313Z 
+2026-11-03T16:40:21.4695043Z      Running tests\codex_connection.rs (target\debug\deps\codex_connection-afa1ee4327f36fdc.exe)
+2026-11-03T16:40:21.4696315Z 
+2026-11-03T16:40:21.4696875Z running 2 tests
+2026-11-03T16:40:21.4851802Z test event_overflow_fails_pending_requests_and_disables_decisions ... ok
+2026-11-03T16:40:21.5012817Z test unix_connection_routes_replies_and_permissions_without_truncation ... ok
+2026-11-03T16:40:21.5013389Z 
+2026-11-03T16:40:21.5013816Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+2026-11-03T16:40:21.5014447Z 
+2026-11-03T16:40:21.5015011Z      Running tests\codex_control_handshake.rs (target\debug\deps\codex_control_handshake-3d3893e620923aff.exe)
+2026-11-03T16:40:21.5170965Z 
+2026-11-03T16:40:21.5171557Z running 1 test
+2026-11-03T16:40:21.6281963Z test fragmented_handshake_on_nonblocking_accepted_stream_waits_for_the_rest ... ok
+2026-11-03T16:40:21.6282427Z 
+2026-11-03T16:40:21.6282706Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+2026-11-03T16:40:21.6283105Z 
+2026-11-03T16:40:21.6283466Z      Running tests\codex_control_platform.rs (target\debug\deps\codex_control_platform-41c9221cd49feed5.exe)
+2026-11-03T16:40:21.6444499Z 
+2026-11-03T16:40:21.6445159Z running 2 tests
+2026-11-03T16:40:21.6758243Z test platform_control_errors_and_drop_resolve_pending_requests_without_replay ... ok
+2026-11-03T16:40:21.6919355Z test platform_host_preserves_attachment_answer_cancel_and_peer_shutdown ... ok
+2026-11-03T16:40:21.6920008Z 
+2026-11-03T16:40:21.6920437Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+2026-11-03T16:40:21.6921342Z 
+2026-11-03T16:40:21.6921912Z      Running tests\codex_control_shutdown.rs (target\debug\deps\codex_control_shutdown-625f0f747dc05026.exe)
+2026-11-03T16:40:21.7073117Z 
+2026-11-03T16:40:21.7073668Z running 1 test
+2026-11-03T16:40:21.7545714Z test backpressured_relay_closes_when_either_peer_exits_in_both_directions ... ok
+2026-11-03T16:40:21.7546409Z 
+2026-11-03T16:40:21.7546855Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+2026-11-03T16:40:21.7547499Z 
+2026-11-03T16:40:21.7547878Z      Running tests\codex_question.rs (target\debug\deps\codex_question-3bece82499a161d2.exe)
+2026-11-03T16:40:21.7705686Z 
+2026-11-03T16:40:21.7706177Z running 5 tests
+2026-11-03T16:40:21.7707567Z test codex_preserves_option_descriptions_without_changing_answer_labels ... ok
+2026-11-03T16:40:21.7709505Z test codex_multiple_questions_preserve_secret_and_custom_capabilities ... ok
+2026-11-03T16:40:21.7710520Z test codex_question_maps_free_text_and_rejects_ambiguous_or_partial_answers ... ok
+2026-11-03T16:40:21.7711545Z test codex_question_preserves_rpc_identity_and_confirms_exact_original_consumption ... ok
+2026-11-03T16:40:21.7712602Z test codex_question_rejects_connector_approval_unknown_and_mismatched_sources ... ok
+2026-11-03T16:40:21.7713207Z 
+2026-11-03T16:40:21.7713639Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-11-03T16:40:21.7714224Z 
+2026-11-03T16:40:21.7714883Z      Running tests\codex_question_connections.rs (target\debug\deps\codex_question_connections-67cd7353b095cb9b.exe)
+2026-11-03T16:40:21.7864068Z 
+2026-11-03T16:40:21.7864372Z running 3 tests
+2026-11-03T16:40:21.8012622Z test native_input_lock_is_live_when_question_frame_reaches_tui ... ok
+2026-11-03T16:40:21.8013400Z test new_connection_holds_input_before_forwarding_or_attachment_delivery ... ok
+2026-11-03T16:40:21.9278489Z test picker_disconnect_preserves_owner_and_resume_transfers_question_identity ... ok
+2026-11-03T16:40:21.9279191Z 
+2026-11-03T16:40:21.9279631Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+2026-11-03T16:40:21.9280255Z 
+2026-11-03T16:40:21.9280816Z      Running tests\codex_question_forward.rs (target\debug\deps\codex_question_forward-5892890b496481db.exe)
+2026-11-03T16:40:21.9433026Z 
+2026-11-03T16:40:21.9433428Z running 1 test
+2026-11-03T16:40:21.9434033Z test native_bridge_returns_only_validated_answers_for_original_question ... ok
+2026-11-03T16:40:21.9434602Z 
+2026-11-03T16:40:21.9435020Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+2026-11-03T16:40:21.9435639Z 
+2026-11-03T16:40:21.9436187Z      Running tests\codex_question_history.rs (target\debug\deps\codex_question_history-31825146a1eab858.exe)
+2026-11-03T16:40:21.9594963Z 
+2026-11-03T16:40:21.9597261Z running 0 tests
+2026-11-03T16:40:21.9597441Z 
+2026-11-03T16:40:21.9597745Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-11-03T16:40:21.9598108Z 
+2026-11-03T16:40:21.9598409Z      Running tests\codex_question_host.rs (target\debug\deps\codex_question_host-ddc8421533f88d89.exe)
+2026-11-03T16:40:21.9752878Z 
+2026-11-03T16:40:21.9753260Z running 1 test
+2026-11-03T16:40:22.0067602Z test same_process_host_carries_owned_attachment_ticket_and_consumption ... ok
+2026-11-03T16:40:22.0068323Z 
+2026-11-03T16:40:22.0068833Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+2026-11-03T16:40:22.0069515Z 
+2026-11-03T16:40:22.0069920Z      Running tests\codex_question_ledger.rs (target\debug\deps\codex_question_ledger-83cbbe7c16c67d68.exe)
+2026-11-03T16:40:22.0225603Z 
+2026-11-03T16:40:22.0226256Z running 5 tests
+2026-11-03T16:40:22.0226835Z test replay_timestamps_do_not_change_question_identity ... ok
+2026-11-03T16:40:22.0227498Z test native_resolution_waits_for_consumption_instead_of_fabricating_an_answer ... ok
+2026-11-03T16:40:22.0228475Z test native_answer_cancellation_and_disconnect_revoke_stale_submission ... ok
+2026-11-03T16:40:22.0229147Z test conflicting_consumption_and_retired_turn_never_reopen_a_request ... ok
+2026-11-03T16:40:22.0229776Z test replayed_pending_is_one_question_and_resolved_is_not_consumption ... ok
+2026-11-03T16:40:22.0230150Z 
+2026-11-03T16:40:22.0230445Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-11-03T16:40:22.0230883Z 
+2026-11-03T16:40:22.0231244Z      Running tests\codex_question_relay.rs (target\debug\deps\codex_question_relay-0f83d98b2cda36ef.exe)
+2026-11-03T16:40:22.0387423Z 
+2026-11-03T16:40:22.0387858Z running 3 tests
+2026-11-03T16:40:22.0405107Z test resumed_same_rpc_requires_the_new_attachment_identity ... ok
+2026-11-03T16:40:22.0702845Z test native_relay_preserves_session_and_answers_original_rpc_without_extra_turn ... ok
+2026-11-03T16:40:22.0704274Z test native_answer_and_observer_disable_keep_the_original_tui_usable ... ok
+2026-11-03T16:40:22.0704840Z 
+2026-11-03T16:40:22.0705279Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+2026-11-03T16:40:22.0705897Z 
+2026-11-03T16:40:22.0706612Z      Running tests\codex_question_relay_backpressure.rs (target\debug\deps\codex_question_relay_backpressure-f89a99561ec06450.exe)
+2026-11-03T16:40:22.0862458Z 
+2026-11-03T16:40:22.0863092Z running 1 test
+2026-11-03T16:40:23.1465084Z 方向=true，真实来源收到Ping=3
+2026-11-03T16:40:24.2070517Z 方向=false，真实来源收到Ping=3
+2026-11-03T16:40:24.2071424Z test slow_server_applies_backpressure_without_closing_the_native_connection ... ok
+2026-11-03T16:40:24.2072051Z 
+2026-11-03T16:40:24.2072479Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.13s
+2026-11-03T16:40:24.2073586Z 
+2026-11-03T16:40:24.2074937Z      Running tests\codex_question_relay_ephemeral.rs (target\debug\deps\codex_question_relay_ephemeral-9dc3be0179b28ac7.exe)
+2026-11-03T16:40:24.2226461Z 
+2026-11-03T16:40:24.2226974Z running 1 test
+2026-11-03T16:40:24.5565146Z test ephemeral_thread_never_rebinds_or_holds_main_question ... ok
+2026-11-03T16:40:24.5565710Z 
+2026-11-03T16:40:24.5566125Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+2026-11-03T16:40:24.5566598Z 
+2026-11-03T16:40:24.5705559Z      Running tests\codex_question_relay_identity.rs (target\debug\deps\codex_question_relay_identity-0d4f2c4b58ed496a.exe)
+2026-11-03T16:40:24.5722192Z 
+2026-11-03T16:40:24.5722658Z running 1 test
+2026-11-03T16:40:24.6021556Z test a_question_lease_cannot_cross_relay_instances ... ok
+2026-11-03T16:40:24.6022014Z 
+2026-11-03T16:40:24.6022409Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+2026-11-03T16:40:24.6023001Z 
+2026-11-03T16:40:24.6023375Z      Running tests\codex_question_relay_large.rs (target\debug\deps\codex_question_relay_large-db178eb8242da434.exe)
+2026-11-03T16:40:24.6023883Z 
+2026-11-03T16:40:24.6023960Z running 1 test
+2026-11-03T16:40:24.6974425Z test native_large_configuration_frame_does_not_break_original_connection ... ok
+2026-11-03T16:40:24.6975039Z 
+2026-11-03T16:40:24.6975387Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+2026-11-03T16:40:24.6975763Z 
+2026-11-03T16:40:24.6976150Z      Running tests\codex_question_relay_permissions.rs (target\debug\deps\codex_question_relay_permissions-9c57fcc6b93f58c8.exe)
+2026-11-03T16:40:24.7136662Z 
+2026-11-03T16:40:24.7137131Z running 2 tests
+2026-11-03T16:40:24.7291802Z test default_relay_never_escalates_session_permissions ... ok
+2026-11-03T16:40:24.7292550Z test full_access_relay_carries_yolo_on_every_session_request ... ok
+2026-11-03T16:40:24.7292976Z 
+2026-11-03T16:40:24.7293340Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+2026-11-03T16:40:24.7293902Z 
+2026-11-03T16:40:24.7297014Z      Running tests\codex_question_ticket.rs (target\debug\deps\codex_question_ticket-e854d507949b2959.exe)
+2026-11-03T16:40:24.7449461Z 
+2026-11-03T16:40:24.7449899Z running 3 tests
+2026-11-03T16:40:24.7450518Z test codex_final_gate_revokes_first_write_but_keeps_owned_flush ... ok
+2026-11-03T16:40:24.7451423Z test live_codex_question_outlives_hook_timeout_but_remains_revocable ... ok
+2026-11-03T16:40:24.7452396Z test codex_native_question_uses_the_revocable_host_ticket_with_exact_identity ... ok
+2026-11-03T16:40:24.7452998Z 
+2026-11-03T16:40:24.7453427Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-11-03T16:40:24.7454070Z 
+2026-11-03T16:40:24.7454637Z      Running tests\codex_question_version.rs (target\debug\deps\codex_question_version-7ddafd8a353cee67.exe)
+2026-11-03T16:40:24.7599957Z 
+2026-11-03T16:40:24.7600282Z running 1 test
+2026-11-03T16:40:25.1719803Z test verified_relay_gates_experimental_answers_on_original_initialize ... ok
+2026-11-03T16:40:25.1720221Z 
+2026-11-03T16:40:25.1720528Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+2026-11-03T16:40:25.1720918Z 
+2026-11-03T16:40:25.1739218Z      Running tests\control_identity_platform.rs (target\debug\deps\control_identity_platform-bd883d052561b51e.exe)
+2026-11-03T16:40:25.1876045Z 
+2026-11-03T16:40:25.1876540Z running 1 test
+2026-11-03T16:40:25.1877147Z test control_identity_uses_os_entropy_and_preserves_uuid_v4_contract ... ok
+2026-11-03T16:40:25.1877603Z 
+2026-11-03T16:40:25.1877959Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-11-03T16:40:25.1878467Z 
+2026-11-03T16:40:25.1878834Z      Running tests\protocol_tests.rs (target\debug\deps\protocol_tests-60adb3ba8f136ada.exe)
+2026-11-03T16:40:25.2032163Z 
+2026-11-03T16:40:25.2032756Z running 5 tests
+2026-11-03T16:40:25.2033305Z test test_preview_create_command_round_trips_through_json ... ok
+2026-11-03T16:40:25.2033887Z test test_wire_response_preserves_success_and_error_results ... ok
+2026-11-03T16:40:25.2034312Z test test_list_result_uses_neutral_card_summary ... ok
+2026-11-03T16:40:25.2034759Z test brain_answer_commands_preserve_wire_shape_with_bounded_inline_storage ... ok
+2026-11-03T16:40:25.2035292Z test wire_request_preserves_workspace_routing_and_decodes_legacy_v1 ... ok
+2026-11-03T16:40:25.2035603Z 
+2026-11-03T16:40:25.2035851Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-11-03T16:40:25.2036199Z 
+2026-11-03T16:40:25.2036514Z      Running tests\socket_close_platform.rs (target\debug\deps\socket_close_platform-d9261c7d047ca820.exe)
+2026-11-03T16:40:25.2191855Z 
+2026-11-03T16:40:25.2192579Z running 2 tests
+2026-11-03T16:40:25.2193251Z source_clone=false/receiver_clone=false/saturate=false: accepted=131072, blocked=false
+2026-11-03T16:40:25.2194145Z source_clone=false/receiver_clone=false/saturate=false/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:25.2195116Z source_clone=false/receiver_clone=false/saturate=false/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:25.2195801Z source_clone=false/receiver_clone=false/saturate=false/alive: getpeername=0, length=57, error=0
+2026-11-03T16:40:25.2196400Z source_clone=false/receiver_clone=false/saturate=false/alive: FIONREAD=0, bytes=131072
+2026-11-03T16:40:25.2197034Z alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:25.2197536Z alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:25.2197846Z alive: getpeername=0, length=57, error=0
+2026-11-03T16:40:25.2198120Z alive: FIONREAD=0, bytes=131072
+2026-11-03T16:40:25.2353237Z alive: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:25.2354114Z alive: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:25.2355887Z alive: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:25.2356719Z alive: empty send=0, error=0
+2026-11-03T16:40:25.2357802Z alive: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:25.2358730Z alive: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:25.2360509Z shutdown: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:25.2362341Z shutdown: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:25.2363472Z shutdown: getpeername=0, length=57, error=0
+2026-11-03T16:40:25.2364665Z shutdown: FIONREAD=0, bytes=131072
+2026-11-03T16:40:25.2365572Z shutdown: poll=1, interest=0, events=2, error=0
+2026-11-03T16:40:25.2366284Z shutdown: poll=1, interest=256, events=258, error=0
+2026-11-03T16:40:25.2367269Z shutdown: poll=1, interest=16, events=18, error=0
+2026-11-03T16:40:25.2368004Z shutdown: empty send=0, error=0
+2026-11-03T16:40:25.2368678Z shutdown: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:25.2369865Z shutdown: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:25.2370737Z closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:25.2371712Z closed: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:25.2372303Z closed: getpeername=0, length=57, error=0
+2026-11-03T16:40:25.2372778Z closed: FIONREAD=0, bytes=131072
+2026-11-03T16:40:25.2373060Z closed: poll=1, interest=0, events=2, error=0
+2026-11-03T16:40:25.2373375Z closed: poll=1, interest=256, events=258, error=0
+2026-11-03T16:40:25.2374453Z closed: poll=1, interest=16, events=18, error=0
+2026-11-03T16:40:25.2375079Z closed: empty send=0, error=0
+2026-11-03T16:40:25.2375501Z closed: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:25.2375983Z closed: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:25.2376700Z test unread_socket_close_notification_diagnostics_preserve_payload ... ok
+2026-11-03T16:40:25.2377767Z source_clone=false/receiver_clone=false/saturate=false/alive: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:25.2379027Z source_clone=false/receiver_clone=false/saturate=false/alive: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:25.2380278Z source_clone=false/receiver_clone=false/saturate=false/alive: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:25.2381370Z source_clone=false/receiver_clone=false/saturate=false/alive: empty send=0, error=0
+2026-11-03T16:40:25.2382377Z source_clone=false/receiver_clone=false/saturate=false/alive: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:25.2383477Z source_clone=false/receiver_clone=false/saturate=false/alive: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:25.2385019Z source_clone=false/receiver_clone=false/saturate=false/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:25.2386643Z source_clone=false/receiver_clone=false/saturate=false/closed: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:25.2388209Z source_clone=false/receiver_clone=false/saturate=false/closed: getpeername=0, length=57, error=0
+2026-11-03T16:40:25.2389307Z source_clone=false/receiver_clone=false/saturate=false/closed: FIONREAD=0, bytes=131072
+2026-11-03T16:40:25.2390409Z source_clone=false/receiver_clone=false/saturate=false/closed: poll=1, interest=0, events=2, error=0
+2026-11-03T16:40:25.2391614Z source_clone=false/receiver_clone=false/saturate=false/closed: poll=1, interest=256, events=258, error=0
+2026-11-03T16:40:25.2392831Z source_clone=false/receiver_clone=false/saturate=false/closed: poll=1, interest=16, events=18, error=0
+2026-11-03T16:40:25.2394079Z source_clone=false/receiver_clone=false/saturate=false/closed: empty send=0, error=0
+2026-11-03T16:40:25.2395117Z source_clone=false/receiver_clone=false/saturate=false/closed: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:25.2396237Z source_clone=false/receiver_clone=false/saturate=false/closed: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:25.2515020Z socket notification configuration: operation=1, return=0, registration=0
+2026-11-03T16:40:25.2515998Z source_clone=false/receiver_clone=false/saturate=true: accepted=1048576, blocked=true
+2026-11-03T16:40:25.2517015Z source_clone=false/receiver_clone=false/saturate=true/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:25.2518120Z source_clone=false/receiver_clone=false/saturate=true/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:25.2518950Z source_clone=false/receiver_clone=false/saturate=true/alive: getpeername=0, length=57, error=0
+2026-11-03T16:40:25.2519684Z source_clone=false/receiver_clone=false/saturate=true/alive: FIONREAD=0, bytes=131072
+2026-11-03T16:40:25.2520430Z source_clone=false/receiver_clone=false/saturate=true/alive: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:25.2521243Z source_clone=false/receiver_clone=false/saturate=true/alive: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:25.2523011Z source_clone=false/receiver_clone=false/saturate=true/alive: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:25.2523754Z source_clone=false/receiver_clone=false/saturate=true/alive: empty send=0, error=0
+2026-11-03T16:40:25.2524552Z source_clone=false/receiver_clone=false/saturate=true/alive: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:25.2525277Z source_clone=false/receiver_clone=false/saturate=true/alive: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:28.2506271Z source_clone=false/receiver_clone=false/saturate=true: close observation after 3.0000183s, events=256, IOCP=0
+2026-11-03T16:40:28.2508453Z source_clone=false/receiver_clone=false/saturate=true/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:28.2510524Z source_clone=false/receiver_clone=false/saturate=true/closed: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+2026-11-03T16:40:28.2511767Z source_clone=false/receiver_clone=false/saturate=true/closed: getpeername=0, length=57, error=0
+2026-11-03T16:40:28.2512616Z source_clone=false/receiver_clone=false/saturate=true/closed: FIONREAD=0, bytes=131072
+2026-11-03T16:40:28.2513457Z source_clone=false/receiver_clone=false/saturate=true/closed: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:28.2514376Z source_clone=false/receiver_clone=false/saturate=true/closed: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:28.2515275Z source_clone=false/receiver_clone=false/saturate=true/closed: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:28.2516095Z source_clone=false/receiver_clone=false/saturate=true/closed: empty send=0, error=0
+2026-11-03T16:40:28.2516854Z source_clone=false/receiver_clone=false/saturate=true/closed: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:28.2517697Z source_clone=false/receiver_clone=false/saturate=true/closed: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:28.2525447Z source_clone=false/receiver_clone=false/saturate=true/after-drain: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:28.2526541Z source_clone=false/receiver_clone=false/saturate=true/after-drain: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+2026-11-03T16:40:28.2527268Z source_clone=false/receiver_clone=false/saturate=true/after-drain: getpeername=0, length=57, error=0
+2026-11-03T16:40:28.2527890Z source_clone=false/receiver_clone=false/saturate=true/after-drain: FIONREAD=0, bytes=0
+2026-11-03T16:40:28.2528522Z source_clone=false/receiver_clone=false/saturate=true/after-drain: poll=1, interest=0, events=2, error=0
+2026-11-03T16:40:28.2529251Z source_clone=false/receiver_clone=false/saturate=true/after-drain: poll=1, interest=256, events=2, error=0
+2026-11-03T16:40:28.2529943Z source_clone=false/receiver_clone=false/saturate=true/after-drain: poll=1, interest=16, events=18, error=0
+2026-11-03T16:40:28.2530612Z source_clone=false/receiver_clone=false/saturate=true/after-drain: empty send=0, error=0
+2026-11-03T16:40:28.2531218Z source_clone=false/receiver_clone=false/saturate=true/after-drain: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:28.2532126Z source_clone=false/receiver_clone=false/saturate=true/after-drain: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:28.2532778Z source_clone=false/receiver_clone=false/saturate=true/after-drain: IOCP=4
+2026-11-03T16:40:28.2533581Z socket notification configuration: operation=4, return=0, registration=0
+2026-11-03T16:40:28.2664061Z source_clone=false/receiver_clone=true/saturate=false: accepted=131072, blocked=false
+2026-11-03T16:40:28.2666247Z source_clone=false/receiver_clone=true/saturate=false/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:28.2668437Z source_clone=false/receiver_clone=true/saturate=false/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:28.2670050Z source_clone=false/receiver_clone=true/saturate=false/alive: getpeername=0, length=57, error=0
+2026-11-03T16:40:28.2671835Z source_clone=false/receiver_clone=true/saturate=false/alive: FIONREAD=0, bytes=131072
+2026-11-03T16:40:28.2673395Z source_clone=false/receiver_clone=true/saturate=false/alive: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:28.2674784Z source_clone=false/receiver_clone=true/saturate=false/alive: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:28.2676027Z source_clone=false/receiver_clone=true/saturate=false/alive: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:28.2677583Z source_clone=false/receiver_clone=true/saturate=false/alive: empty send=0, error=0
+2026-11-03T16:40:28.2678880Z source_clone=false/receiver_clone=true/saturate=false/alive: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:28.2680070Z source_clone=false/receiver_clone=true/saturate=false/alive: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:28.2682284Z source_clone=false/receiver_clone=true/saturate=false/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:28.2684426Z source_clone=false/receiver_clone=true/saturate=false/closed: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:28.2685953Z source_clone=false/receiver_clone=true/saturate=false/closed: getpeername=0, length=57, error=0
+2026-11-03T16:40:28.2687155Z source_clone=false/receiver_clone=true/saturate=false/closed: FIONREAD=0, bytes=131072
+2026-11-03T16:40:28.2688321Z source_clone=false/receiver_clone=true/saturate=false/closed: poll=1, interest=0, events=2, error=0
+2026-11-03T16:40:28.2689572Z source_clone=false/receiver_clone=true/saturate=false/closed: poll=1, interest=256, events=258, error=0
+2026-11-03T16:40:28.2691102Z source_clone=false/receiver_clone=true/saturate=false/closed: poll=1, interest=16, events=18, error=0
+2026-11-03T16:40:28.2692168Z source_clone=false/receiver_clone=true/saturate=false/closed: empty send=0, error=0
+2026-11-03T16:40:28.2693213Z source_clone=false/receiver_clone=true/saturate=false/closed: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:28.2694333Z source_clone=false/receiver_clone=true/saturate=false/closed: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:28.2695402Z source_clone=false/receiver_clone=true/saturate=true: accepted=1048576, blocked=true
+2026-11-03T16:40:28.2696210Z source_clone=false/receiver_clone=true/saturate=true/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:28.2697102Z source_clone=false/receiver_clone=true/saturate=true/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:28.2697754Z source_clone=false/receiver_clone=true/saturate=true/alive: getpeername=0, length=57, error=0
+2026-11-03T16:40:28.2698326Z source_clone=false/receiver_clone=true/saturate=true/alive: FIONREAD=0, bytes=131072
+2026-11-03T16:40:28.2986019Z source_clone=false/receiver_clone=true/saturate=true/alive: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:28.2986981Z source_clone=false/receiver_clone=true/saturate=true/alive: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:28.2988963Z source_clone=false/receiver_clone=true/saturate=true/alive: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:28.2989811Z source_clone=false/receiver_clone=true/saturate=true/alive: empty send=0, error=0
+2026-11-03T16:40:28.2990565Z source_clone=false/receiver_clone=true/saturate=true/alive: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:28.2991398Z source_clone=false/receiver_clone=true/saturate=true/alive: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:31.2925110Z source_clone=false/receiver_clone=true/saturate=true: close observation after 3.0013803s, events=256, IOCP=0
+2026-11-03T16:40:31.2927061Z source_clone=false/receiver_clone=true/saturate=true/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:31.2928375Z source_clone=false/receiver_clone=true/saturate=true/closed: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+2026-11-03T16:40:31.2929689Z source_clone=false/receiver_clone=true/saturate=true/closed: getpeername=0, length=57, error=0
+2026-11-03T16:40:31.2930575Z source_clone=false/receiver_clone=true/saturate=true/closed: FIONREAD=0, bytes=131072
+2026-11-03T16:40:31.3084908Z source_clone=false/receiver_clone=true/saturate=true/closed: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:31.3086414Z source_clone=false/receiver_clone=true/saturate=true/closed: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:31.3087865Z source_clone=false/receiver_clone=true/saturate=true/closed: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:31.3089142Z source_clone=false/receiver_clone=true/saturate=true/closed: empty send=0, error=0
+2026-11-03T16:40:31.3090335Z source_clone=false/receiver_clone=true/saturate=true/closed: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:31.3091352Z source_clone=false/receiver_clone=true/saturate=true/closed: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:31.3092554Z source_clone=false/receiver_clone=true/saturate=true/after-drain: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:31.3093797Z source_clone=false/receiver_clone=true/saturate=true/after-drain: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+2026-11-03T16:40:31.3094751Z source_clone=false/receiver_clone=true/saturate=true/after-drain: getpeername=0, length=57, error=0
+2026-11-03T16:40:31.3095560Z source_clone=false/receiver_clone=true/saturate=true/after-drain: FIONREAD=0, bytes=0
+2026-11-03T16:40:31.3096384Z source_clone=false/receiver_clone=true/saturate=true/after-drain: poll=1, interest=0, events=2, error=0
+2026-11-03T16:40:31.3097304Z source_clone=false/receiver_clone=true/saturate=true/after-drain: poll=1, interest=256, events=2, error=0
+2026-11-03T16:40:31.3098242Z source_clone=false/receiver_clone=true/saturate=true/after-drain: poll=1, interest=16, events=18, error=0
+2026-11-03T16:40:31.3099096Z source_clone=false/receiver_clone=true/saturate=true/after-drain: empty send=0, error=0
+2026-11-03T16:40:31.3099780Z source_clone=false/receiver_clone=true/saturate=true/after-drain: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:31.3100430Z source_clone=false/receiver_clone=true/saturate=true/after-drain: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:31.3101039Z source_clone=true/receiver_clone=false/saturate=false: accepted=131072, blocked=false
+2026-11-03T16:40:31.3101842Z source_clone=true/receiver_clone=false/saturate=false/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:31.3103136Z source_clone=true/receiver_clone=false/saturate=false/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:31.3103824Z source_clone=true/receiver_clone=false/saturate=false/alive: getpeername=0, length=57, error=0
+2026-11-03T16:40:31.3104415Z source_clone=true/receiver_clone=false/saturate=false/alive: FIONREAD=0, bytes=131072
+2026-11-03T16:40:31.3105019Z source_clone=true/receiver_clone=false/saturate=false/alive: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:31.3105890Z source_clone=true/receiver_clone=false/saturate=false/alive: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:31.3106560Z source_clone=true/receiver_clone=false/saturate=false/alive: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:31.3107152Z source_clone=true/receiver_clone=false/saturate=false/alive: empty send=0, error=0
+2026-11-03T16:40:31.3107715Z source_clone=true/receiver_clone=false/saturate=false/alive: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:31.3108329Z source_clone=true/receiver_clone=false/saturate=false/alive: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:31.3109178Z source_clone=true/receiver_clone=false/saturate=false/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:31.3110065Z source_clone=true/receiver_clone=false/saturate=false/closed: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:31.3110882Z source_clone=true/receiver_clone=false/saturate=false/closed: getpeername=0, length=57, error=0
+2026-11-03T16:40:31.3111468Z source_clone=true/receiver_clone=false/saturate=false/closed: FIONREAD=0, bytes=131072
+2026-11-03T16:40:31.3112078Z source_clone=true/receiver_clone=false/saturate=false/closed: poll=1, interest=0, events=2, error=0
+2026-11-03T16:40:31.3112756Z source_clone=true/receiver_clone=false/saturate=false/closed: poll=1, interest=256, events=258, error=0
+2026-11-03T16:40:31.3113464Z source_clone=true/receiver_clone=false/saturate=false/closed: poll=1, interest=16, events=18, error=0
+2026-11-03T16:40:31.3114062Z source_clone=true/receiver_clone=false/saturate=false/closed: empty send=0, error=0
+2026-11-03T16:40:31.3114626Z source_clone=true/receiver_clone=false/saturate=false/closed: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:31.3115251Z source_clone=true/receiver_clone=false/saturate=false/closed: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:31.3115847Z source_clone=true/receiver_clone=false/saturate=true: accepted=1048576, blocked=true
+2026-11-03T16:40:31.3116630Z source_clone=true/receiver_clone=false/saturate=true/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:31.3117481Z source_clone=true/receiver_clone=false/saturate=true/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:31.3118151Z source_clone=true/receiver_clone=false/saturate=true/alive: getpeername=0, length=57, error=0
+2026-11-03T16:40:31.3118728Z source_clone=true/receiver_clone=false/saturate=true/alive: FIONREAD=0, bytes=131072
+2026-11-03T16:40:31.3119314Z source_clone=true/receiver_clone=false/saturate=true/alive: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:31.3119966Z source_clone=true/receiver_clone=false/saturate=true/alive: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:31.3120616Z source_clone=true/receiver_clone=false/saturate=true/alive: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:31.3121206Z source_clone=true/receiver_clone=false/saturate=true/alive: empty send=0, error=0
+2026-11-03T16:40:31.3121755Z source_clone=true/receiver_clone=false/saturate=true/alive: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:31.3122365Z source_clone=true/receiver_clone=false/saturate=true/alive: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:34.3120571Z source_clone=true/receiver_clone=false/saturate=true: close observation after 3.0009283s, events=256, IOCP=0
+2026-11-03T16:40:34.3121866Z source_clone=true/receiver_clone=false/saturate=true/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:34.3123058Z source_clone=true/receiver_clone=false/saturate=true/closed: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+2026-11-03T16:40:34.3123953Z source_clone=true/receiver_clone=false/saturate=true/closed: getpeername=0, length=57, error=0
+2026-11-03T16:40:34.3124775Z source_clone=true/receiver_clone=false/saturate=true/closed: FIONREAD=0, bytes=131072
+2026-11-03T16:40:34.3257504Z source_clone=true/receiver_clone=false/saturate=true/closed: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:34.3258870Z source_clone=true/receiver_clone=false/saturate=true/closed: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:34.3259754Z source_clone=true/receiver_clone=false/saturate=true/closed: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:34.3260569Z source_clone=true/receiver_clone=false/saturate=true/closed: empty send=0, error=0
+2026-11-03T16:40:34.3261295Z source_clone=true/receiver_clone=false/saturate=true/closed: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:34.3262102Z source_clone=true/receiver_clone=false/saturate=true/closed: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:34.3263255Z source_clone=true/receiver_clone=false/saturate=true/after-drain: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:34.3264858Z source_clone=true/receiver_clone=false/saturate=true/after-drain: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+2026-11-03T16:40:34.3265827Z source_clone=true/receiver_clone=false/saturate=true/after-drain: getpeername=0, length=57, error=0
+2026-11-03T16:40:34.3266658Z source_clone=true/receiver_clone=false/saturate=true/after-drain: FIONREAD=0, bytes=0
+2026-11-03T16:40:34.3267514Z source_clone=true/receiver_clone=false/saturate=true/after-drain: poll=1, interest=0, events=2, error=0
+2026-11-03T16:40:34.3268456Z source_clone=true/receiver_clone=false/saturate=true/after-drain: poll=1, interest=256, events=2, error=0
+2026-11-03T16:40:34.3269402Z source_clone=true/receiver_clone=false/saturate=true/after-drain: poll=1, interest=16, events=18, error=0
+2026-11-03T16:40:34.3270256Z source_clone=true/receiver_clone=false/saturate=true/after-drain: empty send=0, error=0
+2026-11-03T16:40:34.3271224Z source_clone=true/receiver_clone=false/saturate=true/after-drain: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:34.3272219Z source_clone=true/receiver_clone=false/saturate=true/after-drain: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:34.3273035Z source_clone=true/receiver_clone=true/saturate=false: accepted=131072, blocked=false
+2026-11-03T16:40:34.3274590Z source_clone=true/receiver_clone=true/saturate=false/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:34.3276258Z source_clone=true/receiver_clone=true/saturate=false/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:34.3277828Z source_clone=true/receiver_clone=true/saturate=false/alive: getpeername=0, length=57, error=0
+2026-11-03T16:40:34.3278921Z source_clone=true/receiver_clone=true/saturate=false/alive: FIONREAD=0, bytes=131072
+2026-11-03T16:40:34.3415583Z source_clone=true/receiver_clone=true/saturate=false/alive: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:34.3417196Z source_clone=true/receiver_clone=true/saturate=false/alive: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:34.3418696Z source_clone=true/receiver_clone=true/saturate=false/alive: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:34.3420012Z source_clone=true/receiver_clone=true/saturate=false/alive: empty send=0, error=0
+2026-11-03T16:40:34.3421164Z source_clone=true/receiver_clone=true/saturate=false/alive: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:34.3422274Z source_clone=true/receiver_clone=true/saturate=false/alive: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:34.3423492Z source_clone=true/receiver_clone=true/saturate=false/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:34.3424502Z source_clone=true/receiver_clone=true/saturate=false/closed: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:34.3425264Z source_clone=true/receiver_clone=true/saturate=false/closed: getpeername=0, length=57, error=0
+2026-11-03T16:40:34.3425927Z source_clone=true/receiver_clone=true/saturate=false/closed: FIONREAD=0, bytes=131072
+2026-11-03T16:40:34.3426776Z source_clone=true/receiver_clone=true/saturate=false/closed: poll=1, interest=0, events=2, error=0
+2026-11-03T16:40:34.3427473Z source_clone=true/receiver_clone=true/saturate=false/closed: poll=1, interest=256, events=258, error=0
+2026-11-03T16:40:34.3428180Z source_clone=true/receiver_clone=true/saturate=false/closed: poll=1, interest=16, events=18, error=0
+2026-11-03T16:40:34.3428812Z source_clone=true/receiver_clone=true/saturate=false/closed: empty send=0, error=0
+2026-11-03T16:40:34.3429409Z source_clone=true/receiver_clone=true/saturate=false/closed: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:34.3430083Z source_clone=true/receiver_clone=true/saturate=false/closed: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:34.3430713Z source_clone=true/receiver_clone=true/saturate=true: accepted=1048576, blocked=true
+2026-11-03T16:40:34.3431697Z source_clone=true/receiver_clone=true/saturate=true/alive: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:34.3432613Z source_clone=true/receiver_clone=true/saturate=true/alive: SO_CONNECT_TIME=0, seconds=0, length=4, error=0
+2026-11-03T16:40:34.3433674Z source_clone=true/receiver_clone=true/saturate=true/alive: getpeername=0, length=57, error=0
+2026-11-03T16:40:34.3434287Z source_clone=true/receiver_clone=true/saturate=true/alive: FIONREAD=0, bytes=131072
+2026-11-03T16:40:34.3434917Z source_clone=true/receiver_clone=true/saturate=true/alive: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:34.3435585Z source_clone=true/receiver_clone=true/saturate=true/alive: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:34.3436222Z source_clone=true/receiver_clone=true/saturate=true/alive: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:34.3436806Z source_clone=true/receiver_clone=true/saturate=true/alive: empty send=0, error=0
+2026-11-03T16:40:34.3437353Z source_clone=true/receiver_clone=true/saturate=true/alive: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:34.3437951Z source_clone=true/receiver_clone=true/saturate=true/alive: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:37.3445003Z source_clone=true/receiver_clone=true/saturate=true: close observation after 3.000723s, events=256, IOCP=0
+2026-11-03T16:40:37.3446354Z source_clone=true/receiver_clone=true/saturate=true/closed: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:37.3447654Z source_clone=true/receiver_clone=true/saturate=true/closed: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+2026-11-03T16:40:37.3448877Z source_clone=true/receiver_clone=true/saturate=true/closed: getpeername=0, length=57, error=0
+2026-11-03T16:40:37.3449723Z source_clone=true/receiver_clone=true/saturate=true/closed: FIONREAD=0, bytes=131072
+2026-11-03T16:40:37.3604830Z source_clone=true/receiver_clone=true/saturate=true/closed: poll=0, interest=0, events=0, error=0
+2026-11-03T16:40:37.3606701Z source_clone=true/receiver_clone=true/saturate=true/closed: poll=1, interest=256, events=256, error=0
+2026-11-03T16:40:37.3608259Z source_clone=true/receiver_clone=true/saturate=true/closed: poll=1, interest=16, events=16, error=0
+2026-11-03T16:40:37.3609536Z source_clone=true/receiver_clone=true/saturate=true/closed: empty send=0, error=0
+2026-11-03T16:40:37.3610790Z source_clone=true/receiver_clone=true/saturate=true/closed: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:37.3612209Z source_clone=true/receiver_clone=true/saturate=true/closed: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:37.3613681Z source_clone=true/receiver_clone=true/saturate=true/after-drain: overlapped WSASend(0)=0, initial_error=0, cancelled=false, completed=1, bytes=0, flags=0, error=0
+2026-11-03T16:40:37.3615307Z source_clone=true/receiver_clone=true/saturate=true/after-drain: SO_CONNECT_TIME=0, seconds=3, length=4, error=0
+2026-11-03T16:40:37.3616566Z source_clone=true/receiver_clone=true/saturate=true/after-drain: getpeername=0, length=57, error=0
+2026-11-03T16:40:37.3617905Z source_clone=true/receiver_clone=true/saturate=true/after-drain: FIONREAD=0, bytes=0
+2026-11-03T16:40:37.3619073Z source_clone=true/receiver_clone=true/saturate=true/after-drain: poll=1, interest=0, events=2, error=0
+2026-11-03T16:40:37.3620301Z source_clone=true/receiver_clone=true/saturate=true/after-drain: poll=1, interest=256, events=2, error=0
+2026-11-03T16:40:37.3621492Z source_clone=true/receiver_clone=true/saturate=true/after-drain: poll=1, interest=16, events=18, error=0
+2026-11-03T16:40:37.3622598Z source_clone=true/receiver_clone=true/saturate=true/after-drain: empty send=0, error=0
+2026-11-03T16:40:37.3623938Z source_clone=true/receiver_clone=true/saturate=true/after-drain: WSASend(0)=0, sent=0, error=0
+2026-11-03T16:40:37.3625159Z source_clone=true/receiver_clone=true/saturate=true/after-drain: peer-state ioctl=0, bytes=0, error=0
+2026-11-03T16:40:37.3626931Z test socket_close_with_clones_and_saturated_sender_preserves_payload ... ok
+2026-11-03T16:40:37.3627456Z 
+2026-11-03T16:40:37.3627821Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.14s
+2026-11-03T16:40:37.3628458Z 
+2026-11-03T16:40:37.3830784Z ##[group]Run set -o pipefail
+2026-11-03T16:40:37.3831167Z [36;1mset -o pipefail[0m
+2026-11-03T16:40:37.3831420Z [36;1mfor iteration in 1 2 3; do[0m
+2026-11-03T16:40:37.3831965Z [36;1m  cargo test --locked -p norma --lib codex::relay -- --nocapture 2>&1 | tee "artifacts/winsock/relay-${iteration}.log"[0m
+2026-11-03T16:40:37.3832559Z [36;1mdone[0m
+2026-11-03T16:40:37.3848240Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:40:37.3848627Z env:
+2026-11-03T16:40:37.3848822Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:40:37.3849035Z   CARGO_TERM_COLOR: never
+2026-11-03T16:40:37.3849271Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:40:37.3849549Z   CACHE_ON_FAILURE: true
+2026-11-03T16:40:37.3849764Z ##[endgroup]
+2026-11-03T16:40:37.9325540Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.42s
+2026-11-03T16:40:37.9484133Z      Running unittests src\lib.rs (target\debug\deps\norma-28bf09d9bccd9e80.exe)
+2026-11-03T16:40:37.9640793Z 
+2026-11-03T16:40:37.9645788Z running 8 tests
+2026-11-03T16:40:37.9647126Z test codex::relay::input::tests::old_turn_outside_history_window_cannot_hold_current_input ... ok
+2026-11-03T16:40:37.9648307Z test codex::relay::input::tests::completed_question_history_does_not_exhaust_pending_capacity ... ok
+2026-11-03T16:40:37.9649166Z output backpressure readiness=auto
+2026-11-03T16:40:37.9649886Z test codex::relay::input::tests::ordinary_turn_history_never_creates_pending_input ... ok
+2026-11-03T16:40:37.9650643Z partial answer readiness=auto
+2026-11-03T16:40:37.9805919Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:37.9806833Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:37.9963663Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:38.0288010Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:38.0442636Z partial answer readiness=missing-api
+2026-11-03T16:40:38.0750910Z relay output pre-close consecutive WouldBlock=8; complete source frames=5
+2026-11-03T16:40:38.0751412Z relay close all source handles released=true
+2026-11-03T16:40:38.1063518Z test codex::relay::partial_tests::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... ok
+2026-11-03T16:40:38.1065127Z test codex::relay::transport::windows::tests::missing_socket_api_probe_does_not_flush_a_pending_answer ... ok
+2026-11-03T16:40:38.2325773Z relay close native FIONREAD: status=0, unread_bytes=0
+2026-11-03T16:40:38.2326329Z relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+2026-11-03T16:40:38.2326922Z relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+2026-11-03T16:40:38.2327452Z output backpressure readiness=missing-api
+2026-11-03T16:40:38.2645713Z test codex::relay::compat_tests::missing_socket_api_preserves_both_direction_shutdown_contracts ... ok
+2026-11-03T16:40:38.2952539Z relay output pre-close consecutive WouldBlock=8; complete source frames=5
+2026-11-03T16:40:38.2953338Z relay close all source handles released=true
+2026-11-03T16:40:38.4996123Z relay close native FIONREAD: status=0, unread_bytes=0
+2026-11-03T16:40:38.4996711Z relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+2026-11-03T16:40:38.4997311Z relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+2026-11-03T16:40:38.4998155Z test codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown ... ok
+2026-11-03T16:40:39.0381348Z 方向=true，真实来源收到Ping=4
+2026-11-03T16:40:40.0971915Z 方向=false，真实来源收到Ping=3
+2026-11-03T16:40:40.0972736Z test codex::relay::compat_tests::missing_socket_api_preserves_slow_peer_payload_and_liveness ... ok
+2026-11-03T16:40:40.0973767Z 
+2026-11-03T16:40:40.0974179Z test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 2.13s
+2026-11-03T16:40:40.0974810Z 
+2026-11-03T16:40:40.6045904Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.41s
+2026-11-03T16:40:40.6199359Z      Running unittests src\lib.rs (target\debug\deps\norma-28bf09d9bccd9e80.exe)
+2026-11-03T16:40:40.6365162Z 
+2026-11-03T16:40:40.6366054Z running 8 tests
+2026-11-03T16:40:40.6366672Z test codex::relay::input::tests::old_turn_outside_history_window_cannot_hold_current_input ... ok
+2026-11-03T16:40:40.6370504Z test codex::relay::input::tests::ordinary_turn_history_never_creates_pending_input ... ok
+2026-11-03T16:40:40.6374980Z test codex::relay::input::tests::completed_question_history_does_not_exhaust_pending_capacity ... ok
+2026-11-03T16:40:40.6377098Z output backpressure readiness=auto
+2026-11-03T16:40:40.6377633Z partial answer readiness=auto
+2026-11-03T16:40:40.6378207Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:40.6379180Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:40.6678801Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:40.6991636Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:40.7305543Z partial answer readiness=missing-api
+2026-11-03T16:40:40.7461308Z relay output pre-close consecutive WouldBlock=8; complete source frames=5
+2026-11-03T16:40:40.7461884Z relay close all source handles released=true
+2026-11-03T16:40:40.7932120Z test codex::relay::partial_tests::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... ok
+2026-11-03T16:40:40.7934020Z test codex::relay::transport::windows::tests::missing_socket_api_probe_does_not_flush_a_pending_answer ... ok
+2026-11-03T16:40:40.9029892Z relay close native FIONREAD: status=0, unread_bytes=0
+2026-11-03T16:40:40.9030369Z relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+2026-11-03T16:40:40.9030821Z relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+2026-11-03T16:40:40.9031206Z output backpressure readiness=missing-api
+2026-11-03T16:40:40.9351839Z test codex::relay::compat_tests::missing_socket_api_preserves_both_direction_shutdown_contracts ... ok
+2026-11-03T16:40:40.9843115Z relay output pre-close consecutive WouldBlock=8; complete source frames=5
+2026-11-03T16:40:40.9973866Z relay close all source handles released=true
+2026-11-03T16:40:41.1686469Z relay close native FIONREAD: status=0, unread_bytes=0
+2026-11-03T16:40:41.1687324Z relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+2026-11-03T16:40:41.1688310Z relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+2026-11-03T16:40:41.1689212Z test codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown ... ok
+2026-11-03T16:40:41.7070340Z 方向=true，真实来源收到Ping=4
+2026-11-03T16:40:42.7666010Z 方向=false，真实来源收到Ping=3
+2026-11-03T16:40:42.7666565Z test codex::relay::compat_tests::missing_socket_api_preserves_slow_peer_payload_and_liveness ... ok
+2026-11-03T16:40:42.7666984Z 
+2026-11-03T16:40:42.7667287Z test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 2.14s
+2026-11-03T16:40:42.7667661Z 
+2026-11-03T16:40:43.3057226Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.42s
+2026-11-03T16:40:43.3215450Z      Running unittests src\lib.rs (target\debug\deps\norma-28bf09d9bccd9e80.exe)
+2026-11-03T16:40:43.3374106Z 
+2026-11-03T16:40:43.3377189Z running 8 tests
+2026-11-03T16:40:43.3378146Z test codex::relay::input::tests::old_turn_outside_history_window_cannot_hold_current_input ... ok
+2026-11-03T16:40:43.3399409Z test codex::relay::input::tests::completed_question_history_does_not_exhaust_pending_capacity ... ok
+2026-11-03T16:40:43.3402616Z test codex::relay::input::tests::ordinary_turn_history_never_creates_pending_input ... ok
+2026-11-03T16:40:43.3411106Z output backpressure readiness=auto
+2026-11-03T16:40:43.3413578Z partial answer readiness=auto
+2026-11-03T16:40:43.3414142Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:43.3416156Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:43.3700688Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:43.3861312Z test codex::relay::compat_tests::missing_socket_api_preserves_both_direction_shutdown_contracts ... ok
+2026-11-03T16:40:43.3862664Z test codex::relay::transport::windows::tests::missing_socket_api_probe_does_not_flush_a_pending_answer ... ok
+2026-11-03T16:40:43.4012602Z auto WinSock readiness: notifications=true, registered=[true, true]
+2026-11-03T16:40:43.4331664Z partial answer readiness=missing-api
+2026-11-03T16:40:43.4491388Z relay output pre-close consecutive WouldBlock=8; complete source frames=5
+2026-11-03T16:40:43.4491934Z relay close all source handles released=true
+2026-11-03T16:40:43.4966850Z test codex::relay::partial_tests::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... ok
+2026-11-03T16:40:43.6071824Z relay close native FIONREAD: status=0, unread_bytes=0
+2026-11-03T16:40:43.6072547Z relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+2026-11-03T16:40:43.6073163Z relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+2026-11-03T16:40:43.6073661Z output backpressure readiness=missing-api
+2026-11-03T16:40:43.7023362Z relay output pre-close consecutive WouldBlock=8; complete source frames=5
+2026-11-03T16:40:43.7023991Z relay close all source handles released=true
+2026-11-03T16:40:43.8771488Z relay close native FIONREAD: status=0, unread_bytes=0
+2026-11-03T16:40:43.8772102Z relay close native WSAPoll: interest=0, result=1, revents=3, error=0
+2026-11-03T16:40:43.8772784Z relay close native WSAPoll: interest=256, result=1, revents=3, error=0
+2026-11-03T16:40:44.3989810Z test codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown ... ok
+2026-11-03T16:40:44.3991018Z 方向=true，真实来源收到Ping=3
+2026-11-03T16:40:45.4600761Z 方向=false，真实来源收到Ping=3
+2026-11-03T16:40:45.4601642Z test codex::relay::compat_tests::missing_socket_api_preserves_slow_peer_payload_and_liveness ... ok
+2026-11-03T16:40:45.4602303Z 
+2026-11-03T16:40:45.4602726Z test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 2.13s
+2026-11-03T16:40:45.4603336Z 
+2026-11-03T16:40:45.4948184Z ##[group]Run set -o pipefail
+2026-11-03T16:40:45.4948538Z [36;1mset -o pipefail[0m
+2026-11-03T16:40:45.4948785Z [36;1mtargets=(--all-targets)[0m
+2026-11-03T16:40:45.4949058Z [36;1mif [[ "$RUNNER_OS" == Windows ]]; then[0m
+2026-11-03T16:40:45.4949832Z [36;1m  targets=(--lib --bins --test 'codex*' --test protocol_tests --test socket_close_platform --test bundled_helpers_platform --test client_platform --test control_identity_platform)[0m
+2026-11-03T16:40:45.4950733Z [36;1mfi[0m
+2026-11-03T16:40:45.4951248Z [36;1mcargo clippy --locked -p norma "${targets[@]}" -- -D warnings 2>&1 | tee artifacts/winsock/clippy.log[0m
+2026-11-03T16:40:45.4951715Z [36;1mcargo fmt --all --check[0m
+2026-11-03T16:40:45.4966128Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-03T16:40:45.4966517Z env:
+2026-11-03T16:40:45.4966695Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:40:45.4966901Z   CARGO_TERM_COLOR: never
+2026-11-03T16:40:45.4967154Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:40:45.4967412Z   CACHE_ON_FAILURE: true
+2026-11-03T16:40:45.4967612Z ##[endgroup]
+2026-11-03T16:40:46.7099141Z     Checking cfg-if v1.0.4
+2026-11-03T16:40:46.7120377Z     Checking stable_deref_trait v1.2.1
+2026-11-03T16:40:46.7120916Z     Checking windows-link v0.2.1
+2026-11-03T16:40:46.7121334Z     Checking zerofrom v0.1.8
+2026-11-03T16:40:46.7741187Z     Checking windows-sys v0.61.2
+2026-11-03T16:40:46.7744693Z     Checking typenum v1.20.1
+2026-11-03T16:40:46.7745788Z     Checking subtle v2.6.1
+2026-11-03T16:40:46.8433640Z     Checking yoke v0.8.3
+2026-11-03T16:40:46.9182180Z     Checking once_cell v1.21.4
+2026-11-03T16:40:47.0823922Z     Checking zerovec v0.11.6
+2026-11-03T16:40:47.1193868Z     Checking getrandom v0.2.17
+2026-11-03T16:40:47.2376473Z     Checking zerocopy v0.8.53
+2026-11-03T16:40:47.8259439Z     Checking zeroize v1.9.0
+2026-11-03T16:40:47.8794664Z     Checking generic-array v0.14.7
+2026-11-03T16:40:48.0135523Z     Checking rustls-pki-types v1.15.0
+2026-11-03T16:40:48.4588251Z     Checking tinystr v0.8.3
+2026-11-03T16:40:48.6754873Z     Checking writeable v0.6.3
+2026-11-03T16:40:48.7259463Z     Checking block-buffer v0.10.4
+2026-11-03T16:40:48.8452880Z     Checking crypto-common v0.1.7
+2026-11-03T16:40:48.8829866Z     Checking untrusted v0.9.0
+2026-11-03T16:40:48.9253916Z     Checking digest v0.10.7
+2026-11-03T16:40:48.9771819Z     Checking litemap v0.8.2
+2026-11-03T16:40:49.1594841Z     Checking ring v0.17.14
+2026-11-03T16:40:49.1851956Z     Checking icu_locale_core v2.2.0
+2026-11-03T16:40:50.5174171Z     Checking potential_utf v0.1.5
+2026-11-03T16:40:50.6686287Z     Checking zerotrie v0.2.4
+2026-11-03T16:40:51.0105858Z     Checking utf8_iter v1.0.4
+2026-11-03T16:40:51.1361568Z     Checking cpufeatures v0.2.17
+2026-11-03T16:40:51.1883093Z     Checking icu_collections v2.2.0
+2026-11-03T16:40:51.2372014Z     Checking icu_provider v2.2.0
+2026-11-03T16:40:51.6098916Z     Checking smallvec v1.15.2
+2026-11-03T16:40:51.6904678Z     Checking itoa v1.0.18
+2026-11-03T16:40:51.8579906Z     Checking getrandom v0.3.4
+2026-11-03T16:40:51.8671077Z     Checking icu_properties_data v2.2.0
+2026-11-03T16:40:51.9934122Z     Checking icu_normalizer_data v2.2.0
+2026-11-03T16:40:52.0332364Z     Checking once_cell_polyfill v1.70.2
+2026-11-03T16:40:52.0833141Z     Checking utf8parse v0.2.2
+2026-11-03T16:40:52.1246985Z     Checking anstyle v1.0.14
+2026-11-03T16:40:52.1463996Z     Checking bytes v1.12.0
+2026-11-03T16:40:52.4018560Z     Checking log v0.4.33
+2026-11-03T16:40:52.5681789Z     Checking anstyle-parse v1.0.0
+2026-11-03T16:40:52.7448314Z     Checking icu_normalizer v2.2.0
+2026-11-03T16:40:52.9029759Z     Checking http v1.4.2
+2026-11-03T16:40:53.0097856Z     Checking ahash v0.8.12
+2026-11-03T16:40:53.1838159Z     Checking ppv-lite86 v0.2.21
+2026-11-03T16:40:53.2331134Z     Checking icu_properties v2.2.0
+2026-11-03T16:40:53.6753706Z     Checking rand_core v0.9.5
+2026-11-03T16:40:53.9077910Z     Checking httparse v1.10.1
+2026-11-03T16:40:53.9773327Z     Checking serde_core v1.0.228
+2026-11-03T16:40:54.2024844Z     Checking rustls-webpki v0.103.13
+2026-11-03T16:40:54.8778124Z     Checking hmac v0.12.1
+2026-11-03T16:40:54.9190289Z     Checking rand_core v0.6.4
+2026-11-03T16:40:55.0061518Z     Checking is_terminal_polyfill v1.70.2
+2026-11-03T16:40:55.0848346Z     Checking num-conv v0.2.2
+2026-11-03T16:40:55.0853251Z     Checking deranged v0.5.8
+2026-11-03T16:40:55.3033050Z     Checking simd-adler32 v0.3.9
+2026-11-03T16:40:55.4842487Z     Checking time-core v0.1.9
+2026-11-03T16:40:55.7988912Z     Checking colorchoice v1.0.5
+2026-11-03T16:40:55.8811995Z     Checking percent-encoding v2.3.2
+2026-11-03T16:40:56.0417582Z     Checking powerfmt v0.2.0
+2026-11-03T16:40:56.2624413Z     Checking adler2 v2.0.1
+2026-11-03T16:40:56.3711257Z     Checking miniz_oxide v0.8.9
+2026-11-03T16:40:56.9212861Z     Checking time v0.3.53
+2026-11-03T16:40:56.9919780Z     Checking curve25519-dalek v4.1.3
+2026-11-03T16:40:57.0745414Z     Checking hkdf v0.12.4
+2026-11-03T16:40:57.1941424Z     Checking rustls v0.23.41
+2026-11-03T16:40:57.7671461Z     Checking idna_adapter v1.2.2
+2026-11-03T16:40:57.7672243Z     Checking rand_chacha v0.9.0
+2026-11-03T16:40:57.8682893Z     Checking getrandom v0.4.3
+2026-11-03T16:40:57.9545354Z     Checking anstyle-query v1.1.5
+2026-11-03T16:40:58.0324089Z     Checking anstyle-wincon v3.0.11
+2026-11-03T16:40:58.0328247Z     Checking schannel v0.1.29
+2026-11-03T16:40:58.0726656Z     Checking hashbrown v0.14.5
+2026-11-03T16:40:58.1814182Z     Checking anstream v1.0.0
+2026-11-03T16:40:58.5148121Z     Checking crc32fast v1.5.0
+2026-11-03T16:40:58.5194976Z     Checking winapi v0.3.9
+2026-11-03T16:40:58.6585808Z     Checking zmij v1.0.21
+2026-11-03T16:40:58.8665357Z     Checking sha2 v0.10.9
+2026-11-03T16:40:58.9936686Z     Checking byteorder v1.5.0
+2026-11-03T16:40:59.2502889Z     Checking clap_lex v1.1.0
+2026-11-03T16:40:59.2672901Z     Checking base64 v0.22.1
+2026-11-03T16:40:59.4329001Z     Checking strsim v0.11.1
+2026-11-03T16:40:59.6239820Z     Checking option-ext v0.2.0
+2026-11-03T16:40:59.6550041Z     Checking fastrand v2.4.1
+2026-11-03T16:40:59.7111946Z     Checking memchr v2.8.2
+2026-11-03T16:40:59.8763399Z     Checking tempfile v3.27.0
+2026-11-03T16:41:00.2176691Z     Checking dirs-sys v0.5.0
+2026-11-03T16:41:00.3192025Z     Checking clap_builder v4.6.0
+2026-11-03T16:41:00.3709635Z     Checking serde_json v1.0.150
+2026-11-03T16:41:01.3699468Z     Checking socks v0.3.4
+2026-11-03T16:41:01.5287790Z     Checking ureq-proto v0.6.0
+2026-11-03T16:41:01.5905894Z     Checking spake2 v0.4.0
+2026-11-03T16:41:01.7953099Z     Checking serde v1.0.228
+2026-11-03T16:41:02.0593865Z     Checking thiserror v2.0.18
+2026-11-03T16:41:02.1469467Z     Checking hashlink v0.9.1
+2026-11-03T16:41:02.5260528Z     Checking memoffset v0.9.1
+2026-11-03T16:41:02.5310278Z     Checking flate2 v1.1.9
+2026-11-03T16:41:02.5799185Z     Checking libsqlite3-sys v0.30.1
+2026-11-03T16:41:02.6799647Z     Checking rustls-native-certs v0.8.4
+2026-11-03T16:41:02.8809566Z     Checking rand v0.9.4
+2026-11-03T16:41:02.8847803Z     Checking idna v1.1.0
+2026-11-03T16:41:02.9697540Z     Checking yasna v0.5.2
+2026-11-03T16:41:03.0935684Z     Checking crossbeam-utils v0.8.22
+2026-11-03T16:41:03.2748596Z     Checking anyhow v1.0.103
+2026-11-03T16:41:03.5448599Z     Checking form_urlencoded v1.2.2
+2026-11-03T16:41:03.6034653Z     Checking sha1 v0.10.7
+2026-11-03T16:41:03.6410234Z     Checking webpki-roots v1.0.8
+2026-11-03T16:41:03.6672584Z     Checking tracing-core v0.1.36
+2026-11-03T16:41:03.6860230Z     Checking fallible-iterator v0.3.0
+2026-11-03T16:41:03.7501634Z     Checking utf8-zero v0.8.1
+2026-11-03T16:41:03.7971790Z     Checking data-encoding v2.11.0
+2026-11-03T16:41:03.9156195Z     Checking fallible-streaming-iterator v0.1.9
+2026-11-03T16:41:04.0587605Z     Checking bitflags v2.13.0
+2026-11-03T16:41:04.1012402Z     Checking pin-project-lite v0.2.17
+2026-11-03T16:41:04.1762164Z     Checking utf-8 v0.7.6
+2026-11-03T16:41:04.1823162Z     Checking tracing v0.1.44
+2026-11-03T16:41:04.2399859Z     Checking rusqlite v0.32.1
+2026-11-03T16:41:04.2616840Z     Checking ureq v3.3.0
+2026-11-03T16:41:04.3023019Z     Checking tungstenite v0.28.0
+2026-11-03T16:41:04.4028119Z     Checking url v2.5.8
+2026-11-03T16:41:05.1691682Z     Checking rcgen v0.13.2
+2026-11-03T16:41:05.2084351Z     Checking crossbeam-channel v0.5.16
+2026-11-03T16:41:05.4435214Z     Checking mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+2026-11-03T16:41:05.5876382Z     Checking clap v4.6.1
+2026-11-03T16:41:05.6023607Z     Checking uds_windows v1.2.1
+2026-11-03T16:41:05.6687016Z     Checking libc v0.2.186
+2026-11-03T16:41:05.7393802Z     Checking dirs v6.0.0
+2026-11-03T16:41:05.7750101Z     Checking md-5 v0.10.6
+2026-11-03T16:41:05.8075734Z     Checking hex v0.4.3
+2026-11-03T16:41:06.0438592Z     Checking norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+2026-11-03T16:41:15.7472951Z     Finished `dev` profile [optimized + debuginfo] target(s) in 29.56s
+2026-11-03T16:41:25.1166332Z ##[group]Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+2026-11-03T16:41:25.1166801Z with:
+2026-11-03T16:41:25.1167007Z   name: winsock-windows-2025-41675679325-1
+2026-11-03T16:41:25.1167283Z   path: artifacts/winsock/
+2026-11-03T16:41:25.1167507Z   if-no-files-found: error
+2026-11-03T16:41:25.1167714Z   retention-days: 3
+2026-11-03T16:41:25.1168115Z   compression-level: 6
+2026-11-03T16:41:25.1168331Z   overwrite: false
+2026-11-03T16:41:25.1168528Z   include-hidden-files: false
+2026-11-03T16:41:25.1169180Z env:
+2026-11-03T16:41:25.1169350Z   CARGO_INCREMENTAL: 0
+2026-11-03T16:41:25.1169547Z   CARGO_TERM_COLOR: never
+2026-11-03T16:41:25.1169783Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-03T16:41:25.1170066Z   CACHE_ON_FAILURE: true
+2026-11-03T16:41:25.1170265Z ##[endgroup]
+2026-11-03T16:41:25.3236080Z (node:3400) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-03T16:41:25.3239272Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-03T16:41:25.3321969Z With the provided path, there will be 7 files uploaded
+2026-11-03T16:41:25.3327362Z Artifact name is valid!
+2026-11-03T16:41:25.3329533Z Root directory input is valid!
+2026-11-03T16:41:25.5327904Z Beginning upload of artifact content to blob storage
+2026-11-03T16:41:25.5659592Z (node:3400) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-11-03T16:41:25.5969659Z Uploaded bytes 9891
+2026-11-03T16:41:25.6118543Z Finished uploading artifact content to blob storage!
+2026-11-03T16:41:25.6120346Z SHA256 digest of uploaded artifact zip is a8ff72a92813c2d8af8cd5471381f74da084c542aaa7aa1b704b739e394be723
+2026-11-03T16:41:25.6122880Z Finalizing artifact upload
+2026-11-03T16:41:26.0154891Z Artifact winsock-windows-2025-41675679325-1.zip successfully finalized. Artifact ID 13250542950
+2026-11-03T16:41:26.0156247Z Artifact winsock-windows-2025-41675679325-1 has been successfully uploaded! Final size is 9891 bytes. Artifact ID is 13250542950
+2026-11-03T16:41:26.0167031Z Artifact download URL: https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41675679325/artifacts/13250542950
+2026-11-03T16:41:26.0524564Z Post job cleanup.
+2026-11-03T16:41:26.2174089Z Cache up-to-date.
+2026-11-03T16:41:26.2482026Z Post job cleanup.
+2026-11-03T16:41:26.4493165Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-11-03T16:41:26.4855911Z git version 2.56.0.windows.4
+2026-11-03T16:41:26.4926377Z Temporarily overriding HOME='D:\a\_temp\92d1b792-acc0-41fd-91e7-bceb71658b1a' before making global git config changes
+2026-11-03T16:41:26.4927755Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-03T16:41:26.4938083Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-03T16:41:26.5339367Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-03T16:41:26.5736422Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-03T16:41:27.1558048Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-03T16:41:27.1958510Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-03T16:41:27.7770119Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-03T16:41:27.8152253Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-03T16:41:28.3950603Z Cleaning up orphan processes
+2026-11-03T16:41:28.4467537Z Terminate orphan process: pid (7284) (vctip)
+2026-11-03T16:41:28.4550714Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@11d5960a326750d5838078e36cf38b85af677262, actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

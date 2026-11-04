@@ -1,0 +1,273 @@
+﻿2026-11-03T17:39:09.7731988Z Current runner version: '2.338.2'
+2026-11-03T17:39:09.7755080Z ##[group]Runner Image Provisioner
+2026-11-03T17:39:09.7755745Z Hosted Compute Agent
+2026-11-03T17:39:09.7756176Z Version: 20261021.618
+2026-11-03T17:39:09.7756644Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-11-03T17:39:09.7757180Z Build Date: 2026-10-21T00:45:21Z
+2026-11-03T17:39:09.7757671Z Worker ID: {1312b39f-2aa7-421d-9396-dc2366c9f735}
+2026-11-03T17:39:09.7758214Z Region: westus
+2026-11-03T17:39:09.7758619Z Cloud: Azure
+2026-11-03T17:39:09.7759017Z ##[endgroup]
+2026-11-03T17:39:09.7760474Z ##[group]Operating System
+2026-11-03T17:39:09.7761060Z Microsoft Windows Server 2025
+2026-11-03T17:39:09.7761543Z 10.0.26100
+2026-11-03T17:39:09.7762009Z Datacenter
+2026-11-03T17:39:09.7762458Z ##[endgroup]
+2026-11-03T17:39:09.7762910Z ##[group]Runner Image
+2026-11-03T17:39:09.7763348Z Image: windows-2025-vs2026
+2026-11-03T17:39:09.7763828Z Version: 20261030.294.1
+2026-11-03T17:39:09.7765099Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20261030.294/images/windows/Windows2025-VS2026-Readme.md
+2026-11-03T17:39:09.7766397Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20261030.294
+2026-11-03T17:39:09.7767137Z ##[endgroup]
+2026-11-03T17:39:09.7768084Z ##[group]GITHUB_TOKEN Permissions
+2026-11-03T17:39:09.7769688Z Contents: read
+2026-11-03T17:39:09.7770207Z Metadata: read
+2026-11-03T17:39:09.7770621Z ##[endgroup]
+2026-11-03T17:39:09.7772361Z Secret source: Actions
+2026-11-03T17:39:09.7773120Z Cache mode: write
+2026-11-03T17:39:09.7773654Z Prepare workflow directory
+2026-11-03T17:39:09.8108995Z Prepare all required actions
+2026-11-03T17:39:09.8160351Z Getting action download info
+2026-11-03T17:39:10.1873584Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-03T17:39:10.3090318Z Download action repository 'actions/download-artifact@v4' (SHA:d3f86a106a0bac45b974a628896c90dbdf5c8093)
+2026-11-03T17:39:10.7659295Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-11-03T17:39:11.2463772Z Complete job name: verify-candidate
+2026-11-03T17:39:11.5340357Z ##[group]Run actions/checkout@v4
+2026-11-03T17:39:11.5344478Z with:
+2026-11-03T17:39:11.5345244Z   path: verification-tools
+2026-11-03T17:39:11.5345723Z   persist-credentials: false
+2026-11-03T17:39:11.5346277Z   repository: multisoul-ai/Norma-AI-OS
+2026-11-03T17:39:11.5349803Z   token: ***
+2026-11-03T17:39:11.5350351Z   ssh-strict: true
+2026-11-03T17:39:11.5350735Z   ssh-user: git
+2026-11-03T17:39:11.5351172Z   clean: true
+2026-11-03T17:39:11.5351597Z   sparse-checkout-cone-mode: true
+2026-11-03T17:39:11.5352026Z   fetch-depth: 1
+2026-11-03T17:39:11.5352377Z   fetch-tags: false
+2026-11-03T17:39:11.5352744Z   show-progress: true
+2026-11-03T17:39:11.5353113Z   lfs: false
+2026-11-03T17:39:11.5353458Z   submodules: false
+2026-11-03T17:39:11.5353838Z   set-safe-directory: true
+2026-11-03T17:39:11.5354285Z   allow-unsafe-pr-checkout: false
+2026-11-03T17:39:11.5354982Z ##[endgroup]
+2026-11-03T17:39:11.6657576Z Syncing repository: multisoul-ai/Norma-AI-OS
+2026-11-03T17:39:11.6659152Z ##[group]Getting Git version info
+2026-11-03T17:39:11.6659795Z Working directory is 'D:\a\Norma-AI-OS\Norma-AI-OS\verification-tools'
+2026-11-03T17:39:11.7326417Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-11-03T17:39:12.3663101Z git version 2.56.0.windows.4
+2026-11-03T17:39:12.3705904Z ##[endgroup]
+2026-11-03T17:39:12.3721352Z Temporarily overriding HOME='D:\a\_temp\0d1ab62e-b1b0-4390-81ef-3cd9184be5d7' before making global git config changes
+2026-11-03T17:39:12.3722401Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-03T17:39:12.3730618Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Norma-AI-OS\Norma-AI-OS\verification-tools
+2026-11-03T17:39:12.4261725Z ##[group]Initializing the repository
+2026-11-03T17:39:12.4270569Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\Norma-AI-OS\Norma-AI-OS\verification-tools
+2026-11-03T17:39:12.7822491Z Initialized empty Git repository in D:/a/Norma-AI-OS/Norma-AI-OS/verification-tools/.git/
+2026-11-03T17:39:12.7870340Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/multisoul-ai/Norma-AI-OS
+2026-11-03T17:39:12.8447216Z ##[endgroup]
+2026-11-03T17:39:12.8448195Z ##[group]Disabling automatic garbage collection
+2026-11-03T17:39:12.8455212Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-11-03T17:39:12.8790241Z ##[endgroup]
+2026-11-03T17:39:12.8791188Z ##[group]Setting up auth
+2026-11-03T17:39:12.8801089Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-03T17:39:12.9140267Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-03T17:39:14.2347171Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-03T17:39:14.2688088Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-03T17:39:14.8541055Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-03T17:39:14.8875809Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-03T17:39:15.3854887Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-11-03T17:39:15.4250785Z ##[endgroup]
+2026-11-03T17:39:15.4251529Z ##[group]Fetching the repository
+2026-11-03T17:39:15.4263211Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +15338abf2ad49406b1447bda0da648e4e3052010:refs/remotes/origin/codex/windows-startup-winsock-20261103
+2026-11-03T17:39:34.2177437Z From https://github.com/multisoul-ai/Norma-AI-OS
+2026-11-03T17:39:34.2178229Z  * [new ref]         15338abf2ad49406b1447bda0da648e4e3052010 -> origin/codex/windows-startup-winsock-20261103
+2026-11-03T17:39:34.2222193Z ##[endgroup]
+2026-11-03T17:39:34.2223015Z ##[group]Determining the checkout info
+2026-11-03T17:39:34.2225252Z ##[endgroup]
+2026-11-03T17:39:34.2237280Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-11-03T17:39:34.2738631Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-11-03T17:39:34.3056140Z ##[group]Checking out the ref
+2026-11-03T17:39:34.3066018Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B codex/windows-startup-winsock-20261103 refs/remotes/origin/codex/windows-startup-winsock-20261103
+2026-11-03T17:39:36.5253327Z Updating files:   5% (323/6088)
+2026-11-03T17:39:36.5590518Z Updating files:   6% (366/6088)
+2026-11-03T17:39:36.6113381Z Updating files:   7% (427/6088)
+2026-11-03T17:39:36.8554482Z Updating files:   8% (488/6088)
+2026-11-03T17:39:36.8676343Z Updating files:   9% (548/6088)
+2026-11-03T17:39:36.8804278Z Updating files:  10% (609/6088)
+2026-11-03T17:39:36.8925739Z Updating files:  11% (670/6088)
+2026-11-03T17:39:36.9047245Z Updating files:  12% (731/6088)
+2026-11-03T17:39:36.9170444Z Updating files:  13% (792/6088)
+2026-11-03T17:39:36.9294530Z Updating files:  14% (853/6088)
+2026-11-03T17:39:36.9416296Z Updating files:  15% (914/6088)
+2026-11-03T17:39:36.9539804Z Updating files:  16% (975/6088)
+2026-11-03T17:39:36.9670024Z Updating files:  17% (1035/6088)
+2026-11-03T17:39:36.9792527Z Updating files:  18% (1096/6088)
+2026-11-03T17:39:36.9932859Z Updating files:  19% (1157/6088)
+2026-11-03T17:39:37.0068937Z Updating files:  20% (1218/6088)
+2026-11-03T17:39:37.0198334Z Updating files:  21% (1279/6088)
+2026-11-03T17:39:37.0330639Z Updating files:  22% (1340/6088)
+2026-11-03T17:39:37.0457933Z Updating files:  23% (1401/6088)
+2026-11-03T17:39:37.0582732Z Updating files:  24% (1462/6088)
+2026-11-03T17:39:37.0710781Z Updating files:  25% (1522/6088)
+2026-11-03T17:39:37.0838877Z Updating files:  26% (1583/6088)
+2026-11-03T17:39:37.0966469Z Updating files:  27% (1644/6088)
+2026-11-03T17:39:37.1088117Z Updating files:  28% (1705/6088)
+2026-11-03T17:39:37.1209749Z Updating files:  29% (1766/6088)
+2026-11-03T17:39:37.1343312Z Updating files:  30% (1827/6088)
+2026-11-03T17:39:37.1466492Z Updating files:  31% (1888/6088)
+2026-11-03T17:39:37.1589824Z Updating files:  32% (1949/6088)
+2026-11-03T17:39:37.1716403Z Updating files:  33% (2010/6088)
+2026-11-03T17:39:37.1850822Z Updating files:  34% (2070/6088)
+2026-11-03T17:39:37.1979463Z Updating files:  35% (2131/6088)
+2026-11-03T17:39:37.2102049Z Updating files:  36% (2192/6088)
+2026-11-03T17:39:37.2222045Z Updating files:  37% (2253/6088)
+2026-11-03T17:39:37.2353967Z Updating files:  38% (2314/6088)
+2026-11-03T17:39:37.2481949Z Updating files:  39% (2375/6088)
+2026-11-03T17:39:37.2606417Z Updating files:  40% (2436/6088)
+2026-11-03T17:39:37.2736817Z Updating files:  41% (2497/6088)
+2026-11-03T17:39:37.2859772Z Updating files:  42% (2557/6088)
+2026-11-03T17:39:37.2981338Z Updating files:  43% (2618/6088)
+2026-11-03T17:39:37.3116178Z Updating files:  44% (2679/6088)
+2026-11-03T17:39:37.3237588Z Updating files:  45% (2740/6088)
+2026-11-03T17:39:37.3363359Z Updating files:  46% (2801/6088)
+2026-11-03T17:39:37.3697538Z Updating files:  47% (2862/6088)
+2026-11-03T17:39:37.3745496Z Updating files:  47% (2900/6088)
+2026-11-03T17:39:37.5930194Z Updating files:  48% (2923/6088)
+2026-11-03T17:39:37.7142103Z Updating files:  49% (2984/6088)
+2026-11-03T17:39:37.7987783Z Updating files:  50% (3044/6088)
+2026-11-03T17:39:37.8435835Z Updating files:  51% (3105/6088)
+2026-11-03T17:39:37.9374335Z Updating files:  52% (3166/6088)
+2026-11-03T17:39:37.9712815Z Updating files:  53% (3227/6088)
+2026-11-03T17:39:38.0405067Z Updating files:  54% (3288/6088)
+2026-11-03T17:39:38.2873252Z Updating files:  55% (3349/6088)
+2026-11-03T17:39:38.3361666Z Updating files:  56% (3410/6088)
+2026-11-03T17:39:38.3798427Z Updating files:  57% (3471/6088)
+2026-11-03T17:39:38.4415127Z Updating files:  57% (3516/6088)
+2026-11-03T17:39:38.5243783Z Updating files:  58% (3532/6088)
+2026-11-03T17:39:38.5625991Z Updating files:  59% (3592/6088)
+2026-11-03T17:39:38.5786616Z Updating files:  60% (3653/6088)
+2026-11-03T17:39:38.5918416Z Updating files:  61% (3714/6088)
+2026-11-03T17:39:38.6050164Z Updating files:  62% (3775/6088)
+2026-11-03T17:39:38.6179576Z Updating files:  63% (3836/6088)
+2026-11-03T17:39:38.6334390Z Updating files:  64% (3897/6088)
+2026-11-03T17:39:38.6483828Z Updating files:  65% (3958/6088)
+2026-11-03T17:39:38.6633296Z Updating files:  66% (4019/6088)
+2026-11-03T17:39:38.6764572Z Updating files:  67% (4079/6088)
+2026-11-03T17:39:38.6912667Z Updating files:  68% (4140/6088)
+2026-11-03T17:39:38.7033560Z Updating files:  69% (4201/6088)
+2026-11-03T17:39:38.7135285Z Updating files:  70% (4262/6088)
+2026-11-03T17:39:38.7243841Z Updating files:  71% (4323/6088)
+2026-11-03T17:39:38.7374879Z Updating files:  72% (4384/6088)
+2026-11-03T17:39:38.7506193Z Updating files:  73% (4445/6088)
+2026-11-03T17:39:38.7667173Z Updating files:  74% (4506/6088)
+2026-11-03T17:39:38.7794502Z Updating files:  75% (4566/6088)
+2026-11-03T17:39:38.8038251Z Updating files:  76% (4627/6088)
+2026-11-03T17:39:38.8608513Z Updating files:  77% (4688/6088)
+2026-11-03T17:39:38.8781424Z Updating files:  78% (4749/6088)
+2026-11-03T17:39:38.8879351Z Updating files:  79% (4810/6088)
+2026-11-03T17:39:38.9505751Z Updating files:  80% (4871/6088)
+2026-11-03T17:39:38.9615369Z Updating files:  81% (4932/6088)
+2026-11-03T17:39:39.0800090Z Updating files:  82% (4993/6088)
+2026-11-03T17:39:39.1243074Z Updating files:  83% (5054/6088)
+2026-11-03T17:39:39.1360376Z Updating files:  84% (5114/6088)
+2026-11-03T17:39:39.4851063Z Updating files:  85% (5175/6088)
+2026-11-03T17:39:39.4862719Z Updating files:  85% (5233/6088)
+2026-11-03T17:39:39.5007368Z Updating files:  86% (5236/6088)
+2026-11-03T17:39:39.5124906Z Updating files:  87% (5297/6088)
+2026-11-03T17:39:39.5248474Z Updating files:  88% (5358/6088)
+2026-11-03T17:39:39.5416875Z Updating files:  89% (5419/6088)
+2026-11-03T17:39:39.5535644Z Updating files:  90% (5480/6088)
+2026-11-03T17:39:39.5659945Z Updating files:  91% (5541/6088)
+2026-11-03T17:39:39.5790245Z Updating files:  92% (5601/6088)
+2026-11-03T17:39:39.5914997Z Updating files:  93% (5662/6088)
+2026-11-03T17:39:39.6038112Z Updating files:  94% (5723/6088)
+2026-11-03T17:39:39.6151157Z Updating files:  95% (5784/6088)
+2026-11-03T17:39:39.6601372Z Updating files:  96% (5845/6088)
+2026-11-03T17:39:39.6767846Z Updating files:  97% (5906/6088)
+2026-11-03T17:39:39.6915896Z Updating files:  98% (5967/6088)
+2026-11-03T17:39:39.7052295Z Updating files:  99% (6028/6088)
+2026-11-03T17:39:39.7052606Z Updating files: 100% (6088/6088)
+2026-11-03T17:39:39.7052812Z Updating files: 100% (6088/6088), done.
+2026-11-03T17:39:39.7222938Z Switched to a new branch 'codex/windows-startup-winsock-20261103'
+2026-11-03T17:39:39.7240921Z branch 'codex/windows-startup-winsock-20261103' set up to track 'origin/codex/windows-startup-winsock-20261103'.
+2026-11-03T17:39:40.1006940Z ##[endgroup]
+2026-11-03T17:39:40.1397134Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-11-03T17:39:40.1684150Z 15338abf2ad49406b1447bda0da648e4e3052010
+2026-11-03T17:39:40.1726799Z ##[group]Removing auth
+2026-11-03T17:39:40.1735076Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-03T17:39:40.2056940Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-03T17:39:40.6760745Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-03T17:39:40.7019792Z http.https://github.com/.extraheader
+2026-11-03T17:39:40.7054294Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-11-03T17:39:40.7360369Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-03T17:39:41.2013959Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-03T17:39:41.2329876Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-03T17:39:41.7362883Z ##[endgroup]
+2026-11-03T17:39:41.7700237Z ##[group]Run actions/download-artifact@v4
+2026-11-03T17:39:41.7700566Z with:
+2026-11-03T17:39:41.7700812Z   name: norma-os-windows-x64-15338abf2ad49406b1447bda0da648e4e3052010
+2026-11-03T17:39:41.7701090Z   path: dist
+2026-11-03T17:39:41.7701244Z   merge-multiple: false
+2026-11-03T17:39:41.7701426Z   repository: multisoul-ai/Norma-AI-OS
+2026-11-03T17:39:41.7701628Z   run-id: 41676826809
+2026-11-03T17:39:41.7701786Z ##[endgroup]
+2026-11-03T17:39:41.9115370Z Downloading single artifact
+2026-11-03T17:39:41.9299937Z (node:9080) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-03T17:39:41.9300723Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-03T17:39:42.2070931Z Preparing to download the following artifacts:
+2026-11-03T17:39:42.2072021Z - norma-os-windows-x64-15338abf2ad49406b1447bda0da648e4e3052010 (ID: 13255067769, Size: 95101091, Expected Digest: sha256:ad8caaec12680ee65e897465f524894443853ba4edbb23ef4a04c2a879044bdf)
+2026-11-03T17:39:42.4607735Z Redirecting to blob download url: https://productionresultssa16.blob.core.windows.net/actions-results/23fe1707-6a1e-44eb-83fd-8a85aa35bb80/workflow-job-run-d364abac-e2fd-5c18-a1d4-5ea35f0127a8/artifacts/3b24641634b3d1ae0b4b60e6ebcf3900868421f5fec1f70e9eee6af2cca6a728.zip
+2026-11-03T17:39:42.4609296Z Starting download of artifact to: D:\a\Norma-AI-OS\Norma-AI-OS\dist
+2026-11-03T17:39:42.7686731Z (node:9080) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-03T17:39:45.3287701Z SHA256 digest of downloaded artifact is ad8caaec12680ee65e897465f524894443853ba4edbb23ef4a04c2a879044bdf
+2026-11-03T17:39:45.3288330Z Artifact download completed successfully.
+2026-11-03T17:39:45.3288581Z Total of 1 artifact(s) downloaded
+2026-11-03T17:39:45.3295846Z Download artifact has finished successfully
+2026-11-03T17:39:45.3567553Z ##[group]Run $zip = Get-ChildItem ../dist/*.zip | Select-Object -First 1
+2026-11-03T17:39:45.3568117Z [36;1m$zip = Get-ChildItem ../dist/*.zip | Select-Object -First 1[0m
+2026-11-03T17:39:45.3568544Z [36;1m$expected = ((Get-Content "$($zip.FullName).sha256" -Raw).Trim() -split '\s+')[0][0m
+2026-11-03T17:39:45.3569128Z [36;1mif ((Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Candidate ZIP checksum mismatch' }[0m
+2026-11-03T17:39:45.3569683Z [36;1m$destination = Join-Path $env:RUNNER_TEMP 'norma-candidate-verification'[0m
+2026-11-03T17:39:45.3570028Z [36;1mExpand-Archive $zip.FullName $destination[0m
+2026-11-03T17:39:45.3570364Z [36;1m$package = Get-ChildItem $destination -Directory | Select-Object -First 1[0m
+2026-11-03T17:39:45.3570888Z [36;1m./scripts/windows/smoke-package.ps1 -Package $package.FullName -Output ../artifacts/candidate-verification[0m
+2026-11-03T17:39:45.5257099Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-11-03T17:39:45.5257414Z ##[endgroup]
+2026-11-03T17:39:51.8660490Z {"verified_files": 59, "source_sha": "15338abf2ad49406b1447bda0da648e4e3052010"}
+2026-11-03T17:40:00.5290146Z ##[group]Run actions/upload-artifact@v4
+2026-11-03T17:40:00.5290442Z with:
+2026-11-03T17:40:00.5290732Z   name: norma-os-windows-verification-15338abf2ad49406b1447bda0da648e4e3052010
+2026-11-03T17:40:00.5291084Z   path: artifacts/candidate-verification/
+2026-11-03T17:40:00.5291308Z   if-no-files-found: error
+2026-11-03T17:40:00.5291497Z   retention-days: 3
+2026-11-03T17:40:00.5291658Z   compression-level: 6
+2026-11-03T17:40:00.5291824Z   overwrite: false
+2026-11-03T17:40:00.5291990Z   include-hidden-files: false
+2026-11-03T17:40:00.5292180Z ##[endgroup]
+2026-11-03T17:40:00.6947316Z (node:2660) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-03T17:40:00.6947902Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-03T17:40:00.7014872Z With the provided path, there will be 8 files uploaded
+2026-11-03T17:40:00.7018838Z Artifact name is valid!
+2026-11-03T17:40:00.7020407Z Root directory input is valid!
+2026-11-03T17:40:01.1215620Z Beginning upload of artifact content to blob storage
+2026-11-03T17:40:01.1833123Z (node:2660) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-11-03T17:40:01.9482824Z Uploaded bytes 987710
+2026-11-03T17:40:02.0204068Z Finished uploading artifact content to blob storage!
+2026-11-03T17:40:02.0204811Z SHA256 digest of uploaded artifact zip is 40929d68ffdf73ab22640d73860b8b4fdf688e6a7c018e5d709e27a00bbc37a7
+2026-11-03T17:40:02.0206350Z Finalizing artifact upload
+2026-11-03T17:40:02.5062839Z Artifact norma-os-windows-verification-15338abf2ad49406b1447bda0da648e4e3052010.zip successfully finalized. Artifact ID 13255232856
+2026-11-03T17:40:02.5065414Z Artifact norma-os-windows-verification-15338abf2ad49406b1447bda0da648e4e3052010 has been successfully uploaded! Final size is 987710 bytes. Artifact ID is 13255232856
+2026-11-03T17:40:02.5072795Z Artifact download URL: https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41676826809/artifacts/13255232856
+2026-11-03T17:40:02.5369004Z Post job cleanup.
+2026-11-03T17:40:02.6778075Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-11-03T17:40:02.7082792Z git version 2.56.0.windows.4
+2026-11-03T17:40:02.7146974Z Temporarily overriding HOME='D:\a\_temp\80bd1746-687f-40cf-8974-0424f24a8669' before making global git config changes
+2026-11-03T17:40:02.7147918Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-03T17:40:02.7155901Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Norma-AI-OS\Norma-AI-OS\verification-tools
+2026-11-03T17:40:02.7518597Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-03T17:40:02.7936412Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-03T17:40:03.2759807Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-03T17:40:03.3061041Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-03T17:40:03.7816116Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-03T17:40:03.8131864Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-03T17:40:04.3229446Z Cleaning up orphan processes
+2026-11-03T17:40:04.3668308Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/download-artifact@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

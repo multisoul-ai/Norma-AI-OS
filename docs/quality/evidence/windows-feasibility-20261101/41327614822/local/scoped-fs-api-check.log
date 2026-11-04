@@ -1,0 +1,13 @@
+    Checking windows-link v0.2.1
+    Checking windows-sys v0.61.2
+    Checking norma-scoped-fs-check v0.0.0 (/private/tmp/norma-scoped-fs-check)
+warning: unused import: `OsStrExt`
+ --> /private/tmp/norma-windows-feasibility-20261101/crates/workspace/src/scoped_directory/mod.rs:8:15
+  |
+8 |         ffi::{OsStrExt, OsStringExt},
+  |               ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `norma-scoped-fs-check` (lib) generated 1 warning (run `cargo fix --lib -p norma-scoped-fs-check` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.07s

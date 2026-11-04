@@ -1,0 +1,17 @@
+
+running 1 test
+
+thread 'owned_opencode_host_routes_current_question_through_runtime' (9989290) panicked at crates/runtime/tests/opencode_question_host.rs:210:13:
+assertion `left == right` failed: 必须等待原工具精确消费
+  left: AnsweredElsewhere
+ right: Answered
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test owned_opencode_host_routes_current_question_through_runtime ... FAILED
+
+failures:
+
+failures:
+    owned_opencode_host_routes_current_question_through_runtime
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.06s
+

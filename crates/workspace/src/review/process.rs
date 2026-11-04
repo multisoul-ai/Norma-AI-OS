@@ -1,3 +1,6 @@
+#[cfg(windows)]
+#[path = "process_windows.rs"]
+mod process_windows;
 use super::{check_deadline, ReviewError};
 use std::{
     io::Read,
@@ -52,14 +55,17 @@ pub(super) fn check_repository(root: &super::Root, deadline: Instant) -> Result<
     Ok(())
 }
 
-#[cfg(unix)]
 pub(super) fn git(
     root: &super::Root,
     args: &[&str],
     deadline: Instant,
     limit: usize,
 ) -> Result<(i32, Vec<u8>), ReviewError> {
-    let mut command = Command::new("/usr/bin/git");
+    let mut command = Command::new(if cfg!(windows) {
+        "git.exe"
+    } else {
+        "/usr/bin/git"
+    });
     // Inherited Git routing/config cannot redirect a read to an unrelated working tree.
     for (key, _) in std::env::vars_os() {
         if key.to_string_lossy().starts_with("GIT_") {
@@ -77,7 +83,10 @@ pub(super) fn git(
             "core.quotePath=false",
         ])
         .args(args)
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env(
+            "GIT_CONFIG_GLOBAL",
+            if cfg!(windows) { "NUL" } else { "/dev/null" },
+        )
         .env("GIT_CONFIG_NOSYSTEM", "1")
         .env("GIT_OPTIONAL_LOCKS", "0")
         .env("GIT_LITERAL_PATHSPECS", "1")
@@ -101,7 +110,10 @@ pub(super) fn run(
         use std::os::unix::process::CommandExt;
         command.process_group(0);
     }
+    #[cfg(unix)]
     let mut child = command.spawn().map_err(|_| ReviewError::Unavailable)?;
+    #[cfg(windows)]
+    let (mut child, job) = process_windows::spawn(&mut command)?;
     let stdout = child
         .stdout
         .take()
@@ -152,7 +164,13 @@ pub(super) fn run(
         }
         let _ = child.kill();
     }
+    #[cfg(windows)]
+    job.terminate();
     let _ = child.wait();
     let _ = reader.join();
     outcome
 }
+
+#[cfg(all(test, windows))]
+#[path = "../../tests/unit/review_process_windows.rs"]
+mod windows_tests;

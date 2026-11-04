@@ -1,0 +1,12 @@
+{
+  "run_id": "41617015436",
+  "workspace_id": "a5ebc033-91be-455c-b2a0-9018210cdf65",
+  "status": "PASS",
+  "scope": "Actual development App: native Ctrl+N, Unicode workspace creation, close and reopen; screenshots require visual verification; no package acceptance",
+  "workspace_persisted": true,
+  "visual_verification": "PENDING",
+  "workspace_name": "Runner 中文 workspace 41617015436",
+  "exit_mode": "workspace-reopen",
+  "source_sha": "7cf61b94a846c750f6355e1465d1d4d275eb27b8",
+  "run_attempt": "1"
+}

@@ -1,0 +1,16 @@
+[
+  {
+    "page": "docs/exec-plans/2026-11-01-windows-github-runner-goal.html",
+    "embedded_markdown_exact": true,
+    "panel_count": 8,
+    "javascript_syntax": "PASS",
+    "mermaid_fences": 0
+  },
+  {
+    "page": "docs/exec-plans/2026-11-01-windows-port-plan.html",
+    "embedded_markdown_exact": true,
+    "panel_count": 8,
+    "javascript_syntax": "PASS",
+    "mermaid_fences": 0
+  }
+]

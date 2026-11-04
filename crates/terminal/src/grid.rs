@@ -207,6 +207,26 @@ impl TerminalGrid {
         self.pty_write_rx.try_iter().flatten().collect()
     }
 
+    /// Service VTE's synchronized-output deadline even when the child waits for a reply.
+    pub fn expire_synchronized_output(&mut self, now: std::time::Instant) -> Option<Vec<u8>> {
+        let deadline = self.synchronized_output_deadline()?;
+        if now < deadline {
+            return None;
+        }
+        self.finish_output()
+    }
+
+    pub(crate) fn synchronized_output_deadline(&self) -> Option<std::time::Instant> {
+        self.processor.sync_timeout().sync_timeout()
+    }
+
+    /// EOF ends any pending display batch; there cannot be a later ESU from this child.
+    pub fn finish_output(&mut self) -> Option<Vec<u8>> {
+        self.processor.sync_timeout().sync_timeout()?;
+        self.processor.stop_sync(&mut self.term);
+        Some(self.pty_write_rx.try_iter().flatten().collect())
+    }
+
     /// 调整终端尺寸。
     pub fn resize(&mut self, cols: u16, lines: u16) {
         self.dims = TermDimensions {

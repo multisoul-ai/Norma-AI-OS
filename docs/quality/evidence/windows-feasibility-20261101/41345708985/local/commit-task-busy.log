@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/private/tmp/norma-codex-commit.py", line 8, in <module>
+    with m.owned_task(root,directory,create=False) as (target,lock_fd):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py", line 117, in __enter__
+    return next(self.gen)
+  File "/private/tmp/norma-windows-feasibility-20261101/scripts/task-build-cache.py", line 45, in owned_task
+    raise ValueError("任务仍在运行或回收，稍后重试") from None
+ValueError: 任务仍在运行或回收，稍后重试

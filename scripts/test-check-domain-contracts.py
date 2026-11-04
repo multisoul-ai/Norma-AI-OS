@@ -141,6 +141,32 @@ match value {
             "a schema missing Grok must not pass the AgentProfile contract",
         )
 
+    def test_definitions_module_is_the_schema_source(self) -> None:
+        """场景：schema 已从 adapter.rs 迁入 definitions.rs；构造五种完整映射，
+        将 schema 移入子模块，再执行公开契约检查；预期通过而非 IndexError。
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write_fixture(root, include_grok_in_schema=True)
+            adapter = root / "crates/agent/src/adapter.rs"
+            definitions = adapter.parent / "adapter/definitions.rs"
+            definitions.write_text(adapter.read_text())
+            adapter.write_text("mod definitions;\npub use definitions::norma_tool_definitions;\n")
+            failures = CHECKER.check_agent_profile_contract(root)
+        self.assertEqual(failures, [], "canonical definitions module must satisfy the contract")
+
+    def test_missing_create_agent_is_a_contract_failure(self) -> None:
+        """场景：schema 丢失 create_agent；构造其余五种完整映射并移除此工具，
+        执行公开检查；预期返回 schema 失败，不能崩溃或静默通过。
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write_fixture(root, include_grok_in_schema=True)
+            (root / "crates/agent/src/adapter.rs").write_text('definition("other_tool");')
+            failures = CHECKER.check_agent_profile_contract(root)
+        self.assertIn("create_agent schema profiles", "\n".join(failures),
+                      "missing tool must produce an actionable schema failure")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,118 @@
+{
+  "task": "agents",
+  "source_sha": "366b47182f12c7ba68b589cc7bed8148fecdca11",
+  "checks": [
+    {
+      "id": "npm_install",
+      "command": [
+        "node",
+        "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js",
+        "install",
+        "--prefix",
+        "D:\\a\\_temp\\norma-probe-tools",
+        "--no-audit",
+        "--no-fund",
+        "@openai/codex@0.166.0",
+        "@anthropic-ai/claude-code@2.1.316"
+      ],
+      "log": "npm_install.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 16.72
+    },
+    {
+      "id": "codex_version",
+      "command": [
+        "node",
+        "D:\\a\\_temp\\norma-probe-tools\\node_modules\\@openai\\codex\\bin\\codex.js",
+        "--version"
+      ],
+      "log": "codex_version.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 1.89
+    },
+    {
+      "id": "codex_help",
+      "command": [
+        "node",
+        "D:\\a\\_temp\\norma-probe-tools\\node_modules\\@openai\\codex\\bin\\codex.js",
+        "--help"
+      ],
+      "log": "codex_help.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.08
+    },
+    {
+      "id": "codex_server_help",
+      "command": [
+        "node",
+        "D:\\a\\_temp\\norma-probe-tools\\node_modules\\@openai\\codex\\bin\\codex.js",
+        "app-server",
+        "--help"
+      ],
+      "log": "codex_server_help.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.08
+    },
+    {
+      "id": "codex_stdio_initialize",
+      "status": "PASS",
+      "log": "codex-initialize.log"
+    },
+    {
+      "id": "claude_version",
+      "command": [
+        "D:\\a\\_temp\\norma-probe-tools\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+        "--version"
+      ],
+      "log": "claude_version.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    },
+    {
+      "id": "claude_help",
+      "command": [
+        "D:\\a\\_temp\\norma-probe-tools\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+        "--help"
+      ],
+      "log": "claude_help.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 0.16
+    },
+    {
+      "id": "live_agent_tasks",
+      "status": "NOT_RUN",
+      "detail": "No credentials or paid model calls are used; no real task was submitted"
+    },
+    {
+      "id": "native_codex_tui_relay",
+      "status": "NOT_RUN",
+      "detail": "stdio initialization does not validate Norma's Unix TUI relay"
+    }
+  ],
+  "metadata": {
+    "packages": {
+      "@openai/codex": [
+        "0.166.0",
+        "codex"
+      ],
+      "@anthropic-ai/claude-code": [
+        "2.1.316",
+        "claude"
+      ]
+    },
+    "credentials_supplied": false,
+    "model_calls": 0
+  },
+  "timestamp": "2026-11-01T10:12:04.280561+00:00",
+  "os": "Windows-2025Server-10.0.26100-SP0",
+  "run_id": "41296333985",
+  "run_attempt": "1",
+  "image_version": "20261021.278.1",
+  "disk_free_bytes": 234409811968
+}

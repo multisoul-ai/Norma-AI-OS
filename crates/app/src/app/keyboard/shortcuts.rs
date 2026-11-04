@@ -8,6 +8,10 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         match command {
+            ShortcutCommandId::QuitNormaOs => {
+                // The global quit guard reads project entities after this input lease ends.
+                gpui::App::defer(cx, |cx| cx.dispatch_action(&crate::app::QuitNormaOs));
+            }
             ShortcutCommandId::FocusCommandInput => self.focus_command_input(window, cx),
             ShortcutCommandId::SavePreviewFile => {
                 if self

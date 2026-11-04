@@ -1,0 +1,9 @@
+{
+  "platform": "Darwin",
+  "accepted_fd_nonblocking": true,
+  "read_error": {
+    "errno": 35,
+    "name": "BlockingIOError",
+    "detail": "[Errno 35] Resource temporarily unavailable"
+  }
+}

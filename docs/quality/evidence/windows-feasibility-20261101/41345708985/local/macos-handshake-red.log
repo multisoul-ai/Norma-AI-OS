@@ -1,0 +1,15 @@
+
+running 1 test
+
+thread 'fragmented_handshake_on_nonblocking_accepted_stream_waits_for_the_rest' (9700508) panicked at /private/tmp/norma-codex-regression-draft/codex_control_handshake.rs:75:9:
+非阻塞接收流必须等到握手完整，实际提前失败：Interrupted handshake (WouldBlock)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test fragmented_handshake_on_nonblocking_accepted_stream_waits_for_the_rest ... FAILED
+
+failures:
+
+failures:
+    fragmented_handshake_on_nonblocking_accepted_stream_waits_for_the_rest
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

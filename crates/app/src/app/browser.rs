@@ -18,15 +18,25 @@ mod chrome_auth_tests;
 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
 mod cef_backend;
 mod engine;
+mod events;
+#[cfg(windows)]
+mod focus_policy;
+#[cfg(windows)]
+mod generation;
 mod load_timeline;
 mod location;
 pub(crate) mod native;
 mod presentation;
 mod resource_timing;
+#[cfg(target_os = "macos")]
 mod safari_identity;
 #[cfg(target_os = "macos")]
 mod scene_clip;
 mod store;
+#[cfg(target_os = "macos")]
+mod wry_backend;
+#[cfg(windows)]
+#[path = "browser/wry_windows.rs"]
 mod wry_backend;
 
 pub(crate) use address_input::BrowserAddressInput;
@@ -35,7 +45,10 @@ pub(crate) use chrome_auth::BrowserAuthUiState;
 pub(crate) use engine::BrowserEngineKind;
 pub(crate) use location::canonical_browser_location;
 pub(crate) use native::{browser_native_view_bounds, BrowserViewBounds, NativeBrowserView};
+#[cfg(target_os = "macos")]
 pub(crate) use safari_identity::initialize_safari_browser_identity;
+#[cfg(windows)]
+pub(crate) fn initialize_safari_browser_identity() {}
 pub(crate) use store::BrowserStore;
 
 const CEF_MESSAGE_PUMP_INTERVAL: Duration = Duration::from_millis(16);
@@ -68,6 +81,13 @@ pub(crate) struct BrowserAddressEdit {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum BrowserEvent {
+    #[cfg(windows)]
+    Native(generation::Queued<Box<BrowserEvent>>),
+    #[cfg(windows)]
+    NativeViewFailed {
+        node_id: NodeId,
+        message: String,
+    },
     PreviewNavigation {
         node_id: NodeId,
         url: String,
@@ -200,8 +220,8 @@ impl MultisoulApp {
         .detach();
     }
 
-    pub(crate) fn warm_up_browser_engine(&mut self, window: &mut Window) {
-        self.browsers.warm_up(window);
+    pub(crate) fn warm_up_browser_engine(&mut self, window: &mut Window, cx: &gpui::App) {
+        self.browsers.warm_up(window, cx);
     }
 
     pub(crate) fn browser_address_input_for(
@@ -241,93 +261,6 @@ impl MultisoulApp {
     pub(crate) fn clear_browser_views(&mut self) {
         self.browsers.clear();
         self.browser_address_edit = None;
-    }
-
-    pub(crate) fn drain_browser_events(&mut self, cx: &mut Context<Self>) -> bool {
-        let mut changed = false;
-        for event in self.browsers.drain_events() {
-            match event {
-                BrowserEvent::TitleChanged { node_id, title } => {
-                    if self.set_browser_title(node_id, title) {
-                        changed = true;
-                    }
-                }
-                BrowserEvent::PreviewNavigation { node_id, url } => {
-                    self.route_workbench_navigation(node_id, url, cx);
-                    changed = true;
-                }
-                BrowserEvent::LocationChanged { node_id, url } => {
-                    if self.update_desktop_browser_tab_location(node_id, url.clone(), cx)
-                        || self.set_browser_url(node_id, url)
-                    {
-                        self.mark_canvas_dirty();
-                        changed = true;
-                    }
-                }
-                BrowserEvent::PageInteraction { node_id } => {
-                    if self.runtime.document.node(node_id).is_some() {
-                        self.runtime.selection.select_only(node_id);
-                        self.runtime.focus.exit_to_canvas();
-                        self.interaction.keyboard_selected_node = None;
-                        self.mark_node_viewed_if_needed(node_id);
-                        changed = true;
-                    }
-                }
-                BrowserEvent::PageLoad { .. } => {}
-                BrowserEvent::NavigateCurrentCard { node_id, url } => {
-                    if self.update_desktop_browser_tab_location(node_id, url.clone(), cx)
-                        || self.set_browser_url(node_id, url.clone())
-                    {
-                        self.browsers.load_url(node_id, &url);
-                        self.mark_canvas_dirty();
-                        changed = true;
-                    }
-                }
-                BrowserEvent::ChromeAuthCookies {
-                    node_id,
-                    url,
-                    batch,
-                } => match self.browsers.apply_chrome_auth(node_id, &url, batch) {
-                    Ok(Some((imported, skipped))) => {
-                        tracing::info!(node_id, imported, skipped, "Chrome Browser auth imported");
-                        changed = true;
-                    }
-                    Ok(None) => changed = true,
-                    Err(message) => {
-                        self.report_chrome_auth_failure(node_id, &message);
-                        changed = true;
-                    }
-                },
-                BrowserEvent::ChromeAuthImported {
-                    node_id,
-                    url,
-                    imported,
-                    skipped,
-                } => {
-                    if self.browsers.complete_chrome_auth(node_id, &url) {
-                        tracing::info!(
-                            node_id,
-                            imported,
-                            skipped,
-                            "Chrome Browser auth imported asynchronously"
-                        );
-                        changed = true;
-                    }
-                }
-                BrowserEvent::ChromeAuthFailed { node_id, message } => {
-                    self.report_chrome_auth_failure(node_id, &message);
-                    changed = true;
-                }
-            }
-        }
-        changed
-    }
-
-    fn report_chrome_auth_failure(&mut self, node_id: NodeId, message: &str) {
-        self.browsers.fail_chrome_auth(node_id, message);
-        self.workspace_state.error = Some(
-            ui::i18n::LocalizedText::new("cards.chrome_sync_failed").with_arg("message", message),
-        );
     }
 
     pub(crate) fn on_browser_command(

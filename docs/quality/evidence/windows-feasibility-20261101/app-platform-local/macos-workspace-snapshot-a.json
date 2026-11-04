@@ -1,0 +1,29 @@
+{
+  "base_sha": "5b70a977a1f89e7ac078ad6a8d15392a4c598be7",
+  "diff": "macos-workspace-snapshot-a.patch",
+  "files": {
+    ".github/workflows/windows-feasibility.yml": "5974623e6029a6577d7daef48a37972644d638a932eb14781671f44e087cee7c",
+    "Cargo.lock": "0c5e7dd0045fbf809c3fb5e818649a1571a7d3fa298a72043b6ae30d53b99c7d",
+    "crates/app/Cargo.toml": "b810c6e2da00abef55b56eff3872e75ca839bb9f04c7639e3d3e874df95bcaa0",
+    "crates/app/src/mobile/server/connection/image.rs": "14139f9721a8c70f3c394b88e38d9e5f3025eea1d465f911cf22327bb99393f7",
+    "crates/app/src/mobile/server/connection/image_store.rs": "8b87cf0a71e455e415ebc7e94fa1e9dea1894d4d3483227ceba0ada3d5ffbe29",
+    "crates/app/src/norma/transport.rs": "8ad67682c30ac3309da079bb7778b6069278eca7fb9f747daa02cab6a11bd765",
+    "crates/app/tests/platform_probe/Cargo.lock": "842dba5e5fa1645d8351778a92769c8e0b1605be15e1570a85ceff33121aaac4",
+    "crates/app/tests/platform_probe/Cargo.toml": "40025dad2cf534276a85f826509e543d96f4b87463ed6790bf0d94936dff2b33",
+    "crates/app/tests/platform_probe/src/lib.rs": "e12430730b4a9d10441abf0046cb43b9f21b07de8155e845c286d09c2c5f5aa0",
+    "crates/app/tests/unit/app_transport_platform_tests.rs": "2ee5ca25b0864fd3a81f14daa44e29950a7e5af9bd0b910b58e9ec95fb74bd03",
+    "crates/norma/src/lib.rs": "65591025509c6e221b24810dca2c53cfd646ffc8d7a6e30012a23ecd243a5edb",
+    "crates/norma/src/private_fs.rs": "6888a5b8730775c711cfc7c70ef6c147ac45b294248126a4657c26d4065443b9",
+    "crates/norma/tests/opencode_question_transport.rs": "e52f5ae580897e3c1de7d4a9801f10b076da1e1af6c558bf7e1921cba7721f49",
+    "crates/norma/tests/unit/codex_relay_output_backpressure.rs": "50dd7a340330ce548a9bccd1ceccb585ea924b7a237ba1872f7e3e8b5e071b2f",
+    "crates/runtime/tests/opencode_question_host.rs": "564ecb33fbd731b3e27315499400c868bbb70f841d235cc0ed9e29b1f32a08ea",
+    "scripts/windows/probe.py": "7b5b0767dd720095a3846de73da8f0767dccac025b418e9c2ebc0237a0fad4b3",
+    "crates/app/src/norma/transport/binding.rs": "521489fc0f98643798ea83416ffcc0ba35b27f61dba0c8e801ff07225346a5c6",
+    "crates/app/tests/unit/app_transport_binding_tests.rs": "29b77e85e20aa88cd87a78ce397ebe809ee4bc755c69eb55956306206e8c40b3",
+    "crates/app/tests/unit/app_transport_deadline_tests.rs": "e7d0c957847bcbe1caf6d53cd38ae882f03b30468bd0dd0500794aeb94f488f3",
+    "crates/app/tests/unit/mobile_image_platform_tests.rs": "cbd7a19025b1cb9ba8a07d8a688b4e286c8b636201567c8388d967fa262ad247"
+  },
+  "command": "cargo test --locked --workspace --no-fail-fast",
+  "log": "norma-app-macos-workspace.log",
+  "note": "Snapshot A includes all current App adapters, IO cancellation, path-exchange fix and OpenCode fixture changes; final incremental changes will be recorded separately."
+}

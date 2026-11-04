@@ -110,11 +110,11 @@ impl MultisoulApp {
                     div()
                         .text_size(px(11.0))
                         .text_color(rgba(0x9fb8cfff))
-                        .child(
-                            (index < 8)
-                                .then(|| format!("⌃⇧{}", index + 2))
-                                .unwrap_or_default(),
-                        ),
+                        .child(if index < 8 {
+                            (index + 2).to_string()
+                        } else {
+                            String::new()
+                        }),
                 )
         });
         let panel = div()

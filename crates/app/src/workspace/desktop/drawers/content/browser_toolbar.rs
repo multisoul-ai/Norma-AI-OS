@@ -72,7 +72,7 @@ impl MultisoulApp {
         let url = match browser_input(&draft) {
             Ok(url) => url,
             Err(error) => {
-                self.desktop_workspace.error = Some(error.into());
+                self.desktop_workspace.error = Some(error);
                 cx.notify();
                 return;
             }

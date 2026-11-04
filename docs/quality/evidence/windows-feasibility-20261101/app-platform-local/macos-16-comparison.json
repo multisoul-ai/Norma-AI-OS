@@ -1,0 +1,209 @@
+{
+  "baseline_run": "41345708985",
+  "final_production_source": "a53698f635c1501dd37aa4799add30fc4f68b164",
+  "latest_test_only_source": "120492ca29ec49b12ed4368eb0d10e01b5d34845",
+  "macos_rust": "1.93.1",
+  "command": "cargo test --locked --workspace --no-fail-fast",
+  "snapshot_a": {
+    "passed": 3428,
+    "failed": 14,
+    "ignored": 52,
+    "exit_code": 101,
+    "log": "norma-app-macos-workspace.log",
+    "source_reproduction": "macos-workspace-snapshot-a.json"
+  },
+  "snapshot_b": {
+    "passed": 3443,
+    "failed": 0,
+    "ignored": 52,
+    "exit_code": 0,
+    "log": "norma-app-macos-workspace-final.log",
+    "scope": "最终生产源码；后续关闭前存活正断言单独重跑1/0/0、跨平台目录夹具定向6/0/0；未把它们冒充另一轮完整workspace。"
+  },
+  "cases": [
+    {
+      "test": "app::brain_host::context::proposal_tests::brain_proposal_context_failed_save_does_not_restore_or_redispatch",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_listening_maps_bottom_label_to_continuous_listening",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_start_fails_cleanly_when_mic_permission_denied",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_stop_returns_idle_but_models_remain_resident",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_unclassified_speech_does_not_truncate_assistant_reply",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_error_shortcut_dismisses_feedback_without_stopping",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_shortcut_stops_an_active_session",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_dialogue_turn_failure_recovers_for_next_utterance",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_voice_shortcut_interrupts_assistant_reply_during_speaking",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::reply_stream_backlog_tests::test_active_capacity_exhaustion_preserves_visible_reply_and_drains_accepted_prefix",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::reply_stream_backlog_tests::test_one_delta_with_nine_segments_does_not_fail_bounded_reply_queue",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::reply_stream_backlog_tests::test_slow_provider_drains_forty_segments_before_finish_without_truncation",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::reply_stream_cancellation_tests::test_provider_failure_overrides_capacity_warning_and_cleans_up",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "app::dialogue::reply_stream_cancellation_tests::test_user_interruption_discards_unsent_backlog_and_queued_pcm_together",
+      "prior_full": "FAIL",
+      "snapshot_a": "FAIL",
+      "snapshot_b": "PASS",
+      "category": "existing-app-language-or-poisoned-lock",
+      "test_changed_this_batch": false,
+      "attribution": "前批已有相同失败，本轮App语言/测试锁相关源码未改；A仍失败、B通过，不能宣称隔离问题修复。"
+    },
+    {
+      "test": "opencode_replies_only_through_own_instance_and_original_request",
+      "prior_full": "FAIL",
+      "snapshot_a": "PASS",
+      "snapshot_b": "PASS",
+      "category": "macos-mock-accepted-socket-mode",
+      "test_changed_this_batch": true,
+      "attribution": "既有Mac HTTP夹具继承非阻塞导致errno35；accept后显式恢复blocking，生产HTTP客户端未改。"
+    },
+    {
+      "test": "owned_opencode_host_routes_current_question_through_runtime",
+      "prior_full": "FAIL",
+      "snapshot_a": "PASS",
+      "snapshot_b": "PASS",
+      "category": "input-lock-test-milestones",
+      "test_changed_this_batch": true,
+      "attribution": "测试过早断言：消费事件与HTTP重核对是不同里程碑；确定性门闩复现，并共同等待，生产权限代码未改。"
+    }
+  ],
+  "unchanged_source_hashes": [
+    {
+      "path": "crates/norma/src/codex/relay/transport/windows.rs",
+      "sha256": "4cb50c5628adb29b22bea7a726498e0484d89be4fba38cd7373ee311b08d2684",
+      "unchanged_from": "1dd8965bb860aab7892c8e733426702bdc2d2408"
+    },
+    {
+      "path": "crates/norma/src/opencode/client.rs",
+      "sha256": "1e75b187d94e6a1df922485cdcdb1f4961de5f097c2012f7a46b3bdf6e46366b",
+      "unchanged_from": "1dd8965bb860aab7892c8e733426702bdc2d2408"
+    },
+    {
+      "path": "crates/norma/src/opencode/native_questions.rs",
+      "sha256": "1c2f77a680e87293f28bbded6a991bb09038e058681c2a2d3cb368f076095c7e",
+      "unchanged_from": "1dd8965bb860aab7892c8e733426702bdc2d2408"
+    },
+    {
+      "path": "crates/app/tests/unit/brain_proposal_context_tests.rs",
+      "sha256": "e79f88dbdbce112dd95f6c7ecb49011a6a0019ed80859edfa4e6e11c9918e8cd",
+      "unchanged_from": "1dd8965bb860aab7892c8e733426702bdc2d2408"
+    },
+    {
+      "path": "crates/app/tests/unit/app_dialogue_shell_tests.rs",
+      "sha256": "8ec96e36d5b9c531578f6ca7de1c4ae78dfd4a079dcf70797a5ac1517d66dd31",
+      "unchanged_from": "1dd8965bb860aab7892c8e733426702bdc2d2408"
+    },
+    {
+      "path": "crates/app/src/settings/voice/view/gpt_live.rs",
+      "sha256": "fc653fa8cc582812517566de742c63cbcfb342cf180714761f0683ee1cc850c2",
+      "unchanged_from": "1dd8965bb860aab7892c8e733426702bdc2d2408"
+    }
+  ],
+  "remaining_risk": "A仍有14项语言/全局锁隔离失败；B全绿不是修复证明。真实App未验；AC11不标完成。",
+  "new_ignores": 0,
+  "additional_all_source_close_test": {
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "log": "norma-app-all-source-close-macos.log"
+  }
+}

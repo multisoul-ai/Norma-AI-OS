@@ -1,15 +1,21 @@
-use super::{fs, Write, LIMIT};
+use std::{fs, io::Write};
+pub(super) const LIMIT: usize = 2 * 1024 * 1024;
 use image::{ImageFormat, ImageReader};
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::{
     io::{Cursor, Read},
-    os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::Path,
     sync::Mutex,
 };
 
 // ponytail: serialize the small quota-check/atomic-save section; per-store locks if many servers contend.
 static WRITES: Mutex<()> = Mutex::new(());
+
+#[cfg(all(test, windows))]
+#[path = "../../../../tests/support/mobile_image_hooks.rs"]
+pub(crate) mod test_hooks;
 
 pub(super) fn validate(bytes: &[u8]) -> Result<&'static str, &'static str> {
     let format = image::guess_format(bytes).map_err(|_| "invalid_image")?;
@@ -28,7 +34,13 @@ pub(super) fn validate(bytes: &[u8]) -> Result<&'static str, &'static str> {
     Ok(extension)
 }
 
-fn directory(path: &Path) -> Result<(), &'static str> {
+#[cfg(unix)]
+struct DirectoryGuard;
+#[cfg(windows)]
+type DirectoryGuard = workspace::scoped_directory::Directory;
+
+#[cfg(unix)]
+fn directory(path: &Path) -> Result<DirectoryGuard, &'static str> {
     match fs::symlink_metadata(path) {
         Ok(info) if info.file_type().is_dir() => Ok(()),
         Ok(_) => Err("image_storage_unavailable"),
@@ -38,7 +50,46 @@ fn directory(path: &Path) -> Result<(), &'static str> {
                 .map_err(|_| "image_storage_unavailable")
         }
         Err(_) => Err("image_storage_unavailable"),
+    }?;
+    Ok(DirectoryGuard)
+}
+
+#[cfg(windows)]
+fn directory(path: &Path) -> Result<DirectoryGuard, &'static str> {
+    // Pin every ancestor before creation/permission repair, and retain the capability through IO.
+    let error = |_| "image_storage_unavailable";
+    let parent = path.parent().ok_or("image_storage_unavailable")?;
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("image_storage_unavailable")?;
+    let parent = workspace::scoped_directory::Directory::open(parent, true).map_err(error)?;
+    let directory = parent.child(name, true).map_err(error)?;
+    norma::private_fs::create_private_dir(path).map_err(error)?;
+    Ok(directory)
+}
+
+#[cfg(unix)]
+fn open_image(path: &Path) -> std::io::Result<fs::File> {
+    fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+}
+#[cfg(windows)]
+fn open_image(path: &Path) -> std::io::Result<fs::File> {
+    use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
+    };
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)?;
+    if file.metadata()?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+        return Err(std::io::ErrorKind::PermissionDenied.into());
     }
+    Ok(file)
 }
 
 pub(super) fn save(
@@ -49,8 +100,10 @@ pub(super) fn save(
 ) -> Result<String, &'static str> {
     let _lock = WRITES.lock().map_err(|_| "image_storage_unavailable")?;
     let root = folder.parent().ok_or("image_storage_unavailable")?;
-    directory(root)?;
-    directory(folder)?;
+    let _root = directory(root)?;
+    #[cfg(all(test, windows))]
+    test_hooks::after_root_validation();
+    let _folder = directory(folder)?;
     let path = folder.join(format!("{id}.{extension}"));
     if path.exists() {
         let (_, previous) = read(folder, id)?;
@@ -120,11 +173,7 @@ pub(super) fn read(folder: &Path, id: &str) -> Result<(String, Vec<u8>), &'stati
     }
     for extension in ["jpg", "png"] {
         let path = folder.join(format!("{id}.{extension}"));
-        let Ok(file) = fs::OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-            .open(&path)
-        else {
+        let Ok(file) = open_image(&path) else {
             continue;
         };
         let metadata = file.metadata().map_err(|_| "image_not_found")?;

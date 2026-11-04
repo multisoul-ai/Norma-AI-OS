@@ -1,0 +1,45 @@
+name: App native route ID contracts
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/windows-audio-*']
+    paths: ['crates/app/src/norma/route_id.rs', 'crates/app/src/norma/endpoint.rs', 'crates/norma/src/route_id.rs', 'crates/norma/src/lib.rs', 'crates/norma/tests/app_route_id_platform.rs', 'crates/norma/Cargo.toml', 'Cargo.lock', '.github/workflows/windows-route-contracts.yml']
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_TERM_COLOR: never
+jobs:
+  native-route:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-native-audio
+          cache-on-failure: true
+      - name: Exercise the real App route ID function
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/native-route
+          rustc -vV | tee artifacts/native-route/rustc.log
+          cargo test --locked -p norma --test app_route_id_platform -- --nocapture 2>&1 | tee artifacts/native-route/tests.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: app-route-${{ matrix.os }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/native-route/
+          if-no-files-found: error
+          retention-days: 3

@@ -1,0 +1,968 @@
+任务缓存：/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target
+   Compiling norma v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/norma)
+    Finished `test` profile [optimized + debuginfo] target(s) in 4.17s
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/norma-5a6fd0a2c412bd04)
+
+running 27 tests
+test agent_hook::session_claim::tests::test_marker_name_distinguishes_sessions_that_sanitize_alike ... ok
+test agent_hook::event::tests::test_extract_prompt_text_short_and_truncated ... ok
+test agent_hook::event::tests::session_start_from_every_agent_provider_maps_to_ready ... ok
+test agent_hook::event::tests::test_extract_prompt_text_fallback_keys_and_none ... ok
+test agent_hook::session_title::session_title_tests::refresh_events_and_per_profile_dispatch ... ok
+test agent_hook::session_title::session_title_tests::codex_takes_last_thread_name_for_the_session ... ok
+test agent_hook::session_claim::tests::test_claim_is_once_per_session_and_release_reopens_it ... ok
+test agent_hook::session_title::session_title_tests::untrusted_paths_and_ids_are_rejected ... ok
+test agent_hook::zcode::tests::real_payload_fixtures_map_to_states ... ok
+test agent_hook::session_title::session_title_tests::claude_takes_last_non_empty_ai_title ... ok
+test agent_hook::session_title::session_title_tests::claude_title_found_by_session_id_across_project_dirs ... ok
+test client::tests::debug_build_uses_an_isolated_norma_socket_name ... ok
+test codex::relay::input::tests::completed_question_history_does_not_exhaust_pending_capacity ... ok
+test codex::relay::input::tests::old_turn_outside_history_window_cannot_hold_current_input ... ok
+test agent_hook::zcode::tests::install_refuses_to_overwrite_foreign_or_malformed_config ... ok
+test codex::relay::input::tests::ordinary_turn_history_never_creates_pending_input ... ok
+test agent_hook::zcode::tests::install_writes_seven_verified_events_and_enables_hooks ... ok
+test agent_hook::zcode::tests::installed_requires_enabled_flag ... ok
+test file_identity::tests::file_identity_survives_append ... ok
+test agent_hook::zcode::tests::install_refuses_when_dormant_user_hooks_would_be_activated ... ok
+test orchestration::file_ops::tests::private_session_directory_is_reusable_without_losing_markers ... ok
+test orchestration::file_ops::tests::managed_credential_detects_and_repairs_broader_permissions ... ok
+test file_identity::tests::replacement_is_distinct_even_with_equal_length ... ok
+test agent_hook::zcode::tests::install_is_idempotent_and_uninstall_keeps_user_data ... ok
+test agent_hook::zcode::tests::uninstall_keeps_user_owned_empty_groups_and_events ... ok
+test orchestration::file_ops::tests::managed_file_replacement_preserves_content_and_private_permissions ... ok
+test agent_hook::session_title::session_title_tests::title_is_found_when_file_is_larger_than_the_tail_window ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running unittests src/bin/multisoul_agent_hook.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/multisoul_agent_hook-99f7763960f8a5cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/norma.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/norma-8e07e0d61afc57f9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_creation.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_creation-06ca458b0aabde1f)
+
+running 1 test
+test create_request_requires_exact_scope_and_never_includes_a_task ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_completeness_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_completeness_tests-5c85cfc3b4d5061f)
+
+running 2 tests
+test cursor_requires_every_flat_hook_event ... ok
+test codex_requires_every_hook_event_and_repair_restores_missing_event ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/agent_hook_completion_grok_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_completion_grok_tests-bcd39869ee6d6af0)
+
+running 3 tests
+test grok_session_close_stop_is_not_completion ... ok
+test grok_subagent_lifecycle_events_are_dropped ... ok
+test grok_stop_with_background_tasks_keeps_thinking ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_completion_late_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_completion_late_tests-5a15342b396bb407)
+
+running 5 tests
+test late_subagent_start_rearms_the_timeout_without_another_stop ... ok
+test foreground_activity_does_not_disarm_an_unsettled_timeout ... ok
+test late_background_registration_still_times_out_without_another_stop ... ok
+test session_end_with_open_work_does_not_confirm ... ok
+test stop_failure_during_a_quiet_window_does_not_confirm ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_completion_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_completion_tests-0e613acc5bf67195)
+
+running 9 tests
+test non_claude_stop_stays_immediate ... ok
+test missing_background_tasks_field_is_not_an_empty_snapshot ... ok
+test foreground_failure_and_other_nodes_do_not_enter_the_ledger ... ok
+test task_stop_clears_the_background_id_before_the_empty_stop ... ok
+test stop_arriving_before_background_registration_stays_open ... ok
+test first_of_two_background_tasks_does_not_release_the_turn ... ok
+test single_background_bash_waits_for_empty_stop_and_window ... ok
+test task_notification_can_settle_by_tool_use_id_alias ... ok
+test subagent_stop_snapshot_does_not_finish_while_the_agent_is_still_listed ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_completion_window_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_completion_window_tests-f7f345609dbbede9)
+
+running 9 tests
+test active_stop_hook_still_completes_after_the_window ... ok
+test a_new_prompt_does_not_clear_unsettled_background_work ... ok
+test session_end_confirms_a_quiet_empty_window_before_forwarding ... ok
+test unsettled_background_work_degrades_after_thirty_minutes ... ok
+test timeout_does_not_fire_before_the_turn_stops ... ok
+test activity_after_done_is_forwarded_without_another_confirm ... ok
+test emptying_the_ledger_restarts_the_timeout_clock ... ok
+test process_probe_defers_at_most_three_windows_and_cannot_undo_done ... ok
+test running_notification_and_in_window_activity_keep_the_turn_open ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_cursor_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_cursor_tests-a54bf9033982f73e)
+
+running 4 tests
+test cursor_official_identity_fields_override_generic_compatibility_fields ... ok
+test test_cursor_before_submit_prompt_maps_to_thinking_and_caches_conversation ... ok
+test cursor_generation_and_transcript_fields_preserve_exact_mobile_identity ... ok
+test test_cursor_hook_config_is_idempotent_and_preserves_user_hooks ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/agent_hook_grok_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_grok_tests-577428b07cf26f03)
+
+running 2 tests
+test grok_camel_case_pre_tool_use_maps_to_running_tool ... ok
+test grok_hook_install_is_idempotent_and_uninstall_preserves_third_party_hooks ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/agent_hook_hermes_plugin_exec_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_hermes_plugin_exec_tests-ac8b234422c999a1)
+
+running 3 tests
+test all_uninstall_keeps_hermes_dir_for_disable ... ok
+test hermes_plugin_executes_and_maps_events_to_payloads ... ok
+test hermes_plugin_ignores_proxy_environment ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/agent_hook_hermes_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_hermes_tests-6067ee4d995ff695)
+
+running 5 tests
+test hermes_source_and_target_parse ... ok
+test hermes_events_map_to_task_states ... ok
+test hermes_stop_reply_feeds_conversation_observation ... ok
+test hermes_refuses_to_overwrite_or_remove_unmanaged_plugin ... ok
+test hermes_install_writes_marked_plugin_and_uninstall_removes_it ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/agent_hook_infcode_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_infcode_tests-6ac368c93a8e01c4)
+
+running 2 tests
+test infcode_installs_claude_style_command_hooks_into_settings_json ... ok
+test infcode_install_and_uninstall_preserve_user_settings_fields ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/agent_hook_kimi_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_kimi_tests-e1ff0793619f6d77)
+
+running 6 tests
+test kimi_config_path_honors_kimi_code_home ... ok
+test kimi_only_events_do_not_leak_to_other_sources ... ok
+test kimi_events_map_to_five_states ... ok
+test kimi_prompt_array_feeds_conversation_evidence ... ok
+test kimi_install_refuses_unmergeable_config ... ok
+test kimi_install_is_idempotent_and_uninstall_keeps_user_content ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/agent_hook_opencode_subsession_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_opencode_subsession_tests-4eabb50affe19a8b)
+
+running 2 tests
+test stale_managed_opencode_plugin_is_refreshed ... ok
+test opencode_child_session_lifecycle_does_not_reach_parent_card ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/agent_hook_opencode_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_opencode_tests-574a66b2d201a113)
+
+running 3 tests
+test test_opencode_pre_tool_use_maps_to_running_tool ... ok
+test test_opencode_install_rejects_unmanaged_same_path_plugin ... ok
+test test_opencode_install_writes_and_removes_plugin_file ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_path_convention_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_path_convention_tests-166d3075d83a34d0)
+
+running 5 tests
+test test_prompt_states_the_rules_the_parser_relies_on ... ok
+test test_env_switch_disables_injection ... ok
+test test_no_injection_outside_managed_session_start ... ok
+test test_cursor_json_and_kimi_first_prompt_only ... ok
+test test_session_start_injects_path_convention_for_claude_and_codex ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_hook_pi_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_pi_tests-48f5b73c93428bbd)
+
+running 8 tests
+test pi_default_path_is_pi_agent_extensions ... ok
+test pi_stop_event_maps_to_done_with_reply_evidence ... ok
+test pi_events_map_to_five_states ... ok
+test pi_extension_install_upgrade_uninstall_respects_ownership ... ok
+test pi_extension_is_silent_without_norma_env ... ok
+test pi_extension_forwards_success_run_in_order ... ok
+test pi_extension_ignores_non_quit_session_shutdown ... ok
+test pi_extension_reports_failure_and_abort_as_stop_failure ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.43s
+
+     Running tests/agent_hook_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/agent_hook_tests-ef1d29f5f89ddec8)
+
+running 9 tests
+test test_forward_hook_noops_when_multisoul_env_is_missing ... ok
+test test_claude_user_prompt_submit_maps_to_thinking ... ok
+test test_permission_and_failure_events_map_to_expected_task_hints ... ok
+test test_codex_pre_tool_use_maps_to_running_tool ... ok
+test test_uninstall_hook_config_is_idempotent_when_missing_or_clean ... ok
+test test_forward_hook_ignores_unreachable_endpoint ... ok
+test test_resolve_agent_hook_command_path_from_sibling_binary ... ok
+test test_uninstall_hook_config_removes_only_multisoul_hooks ... ok
+test test_install_hook_config_is_idempotent_for_claude_and_codex ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/brain_cli_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/brain_cli_tests-e101a6a3f418cd59)
+
+running 6 tests
+test brain_commands_default_to_json_output ... ok
+test report_parses_text_and_priority ... ok
+test history_parses_agent_last_and_grep ... ok
+test agents_approvals_and_assign_parse ... ok
+test propose_parses_title_task_and_why ... ok
+test decide_parses_the_three_decisions_and_requires_a_reason ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/brain_decision_copy.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/brain_decision_copy-edf9684164cb7f93)
+
+running 4 tests
+test proposal_title_and_reason_share_one_budget ... ok
+test decision_copy_counts_characters_instead_of_bytes ... ok
+test decision_copy_rejects_blank_and_multiline_text ... ok
+test direct_protocol_and_cli_apply_the_same_limit ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/claude_question.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/claude_question-2aa0694211887a96)
+
+running 1 test
+test claude_hook_preserves_input_and_requires_matching_tool_result ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/claude_transcript.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/claude_transcript-85ab1f91634b0fa1)
+
+running 2 tests
+test interrupt_evidence_starts_at_complete_eof_and_excludes_typed_markers ... ok
+test full_transcript_pages_are_scoped_and_resume_partial_lines ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cli_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/cli_tests-1244d32ebf5402af)
+
+running 7 tests
+test test_parse_create_terminal_command ... ok
+test test_parse_create_cursor_agent_command ... ok
+test test_parse_create_codex_agent_command ... ok
+test test_parse_send_submit_command ... ok
+test test_parse_create_preview_command ... ok
+test test_parse_create_grok_agent_command ... ok
+test test_parse_create_opencode_agent_command ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/client_platform.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/client_platform-f3e52be501d13945)
+
+running 2 tests
+test local_socket_client_round_trips_the_existing_wire_protocol ... ok
+test local_socket_client_rejects_a_response_for_another_request ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/client_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/client_tests-0622045527d4e15e)
+
+running 2 tests
+test test_response_codec_round_trips_created_result ... ok
+test test_request_codec_uses_single_newline_delimited_json ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_approvals.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_approvals-e65a9dde54b73600)
+
+running 3 tests
+test deny_uses_cancel_when_provider_does_not_offer_decline ... ok
+test choice_needs_a_durable_receipt_and_revalidation_before_send ... ok
+test decisions_are_once_per_live_request_and_keep_resolution_distinct ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_connection.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_connection-000569de6d7fcbd8)
+
+running 2 tests
+test event_overflow_fails_pending_requests_and_disables_decisions ... ok
+test unix_connection_routes_replies_and_permissions_without_truncation ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/codex_question.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question-b639e8d61e822a5b)
+
+running 5 tests
+test codex_preserves_option_descriptions_without_changing_answer_labels ... ok
+test codex_multiple_questions_preserve_secret_and_custom_capabilities ... ok
+test codex_question_maps_free_text_and_rejects_ambiguous_or_partial_answers ... ok
+test codex_question_preserves_rpc_identity_and_confirms_exact_original_consumption ... ok
+test codex_question_rejects_connector_approval_unknown_and_mismatched_sources ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_question_connections.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_connections-95eedb17aa5c0b66)
+
+running 3 tests
+test native_input_lock_is_live_when_question_frame_reaches_tui ... ok
+test new_connection_holds_input_before_forwarding_or_attachment_delivery ... ok
+test picker_disconnect_preserves_owner_and_resume_transfers_question_identity ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/codex_question_forward.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_forward-57fe239d1c46b2c6)
+
+running 1 test
+test native_bridge_returns_only_validated_answers_for_original_question ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_question_history.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_history-3ef655431fca64d0)
+
+running 4 tests
+test late_consumption_reclaims_retired_unknown_requests ... ok
+test completed_history_releases_capacity_without_reopening_old_turns ... ok
+test retained_unknown_source_still_counts_against_ledger_budget ... ok
+test host_releases_consumed_tickets_across_long_session ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.88s
+
+     Running tests/codex_question_host.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_host-bc98678441e3931c)
+
+running 1 test
+test same_process_host_carries_owned_attachment_ticket_and_consumption ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/codex_question_ledger.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_ledger-f629bb12ec233404)
+
+running 5 tests
+test replay_timestamps_do_not_change_question_identity ... ok
+test conflicting_consumption_and_retired_turn_never_reopen_a_request ... ok
+test replayed_pending_is_one_question_and_resolved_is_not_consumption ... ok
+test native_answer_cancellation_and_disconnect_revoke_stale_submission ... ok
+test native_resolution_waits_for_consumption_instead_of_fabricating_an_answer ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_question_relay.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_relay-dd0d1cc22a087e9f)
+
+running 3 tests
+test resumed_same_rpc_requires_the_new_attachment_identity ... ok
+test native_relay_preserves_session_and_answers_original_rpc_without_extra_turn ... ok
+test native_answer_and_observer_disable_keep_the_original_tui_usable ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/codex_question_relay_backpressure.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_relay_backpressure-8a88f5eb0db0b006)
+
+running 1 test
+test slow_server_applies_backpressure_without_closing_the_native_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.09s
+
+     Running tests/codex_question_relay_ephemeral.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_relay_ephemeral-cc8545f758938f59)
+
+running 1 test
+test ephemeral_thread_never_rebinds_or_holds_main_question ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests/codex_question_relay_identity.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_relay_identity-a09a30c8b93ff3ae)
+
+running 1 test
+test a_question_lease_cannot_cross_relay_instances ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/codex_question_relay_large.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_relay_large-3266324bb9a42ce7)
+
+running 1 test
+test native_large_configuration_frame_does_not_break_original_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s
+
+     Running tests/codex_question_relay_partial.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_relay_partial-1086b5ff48c3c3c5)
+
+running 1 test
+test partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/codex_question_relay_permissions.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_relay_permissions-5652d793522e867d)
+
+running 2 tests
+test default_relay_never_escalates_session_permissions ... ok
+test full_access_relay_carries_yolo_on_every_session_request ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_question_ticket.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_ticket-bcb81d6795c13172)
+
+running 3 tests
+test live_codex_question_outlives_hook_timeout_but_remains_revocable ... ok
+test codex_native_question_uses_the_revocable_host_ticket_with_exact_identity ... ok
+test codex_final_gate_revokes_first_write_but_keeps_owned_flush ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codex_question_version.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/codex_question_version-7e2202f175030754)
+
+running 1 test
+test verified_relay_gates_experimental_answers_on_original_initialize ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+
+     Running tests/context_protocol.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/context_protocol-d3b2238095b21713)
+
+running 2 tests
+test legacy_reports_remain_unlinked_and_references_are_area_scoped ... ok
+test cli_preserves_report_sources_and_read_reference ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/conversation_observe_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/conversation_observe_tests-8d818adf95394fa9)
+
+running 5 tests
+test claude_stop_event_extracts_complete_agent_reply_not_tool_output ... ok
+test duplicate_stop_events_are_idempotent_for_conversation_observation ... ok
+test provider_stop_events_map_to_same_conversation_contract ... ok
+test tool_output_and_partial_messages_do_not_become_complete_agent_replies ... ok
+test user_prompt_submit_captures_full_user_message_within_1200_chars ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cursor_question_screen.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/cursor_question_screen-a7a61bc6d05ae530)
+
+running 6 tests
+test cursor_custom_answer_never_submits_existing_multiselect_options ... ok
+test cursor_step_acknowledges_only_the_expected_question_control_change ... ok
+test cursor_native_steps_preserve_existing_custom_draft_and_check_all_selections ... ok
+test cursor_selected_placeholder_is_ambiguous_and_never_appended ... ok
+test cursor_enter_must_focus_an_intended_selection ... ok
+test cursor_native_frame_matches_original_items_before_each_step ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cursor_question_store.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/cursor_question_store-3f97a242bbe9f44d)
+
+running 3 tests
+test cursor_store_uses_exact_lexical_workspace_and_never_creates_a_database ... ok
+test current_cursor_root_owns_pending_question_and_linked_consumption ... ok
+test cursor_store_fails_closed_on_corrupt_current_root_without_scanning_old_blobs ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/cursor_question_ticket.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/cursor_question_ticket-07165d386d276694)
+
+running 1 test
+test cursor_ticket_revokes_unsent_and_partially_written_terminal_answers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cursor_questions.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/cursor_questions-debc884cbc5e8758)
+
+running 4 tests
+test native_cursor_rejects_ambiguous_screen_mapping_and_incomplete_answers ... ok
+test native_cursor_preserves_question_identity_and_exact_consumption ... ok
+test cursor_multiselect_consumption_compares_original_ids_without_assuming_click_order ... ok
+test cursor_trailing_other_alias_is_collapsed_like_native_display_options ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cursor_transcript.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/cursor_transcript-06415746291156e3)
+
+running 2 tests
+test cursor_transcript_pages_losslessly_from_bound_project ... ok
+test cursor_transcript_rejects_cross_project_and_retries_partial_tail ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ego_cli_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/ego_cli_tests-b473d2abdbdf2c2b)
+
+running 2 tests
+test test_parse_ego_agent_progress_commands ... ok
+test test_parse_ego_presentation_and_lifecycle_commands ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ego_protocol_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/ego_protocol_tests-5ad1bcdae3a4b87b)
+
+running 2 tests
+test test_ego_busy_error_is_structured_and_non_retryable ... ok
+test test_ego_presented_json_exposes_external_mode_and_non_master_state ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hook_approval_bridge.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/hook_approval_bridge-32b402bae4c79f77)
+
+running 1 test
+test real_bridge_returns_only_the_bound_permission_response ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s
+
+     Running tests/hook_approval_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/hook_approval_tests-c96e44d73e766298)
+
+running 2 tests
+test approval_requires_precise_supported_identity ... ok
+test invocation_identity_and_single_decision_are_preserved ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_approvals.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/mobile_approvals-d5ff0f0e7fb23607)
+
+running 1 test
+test approval_delivery_requires_exact_identity_and_transport_stage ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_conversation.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/mobile_conversation-abe57c0c35841a73)
+
+running 2 tests
+test codex_full_history_preserves_content_and_orders_turns ... ok
+test claude_full_history_keeps_tools_and_resumes_incomplete_tail ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_conversation_events.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/mobile_conversation_events-ffb071440490006d)
+
+running 1 test
+test conversation_projection_tracks_changes_without_duplicate_heartbeats ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_conversation_transfer.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/mobile_conversation_transfer-8ab1078a549e093a)
+
+running 1 test
+test conversation_fragments_preserve_unicode_and_bounded_json ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_pairing.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/mobile_pairing-bd123738761b0174)
+
+running 2 tests
+test claimed_phone_can_be_approved_after_qr_expiry ... ok
+test scan_requires_exact_desktop_approval_and_is_single_use ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_pairing_code.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/mobile_pairing_code-7b863428b579c140)
+
+running 1 test
+test short_code_shares_offer_lifetime_and_bounded_attempts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_project_events.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/mobile_project_events-dbe5001891146650)
+
+running 4 tests
+test timing_updates_display_without_invalidating_command_target ... ok
+test projection_sends_exact_changes_and_resets_on_route_replacement ... ok
+test progress_updates_and_removal_are_display_deltas ... ok
+test summary_updates_are_display_only_deltas ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mobile_relay_registration.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/mobile_relay_registration-037794a267f94acc)
+
+running 2 tests
+test registration_rejects_unsafe_origins_and_malformed_challenges ... ok
+test registration_binds_challenge_deployment_and_purpose ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/mobile_relay_session.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/mobile_relay_session-0aafe9cbb9b81a07)
+
+running 2 tests
+test encrypted_session_rejects_invalid_handshakes ... ok
+test encrypted_session_interoperates_and_rejects_tampering_replay_and_reflection ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/mobile_tls.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/mobile_tls-a1f1a7022f888f4a)
+
+running 3 tests
+test stored_identity_rejects_corruption_without_changing_certificate ... ok
+test pinned_machine_tls_rejects_another_computer ... ok
+test mobile_upgrade_enforces_route_origin_and_deadline ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/opencode_foreground.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/opencode_foreground-c838962ce824377f)
+
+running 6 tests
+test final_send_gate_rechecks_after_slow_prepare_get ... ok
+test missing_foreground_evidence_keeps_ordinary_input_blocked ... ok
+test foreground_switch_revokes_old_question_and_follows_current_session ... ok
+test reconnect_reconciles_pending_before_restoring_unsent_question ... ok
+test foreground_change_during_pending_query_cannot_unlock_input ... ok
+test foreground_return_does_not_reopen_an_uncertain_original_delivery ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.68s
+
+     Running tests/opencode_question_host.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/opencode_question_host-ba8d68d70f8114a7)
+
+running 4 tests
+test native_skipped_item_is_consumed_elsewhere ... ok
+test native_rejection_releases_only_the_original_question ... ok
+test lost_http_ack_consumes_question_without_inventing_delivery_attribution ... ok
+test native_host_answers_once_and_reconciles_original_tool_consumption ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s
+
+     Running tests/opencode_question_ticket.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/opencode_question_ticket-f89bd16f5dfcb9dd)
+
+running 3 tests
+test live_opencode_question_outlives_hook_timeout_without_replay ... ok
+test opencode_ticket_carries_original_question_and_revokes_before_send ... ok
+test http_send_lease_is_once_only_without_holding_ticket_lock ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/opencode_question_transport.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/opencode_question_transport-ef78757ad07ca8ff)
+
+running 1 test
+test opencode_replies_only_through_own_instance_and_original_request ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/opencode_questions.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/opencode_questions-6e5c7251efda5d77)
+
+running 2 tests
+test native_opencode_rejects_ambiguous_or_unsupported_answers ... ok
+test native_opencode_maps_ordered_answers_and_requires_exact_consumption ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/orchestration_ask_norma_installer_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_ask_norma_installer_tests-175f64ca73314e1d)
+
+running 3 tests
+test ask_norma_user_conflict_is_reported_not_overwritten ... ok
+test ask_norma_skill_is_installed_as_managed_orchestration_entry_point ... ok
+test ask_norma_skill_is_removed_on_uninstall_but_preserves_user_file ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/orchestration_auto_repair_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_auto_repair_tests-8927e600f03e2c02)
+
+running 4 tests
+test revoked_provider_is_not_reenabled_or_repaired_during_app_upgrade ... ok
+test app_upgrade_preserves_user_conflict_for_manual_repair ... ok
+test opencode_plugin_conflict_does_not_block_shared_hook_upgrade ... ok
+test app_upgrade_reconciles_authorized_providers_without_installing_new_provider ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/orchestration_cancel_cli_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_cancel_cli_tests-53514a243e95e6fd)
+
+running 1 test
+test cancel_accepts_replayable_operation_id_and_rejects_blank_identity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/orchestration_cli_self_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_cli_self_tests-25a0e0b111e57572)
+
+running 5 tests
+test project_self_rejects_unknown_node ... ok
+test project_self_rejects_ambiguous_active_nodes ... ok
+test project_self_matches_unique_active_node ... ok
+test agent_self_json_contract_has_single_self_and_no_roster_or_token ... ok
+test agent_self_parses_to_list_agents_with_self_projection ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/orchestration_cli_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_cli_tests-718a138e758d9818)
+
+running 7 tests
+test text_output_preserves_roster_and_task_receipt_contract_fields ... ok
+test json_error_output_preserves_stable_error_code_and_exit_code ... ok
+test json_success_output_has_stable_envelope_and_no_diagnostics_or_token ... ok
+test agent_parse_error_uses_json_envelope_with_empty_task_code ... ok
+test cross_workspace_cli_preserves_explicit_target_and_operation_identity ... ok
+test assign_rejects_multiple_targets_and_blank_task_before_transport ... ok
+test agent_command_tree_parses_narrow_commands_with_json_default ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/orchestration_client_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_client_tests-18aa3a1e3d572f45)
+
+running 2 tests
+test agent_request_rejects_missing_source_and_missing_provider_installation ... ok
+test agent_request_loads_managed_provider_context_and_redacts_token_from_debug ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/orchestration_diagnostics_cli_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_diagnostics_cli_tests-75937ae5f0d416c4)
+
+running 2 tests
+test outcome_unknown_json_preserves_the_original_operation_identity ... ok
+test doctor_and_version_expose_local_diagnostic_contract ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/orchestration_grok_installer_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_grok_installer_tests-4f60b4be981427fe)
+
+running 5 tests
+test real_grok_discovers_installed_skills_and_hooks ... ignored, requires installed Grok Build; read-only discovery with isolated GROK_HOME
+test aggregate_status_requires_all_four_components_including_grok ... ok
+test grok_install_repair_uninstall_uses_native_discovery_paths ... ok
+test grok_authorization_keeps_shared_binaries_when_another_provider_is_removed ... ok
+test grok_installation_honors_process_home_override ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/orchestration_installer_diagnostics_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_installer_diagnostics_tests-bb2330f67ef16a2d)
+
+running 1 test
+test missing_bundled_cli_error_names_source_and_destination ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/orchestration_installer_security_regression_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_installer_security_regression_tests-28f99b8dcbcdb96c)
+
+running 2 tests
+test opencode_installer_surfaces_unmanaged_plugin_conflict_without_overwrite ... ok
+test insecure_managed_credential_is_not_ready_and_repair_restores_0600 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/orchestration_installer_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_installer_tests-e92fa69576e91a87)
+
+running 4 tests
+test default_install_paths_are_user_scoped_and_provider_native ... ok
+test installer_reports_conflict_without_overwriting_unmanaged_user_skill ... ok
+test codex_install_is_idempotent_and_keeps_token_out_of_skill_and_status ... ok
+test uninstall_removes_only_managed_provider_content_and_preserves_user_hook ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/orchestration_new_cli_conflict_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_new_cli_conflict_tests-868efe1abcc5f0fc)
+
+running 4 tests
+test delegation_unverified_marks_only_new_clis ... ok
+test unmanaged_hook_conflict_blocks_authorization_and_keeps_user_file ... ok
+test uninstall_hermes_disables_only_managed_plugin ... ok
+test shared_config_providers_preserve_user_settings ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/orchestration_new_cli_installer_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_new_cli_installer_tests-15a4ab135040d45d)
+
+running 7 tests
+test all_contains_new_clis_with_skill_paths_including_grok ... ok
+test skill_dirs_follow_verified_defaults_and_env_overrides ... ok
+test unmanaged_hook_files_report_conflict ... ok
+test authorization_is_isolated_between_new_clis ... ok
+test unmanaged_skill_is_conflict_and_never_overwritten ... ok
+test skill_frontmatter_matches_each_cli_requirements ... ok
+test install_ready_then_uninstall_removes_only_owned_files ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+
+     Running tests/orchestration_presentation_installer_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_presentation_installer_tests-d0ebcf8b2c5cc4c4)
+
+running 3 tests
+test prior_version_presentation_skill_is_repaired_with_ego_rules ... ok
+test legacy_install_without_presentation_skill_needs_repair_and_is_upgraded_in_place ... ok
+test same_version_stale_presentation_is_repaired_with_ego_page_retention ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/orchestration_skill_contract_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_skill_contract_tests-332fffce5bfdcd1e)
+
+running 4 tests
+test managed_orchestration_skill_stops_on_deterministic_rejection_codes ... ok
+test managed_orchestration_skill_documents_global_cross_workspace_contract ... ok
+test managed_orchestration_skill_documents_self_identity_probe_before_assign ... ok
+test managed_orchestration_skill_description_recalls_chinese_nested_delegation ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/orchestration_task_result_cli_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_task_result_cli_tests-1c64f5870e6cbb32)
+
+running 4 tests
+test task_result_json_uses_the_same_stable_task_result_shape ... ok
+test terminal_wait_json_includes_bound_agent_result ... ok
+test task_result_not_ready_is_explicit_and_retryable ... ok
+test task_result_command_maps_to_distinct_result_query ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/orchestration_uninstall_security_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_uninstall_security_tests-ff9b95f79121d1ee)
+
+running 1 test
+test revoke_failure_stops_uninstall_before_removing_managed_components ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/orchestration_wait_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/orchestration_wait_tests-1be9531b58f6d8b2)
+
+running 3 tests
+test wait_classifies_terminal_untracked_and_running_states_truthfully ... ok
+test wait_returns_terminal_status_even_when_tracking_is_untracked ... ok
+test wait_uses_tracking_field_even_when_status_is_still_submitted ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/presentation_cli_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/presentation_cli_tests-af0397c447ec5e69)
+
+running 5 tests
+test preview_preparation_canonicalizes_files_and_rejects_directories_or_unknown_types ... ok
+test browser_preparation_normalizes_safe_urls_and_rejects_executable_schemes ... ok
+test presentation_protocol_output_is_flat_and_preserves_stable_error_codes ... ok
+test present_command_tree_parses_browser_and_preview_with_json_default ... ok
+test missing_preview_returns_stable_json_before_app_connection ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/presentation_drawer.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/presentation_drawer-347fcaa113b6a13e)
+
+running 1 test
+test drawer_presentation_receipt_round_trips ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/protocol_tests.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/protocol_tests-08cbccfdd3a8673c)
+
+running 4 tests
+test wire_request_preserves_workspace_routing_and_decodes_legacy_v1 ... ok
+test test_list_result_uses_neutral_card_summary ... ok
+test test_wire_response_preserves_success_and_error_results ... ok
+test test_preview_create_command_round_trips_through_json ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/question_cli.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/question_cli-dbf1fb6b33b3bb68)
+
+running 2 tests
+test answer_cli_preserves_exact_question_identity ... ok
+test question_discovery_and_suggestion_are_distinct_from_delivery ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/question_forward.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/question_forward-9e34fd6662ccf1c4)
+
+running 3 tests
+test unsupported_question_notifies_host_before_returning_to_native_tui ... ok
+test real_question_bridge_returns_answer_to_native_stdout ... ok
+test bridge_preserves_question_and_falls_back_without_fake_success ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/question_protocol.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/question_protocol-fd8e968164975a7d)
+
+running 1 test
+test answers_cover_every_question_without_loss ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/question_ticket.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/question_ticket-b9769e8478bb7c36)
+
+running 4 tests
+test claude_backpressure_preserves_expiry_after_partial_write ... ok
+test claude_final_gate_stops_partial_response_without_false_unsent ... ok
+test partial_response_remains_revocable_until_last_byte ... ok
+test hook_ticket_is_single_use_and_revocable ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/run_overview.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/run_overview-32bc4affb288b8fa)
+
+running 4 tests
+test agents_without_start_time_sort_last_and_missing_current_project_is_safe ... ok
+test loaded_other_projects_join_running_with_current_project_first ... ok
+test overview_groups_attention_before_running_and_idle_agents ... ok
+test running_agent_action_prefers_live_summary_over_task_title ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/run_overview_attention.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/run_overview_attention-0f8f3196fbd5cfe7)
+
+running 4 tests
+test current_project_is_loaded_for_attention_rows_even_without_presence ... ok
+test approval_without_task_uses_the_tool_name ... ok
+test status_capsule_counts_follow_the_run_overview ... ok
+test awaiting_takeover_agents_need_attention_but_stay_running ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/status_capsule.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/status_capsule-d750b7df1f384025)
+
+running 3 tests
+test missing_or_broken_progress_uses_status_text_not_a_fraction ... ok
+test same_rank_prefers_current_project_and_idle_is_only_overflow ... ok
+test capsule_ranks_current_project_and_keeps_three_plus_overflow ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workspace_activity.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/workspace_activity-2f6f3c809b9c7e88)
+
+running 7 tests
+test duplicate_run_keeps_other_workspaces_pending_delivery ... ok
+test counts_only_frozen_reviewable_unaccepted_delivery ... ok
+test preserves_agent_progress_and_removes_only_current_approvals ... ok
+test approvals_with_shared_provider_ids_keep_distinct_agents ... ok
+test coalesces_progress_and_never_restarts_the_eight_hour_cycle ... ok
+test selects_actionable_projects_without_losing_hidden_counts ... ok
+test automatic_overview_merges_workspaces_before_selecting_three_projects ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workspace_activity_refresh.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/workspace_activity_refresh-fa65560f9ad30c59)
+
+running 1 test
+test consecutive_activity_marks_schedule_one_recompute ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workspace_activity_view.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/workspace_activity_view-8bef4cf89e243913)
+
+running 4 tests
+test review_status_matches_summary_and_start_time_stays_unformatted ... ok
+test full_agent_list_keeps_agents_hidden_from_the_summary_row ... ok
+test pending_items_list_approvals_and_reviews_but_not_failures ... ok
+test project_groups_keep_source_order_while_summary_stays_capped ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workspace_chat.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/workspace_chat-4a9d9984a78fb48a)
+
+running 2 tests
+test exact_target_never_follows_name_or_selection ... ok
+test discussion_defaults_to_no_dispatch_and_target_is_complete ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workspace_terminal.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-norma-20261101/target/debug/deps/workspace_terminal-1af03c0a9a8f55cf)
+
+running 2 tests
+test terminal_requests_require_exact_run_and_consistent_history_scope ... ok
+test rich_terminal_fragments_preserve_all_rows_within_relay_budget ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+   Doc-tests norma
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

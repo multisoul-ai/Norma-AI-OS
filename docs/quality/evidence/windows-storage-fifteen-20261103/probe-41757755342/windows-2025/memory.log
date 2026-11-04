@@ -1,0 +1,61 @@
+   Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+    Finished `test` profile [optimized + debuginfo] target(s) in 2.55s
+     Running tests\memory_scope.rs (target\debug\deps\memory_scope-1f9942eae30ecdca.exe)
+
+running 2 tests
+
+thread 'replacement_at_the_same_plain_path_cannot_inherit_memory_identity' (7416) panicked at crates\storage\tests\memory_scope.rs:23:10:
+旧目录合法身份可保存: Rejected("当前平台尚不能核验项目目录身份")
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: memory_scope::replacement_at_the_same_plain_path_cannot_inherit_memory_identity
+             at .\tests\memory_scope.rs:23
+   5: memory_scope::replacement_at_the_same_plain_path_cannot_inherit_memory_identity::closure$0
+             at .\tests\memory_scope.rs:9
+   6: core::ops::function::FnOnce::call_once<memory_scope::replacement_at_the_same_plain_path_cannot_inherit_memory_identity::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test replacement_at_the_same_plain_path_cannot_inherit_memory_identity ... FAILED
+
+thread 'repository_worktrees_share_only_project_memory' (2264) panicked at crates\storage\tests\memory_scope.rs:113:6:
+共享保存: Rejected("当前平台尚不能核验项目目录身份")
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: memory_scope::repository_worktrees_share_only_project_memory
+             at .\tests\memory_scope.rs:113
+   5: memory_scope::repository_worktrees_share_only_project_memory::closure$0
+             at .\tests\memory_scope.rs:63
+   6: core::ops::function::FnOnce::call_once<memory_scope::repository_worktrees_share_only_project_memory::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test repository_worktrees_share_only_project_memory ... FAILED
+
+failures:
+
+failures:
+    replacement_at_the_same_plain_path_cannot_inherit_memory_identity
+    repository_worktrees_share_only_project_memory
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s
+
+error: test failed, to rerun pass `-p storage --test memory_scope`
+error: 1 target failed:
+    `-p storage --test memory_scope`

@@ -145,8 +145,7 @@ impl MultisoulApp {
                         row,
                         start + offset,
                         cursor == Some(start + offset),
-                        feedback,
-                        tone,
+                        (feedback, tone),
                         theme,
                         cx,
                     )
@@ -172,26 +171,21 @@ impl MultisoulApp {
             .child(heading)
             .when(!collapsed, |shell| shell.child(body));
         let style = shell.style();
-        if collapsed {
+        if collapsed || group == OverviewGroup::Attention {
             style.flex_grow = Some(0.0);
             style.flex_shrink = Some(0.0);
         } else {
-            if group == OverviewGroup::Attention {
-                style.flex_grow = Some(0.0);
-                style.flex_shrink = Some(0.0);
+            style.flex_grow = Some(group.grow());
+            style.flex_shrink = Some(if group == OverviewGroup::Ideas {
+                0.0
             } else {
-                style.flex_grow = Some(group.grow());
-                style.flex_shrink = Some(if group == OverviewGroup::Ideas {
-                    0.0
-                } else {
-                    1.0
-                });
-                let heights: Vec<f32> = section
-                    .map(|s| s.rows.iter().map(|row| row.height).collect())
-                    .unwrap_or_default();
-                style.flex_basis = Some(px(group.basis_height(&heights)).into());
-                style.min_size.height = Some(px(MIN_GROUP_HEIGHT).into());
-            }
+                1.0
+            });
+            let heights: Vec<f32> = section
+                .map(|s| s.rows.iter().map(|row| row.height).collect())
+                .unwrap_or_default();
+            style.flex_basis = Some(px(group.basis_height(&heights)).into());
+            style.min_size.height = Some(px(MIN_GROUP_HEIGHT).into());
         }
         shell
     }
@@ -279,11 +273,14 @@ impl MultisoulApp {
         row: &OverviewRow,
         index: usize,
         focused: bool,
-        feedback: super::super::overview_rows::OverviewFeedback,
-        tone: super::super::overview_rows::OverviewTone,
+        style: (
+            super::super::overview_rows::OverviewFeedback,
+            super::super::overview_rows::OverviewTone,
+        ),
         theme: ui::Theme,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let (feedback, tone) = style;
         if decision_target(row).is_some() {
             return self.render_approval_overview_row(row, index, focused, theme, cx);
         }

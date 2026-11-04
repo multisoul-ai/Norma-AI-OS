@@ -1,4 +1,6 @@
+mod app;
 mod columns;
+pub(crate) use app::with_immediate;
 pub(crate) use columns::ensure_column;
 mod desktop;
 pub(crate) mod desktop_canvas;
@@ -31,6 +33,10 @@ fn open_connection(path: &Path) -> StorageResult<Connection> {
     Ok(connection)
 }
 pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
+    app::migrate(connection)
+}
+
+fn migrate_app_schema(connection: &Connection) -> StorageResult<()> {
     crate::question_delivery_store::migrate(connection)?;
     crate::context_store::migrate(connection)?;
     crate::live_operation_store::migrate(connection)?;

@@ -3,7 +3,6 @@ use super::{
     CloneTransport, ClonedWorkspaceSecurityError, GitHubRemote,
 };
 use std::fmt;
-use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -11,6 +10,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
+
+#[path = "owned_target.rs"]
+mod owned_target;
+use owned_target::OwnedTarget;
 
 const CHILD_POLL_INTERVAL: Duration = Duration::from_millis(25);
 const MAX_DIAGNOSTIC_BYTES: usize = 16 * 1024;
@@ -158,21 +161,12 @@ impl GitCloneRunner {
             return Err(cancelled_failure(target));
         }
 
-        fs::create_dir(&target).map_err(|error| {
+        let owned_target = OwnedTarget::create(target.clone()).map_err(|error| {
             CloneFailure::new(
                 CloneFailureKind::DestinationUnavailable,
-                format!("Could not create the project folder: {error}"),
+                format!("Could not create the project folder: {}", error.error),
                 target.clone(),
-                false,
-            )
-        })?;
-        let owned_target = OwnedTarget::capture(target.clone()).map_err(|error| {
-            let _ = fs::remove_dir(&target);
-            CloneFailure::new(
-                CloneFailureKind::DestinationUnavailable,
-                format!("Could not verify the project folder: {error}"),
-                target.clone(),
-                false,
+                error.preserved,
             )
         })?;
 
@@ -184,11 +178,15 @@ impl GitCloneRunner {
             target: target.clone(),
         });
 
+        #[cfg(windows)]
+        let git_target = dunce::simplified(&target);
+        #[cfg(not(windows))]
+        let git_target = &target;
         let mut command = Command::new(&self.git_binary);
         command
             .args(["clone", "--progress", "--"])
             .arg(&request.remote_url)
-            .arg(&target)
+            .arg(git_target)
             .env("GIT_TERMINAL_PROMPT", "0")
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -389,48 +387,4 @@ fn cancelled_failure(target: PathBuf) -> CloneFailure {
         target,
         false,
     )
-}
-
-struct OwnedTarget {
-    path: PathBuf,
-    #[cfg(unix)]
-    device: u64,
-    #[cfg(unix)]
-    inode: u64,
-}
-
-impl OwnedTarget {
-    fn capture(path: PathBuf) -> std::io::Result<Self> {
-        let metadata = fs::symlink_metadata(&path)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::MetadataExt;
-            Ok(Self {
-                path,
-                device: metadata.dev(),
-                inode: metadata.ino(),
-            })
-        }
-        #[cfg(not(unix))]
-        {
-            Ok(Self { path })
-        }
-    }
-
-    fn cleanup(&self) {
-        let Ok(metadata) = fs::symlink_metadata(&self.path) else {
-            return;
-        };
-        if metadata.file_type().is_symlink() || !metadata.is_dir() {
-            return;
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::MetadataExt;
-            if metadata.dev() != self.device || metadata.ino() != self.inode {
-                return;
-            }
-        }
-        let _ = fs::remove_dir_all(&self.path);
-    }
 }

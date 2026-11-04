@@ -365,3 +365,62 @@ fn git_clone_runner_cancels_running_child_and_cleans_owned_target() {
         "取消路径不得退化为等待 fake Git 自然退出"
     );
 }
+
+/// 场景：Windows canonical parent 带 verbatim 前缀；数据为中文空格目录和真实本地仓库。
+/// 执行：记录原始/普通路径 Git 对照，再通过公开 Runner 完成克隆。
+/// 预期：普通路径和 Runner 均完成；内部身份仍保留 canonical 路径，不把路径改写用于安全判断。
+#[cfg(windows)]
+#[test]
+fn git_clone_runner_accepts_verbatim_destination_with_unicode_and_spaces() {
+    let temp = tempfile::tempdir().expect("隔离根");
+    let source = temp.path().join("source");
+    let projects = temp.path().join("中文 projects");
+    create_committed_repository(&source, false);
+    std::fs::create_dir(&projects).expect("目标父目录");
+    let canonical = projects.canonicalize().expect("Windows canonical parent");
+    assert!(
+        canonical.to_string_lossy().starts_with(r"\\?\"),
+        "此反例必须实际覆盖 verbatim 路径"
+    );
+    let original = canonical.join("raw-probe");
+    let raw = Command::new("git")
+        .args(["clone", "--progress", "--"])
+        .arg(&source)
+        .arg(&original)
+        .output()
+        .expect("原始路径对照");
+    println!(
+        "raw verbatim clone: status={} stderr={}",
+        raw.status,
+        String::from_utf8_lossy(&raw.stderr)
+    );
+    let ordinary = canonical.join("ordinary-probe");
+    let normal = Command::new("git")
+        .args(["clone", "--progress", "--"])
+        .arg(&source)
+        .arg(dunce::simplified(&ordinary))
+        .output()
+        .expect("普通路径对照");
+    println!(
+        "ordinary clone: status={} stderr={}",
+        normal.status,
+        String::from_utf8_lossy(&normal.stderr)
+    );
+    assert!(
+        normal.status.success(),
+        "真实 Git 必须能克隆普通路径，不能只比较命令字符串"
+    );
+    let destination = validate_clone_destination(&projects, "cloned").expect("合法目标");
+    let request =
+        GitCloneRequest::for_url_for_test(source.to_string_lossy().into_owned(), destination);
+    let result = GitCloneRunner::system()
+        .run(request, &CloneCancellation::new(), |_| {})
+        .expect("公共 Runner 必须完成克隆与安全收口");
+    assert_eq!(
+        result,
+        canonical.join("cloned"),
+        "安全身份必须继续使用原 canonical 目标"
+    );
+    assert!(result.join("README.md").is_file(), "克隆正文必须存在");
+    assert!(result.join(".git").is_dir(), "真实仓库元数据必须存在");
+}

@@ -1,0 +1,157 @@
+{
+  "run_id": "41327614822",
+  "run_attempt": 1,
+  "source_sha": "747777db081a4f06005ee3b8b617de91db29fe8c",
+  "baseline_run": "41322579276",
+  "original_storage_diagnostics": 25,
+  "storage_diagnostics_in_app_log": [],
+  "original_vad_errors": 5,
+  "current_vad_compile_errors": 0,
+  "original_vad_errors_eliminated": true,
+  "voice_input_compile": {
+    "id": "voice_input_compile",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "voice_input",
+      "--lib",
+      "--target",
+      "x86_64-pc-windows-msvc",
+      "--message-format=short"
+    ],
+    "log": "voice_input_compile.log",
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_seconds": 196.91
+  },
+  "norma_lib": {
+    "id": "norma_compile",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "norma",
+      "--lib",
+      "--target",
+      "x86_64-pc-windows-msvc",
+      "--message-format=short"
+    ],
+    "log": "norma_compile.log",
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_seconds": 185.66
+  },
+  "norma_default_cli_helper_gate": "success",
+  "norma_platform_tests": {
+    "passed": 43,
+    "failed": 0,
+    "ignored": 0
+  },
+  "canvas_tests": {
+    "passed": 52,
+    "failed": 0,
+    "ignored": 0
+  },
+  "app": {
+    "id": "app_compile",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "app",
+      "--target",
+      "x86_64-pc-windows-msvc",
+      "--message-format=short"
+    ],
+    "log": "app_compile.log",
+    "status": "FAIL",
+    "exit_code": 101,
+    "duration_seconds": 840.84,
+    "errors": [
+      "crates\\runtime\\src\\nodes\\agent\\codex.rs:5:14: error[E0433]: failed to resolve: could not find `unix` in `os`: could not find `unix` in `os`",
+      "crates\\runtime\\src\\nodes\\agent\\codex.rs:4:20: error[E0432]: unresolved imports `norma::codex::native_questions`, `norma::codex::relay`: could not find `native_questions` in `codex`, could not find `relay` in `codex`",
+      "crates\\runtime\\src\\runtime\\questions\\codex_host.rs:4:19: error[E0432]: unresolved import `norma::codex::native_questions`: could not find `native_questions` in `codex`",
+      "crates\\runtime\\src\\runtime\\questions\\codex_host.rs:5:19: error[E0432]: unresolved import `norma::codex::relay`: could not find `relay` in `codex`",
+      "crates\\runtime\\src\\runtime\\questions\\codex_turns.rs:5:19: error[E0432]: unresolved import `norma::codex::relay`: could not find `relay` in `codex`",
+      "crates\\runtime\\src\\live.rs:85:25: error[E0433]: failed to resolve: could not find `native_questions` in `codex`: could not find `native_questions` in `codex`"
+    ],
+    "scope": "Default App main/helper targets; first failed compilation frontier, not a full migration inventory"
+  },
+  "speech_tests": {
+    "id": "speech_tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--no-fail-fast",
+      "-p",
+      "voice_input",
+      "-p",
+      "asr",
+      "-p",
+      "voice_sherpa",
+      "--target",
+      "x86_64-pc-windows-msvc"
+    ],
+    "log": "speech_tests.log",
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_seconds": 442.66,
+    "counts": {
+      "passed": 89,
+      "failed": 0,
+      "ignored": 16
+    },
+    "test_execution": "RUN",
+    "failed_tests": [],
+    "compiler_errors": []
+  },
+  "platform_tests": {
+    "memory": {
+      "exit_code": 0,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      },
+      "errors": [],
+      "failed_tests": []
+    },
+    "review": {
+      "exit_code": 0,
+      "counts": {
+        "passed": 28,
+        "failed": 0,
+        "ignored": 0
+      },
+      "errors": [],
+      "failed_tests": []
+    },
+    "a1": {
+      "exit_code": 0,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      },
+      "errors": [],
+      "failed_tests": []
+    }
+  },
+  "unverified": [
+    "physical_microphone",
+    "real_model_vad",
+    "windows_real_a1_model",
+    "real_norma_gui",
+    "real_agents",
+    "candidate_package"
+  ],
+  "goal_complete": false,
+  "known_platform_limitations": {
+    "windows_real_a1_model": "Existing Engine::start still requires Apple Silicon macOS; unchanged. Factory/transport tests do not prove Windows inference."
+  }
+}

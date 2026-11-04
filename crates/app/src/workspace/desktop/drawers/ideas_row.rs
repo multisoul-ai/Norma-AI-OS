@@ -236,13 +236,13 @@ impl MultisoulApp {
     pub(super) fn render_todo_row(
         &self,
         row: &TodoRow,
-        focused: bool,
-        menu_open: bool,
+        state: (bool, bool),
         options: &[IdeaTargetOption],
         expanded_area: Option<String>,
         feedback: super::super::overview_rows::OverviewFeedback,
         cx: &mut Context<Self>,
     ) -> Div {
+        let (focused, menu_open) = state;
         let theme = self.desktop_theme();
         let id = row.id.clone();
         let element_id = format!("desktop-idea-row-{}", row.id);

@@ -4,14 +4,14 @@ use audio::{PcmAudioChunk, PcmFormat};
 use crossbeam_channel::Sender;
 use std::sync::Arc;
 
-const INPUT_BUS: usize = 0;
-const TAP_BUFFER_SIZE: u32 = 1_600; // requested tap size in frames (hint; HW may differ)
 pub const RECOGNIZER_SAMPLE_RATE_HZ: u32 = 16_000;
 pub const PCM_STREAM_SAMPLE_RATE_HZ: u32 = 16_000;
 
 pub struct AudioCapture {
     #[cfg(target_os = "macos")]
     inner: macos::MacosAudioCapture,
+    #[cfg(windows)]
+    inner: crate::windows::WindowsAudioCapture,
 }
 
 impl AudioCapture {
@@ -54,7 +54,19 @@ impl AudioCapture {
                 )?,
             })
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(windows)]
+        {
+            Ok(Self {
+                inner: crate::windows::WindowsAudioCapture::start(
+                    sender,
+                    stats,
+                    input_device_id,
+                    target_sample_rate_hz,
+                    voice_processing,
+                )?,
+            })
+        }
+        #[cfg(not(any(target_os = "macos", windows)))]
         {
             let _ = sender;
             let _ = stats;
@@ -67,9 +79,17 @@ impl AudioCapture {
         }
     }
 
-    pub fn stop(self) {
+    pub fn stop(self) -> Result<(), VoiceInputError> {
         #[cfg(target_os = "macos")]
         self.inner.stop();
+        #[cfg(windows)]
+        {
+            self.inner.stop()
+        }
+        #[cfg(not(windows))]
+        {
+            Ok(())
+        }
     }
 }
 
@@ -119,6 +139,9 @@ mod macos {
     };
     use std::cell::RefCell;
     use std::ptr::NonNull;
+
+    const INPUT_BUS: usize = 0;
+    const TAP_BUFFER_SIZE: u32 = 1_600; // requested tap size in frames (hint; HW may differ)
 
     type TapBlock = RcBlock<dyn Fn(NonNull<AVAudioPCMBuffer>, NonNull<AVAudioTime>)>;
 

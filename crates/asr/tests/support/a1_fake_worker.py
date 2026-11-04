@@ -12,6 +12,14 @@ def send(value):
     sys.stdout.buffer.write(struct.pack('<I', len(data)) + data)
     sys.stdout.buffer.flush()
 
+if mode == 'descendant':
+    import subprocess
+    from pathlib import Path
+    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
+    Path(sys.argv[2]).write_text(str(child.pid))
+    send(dict(v=1, op='ready', source='qwen'))
+    os._exit(0)
+
 send(dict(v=1, op='ready', source='qwen'))
 while prefix := sys.stdin.buffer.read(4):
     request = json.loads(sys.stdin.buffer.read(struct.unpack('<I', prefix)[0]))

@@ -302,18 +302,15 @@ impl MultisoulApp {
                         "[help-diag] stage=help_dispatch_self");
                     self.on_open_feature_guide(&OpenFeatureGuide, window, cx);
                 }
-                return;
             }
             DockCommand::AddProject(path) => {
                 self.add_project_from_dock(path, window, cx);
                 self.set_command_query(String::new(), false, window, cx);
                 self.focus_handle.focus(window);
-                return;
             }
             DockCommand::BrowseProject => {
                 self.set_command_query(String::new(), false, window, cx);
                 self.prompt_open_project(window, cx);
-                return;
             }
             command => self.spawn_dock_card(command, window, cx),
         }

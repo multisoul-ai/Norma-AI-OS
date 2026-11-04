@@ -47,6 +47,8 @@ fn server(reply_status: u16) -> (String, std::thread::JoinHandle<Vec<(String, Va
                     Err(error) => panic!("应收到有界本机HTTP请求：{error}"),
                 }
             };
+            // Listener remains nonblocking; accepted HTTP IO must honor its 3s timeout.
+            socket.set_nonblocking(false).unwrap();
             socket
                 .set_read_timeout(Some(Duration::from_secs(3)))
                 .unwrap();
@@ -102,25 +104,20 @@ fn server(reply_status: u16) -> (String, std::thread::JoinHandle<Vec<(String, Va
 #[test]
 fn opencode_replies_only_through_own_instance_and_original_request() {
     for status in [200, 404] {
+        let workspace = tempfile::Builder::new()
+            .prefix("original cwd ")
+            .tempdir()
+            .unwrap();
+        let directory = workspace.path().to_str().unwrap();
         let (endpoint, worker) = server(status);
         let raw = request();
         let session = raw["sessionID"].as_str().unwrap();
-        let client = OpenCodeQuestionClient::new(
-            &endpoint,
-            "/tmp/original cwd",
-            session,
-            "opencode",
-            "test-secret",
-        )
-        .unwrap();
-        let other = OpenCodeQuestionClient::new(
-            &endpoint,
-            "/tmp/original cwd",
-            session,
-            "opencode",
-            "test-secret",
-        )
-        .unwrap();
+        let client =
+            OpenCodeQuestionClient::new(&endpoint, directory, session, "opencode", "test-secret")
+                .unwrap();
+        let other =
+            OpenCodeQuestionClient::new(&endpoint, directory, session, "opencode", "test-secret")
+                .unwrap();
         let pending = client.pending().unwrap();
         assert_eq!(pending.len(), 1, "GET结果必须先按所属session筛选");
         assert_eq!(
@@ -145,9 +142,16 @@ fn opencode_replies_only_through_own_instance_and_original_request() {
             "首次读取、发送前核验、唯一POST；不得盲目重试"
         );
         assert!(
-            requests
-                .iter()
-                .all(|(line, _)| line.contains("directory=%2Ftmp%2Foriginal+cwd")),
+            requests.iter().all(|(line, _)| {
+                let target = line.split_whitespace().nth(1).unwrap();
+                let url = url::Url::parse(&format!("http://localhost{target}")).unwrap();
+                let directories = url
+                    .query_pairs()
+                    .filter(|(key, _)| key == "directory")
+                    .map(|(_, value)| value.into_owned())
+                    .collect::<Vec<_>>();
+                directories == [directory]
+            }),
             "每次请求都绑定原目录"
         );
         assert!(

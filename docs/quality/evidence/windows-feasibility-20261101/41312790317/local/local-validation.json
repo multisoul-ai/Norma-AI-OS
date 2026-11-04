@@ -1,0 +1,45 @@
+{
+  "implementation_commit": "e0e75071fb431d9ff93d432f7f95f899802f57a4",
+  "report_validation_commit": "e29f676e6fce66894b87a8ab7fb1e23e3538d8b0",
+  "dependency_regression": {
+    "before": "3 Windows target subcases FAIL; 3 macOS target subcases PASS",
+    "after": "all 6 Windows/macOS direct normal dependency subcases PASS",
+    "native_version": "sherpa-onnx 1.13.3, unchanged lock"
+  },
+  "report_cli_tests": {
+    "passed": 9,
+    "failed": 0
+  },
+  "macos_workspace_check": "PASS",
+  "cargo_fmt_check": "PASS",
+  "guardrails": {
+    "tts_provider": "PASS",
+    "storage": "PASS",
+    "performance": "PASS",
+    "socks_proxy": "PASS",
+    "max_file_lines": "PASS",
+    "no_allow": "PASS",
+    "agent_guide_lines": "PASS",
+    "video_wallpaper": "PASS",
+    "domain_contracts": "PASS",
+    "actionlint": "PASS",
+    "i18n": "FAIL: unchanged gpt_live.rs:70 baseline hardcoded copy"
+  },
+  "macos_speech_tests": {
+    "command_exit": 101,
+    "passed": 90,
+    "failed": 4,
+    "ignored": 17,
+    "failed_target": "asr --lib, four A1 host tests",
+    "failure_class": "ENV: unchanged resource guard rejects kernel memory pressure level 2; requires level 1",
+    "retry_count": 1,
+    "new_ignored_tests": 0
+  },
+  "microphone_model_agent_acceptance": "NOT_RUN",
+  "task_cache_cleanup": {
+    "status": "PASS",
+    "task_id": "windows-vad-20261101",
+    "log": "task-cache-cleanup.log",
+    "scope": "Only the registered isolated task target; no main workspace cache or user App touched"
+  }
+}

@@ -9,7 +9,17 @@ impl BrowserView {
         bounds: BrowserViewBounds,
         window: &mut Window,
         event_sender: Sender<BrowserEvent>,
+        cx: &gpui::App,
     ) {
+        #[cfg(windows)]
+        if self
+            .native_view
+            .as_ref()
+            .is_some_and(|view| !view.is_attached_to(window))
+        {
+            // A retained background project can attach to a different native host window.
+            self.native_view = None;
+        }
         if self.native_view.is_none() {
             let configured = std::env::var("MULTISOUL_BROWSER_ENGINE").ok();
             let engine = if url.starts_with("norma-content://") {
@@ -18,16 +28,28 @@ impl BrowserView {
                 BrowserEngineKind::from_env_value(configured.as_deref())
             };
             let create_started = Instant::now();
-            match NativeBrowserView::create(engine, node_id, url, bounds, window, event_sender) {
+            match NativeBrowserView::create(engine, node_id, url, bounds, window, event_sender, cx)
+            {
                 Ok(native_view) => {
                     self.native_view = Some(native_view);
+                    #[cfg(not(windows))]
                     tracing::info!(
                         node_id,
                         create_ms = create_started.elapsed().as_secs_f64() * 1000.0,
                         "browser_view_created"
                     );
-                    self.load_timeline
-                        .begin(create_started, Some(create_started.elapsed()));
+                    #[cfg(windows)]
+                    tracing::info!(node_id, "browser_view_creation_requested");
+                    self.load_timeline.begin(create_started, {
+                        #[cfg(windows)]
+                        {
+                            None
+                        }
+                        #[cfg(not(windows))]
+                        {
+                            Some(create_started.elapsed())
+                        }
+                    });
                 }
                 Err(error) => tracing::warn!(
                     node_id,

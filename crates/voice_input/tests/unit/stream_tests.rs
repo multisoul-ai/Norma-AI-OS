@@ -3,6 +3,78 @@ use crate::PcmEvent;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
+/// 场景：capture线程失败时，stop仍须join转发线程并返回原始错误。
+/// 构造：capture持有唯一PCM sender并返回确定Err，forward运行真实PCM转发后设置见证。
+/// 执行：生产PcmStreamSession.stop；预期原始Err精确保留，所有线程与输出通道已收口。
+#[test]
+fn stopping_a_failed_capture_still_joins_the_forwarder() {
+    let (stop_tx, _stop_rx) = std::sync::mpsc::channel();
+    let (pcm_tx, pcm_rx) = crossbeam_channel::bounded(1);
+    let (chunk_tx, chunk_rx) = async_channel::bounded(1);
+    let (at_gate, waiting) = std::sync::mpsc::channel();
+    let (release, gate) = std::sync::mpsc::channel();
+    let (exited, exit_seen) = std::sync::mpsc::channel();
+    let joined = Arc::new(AtomicBool::new(false));
+    let witness = Arc::clone(&joined);
+    let capture_thread = std::thread::spawn(move || {
+        drop(pcm_tx);
+        Err(crate::VoiceInputError::Audio("device invalidated".into()))
+    });
+    let forward_thread = std::thread::spawn(move || {
+        forward_pcm_events(pcm_rx, chunk_tx, None);
+        at_gate.send(()).expect("必须见证forward已到达受控退出门");
+        gate.recv().expect("测试必须显式释放forward退出门");
+        witness.store(true, Ordering::SeqCst);
+        exited.send(()).expect("必须保留forward退出见证");
+    });
+    let session = PcmStreamSession {
+        stop_tx: Some(stop_tx),
+        capture_thread: Some(capture_thread),
+        forward_thread: Some(forward_thread),
+        #[cfg(feature = "test-support")]
+        test_hold_tx: None,
+        #[cfg(feature = "test-support")]
+        test_lifecycle_tx: None,
+    };
+    waiting
+        .recv_timeout(std::time::Duration::from_secs(3))
+        .expect("forward必须实际运行到退出门");
+    let (done, result) = std::sync::mpsc::channel();
+    let stopper = std::thread::spawn(move || {
+        done.send(session.stop()).expect("必须保留stop返回值");
+    });
+    // 门保持关闭时，50ms只给stop线程取得执行机会，不模拟设备时序。
+    let early = result.recv_timeout(std::time::Duration::from_millis(50));
+    release
+        .send(())
+        .expect("检查后必须释放退出门，避免失败时遗留线程");
+    stopper.join().expect("stop所有者必须完整收口");
+    exit_seen
+        .recv_timeout(std::time::Duration::from_secs(3))
+        .expect("forward必须完成退出");
+    let returned_early = early.is_ok();
+    let outcome = match early {
+        Ok(outcome) => outcome,
+        Err(_) => result
+            .recv_timeout(std::time::Duration::from_secs(3))
+            .expect("释放forward后stop必须返回"),
+    };
+    assert!(
+        !returned_early,
+        "capture失败不能在forward退出门释放前返回，必须实际等待join"
+    );
+    assert_eq!(
+        outcome,
+        Err(crate::VoiceInputError::Audio("device invalidated".into())),
+        "stop不能将采集错误伪装成成功"
+    );
+    assert!(
+        joined.load(Ordering::SeqCst),
+        "capture失败不能跳过forward线程join"
+    );
+    assert!(chunk_rx.is_closed(), "返回错误时输出通道也必须完成资源收口");
+}
+
 /// STREAM-1: drop PcmStreamSession 应停止 capture thread 并关闭 chunk stream。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -35,6 +107,7 @@ fn test_drop_pcm_stream_session_stops_capture_and_closes_stream() {
         stop_count_for_thread.fetch_add(1, Ordering::SeqCst);
         stopped_for_thread.store(true, Ordering::SeqCst);
         drop(pcm_tx);
+        Ok(())
     });
     let forward_thread = std::thread::spawn(move || forward_pcm_events(pcm_rx, chunk_tx, None));
 
@@ -90,6 +163,7 @@ fn test_cancel_consumes_session_and_stops_capture_once() {
     let capture_thread = std::thread::spawn(move || {
         let _ = stop_rx.recv();
         stop_count_for_thread.fetch_add(1, Ordering::SeqCst);
+        Ok(())
     });
 
     let session = PcmStreamSession {
@@ -343,7 +417,10 @@ fn test_voice_processing_capture_restarts_without_raw_fallback() {
         let startup = started_rx.recv().expect("采集线程应报告启动结果");
         let pcm = pcm_rx.recv_timeout(super::DUPLEX_CAPTURE_READY_TIMEOUT);
         let _ = stop_tx.send(());
-        owner.join().expect("旧引擎必须完整关闭后才能重开");
+        owner
+            .join()
+            .expect("旧引擎线程必须完整关闭后才能重开")
+            .expect("旧引擎停止不能丢弃底层采集错误");
         startup.expect("Voice Processing 引擎应成功启动");
         pcm
     }

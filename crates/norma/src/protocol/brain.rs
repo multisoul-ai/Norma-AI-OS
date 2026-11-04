@@ -25,13 +25,13 @@ pub enum BrainDecision {
 pub enum BrainOp {
     Questions,
     ProposeAnswer {
-        target: super::QuestionRef,
+        target: Box<super::QuestionRef>,
         answers: Vec<super::QuestionAnswer>,
         reason: String,
     },
     /// Answer only after host authorization of this exact live question and answer.
     Answer {
-        target: super::QuestionRef,
+        target: Box<super::QuestionRef>,
         answers: Vec<super::QuestionAnswer>,
     },
     /// Read an immutable event; does not replay operations or expand read scope.

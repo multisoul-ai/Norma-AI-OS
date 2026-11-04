@@ -1,0 +1,68 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.54s
+     Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+
+running 5 tests
+
+thread '<unnamed>' (1164) panicked at crates\storage\tests\live_operation_store.rs:185:47:
+并发预留: Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$0::closure$0
+             at .\tests\live_operation_store.rs:185
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+thread 'live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown' (8152) panicked at crates\storage\tests\live_operation_store.rs:209:49:
+并发线程: Any { .. }
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$1
+             at .\tests\live_operation_store.rs:209
+   5: core::iter::adapters::map::map_fold::closure$0
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:88
+   6: alloc::vec::into_iter::impl$5::fold
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\into_iter.rs:323
+   7: core::iter::adapters::map::impl$2::fold<usize,alloc::vec::into_iter::IntoIter<std::thread::JoinHandle<bool>,alloc::alloc::Global>,live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure_env$1,usize,core::iter::trait
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:128
+   8: core::iter::traits::accum::impl$48::sum
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\accum.rs:50
+   9: core::iter::traits::iterator::Iterator::sum
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\iterator.rs:3580
+  10: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown
+             at .\tests\live_operation_store.rs:210
+  11: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$0
+             at .\tests\live_operation_store.rs:162
+  12: core::ops::function::FnOnce::call_once<live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+  13: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... FAILED
+test live_failure_after_side_effect_requires_reconciliation ... ok
+test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+test live_lease_cannot_record_into_another_database ... ok
+
+failures:
+
+failures:
+    live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown
+
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.50s
+
+error: test failed, to rerun pass `-p storage --test live_operation_store`
+error: 1 target failed:
+    `-p storage --test live_operation_store`

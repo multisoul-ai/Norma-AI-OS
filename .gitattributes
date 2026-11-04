@@ -1,2 +1,4 @@
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 crates/app/assets/init-animation/*.bin binary
+# Trusted media hashes use the committed LF bytes on every checkout platform.
+crates/app/assets/feature-guide/*.md text eol=lf

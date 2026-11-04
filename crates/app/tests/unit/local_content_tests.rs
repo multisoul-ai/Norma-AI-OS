@@ -1,4 +1,8 @@
 use crate::preview::local_content::{respond, LocalPreview};
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
+#[cfg(windows)]
+use std::os::windows::fs::symlink_file as symlink;
 use wry::http::Request;
 
 /// 场景：Markdown 引用同项目图片，同时有人尝试读取越界链接和 Git 文件。
@@ -13,7 +17,7 @@ fn local_preview_scopes_resources_and_releases_access() {
     std::fs::create_dir(temp.path().join(".git")).expect("内部目录");
     std::fs::write(temp.path().join(".git/config"), "private").expect("内部配置");
     let outside = tempfile::NamedTempFile::new().expect("外部文件");
-    std::os::unix::fs::symlink(outside.path(), temp.path().join("escape")).expect("链接");
+    symlink(outside.path(), temp.path().join("escape")).expect("链接");
     let preview = LocalPreview::new(temp.path(), "plan.md", Some("# Hello")).expect("预览");
     let base = preview
         .url

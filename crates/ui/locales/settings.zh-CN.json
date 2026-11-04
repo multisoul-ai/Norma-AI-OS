@@ -284,5 +284,6 @@
   "settings.wallpaper_import_cancelled": "已取消导入",
   "settings.wallpaper_deleted": "已删除壁纸",
   "settings.wallpaper_file_delete_failed": "已恢复默认壁纸，但无法删除文件：%{error}",
-  "settings.wallpaper_delete_failed": "壁纸删除失败：%{error}"
+  "settings.wallpaper_delete_failed": "壁纸删除失败：%{error}",
+  "settings.credential_permissions_insecure": "Provider 凭据仅允许其所有者访问。"
 }

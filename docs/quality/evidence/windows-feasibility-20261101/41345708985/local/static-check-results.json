@@ -1,0 +1,101 @@
+[
+  {
+    "status": "fulfilled",
+    "value": {
+      "id": "line-check",
+      "chunk_id": "eddf99",
+      "wall_time_seconds": 9.19607425,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "id": "no-allow",
+      "chunk_id": "e8fbe5",
+      "wall_time_seconds": 8.568128583,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "id": "guide-lines",
+      "chunk_id": "997423",
+      "wall_time_seconds": 0.000016125,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "id": "storage-boundaries",
+      "chunk_id": "64f0e4",
+      "wall_time_seconds": 2.018724125,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "id": "performance-guardrails",
+      "chunk_id": "783164",
+      "wall_time_seconds": 0.000013042,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "id": "tts-boundaries",
+      "chunk_id": "2e97fb",
+      "wall_time_seconds": 0.000008208,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "id": "video-guardrails",
+      "chunk_id": "7ff130",
+      "wall_time_seconds": 0.000015458,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "id": "socks-check",
+      "chunk_id": "040be4",
+      "wall_time_seconds": 1.326763041,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "id": "i18n-check",
+      "chunk_id": "b910f2",
+      "wall_time_seconds": 0.202406792,
+      "exit_code": 1,
+      "original_token_count": 0,
+      "output": ""
+    }
+  }
+]

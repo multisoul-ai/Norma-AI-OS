@@ -1,6 +1,7 @@
 use asr::{
     InputEndReason, RecognitionEvent, RecognitionPipeline, RecognitionSession, RecognizerFactory,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use voice_input::PcmStreamSession;
@@ -8,13 +9,31 @@ use voice_input::PcmStreamSession;
 pub(crate) struct AsrRecordingSession {
     pcm_stream: Option<PcmStreamSession>,
     recognition: Arc<RecognitionSession>,
-    forward_thread: Option<JoinHandle<()>>,
-    event_thread: Option<JoinHandle<Result<String, String>>>,
+    forward_thread: Option<JoinHandle<Result<(), String>>>,
+    event_thread: Option<JoinHandle<Result<String, asr::AsrError>>>,
+    capture_stopping: Arc<AtomicBool>,
+}
+
+enum RecordingInputError {
+    Capture(String),
+    Forward(String),
 }
 
 impl AsrRecordingSession {
     pub(crate) fn reached_duration_limit(&self) -> bool {
         self.recognition.reached_duration_limit()
+    }
+
+    pub(crate) fn input_has_ended(&self) -> bool {
+        self.reached_duration_limit()
+            || self
+                .forward_thread
+                .as_ref()
+                .is_some_and(|thread| thread.is_finished())
+            || self
+                .event_thread
+                .as_ref()
+                .is_some_and(|thread| thread.is_finished())
     }
 
     pub(crate) fn start(
@@ -39,13 +58,30 @@ impl AsrRecordingSession {
                 .start_with_cancellation(recognizer, cancellation),
         );
         let forward_recognition = recognition.clone();
+        let capture_stopping = Arc::new(AtomicBool::new(false));
+        let forward_stopping = Arc::clone(&capture_stopping);
         let forward_thread = std::thread::Builder::new()
             .name("asr_pcm_forwarder".to_string())
             .spawn(move || {
                 while let Ok(chunk) = pcm_rx.recv_blocking() {
-                    if forward_recognition.push_pcm(chunk).is_err() {
-                        break;
+                    if let Err(error) = forward_recognition.push_pcm(chunk) {
+                        if forward_recognition.reached_duration_limit()
+                            || forward_recognition.cancellation().is_cancelled()
+                        {
+                            return Ok(());
+                        }
+                        let _ = forward_recognition.cancel();
+                        return Err(error.to_string());
                     }
+                }
+                if forward_stopping.load(Ordering::Acquire)
+                    || forward_recognition.reached_duration_limit()
+                    || forward_recognition.cancellation().is_cancelled()
+                {
+                    Ok(())
+                } else {
+                    let _ = forward_recognition.cancel();
+                    Err("microphone PCM stream ended unexpectedly".into())
                 }
             })
             .map_err(|error| format!("could not spawn ASR PCM forwarder: {error}"))?;
@@ -61,19 +97,30 @@ impl AsrRecordingSession {
                 recognition,
                 forward_thread: Some(forward_thread),
                 event_thread: Some(event_thread),
+                capture_stopping,
             },
             partial_rx,
         ))
     }
 
     pub(crate) fn finish(mut self) -> Result<String, String> {
-        self.stop_capture();
+        if let Err(error) = self.stop_capture() {
+            let _ = self.recognition.cancel();
+            let terminal = self.join_terminal();
+            return Err(match error {
+                RecordingInputError::Capture(error) => error,
+                RecordingInputError::Forward(error) => match terminal {
+                    Err(provider @ asr::AsrError::Provider(_)) => provider.to_string(),
+                    _ => error,
+                },
+            });
+        }
         if let Err(error) = self.recognition.finish(InputEndReason::User) {
             if error != asr::AsrError::SessionClosed {
                 return Err(error.to_string());
             }
         }
-        self.join_terminal()
+        self.join_terminal().map_err(|error| error.to_string())
     }
 
     pub(crate) fn cancel(mut self) {
@@ -82,26 +129,35 @@ impl AsrRecordingSession {
             .name("asr_recording_cancel".to_string())
             .spawn(move || {
                 let _ = self.recognition.cancel();
-                self.stop_capture();
+                let _ = self.stop_capture();
                 let _ = self.join_terminal();
             });
     }
 
-    fn stop_capture(&mut self) {
-        if let Some(pcm_stream) = self.pcm_stream.take() {
-            pcm_stream.cancel();
-        }
-        if let Some(thread) = self.forward_thread.take() {
-            let _ = thread.join();
-        }
+    fn stop_capture(&mut self) -> Result<(), RecordingInputError> {
+        // Publish intent before closing PCM, so a user stop cannot look like device loss.
+        self.capture_stopping.store(true, Ordering::Release);
+        let capture_result = self.pcm_stream.take().map_or(Ok(()), |stream| {
+            stream
+                .stop()
+                .map_err(|error| RecordingInputError::Capture(error.to_string()))
+        });
+        let forward_result = self.forward_thread.take().map_or(Ok(()), |thread| {
+            thread
+                .join()
+                .map_err(|_| "ASR PCM forwarder panicked".to_string())
+                .and_then(|result| result)
+                .map_err(RecordingInputError::Forward)
+        });
+        capture_result.and(forward_result)
     }
 
-    fn join_terminal(&mut self) -> Result<String, String> {
+    fn join_terminal(&mut self) -> Result<String, asr::AsrError> {
         self.event_thread
             .take()
-            .ok_or_else(|| "ASR event forwarder is missing".to_string())?
+            .ok_or(asr::AsrError::WorkerStopped)?
             .join()
-            .map_err(|_| "ASR event forwarder panicked".to_string())?
+            .map_err(|_| asr::AsrError::WorkerStopped)?
     }
 }
 
@@ -114,7 +170,7 @@ impl Drop for AsrRecordingSession {
 fn collect_terminal(
     events: async_channel::Receiver<RecognitionEvent>,
     partials: async_channel::Sender<String>,
-) -> Result<String, String> {
+) -> Result<String, asr::AsrError> {
     while let Ok(event) = events.recv_blocking() {
         match event {
             RecognitionEvent::Partial(text) => {
@@ -122,10 +178,10 @@ fn collect_terminal(
             }
             RecognitionEvent::Final(text) => return Ok(text),
             RecognitionEvent::Empty => return Ok(String::new()),
-            RecognitionEvent::Failed(error) => return Err(error.to_string()),
-            RecognitionEvent::Cancelled => return Err("recognition was cancelled".to_string()),
+            RecognitionEvent::Failed(error) => return Err(error),
+            RecognitionEvent::Cancelled => return Err(asr::AsrError::SessionClosed),
             RecognitionEvent::InputEnded(_) => {}
         }
     }
-    Err("recognition ended without a terminal event".to_string())
+    Err(asr::AsrError::WorkerStopped)
 }

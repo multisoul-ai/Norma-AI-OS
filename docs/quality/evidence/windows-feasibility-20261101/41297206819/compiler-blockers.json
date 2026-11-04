@@ -1,0 +1,28 @@
+{
+  "run_id": "41297206819",
+  "run_attempt": 1,
+  "source_sha": "58fe7ebdaee43f1e3cd6b12725e3f947282dcaa4",
+  "compiler_error_count": 14,
+  "errors": [
+    "crates\\norma\\src\\agent_hook\\native_question.rs:3:12: error[E0433]: failed to resolve: could not find `codex` in the crate root: could not find `codex` in the crate root",
+    "crates\\norma\\src\\agent_hook\\session_claim.rs:30:18: error[E0433]: failed to resolve: could not find `unix` in `os`: could not find `unix` in `os`",
+    "crates\\norma\\src\\client.rs:8:14: error[E0433]: failed to resolve: could not find `unix` in `os`: could not find `unix` in `os`",
+    "crates\\norma\\src\\orchestration\\file_ops.rs:3:14: error[E0433]: failed to resolve: could not find `unix` in `os`: could not find `unix` in `os`",
+    "crates\\norma\\src\\orchestration\\installer.rs:15:14: error[E0433]: failed to resolve: could not find `unix` in `os`: could not find `unix` in `os`",
+    "crates\\norma\\src\\agent_hook\\native_question.rs:39:26: error[E0433]: failed to resolve: unresolved import: unresolved import, help: a similar path exists: `agent_hook::cursor`",
+    "crates\\norma\\src\\agent_hook\\native_question.rs:100:39: error[E0433]: failed to resolve: unresolved import: unresolved import, help: a similar path exists: `agent_hook::cursor`",
+    "crates\\norma\\src\\mobile\\conversation.rs:113:36: error[E0433]: failed to resolve: could not find `claude` in the crate root: could not find `claude` in the crate root",
+    "crates\\norma\\src\\mobile\\conversation.rs:142:36: error[E0433]: failed to resolve: unresolved import: unresolved import, help: a similar path exists: `agent_hook::cursor`",
+    "crates\\norma\\src\\agent_hook\\session_claim.rs:31:38: error[E0599]: no method named `mode` found for struct `DirBuilder` in the current scope: method not found in `DirBuilder`",
+    "crates\\norma\\src\\orchestration\\file_ops.rs:26:14: error[E0599]: no method named `mode` found for mutable reference `&mut OpenOptions` in the current scope: method not found in `&mut OpenOptions`",
+    "crates\\norma\\src\\orchestration\\file_ops.rs:30:47: error[E0599]: no function or associated item named `from_mode` found for struct `Permissions` in the current scope: function or associated item not found in `Permissions`",
+    "crates\\norma\\src\\orchestration\\file_ops.rs:42:48: error[E0599]: no function or associated item named `from_mode` found for struct `Permissions` in the current scope: function or associated item not found in `Permissions`",
+    "crates\\norma\\src\\orchestration\\installer.rs:361:52: error[E0599]: no method named `mode` found for struct `Permissions` in the current scope: method not found in `Permissions`"
+  ],
+  "canvas_tests": {
+    "passed": 52,
+    "failed": 0,
+    "ignored": 0
+  },
+  "interpretation": "App check is blocked by norma; this is not a complete inventory of downstream Windows errors."
+}

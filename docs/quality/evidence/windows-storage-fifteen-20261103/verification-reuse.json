@@ -1,0 +1,39 @@
+{
+  "reused_run": 41675679325,
+  "reused_source": "15338abf2ad49406b1447bda0da648e4e3052010",
+  "checks": "81 norma affected contracts on Server2022/2025, repeats and Clippy/fmt",
+  "current_source": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+  "unchanged_objects": [
+    {
+      "path": "Cargo.toml",
+      "original_object": "74ba7bcb9fc10c6bd06483cf8237490899315246",
+      "current_object": "74ba7bcb9fc10c6bd06483cf8237490899315246",
+      "equal": true
+    },
+    {
+      "path": "Cargo.lock",
+      "original_object": "df8e9701d2a7e497493a30f41b935693a465abe2",
+      "current_object": "df8e9701d2a7e497493a30f41b935693a465abe2",
+      "equal": true
+    },
+    {
+      "path": "crates/norma",
+      "original_object": "8d8f4879d9bcc36d9551fce2b5b4dc79340a309e",
+      "current_object": "8d8f4879d9bcc36d9551fce2b5b4dc79340a309e",
+      "equal": true
+    },
+    {
+      "path": "crates/mobile_pairing",
+      "original_object": "2e83a574bc84c8660eb16bc54cac47dff8254fcc",
+      "current_object": "2e83a574bc84c8660eb16bc54cac47dff8254fcc",
+      "equal": true
+    },
+    {
+      "path": "crates/agent",
+      "original_object": "454dcc6353b08f4ec77225a07661ff2be2a3835d",
+      "current_object": "454dcc6353b08f4ec77225a07661ff2be2a3835d",
+      "equal": true
+    }
+  ],
+  "scope": "No repeated norma full suite; Unix permission-test compile blocker outside current storage task remains untouched."
+}

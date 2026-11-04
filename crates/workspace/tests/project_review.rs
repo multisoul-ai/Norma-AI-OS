@@ -3,15 +3,26 @@ use std::{
     process::Command,
     time::{Duration, Instant},
 };
-use workspace::review::{capture, ContentKind, ReviewError};
+#[cfg(unix)]
+use workspace::review::ContentKind;
+use workspace::review::{capture, ReviewError};
 #[path = "project_review/baseline.rs"]
 mod baseline;
 
+const GIT: &str = if cfg!(windows) {
+    "git.exe"
+} else {
+    "/usr/bin/git"
+};
+
 fn git(root: &Path, args: &[&str]) {
-    let output = Command::new("/usr/bin/git")
+    let output = Command::new(GIT)
         .current_dir(root)
         .args(args)
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env(
+            "GIT_CONFIG_GLOBAL",
+            if cfg!(windows) { "NUL" } else { "/dev/null" },
+        )
         .env("GIT_CONFIG_NOSYSTEM", "1")
         .output()
         .expect("运行隔离Git fixture");
@@ -269,11 +280,12 @@ fn capture_rejects_external_filters_and_submodules_without_executing_them() {
         "只读预览不能执行clean脚本"
     );
     git(dir.path(), &["config", "--remove-section", "filter.probe"]);
-    let hash = Command::new("/usr/bin/git")
+    let hash = Command::new(GIT)
         .current_dir(dir.path())
         .args(["rev-parse", "HEAD"])
         .output()
         .expect("HEAD");
+    assert!(hash.status.success(), "隔离仓库必须有可读的HEAD");
     let hash = String::from_utf8(hash.stdout).expect("ASCII hash");
     git(
         dir.path(),

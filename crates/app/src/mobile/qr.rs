@@ -1,9 +1,13 @@
 use anyhow::{ensure, Context as _, Result};
 use image::{Rgba, RgbaImage};
+#[cfg(target_os = "macos")]
 use objc2_core_image::{kCIFormatRGBA8, CIContext, CIFilter};
+#[cfg(target_os = "macos")]
 use objc2_foundation::{ns_string, NSData, NSObjectNSKeyValueCoding};
+#[cfg(target_os = "macos")]
 use std::ptr::NonNull;
 
+#[cfg(target_os = "macos")]
 pub(super) fn pixels(payload: &str) -> Result<RgbaImage> {
     ensure!(
         !payload.is_empty() && payload.len() <= 4096,
@@ -53,7 +57,7 @@ pub(super) fn pixels(payload: &str) -> Result<RgbaImage> {
 /// 数据构造：512 个 ASCII 字节模拟较长 QR；四模块边界 × 四倍像素 = 16px 白边。
 /// 执行过程：Core Image 生成并保存临时 PNG → Swift/Vision 读取并识别 → 校验内容和白边 → 拒绝 4097 字节。
 /// 预期结果：正文原样返回、无镜像或模糊损坏；边界纯白，超过 4 KiB 上限不能悄悄截断。
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 #[test]
 fn native_qr_pixels_round_trip_through_vision() {
     let payload = "norma-qr-test-".to_string() + &"a".repeat(512);
@@ -65,6 +69,7 @@ fn native_qr_pixels_round_trip_through_vision() {
     );
     let temp = tempfile::tempdir().expect("隔离 QR 目录");
     let path = temp.path().join("code.png");
+    let decoded = temp.path().join("decoded.txt");
     image.save(&path).expect("保存测试图片");
     let output = std::process::Command::new("/usr/bin/swift")
         .arg(concat!(
@@ -72,6 +77,7 @@ fn native_qr_pixels_round_trip_through_vision() {
             "/../../scripts/check-norma-qr.swift"
         ))
         .arg(path)
+        .arg(&decoded)
         .output()
         .expect("独立 Apple Vision 验证");
     assert!(
@@ -79,7 +85,7 @@ fn native_qr_pixels_round_trip_through_vision() {
         "原生相机识别协议必须可解码生成的像素"
     );
     assert_eq!(
-        String::from_utf8(output.stdout).expect("UTF8").trim(),
+        std::fs::read_to_string(decoded).expect("独立解码结果必须是完整UTF8文件"),
         payload,
         "内容不能被镜像、裁切或编码转换破坏"
     );
@@ -87,4 +93,23 @@ fn native_qr_pixels_round_trip_through_vision() {
         pixels(&"x".repeat(4097)).is_err(),
         "超过 4096 bytes 必须拒绝，不能截断二维码凭据"
     );
+}
+
+#[cfg(windows)]
+pub(super) fn pixels(payload: &str) -> Result<RgbaImage> {
+    ensure!(
+        !payload.is_empty() && payload.len() <= 4096,
+        "Invalid QR code content"
+    );
+    let code = qrcodegen::QrCode::encode_text(payload, qrcodegen::QrCodeEcc::Medium)
+        .map_err(|e| anyhow::anyhow!("Unable to encode QR code: {e}"))?;
+    let side = (code.size() as u32 + 8) * 4;
+    Ok(RgbaImage::from_fn(side, side, |x, y| {
+        let dark = code.get_module(x as i32 / 4 - 4, y as i32 / 4 - 4);
+        if dark {
+            Rgba([0, 0, 0, 255])
+        } else {
+            Rgba([255; 4])
+        }
+    }))
 }

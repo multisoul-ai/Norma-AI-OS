@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate macOS product catalogs, referenced keys, and direct UI literals."""
+"""Validate product catalogs, referenced keys, and direct UI literals."""
 import json
 import re
 import sys
@@ -74,7 +74,7 @@ def check_catalogs(directory):
                         errors.append(f"{path}: duplicate key {key}")
                     result[key] = value
                 return result
-            data = json.loads(path.read_text(), object_pairs_hook=collect)
+            data = json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=collect)
             for key, value in data.items():
                 if key in catalog and catalog[key] != value:
                     errors.append(f"{path}: conflicting key {key}")
@@ -96,7 +96,7 @@ def check_sources(root, keys):
         for path in sorted((root / "crates" / crate / "src").rglob("*.rs")):
             if "e2e" in path.parts or path.name == "e2e.rs":
                 continue
-            source = path.read_text()
+            source = path.read_text(encoding='utf-8')
             for match in REFERENCE.finditer(source):
                 if match[1] not in keys:
                     errors.append(f"{path}: unknown translation key {match[1]}")

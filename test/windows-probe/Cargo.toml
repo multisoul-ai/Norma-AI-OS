@@ -1,0 +1,19 @@
+[package]
+name = "norma-windows-gpui-probe"
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.91.1"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "norma-gpui-probe"
+path = "../../vendor/gpui-0.2.2/examples/hello_world.rs"
+
+[dependencies]
+gpui = { version = "=0.2.2", path = "../../vendor/gpui-0.2.2" }
+
+[profile.dev]
+debug = 0
+incremental = false

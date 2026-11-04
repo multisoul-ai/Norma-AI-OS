@@ -1,0 +1,46 @@
+任务缓存：/Users/openclawd/.cache/norma-build/8e0a5c86f37025c2/app-transport-20261101/target
+   Compiling app-platform-probe v0.1.0 (/private/tmp/norma-windows-feasibility-20261101/crates/app/tests/platform_probe)
+    Finished `test` profile [optimized + debuginfo] target(s) in 2.91s
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/8e0a5c86f37025c2/app-transport-20261101/target/debug/deps/app_platform_probe-5dab9304da776f31)
+
+running 12 tests
+test image_tests::image_parent_file_is_preserved ... ok
+test tests::occupied_regular_file_is_never_removed ... ok
+test transport::tests::transport_failures_preserve_overload_shutdown_and_unknown_outcome_semantics ... ok
+test transport::binding::tests::stale_probe_path_exchange_never_deletes_replacement ... FAILED
+test transport::binding::tests::replaced_path_keeps_user_file_and_moved_socket ... ok
+test transport::binding::tests::inactive_socket_is_rebound_and_owned_cleanup_completes ... ok
+test image_tests::image_roundtrip_then_tampering_is_rejected ... ok
+test image_tests::oversized_image_file_cannot_bypass_read_limit ... ok
+test tests::duplicate_binding_preserves_live_endpoint_and_cleans_up ... ok
+test tests::segmented_request_keeps_original_identity_and_response ... ok
+test transport::deadline_tests::dripping_partial_line_has_one_request_deadline ... FAILED
+test tests::shutdown_does_not_wait_for_ui_and_preserves_unknown_operation ... FAILED
+
+failures:
+
+---- transport::binding::tests::stale_probe_path_exchange_never_deletes_replacement stdout ----
+
+thread 'transport::binding::tests::stale_probe_path_exchange_never_deletes_replacement' (10415416) panicked at src/../../../src/norma/transport/../../../tests/unit/app_transport_binding_tests.rs:86:30:
+陈旧探测不能删掉替代正文: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- transport::deadline_tests::dripping_partial_line_has_one_request_deadline stdout ----
+
+thread 'transport::deadline_tests::dripping_partial_line_has_one_request_deadline' (10415437) panicked at src/../../../src/norma/../../tests/unit/app_transport_deadline_tests.rs:28:5:
+碎片不能续期整条请求：4.121044167s
+
+---- tests::shutdown_does_not_wait_for_ui_and_preserves_unknown_operation stdout ----
+
+thread 'tests::shutdown_does_not_wait_for_ui_and_preserves_unknown_operation' (10415413) panicked at src/../../unit/app_transport_platform_tests.rs:178:10:
+called `Result::unwrap()` on an `Err` value: Os { code: 22, kind: InvalidInput, message: "Invalid argument" }
+
+
+failures:
+    tests::shutdown_does_not_wait_for_ui_and_preserves_unknown_operation
+    transport::binding::tests::stale_probe_path_exchange_never_deletes_replacement
+    transport::deadline_tests::dripping_partial_line_has_one_request_deadline
+
+test result: FAILED. 9 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.01s
+
+error: test failed, to rerun pass `--lib`

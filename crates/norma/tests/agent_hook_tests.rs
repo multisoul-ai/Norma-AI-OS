@@ -324,7 +324,10 @@ fn test_forward_hook_ignores_unreachable_endpoint() {
 fn test_resolve_agent_hook_command_path_from_sibling_binary() {
     let temp = tempfile::tempdir().expect("应能创建临时目录");
     let app_executable = temp.path().join("norma-os");
-    let hook_binary = temp.path().join(AGENT_HOOK_BINARY_NAME);
+    let hook_binary = temp.path().join(format!(
+        "{AGENT_HOOK_BINARY_NAME}{}",
+        std::env::consts::EXE_SUFFIX
+    ));
     std::fs::write(&hook_binary, b"").expect("应能创建 hook bridge 占位文件");
 
     let resolved = resolve_agent_hook_command_path_from(app_executable.as_path());

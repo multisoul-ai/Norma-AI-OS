@@ -1,0 +1,136 @@
+   Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+    Finished `test` profile [optimized + debuginfo] target(s) in 28.11s
+     Running unittests src\lib.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\norma-1e637ab61ae5e130.exe)
+
+running 30 tests
+test agent_hook::event::tests::test_extract_prompt_text_fallback_keys_and_none ... ok
+test agent_hook::event::tests::session_start_from_every_agent_provider_maps_to_ready ... ok
+test agent_hook::event::tests::test_extract_prompt_text_short_and_truncated ... ok
+test agent_hook::session_claim::tests::test_marker_name_distinguishes_sessions_that_sanitize_alike ... ok
+test agent_hook::session_title::session_title_tests::codex_takes_last_thread_name_for_the_session ... ok
+test agent_hook::session_title::session_title_tests::claude_takes_last_non_empty_ai_title ... ok
+test agent_hook::session_title::session_title_tests::claude_title_found_by_session_id_across_project_dirs ... ok
+test agent_hook::session_claim::tests::test_claim_is_once_per_session_and_release_reopens_it ... ok
+test agent_hook::session_title::session_title_tests::refresh_events_and_per_profile_dispatch ... ok
+test agent_hook::session_title::session_title_tests::untrusted_paths_and_ids_are_rejected ... ok
+test agent_hook::zcode::tests::install_refuses_to_overwrite_foreign_or_malformed_config ... ok
+test agent_hook::session_title::session_title_tests::title_is_found_when_file_is_larger_than_the_tail_window ... ok
+test agent_hook::zcode::tests::install_refuses_when_dormant_user_hooks_would_be_activated ... ok
+test agent_hook::zcode::tests::real_payload_fixtures_map_to_states ... ok
+test agent_hook::zcode::tests::install_writes_seven_verified_events_and_enables_hooks ... ok
+test client::tests::debug_build_uses_an_isolated_norma_socket_name ... ok
+test codex::relay::input::tests::completed_question_history_does_not_exhaust_pending_capacity ... ok
+test codex::relay::input::tests::old_turn_outside_history_window_cannot_hold_current_input ... ok
+test codex::relay::input::tests::ordinary_turn_history_never_creates_pending_input ... ok
+test agent_hook::zcode::tests::install_is_idempotent_and_uninstall_keeps_user_data ... ok
+test agent_hook::zcode::tests::installed_requires_enabled_flag ... ok
+test file_identity::tests::file_identity_survives_append ... ok
+test file_identity::tests::replacement_is_distinct_even_with_equal_length ... ok
+test agent_hook::zcode::tests::uninstall_keeps_user_owned_empty_groups_and_events ... ok
+test orchestration::file_ops::tests::credential_permissions_reject_file_symlinks ... ok
+test orchestration::file_ops::tests::managed_credential_detects_and_repairs_broader_permissions ... ok
+test orchestration::file_ops::tests::private_directory_rejects_junction_instead_of_validating_its_own_acl ... ok
+test orchestration::file_ops::tests::managed_file_replacement_preserves_content_and_private_permissions ... ok
+test orchestration::file_ops::tests::private_session_directory_is_reusable_without_losing_markers ... ok
+test codex::relay::partial_tests::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests\codex_connection.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_connection-04158cb7e29b6bad.exe)
+
+running 2 tests
+test event_overflow_fails_pending_requests_and_disables_decisions ... ok
+test unix_connection_routes_replies_and_permissions_without_truncation ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\codex_control_handshake.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_control_handshake-d56b85d045ed3ef2.exe)
+
+running 1 test
+test fragmented_handshake_on_nonblocking_accepted_stream_waits_for_the_rest ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\codex_control_platform.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_control_platform-2635351c6dc52244.exe)
+
+running 2 tests
+test platform_control_errors_and_drop_resolve_pending_requests_without_replay ... ok
+test platform_host_preserves_attachment_answer_cancel_and_peer_shutdown ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\codex_control_shutdown.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_control_shutdown-0021bfc2bb1fbf81.exe)
+
+running 1 test
+test backpressured_relay_closes_when_either_peer_exits_in_both_directions ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\codex_question_connections.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_connections-78a65916005a9d2c.exe)
+
+running 3 tests
+test native_input_lock_is_live_when_question_frame_reaches_tui ... ok
+test new_connection_holds_input_before_forwarding_or_attachment_delivery ... ok
+test picker_disconnect_preserves_owner_and_resume_transfers_question_identity ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests\codex_question_host.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_host-2685ed6dfe099628.exe)
+
+running 1 test
+test same_process_host_carries_owned_attachment_ticket_and_consumption ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\codex_question_relay.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay-06e5fd6f64f5fcc1.exe)
+
+running 3 tests
+test resumed_same_rpc_requires_the_new_attachment_identity ... ok
+test native_relay_preserves_session_and_answers_original_rpc_without_extra_turn ... ok
+test native_answer_and_observer_disable_keep_the_original_tui_usable ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\codex_question_relay_backpressure.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay_backpressure-e88174d1b79abbd3.exe)
+
+running 1 test
+test slow_server_applies_backpressure_without_closing_the_native_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.05s
+
+     Running tests\codex_question_relay_ephemeral.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay_ephemeral-df360865402202a9.exe)
+
+running 1 test
+test ephemeral_thread_never_rebinds_or_holds_main_question ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running tests\codex_question_relay_identity.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay_identity-8e33c1fda40bbb35.exe)
+
+running 1 test
+test a_question_lease_cannot_cross_relay_instances ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\codex_question_relay_large.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay_large-225fec9dfb63a244.exe)
+
+running 1 test
+test native_large_configuration_frame_does_not_break_original_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\codex_question_relay_permissions.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay_permissions-b71de607461280ec.exe)
+
+running 2 tests
+test default_relay_never_escalates_session_permissions ... ok
+test full_access_relay_carries_yolo_on_every_session_request ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\codex_question_version.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_version-a7540d8fa8fa3cae.exe)
+
+running 1 test
+test verified_relay_gates_experimental_answers_on_original_initialize ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+

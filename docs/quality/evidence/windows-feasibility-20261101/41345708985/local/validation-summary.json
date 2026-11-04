@@ -1,0 +1,149 @@
+{
+  "windows_source_sha": "e7a7a78a9a871748f28becf1a6de32702ce41cd9",
+  "run_id": "41345708985",
+  "attempt": 1,
+  "workflow_conclusion": "failure",
+  "original_runtime_codex_errors_remaining": 0,
+  "app_errors": 116,
+  "original43_preserved": true,
+  "control_counts": {
+    "identity": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "control": {
+      "passed": 50,
+      "failed": 0,
+      "ignored": 0
+    },
+    "runtime": {
+      "passed": 11,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "new_ignore_allow_or_no_default_feature_lines": 0,
+  "credential_pattern_files_scanned": 358,
+  "credential_pattern_hits": 0,
+  "static_results": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "id": "line-check",
+        "chunk_id": "eddf99",
+        "wall_time_seconds": 9.19607425,
+        "exit_code": 0,
+        "original_token_count": 0,
+        "output": ""
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "id": "no-allow",
+        "chunk_id": "e8fbe5",
+        "wall_time_seconds": 8.568128583,
+        "exit_code": 0,
+        "original_token_count": 0,
+        "output": ""
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "id": "guide-lines",
+        "chunk_id": "997423",
+        "wall_time_seconds": 1.6125e-05,
+        "exit_code": 0,
+        "original_token_count": 0,
+        "output": ""
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "id": "storage-boundaries",
+        "chunk_id": "64f0e4",
+        "wall_time_seconds": 2.018724125,
+        "exit_code": 0,
+        "original_token_count": 0,
+        "output": ""
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "id": "performance-guardrails",
+        "chunk_id": "783164",
+        "wall_time_seconds": 1.3042e-05,
+        "exit_code": 0,
+        "original_token_count": 0,
+        "output": ""
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "id": "tts-boundaries",
+        "chunk_id": "2e97fb",
+        "wall_time_seconds": 8.208e-06,
+        "exit_code": 0,
+        "original_token_count": 0,
+        "output": ""
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "id": "video-guardrails",
+        "chunk_id": "7ff130",
+        "wall_time_seconds": 1.5458e-05,
+        "exit_code": 0,
+        "original_token_count": 0,
+        "output": ""
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "id": "socks-check",
+        "chunk_id": "040be4",
+        "wall_time_seconds": 1.326763041,
+        "exit_code": 0,
+        "original_token_count": 0,
+        "output": ""
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "id": "i18n-check",
+        "chunk_id": "b910f2",
+        "wall_time_seconds": 0.202406792,
+        "exit_code": 1,
+        "original_token_count": 0,
+        "output": ""
+      }
+    }
+  ],
+  "html_validation": "html-validation.json",
+  "macos_full_source_sha": "15b284ce770a70d8b42ef6b6b2f8d4fa10bd398c",
+  "macos_full_counts": {
+    "passed": 3419,
+    "failed": 16,
+    "ignored": 52
+  },
+  "macos_affected_counts": {
+    "passed": 687,
+    "failed": 0,
+    "ignored": 12
+  },
+  "macos_original15_isolated_before_after": "15/0/0 each",
+  "macos_no_new_regression": "NOT_CONFIRMED",
+  "shutdown_reliability": "UNRESOLVED",
+  "real_gui": "NOT_RUN",
+  "real_agents": "NOT_RUN",
+  "candidate_package": "NOT_RUN",
+  "goal_complete": false
+}

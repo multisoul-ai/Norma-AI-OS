@@ -1526,6 +1526,7 @@ impl Window {
             (callback)(
                 &KeystrokeEvent {
                     keystroke: key_down_event.keystroke.clone(),
+                    is_held: key_down_event.is_held,
                     action: action.as_ref().map(|action| action.boxed_clone()),
                     context_stack: context_stack.clone(),
                 },
@@ -1551,6 +1552,7 @@ impl Window {
                 (callback)(
                     &KeystrokeEvent {
                         keystroke: key_down_event.keystroke.clone(),
+                        is_held: key_down_event.is_held,
                         action: None,
                         context_stack: context_stack.clone(),
                     },

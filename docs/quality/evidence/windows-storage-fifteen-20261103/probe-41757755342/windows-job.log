@@ -1,0 +1,2244 @@
+﻿2026-11-04T01:59:39.7485215Z Current runner version: '2.338.2'
+2026-11-04T01:59:39.7521664Z ##[group]Runner Image Provisioner
+2026-11-04T01:59:39.7523000Z Hosted Compute Agent
+2026-11-04T01:59:39.7523805Z Version: 20261021.618
+2026-11-04T01:59:39.7526152Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-11-04T01:59:39.7527384Z Build Date: 2026-10-21T00:45:21Z
+2026-11-04T01:59:39.7528349Z Worker ID: {1a23fa38-a82a-480f-8ddd-f29acce3849f}
+2026-11-04T01:59:39.7529377Z Region: centralus
+2026-11-04T01:59:39.7530145Z Cloud: Azure
+2026-11-04T01:59:39.7530836Z ##[endgroup]
+2026-11-04T01:59:39.7533008Z ##[group]Operating System
+2026-11-04T01:59:39.7533942Z Microsoft Windows Server 2025
+2026-11-04T01:59:39.7534940Z 10.0.26100
+2026-11-04T01:59:39.7536165Z Datacenter
+2026-11-04T01:59:39.7536885Z ##[endgroup]
+2026-11-04T01:59:39.7537928Z ##[group]Runner Image
+2026-11-04T01:59:39.7539456Z Image: windows-2025-vs2026
+2026-11-04T01:59:39.7540149Z Version: 20261030.294.1
+2026-11-04T01:59:39.7541892Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20261030.294/images/windows/Windows2025-VS2026-Readme.md
+2026-11-04T01:59:39.7543512Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20261030.294
+2026-11-04T01:59:39.7545026Z ##[endgroup]
+2026-11-04T01:59:39.7546108Z ##[group]GITHUB_TOKEN Permissions
+2026-11-04T01:59:39.7548555Z Contents: read
+2026-11-04T01:59:39.7549414Z Metadata: read
+2026-11-04T01:59:39.7550213Z ##[endgroup]
+2026-11-04T01:59:39.7552439Z Secret source: Actions
+2026-11-04T01:59:39.7553379Z Cache mode: write
+2026-11-04T01:59:39.7554341Z Prepare workflow directory
+2026-11-04T01:59:39.8034455Z Prepare all required actions
+2026-11-04T01:59:39.8096090Z Getting action download info
+2026-11-04T01:59:40.0950759Z Download action repository 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-04T01:59:40.2009911Z Download action repository 'dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8' (SHA:683b588c487a69d01f6c6ddf40f036ff682cc2c8)
+2026-11-04T01:59:40.3955840Z Download action repository 'Swatinem/rust-cache@v2' (SHA:d1527c8f67ef9af357290475d4af4b0fab8f12e0)
+2026-11-04T01:59:40.7650948Z Download action repository 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-11-04T01:59:41.1568293Z Complete job name: storage (windows-2025)
+2026-11-04T01:59:41.3245872Z ##[group]Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+2026-11-04T01:59:41.3247776Z with:
+2026-11-04T01:59:41.3249271Z   persist-credentials: false
+2026-11-04T01:59:41.3249928Z   repository: multisoul-ai/Norma-AI-OS
+2026-11-04T01:59:41.3255916Z   token: ***
+2026-11-04T01:59:41.3256374Z   ssh-strict: true
+2026-11-04T01:59:41.3256936Z   ssh-user: git
+2026-11-04T01:59:41.3257426Z   clean: true
+2026-11-04T01:59:41.3257957Z   sparse-checkout-cone-mode: true
+2026-11-04T01:59:41.3258653Z   fetch-depth: 1
+2026-11-04T01:59:41.3259128Z   fetch-tags: false
+2026-11-04T01:59:41.3259648Z   show-progress: true
+2026-11-04T01:59:41.3260142Z   lfs: false
+2026-11-04T01:59:41.3260602Z   submodules: false
+2026-11-04T01:59:41.3261136Z   set-safe-directory: true
+2026-11-04T01:59:41.3261685Z   allow-unsafe-pr-checkout: false
+2026-11-04T01:59:41.3262665Z env:
+2026-11-04T01:59:41.3263098Z   CARGO_INCREMENTAL: 0
+2026-11-04T01:59:41.3263640Z   CARGO_BUILD_JOBS: 2
+2026-11-04T01:59:41.3264232Z   CARGO_TERM_COLOR: never
+2026-11-04T01:59:41.3264750Z   RUST_BACKTRACE: 1
+2026-11-04T01:59:41.3265205Z   PYTHONUTF8: 1
+2026-11-04T01:59:41.3265642Z ##[endgroup]
+2026-11-04T01:59:41.4817964Z Syncing repository: multisoul-ai/Norma-AI-OS
+2026-11-04T01:59:41.4820032Z ##[group]Getting Git version info
+2026-11-04T01:59:41.4820773Z Working directory is 'D:\a\Norma-AI-OS\Norma-AI-OS'
+2026-11-04T01:59:41.5566916Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-11-04T01:59:41.8944790Z git version 2.56.0.windows.4
+2026-11-04T01:59:41.9003406Z ##[endgroup]
+2026-11-04T01:59:41.9025541Z Temporarily overriding HOME='D:\a\_temp\0dab0cbf-ee2c-49f3-aa80-e9af8b7e94a3' before making global git config changes
+2026-11-04T01:59:41.9028505Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-04T01:59:41.9037659Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-04T01:59:41.9699471Z Deleting the contents of 'D:\a\Norma-AI-OS\Norma-AI-OS'
+2026-11-04T01:59:41.9706216Z ##[group]Initializing the repository
+2026-11-04T01:59:41.9715589Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-04T01:59:42.0694335Z Initialized empty Git repository in D:/a/Norma-AI-OS/Norma-AI-OS/.git/
+2026-11-04T01:59:42.0748839Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/multisoul-ai/Norma-AI-OS
+2026-11-04T01:59:42.1462587Z ##[endgroup]
+2026-11-04T01:59:42.1465185Z ##[group]Disabling automatic garbage collection
+2026-11-04T01:59:42.1467474Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-11-04T01:59:42.1859587Z ##[endgroup]
+2026-11-04T01:59:42.1861435Z ##[group]Setting up auth
+2026-11-04T01:59:42.1871803Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-04T01:59:42.2264928Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-04T01:59:43.7810411Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-04T01:59:43.8223391Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-04T01:59:44.4256739Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-04T01:59:44.4663690Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-04T01:59:45.0392097Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-11-04T01:59:45.0806442Z ##[endgroup]
+2026-11-04T01:59:45.0807455Z ##[group]Fetching the repository
+2026-11-04T01:59:45.0820348Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +11a81b524e99df8f7b7101000c6891d8902b081c:refs/remotes/origin/codex/windows-storage-15-20261103
+2026-11-04T01:59:56.5315538Z From https://github.com/multisoul-ai/Norma-AI-OS
+2026-11-04T01:59:56.5317514Z  * [new ref]         11a81b524e99df8f7b7101000c6891d8902b081c -> origin/codex/windows-storage-15-20261103
+2026-11-04T01:59:56.5367103Z ##[endgroup]
+2026-11-04T01:59:56.5367943Z ##[group]Determining the checkout info
+2026-11-04T01:59:56.5368964Z ##[endgroup]
+2026-11-04T01:59:56.5380565Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-11-04T01:59:56.5938405Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-11-04T01:59:56.6339262Z ##[group]Checking out the ref
+2026-11-04T01:59:56.6350285Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B codex/windows-storage-15-20261103 refs/remotes/origin/codex/windows-storage-15-20261103
+2026-11-04T01:59:58.6822385Z Updating files:   5% (324/6212)
+2026-11-04T01:59:58.7197162Z Updating files:   6% (373/6212)
+2026-11-04T01:59:58.7268036Z Updating files:   6% (425/6212)
+2026-11-04T01:59:59.0925086Z Updating files:   7% (435/6212)
+2026-11-04T01:59:59.2416029Z Updating files:   8% (497/6212)
+2026-11-04T01:59:59.2533801Z Updating files:   9% (560/6212)
+2026-11-04T01:59:59.2662089Z Updating files:  10% (622/6212)
+2026-11-04T01:59:59.2781413Z Updating files:  11% (684/6212)
+2026-11-04T01:59:59.2906835Z Updating files:  12% (746/6212)
+2026-11-04T01:59:59.3022980Z Updating files:  13% (808/6212)
+2026-11-04T01:59:59.3148939Z Updating files:  14% (870/6212)
+2026-11-04T01:59:59.3267909Z Updating files:  15% (932/6212)
+2026-11-04T01:59:59.3389236Z Updating files:  16% (994/6212)
+2026-11-04T01:59:59.3515170Z Updating files:  17% (1057/6212)
+2026-11-04T01:59:59.3623690Z Updating files:  18% (1119/6212)
+2026-11-04T01:59:59.3758379Z Updating files:  19% (1181/6212)
+2026-11-04T01:59:59.3879907Z Updating files:  20% (1243/6212)
+2026-11-04T01:59:59.4005914Z Updating files:  21% (1305/6212)
+2026-11-04T01:59:59.4141139Z Updating files:  22% (1367/6212)
+2026-11-04T01:59:59.4275728Z Updating files:  23% (1429/6212)
+2026-11-04T01:59:59.4394939Z Updating files:  24% (1491/6212)
+2026-11-04T01:59:59.4519312Z Updating files:  25% (1553/6212)
+2026-11-04T01:59:59.4689724Z Updating files:  26% (1616/6212)
+2026-11-04T01:59:59.4859018Z Updating files:  27% (1678/6212)
+2026-11-04T01:59:59.4989731Z Updating files:  28% (1740/6212)
+2026-11-04T01:59:59.5119052Z Updating files:  29% (1802/6212)
+2026-11-04T01:59:59.5254069Z Updating files:  30% (1864/6212)
+2026-11-04T01:59:59.5370099Z Updating files:  31% (1926/6212)
+2026-11-04T01:59:59.5485873Z Updating files:  32% (1988/6212)
+2026-11-04T01:59:59.5597391Z Updating files:  33% (2050/6212)
+2026-11-04T01:59:59.5723578Z Updating files:  34% (2113/6212)
+2026-11-04T01:59:59.5829730Z Updating files:  35% (2175/6212)
+2026-11-04T01:59:59.5945600Z Updating files:  36% (2237/6212)
+2026-11-04T01:59:59.6072236Z Updating files:  37% (2299/6212)
+2026-11-04T01:59:59.6192840Z Updating files:  38% (2361/6212)
+2026-11-04T01:59:59.6314309Z Updating files:  39% (2423/6212)
+2026-11-04T01:59:59.6439218Z Updating files:  40% (2485/6212)
+2026-11-04T01:59:59.6566990Z Updating files:  41% (2547/6212)
+2026-11-04T01:59:59.6690123Z Updating files:  42% (2610/6212)
+2026-11-04T01:59:59.6820611Z Updating files:  43% (2672/6212)
+2026-11-04T01:59:59.6940992Z Updating files:  44% (2734/6212)
+2026-11-04T01:59:59.7057154Z Updating files:  45% (2796/6212)
+2026-11-04T01:59:59.7180532Z Updating files:  46% (2858/6212)
+2026-11-04T01:59:59.7186887Z Updating files:  47% (2920/6212)
+2026-11-04T01:59:59.9944703Z Updating files:  47% (2922/6212)
+2026-11-04T02:00:00.6817394Z Updating files:  48% (2982/6212)
+2026-11-04T02:00:00.7328675Z Updating files:  49% (3044/6212)
+2026-11-04T02:00:00.8080493Z Updating files:  49% (3086/6212)
+2026-11-04T02:00:00.8772321Z Updating files:  50% (3106/6212)
+2026-11-04T02:00:00.9884333Z Updating files:  51% (3169/6212)
+2026-11-04T02:00:01.0417886Z Updating files:  52% (3231/6212)
+2026-11-04T02:00:01.1783647Z Updating files:  53% (3293/6212)
+2026-11-04T02:00:01.5107585Z Updating files:  54% (3355/6212)
+2026-11-04T02:00:01.9470920Z Updating files:  55% (3417/6212)
+2026-11-04T02:00:02.0309781Z Updating files:  55% (3425/6212)
+2026-11-04T02:00:02.1896892Z Updating files:  56% (3479/6212)
+2026-11-04T02:00:02.3093767Z Updating files:  57% (3541/6212)
+2026-11-04T02:00:02.3447378Z Updating files:  58% (3603/6212)
+2026-11-04T02:00:02.3831174Z Updating files:  59% (3666/6212)
+2026-11-04T02:00:02.4304379Z Updating files:  60% (3728/6212)
+2026-11-04T02:00:02.4448503Z Updating files:  61% (3790/6212)
+2026-11-04T02:00:02.4575514Z Updating files:  62% (3852/6212)
+2026-11-04T02:00:02.4757567Z Updating files:  63% (3914/6212)
+2026-11-04T02:00:02.4876020Z Updating files:  64% (3976/6212)
+2026-11-04T02:00:02.5031506Z Updating files:  65% (4038/6212)
+2026-11-04T02:00:02.5205461Z Updating files:  66% (4100/6212)
+2026-11-04T02:00:02.5352596Z Updating files:  67% (4163/6212)
+2026-11-04T02:00:02.5490441Z Updating files:  68% (4225/6212)
+2026-11-04T02:00:02.5693229Z Updating files:  69% (4287/6212)
+2026-11-04T02:00:02.5811019Z Updating files:  70% (4349/6212)
+2026-11-04T02:00:02.5884116Z Updating files:  71% (4411/6212)
+2026-11-04T02:00:02.6007525Z Updating files:  72% (4473/6212)
+2026-11-04T02:00:02.6157322Z Updating files:  73% (4535/6212)
+2026-11-04T02:00:02.6309895Z Updating files:  74% (4597/6212)
+2026-11-04T02:00:02.6530517Z Updating files:  75% (4659/6212)
+2026-11-04T02:00:02.6671938Z Updating files:  76% (4722/6212)
+2026-11-04T02:00:02.7533576Z Updating files:  77% (4784/6212)
+2026-11-04T02:00:02.7627019Z Updating files:  77% (4833/6212)
+2026-11-04T02:00:02.7852916Z Updating files:  78% (4846/6212)
+2026-11-04T02:00:02.8016142Z Updating files:  79% (4908/6212)
+2026-11-04T02:00:02.8850449Z Updating files:  80% (4970/6212)
+2026-11-04T02:00:03.3421007Z Updating files:  81% (5032/6212)
+2026-11-04T02:00:03.3554167Z Updating files:  82% (5094/6212)
+2026-11-04T02:00:03.5645497Z Updating files:  83% (5156/6212)
+2026-11-04T02:00:03.5959132Z Updating files:  84% (5219/6212)
+2026-11-04T02:00:03.6077206Z Updating files:  85% (5281/6212)
+2026-11-04T02:00:04.1152336Z Updating files:  86% (5343/6212)
+2026-11-04T02:00:04.1287711Z Updating files:  86% (5357/6212)
+2026-11-04T02:00:04.1395674Z Updating files:  87% (5405/6212)
+2026-11-04T02:00:04.1504924Z Updating files:  88% (5467/6212)
+2026-11-04T02:00:04.1702639Z Updating files:  89% (5529/6212)
+2026-11-04T02:00:04.1811040Z Updating files:  90% (5591/6212)
+2026-11-04T02:00:04.1929265Z Updating files:  91% (5653/6212)
+2026-11-04T02:00:04.2055665Z Updating files:  92% (5716/6212)
+2026-11-04T02:00:04.2185442Z Updating files:  93% (5778/6212)
+2026-11-04T02:00:04.2295845Z Updating files:  94% (5840/6212)
+2026-11-04T02:00:04.7474876Z Updating files:  95% (5902/6212)
+2026-11-04T02:00:04.8056089Z Updating files:  96% (5964/6212)
+2026-11-04T02:00:04.8123887Z Updating files:  96% (5996/6212)
+2026-11-04T02:00:04.8310984Z Updating files:  97% (6026/6212)
+2026-11-04T02:00:04.8478844Z Updating files:  98% (6088/6212)
+2026-11-04T02:00:04.8617224Z Updating files:  99% (6150/6212)
+2026-11-04T02:00:04.8617749Z Updating files: 100% (6212/6212)
+2026-11-04T02:00:04.8618126Z Updating files: 100% (6212/6212), done.
+2026-11-04T02:00:04.8821139Z Switched to a new branch 'codex/windows-storage-15-20261103'
+2026-11-04T02:00:04.8842367Z branch 'codex/windows-storage-15-20261103' set up to track 'origin/codex/windows-storage-15-20261103'.
+2026-11-04T02:00:05.3435238Z ##[endgroup]
+2026-11-04T02:00:05.3975725Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-11-04T02:00:05.4347499Z 11a81b524e99df8f7b7101000c6891d8902b081c
+2026-11-04T02:00:05.4399905Z ##[group]Removing auth
+2026-11-04T02:00:05.4411000Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-04T02:00:05.4830445Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-04T02:00:06.0881342Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-04T02:00:06.1265281Z http.https://github.com/.extraheader
+2026-11-04T02:00:06.1312256Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-11-04T02:00:06.1734445Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-04T02:00:06.7921111Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-04T02:00:06.8337086Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-04T02:00:07.3952764Z ##[endgroup]
+2026-11-04T02:00:07.4475170Z ##[group]Run dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+2026-11-04T02:00:07.4475846Z with:
+2026-11-04T02:00:07.4476163Z   toolchain: 1.91.1
+2026-11-04T02:00:07.4476692Z env:
+2026-11-04T02:00:07.4476975Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:07.4477265Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:07.4477593Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:07.4477909Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:07.4478203Z   PYTHONUTF8: 1
+2026-11-04T02:00:07.4478555Z ##[endgroup]
+2026-11-04T02:00:07.4556412Z ##[start-action display=Parse toolchain version;id=__dtolnay_rust-toolchain.parse]
+2026-11-04T02:00:07.4739170Z ##[group]Run if [[ -z $toolchain ]]; then
+2026-11-04T02:00:07.4739764Z [36;1mif [[ -z $toolchain ]]; then[0m
+2026-11-04T02:00:07.4740432Z [36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070[0m
+2026-11-04T02:00:07.4741074Z [36;1m  echo "'toolchain' is a required input" >&2[0m
+2026-11-04T02:00:07.4741641Z [36;1m  exit 1[0m
+2026-11-04T02:00:07.4742100Z [36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then[0m
+2026-11-04T02:00:07.4742664Z [36;1m  if [[ Windows == macOS ]]; then[0m
+2026-11-04T02:00:07.4743298Z [36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:00:07.4743880Z [36;1m  else[0m
+2026-11-04T02:00:07.4744396Z [36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:00:07.4744944Z [36;1m  fi[0m
+2026-11-04T02:00:07.4745347Z [36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then[0m
+2026-11-04T02:00:07.4745970Z [36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:00:07.4746554Z [36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then[0m
+2026-11-04T02:00:07.4747189Z [36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:00:07.4747753Z [36;1melse[0m
+2026-11-04T02:00:07.4748071Z [36;1m  delimiter=EOF[0m
+2026-11-04T02:00:07.4748483Z [36;1m  while [[ $toolchain == *$delimiter* ]]; do delimiter+=_; done[0m
+2026-11-04T02:00:07.4749050Z [36;1m  printf 'toolchain<<%s\n%s\n%s\n' "$delimiter" "$toolchain" "$delimiter" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:00:07.4749569Z [36;1mfi[0m
+2026-11-04T02:00:07.4774708Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:07.4775404Z env:
+2026-11-04T02:00:07.4775795Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:07.4776167Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:07.4776514Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:07.4776855Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:07.4777211Z   PYTHONUTF8: 1
+2026-11-04T02:00:07.4777541Z   toolchain: 1.91.1
+2026-11-04T02:00:07.4777881Z ##[endgroup]
+2026-11-04T02:00:07.6645979Z ##[end-action id=__dtolnay_rust-toolchain.parse;outcome=success;conclusion=success;duration_ms=208]
+2026-11-04T02:00:07.6651119Z ##[start-action display=Set $CARGO_HOME;id=__dtolnay_rust-toolchain.__run]
+2026-11-04T02:00:07.6813099Z ##[group]Run echo CARGO_HOME=${CARGO_HOME:-"$USERPROFILE\.cargo"} >> $GITHUB_ENV
+2026-11-04T02:00:07.6813734Z [36;1mecho CARGO_HOME=${CARGO_HOME:-"$USERPROFILE\.cargo"} >> $GITHUB_ENV[0m
+2026-11-04T02:00:07.6826162Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:07.6826631Z env:
+2026-11-04T02:00:07.6826951Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:07.6827254Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:07.6827562Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:07.6827870Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:07.6828462Z   PYTHONUTF8: 1
+2026-11-04T02:00:07.6828822Z ##[endgroup]
+2026-11-04T02:00:07.7258235Z ##[end-action id=__dtolnay_rust-toolchain.__run;outcome=success;conclusion=success;duration_ms=60]
+2026-11-04T02:00:07.7261652Z ##[start-action display=Install rustup if needed;id=__dtolnay_rust-toolchain.__run_2]
+2026-11-04T02:00:07.7274670Z ##[end-action id=__dtolnay_rust-toolchain.__run_2;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-11-04T02:00:07.7278297Z ##[start-action display=Install rustup if needed on windows;id=__dtolnay_rust-toolchain.__run_3]
+2026-11-04T02:00:07.7420429Z ##[group]Run if ! command -v rustup &>/dev/null; then
+2026-11-04T02:00:07.7421147Z [36;1mif ! command -v rustup &>/dev/null; then[0m
+2026-11-04T02:00:07.7422419Z [36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://win.rustup.rs/x86_64 --output 'D:\a\_temp\rustup-init.exe'[0m
+2026-11-04T02:00:07.7423808Z [36;1m  'D:\a\_temp\rustup-init.exe' --default-toolchain none --no-modify-path -y[0m
+2026-11-04T02:00:07.7424558Z [36;1m  echo "$CARGO_HOME\bin" >> $GITHUB_PATH[0m
+2026-11-04T02:00:07.7425064Z [36;1mfi[0m
+2026-11-04T02:00:07.7442072Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:07.7442772Z env:
+2026-11-04T02:00:07.7443152Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:07.7443611Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:07.7444067Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:07.7444618Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:07.7445008Z   PYTHONUTF8: 1
+2026-11-04T02:00:07.7445438Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:00:07.7445969Z ##[endgroup]
+2026-11-04T02:00:07.8046306Z ##[end-action id=__dtolnay_rust-toolchain.__run_3;outcome=success;conclusion=success;duration_ms=76]
+2026-11-04T02:00:07.8064547Z ##[start-action display=rustup toolchain install 1.91.1;id=__dtolnay_rust-toolchain.__run_4]
+2026-11-04T02:00:07.8204736Z ##[group]Run set -f  # split targets and components on commas and whitespace, without glob expansion
+2026-11-04T02:00:07.8205457Z [36;1mset -f  # split targets and components on commas and whitespace, without glob expansion[0m
+2026-11-04T02:00:07.8206013Z [36;1mflags=()[0m
+2026-11-04T02:00:07.8206368Z [36;1mfor t in ${targets//,/ }; do flags+=(--target "$t"); done[0m
+2026-11-04T02:00:07.8206851Z [36;1mfor c in ${components//,/ }; do flags+=(--component "$c"); done[0m
+2026-11-04T02:00:07.8207437Z [36;1mif [[ $toolchain == nightly && -n $components ]]; then flags+=(--allow-downgrade); fi[0m
+2026-11-04T02:00:07.8207901Z [36;1mlog=$(mktemp)[0m
+2026-11-04T02:00:07.8208207Z [36;1mtrap 'rm -f "$log"' EXIT[0m
+2026-11-04T02:00:07.8208564Z [36;1mfor attempt in 1 2 3 4 5; do[0m
+2026-11-04T02:00:07.8209199Z [36;1m  if rustup toolchain install "$toolchain" "${flags[@]}" --profile minimal --no-self-update --force-non-host 2>&1 | tee "$log"; then[0m
+2026-11-04T02:00:07.8209881Z [36;1m    break[0m
+2026-11-04T02:00:07.8210172Z [36;1m  else[0m
+2026-11-04T02:00:07.8210451Z [36;1m    status=$?[0m
+2026-11-04T02:00:07.8210764Z [36;1m  fi[0m
+2026-11-04T02:00:07.8211140Z [36;1m  if [[ $attempt == 5 ]] || ! grep -Fq 'checksum failed for ' "$log" \[0m
+2026-11-04T02:00:07.8211732Z [36;1m      || ! grep -Fq 'this is likely due to an ongoing update of the official release server' "$log"; then[0m
+2026-11-04T02:00:07.8212282Z [36;1m    exit "$status"[0m
+2026-11-04T02:00:07.8212566Z [36;1m  fi[0m
+2026-11-04T02:00:07.8213000Z [36;1m  echo "Retrying rustup toolchain install in 30 seconds (retry $attempt of 4)" >&2[0m
+2026-11-04T02:00:07.8213468Z [36;1m  sleep 30[0m
+2026-11-04T02:00:07.8213763Z [36;1mdone[0m
+2026-11-04T02:00:07.8226726Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:07.8227169Z env:
+2026-11-04T02:00:07.8227499Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:07.8227809Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:07.8228097Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:07.8228413Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:07.8228696Z   PYTHONUTF8: 1
+2026-11-04T02:00:07.8229000Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:00:07.8229335Z   toolchain: 1.91.1
+2026-11-04T02:00:07.8230288Z   targets: 
+2026-11-04T02:00:07.8230589Z   components: 
+2026-11-04T02:00:07.8230928Z   RUSTUP_PERMIT_COPY_RENAME: 1
+2026-11-04T02:00:07.8231263Z ##[endgroup]
+2026-11-04T02:00:08.6842051Z info: syncing channel updates for 1.91.1-x86_64-pc-windows-msvc
+2026-11-04T02:00:09.3009874Z info: latest update on 2025-11-10 for version 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-04T02:00:09.3010474Z info: downloading 3 components
+2026-11-04T02:00:19.5963317Z 
+2026-11-04T02:00:19.6283543Z   1.91.1-x86_64-pc-windows-msvc installed - rustc 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-04T02:00:19.6284444Z 
+2026-11-04T02:00:19.6773271Z ##[end-action id=__dtolnay_rust-toolchain.__run_4;outcome=success;conclusion=success;duration_ms=11870]
+2026-11-04T02:00:19.6781551Z ##[start-action display=rustup default 1.91.1;id=__dtolnay_rust-toolchain.__run_5]
+2026-11-04T02:00:19.6920542Z ##[group]Run rustup default "$toolchain" --force-non-host
+2026-11-04T02:00:19.6921056Z [36;1mrustup default "$toolchain" --force-non-host[0m
+2026-11-04T02:00:19.6933974Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:19.6934462Z env:
+2026-11-04T02:00:19.6934751Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:19.6935060Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:19.6935383Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:19.6935725Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:19.6936013Z   PYTHONUTF8: 1
+2026-11-04T02:00:19.6936321Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:00:19.6936643Z   toolchain: 1.91.1
+2026-11-04T02:00:19.6936954Z ##[endgroup]
+2026-11-04T02:00:19.7636483Z info: using existing install for 1.91.1-x86_64-pc-windows-msvc
+2026-11-04T02:00:19.7684849Z info: default toolchain set to 1.91.1-x86_64-pc-windows-msvc
+2026-11-04T02:00:19.7685275Z 
+2026-11-04T02:00:19.7910562Z   1.91.1-x86_64-pc-windows-msvc unchanged - rustc 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-04T02:00:19.7911061Z 
+2026-11-04T02:00:19.7913722Z info: note that the toolchain '1.91.1-x86_64-pc-windows-msvc' is currently in use (overridden by 'D:\a\Norma-AI-OS\Norma-AI-OS\rust-toolchain.toml')
+2026-11-04T02:00:19.7999584Z ##[end-action id=__dtolnay_rust-toolchain.__run_5;outcome=success;conclusion=success;duration_ms=121]
+2026-11-04T02:00:19.8004101Z ##[start-action display=Create cachekey;id=__dtolnay_rust-toolchain.rustc-version]
+2026-11-04T02:00:19.8142964Z ##[group]Run DATE=$(rustc +"$toolchain" --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')
+2026-11-04T02:00:19.8144270Z [36;1mDATE=$(rustc +"$toolchain" --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')[0m
+2026-11-04T02:00:19.8145964Z [36;1mHASH=$(rustc +"$toolchain" --version --verbose | sed -ne 's/^commit-hash: //p')[0m
+2026-11-04T02:00:19.8146891Z [36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT[0m
+2026-11-04T02:00:19.8162302Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:19.8163031Z env:
+2026-11-04T02:00:19.8163450Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:19.8163900Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:19.8164311Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:19.8164749Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:19.8165729Z   PYTHONUTF8: 1
+2026-11-04T02:00:19.8166185Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:00:19.8166727Z   toolchain: 1.91.1
+2026-11-04T02:00:19.8167139Z ##[endgroup]
+2026-11-04T02:00:20.6785734Z ##[end-action id=__dtolnay_rust-toolchain.rustc-version;outcome=success;conclusion=success;duration_ms=878]
+2026-11-04T02:00:20.6788912Z ##[start-action display=Disable incremental compilation;id=__dtolnay_rust-toolchain.__run_6]
+2026-11-04T02:00:20.6925599Z ##[group]Run if [ -z "${CARGO_INCREMENTAL+set}" ]; then
+2026-11-04T02:00:20.6926117Z [36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then[0m
+2026-11-04T02:00:20.6926548Z [36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV[0m
+2026-11-04T02:00:20.6926977Z [36;1mfi[0m
+2026-11-04T02:00:20.6939713Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:20.6940171Z env:
+2026-11-04T02:00:20.6940502Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:20.6941004Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:20.6941313Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:20.6941620Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:20.6941889Z   PYTHONUTF8: 1
+2026-11-04T02:00:20.6942219Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:00:20.6942560Z ##[endgroup]
+2026-11-04T02:00:20.7372800Z ##[end-action id=__dtolnay_rust-toolchain.__run_6;outcome=success;conclusion=success;duration_ms=58]
+2026-11-04T02:00:20.7376497Z ##[start-action display=Enable colors in Cargo output;id=__dtolnay_rust-toolchain.__run_7]
+2026-11-04T02:00:20.7508743Z ##[group]Run if [ -z "${CARGO_TERM_COLOR+set}" ]; then
+2026-11-04T02:00:20.7509262Z [36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then[0m
+2026-11-04T02:00:20.7509690Z [36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV[0m
+2026-11-04T02:00:20.7510095Z [36;1mfi[0m
+2026-11-04T02:00:20.7522550Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:20.7523062Z env:
+2026-11-04T02:00:20.7523443Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:20.7523743Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:20.7524033Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:20.7524365Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:20.7524660Z   PYTHONUTF8: 1
+2026-11-04T02:00:20.7524958Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:00:20.7525319Z ##[endgroup]
+2026-11-04T02:00:20.7944686Z ##[end-action id=__dtolnay_rust-toolchain.__run_7;outcome=success;conclusion=success;duration_ms=56]
+2026-11-04T02:00:20.7949559Z ##[start-action display=Enable Cargo sparse registry;id=__dtolnay_rust-toolchain.__run_8]
+2026-11-04T02:00:20.8090946Z ##[group]Run # implemented in 1.66, stabilized in 1.68, made default in 1.70
+2026-11-04T02:00:20.8091683Z [36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70[0m
+2026-11-04T02:00:20.8092433Z [36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol ]; then[0m
+2026-11-04T02:00:20.8093114Z [36;1m  if rustc +"$toolchain" --version --verbose | grep -q '^release: 1\.6[89]\.'; then[0m
+2026-11-04T02:00:20.8093717Z [36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-11-04T02:00:20.8094285Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV[0m
+2026-11-04T02:00:20.8094834Z [36;1m  elif rustc +"$toolchain" --version --verbose | grep -q '^release: 1\.6[67]\.'; then[0m
+2026-11-04T02:00:20.8095560Z [36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-11-04T02:00:20.8096116Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV[0m
+2026-11-04T02:00:20.8096545Z [36;1m  fi[0m
+2026-11-04T02:00:20.8096815Z [36;1mfi[0m
+2026-11-04T02:00:20.8108904Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:20.8109389Z env:
+2026-11-04T02:00:20.8109671Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:20.8110010Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:20.8110322Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:20.8110612Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:20.8110962Z   PYTHONUTF8: 1
+2026-11-04T02:00:20.8111264Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:00:20.8111608Z   toolchain: 1.91.1
+2026-11-04T02:00:20.8111933Z ##[endgroup]
+2026-11-04T02:00:21.0125827Z ##[end-action id=__dtolnay_rust-toolchain.__run_8;outcome=success;conclusion=success;duration_ms=217]
+2026-11-04T02:00:21.0131209Z ##[start-action display=Work around spurious network errors in curl 8.0;id=__dtolnay_rust-toolchain.__run_9]
+2026-11-04T02:00:21.0267893Z ##[group]Run # https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation
+2026-11-04T02:00:21.0268823Z [36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation[0m
+2026-11-04T02:00:21.0269497Z [36;1mif rustc +"$toolchain" --version --verbose | grep -q '^release: 1\.7[01]\.'; then[0m
+2026-11-04T02:00:21.0270030Z [36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV[0m
+2026-11-04T02:00:21.0270543Z [36;1mfi[0m
+2026-11-04T02:00:21.0282237Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:21.0282695Z env:
+2026-11-04T02:00:21.0282999Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:21.0283350Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:21.0284160Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:21.0284554Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:21.0284842Z   PYTHONUTF8: 1
+2026-11-04T02:00:21.0285157Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:00:21.0285508Z   toolchain: 1.91.1
+2026-11-04T02:00:21.0285780Z ##[endgroup]
+2026-11-04T02:00:21.1543413Z ##[end-action id=__dtolnay_rust-toolchain.__run_9;outcome=success;conclusion=success;duration_ms=141]
+2026-11-04T02:00:21.1549116Z ##[start-action display=rustc +1.91.1 --version --verbose;id=__dtolnay_rust-toolchain.__run_10]
+2026-11-04T02:00:21.1683991Z ##[group]Run rustc +"$toolchain" --version --verbose
+2026-11-04T02:00:21.1684451Z [36;1mrustc +"$toolchain" --version --verbose[0m
+2026-11-04T02:00:21.1696226Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:21.1696713Z env:
+2026-11-04T02:00:21.1697039Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:21.1697419Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:21.1697706Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:21.1698027Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:21.1698313Z   PYTHONUTF8: 1
+2026-11-04T02:00:21.1698624Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:00:21.1698959Z   toolchain: 1.91.1
+2026-11-04T02:00:21.1699222Z ##[endgroup]
+2026-11-04T02:00:21.2582879Z rustc 1.91.1 (ed61e7d7e 2025-11-07)
+2026-11-04T02:00:21.2583511Z binary: rustc
+2026-11-04T02:00:21.2584097Z commit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb
+2026-11-04T02:00:21.2584546Z commit-date: 2025-11-07
+2026-11-04T02:00:21.2584913Z host: x86_64-pc-windows-msvc
+2026-11-04T02:00:21.2585441Z release: 1.91.1
+2026-11-04T02:00:21.2585808Z LLVM version: 21.1.2
+2026-11-04T02:00:21.2720016Z ##[end-action id=__dtolnay_rust-toolchain.__run_10;outcome=success;conclusion=success;duration_ms=116]
+2026-11-04T02:00:21.2965792Z ##[group]Run Swatinem/rust-cache@v2
+2026-11-04T02:00:21.2966255Z with:
+2026-11-04T02:00:21.2966593Z   shared-key: windows-native-contracts
+2026-11-04T02:00:21.2966972Z   cache-workspace-crates: true
+2026-11-04T02:00:21.2967325Z   cache-on-failure: true
+2026-11-04T02:00:21.2967639Z   prefix-key: v0-rust
+2026-11-04T02:00:21.2967916Z   add-job-id-key: true
+2026-11-04T02:00:21.2968258Z   add-rust-environment-hash-key: true
+2026-11-04T02:00:21.2968602Z   cache-targets: true
+2026-11-04T02:00:21.2968965Z   cache-all-crates: false
+2026-11-04T02:00:21.2969265Z   save-if: true
+2026-11-04T02:00:21.2969541Z   cache-provider: github
+2026-11-04T02:00:21.2969870Z   cache-bin: true
+2026-11-04T02:00:21.2970159Z   lookup-only: false
+2026-11-04T02:00:21.2970443Z   cmd-format: {0}
+2026-11-04T02:00:21.2970742Z env:
+2026-11-04T02:00:21.2971018Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:21.2971344Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:21.2971640Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:21.2972072Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:21.2972361Z   PYTHONUTF8: 1
+2026-11-04T02:00:21.2972651Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:00:21.2973062Z ##[endgroup]
+2026-11-04T02:00:29.9222155Z ##[group]Cache Configuration
+2026-11-04T02:00:29.9222751Z Cache Provider:
+2026-11-04T02:00:29.9224915Z     github
+2026-11-04T02:00:29.9225401Z Workspaces:
+2026-11-04T02:00:29.9226308Z     D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-04T02:00:29.9226950Z Cache Paths:
+2026-11-04T02:00:29.9227485Z     C:\Users\runneradmin\.cargo\bin
+2026-11-04T02:00:29.9228039Z     C:\Users\runneradmin\.cargo\.crates.toml
+2026-11-04T02:00:29.9228555Z     C:\Users\runneradmin\.cargo\.crates2.json
+2026-11-04T02:00:29.9229059Z     C:\Users\runneradmin\.cargo\registry
+2026-11-04T02:00:29.9229750Z     C:\Users\runneradmin\.cargo\git
+2026-11-04T02:00:29.9230284Z     D:\a\Norma-AI-OS\Norma-AI-OS\target
+2026-11-04T02:00:29.9232604Z Restore Key:
+2026-11-04T02:00:29.9233176Z     v0-rust-windows-native-contracts-Windows_NT-x64-8f12d873
+2026-11-04T02:00:29.9241012Z Cache Key:
+2026-11-04T02:00:29.9242415Z     v0-rust-windows-native-contracts-Windows_NT-x64-8f12d873-a0d1a65b
+2026-11-04T02:00:29.9243072Z .. Prefix:
+2026-11-04T02:00:29.9243553Z   - v0-rust-windows-native-contracts-Windows_NT-x64
+2026-11-04T02:00:29.9244406Z .. Environment considered:
+2026-11-04T02:00:29.9244848Z   - Rust Versions:
+2026-11-04T02:00:29.9245743Z     - 1.91.1 x86_64-pc-windows-msvc ed61e7d7e242494fb7057f2657300d9e77bb4fcb
+2026-11-04T02:00:29.9246504Z     - 1.99.1 x86_64-pc-windows-msvc 58cf8f9c35b355199727627d07ae34a4e2846d67
+2026-11-04T02:00:29.9247084Z   - CARGO_BUILD_JOBS
+2026-11-04T02:00:29.9247739Z   - CARGO_HOME
+2026-11-04T02:00:29.9248173Z   - CARGO_INCREMENTAL
+2026-11-04T02:00:29.9248593Z   - CARGO_TERM_COLOR
+2026-11-04T02:00:29.9249074Z   - RUST_BACKTRACE
+2026-11-04T02:00:29.9249455Z .. Lockfiles considered:
+2026-11-04T02:00:29.9249973Z   - D:\a\Norma-AI-OS\Norma-AI-OS\.cargo\config.toml
+2026-11-04T02:00:29.9250518Z   - D:\a\Norma-AI-OS\Norma-AI-OS\Cargo.lock
+2026-11-04T02:00:29.9251077Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\agent\Cargo.toml
+2026-11-04T02:00:29.9251744Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\analytics\Cargo.toml
+2026-11-04T02:00:29.9252305Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\app\Cargo.toml
+2026-11-04T02:00:29.9252953Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\asr\Cargo.toml
+2026-11-04T02:00:29.9253367Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\audio\Cargo.toml
+2026-11-04T02:00:29.9254139Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\brain\Cargo.toml
+2026-11-04T02:00:29.9254679Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\canvas\Cargo.toml
+2026-11-04T02:00:29.9255279Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\dialogue\Cargo.toml
+2026-11-04T02:00:29.9255908Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\license\Cargo.toml
+2026-11-04T02:00:29.9256465Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\live_voice\Cargo.toml
+2026-11-04T02:00:29.9257006Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\media_store\Cargo.toml
+2026-11-04T02:00:29.9261241Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing\Cargo.toml
+2026-11-04T02:00:29.9262181Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\model_store\Cargo.toml
+2026-11-04T02:00:29.9262842Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma\Cargo.toml
+2026-11-04T02:00:29.9263277Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\runtime\Cargo.toml
+2026-11-04T02:00:29.9263822Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage\Cargo.toml
+2026-11-04T02:00:29.9264332Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\terminal\Cargo.toml
+2026-11-04T02:00:29.9265010Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\tts\Cargo.toml
+2026-11-04T02:00:29.9265871Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\ui\Cargo.toml
+2026-11-04T02:00:29.9266576Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\voice_input\Cargo.toml
+2026-11-04T02:00:29.9267181Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\voice_sherpa\Cargo.toml
+2026-11-04T02:00:29.9267983Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace\Cargo.toml
+2026-11-04T02:00:29.9268620Z   - D:\a\Norma-AI-OS\Norma-AI-OS\rust-toolchain.toml
+2026-11-04T02:00:29.9270850Z ##[endgroup]
+2026-11-04T02:00:29.9271121Z 
+2026-11-04T02:00:29.9271293Z ... Restoring cache ...
+2026-11-04T02:00:30.1710639Z No cache found.
+2026-11-04T02:00:30.2025606Z ##[group]Run python - <<'PYCODE'
+2026-11-04T02:00:30.2026237Z [36;1mpython - <<'PYCODE'[0m
+2026-11-04T02:00:30.2026661Z [36;1mimport json, os, pathlib, platform, re, subprocess, sys, time[0m
+2026-11-04T02:00:30.2027136Z [36;1mroot = pathlib.Path('artifacts/storage-15')[0m
+2026-11-04T02:00:30.2027559Z [36;1mroot.mkdir(parents=True, exist_ok=True)[0m
+2026-11-04T02:00:30.2027959Z [36;1mcount = int(os.environ['STORAGE_REPEATS'])[0m
+2026-11-04T02:00:30.2028339Z [36;1mif not 1 <= count <= 30:[0m
+2026-11-04T02:00:30.2028763Z [36;1m    raise ValueError('Repetitions must be 1..30')[0m
+2026-11-04T02:00:30.2029270Z [36;1mreport = {'source_sha': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'],[0m
+2026-11-04T02:00:30.2030086Z [36;1m          'attempt': os.environ['GITHUB_RUN_ATTEMPT'], 'platform': platform.platform(),[0m
+2026-11-04T02:00:30.2030663Z [36;1m          'image': os.environ.get('ImageVersion'), 'processors': os.cpu_count(),[0m
+2026-11-04T02:00:30.2031370Z [36;1m          'compiler': subprocess.check_output(['rustc', '-vV'], text=True), 'commands': []}[0m
+2026-11-04T02:00:30.2031954Z [36;1mcases = [('full-storage', [])] if os.environ['STORAGE_SUITE'] == 'full' else [][0m
+2026-11-04T02:00:30.2032625Z [36;1mcases += [('paths', ['--lib', 'database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary']),[0m
+2026-11-04T02:00:30.2033259Z [36;1m          ('legacy', ['--test', 'global_project_storage']),[0m
+2026-11-04T02:00:30.2033744Z [36;1m          ('memory', ['--test', 'memory_scope']),[0m
+2026-11-04T02:00:30.2034168Z [36;1m          ('sessions', ['--test', 'mobile_sessions'])][0m
+2026-11-04T02:00:30.2034562Z [36;1mfor i in range(1, count + 1):[0m
+2026-11-04T02:00:30.2035025Z [36;1m    for name in ('live_operation_store', 'mobile_commands', 'workspace_chat_time'):[0m
+2026-11-04T02:00:30.2035543Z [36;1m        cases.append((f'{name}-{i:02}', ['--test', name]))[0m
+2026-11-04T02:00:30.2035917Z [36;1mfor label, args in cases:[0m
+2026-11-04T02:00:30.2036492Z [36;1m    command = ['cargo', 'test', '--locked', '--no-fail-fast', '-p', 'storage', *args, '--', '--nocapture'][0m
+2026-11-04T02:00:30.2037020Z [36;1m    started = time.monotonic()[0m
+2026-11-04T02:00:30.2037509Z [36;1m    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,[0m
+2026-11-04T02:00:30.2038032Z [36;1m                            encoding='utf-8', errors='replace')[0m
+2026-11-04T02:00:30.2038498Z [36;1m    (root / f'{label}.log').write_text(result.stdout, encoding='utf-8')[0m
+2026-11-04T02:00:30.2039433Z [36;1m    print(result.stdout, flush=True)[0m
+2026-11-04T02:00:30.2040002Z [36;1m    summaries = re.findall(r'test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;', result.stdout)[0m
+2026-11-04T02:00:30.2040778Z [36;1m    totals = {key: sum(int(row[i]) for row in summaries) for i, key in enumerate(('passed', 'failed', 'ignored'), 1)}[0m
+2026-11-04T02:00:30.2041968Z [36;1m    valid = bool(summaries) and totals['passed'] + totals['failed'] > 0 and totals['ignored'] == 0[0m
+2026-11-04T02:00:30.2042621Z [36;1m    failures = sorted(set(re.findall(r'^test (\S+) \.\.\. FAILED\s*$', result.stdout, re.MULTILINE)))[0m
+2026-11-04T02:00:30.2043307Z [36;1m    report['commands'].append({'label': label, 'command': command, 'exit_code': result.returncode,[0m
+2026-11-04T02:00:30.2044062Z [36;1m        'valid_counts': valid, **totals, 'failed_names': failures, 'seconds': round(time.monotonic()-started, 3), 'log': f'{label}.log'})[0m
+2026-11-04T02:00:30.2044847Z [36;1m    (root / 'report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')[0m
+2026-11-04T02:00:30.2045489Z [36;1msys.exit(1 if any(c['exit_code'] or not c['valid_counts'] for c in report['commands']) else 0)[0m
+2026-11-04T02:00:30.2045949Z [36;1mPYCODE[0m
+2026-11-04T02:00:30.2057381Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:00:30.2060182Z env:
+2026-11-04T02:00:30.2060554Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:00:30.2060868Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:00:30.2061199Z   CARGO_TERM_COLOR: never
+2026-11-04T02:00:30.2061867Z   RUST_BACKTRACE: 1
+2026-11-04T02:00:30.2062271Z   PYTHONUTF8: 1
+2026-11-04T02:00:30.2062608Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:00:30.2062959Z   CACHE_ON_FAILURE: true
+2026-11-04T02:00:30.2063317Z   STORAGE_REPEATS: 5
+2026-11-04T02:00:30.2063610Z   STORAGE_SUITE: focused
+2026-11-04T02:00:30.2063891Z ##[endgroup]
+2026-11-04T02:11:45.8919071Z     Updating crates.io index
+2026-11-04T02:11:45.8919692Z  Downloading crates ...
+2026-11-04T02:11:45.8920033Z   Downloaded adler2 v2.0.1
+2026-11-04T02:11:45.8920814Z   Downloaded fastrand v2.4.1
+2026-11-04T02:11:45.8921542Z   Downloaded futures-core v0.3.32
+2026-11-04T02:11:45.8921970Z   Downloaded hyper v1.10.1
+2026-11-04T02:11:45.8922307Z   Downloaded subtle v2.6.1
+2026-11-04T02:11:45.8922674Z   Downloaded idna_adapter v1.2.2
+2026-11-04T02:11:45.8923252Z   Downloaded thiserror v2.0.18
+2026-11-04T02:11:45.8923742Z   Downloaded unicase v2.9.0
+2026-11-04T02:11:45.8924232Z   Downloaded unicode-ident v1.0.24
+2026-11-04T02:11:45.8924728Z   Downloaded untrusted v0.9.0
+2026-11-04T02:11:45.8925264Z   Downloaded zerovec-derive v0.11.3
+2026-11-04T02:11:45.8925706Z   Downloaded want v0.3.1
+2026-11-04T02:11:45.8926090Z   Downloaded strsim v0.11.1
+2026-11-04T02:11:45.8926464Z   Downloaded yoke-derive v0.8.2
+2026-11-04T02:11:45.8926877Z   Downloaded windows-strings v0.4.2
+2026-11-04T02:11:45.8927515Z   Downloaded webpki-roots v0.26.11
+2026-11-04T02:11:45.8927915Z   Downloaded zmij v1.0.21
+2026-11-04T02:11:45.8928293Z   Downloaded tungstenite v0.28.0
+2026-11-04T02:11:45.8928703Z   Downloaded typenum v1.20.1
+2026-11-04T02:11:45.8929042Z   Downloaded hashbrown v0.14.5
+2026-11-04T02:11:45.8929350Z   Downloaded tower v0.5.3
+2026-11-04T02:11:45.8929657Z   Downloaded schemars v1.2.1
+2026-11-04T02:11:45.8929937Z   Downloaded tracing v0.1.44
+2026-11-04T02:11:45.8930225Z   Downloaded tokio-util v0.7.18
+2026-11-04T02:11:45.8930508Z   Downloaded zeroize v1.9.0
+2026-11-04T02:11:45.8930791Z   Downloaded tower-http v0.6.11
+2026-11-04T02:11:45.8931089Z   Downloaded serde_json v1.0.150
+2026-11-04T02:11:45.8931391Z   Downloaded time v0.3.53
+2026-11-04T02:11:45.8931659Z   Downloaded tokio v1.52.3
+2026-11-04T02:11:45.8931935Z   Downloaded rusqlite v0.32.1
+2026-11-04T02:11:45.8932216Z   Downloaded rustls v0.23.41
+2026-11-04T02:11:45.8932491Z   Downloaded encoding_rs v0.8.35
+2026-11-04T02:11:45.8932791Z   Downloaded rand v0.9.4
+2026-11-04T02:11:45.8933043Z   Downloaded mio v1.2.1
+2026-11-04T02:11:45.8933406Z   Downloaded indexmap v2.14.0
+2026-11-04T02:11:45.8933771Z   Downloaded nom v7.1.3
+2026-11-04T02:11:45.8934048Z   Downloaded rcgen v0.13.2
+2026-11-04T02:11:45.8934325Z   Downloaded syn v2.0.118
+2026-11-04T02:11:45.8934754Z   Downloaded log v0.4.33
+2026-11-04T02:11:45.8935026Z   Downloaded libz-sys v1.1.29
+2026-11-04T02:11:45.8935318Z   Downloaded icu_collections v2.2.0
+2026-11-04T02:11:45.8935627Z   Downloaded zerofrom-derive v0.1.7
+2026-11-04T02:11:45.8935922Z   Downloaded zerofrom v0.1.8
+2026-11-04T02:11:45.8936259Z   Downloaded writeable v0.6.3
+2026-11-04T02:11:45.8936543Z   Downloaded windows-link v0.1.3
+2026-11-04T02:11:45.8936845Z   Downloaded rustls-native-certs v0.8.4
+2026-11-04T02:11:45.8937159Z   Downloaded reqwest v0.13.4
+2026-11-04T02:11:45.8937450Z   Downloaded once_cell_polyfill v1.70.2
+2026-11-04T02:11:45.8937759Z   Downloaded num-traits v0.2.19
+2026-11-04T02:11:45.8938039Z   Downloaded mime_guess v2.0.5
+2026-11-04T02:11:45.8938337Z   Downloaded tokio-tungstenite v0.28.0
+2026-11-04T02:11:45.8938622Z   Downloaded sha2 v0.10.9
+2026-11-04T02:11:45.8938866Z   Downloaded serde_core v1.0.228
+2026-11-04T02:11:45.8939129Z   Downloaded serde v1.0.228
+2026-11-04T02:11:45.8939390Z   Downloaded quinn-proto v0.11.16
+2026-11-04T02:11:45.8939667Z   Downloaded rustls-webpki v0.103.13
+2026-11-04T02:11:45.8939934Z   Downloaded url v2.5.8
+2026-11-04T02:11:45.8941127Z   Downloaded vcpkg v0.2.15
+2026-11-04T02:11:45.8941384Z   Downloaded rand_core v0.10.1
+2026-11-04T02:11:45.8942098Z   Downloaded quote v1.0.46
+2026-11-04T02:11:45.8942403Z   Downloaded pin-project-lite v0.2.17
+2026-11-04T02:11:45.8942696Z   Downloaded minimal-lexical v0.2.1
+2026-11-04T02:11:45.8942970Z   Downloaded ureq v3.3.0
+2026-11-04T02:11:45.8943206Z   Downloaded aws-lc-sys v0.43.0
+2026-11-04T02:11:45.8943456Z   Downloaded utf-8 v0.7.6
+2026-11-04T02:11:45.8943703Z   Downloaded ureq-proto v0.6.0
+2026-11-04T02:11:45.8943969Z   Downloaded tinyvec_macros v0.1.1
+2026-11-04T02:11:45.8944235Z   Downloaded thiserror-impl v2.0.18
+2026-11-04T02:11:45.8944654Z   Downloaded tempfile v3.27.0
+2026-11-04T02:11:45.8944911Z   Downloaded socket2 v0.6.4
+2026-11-04T02:11:45.8945195Z   Downloaded rustls-platform-verifier v0.7.0
+2026-11-04T02:11:45.8945529Z   Downloaded rustc_version v0.4.1
+2026-11-04T02:11:45.8945794Z   Downloaded zerotrie v0.2.4
+2026-11-04T02:11:45.8946052Z   Downloaded winapi v0.3.9
+2026-11-04T02:11:45.8946269Z   Downloaded zerovec v0.11.6
+2026-11-04T02:11:45.8946529Z   Downloaded webpki-roots v1.0.8
+2026-11-04T02:11:45.8946819Z   Downloaded ring v0.17.14
+2026-11-04T02:11:45.8947032Z   Downloaded zerocopy v0.8.53
+2026-11-04T02:11:45.8947353Z   Downloaded clap_lex v1.1.0
+2026-11-04T02:11:45.8947628Z   Downloaded ahash v0.8.12
+2026-11-04T02:11:45.8947946Z   Downloaded rig-core v0.40.0
+2026-11-04T02:11:45.8948263Z   Downloaded pin-project-internal v1.1.13
+2026-11-04T02:11:45.8948578Z   Downloaded libc v0.2.186
+2026-11-04T02:11:45.8948850Z   Downloaded jobserver v0.1.35
+2026-11-04T02:11:45.8949123Z   Downloaded yoke v0.8.3
+2026-11-04T02:11:45.8949391Z   Downloaded yasna v0.5.2
+2026-11-04T02:11:45.8949667Z   Downloaded windows-result v0.3.4
+2026-11-04T02:11:45.8949960Z   Downloaded windows-link v0.2.1
+2026-11-04T02:11:45.8950246Z   Downloaded time-macros v0.2.31
+2026-11-04T02:11:45.8950536Z   Downloaded smallvec v1.15.2
+2026-11-04T02:11:45.8950839Z   Downloaded simd-adler32 v0.3.9
+2026-11-04T02:11:45.8951152Z   Downloaded shlex v2.0.1
+2026-11-04T02:11:45.8951436Z   Downloaded serde_derive_internals v0.29.1
+2026-11-04T02:11:45.8951748Z   Downloaded semver v1.0.28
+2026-11-04T02:11:45.8952028Z   Downloaded rand_core v0.9.5
+2026-11-04T02:11:45.8952306Z   Downloaded slab v0.4.12
+2026-11-04T02:11:45.8952573Z   Downloaded ref-cast v1.0.25
+2026-11-04T02:11:45.8952860Z   Downloaded libsqlite3-sys v0.30.1
+2026-11-04T02:11:45.8953163Z   Downloaded rand_chacha v0.9.0
+2026-11-04T02:11:45.8953443Z   Downloaded powerfmt v0.2.0
+2026-11-04T02:11:45.8953734Z   Downloaded percent-encoding v2.3.2
+2026-11-04T02:11:45.8954067Z   Downloaded num-conv v0.2.2
+2026-11-04T02:11:45.8954400Z   Downloaded memoffset v0.9.1
+2026-11-04T02:11:45.8954702Z   Downloaded uuid v1.23.4
+2026-11-04T02:11:45.8954985Z   Downloaded utf8parse v0.2.2
+2026-11-04T02:11:45.8955280Z   Downloaded utf8-zero v0.8.1
+2026-11-04T02:11:45.8955565Z   Downloaded tower-layer v0.3.3
+2026-11-04T02:11:45.8955871Z   Downloaded tokio-macros v2.7.0
+2026-11-04T02:11:45.8956168Z   Downloaded time-core v0.1.9
+2026-11-04T02:11:45.8956470Z   Downloaded stable_deref_trait v1.2.1
+2026-11-04T02:11:45.8956785Z   Downloaded socks v0.3.4
+2026-11-04T02:11:45.8957063Z   Downloaded sha1 v0.10.7
+2026-11-04T02:11:45.8957334Z   Downloaded rustc-hash v2.1.3
+2026-11-04T02:11:45.8957669Z   Downloaded option-ext v0.2.0
+2026-11-04T02:11:45.8957947Z   Downloaded aws-lc-rs v1.17.3
+2026-11-04T02:11:45.8958233Z   Downloaded windows-registry v0.5.3
+2026-11-04T02:11:45.8958529Z   Downloaded version_check v0.9.5
+2026-11-04T02:11:45.8958822Z   Downloaded utf8_iter v1.0.4
+2026-11-04T02:11:45.8959100Z   Downloaded tinystr v0.8.3
+2026-11-04T02:11:45.8959379Z   Downloaded synstructure v0.13.2
+2026-11-04T02:11:45.8959671Z   Downloaded serde_derive v1.0.228
+2026-11-04T02:11:45.8959967Z   Downloaded schemars_derive v1.2.1
+2026-11-04T02:11:45.8960261Z   Downloaded schannel v0.1.29
+2026-11-04T02:11:45.8960699Z   Downloaded rustls-pki-types v1.15.0
+2026-11-04T02:11:45.8961042Z   Downloaded rand_pcg v0.10.2
+2026-11-04T02:11:45.8961347Z   Downloaded pin-project v1.1.13
+2026-11-04T02:11:45.8961999Z   Downloaded memchr v2.8.2
+2026-11-04T02:11:45.8962551Z   Downloaded litemap v0.8.2
+2026-11-04T02:11:45.8962887Z   Downloaded h2 v0.4.15
+2026-11-04T02:11:45.8963208Z   Downloaded git2 v0.20.4
+2026-11-04T02:11:45.8963498Z   Downloaded flate2 v1.1.9
+2026-11-04T02:11:45.8963803Z   Downloaded crossbeam-channel v0.5.16
+2026-11-04T02:11:45.8965092Z   Downloaded cc v1.2.66
+2026-11-04T02:11:45.8965396Z   Downloaded tokio-rustls v0.26.4
+2026-11-04T02:11:45.8965844Z   Downloaded tinyvec v1.11.0
+2026-11-04T02:11:45.8966373Z   Downloaded spake2 v0.4.0
+2026-11-04T02:11:45.8966716Z   Downloaded rand_core v0.6.4
+2026-11-04T02:11:45.8967025Z   Downloaded quinn v0.11.11
+2026-11-04T02:11:45.8967327Z   Downloaded pkg-config v0.3.33
+2026-11-04T02:11:45.8967642Z   Downloaded once_cell v1.21.4
+2026-11-04T02:11:45.8967981Z   Downloaded miniz_oxide v0.8.9
+2026-11-04T02:11:45.8968289Z   Downloaded mime v0.3.17
+2026-11-04T02:11:45.8968572Z   Downloaded litrs v1.0.0
+2026-11-04T02:11:45.8968852Z   Downloaded idna v1.1.0
+2026-11-04T02:11:45.8969156Z   Downloaded icu_properties_data v2.2.0
+2026-11-04T02:11:45.8969502Z   Downloaded icu_normalizer_data v2.2.0
+2026-11-04T02:11:45.8969820Z   Downloaded icu_locale_core v2.2.0
+2026-11-04T02:11:45.8970159Z   Downloaded http v1.4.2
+2026-11-04T02:11:45.8970453Z   Downloaded hkdf v0.12.4
+2026-11-04T02:11:45.8970756Z   Downloaded hashbrown v0.17.1
+2026-11-04T02:11:45.8971074Z   Downloaded futures-util v0.3.32
+2026-11-04T02:11:45.8971442Z   Downloaded dyn-clone v1.0.20
+2026-11-04T02:11:45.8971762Z   Downloaded curve25519-dalek v4.1.3
+2026-11-04T02:11:45.8972096Z   Downloaded clap_builder v4.6.0
+2026-11-04T02:11:45.8972416Z   Downloaded base64 v0.22.1
+2026-11-04T02:11:45.8972711Z   Downloaded uds_windows v1.2.1
+2026-11-04T02:11:45.8973017Z   Downloaded try-lock v0.2.5
+2026-11-04T02:11:45.8973327Z   Downloaded tracing-core v0.1.36
+2026-11-04T02:11:45.8973651Z   Downloaded tracing-attributes v0.1.31
+2026-11-04T02:11:45.8973975Z   Downloaded tower-service v0.3.3
+2026-11-04T02:11:45.8974305Z   Downloaded lru-slab v0.1.2
+2026-11-04T02:11:45.8974612Z   Downloaded windows-sys v0.61.2
+2026-11-04T02:11:45.8974955Z   Downloaded ipnet v2.12.0
+2026-11-04T02:11:45.8975259Z   Downloaded icu_properties v2.2.0
+2026-11-04T02:11:45.8975585Z   Downloaded icu_normalizer v2.2.0
+2026-11-04T02:11:45.8975922Z   Downloaded hyper-util v0.1.20
+2026-11-04T02:11:45.8976241Z   Downloaded http-body v1.0.1
+2026-11-04T02:11:45.8976547Z   Downloaded form_urlencoded v1.2.2
+2026-11-04T02:11:45.8976910Z   Downloaded crossbeam-utils v0.8.22
+2026-11-04T02:11:45.8977388Z   Downloaded bytes v1.12.0
+2026-11-04T02:11:45.8977812Z   Downloaded as-any v0.3.2
+2026-11-04T02:11:45.8978267Z   Downloaded anstyle-wincon v3.0.11
+2026-11-04T02:11:45.8978726Z   Downloaded anstyle v1.0.14
+2026-11-04T02:11:45.8979232Z   Downloaded tracing-futures v0.2.5
+2026-11-04T02:11:45.8979736Z   Downloaded sync_wrapper v1.0.2
+2026-11-04T02:11:45.8980182Z   Downloaded rand v0.10.2
+2026-11-04T02:11:45.8980623Z   Downloaded ppv-lite86 v0.2.21
+2026-11-04T02:11:45.8981067Z   Downloaded ordered-float v5.3.0
+2026-11-04T02:11:45.8981507Z   Downloaded itoa v1.0.18
+2026-11-04T02:11:45.8982509Z   Downloaded is_terminal_polyfill v1.70.2
+2026-11-04T02:11:45.8983038Z   Downloaded hyper-rustls v0.27.9
+2026-11-04T02:11:45.8983513Z   Downloaded hex v0.4.3
+2026-11-04T02:11:45.8983961Z   Downloaded futures-sink v0.3.32
+2026-11-04T02:11:45.8984457Z   Downloaded futures v0.3.32
+2026-11-04T02:11:45.8984941Z   Downloaded dirs v6.0.0
+2026-11-04T02:11:45.8985442Z   Downloaded crc32fast v1.5.0
+2026-11-04T02:11:45.8985878Z   Downloaded clap v4.6.1
+2026-11-04T02:11:45.8986314Z   Downloaded anstyle-parse v1.0.0
+2026-11-04T02:11:45.8986764Z   Downloaded proc-macro2 v1.0.106
+2026-11-04T02:11:45.8987225Z   Downloaded generic-array v0.14.7
+2026-11-04T02:11:45.8987986Z   Downloaded futures-timer v3.0.4
+2026-11-04T02:11:45.8988488Z   Downloaded futures-channel v0.3.32
+2026-11-04T02:11:45.8988982Z   Downloaded equivalent v1.0.2
+2026-11-04T02:11:45.8989454Z   Downloaded dirs-sys v0.5.0
+2026-11-04T02:11:45.8989916Z   Downloaded deranged v0.5.8
+2026-11-04T02:11:45.8990475Z   Downloaded curve25519-dalek-derive v0.1.1
+2026-11-04T02:11:45.8990977Z   Downloaded colorchoice v1.0.5
+2026-11-04T02:11:45.8991392Z   Downloaded anyhow v1.0.103
+2026-11-04T02:11:45.8991817Z   Downloaded getrandom v0.4.3
+2026-11-04T02:11:45.8992270Z   Downloaded getrandom v0.3.4
+2026-11-04T02:11:45.8992702Z   Downloaded dunce v1.0.5
+2026-11-04T02:11:45.8993131Z   Downloaded crypto-common v0.1.7
+2026-11-04T02:11:45.8993766Z   Downloaded cookie_store v0.22.1
+2026-11-04T02:11:45.8994213Z   Downloaded cmake v0.1.58
+2026-11-04T02:11:45.8994637Z   Downloaded chacha20 v0.10.1
+2026-11-04T02:11:45.8995049Z   Downloaded byteorder v1.5.0
+2026-11-04T02:11:45.8995502Z   Downloaded block-buffer v0.10.4
+2026-11-04T02:11:45.8995930Z   Downloaded autocfg v1.5.1
+2026-11-04T02:11:45.8996355Z   Downloaded atomic-waker v1.1.2
+2026-11-04T02:11:45.8996670Z   Downloaded async-stream v0.3.6
+2026-11-04T02:11:45.8996984Z   Downloaded anstyle-query v1.1.5
+2026-11-04T02:11:45.8997407Z   Downloaded anstream v1.0.0
+2026-11-04T02:11:45.8997794Z   Downloaded ref-cast-impl v1.0.25
+2026-11-04T02:11:45.8998233Z   Downloaded quinn-udp v0.5.15
+2026-11-04T02:11:45.8998679Z   Downloaded potential_utf v0.1.5
+2026-11-04T02:11:45.8999217Z   Downloaded md-5 v0.10.6
+2026-11-04T02:11:45.8999661Z   Downloaded icu_provider v2.2.0
+2026-11-04T02:11:45.9000156Z   Downloaded httparse v1.10.1
+2026-11-04T02:11:45.9000655Z   Downloaded http-body-util v0.1.3
+2026-11-04T02:11:45.9001001Z   Downloaded libgit2-sys v0.18.5+1.9.4
+2026-11-04T02:11:45.9001324Z   Downloaded hmac v0.12.1
+2026-11-04T02:11:45.9001627Z   Downloaded heck v0.5.0
+2026-11-04T02:11:45.9001915Z   Downloaded glob v0.3.3
+2026-11-04T02:11:45.9002565Z   Downloaded getrandom v0.2.17
+2026-11-04T02:11:45.9002890Z   Downloaded futures-task v0.3.32
+2026-11-04T02:11:45.9003207Z   Downloaded futures-macro v0.3.32
+2026-11-04T02:11:45.9003519Z   Downloaded futures-io v0.3.32
+2026-11-04T02:11:45.9003881Z   Downloaded futures-executor v0.3.32
+2026-11-04T02:11:45.9004226Z   Downloaded find-msvc-tools v0.1.9
+2026-11-04T02:11:45.9004580Z   Downloaded fallible-streaming-iterator v0.1.9
+2026-11-04T02:11:45.9004968Z   Downloaded fallible-iterator v0.3.0
+2026-11-04T02:11:45.9005303Z   Downloaded eventsource-stream v0.2.3
+2026-11-04T02:11:45.9005630Z   Downloaded document-features v0.2.12
+2026-11-04T02:11:45.9005945Z   Downloaded digest v0.10.7
+2026-11-04T02:11:45.9006260Z   Downloaded data-encoding v2.11.0
+2026-11-04T02:11:45.9006576Z   Downloaded clap_derive v4.6.1
+2026-11-04T02:11:45.9006884Z   Downloaded async-stream-impl v0.3.6
+2026-11-04T02:11:45.9007220Z   Downloaded hashlink v0.9.1
+2026-11-04T02:11:45.9007561Z   Downloaded fs_extra v1.3.0
+2026-11-04T02:11:45.9007868Z   Downloaded cpufeatures v0.2.17
+2026-11-04T02:11:45.9008169Z   Downloaded cfg_aliases v0.2.1
+2026-11-04T02:11:45.9008477Z   Downloaded bitflags v2.13.0
+2026-11-04T02:11:45.9008768Z   Downloaded fnv v1.0.7
+2026-11-04T02:11:45.9009089Z   Downloaded cpufeatures v0.3.0
+2026-11-04T02:11:45.9009381Z   Downloaded cookie v0.18.1
+2026-11-04T02:11:45.9009682Z   Downloaded cfg-if v1.0.4
+2026-11-04T02:11:45.9009979Z   Downloaded displaydoc v0.2.6
+2026-11-04T02:11:45.9010285Z    Compiling proc-macro2 v1.0.106
+2026-11-04T02:11:45.9010669Z    Compiling unicode-ident v1.0.24
+2026-11-04T02:11:45.9010978Z    Compiling quote v1.0.46
+2026-11-04T02:11:45.9011307Z    Compiling cfg-if v1.0.4
+2026-11-04T02:11:45.9011608Z    Compiling getrandom v0.4.3
+2026-11-04T02:11:45.9011903Z    Compiling jobserver v0.1.35
+2026-11-04T02:11:45.9012194Z    Compiling syn v2.0.118
+2026-11-04T02:11:45.9012486Z    Compiling find-msvc-tools v0.1.9
+2026-11-04T02:11:45.9012912Z    Compiling shlex v2.0.1
+2026-11-04T02:11:45.9013288Z    Compiling cc v1.2.66
+2026-11-04T02:11:45.9014538Z    Compiling windows-link v0.2.1
+2026-11-04T02:11:45.9014896Z    Compiling windows-sys v0.61.2
+2026-11-04T02:11:45.9015243Z    Compiling synstructure v0.13.2
+2026-11-04T02:11:45.9015630Z    Compiling once_cell v1.21.4
+2026-11-04T02:11:45.9015940Z    Compiling version_check v0.9.5
+2026-11-04T02:11:45.9016413Z    Compiling zerofrom-derive v0.1.7
+2026-11-04T02:11:45.9016916Z    Compiling pin-project-lite v0.2.17
+2026-11-04T02:11:45.9017413Z    Compiling yoke-derive v0.8.2
+2026-11-04T02:11:45.9017983Z    Compiling stable_deref_trait v1.2.1
+2026-11-04T02:11:45.9018461Z    Compiling bytes v1.12.0
+2026-11-04T02:11:45.9018881Z    Compiling subtle v2.6.1
+2026-11-04T02:11:45.9019444Z    Compiling futures-core v0.3.32
+2026-11-04T02:11:45.9019765Z    Compiling zerovec-derive v0.11.3
+2026-11-04T02:11:45.9020143Z    Compiling zerofrom v0.1.8
+2026-11-04T02:11:45.9020439Z    Compiling yoke v0.8.3
+2026-11-04T02:11:45.9020735Z    Compiling dunce v1.0.5
+2026-11-04T02:11:45.9021047Z    Compiling displaydoc v0.2.6
+2026-11-04T02:11:45.9021345Z    Compiling cmake v0.1.58
+2026-11-04T02:11:45.9021643Z    Compiling zerovec v0.11.6
+2026-11-04T02:11:45.9021936Z    Compiling getrandom v0.2.17
+2026-11-04T02:11:45.9022232Z    Compiling itoa v1.0.18
+2026-11-04T02:11:45.9022857Z    Compiling fs_extra v1.3.0
+2026-11-04T02:11:45.9023154Z    Compiling memchr v2.8.2
+2026-11-04T02:11:45.9023449Z    Compiling aws-lc-sys v0.43.0
+2026-11-04T02:11:45.9023787Z    Compiling ring v0.17.14
+2026-11-04T02:11:45.9024089Z    Compiling zeroize v1.9.0
+2026-11-04T02:11:45.9024397Z    Compiling generic-array v0.14.7
+2026-11-04T02:11:45.9024770Z    Compiling futures-sink v0.3.32
+2026-11-04T02:11:45.9025259Z    Compiling smallvec v1.15.2
+2026-11-04T02:11:45.9025725Z    Compiling rustls-pki-types v1.15.0
+2026-11-04T02:11:45.9026203Z    Compiling http v1.4.2
+2026-11-04T02:11:45.9026568Z    Compiling tinystr v0.8.3
+2026-11-04T02:11:45.9026970Z    Compiling writeable v0.6.3
+2026-11-04T02:11:45.9027284Z    Compiling pkg-config v0.3.33
+2026-11-04T02:11:45.9027565Z    Compiling aws-lc-rs v1.17.3
+2026-11-04T02:11:45.9027842Z    Compiling typenum v1.20.1
+2026-11-04T02:11:45.9028146Z    Compiling litemap v0.8.2
+2026-11-04T02:11:45.9028526Z    Compiling untrusted v0.9.0
+2026-11-04T02:11:45.9028909Z    Compiling icu_locale_core v2.2.0
+2026-11-04T02:11:45.9029361Z    Compiling potential_utf v0.1.5
+2026-11-04T02:11:45.9029751Z    Compiling zerotrie v0.2.4
+2026-11-04T02:11:45.9030141Z    Compiling icu_properties_data v2.2.0
+2026-11-04T02:11:45.9030566Z    Compiling utf8_iter v1.0.4
+2026-11-04T02:11:45.9030924Z    Compiling vcpkg v0.2.15
+2026-11-04T02:11:45.9031270Z    Compiling slab v0.4.12
+2026-11-04T02:11:45.9031702Z    Compiling log v0.4.33
+2026-11-04T02:11:45.9032132Z    Compiling icu_normalizer_data v2.2.0
+2026-11-04T02:11:45.9032555Z    Compiling icu_collections v2.2.0
+2026-11-04T02:11:45.9032949Z    Compiling icu_provider v2.2.0
+2026-11-04T02:11:45.9033232Z    Compiling futures-channel v0.3.32
+2026-11-04T02:11:45.9033547Z    Compiling tokio-macros v2.7.0
+2026-11-04T02:11:45.9033812Z    Compiling mio v1.2.1
+2026-11-04T02:11:45.9034063Z    Compiling socket2 v0.6.4
+2026-11-04T02:11:45.9034319Z    Compiling zerocopy v0.8.53
+2026-11-04T02:11:45.9034566Z    Compiling serde_core v1.0.228
+2026-11-04T02:11:45.9034845Z    Compiling percent-encoding v2.3.2
+2026-11-04T02:11:45.9035117Z    Compiling libc v0.2.186
+2026-11-04T02:11:45.9035368Z    Compiling httparse v1.10.1
+2026-11-04T02:11:45.9035689Z    Compiling tokio v1.52.3
+2026-11-04T02:11:45.9036085Z    Compiling block-buffer v0.10.4
+2026-11-04T02:11:45.9036365Z    Compiling crypto-common v0.1.7
+2026-11-04T02:11:45.9036680Z    Compiling futures-macro v0.3.32
+2026-11-04T02:11:45.9036937Z    Compiling futures-io v0.3.32
+2026-11-04T02:11:45.9037170Z    Compiling rustls v0.23.41
+2026-11-04T02:11:45.9037392Z    Compiling futures-task v0.3.32
+2026-11-04T02:11:45.9037625Z    Compiling autocfg v1.5.1
+2026-11-04T02:11:45.9038059Z    Compiling futures-util v0.3.32
+2026-11-04T02:11:45.9038294Z    Compiling digest v0.10.7
+2026-11-04T02:11:45.9038514Z    Compiling icu_normalizer v2.2.0
+2026-11-04T02:11:45.9038754Z    Compiling icu_properties v2.2.0
+2026-11-04T02:11:45.9039183Z    Compiling tracing-attributes v0.1.31
+2026-11-04T02:11:45.9039439Z    Compiling tracing-core v0.1.36
+2026-11-04T02:11:45.9039684Z    Compiling serde v1.0.228
+2026-11-04T02:11:45.9039907Z    Compiling tracing v0.1.44
+2026-11-04T02:11:45.9040147Z    Compiling idna_adapter v1.2.2
+2026-11-04T02:11:45.9040377Z    Compiling serde_derive v1.0.228
+2026-11-04T02:11:45.9040621Z    Compiling rustls-webpki v0.103.13
+2026-11-04T02:11:45.9040862Z    Compiling zmij v1.0.21
+2026-11-04T02:11:45.9041314Z    Compiling idna v1.1.0
+2026-11-04T02:11:45.9041535Z    Compiling form_urlencoded v1.2.2
+2026-11-04T02:11:45.9041778Z    Compiling http-body v1.0.1
+2026-11-04T02:11:45.9042009Z    Compiling equivalent v1.0.2
+2026-11-04T02:11:45.9042235Z    Compiling base64 v0.22.1
+2026-11-04T02:11:45.9042777Z    Compiling bitflags v2.13.0
+2026-11-04T02:11:45.9043057Z    Compiling windows-link v0.1.3
+2026-11-04T02:11:45.9043296Z    Compiling hashbrown v0.17.1
+2026-11-04T02:11:45.9043530Z    Compiling getrandom v0.3.4
+2026-11-04T02:11:45.9043762Z    Compiling serde_json v1.0.150
+2026-11-04T02:11:45.9043994Z    Compiling semver v1.0.28
+2026-11-04T02:11:45.9044219Z    Compiling cpufeatures v0.2.17
+2026-11-04T02:11:45.9044455Z    Compiling rustc_version v0.4.1
+2026-11-04T02:11:45.9044696Z    Compiling indexmap v2.14.0
+2026-11-04T02:11:45.9044922Z    Compiling url v2.5.8
+2026-11-04T02:11:45.9045139Z    Compiling tokio-util v0.7.18
+2026-11-04T02:11:45.9045393Z    Compiling ahash v0.8.12
+2026-11-04T02:11:45.9045621Z    Compiling atomic-waker v1.1.2
+2026-11-04T02:11:45.9045862Z    Compiling tower-service v0.3.3
+2026-11-04T02:11:45.9046105Z    Compiling thiserror v2.0.18
+2026-11-04T02:11:45.9046335Z    Compiling fnv v1.0.7
+2026-11-04T02:11:45.9046550Z    Compiling try-lock v0.2.5
+2026-11-04T02:11:45.9046787Z    Compiling want v0.3.1
+2026-11-04T02:11:45.9047002Z    Compiling h2 v0.4.15
+2026-11-04T02:11:45.9047222Z    Compiling curve25519-dalek v4.1.3
+2026-11-04T02:11:45.9047478Z    Compiling windows-result v0.3.4
+2026-11-04T02:11:45.9047726Z    Compiling windows-strings v0.4.2
+2026-11-04T02:11:45.9048106Z    Compiling libz-sys v1.1.29
+2026-11-04T02:11:45.9048408Z    Compiling thiserror-impl v2.0.18
+2026-11-04T02:11:45.9048701Z    Compiling utf8parse v0.2.2
+2026-11-04T02:11:45.9048992Z    Compiling winapi v0.3.9
+2026-11-04T02:11:45.9049240Z    Compiling crc32fast v1.5.0
+2026-11-04T02:11:45.9049462Z    Compiling fastrand v2.4.1
+2026-11-04T02:11:45.9049682Z    Compiling unicase v2.9.0
+2026-11-04T02:11:45.9049906Z    Compiling anstyle v1.0.14
+2026-11-04T02:11:45.9050143Z    Compiling once_cell_polyfill v1.70.2
+2026-11-04T02:11:45.9050407Z    Compiling anstyle-wincon v3.0.11
+2026-11-04T02:11:45.9050649Z    Compiling mime_guess v2.0.5
+2026-11-04T02:11:45.9050897Z    Compiling anstyle-parse v1.0.0
+2026-11-04T02:11:45.9051154Z    Compiling windows-registry v0.5.3
+2026-11-04T02:11:45.9051399Z    Compiling rand_core v0.9.5
+2026-11-04T02:11:45.9051620Z    Compiling hyper v1.10.1
+2026-11-04T02:11:45.9051844Z    Compiling ppv-lite86 v0.2.21
+2026-11-04T02:11:45.9052073Z    Compiling hmac v0.12.1
+2026-11-04T02:11:45.9052292Z    Compiling num-traits v0.2.19
+2026-11-04T02:11:45.9052515Z    Compiling memoffset v0.9.1
+2026-11-04T02:11:45.9052742Z    Compiling libsqlite3-sys v0.30.1
+2026-11-04T02:11:45.9052983Z    Compiling rand_core v0.6.4
+2026-11-04T02:11:45.9053273Z    Compiling sync_wrapper v1.0.2
+2026-11-04T02:11:45.9053531Z    Compiling curve25519-dalek-derive v0.1.1
+2026-11-04T02:11:45.9053810Z    Compiling anstyle-query v1.1.5
+2026-11-04T02:11:45.9054047Z    Compiling adler2 v2.0.1
+2026-11-04T02:11:45.9054278Z    Compiling crossbeam-utils v0.8.22
+2026-11-04T02:11:45.9054645Z    Compiling time-core v0.1.9
+2026-11-04T02:11:45.9054872Z    Compiling simd-adler32 v0.3.9
+2026-11-04T02:11:45.9055245Z    Compiling num-conv v0.2.2
+2026-11-04T02:11:45.9055626Z    Compiling anyhow v1.0.103
+2026-11-04T02:11:45.9055875Z    Compiling is_terminal_polyfill v1.70.2
+2026-11-04T02:11:45.9056144Z    Compiling powerfmt v0.2.0
+2026-11-04T02:11:45.9056395Z    Compiling tower-layer v0.3.3
+2026-11-04T02:11:45.9056635Z    Compiling ref-cast v1.0.25
+2026-11-04T02:11:45.9056866Z    Compiling colorchoice v1.0.5
+2026-11-04T02:11:45.9057101Z    Compiling deranged v0.5.8
+2026-11-04T02:11:45.9057337Z    Compiling option-ext v0.2.0
+2026-11-04T02:11:45.9057576Z    Compiling ipnet v2.12.0
+2026-11-04T02:11:45.9057803Z    Compiling hyper-util v0.1.20
+2026-11-04T02:11:45.9058034Z    Compiling dirs-sys v0.5.0
+2026-11-04T02:11:45.9059310Z    Compiling time v0.3.53
+2026-11-04T02:11:45.9059534Z    Compiling anstream v1.0.0
+2026-11-04T02:11:45.9059755Z    Compiling tower v0.5.3
+2026-11-04T02:11:45.9059990Z    Compiling miniz_oxide v0.8.9
+2026-11-04T02:11:45.9060216Z    Compiling hkdf v0.12.4
+2026-11-04T02:11:45.9060434Z    Compiling rand_chacha v0.9.0
+2026-11-04T02:11:45.9060669Z    Compiling hashbrown v0.14.5
+2026-11-04T02:11:45.9060901Z    Compiling tempfile v3.27.0
+2026-11-04T02:11:45.9061126Z    Compiling sha2 v0.10.9
+2026-11-04T02:11:45.9061348Z    Compiling tokio-rustls v0.26.4
+2026-11-04T02:11:45.9061603Z    Compiling futures-executor v0.3.32
+2026-11-04T02:11:45.9061865Z    Compiling libgit2-sys v0.18.5+1.9.4
+2026-11-04T02:11:45.9062117Z    Compiling ref-cast-impl v1.0.25
+2026-11-04T02:11:45.9062385Z    Compiling pin-project-internal v1.1.13
+2026-11-04T02:11:45.9063007Z    Compiling schannel v0.1.29
+2026-11-04T02:11:45.9063317Z    Compiling serde_derive_internals v0.29.1
+2026-11-04T02:11:45.9063590Z    Compiling clap_lex v1.1.0
+2026-11-04T02:11:45.9063827Z    Compiling heck v0.5.0
+2026-11-04T02:11:45.9064040Z    Compiling strsim v0.11.1
+2026-11-04T02:11:45.9064261Z    Compiling byteorder v1.5.0
+2026-11-04T02:11:45.9064561Z    Compiling mime v0.3.17
+2026-11-04T02:11:45.9064853Z    Compiling minimal-lexical v0.2.1
+2026-11-04T02:11:45.9065158Z    Compiling nom v7.1.3
+2026-11-04T02:11:45.9065443Z    Compiling schemars_derive v1.2.1
+2026-11-04T02:11:45.9065744Z    Compiling socks v0.3.4
+2026-11-04T02:11:45.9066026Z    Compiling clap_builder v4.6.0
+2026-11-04T02:11:45.9066334Z    Compiling clap_derive v4.6.1
+2026-11-04T02:11:45.9066667Z    Compiling pin-project v1.1.13
+2026-11-04T02:11:45.9066975Z    Compiling rustls-native-certs v0.8.4
+2026-11-04T02:11:45.9067294Z    Compiling futures v0.3.32
+2026-11-04T02:11:45.9067575Z    Compiling hyper-rustls v0.27.9
+2026-11-04T02:11:45.9067899Z    Compiling spake2 v0.4.0
+2026-11-04T02:11:45.9068161Z    Compiling flate2 v1.1.9
+2026-11-04T02:11:45.9068455Z    Compiling hashlink v0.9.1
+2026-11-04T02:11:45.9068737Z    Compiling rand v0.9.4
+2026-11-04T02:11:45.9068998Z    Compiling tower-http v0.6.11
+2026-11-04T02:11:45.9069285Z    Compiling yasna v0.5.2
+2026-11-04T02:11:45.9069564Z    Compiling dirs v6.0.0
+2026-11-04T02:11:45.9069872Z    Compiling sha1 v0.10.7
+2026-11-04T02:11:45.9070148Z    Compiling ureq-proto v0.6.0
+2026-11-04T02:11:45.9070446Z    Compiling http-body-util v0.1.3
+2026-11-04T02:11:45.9070786Z    Compiling rustls-platform-verifier v0.7.0
+2026-11-04T02:11:45.9071127Z    Compiling webpki-roots v1.0.8
+2026-11-04T02:11:45.9071432Z    Compiling async-stream-impl v0.3.6
+2026-11-04T02:11:45.9071740Z    Compiling encoding_rs v0.8.35
+2026-11-04T02:11:45.9072029Z    Compiling utf-8 v0.7.6
+2026-11-04T02:11:45.9072302Z    Compiling utf8-zero v0.8.1
+2026-11-04T02:11:45.9072601Z    Compiling fallible-iterator v0.3.0
+2026-11-04T02:11:45.9073209Z    Compiling fallible-streaming-iterator v0.1.9
+2026-11-04T02:11:45.9073751Z    Compiling dyn-clone v1.0.20
+2026-11-04T02:11:45.9074058Z    Compiling data-encoding v2.11.0
+2026-11-04T02:11:45.9074366Z    Compiling tungstenite v0.28.0
+2026-11-04T02:11:45.9074659Z    Compiling schemars v1.2.1
+2026-11-04T02:11:45.9074950Z    Compiling rusqlite v0.32.1
+2026-11-04T02:11:45.9075246Z    Compiling ureq v3.3.0
+2026-11-04T02:11:45.9075685Z    Compiling reqwest v0.13.4
+2026-11-04T02:11:45.9075986Z    Compiling async-stream v0.3.6
+2026-11-04T02:11:45.9076286Z    Compiling rcgen v0.13.2
+2026-11-04T02:11:45.9076740Z    Compiling mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+2026-11-04T02:11:45.9077265Z    Compiling crossbeam-channel v0.5.16
+2026-11-04T02:11:45.9077570Z    Compiling uds_windows v1.2.1
+2026-11-04T02:11:45.9077883Z    Compiling ordered-float v5.3.0
+2026-11-04T02:11:45.9078187Z    Compiling tracing-futures v0.2.5
+2026-11-04T02:11:45.9078479Z    Compiling clap v4.6.1
+2026-11-04T02:11:45.9078756Z    Compiling eventsource-stream v0.2.3
+2026-11-04T02:11:45.9079171Z    Compiling md-5 v0.10.6
+2026-11-04T02:11:45.9079445Z    Compiling hex v0.4.3
+2026-11-04T02:11:45.9079718Z    Compiling futures-timer v3.0.4
+2026-11-04T02:11:45.9080007Z    Compiling as-any v0.3.2
+2026-11-04T02:11:45.9080279Z    Compiling glob v0.3.3
+2026-11-04T02:11:45.9080590Z    Compiling rig-core v0.40.0
+2026-11-04T02:11:45.9080927Z    Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+2026-11-04T02:11:45.9081303Z    Compiling git2 v0.20.4
+2026-11-04T02:11:45.9081567Z    Compiling uuid v1.23.4
+2026-11-04T02:11:45.9081908Z    Compiling agent v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\agent)
+2026-11-04T02:11:45.9082381Z    Compiling workspace v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace)
+2026-11-04T02:11:45.9082851Z    Compiling canvas v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\canvas)
+2026-11-04T02:11:45.9083313Z    Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+2026-11-04T02:11:45.9083787Z     Finished `test` profile [optimized + debuginfo] target(s) in 11m 14s
+2026-11-04T02:11:45.9084322Z      Running unittests src\lib.rs (target\debug\deps\storage-142fd333ac84b1b8.exe)
+2026-11-04T02:11:45.9084633Z 
+2026-11-04T02:11:45.9084756Z running 1 test
+2026-11-04T02:11:45.9091902Z test database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary ... ok
+2026-11-04T02:11:45.9092309Z 
+2026-11-04T02:11:45.9092757Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 75 filtered out; finished in 0.00s
+2026-11-04T02:11:45.9093409Z 
+2026-11-04T02:11:45.9093414Z 
+2026-11-04T02:12:30.0399849Z    Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+2026-11-04T02:12:30.0400434Z     Finished `test` profile [optimized + debuginfo] target(s) in 35.76s
+2026-11-04T02:12:30.0403539Z      Running tests\global_project_storage.rs (target\debug\deps\global_project_storage-73071c07d0c1dcbf.exe)
+2026-11-04T02:12:30.0404245Z 
+2026-11-04T02:12:30.0404436Z running 7 tests
+2026-11-04T02:12:30.0407018Z [DEBUG-storage15] legacy stage=backup thread=ThreadId(4) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpa6j3c6\\data\\projects\\26f7f08943cd8dad1345e81fa520fb217445dae6cd2f24b3bec4f523ee53e354\\project.test.sqlite" published=false error=SqliteFailure(Error { code: NotADatabase, extended_code: 26 }, Some("not an error"))
+2026-11-04T02:12:30.0410470Z [DEBUG-storage15] legacy stage=parent-open thread=ThreadId(4) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpa6j3c6\\data\\projects\\26f7f08943cd8dad1345e81fa520fb217445dae6cd2f24b3bec4f523ee53e354\\project.test.sqlite" published=true error=Os { code: 5, kind: PermissionDenied, message: "Access is denied." }
+2026-11-04T02:12:30.0411929Z 
+2026-11-04T02:12:30.0412582Z thread 'failed_import_does_not_publish_an_empty_database_and_can_retry' (7200) panicked at crates\storage\tests\global_project_storage.rs:222:68:
+2026-11-04T02:12:30.0418638Z 修复来源后应能重试: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpa6j3c6\\data\\projects\\3073859019cce026e9ecbd6e4a60d8b26a63634b07cd8d044066dde2b9ef6d3a\\project.test.sqlite", source: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpa6j3c6\\data\\projects\\26f7f08943cd8dad1345e81fa520fb217445dae6cd2f24b3bec4f523ee53e354\\project.test.sqlite", source: Io(Os { code: 5, kind: PermissionDenied, message: "Access is denied." }) } }
+2026-11-04T02:12:30.0421359Z stack backtrace:
+2026-11-04T02:12:30.0423133Z [DEBUG-storage15] legacy stage=parent-open thread=ThreadId(6) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpUBmQBD\\data\\projects\\7cd2cfabeb3141e61eb42f9e993470ff0dcf1319d0932239ad9aa76a3fe3c1bf\\project.test.sqlite" published=true error=Os { code: 5, kind: PermissionDenied, message: "Access is denied." }
+2026-11-04T02:12:30.0426347Z [DEBUG-storage15] legacy stage=parent-open thread=ThreadId(3) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmp3TfKqZ\\data\\projects\\05c812471bee38c5848722acef74810c065bc990557ff7067bd8a3318c3d4365\\project.test.sqlite" published=true error=Os { code: 5, kind: PermissionDenied, message: "Access is denied." }
+2026-11-04T02:12:30.0429727Z [DEBUG-storage15] legacy stage=parent-open thread=ThreadId(5) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpxAfe15\\data\\projects\\2df6bd5599e11b706b15007646be2db53a7d8fa8e0199199d97f1e065210897b\\project.test.sqlite" published=true error=Os { code: 5, kind: PermissionDenied, message: "Access is denied." }
+2026-11-04T02:12:30.0430882Z    0: std::panicking::panic_handler
+2026-11-04T02:12:30.0431348Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:12:30.0431839Z    1: core::panicking::panic_fmt
+2026-11-04T02:12:30.0432275Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:12:30.0432733Z    2: core::result::unwrap_failed
+2026-11-04T02:12:30.0433166Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:12:30.0433614Z    3: core::result::Result::expect
+2026-11-04T02:12:30.0434065Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:12:30.0434631Z    4: global_project_storage::failed_import_does_not_publish_an_empty_database_and_can_retry
+2026-11-04T02:12:30.0435652Z              at .\tests\global_project_storage.rs:222
+2026-11-04T02:12:30.0436272Z    5: global_project_storage::failed_import_does_not_publish_an_empty_database_and_can_retry::closure$0
+2026-11-04T02:12:30.0436928Z              at .\tests\global_project_storage.rs:183
+2026-11-04T02:12:30.0437599Z    6: core::ops::function::FnOnce::call_once<global_project_storage::failed_import_does_not_publish_an_empty_database_and_can_retry::closure_env$0,tuple$<> >
+2026-11-04T02:12:30.0438384Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:12:30.0438874Z    7: core::ops::function::FnOnce::call_once
+2026-11-04T02:12:30.0439345Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:12:30.0439964Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:12:30.0440275Z 
+2026-11-04T02:12:30.0440778Z thread '<unnamed>' (2500) panicked at crates\storage\tests\global_project_storage.rs:356:26:
+2026-11-04T02:12:30.0442998Z 并发初始化应成功: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpUBmQBD\\data\\projects\\ffd9b8b0f3f9a852735916f6cb229e497e4e6d06b6fe4382b0a2923868f41e8d\\project.test.sqlite", source: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpUBmQBD\\data\\projects\\7cd2cfabeb3141e61eb42f9e993470ff0dcf1319d0932239ad9aa76a3fe3c1bf\\project.test.sqlite", source: Io(Os { code: 5, kind: PermissionDenied, message: "Access is denied." }) } }
+2026-11-04T02:12:30.0444597Z stack backtrace:
+2026-11-04T02:12:30.0444892Z    0: std::panicking::panic_handler
+2026-11-04T02:12:30.0445597Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:12:30.0446309Z    1: core::panicking::panic_fmt
+2026-11-04T02:12:30.0447229Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:12:30.0448252Z    2: core::result::unwrap_failed
+2026-11-04T02:12:30.0448923Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:12:30.0449612Z    3: core::result::Result::expect
+2026-11-04T02:12:30.0450241Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:12:30.0451218Z    4: global_project_storage::concurrent_initialization_publishes_one_complete_database::closure$0::closure$0::closure$0
+2026-11-04T02:12:30.0452127Z              at .\tests\global_project_storage.rs:356
+2026-11-04T02:12:30.0452902Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:12:30.0453609Z 
+2026-11-04T02:12:30.0454235Z thread 'constructing_a_project_store_cannot_bypass_legacy_import' (3764) panicked at crates\storage\tests\global_project_storage.rs:257:10:
+2026-11-04T02:12:30.0456746Z 应构造存储: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmp3TfKqZ\\data\\projects\\05c812471bee38c5848722acef74810c065bc990557ff7067bd8a3318c3d4365\\project.test.sqlite", source: Io(Os { code: 5, kind: PermissionDenied, message: "Access is denied." }) }
+2026-11-04T02:12:30.0458435Z stack backtrace:
+2026-11-04T02:12:30.0458825Z    0: std::panicking::panic_handler
+2026-11-04T02:12:30.0459511Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:12:30.0460364Z    1: core::panicking::panic_fmt
+2026-11-04T02:12:30.0461062Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:12:30.0461803Z    2: core::result::unwrap_failed
+2026-11-04T02:12:30.0462456Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:12:30.0463164Z    3: core::result::Result::expect
+2026-11-04T02:12:30.0463763Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:12:30.0464352Z    4: global_project_storage::constructing_a_project_store_cannot_bypass_legacy_import
+2026-11-04T02:12:30.0464825Z              at .\tests\global_project_storage.rs:257
+2026-11-04T02:12:30.0465313Z    5: global_project_storage::constructing_a_project_store_cannot_bypass_legacy_import::closure$0
+2026-11-04T02:12:30.0465864Z              at .\tests\global_project_storage.rs:238
+2026-11-04T02:12:30.0466541Z    6: core::ops::function::FnOnce::call_once<global_project_storage::constructing_a_project_store_cannot_bypass_legacy_import::closure_env$0,tuple$<> >
+2026-11-04T02:12:30.0467534Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:12:30.0468628Z    7: core::ops::function::FnOnce::call_once
+2026-11-04T02:12:30.0469332Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:12:30.0470288Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:12:30.0470820Z 
+2026-11-04T02:12:30.0471428Z thread 'legacy_database_is_imported_once_including_committed_wal_data' (5612) panicked at crates\storage\tests\global_project_storage.rs:74:68:
+2026-11-04T02:12:30.0475291Z 应迁移旧项目数据库: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpxAfe15\\data\\projects\\bdcfad100ade34b7823a288902cad2354fc1149468837fc837f884c3a973d05d\\project.test.sqlite", source: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpxAfe15\\data\\projects\\2df6bd5599e11b706b15007646be2db53a7d8fa8e0199199d97f1e065210897b\\project.test.sqlite", source: Io(Os { code: 5, kind: PermissionDenied, message: "Access is denied." }) } }
+2026-11-04T02:12:30.0477936Z stack backtrace:
+2026-11-04T02:12:30.0478511Z test failed_import_does_not_publish_an_empty_database_and_can_retry ... FAILED
+2026-11-04T02:12:30.0479506Z    0: std::panicking::panic_handler
+2026-11-04T02:12:30.0480225Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:12:30.0480950Z    1: core::panicking::panic_fmt
+2026-11-04T02:12:30.0481627Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:12:30.0482354Z    2: core::result::unwrap_failed
+2026-11-04T02:12:30.0483087Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:12:30.0483778Z    3: core::result::Result::expect
+2026-11-04T02:12:30.0484531Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:12:30.0485721Z    4: global_project_storage::legacy_database_is_imported_once_including_committed_wal_data
+2026-11-04T02:12:30.0486524Z              at .\tests\global_project_storage.rs:74
+2026-11-04T02:12:30.0487424Z    5: global_project_storage::legacy_database_is_imported_once_including_committed_wal_data::closure$0
+2026-11-04T02:12:30.0488594Z              at .\tests\global_project_storage.rs:40
+2026-11-04T02:12:30.0489823Z    6: core::ops::function::FnOnce::call_once<global_project_storage::legacy_database_is_imported_once_including_committed_wal_data::closure_env$0,tuple$<> >
+2026-11-04T02:12:30.0491107Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:12:30.0491886Z    7: core::ops::function::FnOnce::call_once
+2026-11-04T02:12:30.0492631Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:12:30.0493560Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:12:30.0494126Z 
+2026-11-04T02:12:30.0494759Z thread 'concurrent_initialization_publishes_one_complete_database' (8488) panicked at crates\storage\tests\global_project_storage.rs:362:41:
+2026-11-04T02:12:30.0495957Z 线程不应崩溃: Any { .. }
+2026-11-04T02:12:30.0496356Z stack backtrace:
+2026-11-04T02:12:30.0497004Z    0: std::panicking::panic_handler
+2026-11-04T02:12:30.0497765Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:12:30.0498492Z    1: core::panicking::panic_fmt
+2026-11-04T02:12:30.0499175Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:12:30.0499901Z    2: core::result::unwrap_failed
+2026-11-04T02:12:30.0500563Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:12:30.0501279Z    3: core::result::Result::expect
+2026-11-04T02:12:30.0501963Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:12:30.0503047Z    4: global_project_storage::concurrent_initialization_publishes_one_complete_database::closure$0::closure$1
+2026-11-04T02:12:30.0503970Z              at .\tests\global_project_storage.rs:362
+2026-11-04T02:12:30.0504529Z    5: core::iter::adapters::map::map_fold::closure$0
+2026-11-04T02:12:30.0505278Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:88
+2026-11-04T02:12:30.0506040Z    6: alloc::vec::into_iter::impl$5::fold
+2026-11-04T02:12:30.0506516Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\into_iter.rs:323
+2026-11-04T02:12:30.0507015Z    7: core::iter::adapters::map::impl$2::fold
+2026-11-04T02:12:30.0507503Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:128
+2026-11-04T02:12:30.0508053Z    8: core::iter::traits::iterator::Iterator::for_each
+2026-11-04T02:12:30.0508866Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\iterator.rs:827
+2026-11-04T02:12:30.0509388Z    9: alloc::vec::Vec::extend_trusted
+2026-11-04T02:12:30.0510327Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\mod.rs:3824
+2026-11-04T02:12:30.0510836Z   10: alloc::vec::spec_extend::impl$1::spec_extend
+2026-11-04T02:12:30.0511332Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\spec_extend.rs:29
+2026-11-04T02:12:30.0511851Z   11: alloc::vec::spec_from_iter_nested::impl$1::from_iter
+2026-11-04T02:12:30.0512397Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\spec_from_iter_nested.rs:62
+2026-11-04T02:12:30.0512991Z   12: alloc::vec::spec_from_iter_nested::impl$1::from_iter
+2026-11-04T02:12:30.0513515Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\spec_from_iter_nested.rs:52
+2026-11-04T02:12:30.0514748Z   13: alloc::vec::in_place_collect::impl$1::from_iter<storage::project_store::ProjectStore,core::iter::adapters::map::Map<alloc::vec::into_iter::IntoIter<std::thread::scoped::ScopedJoinHandle<storage::project_store::ProjectStore>,alloc::alloc::Global>,global_pro
+2026-11-04T02:12:30.0515835Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\in_place_collect.rs:246
+2026-11-04T02:12:30.0516330Z   14: alloc::vec::impl$15::from_iter
+2026-11-04T02:12:30.0516771Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\mod.rs:3683
+2026-11-04T02:12:30.0517292Z   15: core::iter::traits::iterator::Iterator::collect
+2026-11-04T02:12:30.0517801Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\iterator.rs:2027
+2026-11-04T02:12:30.0518514Z   16: global_project_storage::concurrent_initialization_publishes_one_complete_database::closure$0
+2026-11-04T02:12:30.0519017Z              at .\tests\global_project_storage.rs:363
+2026-11-04T02:12:30.0519374Z   17: std::thread::scoped::scope::closure$0
+2026-11-04T02:12:30.0519897Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\thread\scoped.rs:151
+2026-11-04T02:12:30.0520414Z   18: core::panic::unwind_safe::impl$25::call_once
+2026-11-04T02:12:30.0520950Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\panic\unwind_safe.rs:274
+2026-11-04T02:12:30.0521592Z   19: std::panicking::catch_unwind::do_call
+2026-11-04T02:12:30.0522054Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\panicking.rs:590
+2026-11-04T02:12:30.0522514Z   20: std::panicking::catch_unwind
+2026-11-04T02:12:30.0522960Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\panicking.rs:553
+2026-11-04T02:12:30.0523416Z   21: std::panic::catch_unwind
+2026-11-04T02:12:30.0523829Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\panic.rs:359
+2026-11-04T02:12:30.0524723Z   22: std::thread::scoped::scope<global_project_storage::concurrent_initialization_publishes_one_complete_database::closure_env$0,alloc::vec::Vec<storage::project_store::ProjectStore,alloc::alloc::Global> >
+2026-11-04T02:12:30.0525671Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\thread\scoped.rs:151
+2026-11-04T02:12:30.0526253Z   23: global_project_storage::concurrent_initialization_publishes_one_complete_database
+2026-11-04T02:12:30.0526721Z              at .\tests\global_project_storage.rs:350
+2026-11-04T02:12:30.0527204Z   24: global_project_storage::concurrent_initialization_publishes_one_complete_database::closure$0
+2026-11-04T02:12:30.0527688Z              at .\tests\global_project_storage.rs:332
+2026-11-04T02:12:30.0528121Z test constructing_a_project_store_cannot_bypass_legacy_import ... FAILED
+2026-11-04T02:12:30.0529152Z   25: core::ops::function::FnOnce::call_once<global_project_storage::concurrent_initialization_publishes_one_complete_database::closure_env$0,tuple$<> >
+2026-11-04T02:12:30.0530050Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:12:30.0530639Z   26: core::ops::function::FnOnce::call_once
+2026-11-04T02:12:30.0531246Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:12:30.0531828Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:12:30.0532352Z test concurrent_initialization_publishes_one_complete_database ... FAILED
+2026-11-04T02:12:30.0532858Z test legacy_database_is_imported_once_including_committed_wal_data ... FAILED
+2026-11-04T02:12:30.0533351Z test opening_project_keeps_database_outside_the_repository ... ok
+2026-11-04T02:12:30.0534657Z [DEBUG-storage15] legacy stage=parent-open thread=ThreadId(10) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpfKpyxB\\Library\\Application Support\\Norma OS\\projects\\0d109cf3a3c9b2b3de6b793d86b94a26ad90baa6f576dee0b83077c542b1439d\\project.sqlite" published=true error=Os { code: 5, kind: PermissionDenied, message: "Access is denied." }
+2026-11-04T02:12:30.0535808Z 
+2026-11-04T02:12:30.0536221Z thread 'test_mode_never_imports_the_production_legacy_database' (1536) panicked at crates\storage\tests\global_project_storage.rs:304:6:
+2026-11-04T02:12:30.0538759Z 应迁移 Production: DatabaseInitialization { mode: Production, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpfKpyxB\\Library\\Application Support\\Norma OS\\projects\\bb6d12b6cecb26b24fc473029dc5eb061aa0fed5828d1f9bb5a6c5d8ed2735d1\\project.sqlite", source: DatabaseInitialization { mode: Production, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpfKpyxB\\Library\\Application Support\\Norma OS\\projects\\0d109cf3a3c9b2b3de6b793d86b94a26ad90baa6f576dee0b83077c542b1439d\\project.sqlite", source: Io(Os { code: 5, kind: PermissionDenied, message: "Access is denied." }) } }
+2026-11-04T02:12:30.0540636Z stack backtrace:
+2026-11-04T02:12:30.0540924Z    0: std::panicking::panic_handler
+2026-11-04T02:12:30.0541381Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:12:30.0541847Z    1: core::panicking::panic_fmt
+2026-11-04T02:12:30.0542289Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:12:30.0542760Z    2: core::result::unwrap_failed
+2026-11-04T02:12:30.0543198Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:12:30.0543651Z    3: core::result::Result::expect
+2026-11-04T02:12:30.0544120Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:12:30.0544680Z    4: global_project_storage::test_mode_never_imports_the_production_legacy_database
+2026-11-04T02:12:30.0545138Z              at .\tests\global_project_storage.rs:304
+2026-11-04T02:12:30.0545638Z    5: global_project_storage::test_mode_never_imports_the_production_legacy_database::closure$0
+2026-11-04T02:12:30.0546122Z              at .\tests\global_project_storage.rs:279
+2026-11-04T02:12:30.0547101Z    6: core::ops::function::FnOnce::call_once<global_project_storage::test_mode_never_imports_the_production_legacy_database::closure_env$0,tuple$<> >
+2026-11-04T02:12:30.0548195Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:12:30.0549310Z    7: core::ops::function::FnOnce::call_once
+2026-11-04T02:12:30.0550033Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:12:30.0550973Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:12:30.0551776Z test test_mode_never_imports_the_production_legacy_database ... FAILED
+2026-11-04T02:12:30.0552505Z test project_identity_and_database_mode_remain_isolated ... ok
+2026-11-04T02:12:30.0552938Z 
+2026-11-04T02:12:30.0553067Z failures:
+2026-11-04T02:12:30.0553274Z 
+2026-11-04T02:12:30.0553427Z failures:
+2026-11-04T02:12:30.0553899Z     concurrent_initialization_publishes_one_complete_database
+2026-11-04T02:12:30.0554606Z     constructing_a_project_store_cannot_bypass_legacy_import
+2026-11-04T02:12:30.0555638Z     failed_import_does_not_publish_an_empty_database_and_can_retry
+2026-11-04T02:12:30.0556340Z     legacy_database_is_imported_once_including_committed_wal_data
+2026-11-04T02:12:30.0556979Z     test_mode_never_imports_the_production_legacy_database
+2026-11-04T02:12:30.0557333Z 
+2026-11-04T02:12:30.0557774Z test result: FAILED. 2 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.27s
+2026-11-04T02:12:30.0558331Z 
+2026-11-04T02:12:30.0558768Z error: test failed, to rerun pass `-p storage --test global_project_storage`
+2026-11-04T02:12:30.0559421Z error: 1 target failed:
+2026-11-04T02:12:30.0559881Z     `-p storage --test global_project_storage`
+2026-11-04T02:12:30.0560417Z 
+2026-11-04T02:12:33.4232073Z    Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+2026-11-04T02:12:33.4232672Z     Finished `test` profile [optimized + debuginfo] target(s) in 2.55s
+2026-11-04T02:12:33.4233254Z      Running tests\memory_scope.rs (target\debug\deps\memory_scope-1f9942eae30ecdca.exe)
+2026-11-04T02:12:33.4233609Z 
+2026-11-04T02:12:33.4233709Z running 2 tests
+2026-11-04T02:12:33.4233888Z 
+2026-11-04T02:12:33.4234306Z thread 'replacement_at_the_same_plain_path_cannot_inherit_memory_identity' (7416) panicked at crates\storage\tests\memory_scope.rs:23:10:
+2026-11-04T02:12:33.4235566Z 旧目录合法身份可保存: Rejected("当前平台尚不能核验项目目录身份")
+2026-11-04T02:12:33.4235913Z stack backtrace:
+2026-11-04T02:12:33.4236241Z    0: std::panicking::panic_handler
+2026-11-04T02:12:33.4236742Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:12:33.4237219Z    1: core::panicking::panic_fmt
+2026-11-04T02:12:33.4237661Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:12:33.4238133Z    2: core::result::unwrap_failed
+2026-11-04T02:12:33.4238611Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:12:33.4239073Z    3: core::result::Result::expect
+2026-11-04T02:12:33.4239500Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:12:33.4240058Z    4: memory_scope::replacement_at_the_same_plain_path_cannot_inherit_memory_identity
+2026-11-04T02:12:33.4240525Z              at .\tests\memory_scope.rs:23
+2026-11-04T02:12:33.4240989Z    5: memory_scope::replacement_at_the_same_plain_path_cannot_inherit_memory_identity::closure$0
+2026-11-04T02:12:33.4241453Z              at .\tests\memory_scope.rs:9
+2026-11-04T02:12:33.4242183Z    6: core::ops::function::FnOnce::call_once<memory_scope::replacement_at_the_same_plain_path_cannot_inherit_memory_identity::closure_env$0,tuple$<> >
+2026-11-04T02:12:33.4243079Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:12:33.4243575Z    7: core::ops::function::FnOnce::call_once
+2026-11-04T02:12:33.4244051Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:12:33.4244622Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:12:33.4245171Z test replacement_at_the_same_plain_path_cannot_inherit_memory_identity ... FAILED
+2026-11-04T02:12:33.4245501Z 
+2026-11-04T02:12:33.4245818Z thread 'repository_worktrees_share_only_project_memory' (2264) panicked at crates\storage\tests\memory_scope.rs:113:6:
+2026-11-04T02:12:33.4246485Z 共享保存: Rejected("当前平台尚不能核验项目目录身份")
+2026-11-04T02:12:33.4246778Z stack backtrace:
+2026-11-04T02:12:33.4247068Z    0: std::panicking::panic_handler
+2026-11-04T02:12:33.4247500Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:12:33.4247968Z    1: core::panicking::panic_fmt
+2026-11-04T02:12:33.4248381Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:12:33.4248809Z    2: core::result::unwrap_failed
+2026-11-04T02:12:33.4249515Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:12:33.4249981Z    3: core::result::Result::expect
+2026-11-04T02:12:33.4250396Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:12:33.4250887Z    4: memory_scope::repository_worktrees_share_only_project_memory
+2026-11-04T02:12:33.4251273Z              at .\tests\memory_scope.rs:113
+2026-11-04T02:12:33.4251680Z    5: memory_scope::repository_worktrees_share_only_project_memory::closure$0
+2026-11-04T02:12:33.4252084Z              at .\tests\memory_scope.rs:63
+2026-11-04T02:12:33.4252625Z    6: core::ops::function::FnOnce::call_once<memory_scope::repository_worktrees_share_only_project_memory::closure_env$0,tuple$<> >
+2026-11-04T02:12:33.4253872Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:12:33.4254383Z    7: core::ops::function::FnOnce::call_once
+2026-11-04T02:12:33.4254837Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:12:33.4255393Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:12:33.4255888Z test repository_worktrees_share_only_project_memory ... FAILED
+2026-11-04T02:12:33.4256161Z 
+2026-11-04T02:12:33.4256255Z failures:
+2026-11-04T02:12:33.4256403Z 
+2026-11-04T02:12:33.4256493Z failures:
+2026-11-04T02:12:33.4256823Z     replacement_at_the_same_plain_path_cannot_inherit_memory_identity
+2026-11-04T02:12:33.4257235Z     repository_worktrees_share_only_project_memory
+2026-11-04T02:12:33.4257607Z 
+2026-11-04T02:12:33.4257895Z test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s
+2026-11-04T02:12:33.4258351Z 
+2026-11-04T02:12:33.4258566Z error: test failed, to rerun pass `-p storage --test memory_scope`
+2026-11-04T02:12:33.4259807Z error: 1 target failed:
+2026-11-04T02:12:33.4260461Z     `-p storage --test memory_scope`
+2026-11-04T02:12:33.4260831Z 
+2026-11-04T02:12:52.1035285Z    Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+2026-11-04T02:12:52.1035870Z     Finished `test` profile [optimized + debuginfo] target(s) in 2.67s
+2026-11-04T02:12:52.1036451Z      Running tests\mobile_sessions.rs (target\debug\deps\mobile_sessions-b3959a89ea5bec68.exe)
+2026-11-04T02:12:52.1036947Z 
+2026-11-04T02:12:52.1037150Z running 6 tests
+2026-11-04T02:12:52.1037483Z test session_history_pages_without_duplicates ... ok
+2026-11-04T02:12:52.1037937Z test session_rejects_unsafe_paths_without_persisting_an_identity ... ok
+2026-11-04T02:12:52.1038589Z test cursor_session_persists_bound_transcript_reference ... ok
+2026-11-04T02:12:52.1039100Z test native_events_preserve_session_identity_and_record_exact_turn ... ok
+2026-11-04T02:12:52.1039562Z test session_index_is_durable_scoped_and_immutable ... ok
+2026-11-04T02:12:52.1040041Z test transcript_reference_uses_existing_writer_and_cannot_be_rebound ... ok
+2026-11-04T02:12:52.1040365Z 
+2026-11-04T02:12:52.1040605Z test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.88s
+2026-11-04T02:12:52.1040958Z 
+2026-11-04T02:12:52.1040962Z 
+2026-11-04T02:13:14.3478367Z    Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+2026-11-04T02:13:14.3479195Z     Finished `test` profile [optimized + debuginfo] target(s) in 2.59s
+2026-11-04T02:13:14.3480043Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:13:14.3480422Z 
+2026-11-04T02:13:14.3480556Z running 5 tests
+2026-11-04T02:13:14.3481609Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(6) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpO6cX6N\\app.sqlite") elapsed_ms=6554 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:13:14.3482771Z 
+2026-11-04T02:13:14.3483314Z thread '<unnamed>' (4604) panicked at crates\storage\tests\live_operation_store.rs:185:47:
+2026-11-04T02:13:14.3484577Z 并发预留: Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:13:14.3485063Z stack backtrace:
+2026-11-04T02:13:14.3485366Z    0: std::panicking::panic_handler
+2026-11-04T02:13:14.3485820Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:13:14.3486277Z    1: core::panicking::panic_fmt
+2026-11-04T02:13:14.3486700Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:13:14.3487290Z    2: core::result::unwrap_failed
+2026-11-04T02:13:14.3487710Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:13:14.3488150Z    3: core::result::Result::expect
+2026-11-04T02:13:14.3488605Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:13:14.3489232Z    4: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$0::closure$0
+2026-11-04T02:13:14.3489758Z              at .\tests\live_operation_store.rs:185
+2026-11-04T02:13:14.3490194Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:13:14.3490512Z 
+2026-11-04T02:13:14.3490880Z thread 'live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown' (708) panicked at crates\storage\tests\live_operation_store.rs:209:49:
+2026-11-04T02:13:14.3491478Z 并发线程: Any { .. }
+2026-11-04T02:13:14.3491727Z stack backtrace:
+2026-11-04T02:13:14.3492033Z    0: std::panicking::panic_handler
+2026-11-04T02:13:14.3492459Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:13:14.3492898Z    1: core::panicking::panic_fmt
+2026-11-04T02:13:14.3493318Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:13:14.3493750Z    2: core::result::unwrap_failed
+2026-11-04T02:13:14.3494156Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:13:14.3494583Z    3: core::result::Result::expect
+2026-11-04T02:13:14.3495024Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:13:14.3496149Z    4: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$1
+2026-11-04T02:13:14.3496635Z              at .\tests\live_operation_store.rs:209
+2026-11-04T02:13:14.3496997Z    5: core::iter::adapters::map::map_fold::closure$0
+2026-11-04T02:13:14.3497483Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:88
+2026-11-04T02:13:14.3497952Z    6: alloc::vec::into_iter::impl$5::fold
+2026-11-04T02:13:14.3498402Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\into_iter.rs:323
+2026-11-04T02:13:14.3499415Z    7: core::iter::adapters::map::impl$2::fold<usize,alloc::vec::into_iter::IntoIter<std::thread::JoinHandle<bool>,alloc::alloc::Global>,live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure_env$1,usize,core::iter::trait
+2026-11-04T02:13:14.3500461Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:128
+2026-11-04T02:13:14.3500935Z    8: core::iter::traits::accum::impl$48::sum
+2026-11-04T02:13:14.3501563Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\accum.rs:50
+2026-11-04T02:13:14.3502096Z    9: core::iter::traits::iterator::Iterator::sum
+2026-11-04T02:13:14.3502579Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\iterator.rs:3580
+2026-11-04T02:13:14.3503950Z   10: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown
+2026-11-04T02:13:14.3504431Z              at .\tests\live_operation_store.rs:210
+2026-11-04T02:13:14.3504949Z   11: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$0
+2026-11-04T02:13:14.3505429Z              at .\tests\live_operation_store.rs:162
+2026-11-04T02:13:14.3506070Z   12: core::ops::function::FnOnce::call_once<live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure_env$0,tuple$<> >
+2026-11-04T02:13:14.3506844Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:13:14.3507336Z   13: core::ops::function::FnOnce::call_once
+2026-11-04T02:13:14.3507924Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:13:14.3508506Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:13:14.3509112Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... FAILED
+2026-11-04T02:13:14.3509617Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:13:14.3510096Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:13:14.3510672Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:13:14.3511540Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:13:14.3511920Z 
+2026-11-04T02:13:14.3512045Z failures:
+2026-11-04T02:13:14.3512247Z 
+2026-11-04T02:13:14.3512365Z failures:
+2026-11-04T02:13:14.3512915Z     live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown
+2026-11-04T02:13:14.3513370Z 
+2026-11-04T02:13:14.3513794Z test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.54s
+2026-11-04T02:13:14.3514300Z 
+2026-11-04T02:13:14.3514636Z error: test failed, to rerun pass `-p storage --test live_operation_store`
+2026-11-04T02:13:14.3515235Z error: 1 target failed:
+2026-11-04T02:13:14.3515940Z     `-p storage --test live_operation_store`
+2026-11-04T02:13:14.3516283Z 
+2026-11-04T02:13:28.0967636Z    Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+2026-11-04T02:13:28.0968256Z     Finished `test` profile [optimized + debuginfo] target(s) in 2.36s
+2026-11-04T02:13:28.0969164Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:13:28.0969523Z 
+2026-11-04T02:13:28.0969678Z running 3 tests
+2026-11-04T02:13:28.0970953Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(6) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpRALpVt\\app.sqlite") elapsed_ms=6304 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:13:28.0971991Z 
+2026-11-04T02:13:28.0972223Z thread '<unnamed>' (5248) panicked at crates\storage\tests\mobile_commands.rs:93:63:
+2026-11-04T02:13:28.0973239Z 次线程 reserve: Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:13:28.0973776Z stack backtrace:
+2026-11-04T02:13:28.0974151Z    0: std::panicking::panic_handler
+2026-11-04T02:13:28.0974626Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:13:28.0975112Z    1: core::panicking::panic_fmt
+2026-11-04T02:13:28.0975570Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:13:28.0976040Z    2: core::result::unwrap_failed
+2026-11-04T02:13:28.0976487Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:13:28.0976962Z    3: core::result::Result::expect
+2026-11-04T02:13:28.0977404Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:13:28.0978327Z    4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$1
+2026-11-04T02:13:28.0978828Z              at .\tests\mobile_commands.rs:93
+2026-11-04T02:13:28.0979290Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:13:28.0979884Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:13:28.0980219Z 
+2026-11-04T02:13:28.0980572Z thread 'mobile_command_is_reserved_once_and_receipt_is_immutable' (1724) panicked at crates\storage\tests\mobile_commands.rs:94:64:
+2026-11-04T02:13:28.0981186Z 线程二: Any { .. }
+2026-11-04T02:13:28.0981462Z stack backtrace:
+2026-11-04T02:13:28.0981795Z    0: std::panicking::panic_handler
+2026-11-04T02:13:28.0982418Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:13:28.0982880Z    1: core::panicking::panic_fmt
+2026-11-04T02:13:28.0983334Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:13:28.0983796Z    2: core::result::unwrap_failed
+2026-11-04T02:13:28.0984235Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:13:28.0984689Z    3: core::result::Result::expect
+2026-11-04T02:13:28.0985124Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:13:28.0985721Z    4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable
+2026-11-04T02:13:28.0986163Z              at .\tests\mobile_commands.rs:94
+2026-11-04T02:13:28.0986625Z    5: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$0
+2026-11-04T02:13:28.0987103Z              at .\tests\mobile_commands.rs:84
+2026-11-04T02:13:28.0987744Z    6: core::ops::function::FnOnce::call_once<mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure_env$0,tuple$<> >
+2026-11-04T02:13:28.0988476Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:13:28.0989207Z    7: core::ops::function::FnOnce::call_once
+2026-11-04T02:13:28.0989693Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:13:28.0990328Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:13:28.0991133Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... FAILED
+2026-11-04T02:13:28.0991617Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:13:28.0991897Z 
+2026-11-04T02:13:28.0992094Z failures:
+2026-11-04T02:13:28.0992311Z 
+2026-11-04T02:13:28.0992411Z failures:
+2026-11-04T02:13:28.0992747Z     mobile_command_is_reserved_once_and_receipt_is_immutable
+2026-11-04T02:13:28.0993020Z 
+2026-11-04T02:13:28.0993273Z test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.27s
+2026-11-04T02:13:28.0993636Z 
+2026-11-04T02:13:28.0993877Z error: test failed, to rerun pass `-p storage --test mobile_commands`
+2026-11-04T02:13:28.0994314Z error: 1 target failed:
+2026-11-04T02:13:28.0994622Z     `-p storage --test mobile_commands`
+2026-11-04T02:13:28.0994807Z 
+2026-11-04T02:13:38.1249383Z    Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+2026-11-04T02:13:38.1250180Z     Finished `test` profile [optimized + debuginfo] target(s) in 2.52s
+2026-11-04T02:13:38.1250912Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:13:38.1251322Z 
+2026-11-04T02:13:38.1251432Z running 2 tests
+2026-11-04T02:13:38.1252518Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(7) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpM0AzG3\\app.sqlite") elapsed_ms=6457 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:13:38.1254775Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(5) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpM0AzG3\\app.sqlite") elapsed_ms=6518 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:13:38.1256595Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(6) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpM0AzG3\\app.sqlite") elapsed_ms=6544 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:13:38.1257547Z 
+2026-11-04T02:13:38.1257899Z thread 'concurrent_creation_migrates_legacy_chat_time_once' (3712) panicked at crates\storage\tests\workspace_chat_time.rs:74:5:
+2026-11-04T02:13:38.1260872Z 并发首次迁移不能因重复时间字段导致创建失败：[Ok(AgentCreationReceipt { device_id: "phone", mac_id: "mac", desktop_workspace_id: "space", operation_id: "create", state: "received", result: None, error: None }), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked"))))]
+2026-11-04T02:13:38.1262376Z stack backtrace:
+2026-11-04T02:13:38.1262705Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:13:38.1263085Z    0: std::panicking::panic_handler
+2026-11-04T02:13:38.1263632Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:13:38.1264238Z    1: core::panicking::panic_fmt
+2026-11-04T02:13:38.1264723Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:13:38.1265328Z    2: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once
+2026-11-04T02:13:38.1265782Z              at .\tests\workspace_chat_time.rs:74
+2026-11-04T02:13:38.1266266Z    3: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure$0
+2026-11-04T02:13:38.1266745Z              at .\tests\workspace_chat_time.rs:49
+2026-11-04T02:13:38.1267362Z    4: core::ops::function::FnOnce::call_once<workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure_env$0,tuple$<> >
+2026-11-04T02:13:38.1268096Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:13:38.1268598Z    5: core::ops::function::FnOnce::call_once
+2026-11-04T02:13:38.1269082Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:13:38.1269753Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:13:38.1270283Z test concurrent_creation_migrates_legacy_chat_time_once ... FAILED
+2026-11-04T02:13:38.1270536Z 
+2026-11-04T02:13:38.1270682Z failures:
+2026-11-04T02:13:38.1270806Z 
+2026-11-04T02:13:38.1270950Z failures:
+2026-11-04T02:13:38.1271259Z     concurrent_creation_migrates_legacy_chat_time_once
+2026-11-04T02:13:38.1271516Z 
+2026-11-04T02:13:38.1271764Z test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.38s
+2026-11-04T02:13:38.1272129Z 
+2026-11-04T02:13:38.1272354Z error: test failed, to rerun pass `-p storage --test workspace_chat_time`
+2026-11-04T02:13:38.1272816Z error: 1 target failed:
+2026-11-04T02:13:38.1273137Z     `-p storage --test workspace_chat_time`
+2026-11-04T02:13:38.1273332Z 
+2026-11-04T02:13:59.0535852Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.49s
+2026-11-04T02:13:59.0536873Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:13:59.0537383Z 
+2026-11-04T02:13:59.0537521Z running 5 tests
+2026-11-04T02:13:59.0538887Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(7) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpeUDGxD\\app.sqlite") elapsed_ms=6416 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:13:59.0539873Z 
+2026-11-04T02:13:59.0540119Z thread '<unnamed>' (8360) panicked at crates\storage\tests\live_operation_store.rs:185:47:
+2026-11-04T02:13:59.0541093Z 并发预留: Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:13:59.0541628Z stack backtrace:
+2026-11-04T02:13:59.0541952Z    0: std::panicking::panic_handler
+2026-11-04T02:13:59.0542444Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:13:59.0543072Z    1: core::panicking::panic_fmt
+2026-11-04T02:13:59.0543510Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:13:59.0543969Z    2: core::result::unwrap_failed
+2026-11-04T02:13:59.0544401Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:13:59.0544854Z    3: core::result::Result::expect
+2026-11-04T02:13:59.0545333Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:13:59.0545985Z    4: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$0::closure$0
+2026-11-04T02:13:59.0546526Z              at .\tests\live_operation_store.rs:185
+2026-11-04T02:13:59.0547317Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:13:59.0547837Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:13:59.0548135Z 
+2026-11-04T02:13:59.0548525Z thread 'live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown' (6688) panicked at crates\storage\tests\live_operation_store.rs:209:49:
+2026-11-04T02:13:59.0549174Z 并发线程: Any { .. }
+2026-11-04T02:13:59.0549495Z stack backtrace:
+2026-11-04T02:13:59.0549778Z    0: std::panicking::panic_handler
+2026-11-04T02:13:59.0550218Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:13:59.0550671Z    1: core::panicking::panic_fmt
+2026-11-04T02:13:59.0551094Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:13:59.0551543Z    2: core::result::unwrap_failed
+2026-11-04T02:13:59.0551960Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:13:59.0552399Z    3: core::result::Result::expect
+2026-11-04T02:13:59.0552919Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:13:59.0553572Z    4: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$1
+2026-11-04T02:13:59.0554083Z              at .\tests\live_operation_store.rs:209
+2026-11-04T02:13:59.0554463Z    5: core::iter::adapters::map::map_fold::closure$0
+2026-11-04T02:13:59.0554957Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:88
+2026-11-04T02:13:59.0555438Z    6: alloc::vec::into_iter::impl$5::fold
+2026-11-04T02:13:59.0555906Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\into_iter.rs:323
+2026-11-04T02:13:59.0556946Z    7: core::iter::adapters::map::impl$2::fold<usize,alloc::vec::into_iter::IntoIter<std::thread::JoinHandle<bool>,alloc::alloc::Global>,live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure_env$1,usize,core::iter::trait
+2026-11-04T02:13:59.0558068Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:128
+2026-11-04T02:13:59.0558570Z    8: core::iter::traits::accum::impl$48::sum
+2026-11-04T02:13:59.0559045Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\accum.rs:50
+2026-11-04T02:13:59.0559703Z    9: core::iter::traits::iterator::Iterator::sum
+2026-11-04T02:13:59.0560210Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\iterator.rs:3580
+2026-11-04T02:13:59.0560994Z   10: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown
+2026-11-04T02:13:59.0561620Z              at .\tests\live_operation_store.rs:210
+2026-11-04T02:13:59.0562104Z   11: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$0
+2026-11-04T02:13:59.0562600Z              at .\tests\live_operation_store.rs:162
+2026-11-04T02:13:59.0563243Z   12: core::ops::function::FnOnce::call_once<live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure_env$0,tuple$<> >
+2026-11-04T02:13:59.0564143Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:13:59.0564621Z   13: core::ops::function::FnOnce::call_once
+2026-11-04T02:13:59.0565097Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:13:59.0566014Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:13:59.0567037Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... FAILED
+2026-11-04T02:13:59.0567648Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:13:59.0568114Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:13:59.0568607Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:13:59.0568971Z 
+2026-11-04T02:13:59.0569072Z failures:
+2026-11-04T02:13:59.0569240Z 
+2026-11-04T02:13:59.0569332Z failures:
+2026-11-04T02:13:59.0569671Z     live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown
+2026-11-04T02:13:59.0569968Z 
+2026-11-04T02:13:59.0570261Z test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.32s
+2026-11-04T02:13:59.0570590Z 
+2026-11-04T02:13:59.0570833Z error: test failed, to rerun pass `-p storage --test live_operation_store`
+2026-11-04T02:13:59.0571409Z error: 1 target failed:
+2026-11-04T02:13:59.0571842Z     `-p storage --test live_operation_store`
+2026-11-04T02:13:59.0572168Z 
+2026-11-04T02:14:10.0616739Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.48s
+2026-11-04T02:14:10.0617694Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:14:10.0618176Z 
+2026-11-04T02:14:10.0618292Z running 3 tests
+2026-11-04T02:14:10.0619520Z [DEBUG-storage15] migration stage=storage::mobile_session_store::migrate thread=ThreadId(5) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpasZWzB\\app.sqlite") elapsed_ms=6574 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:14:10.0620497Z 
+2026-11-04T02:14:10.0620775Z thread '<unnamed>' (6764) panicked at crates\storage\tests\mobile_commands.rs:92:61:
+2026-11-04T02:14:10.0621733Z 首线程 reserve: Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:14:10.0622281Z stack backtrace:
+2026-11-04T02:14:10.0622573Z    0: std::panicking::panic_handler
+2026-11-04T02:14:10.0623055Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:14:10.0623549Z    1: core::panicking::panic_fmt
+2026-11-04T02:14:10.0624044Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:14:10.0624851Z    2: core::result::unwrap_failed
+2026-11-04T02:14:10.0625332Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:14:10.0625821Z    3: core::result::Result::expect
+2026-11-04T02:14:10.0626615Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:14:10.0627224Z    4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$0
+2026-11-04T02:14:10.0627715Z              at .\tests\mobile_commands.rs:92
+2026-11-04T02:14:10.0628175Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:14:10.0628544Z 
+2026-11-04T02:14:10.0628986Z thread 'mobile_command_is_reserved_once_and_receipt_is_immutable' (8160) panicked at crates\storage\tests\mobile_commands.rs:94:33:
+2026-11-04T02:14:10.0629599Z 线程一: Any { .. }
+2026-11-04T02:14:10.0629857Z stack backtrace:
+2026-11-04T02:14:10.0630130Z    0: std::panicking::panic_handler
+2026-11-04T02:14:10.0630738Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:14:10.0631226Z    1: core::panicking::panic_fmt
+2026-11-04T02:14:10.0631674Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:14:10.0632139Z    2: core::result::unwrap_failed
+2026-11-04T02:14:10.0632626Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:14:10.0633082Z    3: core::result::Result::expect
+2026-11-04T02:14:10.0633569Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:14:10.0634128Z    4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable
+2026-11-04T02:14:10.0634601Z              at .\tests\mobile_commands.rs:94
+2026-11-04T02:14:10.0635062Z    5: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$0
+2026-11-04T02:14:10.0635540Z              at .\tests\mobile_commands.rs:84
+2026-11-04T02:14:10.0636138Z    6: core::ops::function::FnOnce::call_once<mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure_env$0,tuple$<> >
+2026-11-04T02:14:10.0636919Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:14:10.0637432Z    7: core::ops::function::FnOnce::call_once
+2026-11-04T02:14:10.0637936Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:14:10.0638563Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:14:10.0639138Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... FAILED
+2026-11-04T02:14:10.0639676Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:14:10.0640174Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:14:10.0640487Z 
+2026-11-04T02:14:10.0640617Z failures:
+2026-11-04T02:14:10.0640802Z 
+2026-11-04T02:14:10.0640987Z failures:
+2026-11-04T02:14:10.0641436Z     mobile_command_is_reserved_once_and_receipt_is_immutable
+2026-11-04T02:14:10.0641690Z 
+2026-11-04T02:14:10.0642004Z test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.41s
+2026-11-04T02:14:10.0642566Z 
+2026-11-04T02:14:10.0642777Z error: test failed, to rerun pass `-p storage --test mobile_commands`
+2026-11-04T02:14:10.0643201Z error: 1 target failed:
+2026-11-04T02:14:10.0643521Z     `-p storage --test mobile_commands`
+2026-11-04T02:14:10.0643757Z 
+2026-11-04T02:14:18.8302773Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.49s
+2026-11-04T02:14:18.8303958Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:14:18.8304673Z 
+2026-11-04T02:14:18.8304850Z running 2 tests
+2026-11-04T02:14:18.8306548Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(5) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmp4YuFQp\\app.sqlite") elapsed_ms=6593 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:14:18.8309896Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(4) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmp4YuFQp\\app.sqlite") elapsed_ms=6619 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:14:18.8312973Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(7) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmp4YuFQp\\app.sqlite") elapsed_ms=6635 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:14:18.8314891Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:14:18.8316428Z 
+2026-11-04T02:14:18.8317057Z thread 'concurrent_creation_migrates_legacy_chat_time_once' (4696) panicked at crates\storage\tests\workspace_chat_time.rs:74:5:
+2026-11-04T02:14:18.8321184Z 并发首次迁移不能因重复时间字段导致创建失败：[Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Ok(AgentCreationReceipt { device_id: "phone", mac_id: "mac", desktop_workspace_id: "space", operation_id: "create", state: "received", result: None, error: None }), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked"))))]
+2026-11-04T02:14:18.8324174Z stack backtrace:
+2026-11-04T02:14:18.8324638Z    0: std::panicking::panic_handler
+2026-11-04T02:14:18.8325442Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:14:18.8326191Z    1: core::panicking::panic_fmt
+2026-11-04T02:14:18.8326857Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:14:18.8327658Z    2: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once
+2026-11-04T02:14:18.8328331Z              at .\tests\workspace_chat_time.rs:74
+2026-11-04T02:14:18.8328954Z    3: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure$0
+2026-11-04T02:14:18.8329744Z              at .\tests\workspace_chat_time.rs:49
+2026-11-04T02:14:18.8330727Z    4: core::ops::function::FnOnce::call_once<workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure_env$0,tuple$<> >
+2026-11-04T02:14:18.8331877Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:14:18.8332618Z    5: core::ops::function::FnOnce::call_once
+2026-11-04T02:14:18.8333318Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:14:18.8334163Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:14:18.8334882Z test concurrent_creation_migrates_legacy_chat_time_once ... FAILED
+2026-11-04T02:14:18.8335281Z 
+2026-11-04T02:14:18.8335414Z failures:
+2026-11-04T02:14:18.8335624Z 
+2026-11-04T02:14:18.8335761Z failures:
+2026-11-04T02:14:18.8336160Z     concurrent_creation_migrates_legacy_chat_time_once
+2026-11-04T02:14:18.8336527Z 
+2026-11-04T02:14:18.8336949Z test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.16s
+2026-11-04T02:14:18.8337479Z 
+2026-11-04T02:14:18.8337846Z error: test failed, to rerun pass `-p storage --test workspace_chat_time`
+2026-11-04T02:14:18.8338495Z error: 1 target failed:
+2026-11-04T02:14:18.8338966Z     `-p storage --test workspace_chat_time`
+2026-11-04T02:14:18.8339261Z 
+2026-11-04T02:14:39.8065632Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.48s
+2026-11-04T02:14:39.8066471Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:14:39.8066873Z 
+2026-11-04T02:14:39.8067014Z running 5 tests
+2026-11-04T02:14:39.8067378Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:14:39.8068151Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+2026-11-04T02:14:39.8069069Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:14:39.8069527Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:14:39.8070069Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:14:39.8070394Z 
+2026-11-04T02:14:39.8070667Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.39s
+2026-11-04T02:14:39.8070979Z 
+2026-11-04T02:14:39.8070984Z 
+2026-11-04T02:14:50.7946974Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.49s
+2026-11-04T02:14:50.7948033Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:14:50.7948406Z 
+2026-11-04T02:14:50.7948510Z running 3 tests
+2026-11-04T02:14:50.7949619Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(5) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpLnjLNz\\app.sqlite") elapsed_ms=6489 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:14:50.7950589Z 
+2026-11-04T02:14:50.7950841Z thread '<unnamed>' (4488) panicked at crates\storage\tests\mobile_commands.rs:92:61:
+2026-11-04T02:14:50.7951796Z 首线程 reserve: Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:14:50.7952296Z stack backtrace:
+2026-11-04T02:14:50.7952585Z    0: std::panicking::panic_handler
+2026-11-04T02:14:50.7953038Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:14:50.7953499Z    1: core::panicking::panic_fmt
+2026-11-04T02:14:50.7953923Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:14:50.7954377Z    2: core::result::unwrap_failed
+2026-11-04T02:14:50.7954844Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:14:50.7955661Z    3: core::result::Result::expect
+2026-11-04T02:14:50.7956179Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:14:50.7956871Z    4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$0
+2026-11-04T02:14:50.7957413Z              at .\tests\mobile_commands.rs:92
+2026-11-04T02:14:50.7957939Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:14:50.7958337Z 
+2026-11-04T02:14:50.7958743Z thread 'mobile_command_is_reserved_once_and_receipt_is_immutable' (3172) panicked at crates\storage\tests\mobile_commands.rs:94:33:
+2026-11-04T02:14:50.7959472Z 线程一: Any { .. }
+2026-11-04T02:14:50.7959765Z stack backtrace:
+2026-11-04T02:14:50.7960077Z    0: std::panicking::panic_handler
+2026-11-04T02:14:50.7960595Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:14:50.7961075Z    1: core::panicking::panic_fmt
+2026-11-04T02:14:50.7961523Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:14:50.7962018Z    2: core::result::unwrap_failed
+2026-11-04T02:14:50.7962520Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:14:50.7963064Z    3: core::result::Result::expect
+2026-11-04T02:14:50.7963516Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:14:50.7964057Z    4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable
+2026-11-04T02:14:50.7964521Z              at .\tests\mobile_commands.rs:94
+2026-11-04T02:14:50.7964985Z    5: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$0
+2026-11-04T02:14:50.7965473Z              at .\tests\mobile_commands.rs:84
+2026-11-04T02:14:50.7966289Z    6: core::ops::function::FnOnce::call_once<mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure_env$0,tuple$<> >
+2026-11-04T02:14:50.7967092Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:14:50.7967637Z    7: core::ops::function::FnOnce::call_once
+2026-11-04T02:14:50.7968119Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:14:50.7968721Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:14:50.7969276Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... FAILED
+2026-11-04T02:14:50.7969897Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:14:50.7970373Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:14:50.7970952Z 
+2026-11-04T02:14:50.7971063Z failures:
+2026-11-04T02:14:50.7971226Z 
+2026-11-04T02:14:50.7971377Z failures:
+2026-11-04T02:14:50.7971697Z     mobile_command_is_reserved_once_and_receipt_is_immutable
+2026-11-04T02:14:50.7971931Z 
+2026-11-04T02:14:50.7972218Z test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.38s
+2026-11-04T02:14:50.7972533Z 
+2026-11-04T02:14:50.7972779Z error: test failed, to rerun pass `-p storage --test mobile_commands`
+2026-11-04T02:14:50.7973181Z error: 1 target failed:
+2026-11-04T02:14:50.7973463Z     `-p storage --test mobile_commands`
+2026-11-04T02:14:50.7973666Z 
+2026-11-04T02:14:58.7635509Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.46s
+2026-11-04T02:14:58.7636285Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:14:58.7636650Z 
+2026-11-04T02:14:58.7636796Z running 2 tests
+2026-11-04T02:14:58.7637931Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(4) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmp1r5n95\\app.sqlite") elapsed_ms=6479 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:14:58.7639742Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(6) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmp1r5n95\\app.sqlite") elapsed_ms=6583 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:14:58.7641536Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(5) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmp1r5n95\\app.sqlite") elapsed_ms=6650 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:14:58.7642604Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:14:58.7642849Z 
+2026-11-04T02:14:58.7643210Z thread 'concurrent_creation_migrates_legacy_chat_time_once' (6756) panicked at crates\storage\tests\workspace_chat_time.rs:74:5:
+2026-11-04T02:14:58.7645679Z 并发首次迁移不能因重复时间字段导致创建失败：[Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Ok(AgentCreationReceipt { device_id: "phone", mac_id: "mac", desktop_workspace_id: "space", operation_id: "create", state: "received", result: None, error: None })]
+2026-11-04T02:14:58.7647146Z stack backtrace:
+2026-11-04T02:14:58.7647463Z    0: std::panicking::panic_handler
+2026-11-04T02:14:58.7648057Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:14:58.7648536Z    1: core::panicking::panic_fmt
+2026-11-04T02:14:58.7649285Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:14:58.7649867Z    2: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once
+2026-11-04T02:14:58.7650345Z              at .\tests\workspace_chat_time.rs:74
+2026-11-04T02:14:58.7650870Z    3: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure$0
+2026-11-04T02:14:58.7651406Z              at .\tests\workspace_chat_time.rs:49
+2026-11-04T02:14:58.7652009Z    4: core::ops::function::FnOnce::call_once<workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure_env$0,tuple$<> >
+2026-11-04T02:14:58.7652742Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:14:58.7653833Z    5: core::ops::function::FnOnce::call_once
+2026-11-04T02:14:58.7654314Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:14:58.7654944Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:14:58.7655455Z test concurrent_creation_migrates_legacy_chat_time_once ... FAILED
+2026-11-04T02:14:58.7655708Z 
+2026-11-04T02:14:58.7655845Z failures:
+2026-11-04T02:14:58.7655962Z 
+2026-11-04T02:14:58.7656093Z failures:
+2026-11-04T02:14:58.7656382Z     concurrent_creation_migrates_legacy_chat_time_once
+2026-11-04T02:14:58.7656632Z 
+2026-11-04T02:14:58.7656879Z test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.39s
+2026-11-04T02:14:58.7657241Z 
+2026-11-04T02:14:58.7657438Z error: test failed, to rerun pass `-p storage --test workspace_chat_time`
+2026-11-04T02:14:58.7657854Z error: 1 target failed:
+2026-11-04T02:14:58.7658198Z     `-p storage --test workspace_chat_time`
+2026-11-04T02:14:58.7658385Z 
+2026-11-04T02:15:19.2973009Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.47s
+2026-11-04T02:15:19.2974249Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:15:19.2974946Z 
+2026-11-04T02:15:19.2975102Z running 5 tests
+2026-11-04T02:15:19.2976774Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(6) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmp5whTYU\\app.sqlite") elapsed_ms=6350 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:15:19.2978291Z 
+2026-11-04T02:15:19.2978770Z thread '<unnamed>' (2044) panicked at crates\storage\tests\live_operation_store.rs:185:47:
+2026-11-04T02:15:19.2979770Z 并发预留: Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:15:19.2980290Z stack backtrace:
+2026-11-04T02:15:19.2980589Z    0: std::panicking::panic_handler
+2026-11-04T02:15:19.2981260Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:15:19.2981747Z    1: core::panicking::panic_fmt
+2026-11-04T02:15:19.2982215Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:15:19.2982673Z    2: core::result::unwrap_failed
+2026-11-04T02:15:19.2983099Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:15:19.2983559Z    3: core::result::Result::expect
+2026-11-04T02:15:19.2983979Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:15:19.2984628Z    4: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$0::closure$0
+2026-11-04T02:15:19.2985169Z              at .\tests\live_operation_store.rs:185
+2026-11-04T02:15:19.2985620Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:15:19.2985960Z 
+2026-11-04T02:15:19.2986704Z thread 'live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown' (3636) panicked at crates\storage\tests\live_operation_store.rs:209:49:
+2026-11-04T02:15:19.2987603Z 并发线程: Any { .. }
+2026-11-04T02:15:19.2987872Z stack backtrace:
+2026-11-04T02:15:19.2988262Z    0: std::panicking::panic_handler
+2026-11-04T02:15:19.2988713Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:15:19.2989170Z    1: core::panicking::panic_fmt
+2026-11-04T02:15:19.2989598Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:15:19.2990096Z    2: core::result::unwrap_failed
+2026-11-04T02:15:19.2990525Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:15:19.2991110Z    3: core::result::Result::expect
+2026-11-04T02:15:19.2991537Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:15:19.2992154Z    4: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$1
+2026-11-04T02:15:19.2992801Z              at .\tests\live_operation_store.rs:209
+2026-11-04T02:15:19.2993172Z    5: core::iter::adapters::map::map_fold::closure$0
+2026-11-04T02:15:19.2993663Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:88
+2026-11-04T02:15:19.2994186Z    6: alloc::vec::into_iter::impl$5::fold
+2026-11-04T02:15:19.2994638Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\into_iter.rs:323
+2026-11-04T02:15:19.2995789Z    7: core::iter::adapters::map::impl$2::fold<usize,alloc::vec::into_iter::IntoIter<std::thread::JoinHandle<bool>,alloc::alloc::Global>,live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure_env$1,usize,core::iter::trait
+2026-11-04T02:15:19.2997050Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:128
+2026-11-04T02:15:19.2997593Z    8: core::iter::traits::accum::impl$48::sum
+2026-11-04T02:15:19.2998117Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\accum.rs:50
+2026-11-04T02:15:19.2998657Z    9: core::iter::traits::iterator::Iterator::sum
+2026-11-04T02:15:19.2999202Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\iterator.rs:3580
+2026-11-04T02:15:19.3000089Z   10: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown
+2026-11-04T02:15:19.3000583Z              at .\tests\live_operation_store.rs:210
+2026-11-04T02:15:19.3001334Z   11: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$0
+2026-11-04T02:15:19.3002260Z              at .\tests\live_operation_store.rs:162
+2026-11-04T02:15:19.3004195Z   12: core::ops::function::FnOnce::call_once<live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure_env$0,tuple$<> >
+2026-11-04T02:15:19.3005729Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:15:19.3006488Z   13: core::ops::function::FnOnce::call_once
+2026-11-04T02:15:19.3007079Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:15:19.3007779Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:15:19.3008516Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... FAILED
+2026-11-04T02:15:19.3009132Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:15:19.3009710Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:15:19.3010343Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:15:19.3010948Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:15:19.3011278Z 
+2026-11-04T02:15:19.3011388Z failures:
+2026-11-04T02:15:19.3011832Z 
+2026-11-04T02:15:19.3011946Z failures:
+2026-11-04T02:15:19.3012339Z     live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown
+2026-11-04T02:15:19.3012685Z 
+2026-11-04T02:15:19.3013178Z test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.94s
+2026-11-04T02:15:19.3013743Z 
+2026-11-04T02:15:19.3014121Z error: test failed, to rerun pass `-p storage --test live_operation_store`
+2026-11-04T02:15:19.3014744Z error: 1 target failed:
+2026-11-04T02:15:19.3015203Z     `-p storage --test live_operation_store`
+2026-11-04T02:15:19.3015568Z 
+2026-11-04T02:15:30.3739161Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.47s
+2026-11-04T02:15:30.3740519Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:15:30.3740999Z 
+2026-11-04T02:15:30.3741192Z running 3 tests
+2026-11-04T02:15:30.3742370Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(6) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmptYwhrZ\\app.sqlite") elapsed_ms=6358 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:15:30.3743352Z 
+2026-11-04T02:15:30.3743705Z thread '<unnamed>' (8328) panicked at crates\storage\tests\mobile_commands.rs:93:63:
+2026-11-04T02:15:30.3744711Z 次线程 reserve: Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:15:30.3745253Z stack backtrace:
+2026-11-04T02:15:30.3745559Z    0: std::panicking::panic_handler
+2026-11-04T02:15:30.3746051Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:15:30.3746597Z    1: core::panicking::panic_fmt
+2026-11-04T02:15:30.3747043Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:15:30.3747532Z    2: core::result::unwrap_failed
+2026-11-04T02:15:30.3747992Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:15:30.3748454Z    3: core::result::Result::expect
+2026-11-04T02:15:30.3748865Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:15:30.3749417Z    4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$1
+2026-11-04T02:15:30.3749902Z              at .\tests\mobile_commands.rs:93
+2026-11-04T02:15:30.3750327Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:15:30.3750843Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:15:30.3751126Z 
+2026-11-04T02:15:30.3751496Z thread 'mobile_command_is_reserved_once_and_receipt_is_immutable' (4304) panicked at crates\storage\tests\mobile_commands.rs:94:64:
+2026-11-04T02:15:30.3752235Z 线程二: Any { .. }
+2026-11-04T02:15:30.3752492Z stack backtrace:
+2026-11-04T02:15:30.3752769Z    0: std::panicking::panic_handler
+2026-11-04T02:15:30.3753199Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:15:30.3753646Z    1: core::panicking::panic_fmt
+2026-11-04T02:15:30.3754092Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:15:30.3754524Z    2: core::result::unwrap_failed
+2026-11-04T02:15:30.3754935Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:15:30.3755374Z    3: core::result::Result::expect
+2026-11-04T02:15:30.3755782Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:15:30.3756311Z    4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable
+2026-11-04T02:15:30.3756733Z              at .\tests\mobile_commands.rs:94
+2026-11-04T02:15:30.3757596Z    5: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$0
+2026-11-04T02:15:30.3758086Z              at .\tests\mobile_commands.rs:84
+2026-11-04T02:15:30.3758686Z    6: core::ops::function::FnOnce::call_once<mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure_env$0,tuple$<> >
+2026-11-04T02:15:30.3759397Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:15:30.3759902Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:15:30.3760277Z    7: core::ops::function::FnOnce::call_once
+2026-11-04T02:15:30.3760762Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:15:30.3761445Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:15:30.3761997Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... FAILED
+2026-11-04T02:15:30.3762254Z 
+2026-11-04T02:15:30.3762396Z failures:
+2026-11-04T02:15:30.3762520Z 
+2026-11-04T02:15:30.3762649Z failures:
+2026-11-04T02:15:30.3762952Z     mobile_command_is_reserved_once_and_receipt_is_immutable
+2026-11-04T02:15:30.3763212Z 
+2026-11-04T02:15:30.3763454Z test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.50s
+2026-11-04T02:15:30.3764108Z 
+2026-11-04T02:15:30.3764296Z error: test failed, to rerun pass `-p storage --test mobile_commands`
+2026-11-04T02:15:30.3764687Z error: 1 target failed:
+2026-11-04T02:15:30.3764982Z     `-p storage --test mobile_commands`
+2026-11-04T02:15:30.3765193Z 
+2026-11-04T02:15:38.5823562Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.48s
+2026-11-04T02:15:38.5824413Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:15:38.5824832Z 
+2026-11-04T02:15:38.5824967Z running 2 tests
+2026-11-04T02:15:38.5826164Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(4) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpJoSfkv\\app.sqlite") elapsed_ms=6601 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:15:38.5828106Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(5) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpJoSfkv\\app.sqlite") elapsed_ms=6719 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:15:38.5829262Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:15:38.5829486Z 
+2026-11-04T02:15:38.5829887Z thread 'concurrent_creation_migrates_legacy_chat_time_once' (4284) panicked at crates\storage\tests\workspace_chat_time.rs:74:5:
+2026-11-04T02:15:38.5832474Z 并发首次迁移不能因重复时间字段导致创建失败：[Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Ok(AgentCreationReceipt { device_id: "phone", mac_id: "mac", desktop_workspace_id: "space", operation_id: "create", state: "received", result: None, error: None }), Ok(AgentCreationReceipt { device_id: "phone", mac_id: "mac", desktop_workspace_id: "space", operation_id: "create", state: "received", result: None, error: None })]
+2026-11-04T02:15:38.5834152Z stack backtrace:
+2026-11-04T02:15:38.5834455Z    0: std::panicking::panic_handler
+2026-11-04T02:15:38.5834926Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:15:38.5835375Z    1: core::panicking::panic_fmt
+2026-11-04T02:15:38.5835814Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:15:38.5836333Z    2: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once
+2026-11-04T02:15:38.5836747Z              at .\tests\workspace_chat_time.rs:74
+2026-11-04T02:15:38.5837510Z    3: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure$0
+2026-11-04T02:15:38.5837961Z              at .\tests\workspace_chat_time.rs:49
+2026-11-04T02:15:38.5838541Z    4: core::ops::function::FnOnce::call_once<workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure_env$0,tuple$<> >
+2026-11-04T02:15:38.5839256Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:15:38.5839720Z    5: core::ops::function::FnOnce::call_once
+2026-11-04T02:15:38.5840171Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:15:38.5840867Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:15:38.5841403Z test concurrent_creation_migrates_legacy_chat_time_once ... FAILED
+2026-11-04T02:15:38.5841646Z 
+2026-11-04T02:15:38.5841778Z failures:
+2026-11-04T02:15:38.5841898Z 
+2026-11-04T02:15:38.5842151Z failures:
+2026-11-04T02:15:38.5842434Z     concurrent_creation_migrates_legacy_chat_time_once
+2026-11-04T02:15:38.5842671Z 
+2026-11-04T02:15:38.5842910Z test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.61s
+2026-11-04T02:15:38.5843332Z 
+2026-11-04T02:15:38.5843758Z error: test failed, to rerun pass `-p storage --test workspace_chat_time`
+2026-11-04T02:15:38.5844165Z error: 1 target failed:
+2026-11-04T02:15:38.5844464Z     `-p storage --test workspace_chat_time`
+2026-11-04T02:15:38.5844690Z 
+2026-11-04T02:15:59.5780862Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.46s
+2026-11-04T02:15:59.5781839Z      Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+2026-11-04T02:15:59.5782433Z 
+2026-11-04T02:15:59.5782567Z running 5 tests
+2026-11-04T02:15:59.5784129Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(7) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpATeErv\\app.sqlite") elapsed_ms=6463 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:15:59.5785118Z 
+2026-11-04T02:15:59.5785397Z thread '<unnamed>' (2916) panicked at crates\storage\tests\live_operation_store.rs:185:47:
+2026-11-04T02:15:59.5786335Z 并发预留: Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:15:59.5786823Z stack backtrace:
+2026-11-04T02:15:59.5787117Z    0: std::panicking::panic_handler
+2026-11-04T02:15:59.5787593Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:15:59.5788107Z    1: core::panicking::panic_fmt
+2026-11-04T02:15:59.5788554Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:15:59.5789312Z    2: core::result::unwrap_failed
+2026-11-04T02:15:59.5789806Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:15:59.5790300Z    3: core::result::Result::expect
+2026-11-04T02:15:59.5790916Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:15:59.5791562Z    4: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$0::closure$0
+2026-11-04T02:15:59.5792100Z              at .\tests\live_operation_store.rs:185
+2026-11-04T02:15:59.5792551Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:15:59.5793065Z test live_failure_after_side_effect_requires_reconciliation ... ok
+2026-11-04T02:15:59.5793361Z 
+2026-11-04T02:15:59.5793779Z thread 'live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown' (9196) panicked at crates\storage\tests\live_operation_store.rs:209:49:
+2026-11-04T02:15:59.5794419Z 并发线程: Any { .. }
+2026-11-04T02:15:59.5794679Z stack backtrace:
+2026-11-04T02:15:59.5795252Z    0: std::panicking::panic_handler
+2026-11-04T02:15:59.5795757Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:15:59.5796199Z    1: core::panicking::panic_fmt
+2026-11-04T02:15:59.5796618Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:15:59.5797074Z    2: core::result::unwrap_failed
+2026-11-04T02:15:59.5797538Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:15:59.5797977Z    3: core::result::Result::expect
+2026-11-04T02:15:59.5798397Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:15:59.5799134Z    4: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$1
+2026-11-04T02:15:59.5799638Z              at .\tests\live_operation_store.rs:209
+2026-11-04T02:15:59.5800010Z    5: core::iter::adapters::map::map_fold::closure$0
+2026-11-04T02:15:59.5800511Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:88
+2026-11-04T02:15:59.5801003Z    6: alloc::vec::into_iter::impl$5::fold
+2026-11-04T02:15:59.5801502Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\into_iter.rs:323
+2026-11-04T02:15:59.5802555Z    7: core::iter::adapters::map::impl$2::fold<usize,alloc::vec::into_iter::IntoIter<std::thread::JoinHandle<bool>,alloc::alloc::Global>,live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure_env$1,usize,core::iter::trait
+2026-11-04T02:15:59.5803611Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:128
+2026-11-04T02:15:59.5804199Z    8: core::iter::traits::accum::impl$48::sum
+2026-11-04T02:15:59.5804684Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\accum.rs:50
+2026-11-04T02:15:59.5805179Z    9: core::iter::traits::iterator::Iterator::sum
+2026-11-04T02:15:59.5805685Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\iterator.rs:3580
+2026-11-04T02:15:59.5806306Z   10: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown
+2026-11-04T02:15:59.5806776Z              at .\tests\live_operation_store.rs:210
+2026-11-04T02:15:59.5807284Z   11: live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure$0
+2026-11-04T02:15:59.5808086Z              at .\tests\live_operation_store.rs:162
+2026-11-04T02:15:59.5808766Z   12: core::ops::function::FnOnce::call_once<live_operation_store::live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown::closure_env$0,tuple$<> >
+2026-11-04T02:15:59.5809727Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:15:59.5810210Z   13: core::ops::function::FnOnce::call_once
+2026-11-04T02:15:59.5810731Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:15:59.5811541Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:15:59.5812276Z test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... FAILED
+2026-11-04T02:15:59.5812982Z test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+2026-11-04T02:15:59.5813651Z test live_lease_cannot_record_into_another_database ... ok
+2026-11-04T02:15:59.5814281Z test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+2026-11-04T02:15:59.5814745Z 
+2026-11-04T02:15:59.5815002Z failures:
+2026-11-04T02:15:59.5815169Z 
+2026-11-04T02:15:59.5815357Z failures:
+2026-11-04T02:15:59.5816090Z     live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown
+2026-11-04T02:15:59.5816448Z 
+2026-11-04T02:15:59.5816992Z test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.42s
+2026-11-04T02:15:59.5817328Z 
+2026-11-04T02:15:59.5817566Z error: test failed, to rerun pass `-p storage --test live_operation_store`
+2026-11-04T02:15:59.5817985Z error: 1 target failed:
+2026-11-04T02:15:59.5818305Z     `-p storage --test live_operation_store`
+2026-11-04T02:15:59.5818499Z 
+2026-11-04T02:16:10.3784874Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.47s
+2026-11-04T02:16:10.3785760Z      Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+2026-11-04T02:16:10.3786356Z 
+2026-11-04T02:16:10.3786504Z running 3 tests
+2026-11-04T02:16:10.3787599Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(5) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpfiJZ96\\app.sqlite") elapsed_ms=6609 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:16:10.3788911Z 
+2026-11-04T02:16:10.3789158Z thread '<unnamed>' (624) panicked at crates\storage\tests\mobile_commands.rs:92:61:
+2026-11-04T02:16:10.3790131Z 首线程 reserve: Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:16:10.3790664Z stack backtrace:
+2026-11-04T02:16:10.3790961Z    0: std::panicking::panic_handler
+2026-11-04T02:16:10.3791741Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:16:10.3792233Z    1: core::panicking::panic_fmt
+2026-11-04T02:16:10.3792684Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:16:10.3793168Z    2: core::result::unwrap_failed
+2026-11-04T02:16:10.3793673Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:16:10.3794145Z    3: core::result::Result::expect
+2026-11-04T02:16:10.3794596Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:16:10.3795196Z    4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$0
+2026-11-04T02:16:10.3795675Z              at .\tests\mobile_commands.rs:92
+2026-11-04T02:16:10.3796116Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:16:10.3796463Z 
+2026-11-04T02:16:10.3796826Z thread 'mobile_command_is_reserved_once_and_receipt_is_immutable' (7184) panicked at crates\storage\tests\mobile_commands.rs:94:33:
+2026-11-04T02:16:10.3797482Z 线程一: Any { .. }
+2026-11-04T02:16:10.3797746Z stack backtrace:
+2026-11-04T02:16:10.3798026Z    0: std::panicking::panic_handler
+2026-11-04T02:16:10.3798485Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:16:10.3798953Z    1: core::panicking::panic_fmt
+2026-11-04T02:16:10.3799396Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:16:10.3799864Z    2: core::result::unwrap_failed
+2026-11-04T02:16:10.3800306Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+2026-11-04T02:16:10.3800766Z    3: core::result::Result::expect
+2026-11-04T02:16:10.3801248Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+2026-11-04T02:16:10.3801815Z    4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable
+2026-11-04T02:16:10.3802247Z              at .\tests\mobile_commands.rs:94
+2026-11-04T02:16:10.3802711Z    5: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$0
+2026-11-04T02:16:10.3803187Z              at .\tests\mobile_commands.rs:84
+2026-11-04T02:16:10.3803797Z    6: core::ops::function::FnOnce::call_once<mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure_env$0,tuple$<> >
+2026-11-04T02:16:10.3805391Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:16:10.3805969Z    7: core::ops::function::FnOnce::call_once
+2026-11-04T02:16:10.3806478Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:16:10.3807079Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:16:10.3807630Z test mobile_command_is_reserved_once_and_receipt_is_immutable ... FAILED
+2026-11-04T02:16:10.3808158Z test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+2026-11-04T02:16:10.3808647Z test mobile_command_failures_preserve_known_outcome ... ok
+2026-11-04T02:16:10.3809057Z 
+2026-11-04T02:16:10.3809157Z failures:
+2026-11-04T02:16:10.3809322Z 
+2026-11-04T02:16:10.3809419Z failures:
+2026-11-04T02:16:10.3809737Z     mobile_command_is_reserved_once_and_receipt_is_immutable
+2026-11-04T02:16:10.3810013Z 
+2026-11-04T02:16:10.3810314Z test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.22s
+2026-11-04T02:16:10.3810647Z 
+2026-11-04T02:16:10.3810884Z error: test failed, to rerun pass `-p storage --test mobile_commands`
+2026-11-04T02:16:10.3811665Z error: 1 target failed:
+2026-11-04T02:16:10.3812058Z     `-p storage --test mobile_commands`
+2026-11-04T02:16:10.3812337Z 
+2026-11-04T02:16:19.0689785Z     Finished `test` profile [optimized + debuginfo] target(s) in 0.46s
+2026-11-04T02:16:19.0690508Z      Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+2026-11-04T02:16:19.0690909Z 
+2026-11-04T02:16:19.0691055Z running 2 tests
+2026-11-04T02:16:19.0692150Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(6) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpC0Phg4\\app.sqlite") elapsed_ms=6586 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:16:19.0694025Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(4) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpC0Phg4\\app.sqlite") elapsed_ms=6641 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:16:19.0695780Z [DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(5) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpC0Phg4\\app.sqlite") elapsed_ms=6697 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+2026-11-04T02:16:19.0696920Z test reconnect_retains_original_event_time ... ok
+2026-11-04T02:16:19.0697154Z 
+2026-11-04T02:16:19.0697543Z thread 'concurrent_creation_migrates_legacy_chat_time_once' (5716) panicked at crates\storage\tests\workspace_chat_time.rs:74:5:
+2026-11-04T02:16:19.0699760Z 并发首次迁移不能因重复时间字段导致创建失败：[Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Ok(AgentCreationReceipt { device_id: "phone", mac_id: "mac", desktop_workspace_id: "space", operation_id: "create", state: "received", result: None, error: None })]
+2026-11-04T02:16:19.0701230Z stack backtrace:
+2026-11-04T02:16:19.0701534Z    0: std::panicking::panic_handler
+2026-11-04T02:16:19.0702069Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+2026-11-04T02:16:19.0702553Z    1: core::panicking::panic_fmt
+2026-11-04T02:16:19.0703016Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+2026-11-04T02:16:19.0703587Z    2: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once
+2026-11-04T02:16:19.0704041Z              at .\tests\workspace_chat_time.rs:74
+2026-11-04T02:16:19.0704788Z    3: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure$0
+2026-11-04T02:16:19.0705262Z              at .\tests\workspace_chat_time.rs:49
+2026-11-04T02:16:19.0705892Z    4: core::ops::function::FnOnce::call_once<workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure_env$0,tuple$<> >
+2026-11-04T02:16:19.0706674Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+2026-11-04T02:16:19.0707165Z    5: core::ops::function::FnOnce::call_once
+2026-11-04T02:16:19.0707651Z              at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+2026-11-04T02:16:19.0708363Z note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2026-11-04T02:16:19.0708887Z test concurrent_creation_migrates_legacy_chat_time_once ... FAILED
+2026-11-04T02:16:19.0709175Z 
+2026-11-04T02:16:19.0709536Z failures:
+2026-11-04T02:16:19.0709740Z 
+2026-11-04T02:16:19.0709890Z failures:
+2026-11-04T02:16:19.0710193Z     concurrent_creation_migrates_legacy_chat_time_once
+2026-11-04T02:16:19.0710407Z 
+2026-11-04T02:16:19.0710691Z test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.12s
+2026-11-04T02:16:19.0711009Z 
+2026-11-04T02:16:19.0711251Z error: test failed, to rerun pass `-p storage --test workspace_chat_time`
+2026-11-04T02:16:19.0711672Z error: 1 target failed:
+2026-11-04T02:16:19.0711980Z     `-p storage --test workspace_chat_time`
+2026-11-04T02:16:19.0712214Z 
+2026-11-04T02:16:19.0969892Z ##[error]Process completed with exit code 1.
+2026-11-04T02:16:19.1169014Z ##[group]Run set -o pipefail
+2026-11-04T02:16:19.1169665Z [36;1mset -o pipefail[0m
+2026-11-04T02:16:19.1170333Z [36;1mbash scripts/check-storage-boundaries.sh 2>&1 | tee artifacts/storage-15/boundaries.log[0m
+2026-11-04T02:16:19.1171138Z [36;1mbash scripts/check-performance-guardrails.sh 2>&1 | tee artifacts/storage-15/performance.log[0m
+2026-11-04T02:16:19.1182698Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-11-04T02:16:19.1183137Z env:
+2026-11-04T02:16:19.1183399Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:16:19.1183683Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:16:19.1183966Z   CARGO_TERM_COLOR: never
+2026-11-04T02:16:19.1184244Z   RUST_BACKTRACE: 1
+2026-11-04T02:16:19.1184507Z   PYTHONUTF8: 1
+2026-11-04T02:16:19.1184789Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:16:19.1185111Z   CACHE_ON_FAILURE: true
+2026-11-04T02:16:19.1185397Z ##[endgroup]
+2026-11-04T02:16:24.5230633Z ##[group]Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+2026-11-04T02:16:24.5231274Z with:
+2026-11-04T02:16:24.5231710Z   name: storage-15-windows-2025-11a81b524e99df8f7b7101000c6891d8902b081c-41757755342-1
+2026-11-04T02:16:24.5232219Z   path: artifacts/storage-15/
+2026-11-04T02:16:24.5232597Z   if-no-files-found: error
+2026-11-04T02:16:24.5232878Z   retention-days: 3
+2026-11-04T02:16:24.5233152Z   compression-level: 6
+2026-11-04T02:16:24.5233426Z   overwrite: false
+2026-11-04T02:16:24.5233713Z   include-hidden-files: false
+2026-11-04T02:16:24.5234032Z env:
+2026-11-04T02:16:24.5234299Z   CARGO_INCREMENTAL: 0
+2026-11-04T02:16:24.5234573Z   CARGO_BUILD_JOBS: 2
+2026-11-04T02:16:24.5234847Z   CARGO_TERM_COLOR: never
+2026-11-04T02:16:24.5235129Z   RUST_BACKTRACE: 1
+2026-11-04T02:16:24.5235386Z   PYTHONUTF8: 1
+2026-11-04T02:16:24.5235701Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+2026-11-04T02:16:24.5236026Z   CACHE_ON_FAILURE: true
+2026-11-04T02:16:24.5236426Z ##[endgroup]
+2026-11-04T02:16:24.7213527Z (node:8020) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-04T02:16:24.7214780Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-04T02:16:24.7336164Z With the provided path, there will be 22 files uploaded
+2026-11-04T02:16:24.7341809Z Artifact name is valid!
+2026-11-04T02:16:24.7343188Z Root directory input is valid!
+2026-11-04T02:16:25.0157088Z Beginning upload of artifact content to blob storage
+2026-11-04T02:16:25.0702521Z (node:8020) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-11-04T02:16:25.2507494Z Uploaded bytes 28220
+2026-11-04T02:16:25.2941115Z Finished uploading artifact content to blob storage!
+2026-11-04T02:16:25.2942043Z SHA256 digest of uploaded artifact zip is acf2353d2dc310dcd2797b28694797b3e98fe731c810c3e12f1c2298f870b82d
+2026-11-04T02:16:25.2944590Z Finalizing artifact upload
+2026-11-04T02:16:25.7591054Z Artifact storage-15-windows-2025-11a81b524e99df8f7b7101000c6891d8902b081c-41757755342-1.zip successfully finalized. Artifact ID 13290310589
+2026-11-04T02:16:25.7592389Z Artifact storage-15-windows-2025-11a81b524e99df8f7b7101000c6891d8902b081c-41757755342-1 has been successfully uploaded! Final size is 28220 bytes. Artifact ID is 13290310589
+2026-11-04T02:16:25.7602960Z Artifact download URL: https://github.com/multisoul-ai/Norma-AI-OS/actions/runs/41757755342/artifacts/13290310589
+2026-11-04T02:16:25.7992231Z Post job cleanup.
+2026-11-04T02:16:25.9706332Z ##[group]Cache Configuration
+2026-11-04T02:16:25.9706889Z Cache Provider:
+2026-11-04T02:16:25.9707244Z     github
+2026-11-04T02:16:25.9707543Z Workspaces:
+2026-11-04T02:16:25.9707902Z     D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-04T02:16:25.9708342Z Cache Paths:
+2026-11-04T02:16:25.9708712Z     C:\Users\runneradmin\.cargo\bin
+2026-11-04T02:16:25.9709242Z     C:\Users\runneradmin\.cargo\.crates.toml
+2026-11-04T02:16:25.9709734Z     C:\Users\runneradmin\.cargo\.crates2.json
+2026-11-04T02:16:25.9710173Z     C:\Users\runneradmin\.cargo\registry
+2026-11-04T02:16:25.9710576Z     C:\Users\runneradmin\.cargo\git
+2026-11-04T02:16:25.9710996Z     D:\a\Norma-AI-OS\Norma-AI-OS\target
+2026-11-04T02:16:25.9711415Z Restore Key:
+2026-11-04T02:16:25.9711851Z     v0-rust-windows-native-contracts-Windows_NT-x64-8f12d873
+2026-11-04T02:16:25.9712373Z Cache Key:
+2026-11-04T02:16:25.9712989Z     v0-rust-windows-native-contracts-Windows_NT-x64-8f12d873-a0d1a65b
+2026-11-04T02:16:25.9713534Z .. Prefix:
+2026-11-04T02:16:25.9713899Z   - v0-rust-windows-native-contracts-Windows_NT-x64
+2026-11-04T02:16:25.9714358Z .. Environment considered:
+2026-11-04T02:16:25.9714724Z   - Rust Versions:
+2026-11-04T02:16:25.9715194Z     - 1.91.1 x86_64-pc-windows-msvc ed61e7d7e242494fb7057f2657300d9e77bb4fcb
+2026-11-04T02:16:25.9715883Z     - 1.99.1 x86_64-pc-windows-msvc 58cf8f9c35b355199727627d07ae34a4e2846d67
+2026-11-04T02:16:25.9716436Z   - CARGO_BUILD_JOBS
+2026-11-04T02:16:25.9716781Z   - CARGO_HOME
+2026-11-04T02:16:25.9717126Z   - CARGO_INCREMENTAL
+2026-11-04T02:16:25.9717467Z   - CARGO_TERM_COLOR
+2026-11-04T02:16:25.9717798Z   - RUST_BACKTRACE
+2026-11-04T02:16:25.9718126Z .. Lockfiles considered:
+2026-11-04T02:16:25.9718572Z   - D:\a\Norma-AI-OS\Norma-AI-OS\.cargo\config.toml
+2026-11-04T02:16:25.9719026Z   - D:\a\Norma-AI-OS\Norma-AI-OS\Cargo.lock
+2026-11-04T02:16:25.9719510Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\agent\Cargo.toml
+2026-11-04T02:16:25.9720052Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\analytics\Cargo.toml
+2026-11-04T02:16:25.9720452Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\app\Cargo.toml
+2026-11-04T02:16:25.9720807Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\asr\Cargo.toml
+2026-11-04T02:16:25.9721157Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\audio\Cargo.toml
+2026-11-04T02:16:25.9721510Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\brain\Cargo.toml
+2026-11-04T02:16:25.9721893Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\canvas\Cargo.toml
+2026-11-04T02:16:25.9722276Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\dialogue\Cargo.toml
+2026-11-04T02:16:25.9722651Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\license\Cargo.toml
+2026-11-04T02:16:25.9723034Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\live_voice\Cargo.toml
+2026-11-04T02:16:25.9723448Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\media_store\Cargo.toml
+2026-11-04T02:16:25.9723840Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing\Cargo.toml
+2026-11-04T02:16:25.9724248Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\model_store\Cargo.toml
+2026-11-04T02:16:25.9725091Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma\Cargo.toml
+2026-11-04T02:16:25.9725598Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\runtime\Cargo.toml
+2026-11-04T02:16:25.9725970Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage\Cargo.toml
+2026-11-04T02:16:25.9726335Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\terminal\Cargo.toml
+2026-11-04T02:16:25.9726698Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\tts\Cargo.toml
+2026-11-04T02:16:25.9727474Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\ui\Cargo.toml
+2026-11-04T02:16:25.9727835Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\voice_input\Cargo.toml
+2026-11-04T02:16:25.9728229Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\voice_sherpa\Cargo.toml
+2026-11-04T02:16:25.9728621Z   - D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace\Cargo.toml
+2026-11-04T02:16:25.9729032Z   - D:\a\Norma-AI-OS\Norma-AI-OS\rust-toolchain.toml
+2026-11-04T02:16:25.9729589Z ##[endgroup]
+2026-11-04T02:16:25.9729745Z 
+2026-11-04T02:17:06.6943069Z ... Cleaning D:\a\Norma-AI-OS\Norma-AI-OS\target ...
+2026-11-04T02:17:06.7313656Z ... Cleaning cargo registry (cache-all-crates: false) ...
+2026-11-04T02:17:16.2940957Z ... Cleaning cargo/bin ...
+2026-11-04T02:17:16.3048913Z ... Cleaning cargo git cache ...
+2026-11-04T02:17:16.3056193Z ... Saving cache ...
+2026-11-04T02:17:16.3854424Z [command]"C:\Program Files\Git\usr\bin\tar.exe" --posix -cf cache.tzst --exclude cache.tzst -P -C D:/a/Norma-AI-OS/Norma-AI-OS --files-from manifest.txt --force-local --use-compress-program "zstd -T0"
+2026-11-04T02:17:24.0131537Z Sent 0 of 451678685 (0.0%), 0.0 MBs/sec
+2026-11-04T02:17:25.0198996Z Sent 0 of 451678685 (0.0%), 0.0 MBs/sec
+2026-11-04T02:17:26.0214428Z Sent 0 of 451678685 (0.0%), 0.0 MBs/sec
+2026-11-04T02:17:27.0302249Z Sent 0 of 451678685 (0.0%), 0.0 MBs/sec
+2026-11-04T02:17:28.0430507Z Sent 0 of 451678685 (0.0%), 0.0 MBs/sec
+2026-11-04T02:17:29.0569384Z Sent 0 of 451678685 (0.0%), 0.0 MBs/sec
+2026-11-04T02:17:30.0664287Z Sent 134217728 of 451678685 (29.7%), 18.1 MBs/sec
+2026-11-04T02:17:31.0674155Z Sent 183243229 of 451678685 (40.6%), 21.7 MBs/sec
+2026-11-04T02:17:32.0676632Z Sent 183243229 of 451678685 (40.6%), 19.3 MBs/sec
+2026-11-04T02:17:33.0756939Z Sent 317460957 of 451678685 (70.3%), 30.1 MBs/sec
+2026-11-04T02:17:34.0615321Z Sent 451678685 of 451678685 (100.0%), 39.0 MBs/sec
+2026-11-04T02:17:34.3520098Z Post job cleanup.
+2026-11-04T02:17:34.5393777Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-11-04T02:17:34.5767762Z git version 2.56.0.windows.4
+2026-11-04T02:17:34.5841581Z Temporarily overriding HOME='D:\a\_temp\1fc4201e-8c61-48c4-a104-e35ce04a2bf6' before making global git config changes
+2026-11-04T02:17:34.5842607Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-04T02:17:34.5851725Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Norma-AI-OS\Norma-AI-OS
+2026-11-04T02:17:34.6353223Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-11-04T02:17:34.6792908Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-11-04T02:17:35.2726041Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-04T02:17:35.3142154Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-11-04T02:17:35.8827298Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-04T02:17:35.9237042Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-11-04T02:17:36.5208411Z Cleaning up orphan processes
+2026-11-04T02:17:36.5490985Z Terminate orphan process: pid (6700) (vctip)
+2026-11-04T02:17:36.5596842Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@11d5960a326750d5838078e36cf38b85af677262, actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

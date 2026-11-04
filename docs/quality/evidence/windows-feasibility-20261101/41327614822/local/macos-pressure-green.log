@@ -1,0 +1,13 @@
+   Compiling asr v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/asr)
+    Finished `test` profile [optimized + debuginfo] target(s) in 3.22s
+     Running unittests src/lib.rs (target/debug/deps/asr-33a594438fde1e5f)
+
+running 5 tests
+test providers::local::a1::host::tests::cancelled_startup_never_acquires_the_host ... ok
+test providers::local::a1::host::tests::elevated_pressure_rejects_start_without_reserving_and_cancel_still_wins ... ok
+test providers::local::a1::host::tests::shutdown_reaps_active_workers_without_waiting_for_more_pcm ... ok
+test providers::local::a1::host::tests::shared_host_has_one_session_and_reuses_successful_workers ... ok
+test providers::local::a1::host::tests::preparation_waits_for_cancelled_reservation_to_unwind ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.20s
+

@@ -6,12 +6,11 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
     if super::content_schema_contains(connection, "instance_id")? {
         return Ok(());
     }
-    let transaction =
-        rusqlite::Transaction::new_unchecked(connection, rusqlite::TransactionBehavior::Immediate)?;
-    if super::content_schema_contains(&transaction, "instance_id")? {
-        return Ok(());
-    }
-    transaction.execute_batch("ALTER TABLE desktop_content_tabs RENAME TO desktop_content_tabs_before_present;
+    crate::migrations::with_immediate(connection, |transaction| {
+        if super::content_schema_contains(transaction, "instance_id")? {
+            return Ok(());
+        }
+        transaction.execute_batch("ALTER TABLE desktop_content_tabs RENAME TO desktop_content_tabs_before_present;
         CREATE TABLE desktop_content_tabs (
             id TEXT PRIMARY KEY NOT NULL,
             workspace_id TEXT NOT NULL REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
@@ -28,6 +27,6 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
         CREATE INDEX idx_desktop_content_tabs_workspace ON desktop_content_tabs(workspace_id,position);
         CREATE UNIQUE INDEX idx_desktop_content_tabs_selected ON desktop_content_tabs(workspace_id) WHERE selected=1;
         ")?;
-    transaction.commit()?;
-    Ok(())
+        Ok(())
+    })
 }

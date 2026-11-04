@@ -277,9 +277,7 @@ pub fn build_hook_command(command_path: &Path, source: HookSource) -> String {
 }
 
 pub fn default_install_paths() -> HookInstallPaths {
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
     HookInstallPaths {
         claude_settings: home.join(".claude").join("settings.json"),
         codex_hooks: home.join(".codex").join("hooks.json"),
@@ -332,13 +330,14 @@ pub fn resolve_agent_hook_command_path() -> Option<PathBuf> {
 }
 
 pub fn resolve_agent_hook_command_path_from(app_executable: &Path) -> Option<PathBuf> {
+    let name = format!("{AGENT_HOOK_BINARY_NAME}{}", std::env::consts::EXE_SUFFIX);
     if let Some(dir) = app_executable.parent() {
-        let sibling = dir.join(AGENT_HOOK_BINARY_NAME);
+        let sibling = dir.join(&name);
         if sibling.is_file() {
             return Some(sibling);
         }
     }
-    resolve_from_path_env(AGENT_HOOK_BINARY_NAME)
+    resolve_from_path_env(&name)
 }
 
 pub(crate) fn shell_quote(path: &Path) -> String {

@@ -750,6 +750,12 @@ impl App {
         self.platform.quit();
     }
 
+    /// Configure Windows' automatic exit after the last native window closes.
+    /// Other platforms retain their existing lifecycle. Defaults to true on Windows.
+    pub fn set_quit_on_last_window_close(&self, quit: bool) {
+        self.platform.set_quit_on_last_window_close(quit);
+    }
+
     /// Schedules all windows in the application to be redrawn. This can be called
     /// multiple times in an update cycle and still result in a single redraw.
     pub fn refresh_windows(&mut self) {
@@ -2332,6 +2338,9 @@ pub struct AnyTooltip {
 pub struct KeystrokeEvent {
     /// The keystroke that occurred
     pub keystroke: Keystroke,
+
+    /// Whether this is a repeated key-down while the key remains held.
+    pub is_held: bool,
 
     /// The action that was resolved for the keystroke, if any
     pub action: Option<Box<dyn Action>>,

@@ -1,0 +1,47 @@
+   Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+error[E0432]: unresolved import `norma::codex::relay`
+  --> crates\norma\tests\codex_control_handshake.rs:2:19
+   |
+ 2 | use norma::codex::relay::CodexQuestionRelay;
+   |                   ^^^^^ could not find `relay` in `codex`
+   |
+note: found an item that was configured out
+  --> D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma\src\codex.rs:20:9
+   |
+19 | #[cfg(unix)]
+   |       ---- the item is gated here
+20 | pub mod relay;
+   |         ^^^^^
+
+error[E0432]: unresolved import `norma::codex::native_questions`
+  --> crates\norma\tests\codex_control_platform.rs:2:19
+   |
+ 2 | use norma::codex::native_questions::{CodexNativeEvent, CodexQuestionHost};
+   |                   ^^^^^^^^^^^^^^^^ could not find `native_questions` in `codex`
+   |
+note: found an item that was configured out
+  --> D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma\src\codex.rs:17:9
+   |
+16 | #[cfg(unix)]
+   |       ---- the item is gated here
+17 | pub mod native_questions;
+   |         ^^^^^^^^^^^^^^^^
+
+error[E0432]: unresolved import `norma::codex::relay`
+  --> crates\norma\tests\codex_control_platform.rs:3:19
+   |
+ 3 | use norma::codex::relay::CodexQuestionRelay;
+   |                   ^^^^^ could not find `relay` in `codex`
+   |
+note: found an item that was configured out
+  --> D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma\src\codex.rs:20:9
+   |
+19 | #[cfg(unix)]
+   |       ---- the item is gated here
+20 | pub mod relay;
+   |         ^^^^^
+
+For more information about this error, try `rustc --explain E0432`.
+error: could not compile `norma` (test "codex_control_handshake") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `norma` (test "codex_control_platform") due to 2 previous errors

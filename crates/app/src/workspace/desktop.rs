@@ -467,3 +467,7 @@ mod e2e;
 mod tests;
 
 pub(crate) use drawers::content::workbench::PendingWorkbenchAction;
+
+#[cfg(test)]
+#[path = "../../tests/support/desktop_embedded_project.rs"]
+pub(crate) mod embedded_test_support;

@@ -1,0 +1,138 @@
+name: Windows storage fifteen contracts
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Full storage or affected groups only; every failure remains recorded
+        type: choice
+        options: [full, focused, paths-sessions, memory, legacy, concurrency, atomic]
+        default: full
+      repeats:
+        description: Repetitions of the complete unchanged concurrency test files
+        type: number
+        default: 5
+  push:
+    branches: ['codex/windows-storage-15-*']
+    paths: ['.github/workflows/windows-storage-15.yml']
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_TERM_COLOR: never
+  RUST_BACKTRACE: '1'
+  PYTHONUTF8: '1'
+jobs:
+  storage:
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-native-contracts
+          cache-workspace-crates: true
+          cache-on-failure: true
+      - name: Run the selected storage contracts and retain every failed attempt
+        shell: bash
+        env:
+          STORAGE_REPEATS: ${{ inputs.repeats }}
+          STORAGE_SUITE: ${{ inputs.suite }}
+        run: |
+          python - <<'PYCODE'
+          import json, os, pathlib, platform, re, subprocess, sys, time
+          root = pathlib.Path('artifacts/storage-15')
+          root.mkdir(parents=True, exist_ok=True)
+          count = int(os.environ['STORAGE_REPEATS'])
+          if not 1 <= count <= 30:
+              raise ValueError('Repetitions must be 1..30')
+          report = {'source_sha': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'],
+                    'attempt': os.environ['GITHUB_RUN_ATTEMPT'], 'platform': platform.platform(),
+                    'image': os.environ.get('ImageVersion'), 'processors': os.cpu_count(),
+                    'suite': os.environ.get('STORAGE_SUITE', 'full'), 'repeats': count,
+                    'compiler': subprocess.check_output(['rustc', '-vV'], text=True), 'commands': []}
+          suite = os.environ['STORAGE_SUITE']
+          groups = {
+              'paths': ('paths', 'storage', ['--lib', 'database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary']),
+              'legacy': ('legacy', 'storage', ['--test', 'global_project_storage']),
+              'memory': ('memory', 'storage', ['--test', 'memory_scope']),
+              'sessions': ('sessions', 'storage', ['--test', 'mobile_sessions']),
+          }
+          cases = [('full-storage', 'storage', [])] if suite == 'full' else []
+          selected = list(groups) if suite in ('full', 'focused') else {
+              'paths-sessions': ['paths', 'sessions'], 'memory': ['memory'],
+              'legacy': ['legacy'], 'concurrency': [], 'atomic': []}[suite]
+          cases += [groups[name] for name in selected]
+          if suite in ('full', 'focused', 'atomic'):
+              cases.append(('atomic-migration', 'storage', ['--test', 'app_migration_atomic']))
+          if suite in ('full', 'focused', 'atomic', 'concurrency'):
+              cases.append(('warm-read-with-writer', 'storage', ['--test', 'mobile_access', 'authentication_does_not_write_or_wait_for_a_writer']))
+          if platform.system() == 'Windows' and suite in ('full', 'focused', 'memory'):
+              cases.append(('workspace-native', 'workspace', ['--lib', '--test', 'scoped_directory']))
+          if suite in ('full', 'focused', 'concurrency'):
+              for i in range(1, count + 1):
+                  for name in ('live_operation_store', 'mobile_commands', 'workspace_chat_time'):
+                      cases.append((f'{name}-{i:02}', 'storage', ['--test', name]))
+          for label, package, args in cases:
+              command = ['cargo', 'test', '--locked', '--no-fail-fast', '-p', package, *args, '--', '--nocapture']
+              started = time.monotonic()
+              report['active_command'] = {'label': label, 'command': command}
+              (root / 'report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+              process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                         encoding='utf-8', errors='replace')
+              lines = []
+              with (root / f'{label}.log').open('w', encoding='utf-8') as log:
+                  for line in process.stdout:
+                      log.write(line)
+                      log.flush()
+                      print(line, end='', flush=True)
+                      lines.append(line)
+              code = process.wait()
+              output = ''.join(lines)
+              summaries = re.findall(r'test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;', output)
+              totals = {key: sum(int(row[i]) for row in summaries) for i, key in enumerate(('passed', 'failed', 'ignored'), 1)}
+              valid = bool(summaries) and totals['passed'] + totals['failed'] > 0 and totals['ignored'] == 0
+              failures = sorted(set(re.findall(r'^test (\S+) \.\.\. FAILED\s*$', output, re.MULTILINE)))
+              report['commands'].append({'label': label, 'command': command, 'exit_code': code,
+                  'valid_counts': valid, **totals, 'failed_names': failures, 'seconds': round(time.monotonic()-started, 3), 'log': f'{label}.log'})
+              report.pop('active_command', None)
+              (root / 'report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+          sys.exit(1 if any(c['exit_code'] or not c['valid_counts'] for c in report['commands']) else 0)
+          PYCODE
+      - name: Require storage boundaries
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          bash scripts/check-storage-boundaries.sh 2>&1 | tee artifacts/storage-15/boundaries.log
+          bash scripts/check-performance-guardrails.sh 2>&1 | tee artifacts/storage-15/performance.log
+      - name: Require storage Clippy and formatting
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --locked -p storage --all-targets -- -D warnings 2>&1 | tee artifacts/storage-15/clippy.log
+          cargo fmt --all --check
+      - name: Require the changed native directory API
+        if: always() && runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --locked -p workspace --lib --test scoped_directory -- -D warnings 2>&1 | tee artifacts/storage-15/workspace-clippy.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: storage-15-${{ matrix.os }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/storage-15/
+          if-no-files-found: error
+          retention-days: 3

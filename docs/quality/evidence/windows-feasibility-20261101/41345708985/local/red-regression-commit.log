@@ -1,0 +1,8 @@
+OK: codesign readiness check passed
+[pre-commit] running cargo check...
+[pre-commit] running cargo fmt --check...
+[codex/windows-feasibility-20261101 c71b8e9f] test(windows): reproduce Codex control identity handshake and host boundaries
+ 4 files changed, 475 insertions(+), 1 deletion(-)
+ create mode 100644 crates/norma/tests/codex_control_handshake.rs
+ create mode 100644 crates/norma/tests/codex_control_platform.rs
+ create mode 100644 crates/norma/tests/control_identity_platform.rs

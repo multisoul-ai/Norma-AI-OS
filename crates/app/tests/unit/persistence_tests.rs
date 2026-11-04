@@ -44,6 +44,7 @@ fn test_scheduler_debounces_canvas_snapshot_flush() {
         CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );
 
+    let project_database = project_store.path().to_owned();
     scheduler.set_project_store(project_store);
     scheduler.mark_canvas_dirty();
     let early = scheduler
@@ -56,13 +57,28 @@ fn test_scheduler_debounces_canvas_snapshot_flush() {
     let before = canvas_store
         .load_snapshot()
         .expect("debounce 前 snapshot 查询应成功");
-    let late = scheduler
-        .tick(
-            Duration::from_millis(360),
-            &runtime,
-            &crate::canvas::master_layout::MasterLayoutState::default(),
+    let late_result = scheduler.tick(
+        Duration::from_millis(360),
+        &runtime,
+        &crate::canvas::master_layout::MasterLayoutState::default(),
+    );
+    if let Err(error) = &late_result {
+        let connection = rusqlite::Connection::open_with_flags(
+            &project_database,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
         )
-        .expect("late tick 应触发 flush");
+        .expect("只读诊断失败的真实数据库");
+        let canvas: i64 = connection
+            .query_row("SELECT count(*) FROM canvas_snapshots", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        let layout: i64 = connection
+            .query_row("SELECT count(*) FROM layout_state", [], |row| row.get(0))
+            .unwrap();
+        eprintln!("[DEBUG-persistence-stage] db={project_database:?}; error={error:?}; canvas_rows={canvas}; layout_rows={layout}");
+    }
+    let late = late_result.expect("late tick 应触发 flush");
     let after = canvas_store
         .load_snapshot()
         .expect("flush 后 snapshot 查询应成功")

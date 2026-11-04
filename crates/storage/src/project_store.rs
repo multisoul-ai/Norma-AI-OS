@@ -177,11 +177,27 @@ fn import_legacy_project(paths: &DatabasePaths, root: &Path, target: &Path) -> S
     drop(crate::migrations::open_project_connection(staged.path())?);
     staged.as_file().sync_all()?;
     match staged.persist_noclobber(target) {
-        Ok(_) => std::fs::File::open(parent)?.sync_all()?,
+        Ok(_) => {
+            sync_directory(parent)?;
+        }
         Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {}
-        Err(error) => return Err(error.error.into()),
+        Err(error) => {
+            return Err(error.error.into());
+        }
     }
     Ok(())
+}
+
+fn sync_directory(path: &Path) -> std::io::Result<()> {
+    #[cfg(windows)]
+    {
+        // Win32 File::open cannot open a directory; use the existing native directory capability.
+        workspace::scoped_directory::Directory::open(&path.canonicalize()?, true)?.sync()
+    }
+    #[cfg(not(windows))]
+    {
+        std::fs::File::open(path)?.sync_all()
+    }
 }
 
 pub(crate) fn desktop_canvas_path(

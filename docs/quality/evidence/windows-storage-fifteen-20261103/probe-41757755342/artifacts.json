@@ -1,0 +1,42 @@
+{
+  "artifacts": [
+    {
+      "id": 13290310589,
+      "name": "storage-15-windows-2025-11a81b524e99df8f7b7101000c6891d8902b081c-41757755342-1",
+      "size_in_bytes": 28220,
+      "url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13290310589",
+      "archive_download_url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13290310589/zip",
+      "expired": false,
+      "created_at": "2026-11-04T02:16:25Z",
+      "expires_at": "2026-11-07T02:16:24Z",
+      "updated_at": "2026-11-04T02:16:25Z",
+      "digest": "sha256:acf2353d2dc310dcd2797b28694797b3e98fe731c810c3e12f1c2298f870b82d",
+      "workflow_run": {
+        "id": 41757755342,
+        "repository_id": 1274971992,
+        "head_repository_id": 1274971992,
+        "head_branch": "codex/windows-storage-15-20261103",
+        "head_sha": "11a81b524e99df8f7b7101000c6891d8902b081c"
+      }
+    },
+    {
+      "id": 13289356048,
+      "name": "storage-15-macos-latest-11a81b524e99df8f7b7101000c6891d8902b081c-41757755342-1",
+      "size_in_bytes": 10170,
+      "url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13289356048",
+      "archive_download_url": "https://api.github.com/repos/multisoul-ai/Norma-AI-OS/actions/artifacts/13289356048/zip",
+      "expired": false,
+      "created_at": "2026-11-04T02:02:07Z",
+      "expires_at": "2026-11-07T02:02:05Z",
+      "updated_at": "2026-11-04T02:02:07Z",
+      "digest": "sha256:72d0dbf0859cdf48788d37c46ee118f02eb0269e0a2e077215bb56730b1be666",
+      "workflow_run": {
+        "id": 41757755342,
+        "repository_id": 1274971992,
+        "head_repository_id": 1274971992,
+        "head_branch": "codex/windows-storage-15-20261103",
+        "head_sha": "11a81b524e99df8f7b7101000c6891d8902b081c"
+      }
+    }
+  ]
+}

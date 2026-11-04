@@ -1,4 +1,5 @@
 {
+  "shortcuts.quit_norma_os_hint": "Stop background services and terminal sessions, and quit Norma OS",
   "shortcuts.type_a_new_shortcut": "Type a new shortcut",
   "shortcuts.shortcut_restored": "Shortcut restored",
   "shortcuts.keyboard_shortcuts_restored": "Keyboard shortcuts restored",

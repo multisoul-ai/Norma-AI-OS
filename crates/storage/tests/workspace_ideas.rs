@@ -1,7 +1,6 @@
 use std::sync::{Arc, Barrier};
 use storage::{DesktopWorkspaceStore, IdeaSource, IdeasStore, Reconcile};
 use workspace::ideas::IdeaState;
-
 fn setup() -> (tempfile::TempDir, std::path::PathBuf, String) {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
     let db = temp.path().join("app.sqlite");
@@ -10,7 +9,6 @@ fn setup() -> (tempfile::TempDir, std::path::PathBuf, String) {
         .expect("应创建工作空间");
     (temp, db, workspace.id)
 }
-
 /// 想法按工作空间隔离、保持记录顺序、重建 Store 后仍在，删除的想法不出现在清单。
 ///
 /// 数据构造：工作空间 A 依次记 甲/乙/丙，工作空间 B 记 丁；删除乙。
@@ -42,7 +40,6 @@ fn ideas_are_scoped_ordered_durable_and_hide_dismissed() {
         store.dismiss(&a, "i2").expect("删除不应出错").is_some(),
         "待办应可删除"
     );
-
     let reopened = IdeasStore::new(db);
     let bodies = |id: &str| -> Vec<String> {
         reopened
@@ -384,7 +381,13 @@ fn ideas_keep_images_multiline_bodies_and_build_dispatch_text() {
         )
         .expect("应记下带图的想法");
     store
-        .add_with_images(&workspace, "i2", "  ", IdeaSource::Manual, &[first.clone()])
+        .add_with_images(
+            &workspace,
+            "i2",
+            "  ",
+            IdeaSource::Manual,
+            std::slice::from_ref(&first),
+        )
         .expect("只有图片的想法应被接受");
     assert!(
         store
@@ -453,7 +456,13 @@ fn deleting_ideas_removes_their_image_files() {
     for (id, task) in [("a", "t1"), ("b", "t2"), ("c", "t3"), ("d", "")] {
         let image = store.save_image(id.as_bytes(), "png").expect("应保存图片");
         store
-            .add_with_images(&workspace, id, id, IdeaSource::Manual, &[image.clone()])
+            .add_with_images(
+                &workspace,
+                id,
+                id,
+                IdeaSource::Manual,
+                std::slice::from_ref(&image),
+            )
             .expect("应记下想法");
         if !task.is_empty() {
             store

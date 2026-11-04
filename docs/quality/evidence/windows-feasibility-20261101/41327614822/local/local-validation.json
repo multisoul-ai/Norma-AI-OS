@@ -1,0 +1,96 @@
+{
+  "baseline_commit": "08d7393c",
+  "regression_commit": "fbe37cf7a3aeddd36c34a4b72aa3eb321255bcbe",
+  "implementation_sha": "f2838b21e04f7eb5c7ccecfc45271ec521ebe186",
+  "local_rust": "rustc 1.93.1 (01f6ddf75 2026-02-11) (Homebrew)",
+  "windows_ci_rust": "1.91.1",
+  "macos_baseline_host_tests": {
+    "passed": 0,
+    "failed": 4,
+    "ignored": 0
+  },
+  "macos_speech_tests": {
+    "passed": 96,
+    "failed": 0,
+    "ignored": 17
+  },
+  "macos_storage_workspace_tests": {
+    "passed": 338,
+    "failed": 0,
+    "ignored": 0
+  },
+  "report_tests_passed": 10,
+  "sherpa_dependency_subcases_passed": 6,
+  "existing_ignored_tests_preserved": 17,
+  "new_ignored_tests": 0,
+  "pressure_policy": "Production Default still uses the unchanged kernel guard; unit fixtures inject explicit pressure and test both normal and elevated paths.",
+  "i18n": "FAIL: pre-existing GPT-Live copy at unchanged gpt_live.rs:70",
+  "unchanged_files": [
+    {
+      "path": "crates/asr/src/providers/local/a1/resources.rs",
+      "sha256": "6051e1135f1fd680f319291515b4e0f953785d5c55212bd82ecd895c5c34157c",
+      "unchanged_from": "08d7393c"
+    },
+    {
+      "path": "crates/voice_input/src/vad.rs",
+      "sha256": "2fda83d5e6d0148213ad8d0878c10eaf7959655861fada5da3abf6503dd99b00",
+      "unchanged_from": "08d7393c"
+    },
+    {
+      "path": "crates/app/src/settings/voice/view/gpt_live.rs",
+      "sha256": "fc653fa8cc582812517566de742c63cbcfb342cf180714761f0683ee1cc850c2",
+      "unchanged_from": "08d7393c"
+    }
+  ],
+  "gui_agent_candidate_acceptance": "NOT_RUN",
+  "full_workspace": {
+    "exit_code": 101,
+    "counts": {
+      "passed": 3415,
+      "failed": 15,
+      "ignored": 52
+    },
+    "failed_targets": [
+      "app --lib",
+      "norma --test opencode_question_transport"
+    ],
+    "status": "FAIL; retain complete logs, no failures suppressed",
+    "note": "Full default workspace run remains FAIL. Dialogue38, brain-proposal1 and OpenCode1 each passed one isolated diagnostic run without changes to their source. Locale-dependent assertions and poisoned-lock cascade plus a WouldBlock fixture remain separately recorded; isolated runs do not turn the full run into PASS."
+  },
+  "checks": {
+    "actionlint": "PASS using /private/tmp/norma-windows-probe-tools/actionlint 1.7.12; initial PATH lookup failed and is retained",
+    "report_cli_tests": "10 PASS",
+    "sherpa_dependency_graph": "6 target/package subcases PASS",
+    "i18n": "FAIL (unchanged baseline)"
+  },
+  "git_path_fix_commit": "747777db081a4f06005ee3b8b617de91db29fe8c",
+  "dialogue_isolation": {
+    "passed": 38,
+    "failed": 0,
+    "ignored": 0
+  },
+  "opencode_isolation": {
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0
+  },
+  "macos_git_clone": {
+    "passed": 20,
+    "failed": 0,
+    "ignored": 0
+  },
+  "brain_proposal_isolation": {
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0
+  },
+  "cache_cleanup": {
+    "status": "PASS",
+    "log": "cache-cleanup.log",
+    "isolated_worktree_cargo_reported": "71652 files, 21.5GiB",
+    "isolated_api_cargo_reported": "297 files, 70.5MiB",
+    "main_workspace_cache_touched": false,
+    "idle_verified_with_lsof": true
+  },
+  "new_ignored_test_attributes": 0
+}

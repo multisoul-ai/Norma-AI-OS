@@ -1,0 +1,12 @@
+OK: codesign readiness check passed
+[pre-commit] running cargo check...
+[pre-commit] running cargo fmt --check...
+[codex/windows-feasibility-20261101 da07effe] fix(windows): retain scoped storage Review and cancellable A1 worker boundaries
+ 22 files changed, 1184 insertions(+), 69 deletions(-)
+ create mode 100644 crates/asr/src/providers/local/a1/transport/windows.rs
+ create mode 100644 crates/asr/tests/support/a1_python.rs
+ create mode 100644 crates/storage/src/memory/fs_windows.rs
+ create mode 100644 crates/workspace/src/review/scoped_windows.rs
+ create mode 100644 crates/workspace/src/scoped_directory/mod.rs
+ create mode 100644 crates/workspace/src/scoped_directory/security.rs
+ create mode 100644 crates/workspace/tests/scoped_directory.rs

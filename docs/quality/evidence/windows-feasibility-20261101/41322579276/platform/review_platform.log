@@ -1,0 +1,58 @@
+   Compiling syn v2.0.118
+   Compiling smallvec v1.15.2
+   Compiling windows-sys v0.61.2
+   Compiling synstructure v0.13.2
+   Compiling serde_core v1.0.228
+   Compiling percent-encoding v2.3.2
+   Compiling form_urlencoded v1.2.2
+   Compiling serde v1.0.228
+   Compiling dirs-sys v0.5.0
+   Compiling once_cell v1.21.4
+   Compiling tempfile v3.27.0
+   Compiling dirs v6.0.0
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.3
+   Compiling displaydoc v0.2.6
+   Compiling zerovec v0.11.6
+   Compiling zerotrie v0.2.4
+   Compiling tinystr v0.8.3
+   Compiling potential_utf v0.1.5
+   Compiling icu_locale_core v2.2.0
+   Compiling icu_collections v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling serde_derive v1.0.228
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling git2 v0.20.4
+   Compiling workspace v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace)
+warning: unused variable: `metadata`
+   --> crates\workspace\src\git_clone\runner.rs:404:13
+    |
+404 |         let metadata = fs::symlink_metadata(&path)?;
+    |             ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_metadata`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `workspace` (lib) generated 1 warning
+error[E0432]: unresolved import `workspace::review`
+  --> crates\workspace\tests\review_platform.rs:5:16
+   |
+ 5 | use workspace::review::{capture, ContentKind};
+   |                ^^^^^^ could not find `review` in `workspace`
+   |
+note: found an item that was configured out
+  --> D:\a\Norma-AI-OS\Norma-AI-OS\crates\workspace\src\lib.rs:11:9
+   |
+10 | #[cfg(unix)]
+   |       ---- the item is gated here
+11 | pub mod review;
+   |         ^^^^^^
+
+For more information about this error, try `rustc --explain E0432`.
+error: could not compile `workspace` (test "review_platform") due to 1 previous error

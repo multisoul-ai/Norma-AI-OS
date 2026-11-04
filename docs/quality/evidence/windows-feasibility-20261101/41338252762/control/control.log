@@ -1,0 +1,168 @@
+   Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+    Finished `test` profile [optimized + debuginfo] target(s) in 16.06s
+     Running tests\codex_connection.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_connection-04158cb7e29b6bad.exe)
+
+running 2 tests
+test event_overflow_fails_pending_requests_and_disables_decisions ... ok
+test unix_connection_routes_replies_and_permissions_without_truncation ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\codex_control_handshake.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_control_handshake-d56b85d045ed3ef2.exe)
+
+running 1 test
+test fragmented_handshake_on_nonblocking_accepted_stream_waits_for_the_rest ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\codex_control_platform.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_control_platform-2635351c6dc52244.exe)
+
+running 2 tests
+test platform_control_errors_and_drop_resolve_pending_requests_without_replay ... ok
+test platform_host_preserves_attachment_answer_cancel_and_peer_shutdown ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\codex_control_shutdown.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_control_shutdown-0021bfc2bb1fbf81.exe)
+
+running 1 test
+test backpressured_relay_closes_when_either_peer_exits_in_both_directions ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\codex_question_connections.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_connections-78a65916005a9d2c.exe)
+
+running 3 tests
+test native_input_lock_is_live_when_question_frame_reaches_tui ... ok
+test new_connection_holds_input_before_forwarding_or_attachment_delivery ... ok
+test picker_disconnect_preserves_owner_and_resume_transfers_question_identity ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests\codex_question_host.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_host-2685ed6dfe099628.exe)
+
+running 1 test
+test same_process_host_carries_owned_attachment_ticket_and_consumption ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\codex_question_relay.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay-06e5fd6f64f5fcc1.exe)
+
+running 3 tests
+test resumed_same_rpc_requires_the_new_attachment_identity ... ok
+test native_answer_and_observer_disable_keep_the_original_tui_usable ... ok
+test native_relay_preserves_session_and_answers_original_rpc_without_extra_turn ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\codex_question_relay_backpressure.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay_backpressure-e88174d1b79abbd3.exe)
+
+running 1 test
+test slow_server_applies_backpressure_without_closing_the_native_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s
+
+     Running tests\codex_question_relay_ephemeral.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay_ephemeral-df360865402202a9.exe)
+
+running 1 test
+test ephemeral_thread_never_rebinds_or_holds_main_question ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests\codex_question_relay_identity.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay_identity-8e33c1fda40bbb35.exe)
+
+running 1 test
+test a_question_lease_cannot_cross_relay_instances ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\codex_question_relay_large.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay_large-225fec9dfb63a244.exe)
+
+running 1 test
+test native_large_configuration_frame_does_not_break_original_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\codex_question_relay_partial.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay_partial-6eb5b60bc0b3dd10.exe)
+
+running 1 test
+
+thread 'partial_answer_ping_and_disconnect_keep_transport_ownership_accurate' (9316) panicked at crates\norma\tests\codex_question_relay_partial.rs:118:9:
+assertion `left == right` failed: drop必须实际触发部分写出
+  left: Sent
+ right: Writing
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::panicking::assert_failed_inner
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:434
+   3: core::panicking::assert_failed<norma::agent_hook::question_ticket::NativeSendStatus,norma::agent_hook::question_ticket::NativeSendStatus>
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\panicking.rs:394
+   4: codex_question_relay_partial::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate
+             at .\tests\codex_question_relay_partial.rs:118
+   5: codex_question_relay_partial::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate::closure$0
+             at .\tests\codex_question_relay_partial.rs:18
+   6: core::ops::function::FnOnce::call_once<codex_question_relay_partial::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+thread '<unnamed>' (4596) panicked at crates\norma\tests\codex_question_relay_partial.rs:76:63:
+called `Result::unwrap()` on an `Err` value: Disconnected
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+test partial_answer_ping_and_disconnect_keep_transport_ownership_accurate ... FAILED
+
+failures:
+
+failures:
+    partial_answer_ping_and_disconnect_keep_transport_ownership_accurate
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+   3: core::result::Result::unwrap
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1226
+   4: codex_question_relay_partial::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate::closure$1
+             at .\tests\codex_question_relay_partial.rs:76
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+thread '<unnamed>' (7504) panicked at crates\norma\tests\codex_question_relay_partial.rs:43:60:
+called `Result::unwrap()` on an `Err` value: Disconnected
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::unwrap
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1226
+   4: codex_question_relay_partial::partial_answer_ping_and_disconnect_keep_transport_ownership_accurate::closure$0
+             at .\tests\codex_question_relay_partial.rs:43
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+error: test failed, to rerun pass `-p norma --test codex_question_relay_partial`
+     Running tests\codex_question_relay_permissions.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_relay_permissions-b71de607461280ec.exe)
+
+running 2 tests
+test default_relay_never_escalates_session_permissions ... ok
+test full_access_relay_carries_yolo_on_every_session_request ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\codex_question_version.rs (D:\a\_temp\norma-codex-control-target\x86_64-pc-windows-msvc\debug\deps\codex_question_version-a7540d8fa8fa3cae.exe)
+
+running 1 test
+test verified_relay_gates_experimental_answers_on_original_initialize ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+error: 1 target failed:
+    `-p norma --test codex_question_relay_partial`

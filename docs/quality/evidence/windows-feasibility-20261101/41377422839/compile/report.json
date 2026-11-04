@@ -1,0 +1,95 @@
+{
+  "task": "compile",
+  "source_sha": "1d5b8e2441f3a0f9515b589ee4f2bf0fe92b7d51",
+  "checks": [
+    {
+      "id": "canvas_tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "canvas",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "log": "canvas_tests.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 52.33
+    },
+    {
+      "id": "norma_compile",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "norma",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc",
+        "--message-format=short"
+      ],
+      "log": "norma_compile.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 189.7
+    },
+    {
+      "id": "app_compile",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "app",
+        "--target",
+        "x86_64-pc-windows-msvc",
+        "--message-format=short"
+      ],
+      "log": "app_compile.log",
+      "status": "FAIL",
+      "exit_code": 101,
+      "duration_seconds": 895.95
+    },
+    {
+      "id": "norma_platform_tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "norma",
+        "--lib",
+        "--test",
+        "client_platform",
+        "--test",
+        "codex_question",
+        "--test",
+        "cursor_questions",
+        "--test",
+        "client_tests",
+        "--test",
+        "protocol_tests",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "log": "norma_platform_tests.log",
+      "status": "FAIL",
+      "exit_code": 101,
+      "duration_seconds": 165.59
+    }
+  ],
+  "metadata": {
+    "target": "x86_64-pc-windows-msvc",
+    "release_build": "NOT_RUN"
+  },
+  "timestamp": "2026-11-02T02:45:25.426638+00:00",
+  "os": "Windows-2025Server-10.0.26100-SP0",
+  "run_id": "41377422839",
+  "run_attempt": "1",
+  "image_version": "20261021.278.1",
+  "disk_free_bytes": 154059628544
+}

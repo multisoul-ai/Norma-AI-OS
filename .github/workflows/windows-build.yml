@@ -1,0 +1,163 @@
+name: Windows build
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/windows-feasibility-*']
+    paths:
+      - 'crates/**'
+      - 'vendor/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/windows-build.yml'
+      - '.gitattributes'
+      - 'scripts/windows/**'
+      - 'scripts/test-windows-package.py'
+      - 'scripts/test-windows-release-media.py'
+      - 'scripts/prepare-release-media.py'
+      - 'packaging/media/**'
+      - 'docs/references/windows-preview.md'
+      - 'THIRD_PARTY_NOTICES.md'
+permissions:
+  contents: read
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 120
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      CARGO_TERM_COLOR: never
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          lfs: true
+      - name: Verify and stage trusted media before the long native build
+        shell: pwsh
+        run: |
+          python scripts/test-windows-package.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-windows-release-media.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/prepare-release-media.py --profile light
+          exit $LASTEXITCODE
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.91.1
+      - name: Require the independent App adapter lock before compiling
+        shell: pwsh
+        run: |
+          cargo metadata --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --format-version 1 > $null
+          exit $LASTEXITCODE
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Resolve the matching native Visual Studio runtime before building
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/windows/test-crt.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          . ./scripts/windows/crt.ps1
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -property installationPath
+          $crt = Find-NormaCrtDirectory -VisualStudio $vs
+          "NORMA_WINDOWS_CRT_DIR=$crt" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Output "Packaging the native x64 CRT from $crt"
+      - name: Diagnose unread AF_UNIX close
+        shell: pwsh
+        run: cargo test --locked -p norma --test socket_close_platform -- --nocapture
+      - name: Require relay closure and platform contracts
+        if: always()
+        shell: pwsh
+        run: |
+          cargo test --locked --no-fail-fast -p norma --lib --test codex_control_shutdown --test codex_question_relay_backpressure --test protocol_tests -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p workspace --test content_platform
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p terminal --test windows_pty
+          exit $LASTEXITCODE
+      - name: Require App adapters
+        if: always()
+        shell: pwsh
+        run: cargo test --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --target-dir target --lib -- --nocapture
+      - name: Check Windows App
+        if: always()
+        shell: pwsh
+        run: cargo check --locked -p app --message-format=short
+
+      - name: Require executable helpers and native user configuration
+        shell: pwsh
+        run: cargo test --locked -p norma --test bundled_helpers_platform -- --nocapture
+      - name: Test native browser helper and bundled paths
+        shell: pwsh
+        run: cargo test --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --target-dir target --lib browser_auth_host::tests -- --nocapture
+      - name: Build Windows release candidate
+        shell: pwsh
+        run: |
+          cargo build --locked --release -p app --features production-data --bins
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --locked --release -p norma --bins
+          exit $LASTEXITCODE
+      - name: Package Windows portable candidate
+        shell: pwsh
+        run: |
+          python scripts/windows/package.py --crt-dir $env:NORMA_WINDOWS_CRT_DIR
+          exit $LASTEXITCODE
+      - name: Reject mandatory newer WinSock imports in the release package
+        shell: pwsh
+        run: |
+          $package = @(Get-ChildItem build/windows -Directory)
+          if ($package.Count -ne 1) { throw 'Expected exactly one packaged candidate' }
+          ./scripts/windows/assert-winsock-imports.ps1 -Package $package[0].FullName -Output artifacts/release-imports
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: norma-os-windows-imports-${{ github.sha }}
+          path: artifacts/release-imports/
+          if-no-files-found: warn
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: norma-os-windows-x64-${{ github.sha }}
+          path: |
+            build/windows/*.zip
+            build/windows/*.sha256
+          if-no-files-found: error
+          retention-days: 1
+
+  verify-candidate:
+    needs: build
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: verification-tools
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: norma-os-windows-x64-${{ github.sha }}
+          path: dist
+      - name: Verify and launch the exact uploaded package
+        working-directory: verification-tools
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem ../dist/*.zip | Select-Object -First 1
+          $expected = ((Get-Content "$($zip.FullName).sha256" -Raw).Trim() -split '\s+')[0]
+          if ((Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Candidate ZIP checksum mismatch' }
+          $destination = Join-Path $env:RUNNER_TEMP 'norma-candidate-verification'
+          Expand-Archive $zip.FullName $destination
+          $package = Get-ChildItem $destination -Directory | Select-Object -First 1
+          ./scripts/windows/smoke-package.ps1 -Package $package.FullName -Output ../artifacts/candidate-verification
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: norma-os-windows-verification-${{ github.sha }}
+          path: artifacts/candidate-verification/
+          if-no-files-found: error
+          retention-days: 3

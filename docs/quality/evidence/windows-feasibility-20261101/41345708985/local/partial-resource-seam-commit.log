@@ -1,0 +1,6 @@
+OK: codesign readiness check passed
+[pre-commit] running cargo check...
+[pre-commit] running cargo fmt --check...
+[codex/windows-feasibility-20261101 15b284ce] test(windows): bound real relay sockets and await session history receipts
+ 5 files changed, 114 insertions(+), 17 deletions(-)
+ rename crates/norma/tests/{ => unit}/codex_question_relay_partial.rs (73%)

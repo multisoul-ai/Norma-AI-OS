@@ -1,5 +1,5 @@
+use super::UnixStream;
 use serde_json::Value;
-use std::os::unix::net::UnixStream;
 use std::time::Duration;
 use tungstenite::{Message, WebSocket};
 
@@ -16,6 +16,7 @@ pub fn send(socket: &mut WebSocket<UnixStream>, value: Value) {
         .expect("应写出协议帧");
 }
 pub fn timed(stream: UnixStream) -> UnixStream {
+    stream.set_nonblocking(false).unwrap();
     stream
         .set_read_timeout(Some(Duration::from_secs(5)))
         .unwrap();

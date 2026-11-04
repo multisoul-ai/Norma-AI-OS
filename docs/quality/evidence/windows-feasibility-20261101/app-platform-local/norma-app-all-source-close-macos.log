@@ -1,0 +1,12 @@
+任务缓存：/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/app-transport-20261101/target
+   Compiling norma v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/norma)
+    Finished `test` profile [optimized + debuginfo] target(s) in 7.87s
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/app-transport-20261101/target/debug/deps/norma-5a6fd0a2c412bd04)
+
+running 1 test
+relay output pre-close consecutive WouldBlock=8; complete source frames=1
+relay close all source handles released=true
+test codex::relay::output_backpressure_tests::actual_relay_output_backpressure_detects_native_shutdown ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.07s
+

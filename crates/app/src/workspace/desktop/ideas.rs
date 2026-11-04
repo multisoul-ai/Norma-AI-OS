@@ -20,10 +20,12 @@ use workspace::ideas::{classify_task_state, TaskPhase};
 
 /// 想法栏的辅助状态：新建智能体的默认类型（拖到新建区、菜单新建、`⌃0` 共用），
 /// 以及上一帧绘制出的待办行矩形（窗口坐标、按显示顺序），拖动排序时用来定位插入点。
+type IdeaRowBounds = std::sync::Arc<std::sync::Mutex<Vec<(String, gpui::Bounds<gpui::Pixels>)>>>;
+
 pub(crate) struct IdeasAux {
     pub(crate) default_profile: AgentProfile,
-    /// 上一次修饰键里的（⌃，⇧）；只在变化时重绘序号提示。
-    pub(crate) badge_keys: (bool, bool),
+    /// 上一次完整修饰键快照；Alt、系统键或Fn变化时也要重绘提示。
+    pub(crate) badge_keys: gpui::Modifiers,
     /// `⌃⇧0` 类型选择器：打开时是高亮行的下标。
     pub(crate) picker: Option<usize>,
     /// 默认类型已从设置库读回（或已被本次运行里的选择覆盖）；之后不再用库里的值回写界面。
@@ -34,15 +36,14 @@ pub(crate) struct IdeasAux {
     pub(crate) input_focused: bool,
     /// 新增待办后还要贴底滚动的帧数：输入框回落一行会让列表在下一帧变高，只滚一帧会差一行。
     pub(crate) stick_bottom_frames: u8,
-    pub(crate) row_bounds:
-        std::sync::Arc<std::sync::Mutex<Vec<(String, gpui::Bounds<gpui::Pixels>)>>>,
+    pub(crate) row_bounds: IdeaRowBounds,
 }
 
 impl Default for IdeasAux {
     fn default() -> Self {
         Self {
             default_profile: AgentProfile::Codex,
-            badge_keys: (false, false),
+            badge_keys: gpui::Modifiers::none(),
             picker: None,
             profile_loaded: false,
             pending_images: Vec::new(),

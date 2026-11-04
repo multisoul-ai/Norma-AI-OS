@@ -1,0 +1,15 @@
+任务缓存：/Users/openclawd/.cache/norma-build/8e0a5c86f37025c2/app-transport-20261101/target
+   Compiling app-platform-probe v0.1.0 (/private/tmp/norma-windows-feasibility-20261101/crates/app/tests/platform_probe)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1.57s
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/8e0a5c86f37025c2/app-transport-20261101/target/debug/deps/app_platform_probe-79765f7cf41c9d16)
+
+running 6 tests
+test transport::tests::transport_failures_preserve_overload_shutdown_and_unknown_outcome_semantics ... ok
+test transport::binding::tests::replaced_path_keeps_user_file_and_moved_socket ... ok
+test tests::occupied_regular_file_is_never_removed ... ok
+test transport::binding::tests::inactive_socket_is_rebound_and_owned_cleanup_completes ... ok
+test tests::duplicate_binding_preserves_live_endpoint_and_cleans_up ... ok
+test tests::segmented_request_keeps_original_identity_and_response ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+

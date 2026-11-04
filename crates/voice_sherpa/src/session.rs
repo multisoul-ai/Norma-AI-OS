@@ -51,7 +51,7 @@ impl InnerSession {
         }
         // Stop audio first so no more PCM arrives.
         if let Some(capture) = self.audio.take() {
-            capture.stop();
+            capture.stop()?;
         }
         Ok(SpeechFinalizer::new(
             self.thread_handle.take(),
@@ -64,7 +64,9 @@ impl InnerSession {
     pub(crate) fn cancel(mut self) {
         let _ = self.state.lock().map(|mut s| s.apply(SessionEvent::Cancel));
         if let Some(capture) = self.audio.take() {
-            capture.stop();
+            if let Err(error) = capture.stop() {
+                tracing::warn!(%error, "microphone capture cleanup failed during cancellation");
+            }
         }
         let _ = self.abort_tx.try_send(());
         self.pcm_tx.take();

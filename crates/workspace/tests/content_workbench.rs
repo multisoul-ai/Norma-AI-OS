@@ -1,3 +1,7 @@
+#[cfg(unix)]
+use std::os::unix::fs::{symlink as symlink_dir, symlink as symlink_file};
+#[cfg(windows)]
+use std::os::windows::fs::{symlink_dir, symlink_file};
 use std::path::Path;
 use workspace::content::{FileOptions, Project};
 
@@ -13,7 +17,7 @@ fn project_tree_respects_visibility_and_root() {
     std::fs::write(temp.path().join("hello.md"), "# Hello").expect("写文件");
     std::fs::create_dir(temp.path().join("build")).expect("创建忽略目录");
     let outside = tempfile::NamedTempFile::new().expect("创建外部文件");
-    std::os::unix::fs::symlink(outside.path(), temp.path().join("escape")).expect("创建链接");
+    symlink_file(outside.path(), temp.path().join("escape")).expect("创建链接");
     let project = Project::open(temp.path()).expect("打开项目");
     let entries = project
         .directory(Path::new(""), FileOptions::default())
@@ -186,7 +190,7 @@ fn staged_rename_uses_new_path_and_unstages_both_sides() {
 #[test]
 fn git_metadata_alias_cannot_be_read_or_written() {
     let (temp, p) = fixture();
-    std::os::unix::fs::symlink(".git", temp.path().join("metadata")).expect("别名");
+    symlink_dir(".git", temp.path().join("metadata")).expect("别名");
     assert!(
         p.read_text(Path::new("metadata/config")).is_err(),
         "内部目录别名不可读取"
@@ -295,14 +299,18 @@ fn branch_diff_preserves_rename_and_excludes_worktree() {
 /// 预期结果：正常执行 hook，向调用方返回失败，HEAD 与已暂存内容保留。
 #[test]
 fn commit_runs_hooks_and_reports_rejection() {
-    use std::os::unix::fs::PermissionsExt;
     use workspace::content::{Comparison, GitAction};
     let (temp, p) = fixture();
     let repo = git2::Repository::open(temp.path()).expect("仓库");
     let original = repo.head().expect("HEAD").target();
     let hook = temp.path().join(".git/hooks/pre-commit");
     std::fs::write(&hook, "#!/bin/sh\necho REJECTED >&2\nexit 1\n").expect("hook");
-    std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).expect("可执行");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).expect("可执行");
+    }
+    // Git for Windows runs shebang hooks without Unix executable permission bits.
     std::fs::write(temp.path().join("a.txt"), "change").expect("修改");
     let snapshot = p.git_snapshot(&Comparison::Local).expect("状态");
     p.git_action(&snapshot.version, GitAction::Stage(vec!["a.txt".into()]))

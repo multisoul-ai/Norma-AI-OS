@@ -1,0 +1,10 @@
+OK: codesign readiness check passed
+[pre-commit] running cargo check...
+[pre-commit] running cargo fmt --check...
+[codex/windows-feasibility-20261101 1d5b8e24] test(windows): reproduce App socket boundaries and relay output backpressure
+ 8 files changed, 2075 insertions(+), 2 deletions(-)
+ create mode 100644 crates/app/tests/platform_probe/Cargo.lock
+ create mode 100644 crates/app/tests/platform_probe/Cargo.toml
+ create mode 100644 crates/app/tests/platform_probe/src/lib.rs
+ create mode 100644 crates/app/tests/unit/app_transport_platform_tests.rs
+ create mode 100644 crates/norma/tests/unit/codex_relay_output_backpressure.rs

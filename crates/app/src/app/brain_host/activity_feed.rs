@@ -285,6 +285,7 @@ fn civil_month_day(days: i64) -> (u32, u32) {
 }
 
 /// 本机时区相对 UTC 的偏移（秒）。
+#[cfg(unix)]
 pub(crate) fn local_offset_secs(at_ms: i64) -> i64 {
     let time: libc::time_t = (at_ms / 1000) as libc::time_t;
     let mut parts: libc::tm = unsafe { std::mem::zeroed() };
@@ -300,3 +301,10 @@ pub(crate) fn local_offset_secs(at_ms: i64) -> i64 {
 #[cfg(test)]
 #[path = "../../../tests/unit/brain_activity_feed_tests.rs"]
 mod brain_activity_feed_tests;
+
+#[cfg(windows)]
+pub(crate) fn local_offset_secs(at_ms: i64) -> i64 {
+    chrono::DateTime::from_timestamp_millis(at_ms)
+        .map(|at| i64::from(at.with_timezone(&chrono::Local).offset().local_minus_utc()))
+        .unwrap_or(0)
+}

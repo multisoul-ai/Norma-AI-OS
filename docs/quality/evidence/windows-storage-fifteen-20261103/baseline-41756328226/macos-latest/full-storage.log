@@ -1,0 +1,1167 @@
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded anstyle-query v1.1.5
+  Downloaded atomic-waker v1.1.2
+  Downloaded generic-array v0.14.7
+  Downloaded equivalent v1.0.2
+  Downloaded anstyle v1.0.14
+  Downloaded futures-macro v0.3.32
+  Downloaded dirs v6.0.0
+  Downloaded block-buffer v0.10.4
+  Downloaded colorchoice v1.0.5
+  Downloaded fallible-streaming-iterator v0.1.9
+  Downloaded eventsource-stream v0.2.3
+  Downloaded futures-task v0.3.32
+  Downloaded futures-core v0.3.32
+  Downloaded document-features v0.2.12
+  Downloaded cpufeatures v0.2.17
+  Downloaded hex v0.4.3
+  Downloaded http-body v1.0.1
+  Downloaded clap_lex v1.1.0
+  Downloaded async-stream-impl v0.3.6
+  Downloaded as-any v0.3.2
+  Downloaded futures-timer v3.0.4
+  Downloaded digest v0.10.7
+  Downloaded hashlink v0.9.1
+  Downloaded webpki-roots v0.26.11
+  Downloaded utf8_iter v1.0.4
+  Downloaded ipnet v2.12.0
+  Downloaded zerofrom-derive v0.1.7
+  Downloaded bitflags v2.13.0
+  Downloaded yoke-derive v0.8.2
+  Downloaded zmij v1.0.21
+  Downloaded yasna v0.5.2
+  Downloaded writeable v0.6.3
+  Downloaded zerotrie v0.2.4
+  Downloaded log v0.4.33
+  Downloaded indexmap v2.14.0
+  Downloaded quinn-udp v0.5.15
+  Downloaded icu_properties_data v2.2.0
+  Downloaded hkdf v0.12.4
+  Downloaded webpki-roots v1.0.8
+  Downloaded aws-lc-rs v1.17.3
+  Downloaded git2 v0.20.4
+  Downloaded tower-http v0.6.11
+  Downloaded tinystr v0.8.3
+  Downloaded curve25519-dalek v4.1.3
+  Downloaded zerocopy v0.8.53
+  Downloaded unicode-ident v1.0.24
+  Downloaded vcpkg v0.2.15
+  Downloaded tracing v0.1.44
+  Downloaded tungstenite v0.28.0
+  Downloaded ring v0.17.14
+  Downloaded rustls-webpki v0.103.13
+  Downloaded rustls-native-certs v0.8.4
+  Downloaded quote v1.0.46
+  Downloaded proc-macro2 v1.0.106
+  Downloaded percent-encoding v2.3.2
+  Downloaded mime v0.3.17
+  Downloaded time v0.3.53
+  Downloaded rand_core v0.6.4
+  Downloaded reqwest v0.13.4
+  Downloaded socket2 v0.6.4
+  Downloaded num-conv v0.2.2
+  Downloaded rand v0.10.2
+  Downloaded time-macros v0.2.31
+  Downloaded schemars_derive v1.2.1
+  Downloaded serde_core v1.0.228
+  Downloaded powerfmt v0.2.0
+  Downloaded subtle v2.6.1
+  Downloaded syn v2.0.118
+  Downloaded tracing-futures v0.2.5
+  Downloaded security-framework-sys v2.17.0
+  Downloaded libc v0.2.186
+  Downloaded tower-service v0.3.3
+  Downloaded tokio-tungstenite v0.28.0
+  Downloaded system-configuration v0.7.0
+  Downloaded libz-sys v1.1.29
+  Downloaded strsim v0.11.1
+  Downloaded tempfile v3.27.0
+  Downloaded ppv-lite86 v0.2.21
+  Downloaded rustls-platform-verifier v0.7.0
+  Downloaded tracing-core v0.1.36
+  Downloaded rand v0.9.4
+  Downloaded quinn-proto v0.11.16
+  Downloaded synstructure v0.13.2
+  Downloaded mio v1.2.1
+  Downloaded quinn v0.11.11
+  Downloaded rustls v0.23.41
+  Downloaded semver v1.0.28
+  Downloaded rand_core v0.9.5
+  Downloaded pin-project-internal v1.1.13
+  Downloaded rand_core v0.10.1
+  Downloaded tinyvec_macros v0.1.1
+  Downloaded spake2 v0.4.0
+  Downloaded shlex v2.0.1
+  Downloaded tinyvec v1.11.0
+  Downloaded serde_json v1.0.150
+  Downloaded unicase v2.9.0
+  Downloaded rig-core v0.40.0
+  Downloaded tokio-rustls v0.26.4
+  Downloaded pkg-config v0.3.33
+  Downloaded rustc_version v0.4.1
+  Downloaded encoding_rs v0.8.35
+  Downloaded stable_deref_trait v1.2.1
+  Downloaded once_cell v1.21.4
+  Downloaded serde v1.0.228
+  Downloaded option-ext v0.2.0
+  Downloaded rand_chacha v0.9.0
+  Downloaded mime_guess v2.0.5
+  Downloaded tower-layer v0.3.3
+  Downloaded thiserror-impl v2.0.18
+  Downloaded potential_utf v0.1.5
+  Downloaded pin-project-lite v0.2.17
+  Downloaded rustc-hash v2.1.3
+  Downloaded time-core v0.1.9
+  Downloaded system-configuration-sys v0.6.0
+  Downloaded smallvec v1.15.2
+  Downloaded ordered-float v5.3.0
+  Downloaded rand_pcg v0.10.2
+  Downloaded untrusted v0.9.0
+  Downloaded security-framework v3.7.0
+  Downloaded tokio v1.52.3
+  Downloaded minimal-lexical v0.2.1
+  Downloaded slab v0.4.12
+  Downloaded rustls-pki-types v1.15.0
+  Downloaded ref-cast v1.0.25
+  Downloaded idna_adapter v1.2.2
+  Downloaded serde_derive v1.0.228
+  Downloaded rcgen v0.13.2
+  Downloaded pin-project v1.1.13
+  Downloaded num-traits v0.2.19
+  Downloaded nom v7.1.3
+  Downloaded miniz_oxide v0.8.9
+  Downloaded memchr v2.8.2
+  Downloaded try-lock v0.2.5
+  Downloaded tokio-util v0.7.18
+  Downloaded tokio-macros v2.7.0
+  Downloaded thiserror v2.0.18
+  Downloaded socks v0.3.4
+  Downloaded sha2 v0.10.9
+  Downloaded sha1 v0.10.7
+  Downloaded serde_derive_internals v0.29.1
+  Downloaded libgit2-sys v0.18.5+1.9.4
+  Downloaded rustix v1.1.4
+  Downloaded schemars v1.2.1
+  Downloaded ref-cast-impl v1.0.25
+  Downloaded sync_wrapper v1.0.2
+  Downloaded rusqlite v0.32.1
+  Downloaded hashbrown v0.17.1
+  Downloaded h2 v0.4.15
+  Downloaded futures-util v0.3.32
+  Downloaded clap_builder v4.6.0
+  Downloaded zerovec v0.11.6
+  Downloaded ureq v3.3.0
+  Downloaded hyper v1.10.1
+  Downloaded litrs v1.0.0
+  Downloaded idna v1.1.0
+  Downloaded hashbrown v0.14.5
+  Downloaded typenum v1.20.1
+  Downloaded tower v0.5.3
+  Downloaded want v0.3.1
+  Downloaded version_check v0.9.5
+  Downloaded lru-slab v0.1.2
+  Downloaded litemap v0.8.2
+  Downloaded uuid v1.23.4
+  Downloaded jobserver v0.1.35
+  Downloaded hyper-util v0.1.20
+  Downloaded http v1.4.2
+  Downloaded flate2 v1.1.9
+  Downloaded cc v1.2.66
+  Downloaded url v2.5.8
+  Downloaded icu_collections v2.2.0
+  Downloaded ureq-proto v0.6.0
+  Downloaded icu_normalizer_data v2.2.0
+  Downloaded futures v0.3.32
+  Downloaded crossbeam-channel v0.5.16
+  Downloaded clap v4.6.1
+  Downloaded bytes v1.12.0
+  Downloaded base64 v0.22.1
+  Downloaded itoa v1.0.18
+  Downloaded is_terminal_polyfill v1.70.2
+  Downloaded md-5 v0.10.6
+  Downloaded zerovec-derive v0.11.3
+  Downloaded simd-adler32 v0.3.9
+  Downloaded icu_provider v2.2.0
+  Downloaded icu_normalizer v2.2.0
+  Downloaded icu_locale_core v2.2.0
+  Downloaded getrandom v0.3.4
+  Downloaded zerofrom v0.1.8
+  Downloaded utf8parse v0.2.2
+  Downloaded yoke v0.8.3
+  Downloaded tracing-attributes v0.1.31
+  Downloaded icu_properties v2.2.0
+  Downloaded getrandom v0.4.3
+  Downloaded futures-channel v0.3.32
+  Downloaded cookie v0.18.1
+  Downloaded clap_derive v4.6.1
+  Downloaded chacha20 v0.10.1
+  Downloaded ahash v0.8.12
+  Downloaded utf8-zero v0.8.1
+  Downloaded utf-8 v0.7.6
+  Downloaded zeroize v1.9.0
+  Downloaded hyper-rustls v0.27.9
+  Downloaded httparse v1.10.1
+  Downloaded hmac v0.12.1
+  Downloaded glob v0.3.3
+  Downloaded getrandom v0.2.17
+  Downloaded crossbeam-utils v0.8.22
+  Downloaded crc32fast v1.5.0
+  Downloaded core-foundation-sys v0.8.7
+  Downloaded cmake v0.1.58
+  Downloaded autocfg v1.5.1
+  Downloaded anyhow v1.0.103
+  Downloaded http-body-util v0.1.3
+  Downloaded deranged v0.5.8
+  Downloaded data-encoding v2.11.0
+  Downloaded core-foundation v0.9.4
+  Downloaded cookie_store v0.22.1
+  Downloaded byteorder v1.5.0
+  Downloaded anstyle-parse v1.0.0
+  Downloaded anstream v1.0.0
+  Downloaded futures-executor v0.3.32
+  Downloaded fs_extra v1.3.0
+  Downloaded fastrand v2.4.1
+  Downloaded fallible-iterator v0.3.0
+  Downloaded errno v0.3.14
+  Downloaded dyn-clone v1.0.20
+  Downloaded displaydoc v0.2.6
+  Downloaded dirs-sys v0.5.0
+  Downloaded core-foundation v0.10.0
+  Downloaded async-stream v0.3.6
+  Downloaded heck v0.5.0
+  Downloaded futures-io v0.3.32
+  Downloaded find-msvc-tools v0.1.9
+  Downloaded dunce v1.0.5
+  Downloaded cfg_aliases v0.2.1
+  Downloaded cfg-if v1.0.4
+  Downloaded form_urlencoded v1.2.2
+  Downloaded adler2 v2.0.1
+  Downloaded futures-sink v0.3.32
+  Downloaded fnv v1.0.7
+  Downloaded crypto-common v0.1.7
+  Downloaded libsqlite3-sys v0.30.1
+  Downloaded aws-lc-sys v0.43.0
+   Compiling libc v0.2.186
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.46
+   Compiling unicode-ident v1.0.24
+   Compiling jobserver v0.1.35
+   Compiling syn v2.0.118
+   Compiling shlex v2.0.1
+   Compiling cfg-if v1.0.4
+   Compiling find-msvc-tools v0.1.9
+   Compiling cc v1.2.66
+   Compiling pkg-config v0.3.33
+   Compiling synstructure v0.13.2
+   Compiling once_cell v1.21.4
+   Compiling version_check v0.9.5
+   Compiling pin-project-lite v0.2.17
+   Compiling stable_deref_trait v1.2.1
+   Compiling futures-core v0.3.32
+   Compiling subtle v2.6.1
+   Compiling bytes v1.12.0
+   Compiling cmake v0.1.58
+   Compiling getrandom v0.2.17
+   Compiling dunce v1.0.5
+   Compiling bitflags v2.13.0
+   Compiling fs_extra v1.3.0
+   Compiling memchr v2.8.2
+   Compiling itoa v1.0.18
+   Compiling aws-lc-sys v0.43.0
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerofrom v0.1.8
+   Compiling zerovec-derive v0.11.3
+   Compiling yoke v0.8.3
+   Compiling displaydoc v0.2.6
+   Compiling ring v0.17.14
+   Compiling zerovec v0.11.6
+   Compiling zeroize v1.9.0
+   Compiling generic-array v0.14.7
+   Compiling futures-sink v0.3.32
+   Compiling core-foundation-sys v0.8.7
+   Compiling smallvec v1.15.2
+   Compiling rustls-pki-types v1.15.0
+   Compiling tinystr v0.8.3
+   Compiling http v1.4.2
+   Compiling litemap v0.8.2
+   Compiling aws-lc-rs v1.17.3
+   Compiling untrusted v0.9.0
+   Compiling typenum v1.20.1
+   Compiling writeable v0.6.3
+   Compiling icu_locale_core v2.2.0
+   Compiling potential_utf v0.1.5
+   Compiling zerotrie v0.2.4
+   Compiling icu_properties_data v2.2.0
+   Compiling vcpkg v0.2.15
+   Compiling slab v0.4.12
+   Compiling log v0.4.33
+   Compiling icu_normalizer_data v2.2.0
+   Compiling utf8_iter v1.0.4
+   Compiling icu_collections v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling futures-channel v0.3.32
+   Compiling tokio-macros v2.7.0
+   Compiling mio v1.2.1
+   Compiling socket2 v0.6.4
+   Compiling zerocopy v0.8.53
+   Compiling httparse v1.10.1
+   Compiling percent-encoding v2.3.2
+   Compiling serde_core v1.0.228
+   Compiling tokio v1.52.3
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling futures-macro v0.3.32
+   Compiling futures-io v0.3.32
+   Compiling rustls v0.23.41
+   Compiling futures-task v0.3.32
+   Compiling futures-util v0.3.32
+   Compiling digest v0.10.7
+   Compiling icu_normalizer v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling tracing-attributes v0.1.31
+   Compiling tracing-core v0.1.36
+   Compiling serde v1.0.228
+   Compiling tracing v0.1.44
+   Compiling idna_adapter v1.2.2
+   Compiling serde_derive v1.0.228
+   Compiling rustls-webpki v0.103.13
+   Compiling zmij v1.0.21
+   Compiling idna v1.1.0
+   Compiling form_urlencoded v1.2.2
+   Compiling http-body v1.0.1
+   Compiling security-framework-sys v2.17.0
+   Compiling core-foundation v0.10.0
+   Compiling serde_json v1.0.150
+   Compiling equivalent v1.0.2
+   Compiling system-configuration-sys v0.6.0
+   Compiling semver v1.0.28
+   Compiling base64 v0.22.1
+   Compiling hashbrown v0.17.1
+   Compiling getrandom v0.3.4
+   Compiling indexmap v2.14.0
+   Compiling rustc_version v0.4.1
+   Compiling security-framework v3.7.0
+   Compiling url v2.5.8
+   Compiling tokio-util v0.7.18
+   Compiling ahash v0.8.12
+   Compiling cpufeatures v0.2.17
+   Compiling fnv v1.0.7
+   Compiling tower-service v0.3.3
+   Compiling atomic-waker v1.1.2
+   Compiling thiserror v2.0.18
+   Compiling try-lock v0.2.5
+   Compiling want v0.3.1
+   Compiling h2 v0.4.15
+   Compiling curve25519-dalek v4.1.3
+   Compiling libz-sys v1.1.29
+   Compiling core-foundation v0.9.4
+   Compiling thiserror-impl v2.0.18
+   Compiling autocfg v1.5.1
+   Compiling crc32fast v1.5.0
+   Compiling getrandom v0.4.3
+   Compiling unicase v2.9.0
+   Compiling utf8parse v0.2.2
+   Compiling anstyle-parse v1.0.0
+   Compiling mime_guess v2.0.5
+   Compiling num-traits v0.2.19
+   Compiling system-configuration v0.7.0
+   Compiling rand_core v0.9.5
+   Compiling hyper v1.10.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling hmac v0.12.1
+   Compiling libsqlite3-sys v0.30.1
+   Compiling rand_core v0.6.4
+   Compiling sync_wrapper v1.0.2
+   Compiling anstyle-query v1.1.5
+   Compiling simd-adler32 v0.3.9
+   Compiling adler2 v2.0.1
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling deranged v0.5.8
+   Compiling time-core v0.1.9
+   Compiling ipnet v2.12.0
+   Compiling num-conv v0.2.2
+   Compiling anyhow v1.0.103
+   Compiling crossbeam-utils v0.8.22
+   Compiling colorchoice v1.0.5
+   Compiling ref-cast v1.0.25
+   Compiling powerfmt v0.2.0
+   Compiling tower-layer v0.3.3
+   Compiling anstyle v1.0.14
+   Compiling option-ext v0.2.0
+   Compiling dirs-sys v0.5.0
+   Compiling anstream v1.0.0
+   Compiling tower v0.5.3
+   Compiling time v0.3.53
+   Compiling hyper-util v0.1.20
+   Compiling miniz_oxide v0.8.9
+   Compiling hkdf v0.12.4
+   Compiling rand_chacha v0.9.0
+   Compiling hashbrown v0.14.5
+   Compiling sha2 v0.10.9
+   Compiling tokio-rustls v0.26.4
+   Compiling futures-executor v0.3.32
+   Compiling pin-project-internal v1.1.13
+   Compiling ref-cast-impl v1.0.25
+   Compiling libgit2-sys v0.18.5+1.9.4
+   Compiling serde_derive_internals v0.29.1
+   Compiling fastrand v2.4.1
+   Compiling clap_lex v1.1.0
+   Compiling strsim v0.11.1
+   Compiling mime v0.3.17
+   Compiling heck v0.5.0
+   Compiling minimal-lexical v0.2.1
+   Compiling rustix v1.1.4
+   Compiling byteorder v1.5.0
+   Compiling socks v0.3.4
+   Compiling nom v7.1.3
+   Compiling clap_derive v4.6.1
+   Compiling schemars_derive v1.2.1
+   Compiling clap_builder v4.6.0
+   Compiling pin-project v1.1.13
+   Compiling futures v0.3.32
+   Compiling hyper-rustls v0.27.9
+   Compiling spake2 v0.4.0
+   Compiling flate2 v1.1.9
+   Compiling hashlink v0.9.1
+   Compiling rand v0.9.4
+   Compiling yasna v0.5.2
+   Compiling tower-http v0.6.11
+   Compiling dirs v6.0.0
+   Compiling sha1 v0.10.7
+   Compiling rustls-native-certs v0.8.4
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling ureq-proto v0.6.0
+   Compiling http-body-util v0.1.3
+   Compiling webpki-roots v1.0.8
+   Compiling async-stream-impl v0.3.6
+   Compiling encoding_rs v0.8.35
+   Compiling errno v0.3.14
+   Compiling dyn-clone v1.0.20
+   Compiling utf-8 v0.7.6
+   Compiling utf8-zero v0.8.1
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling data-encoding v2.11.0
+   Compiling fallible-iterator v0.3.0
+   Compiling rusqlite v0.32.1
+   Compiling tungstenite v0.28.0
+   Compiling ureq v3.3.0
+   Compiling schemars v1.2.1
+   Compiling reqwest v0.13.4
+   Compiling async-stream v0.3.6
+   Compiling crossbeam-channel v0.5.16
+   Compiling mobile_pairing v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/mobile_pairing)
+   Compiling rcgen v0.13.2
+   Compiling ordered-float v5.3.0
+   Compiling tracing-futures v0.2.5
+   Compiling clap v4.6.1
+   Compiling eventsource-stream v0.2.3
+   Compiling md-5 v0.10.6
+   Compiling futures-timer v3.0.4
+   Compiling as-any v0.3.2
+   Compiling hex v0.4.3
+   Compiling glob v0.3.3
+   Compiling rig-core v0.40.0
+   Compiling norma v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/norma)
+   Compiling git2 v0.20.4
+   Compiling tempfile v3.27.0
+   Compiling uuid v1.23.4
+   Compiling agent v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/agent)
+   Compiling workspace v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/workspace)
+   Compiling canvas v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/canvas)
+   Compiling storage v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/storage)
+    Finished `test` profile [optimized + debuginfo] target(s) in 8m 59s
+     Running unittests src/lib.rs (target/debug/deps/storage-03157048e0449948)
+
+running 77 tests
+test agent_conversation_tail_store::tests::project_migration_creates_agent_conversation_tails_table ... ok
+test agent_conversation_tail_store::tests::delete_tail_on_session_end_or_card_removal ... ok
+test agent_definition_store::migration_tests::test_legacy_migration_disables_builtin_alias_that_conflicts_with_formal_name ... ok
+test agent_conversation_tail_store::tests::upsert_tail_overwrites_same_definition_session_and_isolates_projects ... ok
+test agent_definition_store::origin_tests::test_agent_definition_store_distinguishes_explicit_and_quick_card_origins ... ok
+test agent_definition_store::origin_tests::test_delete_if_quick_only_removes_quick_card_definitions ... ok
+test agent_definition_store::origin_tests::test_delete_if_quick_removes_definition_even_with_lingering_conversation_tail ... ok
+test agent_definition_store::origin_tests::test_delete_removes_definition_with_conversation_tail ... ok
+test agent_definition_store::origin_tests::test_purge_quick_except_removes_only_leaked_quick_definitions ... ok
+test agent_definition_store::tests::test_agent_definition_store_create_list_update_delete_round_trips ... ok
+test agent_definition_store::tests::test_agent_definition_store_delete_clears_dispatch_history_and_releases_name ... ok
+test agent_definition_store::tests::test_agent_definition_store_invalid_runtime_profile_returns_typed_error ... ok
+test agent_definition_store::tests::test_agent_definition_store_rejects_case_insensitive_duplicate_names ... ok
+test agent_definition_store::tests::test_agent_definition_store_rejects_invalid_name_at_storage_boundary ... ok
+test agent_definition_store::tests::test_agent_definition_store_rejects_cross_namespace_speech_alias_conflict ... ok
+test agent_definition_store::tests::test_agent_definition_store_update_missing_id_returns_typed_error ... ok
+test agent_definition_store::tests::test_agent_definitions_migration_creates_table_and_unique_index ... ok
+test agent_dispatch_store::orchestration_tests::background_dispatch_store_persists_orchestration_lineage_without_foreground_sqlite ... ok
+test agent_dispatch_store::orchestration_tests::orchestration_task_persists_runtime_source_parent_root_and_target_fields ... ok
+test agent_dispatch_store::orchestration_tests::restart_cleanup_interrupts_accepted_queued_submitted_and_untracked_only ... ok
+test agent_dispatch_store::orchestration_tests::terminal_update_persists_result_for_exact_runtime_task ... ok
+test agent_dispatch_store::tests::background_dispatch_store_handoff_orders_old_interrupt_before_new_create ... ok
+test agent_dispatch_store::tests::cancellation_uses_runtime_task_id_when_task_text_is_duplicated ... ok
+test agent_dispatch_store::tests::background_dispatch_store_serializes_create_and_terminal_transitions ... ok
+test app_store::tests::test_app_data_paths_use_norma_os_with_multisoul_legacy_path ... ok
+test app_store::tests::test_app_store_initialization_failure_reports_test_path_without_fallback ... ok
+test agent_dispatch_store::tests::dispatch_store_persists_fifo_and_interrupts_only_incomplete_tasks ... ok
+test app_store::tests::test_migrate_default_app_db_path_copies_legacy_db_without_deleting_it ... ok
+test canvas_store::tests::test_canvas_snapshot_round_trips_and_preserves_next_node_id ... ok
+test database_paths::tests::isolated_test_database_preserves_the_explicit_app_database_file ... ok
+test database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary ... ok
+test database_paths::tests::production_and_local_test_database_paths_are_physically_isolated ... ok
+test database_paths::tests::rebinding_app_database_preserves_mode_and_uses_the_actual_instance_directory ... ok
+test database_paths::tests::test_project_store_initialization_failure_reports_test_path_without_fallback ... ok
+test agent_dispatch_store::tests::dispatch_store_persists_requested_and_confirmed_cancellation_states ... ok
+test database_paths::tests::test_project_store_migration_never_creates_the_production_project_db ... ok
+test layout_store::tests::test_active_master_layout_state_round_trips ... ok
+test layout_store::tests::test_invalid_layout_mode_returns_typed_error ... ok
+test layout_store::tests::test_tiled_state_overwrites_previous_active_state ... ok
+test app_store::tests::test_app_store_open_with_test_paths_never_copies_legacy_production_db ... ok
+test migrations::desktop::tests::wallpaper_migration_waits_for_writer_before_reading ... ok
+test migrations::tests::concurrent_column_migration_rechecks_after_write_lock ... ok
+test node_session_store::tests::test_load_empty_returns_empty_vec ... ok
+test node_session_store::concurrency_tests::node_session_reconcile_owns_write_intent_before_reading_history ... ok
+test node_session_store::tests::test_replace_all_sessions_prunes_stale_rows ... ok
+test node_session_store::tests::test_null_cwd_round_trips ... ok
+test node_session_store::tests::test_session_id_round_trips ... ok
+test node_session_store::tests::test_upsert_overwrites_same_node_id ... ok
+test migrations::tests::test_app_and_project_migrations_are_idempotent ... ok
+test orchestration_authorization_store::tests::authorization_cache_verifies_hashed_records_without_sqlite_on_hot_path ... ok
+test orchestration_authorization_store::tests::provider_tokens_are_hashed_and_cannot_cross_provider_boundaries ... ok
+test orchestration_authorization_store::tests::revocation_invalidates_token_immediately_but_preserves_audit_record ... ok
+test orchestration_task_route_store::tests::operation_id_reservation_is_idempotent_persistent_and_conflict_safe ... ok
+test orchestration_task_route_store::tests::target_runtime_task_lookup_preserves_cross_workspace_parent_and_root ... ok
+test orchestration_task_route_store::tests::task_control_operation_reservation_replays_cancel_and_rejects_conflicts ... ok
+test orchestration_task_route_store::tests::lineage_reservation_rejects_self_cycle_and_descendant_budget_before_side_effects ... ok
+test orchestration_task_route_store::tests::terminal_result_is_persisted_separately_from_dispatch_replay ... ok
+test recent_store::tests::test_record_opened_persists_sqlite_and_dedupes_by_path ... ok
+test recent_store::tests::test_remove_deletes_exact_recent_workspace_from_sqlite ... ok
+test session_store::tests::grok_session_checkpoint_round_trips_restore_metadata ... ok
+test session_store::tests::test_session_checkpoint_migrates_legacy_table_with_defaults ... ok
+test recent_store::tests::test_save_and_load_round_trips_recent_records ... ok
+test session_store::tests::test_replace_all_checkpoints_prunes_stale_rows ... ok
+test session_store::tests::test_session_checkpoint_overwrites_by_node_id ... ok
+test session_store::tests::test_session_checkpoint_round_trips_restore_metadata ... ok
+test settings_store::tests::conditional_settings_changes_reject_stale_reference_without_partial_writes ... ok
+test settings_store::tests::conditional_settings_changes_roll_back_on_write_failure ... ok
+test settings_store::tests::test_settings_store_applies_related_string_changes_atomically ... ok
+test settings_store::tests::test_settings_store_creates_private_database_file ... ok
+test settings_store::tests::test_settings_store_deletes_string_values ... ok
+test settings_store::tests::test_settings_store_get_or_insert_preserves_first_identity ... ok
+test voice_history_store::tests::test_voice_history_recent_order_and_limit ... ok
+test voice_history_store::tests::test_voice_history_round_trips_minimal_audit_record ... ok
+test voice_history_store::tests::test_voice_history_stores_raw_and_refined_transcripts ... ok
+test settings_store::tests::test_settings_store_round_trips_and_overwrites_string_values ... ok
+test workspace_identity_store::tests::resolve_or_create_reuses_canonical_root_and_separates_workspaces ... ok
+test workspace_identity_store::tests::list_returns_only_persisted_identities_for_this_app ... ok
+
+test result: ok. 77 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.32s
+
+     Running tests/agent_creation.rs (target/debug/deps/agent_creation-b03c475e5627ca28)
+
+running 3 tests
+test interrupted_creation_never_replays_but_new_invocation_can_run ... ok
+test verified_recovery_requires_original_card_identity ... ok
+test creation_claim_and_identity_survive_retry_and_restart ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/approval_audit.rs (target/debug/deps/approval_audit-d36ca5bd4b3eb097)
+
+running 1 test
+test approval_audit_is_durable_idempotent_and_project_scoped ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/brain_activity.rs (target/debug/deps/brain_activity-652346a0e13969ec)
+
+running 10 tests
+test an_empty_batch_is_a_noop ... ok
+test clear_keeps_the_seen_marker ... ok
+test clear_empties_everything ... ok
+test saved_batch_is_read_back_in_pages ... ok
+test prune_removes_only_data_older_than_seven_days ... ok
+test prune_enforces_the_text_byte_cap_oldest_turns_first ... ok
+test the_same_turn_number_in_different_launches_does_not_collide ... ok
+test turn_end_updates_the_existing_turn_without_losing_its_start ... ok
+test turn_previews_summarise_kinds_and_pick_the_last_reply ... ok
+test unseen_actions_count_only_those_after_the_last_mark ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+     Running tests/context_access.rs (target/debug/deps/context_access-cf43c436c3157bd9)
+
+running 5 tests
+test native_input_limit_accounts_for_serialization_expansion ... ok
+test replacing_constraint_cannot_silently_relax_enforcement ... ok
+test bound_access_authenticates_input_and_state_candidates ... ok
+test state_updates_do_not_invent_enforcement_or_reuse_other_turns ... ok
+test targets_are_canonical_and_native_input_limit_is_preserved ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/context_events.rs (target/debug/deps/context_events-8ee1b50e61c93db3)
+
+running 1 test
+test input_and_receipts_preserve_origin_without_replaying_operations ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/context_recovery.rs (target/debug/deps/context_recovery-71e49b86faf7275e)
+
+running 1 test
+test checkpoint_failure_rolls_back_event_and_can_be_retried ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/context_report_recovery.rs (target/debug/deps/context_report_recovery-5b489787ea148433)
+
+running 1 test
+test report_recovery_cas_preserves_concurrent_terminal_receipt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/context_reports.rs (target/debug/deps/context_reports-777506c73c927d39)
+
+running 4 tests
+test late_transport_ack_does_not_regress_playback ... ok
+test report_provenance_and_delivery_are_separate_facts ... ok
+test active_reports_are_never_evicted_or_mislabelled_as_heard ... ok
+test recovered_unknown_reports_are_terminal_and_release_capacity ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests/context_store.rs (target/debug/deps/context_store-229d2f23a46d9522)
+
+running 2 tests
+test durable_state_is_idempotent_and_does_not_cross_areas ... ok
+test revision_and_source_order_guard_constraint_revisions ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/desktop_agent_audit.rs (target/debug/deps/desktop_agent_audit-9f04d61c35618518)
+
+running 2 tests
+test desktop_audit_migration_preserves_existing_rows_and_legacy_constraints ... ok
+test desktop_audit_uses_external_definition_without_duplicating_configuration ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/desktop_area_status.rs (target/debug/deps/desktop_area_status-f43a7b057addaec3)
+
+running 1 test
+test last_known_agent_status_is_scoped_ordered_and_removed_with_area ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/desktop_content_tabs.rs (target/debug/deps/desktop_content_tabs-e5e2bcf67812a40c)
+
+running 5 tests
+test background_browser_navigation_preserves_selected_duplicate_tab ... ok
+test browser_navigation_updates_selected_tab_and_merges_duplicate_location ... ok
+test browser_tab_is_reused_and_restored_with_workspace_scope ... ok
+test project_files_tab_round_trips ... ok
+test file_versions_and_removed_project_tabs_survive_selection_changes ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+     Running tests/desktop_dispatch_effect.rs (target/debug/deps/desktop_dispatch_effect-894ada0e9020a891)
+
+running 5 tests
+test corrupt_json_reads_as_follow ... ok
+test list_returns_only_valid_rows ... ok
+test clearing_a_workspace_returns_it_to_unset ... ok
+test unknown_style_is_kept_and_invalid_ids_are_rejected ... ok
+test workspace_and_project_effects_persist_independently ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests/desktop_drawer_layout.rs (target/debug/deps/desktop_drawer_layout-6b5170e309c23a33)
+
+running 2 tests
+test floating_overview_layout_roundtrips_per_workspace ... ok
+test drawer_layout_persists_per_desktop_workspace ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/desktop_legacy_content.rs (target/debug/deps/desktop_legacy_content-85620f5096e980b5)
+
+running 2 tests
+test legacy_desktop_content_cleanup_is_idempotent_and_preserves_ego ... ok
+test desktop_preview_catalog_prunes_legacy_content_before_display ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/desktop_presentation.rs (target/debug/deps/desktop_presentation-1d1acf14056d2a3d)
+
+running 3 tests
+test presentation_duplicates_and_explicit_types_survive_reopen ... ok
+test presentation_migration_preserves_existing_content_tabs ... ok
+test first_copy_can_be_reused_and_navigation_keeps_independent_copies ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/desktop_project_instances.rs (target/debug/deps/desktop_project_instances-ca4dc8cecb1f48e3)
+
+running 5 tests
+test project_canvas_rename_is_scoped_validated_and_persistent ... ok
+test legacy_project_catalog_migration_preserves_data_and_revision_triggers ... ok
+test desktop_project_area_preserves_independent_git_worktree_canvases ... ok
+test revision_guarded_additions_allow_independent_instances ... ok
+test repeated_project_additions_keep_canvases_independent ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s
+
+     Running tests/desktop_wallpaper.rs (target/debug/deps/desktop_wallpaper-2ccd234a3b436831)
+
+running 5 tests
+test earth_home_asset_is_a_valid_wallpaper_reference ... ok
+test legacy_wallpaper_migration_is_idempotent ... ok
+test project_override_is_owned_by_workspace_area ... ok
+test workspace_wallpapers_persist_independently_after_copy ... ok
+test shared_asset_cleanup_only_resets_referencing_scopes ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/desktop_workspace.rs (target/debug/deps/desktop_workspace-5eac7693781fb7d3)
+
+running 7 tests
+test desktop_area_canvas_files_are_isolated_from_each_other_and_legacy_project ... ok
+test desktop_expanded_area_survives_reopen_and_clears_on_remove ... ok
+test deleting_desktop_area_and_workspace_only_removes_owned_canvas_files ... ok
+test desktop_overview_scroll_positions_are_independent_and_persistent ... ok
+test desktop_preview_preserves_saved_canvas_card_positions ... ok
+test desktop_workspace_catalog_persists_independent_empty_workspaces ... ok
+test desktop_workspace_rejects_blank_names_without_writing ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+
+     Running tests/desktop_workspace_names.rs (target/debug/deps/desktop_workspace_names-c57ca0dd03a741ec)
+
+running 1 test
+test desktop_workspace_names_preserve_unicode_boundaries_and_identity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/desktop_workspace_platform.rs (target/debug/deps/desktop_workspace_platform-25a189e55a327338)
+
+running 1 test
+test native_chinese_workspace_creation_persists_across_reopen ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/global_appearance.rs (target/debug/deps/global_appearance-9935a5db5dafbb48)
+
+running 1 test
+test global_appearance_migrates_latest_project_once ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/global_project_storage.rs (target/debug/deps/global_project_storage-adf343a04e25afe0)
+
+running 7 tests
+test failed_import_does_not_publish_an_empty_database_and_can_retry ... ok
+test constructing_a_project_store_cannot_bypass_legacy_import ... ok
+test concurrent_initialization_publishes_one_complete_database ... ok
+test opening_project_keeps_database_outside_the_repository ... ok
+test legacy_database_is_imported_once_including_committed_wal_data ... ok
+test test_mode_never_imports_the_production_legacy_database ... ok
+test project_identity_and_database_mode_remain_isolated ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/grok_agent_profile.rs (target/debug/deps/grok_agent_profile-1587a38e2a580105)
+
+running 1 test
+test grok_agent_definition_round_trips_through_storage ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/live_operation_store.rs (target/debug/deps/live_operation_store-61574910015a8c2f)
+
+running 5 tests
+test live_failure_after_side_effect_requires_reconciliation ... ok
+test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+test live_lease_cannot_record_into_another_database ... ok
+test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+
+     Running tests/live_task_facts.rs (target/debug/deps/live_task_facts-ef3fc52dd25b2d18)
+
+running 1 test
+test live_task_facts_persist_deduplicate_and_isolate_runtime_and_project ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/memory_access.rs (target/debug/deps/memory_access-07f723bc8a27b010)
+
+running 5 tests
+test explicit_memory_is_persistent_with_source ... ok
+test cancelled_write_and_versioned_long_read ... ok
+test refreshing_catalog_does_not_authorize_stale_topic_overwrite ... ok
+test stale_dialogue_cannot_overwrite_manual_correction ... ok
+test write_depends_on_model_call_not_phrasing_but_respects_save_switch ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.70s
+
+     Running tests/memory_durability.rs (target/debug/deps/memory_durability-c86d8bcb9fa8df74)
+
+running 2 tests
+test lost_receipt_reconciles_without_republishing ... ok
+test partial_read_cannot_authorize_overwriting_unseen_text ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/memory_merge.rs (target/debug/deps/memory_merge-efbf18354ce2df38)
+
+running 6 tests
+test later_dialogue_atomically_merges_and_removes_duplicate_topics ... ok
+test missing_deletion_target_cannot_be_reconciled_as_a_successful_merge ... ok
+test lost_merge_receipt_reconciles_without_rereading_deleted_topics ... ok
+test reconciliation_requires_deletions_and_binds_their_operation_identity ... ok
+test rejected_unread_merge_can_retry_after_reading_with_the_same_identity ... ok
+test unread_cancelled_disabled_or_stale_merge_preserves_all_topics ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+
+     Running tests/memory_platform.rs (target/debug/deps/memory_platform-6320d85f527b91b0)
+
+running 1 test
+test native_publication_reopens_and_rejects_hardlinked_pointer ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/memory_preferences.rs (target/debug/deps/memory_preferences-111cdb502ddffd4a)
+
+running 2 tests
+test recall_revocation_survives_disable_then_enable ... ok
+test independent_switch_updates_preserve_other_saved_preference ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/memory_revision_metadata.rs (target/debug/deps/memory_revision_metadata-f6089cf7232294a7)
+
+running 1 test
+test memory_revision_metadata_validates_publication_without_reading_bodies ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/memory_scope.rs (target/debug/deps/memory_scope-40ae74c13a72ac68)
+
+running 1 test
+test repository_worktrees_share_only_project_memory ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/memory_store.rs (target/debug/deps/memory_store-26abecae0ddfca21)
+
+running 4 tests
+test chinese_memory_survives_reopening_with_its_generated_catalog ... ok
+test source_references_are_preserved_and_invalid_references_rejected ... ok
+test project_shared_and_worktree_scopes_do_not_leak ... ok
+test snapshots_conflicts_and_restore_preserve_complete_revisions ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/memory_store_boundaries.rs (target/debug/deps/memory_store_boundaries-da8e0bb20308a03d)
+
+running 4 tests
+test child_commit_respects_os_lock ... ok
+test symlink_scope_and_pointer_are_rejected ... ok
+test test_database_paths_and_revision_integrity_are_enforced ... ok
+test another_process_cannot_publish_while_scope_is_locked ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/memory_store_pointer_recovery.rs (target/debug/deps/memory_store_pointer_recovery-e55d24616cf756c8)
+
+running 1 test
+test stale_pointer_from_a_reused_process_id_does_not_block_publication ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/memory_store_recovery.rs (target/debug/deps/memory_store_recovery-873c96bd04ad0f7c)
+
+running 4 tests
+test interrupted_preparation_is_never_a_read_or_restore_source ... ok
+test invalid_and_empty_candidates_preserve_live_memory ... ok
+test publication_failure_keeps_previous_revision_and_allows_retry ... ok
+test symlink_topic_cannot_escape_the_revision ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/mobile_access.rs (target/debug/deps/mobile_access-d3169aace5a2e72f)
+
+running 5 tests
+test explicit_all_project_grant_includes_future_registered_projects_only ... ok
+MOBILE_AUTH_32_READS_MS=252.457
+MOBILE_AUTH_WITH_WRITER_MS=6.635 DB_CHANGED=false
+test authentication_does_not_write_or_wait_for_a_writer ... ok
+test invalid_or_corrupt_grants_fail_closed ... ok
+test device_grants_are_durable_scoped_and_revocable ... ok
+test legacy_mobile_grant_migrates_without_all_project_access ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+     Running tests/mobile_activity.rs (target/debug/deps/mobile_activity-b897d63ca86d6a0c)
+
+running 4 tests
+test automatic_registration_does_not_require_a_workspace_selection ... ok
+test dismissed_activity_becomes_eligible_only_after_observed_idle ... ok
+test activity_registration_is_independent_and_revision_guarded ... ok
+test activity_start_reservation_and_token_recovery_are_durable ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/mobile_commands.rs (target/debug/deps/mobile_commands-734615910c12dc3e)
+
+running 3 tests
+test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+test mobile_command_failures_preserve_known_outcome ... ok
+test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests/mobile_delivery_acceptance.rs (target/debug/deps/mobile_delivery_acceptance-66d792266e796ef2)
+
+running 1 test
+test acceptance_is_atomic_exact_and_never_transfers_to_another_turn ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/mobile_delivery_feedback.rs (target/debug/deps/mobile_delivery_feedback-fd2900f28e8f7720)
+
+running 1 test
+test feedback_preserves_origin_and_only_binds_a_new_turn_in_the_original_session ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/mobile_delivery_inbox.rs (target/debug/deps/mobile_delivery_inbox-b8eb70addd8fe8eb)
+
+running 1 test
+test pending_deliveries_count_and_pages_are_scoped_and_indexed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+     Running tests/mobile_desktop_scope.rs (target/debug/deps/mobile_desktop_scope-4f5c54cc66b86c89)
+
+running 1 test
+test desktop_scope_keeps_delivery_and_acceptance_isolated ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/mobile_message_queue.rs (target/debug/deps/mobile_message_queue-620330d6cfc301ae)
+
+running 4 tests
+test queue_cancel_competes_atomically_and_old_owners_never_replay ... ok
+test queue_persists_exact_content_and_serializes_each_card ... ok
+test queue_retries_only_confirmed_pre_input_rejections ... ok
+test queue_ack_rolls_back_on_insert_failure_and_capacity_never_evicts_messages ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.77s
+
+     Running tests/mobile_message_queue_cursor.rs (target/debug/deps/mobile_message_queue_cursor-5cd739e193b22c95)
+
+running 1 test
+test queue_migrates_legacy_profile_constraint_and_accepts_cursor ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/mobile_push_subscriptions.rs (target/debug/deps/mobile_push_subscriptions-790b7270708d9b3b)
+
+running 1 test
+test subscriptions_cannot_outlive_revocation_or_replace_newer_registration ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/mobile_realtime_recovery.rs (target/debug/deps/mobile_realtime_recovery-68f7277616dac309)
+
+running 2 tests
+test interrupted_reservation_remains_frozen_until_proven ... ok
+test durable_turn_budget_survives_reopening_and_replay ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/mobile_repairing.rs (target/debug/deps/mobile_repairing-78fa542baacd6fc2)
+
+running 1 test
+test desktop_reapproval_reuses_revoked_device_without_old_permissions ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/mobile_sessions.rs (target/debug/deps/mobile_sessions-17b0989ddd908922)
+
+running 5 tests
+test session_history_pages_without_duplicates ... ok
+test cursor_session_persists_bound_transcript_reference ... ok
+test native_events_preserve_session_identity_and_record_exact_turn ... ok
+test session_index_is_durable_scoped_and_immutable ... ok
+test transcript_reference_uses_existing_writer_and_cannot_be_rebound ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running tests/mobile_task_baselines.rs (target/debug/deps/mobile_task_baselines-deb63e222c1217ef)
+
+running 4 tests
+test baseline_failure_is_explicit_and_invalid_content_is_not_saved ... ok
+test command_turn_lookup_is_durable_and_scope_checked ... ok
+test delivery_metadata_follows_original_operation_not_latest_node ... ok
+test task_baseline_is_durable_scoped_and_immutable ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+     Running tests/mobile_task_deliveries.rs (target/debug/deps/mobile_task_deliveries-dabaa21ef46b0f31)
+
+running 4 tests
+test frozen_file_version_resolves_exact_task_source ... ok
+test delivery_is_frozen_scoped_and_requires_a_real_outcome ... ok
+test reviewable_file_refs_keep_task_source_and_skip_deleted_files ... ok
+test project_delivery_pages_span_cards_without_crossing_workspaces ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
+
+     Running tests/mobile_thread_commands.rs (target/debug/deps/mobile_thread_commands-fa53814fdb24e7f6)
+
+running 5 tests
+test missing_execution_lookup_does_not_create_a_project_database ... ok
+test thread_command_keeps_identity_across_routes_and_restarts ... ok
+test thread_binding_failure_does_not_reserve_or_hijack_a_command ... ok
+test thread_execution_events_are_durable_bound_and_monotonic ... ok
+test thread_execution_only_attaches_the_original_commands_delivery ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+
+     Running tests/mobile_thread_delivery.rs (target/debug/deps/mobile_thread_delivery-3029b826d67df024)
+
+running 2 tests
+test event_write_failure_rolls_back_the_entire_receipt ... ok
+test durable_receipt_survives_reopen_and_rejects_changed_identity ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/mobile_thread_followup.rs (target/debug/deps/mobile_thread_followup-2210d240a419191f)
+
+running 3 tests
+test thread_followup_queue_is_atomic_bound_and_never_retargeted ... ok
+test failed_followup_binding_rolls_back_queue_and_cannot_hijack_legacy_commands ... ok
+test followup_predecessor_is_confirmed_scoped_and_precedes_current_queue ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests/mobile_turn_outcomes.rs (target/debug/deps/mobile_turn_outcomes-97ad8efa5587f320)
+
+running 2 tests
+test turn_outcomes_are_durable_exact_and_immutable ... ok
+test turn_outcomes_in_app_database_remain_workspace_scoped ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/new_cli_agent_profiles.rs (target/debug/deps/new_cli_agent_profiles-4ec7408e6417193d)
+
+running 1 test
+test new_cli_agent_definitions_round_trip_through_storage ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/orchestration_self_identity.rs (target/debug/deps/orchestration_self_identity-a64b3aea6a409997)
+
+running 1 test
+test cross_workspace_same_definition_is_not_self_dispatch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/project_plans.rs (target/debug/deps/project_plans-692b3ee0899372ea)
+
+running 2 tests
+test direction_publication_checks_latest_plan_atomically ... ok
+test plans_preserve_directions_and_page_without_cross_project_reads ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/project_todo_decisions.rs (target/debug/deps/project_todo_decisions-df288be998ba3495)
+
+running 4 tests
+test todo_claim_and_command_commit_once_across_devices ... ok
+test retry::todo_explicit_retry_requires_exact_non_delivery_and_keeps_old_receipt ... ok
+test retry::todo_retry_cancels_old_owner_queue_atomically_but_never_replays_claimed_input ... ok
+test todo_rejection_and_queue_preserve_original_instruction ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests/question_delivery.rs (target/debug/deps/question_delivery-c624a51beb9c51cc)
+
+running 3 tests
+test delivery_intent_is_durable_exclusive_and_never_reclaimed ... ok
+test question_outcome_migration_preserves_legacy_confirmed_receipt ... ok
+test question_terminal_outcomes_are_durable_immutable_and_not_replayable ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.63s
+
+     Running tests/workspace_chat.rs (target/debug/deps/workspace_chat-813c7abfeaf18390)
+
+running 9 tests
+test claim_once_and_resume_events ... ok
+test desktop_agent_changes_invalidate_mobile_configuration ... ok
+test event_pages_respect_relay_byte_budget ... ok
+test receipt_survives_restart_and_transport_retry ... ok
+test restart_preserves_execution_reference_and_late_result ... ok
+test removed_area_invalidates_queued_scope ... ok
+test shared_context_is_scoped_durable_and_bounded ... ok
+test stale_configuration_cannot_overwrite_desktop_change ... ok
+test uncertain_finish_retains_bound_execution ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.59s
+
+     Running tests/workspace_chat_time.rs (target/debug/deps/workspace_chat_time-76623efce94e3af0)
+
+running 2 tests
+test reconnect_retains_original_event_time ... ok
+test concurrent_creation_migrates_legacy_chat_time_once ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests/workspace_ideas.rs (target/debug/deps/workspace_ideas-7e4d6f0fc663f6b8)
+
+running 9 tests
+test capture_generates_distinct_ids_for_identical_bodies ... ok
+test begin_dispatch_succeeds_exactly_once_under_contention ... ok
+test assignment_completion_failure_and_retract_follow_state_machine ... ok
+test deleting_workspace_removes_its_ideas ... ok
+test ideas_are_scoped_ordered_durable_and_hide_dismissed ... ok
+test deleting_ideas_removes_their_image_files ... ok
+test ideas_keep_images_multiline_bodies_and_build_dispatch_text ... ok
+test restore_returns_to_original_position_and_dispatching_cannot_be_dismissed ... ok
+test reconcile_resolves_dispatching_by_task_ref_and_leaves_others_alone ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s
+
+     Running tests/workspace_ideas_lifecycle.rs (target/debug/deps/workspace_ideas_lifecycle-d96fd592ba955ce4)
+
+running 9 tests
+test adopt_task_ref_replaces_only_placeholders ... ok
+test completing_assigned_by_ids_skips_unlisted_and_foreign_ideas ... ok
+test applying_task_phases_completes_or_retracts_idempotently ... ok
+test deleting_done_by_ids_only_removes_listed_done_ideas ... ok
+test purge_removes_only_old_done_ideas ... ok
+test reconcile_skips_fresh_dispatching_ideas ... ok
+test reconcile_unknown_keeps_dispatching ... ok
+test mobile_view_is_bounded_coarse_and_hides_dismissed ... ok
+test mobile_view_sanitizes_titles_and_keeps_todos_first ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.39s
+
+     Running tests/workspace_ideas_reorder.rs (target/debug/deps/workspace_ideas_reorder-32df8ccac11d8174)
+
+running 3 tests
+test move_before_rejects_non_todo_and_invalid_targets ... ok
+test move_before_reorders_and_persists ... ok
+test move_before_survives_gap_exhaustion ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+   Doc-tests storage
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

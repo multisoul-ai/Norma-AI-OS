@@ -13,6 +13,7 @@ use workspace::ideas::IdeaState;
 ///   1. 调用 ensure_idea_input 建立真实输入框，写入文字并触发添加；
 ///   2. 等后台写库与刷新完成，读取宿主缓存；
 ///   3. 以界面入口 dispatch_idea 派发到 B 的卡片，松手点 (30,40)；等延后的派发与刷新完成。
+///
 /// 预期结果：
 ///   - 正断言：缓存与库里都有一条来源为 Manual、正文完全一致的待办；派发后变为已指派，记录 B 的区域与节点，task_ref 非占位；
 ///     B 的 PTY 恰好收到一次正文；B 会话里有起点为 IdeaRow(30,40) 的流星；输入框已清空。
@@ -236,6 +237,7 @@ fn manual_idea_is_added_listed_and_dispatched_end_to_end() {
 /// 数据构造：建立输入框并创建桌面空间；先把一张图片存进想法图片目录并登记为“待添加”；
 ///   输入框依次写入 "ab"、"x\ny"、"c"（模拟粘贴多行文字）。
 /// 执行过程：调用 add_idea_from_input，等后台写库与刷新完成，读取库里的想法与输入框。
+///
 /// 预期结果：
 ///   - 正断言：库里恰好一条想法，正文为 "abx\nyc"（换行保留）、带 1 张图片且内容与保存时一致；
 ///     输入框清空，待添加图片列表清空。
@@ -276,7 +278,11 @@ fn idea_input_keeps_newlines_and_pending_images() {
     let stored = ideas_db.list(&workspace.id).expect("应列出");
     assert_eq!(stored.len(), 1, "应恰好记下一条想法：{stored:?}");
     assert_eq!(stored[0].body, "abx\nyc", "多行正文的换行应保留");
-    assert_eq!(stored[0].images, [image.clone()], "应带上待添加的图片");
+    assert_eq!(
+        stored[0].images.as_slice(),
+        std::slice::from_ref(&image),
+        "应带上待添加的图片"
+    );
     assert_eq!(
         std::fs::read(ideas_db.image_path(&image).expect("应解析路径")).expect("图片应存在"),
         b"img",

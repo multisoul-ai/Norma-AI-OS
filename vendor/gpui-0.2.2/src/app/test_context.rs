@@ -10,11 +10,17 @@ use crate::{
 use anyhow::{anyhow, bail};
 use futures::{Stream, StreamExt, channel::oneshot};
 use rand::{SeedableRng, rngs::StdRng};
-use std::{cell::RefCell, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration};
+use std::{
+    cell::{Cell, RefCell},
+    future::Future,
+    ops::Deref,
+    rc::Rc,
+    sync::Arc,
+    time::Duration,
+};
 
 /// A TestAppContext is provided to tests created with `#[gpui::test]`, it provides
 /// an implementation of `Context` with additional methods that are useful in tests.
-#[derive(Clone)]
 pub struct TestAppContext {
     #[doc(hidden)]
     pub app: Rc<AppCell>,
@@ -28,6 +34,44 @@ pub struct TestAppContext {
     text_system: Arc<TextSystem>,
     fn_name: Option<&'static str>,
     on_quit: Rc<RefCell<Vec<Box<dyn FnOnce() + 'static>>>>,
+    did_quit: Rc<Cell<bool>>,
+    quit_on_drop: bool,
+}
+
+// Clones (including the retained VisualTestContext) borrow the root test lifetime;
+// only the context returned by single() owns automatic shutdown.
+impl Clone for TestAppContext {
+    fn clone(&self) -> Self {
+        Self {
+            app: self.app.clone(),
+            background_executor: self.background_executor.clone(),
+            foreground_executor: self.foreground_executor.clone(),
+            dispatcher: self.dispatcher.clone(),
+            test_platform: self.test_platform.clone(),
+            text_system: self.text_system.clone(),
+            fn_name: self.fn_name,
+            on_quit: self.on_quit.clone(),
+            did_quit: self.did_quit.clone(),
+            quit_on_drop: false,
+        }
+    }
+}
+
+impl Drop for TestAppContext {
+    fn drop(&mut self) {
+        if !self.quit_on_drop {
+            return;
+        }
+        let already_panicking = std::thread::panicking();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.quit()));
+        if let Err(error) = result {
+            if already_panicking {
+                eprintln!("GPUI test cleanup also panicked; preserving the original test failure");
+            } else {
+                std::panic::resume_unwind(error);
+            }
+        }
+    }
 }
 
 impl AppContext for TestAppContext {
@@ -139,13 +183,17 @@ impl TestAppContext {
             text_system,
             fn_name,
             on_quit: Rc::new(RefCell::new(Vec::default())),
+            did_quit: Rc::new(Cell::new(false)),
+            quit_on_drop: false,
         }
     }
 
     /// Create a single TestAppContext, for non-multi-client tests
     pub fn single() -> Self {
         let dispatcher = TestDispatcher::new(StdRng::seed_from_u64(0));
-        Self::build(dispatcher, None)
+        let mut cx = Self::build(dispatcher, None);
+        cx.quit_on_drop = true;
+        cx
     }
 
     /// The name of the test function that created this `TestAppContext`
@@ -166,8 +214,27 @@ impl TestAppContext {
     /// Called by the test helper to end the test.
     /// public so the macro can call it.
     pub fn quit(&self) {
-        self.on_quit.borrow_mut().drain(..).for_each(|f| f());
-        self.app.borrow_mut().shutdown();
+        if self.did_quit.replace(true) {
+            return;
+        }
+        // Release the RefCell borrow before callbacks drop their retained visual contexts.
+        let callbacks = std::mem::take(&mut *self.on_quit.borrow_mut());
+        let mut failure = None;
+        for callback in callbacks {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(callback));
+            if failure.is_none() {
+                failure = result.err();
+            }
+        }
+        let shutdown = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.app.borrow_mut().shutdown();
+        }));
+        if failure.is_none() {
+            failure = shutdown.err();
+        }
+        if let Some(failure) = failure {
+            std::panic::resume_unwind(failure);
+        }
     }
 
     /// Register cleanup to run when the test ends.

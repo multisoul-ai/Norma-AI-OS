@@ -5,15 +5,27 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use storage::SettingsStore;
 
+#[path = "shortcuts/catalog.rs"]
 mod catalog;
+#[path = "shortcuts/clipboard.rs"]
+pub(crate) mod clipboard;
+#[path = "shortcuts/idea_assign.rs"]
 pub(crate) mod idea_assign;
+#[cfg(windows)]
+#[path = "shortcuts/windows_defaults.rs"]
+mod windows_defaults;
 pub(crate) use catalog::{default_shortcut_entries, read_only_behaviors};
+
+#[cfg(all(test, windows))]
+#[path = "../tests/unit/windows_quit_shortcut_tests.rs"]
+mod quit_tests;
 
 const SHORTCUT_PREFS_KEY: &str = "keyboard.shortcuts.v1";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ShortcutCommandId {
+    QuitNormaOs,
     FocusCommandInput,
     NewWindow,
     NewWorkspace,

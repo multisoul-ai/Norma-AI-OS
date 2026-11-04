@@ -1,0 +1,37 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.55s
+     Running tests\memory_scope.rs (target\debug\deps\memory_scope-1f9942eae30ecdca.exe)
+
+running 1 test
+
+thread 'repository_worktrees_share_only_project_memory' (5292) panicked at crates\storage\tests\memory_scope.rs:61:6:
+共享保存: Rejected("当前平台尚不能核验项目目录身份")
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: memory_scope::repository_worktrees_share_only_project_memory
+             at .\tests\memory_scope.rs:61
+   5: memory_scope::repository_worktrees_share_only_project_memory::closure$0
+             at .\tests\memory_scope.rs:11
+   6: core::ops::function::FnOnce::call_once<memory_scope::repository_worktrees_share_only_project_memory::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test repository_worktrees_share_only_project_memory ... FAILED
+
+failures:
+
+failures:
+    repository_worktrees_share_only_project_memory
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+error: test failed, to rerun pass `-p storage --test memory_scope`
+error: 1 target failed:
+    `-p storage --test memory_scope`

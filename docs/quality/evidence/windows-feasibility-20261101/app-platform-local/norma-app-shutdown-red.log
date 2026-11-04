@@ -1,0 +1,20 @@
+任务缓存：/Users/openclawd/.cache/norma-build/8e0a5c86f37025c2/app-transport-20261101/target
+   Compiling app-platform-probe v0.1.0 (/private/tmp/norma-windows-feasibility-20261101/crates/app/tests/platform_probe)
+    Finished `test` profile [optimized + debuginfo] target(s) in 2.73s
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/8e0a5c86f37025c2/app-transport-20261101/target/debug/deps/app_platform_probe-5dab9304da776f31)
+
+running 1 test
+
+thread 'tests::shutdown_does_not_wait_for_ui_and_preserves_unknown_operation' (10418853) panicked at src/../../unit/app_transport_platform_tests.rs:186:5:
+退出不能等待10秒UI回执：10.003530291s
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tests::shutdown_does_not_wait_for_ui_and_preserves_unknown_operation ... FAILED
+
+failures:
+
+failures:
+    tests::shutdown_does_not_wait_for_ui_and_preserves_unknown_operation
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 11 filtered out; finished in 10.01s
+
+error: test failed, to rerun pass `--lib`

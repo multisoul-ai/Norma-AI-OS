@@ -1,8 +1,7 @@
 use canvas::{CanvasNodeKind, CanvasRect, TermSpec, Vec2};
 use gpui::{px, size, TestAppContext};
 
-#[path = "../support/desktop_embedded_project.rs"]
-mod embedded_project;
+use crate::workspace::desktop::embedded_test_support as embedded_project;
 use embedded_project::{open_wide_embedded_project, place_tiled_terminals};
 
 /// 场景：宽画布已排好三张卡片后，用户打开抽屉把中央画布收窄到 472px。

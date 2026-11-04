@@ -2,7 +2,7 @@ use crate::app::MultisoulApp;
 use canvas::{CanvasNodeKind, NodeId, TermSpec, Vec2};
 use gpui::{px, size, AppContext, Entity, TestAppContext, VisualTestContext, Window};
 
-pub(super) fn open_wide_embedded_project<'a>(
+pub(crate) fn open_wide_embedded_project<'a>(
     test: &'a mut TestAppContext,
     root: &std::path::Path,
     name: &str,
@@ -40,7 +40,7 @@ pub(super) fn open_wide_embedded_project<'a>(
     (project, cx)
 }
 
-pub(super) fn place_tiled_terminals(
+pub(crate) fn place_tiled_terminals(
     app: &mut MultisoulApp,
     window: &mut Window,
     count: usize,

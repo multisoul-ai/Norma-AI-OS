@@ -1,0 +1,32 @@
+任务缓存：/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/app-transport-20261101/target
+   Compiling norma v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/norma)
+   Compiling runtime v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/runtime)
+    Finished `test` profile [optimized + debuginfo] target(s) in 2.82s
+     Running tests/opencode_question_host.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/app-transport-20261101/target/debug/deps/opencode_question_host-a3530ee8fabb4b82)
+
+running 4 tests
+test native_rejection_releases_only_the_original_question ... ok
+test native_skipped_item_is_consumed_elsewhere ... ok
+test lost_http_ack_consumes_question_without_inventing_delivery_attribution ... ok
+test native_host_answers_once_and_reconciles_original_tool_consumption ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s
+
+     Running tests/opencode_question_transport.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/app-transport-20261101/target/debug/deps/opencode_question_transport-e04f7101d1851348)
+
+running 1 test
+test opencode_replies_only_through_own_instance_and_original_request ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/opencode_question_host.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/app-transport-20261101/target/debug/deps/opencode_question_host-5458338766e4699b)
+
+running 1 test
+OpenCode held revalidation witness: state=Answered, input_pending=true
+OpenCode joined milestone: held=true, state=Answered, input_pending=false
+OpenCode joined milestone: held=false, state=Answered, input_pending=false
+OpenCode joined milestone: held=false, state=ConsumedUnattributed, input_pending=false
+test owned_opencode_host_routes_current_question_through_runtime ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.12s
+

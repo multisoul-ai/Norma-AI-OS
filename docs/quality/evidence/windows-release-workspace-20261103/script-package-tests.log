@@ -1,0 +1,22 @@
+test_archive_name_and_root_keep_the_release_identity (__main__.PackageTests.test_archive_name_and_root_keep_the_release_identity)
+场景：资源复制循环不能把发行包改名为browser-auth-extension。 ... ok
+test_complete_bundle_layout_passes_integrity_verification (__main__.PackageTests.test_complete_bundle_layout_passes_integrity_verification)
+构造完整的目录和独立计算的哈希；verify必须接受完整布局，不能恒定拒绝。 ... ok
+test_consumer_rejects_wrong_source_before_executing_helpers (__main__.PackageTests.test_consumer_rejects_wrong_source_before_executing_helpers)
+场景：验收脚本提交与候选源码不同，且候选不是指定来源。 ... ok
+test_lfs_pointer_is_rejected_as_a_resource (__main__.PackageTests.test_lfs_pointer_is_rejected_as_a_resource)
+An unhydrated Git LFS pointer must never be included as usable image/video bytes. ... ok
+test_missing_crt_is_rejected_even_when_manifest_is_self_consistent (__main__.PackageTests.test_missing_crt_is_rejected_even_when_manifest_is_self_consistent)
+场景：有完整Resources和exe但遗漏MSVC运行库；重写自洽清单后verify； ... ok
+test_required_helpers_cannot_be_silently_omitted (__main__.PackageTests.test_required_helpers_cannot_be_silently_omitted)
+Only main.exe is present: packaging must fail rather than hand off a broken helper layout. ... ok
+test_self_consistent_binaries_cannot_replace_required_resources (__main__.PackageTests.test_self_consistent_binaries_cannot_replace_required_resources)
+场景：四个exe及其哈希自洽，但完全缺少Resources和CRT； ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 4.787s
+
+OK
+{"verified_files": 15, "source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+{"archive": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpyou1f8ew\\output\\norma-os-2.3.4-windows-x64-aaaaaaaa.zip", "sha256": "040c711092f469f35eb5b2ba5a81f0aab0864e5ca64caffc80b90ad1813eebca", "size": 3716}
+{"verified_files": 15, "source_sha": "fixture"}

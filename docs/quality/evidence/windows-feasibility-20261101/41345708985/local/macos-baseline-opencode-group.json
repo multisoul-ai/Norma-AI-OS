@@ -1,0 +1,17 @@
+{
+  "baseline_sha": "457e5823e0e79b8c3f6df76edb09f7f4eaeb78b6",
+  "binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/opencode_foreground-007a1a7e068194ec",
+  "scope": "all six foreground tests, preserving their original in-process concurrency",
+  "bounded_reproduction_attempts": [
+    {
+      "iteration": 1,
+      "exit_code": 0,
+      "log": "macos-baseline-opencode-group-01.log"
+    },
+    {
+      "iteration": 2,
+      "exit_code": 101,
+      "log": "macos-baseline-opencode-group-02.log"
+    }
+  ]
+}

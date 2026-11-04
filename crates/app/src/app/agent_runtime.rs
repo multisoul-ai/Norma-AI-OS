@@ -342,8 +342,7 @@ async fn run_project_agent(
                     let roster = roster.clone();
                     spawn_turn(
                         &turn_runtime,
-                        input,
-                        input_source,
+                        (input, input_source),
                         context,
                         desktop_context,
                         roster,
@@ -360,8 +359,10 @@ async fn run_project_agent(
                     dialogue_cancelled.store(false, Ordering::Release);
                     spawn_turn(
                         &turn_runtime,
-                        format!("取消 Agent 任务 #{task_id}"),
-                        AgentInputSource::Other,
+                        (
+                            format!("取消 Agent 任务 #{task_id}"),
+                            AgentInputSource::Other,
+                        ),
                         canvas.clone(),
                         desktop_context.clone(),
                         roster.clone(),
@@ -378,8 +379,7 @@ async fn run_project_agent(
                     );
                     spawn_turn(
                         &turn_runtime,
-                        prompt,
-                        AgentInputSource::Other,
+                        (prompt, AgentInputSource::Other),
                         canvas.clone(),
                         desktop_context.clone(),
                         roster.clone(),

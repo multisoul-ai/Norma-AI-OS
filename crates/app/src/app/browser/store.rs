@@ -90,21 +90,34 @@ impl BrowserStore {
                 })
         }));
         events
-            .into_iter()
-            .filter_map(|event| match event {
-                BrowserEvent::LocationChanged { node_id, url } => {
-                    self.accept_location_change(node_id, url)
-                }
-                BrowserEvent::PageLoad { node_id, phase, at } => {
-                    self.record_page_load(node_id, phase, at);
-                    None
-                }
-                event => Some(event),
-            })
-            .collect()
     }
 
-    pub(crate) fn warm_up(&mut self, window: &mut Window) {
+    /// Resolve each queued native lease immediately before applying the event, including
+    /// events invalidated by a preceding delivery in the same drained batch.
+    pub(crate) fn consume_event(&mut self, event: BrowserEvent) -> Option<BrowserEvent> {
+        match event {
+            #[cfg(windows)]
+            BrowserEvent::Native(queued) => self.consume_event(*queued.consume()?),
+            BrowserEvent::LocationChanged { node_id, url } => {
+                self.accept_location_change(node_id, url)
+            }
+            BrowserEvent::PageLoad { node_id, phase, at } => {
+                self.record_page_load(node_id, phase, at);
+                None
+            }
+            event => Some(event),
+        }
+    }
+
+    pub(crate) fn warm_up(&mut self, window: &mut Window, _cx: &gpui::App) {
+        #[cfg(windows)]
+        if self
+            .warm_view
+            .as_ref()
+            .is_some_and(|view| !view.is_attached_to(window))
+        {
+            self.warm_view = None;
+        }
         if !self.native_views_enabled || self.warm_view.is_some() {
             return;
         }
@@ -112,9 +125,23 @@ impl BrowserStore {
         if BrowserEngineKind::from_env_value(configured.as_deref()) != BrowserEngineKind::Wry {
             return;
         }
-        match WarmWebView::create(window) {
+        match WarmWebView::create(
+            window,
+            #[cfg(windows)]
+            _cx,
+        ) {
             Ok(view) => self.warm_view = Some(view),
             Err(error) => tracing::warn!(%error, "browser warm-up view failed"),
+        }
+    }
+
+    #[cfg(windows)]
+    pub(crate) fn fail_native_view(&mut self, node_id: NodeId) {
+        if let Some(view) = self.views.get_mut(&node_id) {
+            view.load_timeline.cancel();
+        }
+        if self.auth_states.get(&node_id) == Some(&BrowserAuthUiState::Waiting) {
+            self.auth_states.insert(node_id, BrowserAuthUiState::Failed);
         }
     }
 
@@ -158,6 +185,7 @@ impl BrowserStore {
         url: &str,
         bounds: BrowserViewBounds,
         window: &mut Window,
+        cx: &gpui::App,
     ) {
         if bounds.width <= 1.0 || bounds.height <= 1.0 {
             self.hide(node_id);
@@ -174,7 +202,7 @@ impl BrowserStore {
             presentation: None,
         });
         if self.native_views_enabled {
-            view.sync(node_id, url, bounds, window, event_sender);
+            view.sync(node_id, url, bounds, window, event_sender, cx);
         }
     }
 
@@ -393,3 +421,7 @@ mod view;
 #[cfg(test)]
 #[path = "../../../tests/unit/browser_scene_tests.rs"]
 mod scene_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/browser_page_interaction_tests.rs"]
+mod page_interaction_tests;

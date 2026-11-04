@@ -4,6 +4,8 @@ use std::io::{self, Read, Write};
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
+#[cfg(windows)]
+use uds_windows::UnixStream;
 
 pub(crate) const MAX_NATIVE_MESSAGE_BYTES: usize = 1024 * 1024;
 const NATIVE_HOST_NAME: &str = "com.norma.os.browser_auth";
@@ -59,6 +61,7 @@ pub(crate) fn native_host_manifest(host_binary: &Path) -> Result<Vec<u8>, String
     .map_err(|_| "Chrome Native Messaging host manifest could not be encoded".to_string())
 }
 
+#[cfg(not(windows))]
 pub(crate) fn chrome_native_host_manifest_path(home: &Path) -> PathBuf {
     home.join("Library")
         .join("Application Support")
@@ -75,17 +78,9 @@ pub(crate) fn browser_auth_socket_path() -> Result<PathBuf, String> {
 }
 
 pub(crate) fn bundled_extension_path_for_executable(executable: &Path) -> Result<PathBuf, String> {
-    let macos_dir = executable
-        .parent()
-        .filter(|path| path.file_name().is_some_and(|name| name == "MacOS"))
-        .ok_or_else(|| "Norma executable was not inside Contents/MacOS".to_string())?;
-    let contents_dir = macos_dir
-        .parent()
-        .filter(|path| path.file_name().is_some_and(|name| name == "Contents"))
-        .ok_or_else(|| "Norma executable had no app Contents directory".to_string())?;
-    Ok(contents_dir
-        .join("Resources")
-        .join("browser-auth-extension"))
+    crate::bundle_paths::resources_for_executable(executable)
+        .map(|resources| resources.join("browser-auth-extension"))
+        .ok_or_else(|| "Norma executable was not inside a supported package layout".to_string())
 }
 
 pub(crate) fn bundled_extension_path() -> Result<PathBuf, String> {
@@ -107,15 +102,18 @@ pub(crate) fn install_native_host_manifest() -> Result<PathBuf, String> {
     let executable_dir = executable
         .parent()
         .ok_or_else(|| "Norma executable had no parent directory".to_string())?;
-    let host_binary = executable_dir.join("norma-browser-auth-host");
+    let host_binary = executable_dir.join(if cfg!(windows) {
+        "norma-browser-auth-host.exe"
+    } else {
+        "norma-browser-auth-host"
+    });
     if !host_binary.is_file() {
         return Err(format!(
             "Browser auth helper is missing next to Norma OS: {}",
             host_binary.display()
         ));
     }
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
+    let home = dirs::home_dir()
         .ok_or_else(|| "could not resolve the user home for Chrome integration".to_string())?;
     let destination = chrome_native_host_manifest_path(&home);
     let parent = destination
@@ -142,10 +140,29 @@ pub(crate) fn install_native_host_manifest() -> Result<PathBuf, String> {
             destination.display()
         )
     })?;
+    #[cfg(windows)]
+    {
+        let result = std::process::Command::new("reg.exe")
+            .args([
+                "add",
+                r"HKCU\Software\Google\Chrome\NativeMessagingHosts\com.norma.os.browser_auth",
+                "/ve",
+                "/t",
+                "REG_SZ",
+                "/d",
+            ])
+            .arg(&destination)
+            .arg("/f")
+            .output()
+            .map_err(|e| e.to_string())?;
+        if !result.status.success() {
+            return Err("Chrome native host registration failed".into());
+        }
+    }
     Ok(destination)
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 pub fn run_browser_auth_native_host() -> Result<(), String> {
     let caller = std::env::args().nth(1).unwrap_or_default();
     if caller != EXTENSION_ORIGIN {
@@ -156,12 +173,12 @@ pub fn run_browser_auth_native_host() -> Result<(), String> {
     proxy_native_stdio(stream)
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 pub fn run_browser_auth_native_host() -> Result<(), String> {
     Err("Norma Browser auth host is currently implemented for macOS only".to_string())
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn proxy_native_stdio(stream: UnixStream) -> Result<(), String> {
     let mut app_writer = stream
         .try_clone()
@@ -200,3 +217,9 @@ fn proxy_native_stdio(stream: UnixStream) -> Result<(), String> {
 #[cfg(test)]
 #[path = "../tests/unit/browser_auth_host_tests.rs"]
 mod tests;
+
+#[cfg(windows)]
+pub(crate) fn chrome_native_host_manifest_path(home: &Path) -> PathBuf {
+    home.join("AppData/Local/Norma OS/NativeMessagingHosts")
+        .join(format!("{NATIVE_HOST_NAME}.json"))
+}

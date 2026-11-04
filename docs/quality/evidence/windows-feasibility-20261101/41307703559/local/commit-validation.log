@@ -1,0 +1,11 @@
+OK: codesign readiness check passed
+[pre-commit] running cargo check...
+[pre-commit] running cargo fmt --check...
+[codex/windows-feasibility-20261101 2195d060] fix(norma): open the Windows compile path with native file security
+ 18 files changed, 759 insertions(+), 37 deletions(-)
+ create mode 100644 crates/norma/src/file_identity.rs
+ create mode 100644 crates/norma/src/private_fs.rs
+ create mode 100644 crates/norma/src/private_fs/windows.rs
+ create mode 100644 crates/norma/tests/client_platform.rs
+ create mode 100644 crates/norma/tests/unit/file_identity.rs
+ create mode 100644 crates/norma/tests/unit/managed_files.rs

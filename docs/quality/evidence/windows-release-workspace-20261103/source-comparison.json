@@ -1,0 +1,16 @@
+{
+  "fix_sha": "7cf61b94a846c750f6355e1465d1d4d275eb27b8",
+  "candidate_sha": "94e4bc83a7940a39ef0888d97d5f90669c5ccacd",
+  "probe_sha": "cdc35620a926f282bcb80307a414afdb36bcacfd",
+  "candidate_contains_fix": true,
+  "crate_manifest_and_main_lock_changes_vs_fix": [
+    "crates/app/tests/platform_probe/Cargo.lock"
+  ],
+  "harness_changes_vs_candidate": [
+    "scripts/windows/desktop-driver.ps1",
+    "scripts/windows/probe-startup.ps1",
+    "scripts/windows/smoke-package.ps1",
+    "scripts/windows/test-desktop-driver.ps1"
+  ],
+  "meaning": "Git file identity only; behavior acceptance is recorded separately, and the 15 known Windows storage failures remain unresolved."
+}

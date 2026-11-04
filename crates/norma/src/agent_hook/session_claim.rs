@@ -2,7 +2,7 @@
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 const MARKER_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
@@ -26,13 +26,8 @@ fn marker_name(session_id: &str) -> Option<String> {
     Some(format!("{prefix}-{:016x}", hasher.finish()))
 }
 
-fn ensure_private_dir(dir: &PathBuf) -> std::io::Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
-    match std::fs::DirBuilder::new().mode(0o700).create(dir) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
-        Err(error) => Err(error),
-    }
+fn ensure_private_dir(dir: &Path) -> std::io::Result<()> {
+    crate::private_fs::create_private_dir(dir)
 }
 
 /// 首次针对某会话调用返回 `true`；`create_new` 不跟随符号链接，已存在即视为已注入。

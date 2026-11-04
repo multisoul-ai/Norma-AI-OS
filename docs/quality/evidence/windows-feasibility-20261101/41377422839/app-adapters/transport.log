@@ -1,0 +1,446 @@
+info: syncing channel updates for 1.91.1-x86_64-pc-windows-msvc
+info: latest update on 2025-11-10 for version 1.91.1 (ed61e7d7e 2025-11-07)
+info: downloading 2 components
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded curve25519-dalek-derive v0.1.1
+  Downloaded shlex v2.0.1
+  Downloaded typenum v1.20.1
+  Downloaded tracing-core v0.1.36
+  Downloaded zerofrom-derive v0.1.7
+  Downloaded serde_derive v1.0.228
+  Downloaded zerovec-derive v0.11.3
+  Downloaded yasna v0.5.2
+  Downloaded zerovec v0.11.6
+  Downloaded webpki-roots v1.0.8
+  Downloaded deranged v0.5.8
+  Downloaded sha1 v0.10.7
+  Downloaded zeroize v1.9.0
+  Downloaded yoke v0.8.3
+  Downloaded zmij v1.0.21
+  Downloaded yoke-derive v0.8.2
+  Downloaded tungstenite v0.28.0
+  Downloaded serde v1.0.228
+  Downloaded zerotrie v0.2.4
+  Downloaded ureq v3.3.0
+  Downloaded icu_provider v2.2.0
+  Downloaded getrandom v0.3.4
+  Downloaded zerocopy v0.8.53
+  Downloaded rand v0.9.4
+  Downloaded flate2 v1.1.9
+  Downloaded ppv-lite86 v0.2.21
+  Downloaded rand_core v0.9.5
+  Downloaded crossbeam-channel v0.5.16
+  Downloaded powerfmt v0.2.0
+  Downloaded litrs v1.0.0
+  Downloaded anstyle-wincon v3.0.11
+  Downloaded vcpkg v0.2.15
+  Downloaded anstyle-query v1.1.5
+  Downloaded hashbrown v0.17.1
+  Downloaded anstyle v1.0.14
+  Downloaded http v1.4.2
+  Downloaded num-conv v0.2.2
+  Downloaded clap v4.6.1
+  Downloaded hkdf v0.12.4
+  Downloaded clap_builder v4.6.0
+  Downloaded libc v0.2.186
+  Downloaded idna v1.1.0
+  Downloaded curve25519-dalek v4.1.3
+  Downloaded icu_collections v2.2.0
+  Downloaded clap_lex v1.1.0
+  Downloaded byteorder v1.5.0
+  Downloaded base64 v0.22.1
+  Downloaded option-ext v0.2.0
+  Downloaded md-5 v0.10.6
+  Downloaded hashlink v0.9.1
+  Downloaded find-msvc-tools v0.1.9
+  Downloaded fallible-iterator v0.3.0
+  Downloaded data-encoding v2.11.0
+  Downloaded block-buffer v0.10.4
+  Downloaded anstream v1.0.0
+  Downloaded rustls-native-certs v0.8.4
+  Downloaded libsqlite3-sys v0.30.1
+  Downloaded dirs-sys v0.5.0
+  Downloaded rand_core v0.6.4
+  Downloaded getrandom v0.4.3
+  Downloaded cc v1.2.66
+  Downloaded syn v2.0.118
+  Downloaded semver v1.0.28
+  Downloaded once_cell_polyfill v1.70.2
+  Downloaded indexmap v2.14.0
+  Downloaded icu_locale_core v2.2.0
+  Downloaded getrandom v0.2.17
+  Downloaded ureq-proto v0.6.0
+  Downloaded serde_json v1.0.150
+  Downloaded quote v1.0.46
+  Downloaded pin-project-lite v0.2.17
+  Downloaded hex v0.4.3
+  Downloaded subtle v2.6.1
+  Downloaded spake2 v0.4.0
+  Downloaded serde_core v1.0.228
+  Downloaded rustls-webpki v0.103.13
+  Downloaded ring v0.17.14
+  Downloaded winapi v0.3.9
+  Downloaded utf8_iter v1.0.4
+  Downloaded tracing v0.1.44
+  Downloaded log v0.4.33
+  Downloaded synstructure v0.13.2
+  Downloaded itoa v1.0.18
+  Downloaded rcgen v0.13.2
+  Downloaded icu_normalizer_data v2.2.0
+  Downloaded crypto-common v0.1.7
+  Downloaded cookie_store v0.22.1
+  Downloaded cfg-if v1.0.4
+  Downloaded tracing-attributes v0.1.31
+  Downloaded rustls v0.23.41
+  Downloaded pkg-config v0.3.33
+  Downloaded once_cell v1.21.4
+  Downloaded miniz_oxide v0.8.9
+  Downloaded memchr v2.8.2
+  Downloaded is_terminal_polyfill v1.70.2
+  Downloaded icu_properties v2.2.0
+  Downloaded generic-array v0.14.7
+  Downloaded fallible-streaming-iterator v0.1.9
+  Downloaded autocfg v1.5.1
+  Downloaded adler2 v2.0.1
+  Downloaded windows-link v0.2.1
+  Downloaded utf-8 v0.7.6
+  Downloaded url v2.5.8
+  Downloaded rustc_version v0.4.1
+  Downloaded hmac v0.12.1
+  Downloaded document-features v0.2.12
+  Downloaded dirs v6.0.0
+  Downloaded crc32fast v1.5.0
+  Downloaded colorchoice v1.0.5
+  Downloaded anstyle-parse v1.0.0
+  Downloaded utf8parse v0.2.2
+  Downloaded utf8-zero v0.8.1
+  Downloaded tinystr v0.8.3
+  Downloaded time-macros v0.2.31
+  Downloaded time v0.3.53
+  Downloaded thiserror-impl v2.0.18
+  Downloaded thiserror v2.0.18
+  Downloaded strsim v0.11.1
+  Downloaded smallvec v1.15.2
+  Downloaded simd-adler32 v0.3.9
+  Downloaded zerofrom v0.1.8
+  Downloaded uds_windows v1.2.1
+  Downloaded stable_deref_trait v1.2.1
+  Downloaded socks v0.3.4
+  Downloaded digest v0.10.7
+  Downloaded cookie v0.18.1
+  Downloaded clap_derive v4.6.1
+  Downloaded schannel v0.1.29
+  Downloaded icu_properties_data v2.2.0
+  Downloaded writeable v0.6.3
+  Downloaded version_check v0.9.5
+  Downloaded untrusted v0.9.0
+  Downloaded unicode-ident v1.0.24
+  Downloaded time-core v0.1.9
+  Downloaded tempfile v3.27.0
+  Downloaded rustls-pki-types v1.15.0
+  Downloaded rusqlite v0.32.1
+  Downloaded percent-encoding v2.3.2
+  Downloaded memoffset v0.9.1
+  Downloaded idna_adapter v1.2.2
+  Downloaded cpufeatures v0.2.17
+  Downloaded bytes v1.12.0
+  Downloaded bitflags v2.13.0
+  Downloaded ahash v0.8.12
+  Downloaded sha2 v0.10.9
+  Downloaded rand_chacha v0.9.0
+  Downloaded proc-macro2 v1.0.106
+  Downloaded potential_utf v0.1.5
+  Downloaded litemap v0.8.2
+  Downloaded icu_normalizer v2.2.0
+  Downloaded httparse v1.10.1
+  Downloaded hashbrown v0.14.5
+  Downloaded form_urlencoded v1.2.2
+  Downloaded displaydoc v0.2.6
+  Downloaded heck v0.5.0
+  Downloaded crossbeam-utils v0.8.22
+  Downloaded anyhow v1.0.103
+  Downloaded fastrand v2.4.1
+  Downloaded equivalent v1.0.2
+  Downloaded windows-sys v0.61.2
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.46
+   Compiling cfg-if v1.0.4
+   Compiling version_check v0.9.5
+   Compiling shlex v2.0.1
+   Compiling syn v2.0.118
+   Compiling find-msvc-tools v0.1.9
+   Compiling cc v1.2.66
+   Compiling generic-array v0.14.7
+   Compiling stable_deref_trait v1.2.1
+   Compiling windows-link v0.2.1
+   Compiling windows-sys v0.61.2
+   Compiling synstructure v0.13.2
+   Compiling zerofrom-derive v0.1.7
+   Compiling zerofrom v0.1.8
+   Compiling yoke-derive v0.8.2
+   Compiling yoke v0.8.3
+   Compiling subtle v2.6.1
+   Compiling typenum v1.20.1
+   Compiling zerovec-derive v0.11.3
+   Compiling once_cell v1.21.4
+   Compiling displaydoc v0.2.6
+   Compiling zerovec v0.11.6
+   Compiling getrandom v0.2.17
+   Compiling zerocopy v0.8.53
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling ring v0.17.14
+   Compiling digest v0.10.7
+   Compiling zeroize v1.9.0
+   Compiling rustls-pki-types v1.15.0
+   Compiling tinystr v0.8.3
+   Compiling untrusted v0.9.0
+   Compiling litemap v0.8.2
+   Compiling writeable v0.6.3
+   Compiling icu_locale_core v2.2.0
+   Compiling potential_utf v0.1.5
+   Compiling zerotrie v0.2.4
+   Compiling icu_normalizer_data v2.2.0
+   Compiling icu_properties_data v2.2.0
+   Compiling utf8_iter v1.0.4
+   Compiling cpufeatures v0.2.17
+   Compiling getrandom v0.3.4
+   Compiling semver v1.0.28
+   Compiling rustc_version v0.4.1
+   Compiling icu_collections v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling ahash v0.8.12
+   Compiling smallvec v1.15.2
+   Compiling serde_core v1.0.228
+   Compiling itoa v1.0.18
+   Compiling httparse v1.10.1
+   Compiling curve25519-dalek v4.1.3
+   Compiling crc32fast v1.5.0
+   Compiling winapi v0.3.9
+   Compiling anstyle v1.0.14
+   Compiling utf8parse v0.2.2
+   Compiling rustls v0.23.41
+   Compiling once_cell_polyfill v1.70.2
+   Compiling zmij v1.0.21
+   Compiling log v0.4.33
+   Compiling vcpkg v0.2.15
+   Compiling autocfg v1.5.1
+   Compiling pkg-config v0.3.33
+   Compiling bytes v1.12.0
+   Compiling getrandom v0.4.3
+   Compiling http v1.4.2
+   Compiling libsqlite3-sys v0.30.1
+   Compiling memoffset v0.9.1
+   Compiling anstyle-wincon v3.0.11
+   Compiling anstyle-parse v1.0.0
+   Compiling rand_core v0.9.5
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling rustls-webpki v0.103.13
+   Compiling hmac v0.12.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_core v0.6.4
+   Compiling anstyle-query v1.1.5
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling crossbeam-utils v0.8.22
+   Compiling serde_json v1.0.150
+   Compiling colorchoice v1.0.5
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling powerfmt v0.2.0
+   Compiling num-conv v0.2.2
+   Compiling thiserror v2.0.18
+   Compiling deranged v0.5.8
+   Compiling time-core v0.1.9
+   Compiling serde v1.0.228
+   Compiling percent-encoding v2.3.2
+   Compiling simd-adler32 v0.3.9
+   Compiling anyhow v1.0.103
+   Compiling adler2 v2.0.1
+   Compiling miniz_oxide v0.8.9
+   Compiling time v0.3.53
+   Compiling anstream v1.0.0
+   Compiling rand_chacha v0.9.0
+   Compiling hkdf v0.12.4
+   Compiling hashbrown v0.14.5
+   Compiling idna_adapter v1.2.2
+   Compiling sha2 v0.10.9
+   Compiling schannel v0.1.29
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling byteorder v1.5.0
+   Compiling option-ext v0.2.0
+   Compiling strsim v0.11.1
+   Compiling base64 v0.22.1
+   Compiling libc v0.2.186
+   Compiling heck v0.5.0
+   Compiling memchr v2.8.2
+   Compiling clap_lex v1.1.0
+   Compiling fastrand v2.4.1
+   Compiling tempfile v3.27.0
+   Compiling clap_builder v4.6.0
+   Compiling clap_derive v4.6.1
+   Compiling ureq-proto v0.6.0
+   Compiling dirs-sys v0.5.0
+   Compiling socks v0.3.4
+   Compiling rustls-native-certs v0.8.4
+   Compiling spake2 v0.4.0
+   Compiling flate2 v1.1.9
+   Compiling idna v1.1.0
+   Compiling hashlink v0.9.1
+   Compiling rand v0.9.4
+   Compiling yasna v0.5.2
+   Compiling form_urlencoded v1.2.2
+   Compiling sha1 v0.10.7
+   Compiling webpki-roots v1.0.8
+   Compiling tracing-core v0.1.36
+   Compiling tracing-attributes v0.1.31
+   Compiling pin-project-lite v0.2.17
+   Compiling utf-8 v0.7.6
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling data-encoding v2.11.0
+   Compiling utf8-zero v0.8.1
+   Compiling bitflags v2.13.0
+   Compiling fallible-iterator v0.3.0
+   Compiling rusqlite v0.32.1
+   Compiling tungstenite v0.28.0
+   Compiling ureq v3.3.0
+   Compiling tracing v0.1.44
+   Compiling url v2.5.8
+   Compiling mobile_pairing v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\mobile_pairing)
+   Compiling rcgen v0.13.2
+   Compiling crossbeam-channel v0.5.16
+   Compiling uds_windows v1.2.1
+   Compiling dirs v6.0.0
+   Compiling clap v4.6.1
+   Compiling md-5 v0.10.6
+   Compiling hex v0.4.3
+   Compiling norma v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\norma)
+   Compiling app-platform-probe v0.1.0 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\app\tests\platform_probe)
+error[E0433]: failed to resolve: could not find `unix` in `os`
+ --> src\..\..\..\src\norma\transport.rs:7:14
+  |
+7 | use std::os::unix::fs::{FileTypeExt, MetadataExt};
+  |              ^^^^ could not find `unix` in `os`
+  |
+note: found an item that was configured out
+ --> /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\os\mod.rs:29:5
+  |
+  = note: the item is gated here
+note: found an item that was configured out
+ --> /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\os\mod.rs:84:41
+  |
+  = note: the item is gated here
+
+error[E0433]: failed to resolve: could not find `unix` in `os`
+ --> src\..\..\..\src\norma\transport.rs:8:14
+  |
+8 | use std::os::unix::net::{UnixListener, UnixStream};
+  |              ^^^^ could not find `unix` in `os`
+  |
+note: found an item that was configured out
+ --> /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\os\mod.rs:29:5
+  |
+  = note: the item is gated here
+note: found an item that was configured out
+ --> /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\os\mod.rs:84:41
+  |
+  = note: the item is gated here
+
+error[E0432]: unresolved import `std::os::fd`
+ --> src\..\..\..\src\norma\transport.rs:6:14
+  |
+6 | use std::os::fd::AsRawFd;
+  |              ^^ could not find `fd` in `os`
+  |
+note: found an item that was configured out
+ --> /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\os\mod.rs:185:10
+  |
+  = note: the item is gated here
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `libc`
+  --> src\..\..\..\src\norma\transport.rs:41:36
+   |
+41 |         let lock_result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+   |                                    ^^^^ use of unresolved module or unlinked crate `libc`
+   |
+   = help: if you wanted to use a crate named `libc`, use `cargo add libc` to add it to your `Cargo.toml`
+
+error[E0599]: no method named `as_raw_fd` found for struct `std::fs::File` in the current scope
+  --> src\..\..\..\src\norma\transport.rs:41:53
+   |
+41 |         let lock_result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+   |                                                     ^^^^^^^^^
+   |
+help: there is a method `as_raw_handle` with a similar name
+   |
+41 -         let lock_result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+41 +         let lock_result = unsafe { libc::flock(file.as_raw_handle(), libc::LOCK_EX | libc::LOCK_NB) };
+   |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `libc`
+  --> src\..\..\..\src\norma\transport.rs:41:66
+   |
+41 |         let lock_result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+   |                                                                  ^^^^ use of unresolved module or unlinked crate `libc`
+   |
+   = help: if you wanted to use a crate named `libc`, use `cargo add libc` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `libc`
+  --> src\..\..\..\src\norma\transport.rs:41:82
+   |
+41 |         let lock_result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+   |                                                                                  ^^^^ use of unresolved module or unlinked crate `libc`
+   |
+   = help: if you wanted to use a crate named `libc`, use `cargo add libc` to add it to your `Cargo.toml`
+
+error[E0599]: no method named `dev` found for struct `std::fs::Metadata` in the current scope
+  --> src\..\..\..\src\norma\transport.rs:68:30
+   |
+68 |             device: metadata.dev(),
+   |                              ^^^ method not found in `std::fs::Metadata`
+
+error[E0599]: no method named `ino` found for struct `std::fs::Metadata` in the current scope
+  --> src\..\..\..\src\norma\transport.rs:69:29
+   |
+69 |             inode: metadata.ino(),
+   |                             ^^^
+   |
+help: there is a method `into` with a similar name
+   |
+69 |             inode: metadata.into(),
+   |                               +
+
+error[E0599]: no method named `is_socket` found for struct `FileType` in the current scope
+  --> src\..\..\..\src\norma\transport.rs:76:34
+   |
+76 |             metadata.file_type().is_socket()
+   |                                  ^^^^^^^^^ method not found in `FileType`
+
+error[E0599]: no method named `dev` found for struct `std::fs::Metadata` in the current scope
+  --> src\..\..\..\src\norma\transport.rs:77:29
+   |
+77 |                 && metadata.dev() == self.device
+   |                             ^^^ method not found in `std::fs::Metadata`
+
+error[E0599]: no method named `ino` found for struct `std::fs::Metadata` in the current scope
+  --> src\..\..\..\src\norma\transport.rs:78:29
+   |
+78 |                 && metadata.ino() == self.inode
+   |                             ^^^
+   |
+help: there is a method `into` with a similar name
+   |
+78 |                 && metadata.into() == self.inode
+   |                               +
+
+error[E0599]: no method named `is_socket` found for struct `FileType` in the current scope
+   --> src\..\..\..\src\norma\transport.rs:153:30
+    |
+153 |     if !metadata.file_type().is_socket() {
+    |                              ^^^^^^^^^ method not found in `FileType`
+
+Some errors have detailed explanations: E0432, E0433, E0599.
+For more information about an error, try `rustc --explain E0432`.
+error: could not compile `app-platform-probe` (lib test) due to 13 previous errors

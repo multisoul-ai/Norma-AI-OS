@@ -1,11 +1,11 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 
 use canvas::{AgentProfile, CanvasRect};
 use norma::agent_hook::{parse_hook_event, HookSource};
 use norma::codex::{native_questions::CodexQuestionHost, relay::CodexQuestionRelay};
+use norma::codex::{UnixListener, UnixStream};
 use runtime::{AgentHookRuntimeConfig, AgentTaskState, AgentTaskUpdate, Runtime, RuntimeEvent};
 use serde_json::json;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Duration, Instant};
 use tungstenite::WebSocket;
 
@@ -20,7 +20,11 @@ fn connection() -> (
 ) {
     let dir = tempfile::Builder::new()
         .prefix("nct-")
-        .tempdir_in("/tmp")
+        .tempdir_in(if cfg!(windows) {
+            std::env::temp_dir()
+        } else {
+            "/tmp".into()
+        })
         .unwrap();
     let path = dir.path().join("s.sock");
     let listener = UnixListener::bind(&path).unwrap();

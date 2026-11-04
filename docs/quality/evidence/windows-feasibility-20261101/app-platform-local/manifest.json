@@ -1,0 +1,275 @@
+{
+  "source_scope": "Mac production a53698f6; incremental tests and Windows final 120492ca; per-log scope retained",
+  "files": [
+    {
+      "path": "binding-before-path-exchange.rs.txt",
+      "bytes": 6403,
+      "sha256": "bde9d6a9a781e4f3258a68aa86b01e7c81e3b9785292fd4ac29ab32f3066ea60"
+    },
+    {
+      "path": "contract-tests.log",
+      "bytes": 102,
+      "sha256": "5610bb341ae4df72930d9f88afd8d925eec567770a8ccf6387603ee214544c29"
+    },
+    {
+      "path": "dependency-tests.log",
+      "bytes": 98,
+      "sha256": "94a2911252444c3a67726083d9adc2fcd8b1e714ced94ee066e9ab78a58de2e3"
+    },
+    {
+      "path": "domain-contracts.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "final-evidence-validation.json",
+      "bytes": 534,
+      "sha256": "3b8a3fe5971c1f4ff838615cf7a2b6a0d2a6fe080bbe09f05bb4e0a2f4b02ed3"
+    },
+    {
+      "path": "goal-html-render.log",
+      "bytes": 173,
+      "sha256": "1ccda6cad1b99ba009f1511ff2a8188dcc6325693046b5265b4d04909dc3ef1e"
+    },
+    {
+      "path": "guide-lines.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "html-validation.json",
+      "bytes": 392,
+      "sha256": "667a01e340c37a5741fbdf2a5a4bbc61ff2fc1689362807542ab3563f3d21bc5"
+    },
+    {
+      "path": "i18n.log",
+      "bytes": 128,
+      "sha256": "f677da4bf6cb7446608873e44adb6ebb834cbf428e437314eb84667424f29a32"
+    },
+    {
+      "path": "implementation-integrity.json",
+      "bytes": 2079,
+      "sha256": "8c248737092b9ce42ae75e8f9794fcb5f4a5080c3fa909431c9e945a979e1b86"
+    },
+    {
+      "path": "macos-16-comparison.json",
+      "bytes": 10021,
+      "sha256": "61b7eb121fbc43a0ee4bdce9608f29f472b1d87abef6bc7a12e259b7c700848a"
+    },
+    {
+      "path": "macos-toolchain.log",
+      "bytes": 249,
+      "sha256": "c2c53c3f2fc61da5ec40280c41480da1e4a9737b29904ad22387da8749ef1875"
+    },
+    {
+      "path": "macos-workspace-snapshot-a.json",
+      "bytes": 2742,
+      "sha256": "82f38d0b6c1477334dedf80c0ad727d81616365f44e32392ffd1a59734d3a4d6"
+    },
+    {
+      "path": "macos-workspace-snapshot-a.patch",
+      "bytes": 54639,
+      "sha256": "a928adf14113af62102c956c74943fc90d77509db3357aa73e09f99785f1187a"
+    },
+    {
+      "path": "max-lines.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "no-allow.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "norma-app-adapter-green.log",
+      "bytes": 1062,
+      "sha256": "928a0da920dbbf796750e042c66e5fee4938423b824316d4642f2fb1be0ad749"
+    },
+    {
+      "path": "norma-app-adapter-red.log",
+      "bytes": 6238,
+      "sha256": "87cdd784fc89e713301a8ba000e315c06aee36ff02b8f304b872a47758f96739"
+    },
+    {
+      "path": "norma-app-adapters-final-b.log",
+      "bytes": 1878,
+      "sha256": "ec48c49dc5bca5f8d0a93c52da07bc1e8f828d1977176272c97205bf7129cfd2"
+    },
+    {
+      "path": "norma-app-adapters-final.log",
+      "bytes": 1690,
+      "sha256": "22e4b0123a985df846ba2d1edef53cd7f7b9f784c351fa1091d788d89980652e"
+    },
+    {
+      "path": "norma-app-adapters-green.log",
+      "bytes": 1348,
+      "sha256": "ccd9169c5451a22bf0e9f99438a3cceabf4e915d6e4aa684a6973eee822aeeea"
+    },
+    {
+      "path": "norma-app-all-source-close-macos.log",
+      "bytes": 754,
+      "sha256": "ec1c4ad346fc69bc26aef1ad3164a02ef56e72ed4f8aa92bb9efb60a646146d2"
+    },
+    {
+      "path": "norma-app-final-report-tests.log",
+      "bytes": 109,
+      "sha256": "6c396f32e71b7ddb34f790ac2064887621521268d75f7a0b6fd27d4de43f2a6f"
+    },
+    {
+      "path": "norma-app-full-close-commit.log",
+      "bytes": 277,
+      "sha256": "3c30c10da3b38f486eaabbc873f5773ff5d0d2e2a8d7e020d96efeae4d46cd15"
+    },
+    {
+      "path": "norma-app-i18n-checker-tests.log",
+      "bytes": 104,
+      "sha256": "a25b5619af971eae96a8c9d37ebc69133b4c28e990455e210be0507206df182c"
+    },
+    {
+      "path": "norma-app-image-red.log",
+      "bytes": 2134,
+      "sha256": "fb5a96d0a5e3df8fc9b94db807465bcba8132f275131e0e8fd34d5edb4513a1f"
+    },
+    {
+      "path": "norma-app-implementation-commit.log",
+      "bytes": 567,
+      "sha256": "9c611d6107e192d3cc457c8f3448a5c4b692d3d81485e315a200d53b7081d567"
+    },
+    {
+      "path": "norma-app-input-red-commit.log",
+      "bytes": 285,
+      "sha256": "683f62a321e348779ed94c2506b1a4598f4a9b74de32d3deb6466d72eff842f3"
+    },
+    {
+      "path": "norma-app-lifecycle-red.log",
+      "bytes": 2994,
+      "sha256": "6d3c6b2ab982b9d24cf5b3bb9f9778eb7983364bc1d6736d28f3c487509b62a6"
+    },
+    {
+      "path": "norma-app-macos-input-lock-red.log",
+      "bytes": 4152,
+      "sha256": "295d6418094c63b1ea773a70abe069fb3929e1baba42778697be5a62cf07b49d"
+    },
+    {
+      "path": "norma-app-macos-opencode-green.log",
+      "bytes": 1978,
+      "sha256": "18a2d5d002745fd0faed98161a13a7943db352486189c3b846bcad44cbcb86ce"
+    },
+    {
+      "path": "norma-app-macos-workspace-final.log",
+      "bytes": 434634,
+      "sha256": "33fe871150d4aae5c9b032c48369f5055eab4df9802eaa1640aaa6f63752a94b"
+    },
+    {
+      "path": "norma-app-macos-workspace.log",
+      "bytes": 445254,
+      "sha256": "cd39eef46bcf9e8c859b0f883f632ff97ca832ab87ffa4e21a2f5d719e34ccf5"
+    },
+    {
+      "path": "norma-app-opencode-portable.log",
+      "bytes": 2163,
+      "sha256": "07b9f5a9f96f12ee471f9521dd1f349fa52afc90bc49911b533a24a9124d9c1b"
+    },
+    {
+      "path": "norma-app-portable-commit.log",
+      "bytes": 273,
+      "sha256": "08677e175fcae0c433d61f07f7ed5bcb950726cf99a92f601892bca88ff658d9"
+    },
+    {
+      "path": "norma-app-probe-error-red.log",
+      "bytes": 819,
+      "sha256": "f35b379f0356bfab10c058e99af1eb7290cd1c0bce751fd981c91b8a63ea56ff"
+    },
+    {
+      "path": "norma-app-red-commit.log",
+      "bytes": 632,
+      "sha256": "5c830c6da3e653c2f8a782840917a722626be0a11c7a27f6be06e3101bac9212"
+    },
+    {
+      "path": "norma-app-relay-preclose-final.log",
+      "bytes": 709,
+      "sha256": "93331e8e89ce3e9f219ca5be17cb45cf981f7b08242133766baac75cd75bc815"
+    },
+    {
+      "path": "norma-app-relay-witness-macos-final.log",
+      "bytes": 1185,
+      "sha256": "dd04211ad61ce338d9176b55fd0e79cfb85a333a957679fafa697d039a12ca15"
+    },
+    {
+      "path": "norma-app-relay-witness-macos.log",
+      "bytes": 5508,
+      "sha256": "4b37ec312f195367de554f647f90c3ec84c13091f91170adacdab936e8c01e3f"
+    },
+    {
+      "path": "norma-app-shutdown-red.log",
+      "bytes": 1078,
+      "sha256": "a4220afb811040fd4a5b5ce31cfdc74f9ebaa1846a7f010e73a605cf467011d2"
+    },
+    {
+      "path": "norma-app-socket-exchange-red.log",
+      "bytes": 1202,
+      "sha256": "25da2678b3a21cf822d563f415a7c50f0cddee71a909d400ee006351d479f901"
+    },
+    {
+      "path": "norma-app-transport-red.log",
+      "bytes": 20288,
+      "sha256": "ea37dfda9c613a2c6fb1b110aafb902e3749c22305f46573e5aa5dd5e6615c81"
+    },
+    {
+      "path": "performance.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "port-html-render.log",
+      "bytes": 176,
+      "sha256": "2a9142f7b316b866d392c00cd9d414c63577cfe3726f56f622e926142ab845f1"
+    },
+    {
+      "path": "report-tests.log",
+      "bytes": 109,
+      "sha256": "20d7d0bbd5e720702e83a6862b2a80069b828b7a298bd4fe5738586837f07078"
+    },
+    {
+      "path": "review-summary.md",
+      "bytes": 1211,
+      "sha256": "9af897f6aa5a78580aec2c6eae82897deaa0156fb48e9aa5743e1b0ba0e9402a"
+    },
+    {
+      "path": "socks.log",
+      "bytes": 57,
+      "sha256": "60e398602232dff3f8ea15e36a2b5661adcdbc63c9eb9deecda740448c843e2a"
+    },
+    {
+      "path": "static-summary.json",
+      "bytes": 1545,
+      "sha256": "44fa735f724a34163b99ffe67963ae475bf56491ada5932cc635dacba376ccbf"
+    },
+    {
+      "path": "storage-boundaries.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "transport-before-deadlines.rs.txt",
+      "bytes": 11964,
+      "sha256": "e3586f4f2bad837e2aad89cae2ed609cbc29261b4adc5da80f4810fdc1a9018e"
+    },
+    {
+      "path": "tts-boundaries.log",
+      "bytes": 44,
+      "sha256": "7bf1b33634229c6e2e27abd116dd3821dd50cb22d9b130cfd4b947d4b47ec433"
+    },
+    {
+      "path": "video.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "workflow.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

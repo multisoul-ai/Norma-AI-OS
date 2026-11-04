@@ -8,6 +8,7 @@ pub enum MicrophoneAuthorization {
     Authorized,
 }
 
+#[cfg(any(target_os = "macos", test))]
 pub fn microphone_authorization_from_raw(raw: i64) -> Option<MicrophoneAuthorization> {
     match raw {
         0 => Some(MicrophoneAuthorization::NotDetermined),
@@ -102,14 +103,33 @@ fn request_microphone_authorization(
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+pub fn ensure_microphone_authorized() -> Result<(), VoiceInputError> {
+    match microphone_authorization_status()? {
+        MicrophoneAuthorization::Denied => Err(VoiceInputError::MicrophoneDenied),
+        MicrophoneAuthorization::Restricted => Err(VoiceInputError::MicrophoneRestricted),
+        // Unpackaged desktop apps do not receive a per-app consent prompt. WASAPI
+        // still enforces the user's desktop microphone switch when capture opens.
+        MicrophoneAuthorization::Authorized | MicrophoneAuthorization::NotDetermined => Ok(()),
+    }
+}
+
+#[cfg(windows)]
+pub fn microphone_authorization_status() -> Result<MicrophoneAuthorization, VoiceInputError> {
+    if fixture_replaces_microphone() {
+        return Ok(MicrophoneAuthorization::Authorized);
+    }
+    crate::windows::microphone_authorization_status()
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 pub fn ensure_microphone_authorized() -> Result<(), VoiceInputError> {
     Err(VoiceInputError::Audio(
         "microphone not supported on this platform".to_string(),
     ))
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 pub fn microphone_authorization_status() -> Result<MicrophoneAuthorization, VoiceInputError> {
     Err(VoiceInputError::Audio(
         "microphone not supported on this platform".to_string(),

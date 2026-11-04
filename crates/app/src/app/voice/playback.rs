@@ -6,7 +6,12 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 #[cfg(target_os = "macos")]
+#[path = "playback/macos.rs"]
 mod macos;
+
+#[cfg(windows)]
+#[path = "playback/windows.rs"]
+mod windows;
 
 pub(crate) trait AssistantAudioSink: Send {
     fn write_chunk(&mut self, chunk: &PcmAudioChunk) -> Result<Duration, String>;
@@ -37,8 +42,10 @@ pub(crate) trait AssistantAudioSink: Send {
 }
 
 #[derive(Default)]
+#[cfg(any(not(windows), test))]
 pub(crate) struct NoopAssistantAudioSink;
 
+#[cfg(any(not(windows), test))]
 impl AssistantAudioSink for NoopAssistantAudioSink {
     fn write_chunk(&mut self, chunk: &PcmAudioChunk) -> Result<Duration, String> {
         tracing::trace!(
@@ -116,16 +123,23 @@ impl AssistantAudioSink for RecordingAssistantAudioSink {
 }
 
 pub(crate) fn default_assistant_audio_sink() -> Box<dyn AssistantAudioSink> {
-    #[cfg(target_os = "macos")]
+    #[cfg(windows)]
     {
-        match macos::MacosAssistantAudioSink::new() {
-            Ok(sink) => return Box::new(sink),
-            Err(error) => {
-                tracing::warn!(%error, "failed to create macOS assistant audio sink");
+        Box::new(windows::WindowsAssistantAudioSink::new())
+    }
+    #[cfg(not(windows))]
+    {
+        #[cfg(target_os = "macos")]
+        {
+            match macos::MacosAssistantAudioSink::new() {
+                Ok(sink) => return Box::new(sink),
+                Err(error) => {
+                    tracing::warn!(%error, "failed to create macOS assistant audio sink");
+                }
             }
         }
+        Box::<NoopAssistantAudioSink>::default()
     }
-    Box::<NoopAssistantAudioSink>::default()
 }
 
 /// Preview uses an independently-created sink, while its actual playback callbacks feed the
@@ -146,3 +160,7 @@ pub(crate) fn pcm_chunk_duration(chunk: &PcmAudioChunk) -> Duration {
 #[cfg(test)]
 #[path = "../../../tests/unit/playback_tests.rs"]
 mod playback_tests;
+
+#[cfg(all(test, windows))]
+#[path = "../../../tests/unit/windows_playback_tests.rs"]
+mod windows_platform_tests;

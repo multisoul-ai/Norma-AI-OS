@@ -1,0 +1,47 @@
+{
+  "mode": "environment",
+  "os": [
+    {
+      "Caption": "Microsoft Windows Server 2025 Datacenter",
+      "Version": "10.0.26100",
+      "OSArchitecture": "64-bit"
+    }
+  ],
+  "image_os": "win25-vs2026",
+  "image_version": "20261021.278.1",
+  "user_interactive": true,
+  "process_session": 2,
+  "active_console_session": 2,
+  "displays": [
+    {
+      "primary": true,
+      "bounds": "{X=0,Y=0,Width=1024,Height=768}",
+      "device": "\\\\.\\DISPLAY1"
+    }
+  ],
+  "adapters": [
+    {
+      "Name": "Microsoft Hyper-V Video",
+      "DriverVersion": "10.0.26100.1150"
+    }
+  ],
+  "directx_hardware": "HRESULT=0x00000000;feature_level=0xB000",
+  "directx_warp": "HRESULT=0x00000000;feature_level=0xB000",
+  "checks": [
+    {
+      "detail": "OS, displays and D3D11 device creation were queried",
+      "id": "native_environment",
+      "status": "PASS"
+    },
+    {
+      "detail": "HRESULT=0x00000000;feature_level=0xB000",
+      "id": "d3d11_hardware",
+      "status": "PASS"
+    },
+    {
+      "detail": "HRESULT=0x00000000;feature_level=0xB000",
+      "id": "d3d11_warp",
+      "status": "PASS"
+    }
+  ]
+}

@@ -1,6 +1,5 @@
-#[path = "../support/brain_question.rs"]
-mod support;
 use super::*;
+use crate::test_support::brain_question as support;
 use gpui::{
     div, prelude::*, AppContext, Entity, KeyDownEvent, KeyUpEvent, Keystroke, Modifiers,
     PlatformInput, Render, TestAppContext,

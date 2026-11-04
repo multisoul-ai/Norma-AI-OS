@@ -1,0 +1,261 @@
+{
+  "source_sha": "9b9a4e0030714097f14cdd91fbe00e248410452c",
+  "method": "execute exact tests from the unchanged workspace test binaries; no feature-graph rebuild",
+  "cases": [
+    {
+      "test": "app::brain_host::context::proposal_tests::brain_proposal_context_failed_save_does_not_restore_or_redispatch",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::brain_host::context::proposal_tests::brain_proposal_context_failed_save_does_not_restore_or_redispatch",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-01.log",
+      "duration_seconds": 0.46
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_listening_maps_bottom_label_to_continuous_listening",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_listening_maps_bottom_label_to_continuous_listening",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-02.log",
+      "duration_seconds": 0.04
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_start_fails_cleanly_when_mic_permission_denied",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_start_fails_cleanly_when_mic_permission_denied",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-03.log",
+      "duration_seconds": 0.04
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_stop_returns_idle_but_models_remain_resident",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_stop_returns_idle_but_models_remain_resident",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-04.log",
+      "duration_seconds": 0.04
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shell_tests::test_dialogue_unclassified_speech_does_not_truncate_assistant_reply",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::app_dialogue_shell_tests::test_dialogue_unclassified_speech_does_not_truncate_assistant_reply",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-05.log",
+      "duration_seconds": 0.04
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_error_shortcut_dismisses_feedback_without_stopping",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_error_shortcut_dismisses_feedback_without_stopping",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-06.log",
+      "duration_seconds": 0.02
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_shortcut_stops_an_active_session",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::app_dialogue_shortcut_tests::test_continuous_listening_shortcut_stops_an_active_session",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-07.log",
+      "duration_seconds": 0.05
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_dialogue_turn_failure_recovers_for_next_utterance",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::app_dialogue_shortcut_tests::test_dialogue_turn_failure_recovers_for_next_utterance",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-08.log",
+      "duration_seconds": 0.04
+    },
+    {
+      "test": "app::dialogue::app_dialogue_shortcut_tests::test_voice_shortcut_interrupts_assistant_reply_during_speaking",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::app_dialogue_shortcut_tests::test_voice_shortcut_interrupts_assistant_reply_during_speaking",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-09.log",
+      "duration_seconds": 0.02
+    },
+    {
+      "test": "app::dialogue::reply_stream_backlog_tests::test_active_capacity_exhaustion_preserves_visible_reply_and_drains_accepted_prefix",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::reply_stream_backlog_tests::test_active_capacity_exhaustion_preserves_visible_reply_and_drains_accepted_prefix",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-10.log",
+      "duration_seconds": 0.14
+    },
+    {
+      "test": "app::dialogue::reply_stream_backlog_tests::test_one_delta_with_nine_segments_does_not_fail_bounded_reply_queue",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::reply_stream_backlog_tests::test_one_delta_with_nine_segments_does_not_fail_bounded_reply_queue",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-11.log",
+      "duration_seconds": 0.14
+    },
+    {
+      "test": "app::dialogue::reply_stream_backlog_tests::test_slow_provider_drains_forty_segments_before_finish_without_truncation",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::reply_stream_backlog_tests::test_slow_provider_drains_forty_segments_before_finish_without_truncation",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-12.log",
+      "duration_seconds": 0.15
+    },
+    {
+      "test": "app::dialogue::reply_stream_cancellation_tests::test_provider_failure_overrides_capacity_warning_and_cleans_up",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::reply_stream_cancellation_tests::test_provider_failure_overrides_capacity_warning_and_cleans_up",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-13.log",
+      "duration_seconds": 0.14
+    },
+    {
+      "test": "app::dialogue::reply_stream_cancellation_tests::test_user_interruption_discards_unsent_backlog_and_queued_pcm_together",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/app-f81fefc445098456",
+        "app::dialogue::reply_stream_cancellation_tests::test_user_interruption_discards_unsent_backlog_and_queued_pcm_together",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-14.log",
+      "duration_seconds": 0.08
+    },
+    {
+      "test": "opencode_replies_only_through_own_instance_and_original_request",
+      "baseline_binary": "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/opencode_question_transport-784524722b223fad",
+      "command": [
+        "/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/codex-windows-20261101/target/debug/deps/opencode_question_transport-784524722b223fad",
+        "opencode_replies_only_through_own_instance_and_original_request",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "executed": true,
+      "log": "macos-after-case-15.log",
+      "duration_seconds": 0.08
+    }
+  ]
+}

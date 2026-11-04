@@ -1,0 +1,1391 @@
+diff --git a/.github/workflows/windows-feasibility.yml b/.github/workflows/windows-feasibility.yml
+index d6288342..ec95f5ea 100644
+--- a/.github/workflows/windows-feasibility.yml
++++ b/.github/workflows/windows-feasibility.yml
+@@ -90,7 +90,7 @@ jobs:
+           $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-windows-probe-target'
+           cargo check --locked -p norma --target x86_64-pc-windows-msvc
+           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+-          cargo test --locked -p norma --lib --test client_platform --test codex_question --test cursor_questions --test client_tests --test protocol_tests --target x86_64-pc-windows-msvc
++          cargo test --locked --no-fail-fast -p norma --lib --test client_platform --test codex_question --test cursor_questions --test client_tests --test protocol_tests --target x86_64-pc-windows-msvc
+           exit $LASTEXITCODE
+       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+         if: always()
+@@ -110,7 +110,7 @@ jobs:
+       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+         with:
+           toolchain: 1.91.1
+-      - name: Exercise actual App socket adapters without the GPUI dependency graph
++      - name: Exercise actual App socket and image adapters without the GPUI dependency graph
+         shell: pwsh
+         run: |
+           New-Item -ItemType Directory -Force artifacts/app-adapters | Out-Null
+diff --git a/Cargo.lock b/Cargo.lock
+index 8c4b2448..7c9f4ba9 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -262,6 +262,7 @@ dependencies = [
+  "uuid",
+  "voice_input",
+  "voice_sherpa",
++ "windows-sys 0.61.2",
+  "workspace",
+  "wry",
+ ]
+diff --git a/crates/app/Cargo.toml b/crates/app/Cargo.toml
+index be9cd06e..191b2927 100644
+--- a/crates/app/Cargo.toml
++++ b/crates/app/Cargo.toml
+@@ -142,6 +142,9 @@ raw-window-handle = "0.6"
+ wry = { version = "0.55.1", default-features = false, features = ["protocol"] }
+ cef = { version = "149.3.0", optional = true, default-features = false }
+ 
++[target.'cfg(windows)'.dependencies]
++windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices"] }
++
+ [dev-dependencies]
+ tokio = { workspace = true, features = ["test-util"] }
+ live_voice = { workspace = true, features = ["test-support"] }
+diff --git a/crates/app/src/mobile/server/connection/image.rs b/crates/app/src/mobile/server/connection/image.rs
+index 9a658934..a411c64b 100644
+--- a/crates/app/src/mobile/server/connection/image.rs
++++ b/crates/app/src/mobile/server/connection/image.rs
+@@ -6,8 +6,6 @@ use serde::Deserialize;
+ use serde_json::json;
+ use sha2::{Digest, Sha256};
+ use std::{
+-    fs,
+-    io::Write,
+     path::PathBuf,
+     sync::Arc,
+     time::{Duration, Instant},
+@@ -15,7 +13,7 @@ use std::{
+ 
+ #[path = "image_store.rs"]
+ mod store;
+-const LIMIT: usize = 2 * 1024 * 1024;
++use store::LIMIT;
+ const CHUNK: usize = 64 * 1024;
+ 
+ #[derive(Deserialize)]
+diff --git a/crates/app/src/mobile/server/connection/image_store.rs b/crates/app/src/mobile/server/connection/image_store.rs
+index c349b8f6..64ba8e0b 100644
+--- a/crates/app/src/mobile/server/connection/image_store.rs
++++ b/crates/app/src/mobile/server/connection/image_store.rs
+@@ -1,9 +1,11 @@
+-use super::{fs, Write, LIMIT};
++use std::{fs, io::Write};
++pub(super) const LIMIT: usize = 2 * 1024 * 1024;
+ use image::{ImageFormat, ImageReader};
+ use sha2::{Digest, Sha256};
++#[cfg(unix)]
++use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+ use std::{
+     io::{Cursor, Read},
+-    os::unix::fs::{OpenOptionsExt, PermissionsExt},
+     path::Path,
+     sync::Mutex,
+ };
+@@ -28,6 +30,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<&'static str, &'static str> {
+     Ok(extension)
+ }
+ 
++#[cfg(unix)]
+ fn directory(path: &Path) -> Result<(), &'static str> {
+     match fs::symlink_metadata(path) {
+         Ok(info) if info.file_type().is_dir() => Ok(()),
+@@ -41,6 +44,35 @@ fn directory(path: &Path) -> Result<(), &'static str> {
+     }
+ }
+ 
++#[cfg(windows)]
++fn directory(path: &Path) -> Result<(), &'static str> {
++    // Reuse the owner-only DACL primitive, which also rejects reparse points and foreign owners.
++    norma::private_fs::create_private_dir(path).map_err(|_| "image_storage_unavailable")
++}
++
++#[cfg(unix)]
++fn open_image(path: &Path) -> std::io::Result<fs::File> {
++    fs::OpenOptions::new()
++        .read(true)
++        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
++        .open(path)
++}
++#[cfg(windows)]
++fn open_image(path: &Path) -> std::io::Result<fs::File> {
++    use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
++    use windows_sys::Win32::Storage::FileSystem::{
++        FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
++    };
++    let file = fs::OpenOptions::new()
++        .read(true)
++        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
++        .open(path)?;
++    if file.metadata()?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
++        return Err(std::io::ErrorKind::PermissionDenied.into());
++    }
++    Ok(file)
++}
++
+ pub(super) fn save(
+     folder: &Path,
+     id: &str,
+@@ -120,11 +152,7 @@ pub(super) fn read(folder: &Path, id: &str) -> Result<(String, Vec<u8>), &'stati
+     }
+     for extension in ["jpg", "png"] {
+         let path = folder.join(format!("{id}.{extension}"));
+-        let Ok(file) = fs::OpenOptions::new()
+-            .read(true)
+-            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+-            .open(&path)
+-        else {
++        let Ok(file) = open_image(&path) else {
+             continue;
+         };
+         let metadata = file.metadata().map_err(|_| "image_not_found")?;
+diff --git a/crates/app/src/norma/transport.rs b/crates/app/src/norma/transport.rs
+index f5aab6c6..278cf8c4 100644
+--- a/crates/app/src/norma/transport.rs
++++ b/crates/app/src/norma/transport.rs
+@@ -1,16 +1,16 @@
+ use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
+ use norma::client::{decode_request_line, encode_response_line};
++use norma::codex::{UnixListener, UnixStream};
+ use norma::protocol::{AgentErrorCode, CardCommandError, WireRequest, WireResponse};
+-use std::fs::{self, File, OpenOptions};
+-use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
+-use std::os::fd::AsRawFd;
+-use std::os::unix::fs::{FileTypeExt, MetadataExt};
+-use std::os::unix::net::{UnixListener, UnixStream};
++use std::io::{Error, ErrorKind, Read, Write};
++#[path = "transport/binding.rs"]
++mod binding;
++use binding::{prepare_socket_path, SocketBinding, SocketLease};
+ use std::path::{Path, PathBuf};
+ use std::sync::atomic::{AtomicBool, Ordering};
+ use std::sync::Arc;
+ use std::thread::{self, JoinHandle};
+-use std::time::Duration;
++use std::time::{Duration, Instant};
+ 
+ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
+ const STREAM_TIMEOUT: Duration = Duration::from_secs(2);
+@@ -19,86 +19,14 @@ const CLIENT_RECV_INTERVAL: Duration = Duration::from_millis(25);
+ const CLIENT_QUEUE_CAPACITY: usize = 32;
+ const REQUEST_QUEUE_CAPACITY: usize = 64;
+ const CLIENT_WORKER_COUNT: usize = 4;
++// Same 64MiB wire budget as the existing Codex relay; queue size alone cannot bound an NDJSON frame.
++const MAX_REQUEST_BYTES: usize = 64 * 1024 * 1024;
+ 
+ pub(crate) struct NormaServerRequest {
+     pub(crate) request: WireRequest,
+     pub(crate) response: Sender<WireResponse>,
+ }
+ 
+-struct SocketLease {
+-    _file: File,
+-}
+-
+-impl SocketLease {
+-    fn acquire(socket_path: &Path) -> std::io::Result<Self> {
+-        let lock_path = socket_path.with_extension("lock");
+-        let file = OpenOptions::new()
+-            .create(true)
+-            .truncate(false)
+-            .read(true)
+-            .write(true)
+-            .open(lock_path)?;
+-        let lock_result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+-        if lock_result != 0 {
+-            let error = Error::last_os_error();
+-            if matches!(error.kind(), ErrorKind::WouldBlock) {
+-                return Err(Error::new(
+-                    ErrorKind::AddrInUse,
+-                    "another Norma endpoint owns the socket lease",
+-                ));
+-            }
+-            return Err(error);
+-        }
+-        Ok(Self { _file: file })
+-    }
+-}
+-
+-struct SocketBinding {
+-    path: PathBuf,
+-    device: u64,
+-    inode: u64,
+-    _lease: SocketLease,
+-}
+-
+-impl SocketBinding {
+-    fn capture(path: PathBuf, lease: SocketLease) -> std::io::Result<Self> {
+-        let metadata = fs::symlink_metadata(&path)?;
+-        Ok(Self {
+-            path,
+-            device: metadata.dev(),
+-            inode: metadata.ino(),
+-            _lease: lease,
+-        })
+-    }
+-
+-    fn still_owns_path(&self) -> bool {
+-        fs::symlink_metadata(&self.path).is_ok_and(|metadata| {
+-            metadata.file_type().is_socket()
+-                && metadata.dev() == self.device
+-                && metadata.ino() == self.inode
+-        })
+-    }
+-}
+-
+-impl Drop for SocketBinding {
+-    fn drop(&mut self) {
+-        if !self.still_owns_path() {
+-            tracing::debug!(
+-                path = %self.path.display(),
+-                "Norma socket binding was replaced; skipped stale cleanup"
+-            );
+-            return;
+-        }
+-        if let Err(error) = fs::remove_file(&self.path) {
+-            tracing::warn!(
+-                path = %self.path.display(),
+-                %error,
+-                "failed to remove owned Norma socket"
+-            );
+-        }
+-    }
+-}
+-
+ pub(crate) struct NormaSocketListener {
+     receiver: Receiver<NormaServerRequest>,
+     shutdown: Arc<AtomicBool>,
+@@ -144,27 +72,6 @@ impl Drop for NormaSocketListener {
+     }
+ }
+ 
+-fn prepare_socket_path(path: &Path) -> std::io::Result<()> {
+-    let metadata = match fs::symlink_metadata(path) {
+-        Ok(metadata) => metadata,
+-        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
+-        Err(error) => return Err(error),
+-    };
+-    if !metadata.file_type().is_socket() {
+-        return Err(Error::new(
+-            ErrorKind::AddrInUse,
+-            "Norma socket path is occupied by a non-socket file",
+-        ));
+-    }
+-    if UnixStream::connect(path).is_ok() {
+-        return Err(Error::new(
+-            ErrorKind::AddrInUse,
+-            "an active Norma endpoint already owns the socket",
+-        ));
+-    }
+-    fs::remove_file(path)
+-}
+-
+ fn accept_loop(
+     listener: UnixListener,
+     sender: Sender<NormaServerRequest>,
+@@ -178,7 +85,7 @@ fn accept_loop(
+                 Ok(()) => {}
+                 Err(TrySendError::Full(returned_stream)) => {
+                     stream = returned_stream;
+-                    write_overloaded_response(&mut stream);
++                    write_overloaded_response(&mut stream, &shutdown);
+                 }
+                 Err(TrySendError::Disconnected(_)) => break,
+             },
+@@ -227,32 +134,103 @@ fn client_worker_loop(
+ ) {
+     while !shutdown.load(Ordering::Acquire) || !streams.is_empty() {
+         match streams.recv_timeout(CLIENT_RECV_INTERVAL) {
+-            Ok(stream) => handle_stream(stream, sender.clone()),
++            Ok(stream) => handle_stream(stream, sender.clone(), &shutdown),
+             Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
+             Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
+         }
+     }
+ }
+ 
+-fn handle_stream(mut stream: UnixStream, sender: Sender<NormaServerRequest>) {
+-    let _ = stream.set_read_timeout(Some(STREAM_TIMEOUT));
+-    let _ = stream.set_write_timeout(Some(STREAM_TIMEOUT));
+-    let mut line = String::new();
+-    let read_result = BufReader::new(&stream).read_line(&mut line);
+-    let response = match read_result {
+-        Ok(0) => response_for_error(0, "empty Norma request"),
+-        Ok(_) => match decode_request_line(&line) {
+-            Ok(request) => dispatch_request(request, sender),
++fn handle_stream(
++    mut stream: UnixStream,
++    sender: Sender<NormaServerRequest>,
++    shutdown: &AtomicBool,
++) {
++    // Accepted sockets may inherit O_NONBLOCK. Only background client workers perform IO.
++    if let Err(error) = stream.set_nonblocking(false) {
++        tracing::warn!(%error, "could not restore blocking Norma request IO");
++        return;
++    }
++    let response = match read_request_line(&mut stream, shutdown, MAX_REQUEST_BYTES) {
++        Ok(line) if line.is_empty() => response_for_error(0, "empty Norma request"),
++        Ok(line) => match decode_request_line(&line) {
++            Ok(request) => dispatch_request(request, sender, shutdown),
+             Err(error) => response_for_error(0, &format!("invalid Norma request: {error}")),
+         },
++        Err(error) if error.kind() == ErrorKind::Interrupted => {
++            response_for_transport_failure(0, TransportFailure::AppShuttingDown)
++        }
+         Err(error) => response_for_error(0, &format!("could not read Norma request: {error}")),
+     };
+-    write_response(&mut stream, &response);
++    write_response(&mut stream, &response, shutdown);
+ }
+ 
+-fn dispatch_request(request: WireRequest, sender: Sender<NormaServerRequest>) -> WireResponse {
++fn read_request_line(
++    stream: &mut UnixStream,
++    shutdown: &AtomicBool,
++    limit: usize,
++) -> std::io::Result<String> {
++    let deadline = Instant::now() + STREAM_TIMEOUT;
++    let mut bytes = Vec::new();
++    let mut buffer = [0; 8192];
++    loop {
++        if shutdown.load(Ordering::Acquire) {
++            return Err(ErrorKind::Interrupted.into());
++        }
++        let remaining = deadline
++            .checked_duration_since(Instant::now())
++            .ok_or(ErrorKind::TimedOut)?;
++        stream.set_read_timeout(Some(remaining.min(CLIENT_RECV_INTERVAL)))?;
++        let length = match stream.read(&mut buffer) {
++            Ok(0) => break,
++            Ok(length) => length,
++            Err(error)
++                if matches!(
++                    error.kind(),
++                    ErrorKind::WouldBlock | ErrorKind::TimedOut | ErrorKind::Interrupted
++                ) =>
++            {
++                continue
++            }
++            Err(error) => return Err(error),
++        };
++        let end = buffer[..length]
++            .iter()
++            .position(|byte| *byte == b'\n')
++            .map(|i| i + 1);
++        let length = end.unwrap_or(length);
++        if bytes.len().saturating_add(length) > limit {
++            return Err(Error::new(
++                ErrorKind::InvalidData,
++                "Norma request exceeds transport frame limit",
++            ));
++        }
++        bytes.extend_from_slice(&buffer[..length]);
++        if end.is_some() {
++            break;
++        }
++    }
++    String::from_utf8(bytes).map_err(|error| Error::new(ErrorKind::InvalidData, error))
++}
++
++fn dispatch_request(
++    request: WireRequest,
++    sender: Sender<NormaServerRequest>,
++    shutdown: &AtomicBool,
++) -> WireResponse {
+     let request_id = request.request_id;
++    if shutdown.load(Ordering::Acquire) {
++        return response_for_transport_failure(request_id, TransportFailure::AppShuttingDown);
++    }
+     let operation_id = request.operation_id.clone();
++    let unknown = || {
++        response_for_transport_failure(
++            request_id,
++            TransportFailure::TimedOut {
++                operation_id: operation_id.clone(),
++            },
++        )
++    };
+     let (response_sender, response_receiver) = bounded(1);
+     match sender.try_send(NormaServerRequest {
+         request,
+@@ -266,27 +244,65 @@ fn dispatch_request(request: WireRequest, sender: Sender<NormaServerRequest>) ->
+             return response_for_transport_failure(request_id, TransportFailure::AppShuttingDown)
+         }
+     }
+-    response_receiver
+-        .recv_timeout(RESPONSE_TIMEOUT)
+-        .unwrap_or_else(|_| {
+-            response_for_transport_failure(request_id, TransportFailure::TimedOut { operation_id })
+-        })
++    let deadline = Instant::now() + RESPONSE_TIMEOUT;
++    loop {
++        if shutdown.load(Ordering::Acquire) {
++            // Once queued, a mutation can have taken effect. Keep its original operation ID.
++            return if operation_id.is_some() {
++                unknown()
++            } else {
++                response_for_transport_failure(request_id, TransportFailure::AppShuttingDown)
++            };
++        }
++        let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
++            return unknown();
++        };
++        match response_receiver.recv_timeout(remaining.min(CLIENT_RECV_INTERVAL)) {
++            Ok(response) => return response,
++            Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
++            Err(crossbeam_channel::RecvTimeoutError::Disconnected) => return unknown(),
++        }
++    }
+ }
+ 
+-fn write_overloaded_response(stream: &mut UnixStream) {
++fn write_overloaded_response(stream: &mut UnixStream, shutdown: &AtomicBool) {
+     write_response(
+         stream,
+         &response_for_transport_failure(0, TransportFailure::ServerOverloaded),
++        shutdown,
+     );
+ }
+-
+-fn write_response(stream: &mut UnixStream, response: &WireResponse) {
+-    if let Ok(line) = encode_response_line(response) {
+-        let _ = stream.write_all(line.as_bytes());
+-        let _ = stream.flush();
++fn write_response(stream: &mut UnixStream, response: &WireResponse, shutdown: &AtomicBool) {
++    let Ok(line) = encode_response_line(response) else {
++        return;
++    };
++    let deadline = Instant::now() + STREAM_TIMEOUT;
++    let mut remaining = line.as_bytes();
++    while !remaining.is_empty() {
++        let Some(budget) = deadline.checked_duration_since(Instant::now()) else {
++            break;
++        };
++        if stream
++            .set_write_timeout(Some(budget.min(CLIENT_RECV_INTERVAL)))
++            .is_err()
++        {
++            break;
++        }
++        match stream.write(remaining) {
++            Ok(0) => break,
++            Ok(count) => remaining = &remaining[count..],
++            Err(error)
++                if matches!(
++                    error.kind(),
++                    ErrorKind::WouldBlock | ErrorKind::TimedOut | ErrorKind::Interrupted
++                ) && !shutdown.load(Ordering::Acquire) => {}
++            Err(_) => break,
++        }
++        if shutdown.load(Ordering::Acquire) {
++            break;
++        }
+     }
+ }
+-
+ fn response_for_error(request_id: u64, message: &str) -> WireResponse {
+     WireResponse::new(
+         request_id,
+@@ -400,3 +416,7 @@ mod tests {
+         );
+     }
+ }
++
++#[cfg(test)]
++#[path = "../../tests/unit/app_transport_deadline_tests.rs"]
++mod deadline_tests;
+diff --git a/crates/app/tests/platform_probe/Cargo.lock b/crates/app/tests/platform_probe/Cargo.lock
+index d18eb250..693807c6 100644
+--- a/crates/app/tests/platform_probe/Cargo.lock
++++ b/crates/app/tests/platform_probe/Cargo.lock
+@@ -81,8 +81,10 @@ name = "app-platform-probe"
+ version = "0.1.0"
+ dependencies = [
+  "crossbeam-channel",
++ "image",
+  "libc",
+  "norma",
++ "sha2",
+  "tempfile",
+  "tracing",
+  "windows-sys 0.61.2",
+@@ -115,12 +117,24 @@ dependencies = [
+  "generic-array",
+ ]
+ 
++[[package]]
++name = "bytemuck"
++version = "1.25.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c8efb64bd706a16a1bdde310ae86b351e4d21550d98d056f22f8a7f7a2183fec"
++
+ [[package]]
+ name = "byteorder"
+ version = "1.5.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
+ 
++[[package]]
++name = "byteorder-lite"
++version = "0.1.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
++
+ [[package]]
+ name = "bytes"
+ version = "1.12.0"
+@@ -401,6 +415,15 @@ version = "2.4.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
+ 
++[[package]]
++name = "fdeflate"
++version = "0.3.7"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1e6853b52649d4ac5c0bd02320cddc5ba956bdb407c4b75a2c6b75bf51500f8c"
++dependencies = [
++ "simd-adler32",
++]
++
+ [[package]]
+ name = "fiat-crypto"
+ version = "0.2.9"
+@@ -649,6 +672,21 @@ dependencies = [
+  "icu_properties",
+ ]
+ 
++[[package]]
++name = "image"
++version = "0.25.10"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "85ab80394333c02fe689eaf900ab500fbd0c2213da414687ebf995a65d5a6104"
++dependencies = [
++ "bytemuck",
++ "byteorder-lite",
++ "moxcms",
++ "num-traits",
++ "png",
++ "zune-core",
++ "zune-jpeg",
++]
++
+ [[package]]
+ name = "indexmap"
+ version = "2.14.0"
+@@ -765,6 +803,16 @@ dependencies = [
+  "spake2",
+ ]
+ 
++[[package]]
++name = "moxcms"
++version = "0.8.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "bb85c154ba489f01b25c0d36ae69a87e4a1c73a72631fc6c0eb6dde34a73e44b"
++dependencies = [
++ "num-traits",
++ "pxfm",
++]
++
+ [[package]]
+ name = "norma"
+ version = "0.1.77"
+@@ -800,6 +848,15 @@ version = "0.2.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "521739c6d2bac4aa25192232afe6841231376b2b26d4d9fae5ecf8ca5772e441"
+ 
++[[package]]
++name = "num-traits"
++version = "0.2.19"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
++dependencies = [
++ "autocfg",
++]
++
+ [[package]]
+ name = "once_cell"
+ version = "1.21.4"
+@@ -842,6 +899,19 @@ version = "0.3.33"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
+ 
++[[package]]
++name = "png"
++version = "0.18.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "60769b8b31b2a9f263dae2776c37b1b28ae246943cf719eb6946a1db05128a61"
++dependencies = [
++ "bitflags",
++ "crc32fast",
++ "fdeflate",
++ "flate2",
++ "miniz_oxide",
++]
++
+ [[package]]
+ name = "potential_utf"
+ version = "0.1.5"
+@@ -875,6 +945,12 @@ dependencies = [
+  "unicode-ident",
+ ]
+ 
++[[package]]
++name = "pxfm"
++version = "0.1.30"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d55d956fa96f5ec02be2e13af0e20391a5aa83d6a074e3ad368959d0fab299ea"
++
+ [[package]]
+ name = "quote"
+ version = "1.0.46"
+@@ -1735,3 +1811,18 @@ name = "zmij"
+ version = "1.0.21"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
++
++[[package]]
++name = "zune-core"
++version = "0.5.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "cb8a0807f7c01457d0379ba880ba6322660448ddebc890ce29bb64da71fb40f9"
++
++[[package]]
++name = "zune-jpeg"
++version = "0.5.15"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "27bc9d5b815bc103f142aa054f561d9187d191692ec7c2d1e2b4737f8dbd7296"
++dependencies = [
++ "zune-core",
++]
+diff --git a/crates/app/tests/platform_probe/Cargo.toml b/crates/app/tests/platform_probe/Cargo.toml
+index ee81334d..ba983522 100644
+--- a/crates/app/tests/platform_probe/Cargo.toml
++++ b/crates/app/tests/platform_probe/Cargo.toml
+@@ -11,12 +11,14 @@ publish = false
+ crossbeam-channel = "0.5"
+ norma = { path = "../../../norma" }
+ tracing = "0.1"
++sha2 = "0.10"
++image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg"] }
+ 
+ [target.'cfg(unix)'.dependencies]
+ libc = "0.2"
+ 
+ [target.'cfg(windows)'.dependencies]
+-windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
++windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices"] }
+ 
+ [dev-dependencies]
+ tempfile = "3"
+diff --git a/crates/app/tests/platform_probe/src/lib.rs b/crates/app/tests/platform_probe/src/lib.rs
+index cbd04e99..f5cd7246 100644
+--- a/crates/app/tests/platform_probe/src/lib.rs
++++ b/crates/app/tests/platform_probe/src/lib.rs
+@@ -4,3 +4,9 @@ mod transport;
+ #[cfg(test)]
+ #[path = "../../unit/app_transport_platform_tests.rs"]
+ mod tests;
++
++#[path = "../../../src/mobile/server/connection/image_store.rs"]
++mod image_store;
++#[cfg(test)]
++#[path = "../../unit/mobile_image_platform_tests.rs"]
++mod image_tests;
+diff --git a/crates/app/tests/unit/app_transport_platform_tests.rs b/crates/app/tests/unit/app_transport_platform_tests.rs
+index 6d676eff..32addd2e 100644
+--- a/crates/app/tests/unit/app_transport_platform_tests.rs
++++ b/crates/app/tests/unit/app_transport_platform_tests.rs
+@@ -144,3 +144,56 @@ fn occupied_regular_file_is_never_removed() {
+         "禁止删除或截断原正文"
+     );
+ }
++
++/// 场景：已入队但未获UI回执的副作用请求，在App退出时必须及时收口且保留未知结果身份。
++/// 构造：真实listener，固定operation_id，收到队列请求后故意持有response sender不回复。
++/// 执行：关闭listener，再从原客户端读取结构化响应。
++/// 预期：退出少于3秒，返回OutcomeUnknown并保留原operation_id，不能假称请求未被接收。
++#[test]
++fn shutdown_does_not_wait_for_ui_and_preserves_unknown_operation() {
++    let (_dir, path) = endpoint();
++    let listener = NormaSocketListener::bind(path.clone()).unwrap();
++    let mut input = request();
++    input.operation_id = Some("11111111-2222-4333-8444-555555555555".into());
++    let mut client = UnixStream::connect(&path).unwrap();
++    client
++        .set_read_timeout(Some(Duration::from_secs(2)))
++        .unwrap();
++    client
++        .write_all(encode_request_line(&input).unwrap().as_bytes())
++        .unwrap();
++    let deadline = Instant::now() + Duration::from_secs(2);
++    let pending = loop {
++        if let Some(request) = listener.try_recv() {
++            break request;
++        }
++        assert!(
++            Instant::now() < deadline,
++            "必须确认请求已经入队，不能用未接收请求测试未知结果"
++        );
++        std::thread::sleep(Duration::from_millis(5));
++    };
++    let start = Instant::now();
++    drop(listener);
++    let elapsed = start.elapsed();
++    let mut line = String::new();
++    BufReader::new(client).read_line(&mut line).unwrap();
++    let reply = decode_response_line(&line).unwrap();
++    let Err(norma::protocol::CardCommandError::Agent(error)) = reply.result else {
++        panic!("必须返回结构化退出结果");
++    };
++    drop(pending);
++    assert!(
++        elapsed < Duration::from_secs(3),
++        "退出不能等待10秒UI回执：{elapsed:?}"
++    );
++    assert_eq!(
++        error.code,
++        norma::protocol::AgentErrorCode::OutcomeUnknown,
++        "入队后退出不能假称无副作用"
++    );
++    assert_eq!(
++        error.operation_id, input.operation_id,
++        "未知结果必须保留原operation_id"
++    );
++}
+diff --git a/crates/norma/src/lib.rs b/crates/norma/src/lib.rs
+index d9c1dc7f..faa92aa1 100644
+--- a/crates/norma/src/lib.rs
++++ b/crates/norma/src/lib.rs
+@@ -12,4 +12,4 @@ pub mod presentation;
+ pub mod protocol;
+ 
+ mod file_identity;
+-mod private_fs;
++pub mod private_fs;
+diff --git a/crates/norma/src/private_fs.rs b/crates/norma/src/private_fs.rs
+index d0567471..5402336d 100644
+--- a/crates/norma/src/private_fs.rs
++++ b/crates/norma/src/private_fs.rs
+@@ -44,7 +44,7 @@ pub(crate) fn permissions_are_private(path: &Path) -> io::Result<bool> {
+ }
+ 
+ #[cfg(unix)]
+-pub(crate) fn create_private_dir(path: &Path) -> io::Result<()> {
++pub fn create_private_dir(path: &Path) -> io::Result<()> {
+     use std::os::unix::fs::DirBuilderExt;
+     match std::fs::DirBuilder::new().mode(0o700).create(path) {
+         Ok(()) => Ok(()),
+@@ -54,6 +54,6 @@ pub(crate) fn create_private_dir(path: &Path) -> io::Result<()> {
+ }
+ 
+ #[cfg(windows)]
+-pub(crate) fn create_private_dir(path: &Path) -> io::Result<()> {
++pub fn create_private_dir(path: &Path) -> io::Result<()> {
+     windows::create_private_dir(path)
+ }
+diff --git a/crates/norma/tests/opencode_question_transport.rs b/crates/norma/tests/opencode_question_transport.rs
+index c614c944..b5cf2ec2 100644
+--- a/crates/norma/tests/opencode_question_transport.rs
++++ b/crates/norma/tests/opencode_question_transport.rs
+@@ -47,6 +47,8 @@ fn server(reply_status: u16) -> (String, std::thread::JoinHandle<Vec<(String, Va
+                     Err(error) => panic!("应收到有界本机HTTP请求：{error}"),
+                 }
+             };
++            // Listener remains nonblocking; accepted HTTP IO must honor its 3s timeout.
++            socket.set_nonblocking(false).unwrap();
+             socket
+                 .set_read_timeout(Some(Duration::from_secs(3)))
+                 .unwrap();
+diff --git a/crates/norma/tests/unit/codex_relay_output_backpressure.rs b/crates/norma/tests/unit/codex_relay_output_backpressure.rs
+index 822c64d4..516cceda 100644
+--- a/crates/norma/tests/unit/codex_relay_output_backpressure.rs
++++ b/crates/norma/tests/unit/codex_relay_output_backpressure.rs
+@@ -36,6 +36,8 @@ fn actual_relay_output_backpressure_detects_native_shutdown() {
+     let path = dir.path().join("s.sock");
+     let listener = UnixListener::bind(&path).unwrap();
+     let (native, bridge) = UnixStream::pair().unwrap();
++    #[cfg(windows)]
++    let native_probe = bridge.try_clone().unwrap();
+     let blocked = Arc::new(AtomicUsize::new(0));
+     let witness = blocked.clone();
+     let connector = std::thread::spawn(move || {
+@@ -87,6 +89,8 @@ fn actual_relay_output_backpressure_detects_native_shutdown() {
+         std::thread::sleep(Duration::from_millis(5));
+     }
+     let stopped = !relay.is_running();
++    #[cfg(windows)]
++    readiness_witness(&native_probe);
+     drop(server);
+     drop(relay);
+     let _ = shutdown.shutdown(Shutdown::Both);
+@@ -97,3 +101,28 @@ fn actual_relay_output_backpressure_detects_native_shutdown() {
+     );
+     assert!(stopped, "实际relay输出背压时native关闭必须在3秒内收口");
+ }
++
++#[cfg(windows)]
++fn readiness_witness(stream: &UnixStream) {
++    use std::os::windows::io::AsRawSocket;
++    use windows_sys::Win32::Networking::WinSock::{
++        ioctlsocket, WSAGetLastError, WSAPoll, FIONREAD, POLLRDNORM, WSAPOLLFD,
++    };
++    let mut unread = 0u32;
++    let status = unsafe { ioctlsocket(stream.as_raw_socket() as _, FIONREAD, &mut unread) };
++    eprintln!("relay close native FIONREAD: status={status}, unread_bytes={unread}");
++    for events in [0, POLLRDNORM] {
++        let mut descriptor = WSAPOLLFD {
++            fd: stream.as_raw_socket() as _,
++            events,
++            revents: 0,
++        };
++        let result = unsafe { WSAPoll(&mut descriptor, 1, 0) };
++        let error = if result < 0 {
++            unsafe { WSAGetLastError() }
++        } else {
++            0
++        };
++        eprintln!("relay close native WSAPoll: interest={events}, result={result}, revents={}, error={error}", descriptor.revents);
++    }
++}
+diff --git a/crates/runtime/tests/opencode_question_host.rs b/crates/runtime/tests/opencode_question_host.rs
+index ed7db745..e1486a95 100644
+--- a/crates/runtime/tests/opencode_question_host.rs
++++ b/crates/runtime/tests/opencode_question_host.rs
+@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
+ /// 构造：可写echo PTY与仅原question/message路由的本机HTTP服务，真实三题夹具。
+ /// 执行：原run采用host→原题占有输入→提交或先撤销→真实HTTP结果对账。
+ /// 回包丢失分支：同工具消费只关闭原题，不保留我方交付归属，也不得重发。
++/// 核对门闩分支：消费发布后暂停第二轮HTTP核对，先证明输入仍受闸门保护，再在原5秒内共同观察消费与解锁。
+ /// 预期：原会话原题Answered且唯一POST，接管零POST；错误process不能接管，普通任务始终被原题挡住。
+ #[test]
+ fn owned_opencode_host_routes_current_question_through_runtime() {
+@@ -44,9 +45,8 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
+                     }
+                     Err(e) => panic!("本机服务失败:{e}"),
+                 };
+-                if hold_after_consumption {
+-                    socket.set_nonblocking(false).unwrap();
+-                }
++                // macOS accepted sockets inherit listener flags; the mock honors bounded blocking HTTP.
++                socket.set_nonblocking(false).unwrap();
+                 socket
+                     .set_read_timeout(Some(Duration::from_millis(200)))
+                     .unwrap();
+@@ -225,23 +225,39 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
+                 held.recv_timeout(Duration::from_secs(4))
+                     .expect("消费后第二轮HTTP核对必须真正进入门闩");
+             }
+-            while runtime.question_snapshot(&target).unwrap().state != expected
+-                && Instant::now() < deadline
+-            {
++            let mut gate = hold_after_consumption.then_some(release);
++            let mut joint = None;
++            let mut last = (runtime.question_snapshot(&target).unwrap().state, true);
++            let mut held_consumption_seen = false;
++            while Instant::now() < deadline {
+                 runtime.drain_native_question_hosts("p");
++                let state = runtime.question_snapshot(&target).unwrap().state;
++                let pending = runtime.has_pending_question(node);
++                if state == expected {
++                    if let Some(gate) = gate.take() {
++                        assert!(pending, "受控HTTP核对未返回时必须保留输入闸门");
++                        held_consumption_seen = true;
++                        eprintln!("OpenCode held revalidation witness: state={state:?}, input_pending={pending}");
++                        gate.send(()).unwrap();
++                    }
++                    if !pending {
++                        joint = Some((state, pending));
++                        break;
++                    }
++                }
++                last = (state, pending);
+                 std::thread::sleep(Duration::from_millis(5));
+             }
+-            assert_eq!(
+-                runtime.question_snapshot(&target).unwrap().state,
+-                expected,
+-                "必须等待原工具精确消费"
+-            );
+-            let pending = runtime.has_pending_question(node);
+-            eprintln!("OpenCode consumption snapshot: held={hold_after_consumption}, state={:?}, input_pending={pending}", runtime.question_snapshot(&target).unwrap().state);
+-            pending_when_consumed = Some(pending);
++            let (state, pending) = joint.unwrap_or(last);
++            assert_eq!(state, expected, "必须等待原工具精确消费");
+             if hold_after_consumption {
+-                release.send(()).unwrap();
++                assert!(
++                    held_consumption_seen,
++                    "门闩必须实际覆盖消费已发布而核对仍未结束的窗口"
++                );
+             }
++            pending_when_consumed = Some(pending);
++            eprintln!("OpenCode joined milestone: held={hold_after_consumption}, state={state:?}, input_pending={pending}");
+             assert!(
+                 !runtime.observe_mobile_hook(&child_session),
+                 "空闲时子Agent创建session也不能替换原TUI归属"
+diff --git a/scripts/windows/probe.py b/scripts/windows/probe.py
+index 630378fb..df240e5f 100644
+--- a/scripts/windows/probe.py
++++ b/scripts/windows/probe.py
+@@ -93,7 +93,7 @@ def compile_probe(folder):
+         checks.append(command(folder, f"{package}_compile", [*args,
+                       "--target", TARGET, "--message-format=short"], 1500 if package == "app" else 900))
+     checks.append(command(folder, "norma_platform_tests", [
+-        "cargo", "test", "--locked", "-p", "norma", "--lib",
++        "cargo", "test", "--locked", "--no-fail-fast", "-p", "norma", "--lib",
+         "--test", "client_platform", "--test", "codex_question", "--test", "cursor_questions",
+         "--test", "client_tests", "--test", "protocol_tests", "--target", TARGET], 900))
+     return checks, {"target": TARGET, "release_build": "NOT_RUN"}
+diff --git a/crates/app/src/norma/transport/binding.rs b/crates/app/src/norma/transport/binding.rs
+new file mode 100644
+index 00000000..03f5d5d0
+--- /dev/null
++++ b/crates/app/src/norma/transport/binding.rs
+@@ -0,0 +1,187 @@
++//! An exclusive endpoint lease and identity-bound cleanup; never unlink a replacement file.
++use super::{Error, ErrorKind, Path, PathBuf};
++#[cfg(unix)]
++use std::fs;
++use std::fs::{File, OpenOptions, TryLockError};
++
++pub(super) struct SocketLease(File);
++impl SocketLease {
++    pub(super) fn acquire(path: &Path) -> std::io::Result<Self> {
++        let file = OpenOptions::new()
++            .create(true)
++            .truncate(false)
++            .read(true)
++            .write(true)
++            .open(path.with_extension("lock"))?;
++        file.try_lock().map_err(|error| match error {
++            TryLockError::WouldBlock => Error::new(
++                ErrorKind::AddrInUse,
++                "another Norma endpoint owns the socket lease",
++            ),
++            TryLockError::Error(error) => error,
++        })?;
++        Ok(Self(file))
++    }
++}
++impl Drop for SocketLease {
++    fn drop(&mut self) {
++        // File close also releases the OS lock; explicitly observe unlock failures for diagnostics.
++        if let Err(error) = self.0.unlock() {
++            tracing::warn!(%error, "Norma endpoint lease unlock failed");
++        }
++    }
++}
++
++pub(super) struct SocketBinding {
++    pub(super) path: PathBuf,
++    identity: SocketIdentity,
++    _lease: SocketLease,
++}
++impl SocketBinding {
++    pub(super) fn capture(path: PathBuf, lease: SocketLease) -> std::io::Result<Self> {
++        let identity = SocketIdentity::capture(&path)?;
++        Ok(Self {
++            path,
++            identity,
++            _lease: lease,
++        })
++    }
++}
++impl Drop for SocketBinding {
++    fn drop(&mut self) {
++        if !SocketIdentity::capture(&self.path)
++            .is_ok_and(|current| current.key == self.identity.key)
++        {
++            tracing::debug!(path = %self.path.display(), "Norma socket binding was replaced; skipped stale cleanup");
++            return;
++        }
++        if let Err(error) = self.identity.remove(&self.path) {
++            tracing::warn!(path = %self.path.display(), %error, "failed to remove owned Norma socket");
++        }
++    }
++}
++
++pub(super) fn prepare_socket_path(path: &Path) -> std::io::Result<()> {
++    prepare_socket_path_with(path, |path| super::UnixStream::connect(path).is_ok())
++}
++fn prepare_socket_path_with(
++    path: &Path,
++    is_active: impl FnOnce(&Path) -> bool,
++) -> std::io::Result<()> {
++    let identity = match SocketIdentity::capture(path) {
++        Ok(identity) => identity,
++        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
++        Err(error) => return Err(error),
++    };
++    if is_active(path) {
++        return Err(Error::new(
++            ErrorKind::AddrInUse,
++            "an active Norma endpoint already owns the socket",
++        ));
++    }
++    let current = SocketIdentity::capture(path)?;
++    if current.key != identity.key {
++        return Err(Error::new(
++            ErrorKind::AddrInUse,
++            "Norma socket identity changed during stale probe",
++        ));
++    }
++    identity.remove(path)
++}
++
++struct SocketIdentity {
++    key: (u64, u64),
++    #[cfg(windows)]
++    file: File,
++}
++#[cfg(unix)]
++impl SocketIdentity {
++    fn capture(path: &Path) -> std::io::Result<Self> {
++        use std::os::unix::fs::{FileTypeExt, MetadataExt};
++        let metadata = fs::symlink_metadata(path)?;
++        if !metadata.file_type().is_socket() {
++            return Err(Error::new(
++                ErrorKind::AddrInUse,
++                "Norma socket path is occupied by a non-socket file",
++            ));
++        }
++        Ok(Self {
++            key: (metadata.dev(), metadata.ino()),
++        })
++    }
++    fn remove(&self, path: &Path) -> std::io::Result<()> {
++        fs::remove_file(path)
++    }
++}
++#[cfg(windows)]
++impl SocketIdentity {
++    fn capture(path: &Path) -> std::io::Result<Self> {
++        use std::os::windows::{fs::OpenOptionsExt, io::AsRawHandle};
++        use windows_sys::Win32::Storage::FileSystem::{
++            FileAttributeTagInfo, GetFileInformationByHandle, GetFileInformationByHandleEx,
++            BY_HANDLE_FILE_INFORMATION, DELETE, FILE_ATTRIBUTE_TAG_INFO,
++            FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES,
++            FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
++        };
++        use windows_sys::Win32::System::SystemServices::IO_REPARSE_TAG_AF_UNIX;
++        let file = OpenOptions::new()
++            .access_mode(FILE_READ_ATTRIBUTES | DELETE)
++            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
++            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
++            .open(path)?;
++        let mut tag: FILE_ATTRIBUTE_TAG_INFO = unsafe { std::mem::zeroed() };
++        // The handle pins the reparse point itself; never follow symlinks or junctions.
++        if unsafe {
++            GetFileInformationByHandleEx(
++                file.as_raw_handle(),
++                FileAttributeTagInfo,
++                (&mut tag as *mut FILE_ATTRIBUTE_TAG_INFO).cast(),
++                std::mem::size_of_val(&tag) as u32,
++            )
++        } == 0
++        {
++            return Err(Error::last_os_error());
++        }
++        if tag.ReparseTag != IO_REPARSE_TAG_AF_UNIX {
++            return Err(Error::new(
++                ErrorKind::AddrInUse,
++                "Norma socket path is occupied by a non-socket file",
++            ));
++        }
++        let mut identity: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
++        if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut identity) } == 0 {
++            return Err(Error::last_os_error());
++        }
++        Ok(Self {
++            key: (
++                u64::from(identity.dwVolumeSerialNumber),
++                (u64::from(identity.nFileIndexHigh) << 32) | u64::from(identity.nFileIndexLow),
++            ),
++            file,
++        })
++    }
++    fn remove(&self, _path: &Path) -> std::io::Result<()> {
++        use std::os::windows::io::AsRawHandle;
++        use windows_sys::Win32::Storage::FileSystem::{
++            FileDispositionInfo, SetFileInformationByHandle, FILE_DISPOSITION_INFO,
++        };
++        let disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
++        // Delete through the pinned handle, so a concurrent path replacement is never removed.
++        if unsafe {
++            SetFileInformationByHandle(
++                self.file.as_raw_handle(),
++                FileDispositionInfo,
++                (&disposition as *const FILE_DISPOSITION_INFO).cast(),
++                std::mem::size_of_val(&disposition) as u32,
++            )
++        } == 0
++        {
++            return Err(Error::last_os_error());
++        }
++        Ok(())
++    }
++}
++
++#[cfg(test)]
++#[path = "../../../tests/unit/app_transport_binding_tests.rs"]
++mod tests;
+diff --git a/crates/app/tests/unit/app_transport_binding_tests.rs b/crates/app/tests/unit/app_transport_binding_tests.rs
+new file mode 100644
+index 00000000..ec4eedba
+--- /dev/null
++++ b/crates/app/tests/unit/app_transport_binding_tests.rs
+@@ -0,0 +1,96 @@
++use super::{SocketBinding, SocketLease};
++use norma::codex::UnixListener;
++
++/// 场景：原socket被移走，原路径出现新文件时，旧binding关闭不得误删新正文。
++/// 构造：真实AF_UNIX端点与租约，捕获OS文件身份后关闭listener，再rename并写入不同正文。
++/// 执行：释放原binding，分别检查替代文件与被移动端点。
++/// 预期：两条路径均保留，不把拥有旧文件身份当作仍拥有原路径。
++#[test]
++fn replaced_path_keeps_user_file_and_moved_socket() {
++    let dir = tempfile::Builder::new()
++        .prefix("nab-")
++        .tempdir_in(if cfg!(windows) {
++            std::env::temp_dir()
++        } else {
++            "/tmp".into()
++        })
++        .unwrap();
++    let path = dir.path().join("s.sock");
++    let moved = dir.path().join("old.sock");
++    let lease = SocketLease::acquire(&path).unwrap();
++    let listener = UnixListener::bind(&path).unwrap();
++    let binding = SocketBinding::capture(path.clone(), lease).unwrap();
++    drop(listener);
++    std::fs::rename(&path, &moved).expect("共享删除句柄必须允许端点重命名");
++    std::fs::write(&path, b"replacement-user-data").unwrap();
++    drop(binding);
++    assert_eq!(
++        std::fs::read(&path).unwrap(),
++        b"replacement-user-data",
++        "旧binding不能删除替代正文"
++    );
++    assert!(
++        moved.exists(),
++        "旧binding失去路径归属后也不能擅自删除被移动文件"
++    );
++}
++
++/// 场景：上次进程遗留的非活动socket允许在持有独占租约时重新绑定。
++/// 构造：真实端点关闭后保留原socket文件；通过App入口重建listener。
++/// 执行：重新绑定并关闭，检查残留清理。
++/// 预期：正常接管陈旧端点，最终删除自己拥有的文件，而不是误判仍有活动宿主。
++#[test]
++fn inactive_socket_is_rebound_and_owned_cleanup_completes() {
++    let dir = tempfile::Builder::new()
++        .prefix("nas-")
++        .tempdir_in(if cfg!(windows) {
++            std::env::temp_dir()
++        } else {
++            "/tmp".into()
++        })
++        .unwrap();
++    let path = dir.path().join("s.sock");
++    drop(UnixListener::bind(&path).unwrap());
++    assert!(
++        path.exists(),
++        "必须实际留下陈旧端点，不能把不存在路径当作恢复测试"
++    );
++    let listener = super::super::NormaSocketListener::bind(path.clone()).unwrap();
++    drop(listener);
++    assert!(!path.exists(), "恢复后正常关闭必须完成归属文件清理");
++}
++
++/// 场景：检查陈旧socket之后、连接探测期间发生路径替换，不能删除新正文。
++/// 构造：真实陈旧端点；探测回调精确在身份检查后rename旧文件并写入替代标记。
++/// 执行：走实际prepare入口的连接探测边界，再读取替代文件。
++/// 预期：替代正文和移动端点均保留，并返回AddrInUse，禁止先验证后裸路径删除。
++#[test]
++fn stale_probe_path_exchange_never_deletes_replacement() {
++    let dir = tempfile::Builder::new()
++        .prefix("nae-")
++        .tempdir_in(if cfg!(windows) {
++            std::env::temp_dir()
++        } else {
++            "/tmp".into()
++        })
++        .unwrap();
++    let path = dir.path().join("s.sock");
++    let moved = dir.path().join("old.sock");
++    drop(UnixListener::bind(&path).unwrap());
++    let result = super::prepare_socket_path_with(&path, |path| {
++        std::fs::rename(path, &moved).unwrap();
++        std::fs::write(path, b"new-user-data").unwrap();
++        false
++    });
++    assert_eq!(
++        std::fs::read(&path).expect("陈旧探测不能删掉替代正文"),
++        b"new-user-data",
++        "路径交换后必须保留用户正文"
++    );
++    assert!(moved.exists(), "不能顺带删除已移动的旧文件");
++    assert_eq!(
++        result.unwrap_err().kind(),
++        std::io::ErrorKind::AddrInUse,
++        "身份变化必须明确拒绝绑定"
++    );
++}
+diff --git a/crates/app/tests/unit/app_transport_deadline_tests.rs b/crates/app/tests/unit/app_transport_deadline_tests.rs
+new file mode 100644
+index 00000000..59346b3f
+--- /dev/null
++++ b/crates/app/tests/unit/app_transport_deadline_tests.rs
+@@ -0,0 +1,67 @@
++use super::*;
++use std::sync::atomic::AtomicBool;
++use std::time::Instant;
++
++/// 场景：不足每次read超时的无换行碎片，不能无限延长同一条NDJSON请求。
++/// 构造：真实Socket pair，50×75ms=3.75秒慢滴，每次间隔远小于原2秒流超时。
++/// 执行：实际handle_stream读取，返回后回收发送方与线程。
++/// 预期：整条请求在3秒内失败、不进入App队列；每次读到碎片都重新计时会使此测试失败。
++#[test]
++fn dripping_partial_line_has_one_request_deadline() {
++    let (mut client, bridge) = UnixStream::pair().unwrap();
++    let stop = Arc::new(AtomicBool::new(false));
++    let stopped = stop.clone();
++    let writer = std::thread::spawn(move || {
++        for _ in 0..50 {
++            if stopped.load(Ordering::Acquire) || client.write_all(b" ").is_err() {
++                break;
++            }
++            std::thread::sleep(Duration::from_millis(75));
++        }
++    });
++    let (sender, requests) = bounded(1);
++    let start = Instant::now();
++    handle_stream(bridge, sender, &AtomicBool::new(false));
++    let elapsed = start.elapsed();
++    stop.store(true, Ordering::Release);
++    writer.join().unwrap();
++    assert!(
++        elapsed < Duration::from_secs(3),
++        "碎片不能续期整条请求：{elapsed:?}"
++    );
++    assert!(requests.try_recv().is_err(), "未完成NDJSON不能进入App队列");
++}
++
++/// 场景：读取预算按UTF8字节计数，字符跨read到达也不能被误判为损坏。
++/// 构造：é占2字节，加换行共3字节，恰好等于预算；第一个UTF8字节单独送达。
++/// 执行：用真实Socket分段写入，并在换行后附加另一条数据。
++/// 预期：只返回完整首行，不读入换行后的数据，也不把未完整的字符提前解码。
++#[test]
++fn request_limit_counts_complete_utf8_wire_bytes() {
++    let (mut client, mut bridge) = UnixStream::pair().unwrap();
++    let writer = std::thread::spawn(move || {
++        client.write_all(&[0xc3]).unwrap();
++        std::thread::sleep(Duration::from_millis(20));
++        client.write_all(&[0xa9, b'\n', b'x']).unwrap();
++    });
++    let line = read_request_line(&mut bridge, &AtomicBool::new(false), 3).unwrap();
++    writer.join().unwrap();
++    assert_eq!(line, "é\n", "UTF8跨read必须保留且只读一条帧");
++    assert_eq!(line.len(), 3, "预算必须按字节而非字符计算");
++}
++
++/// 场景：输入达到资源边界后还多1字节必须拒绝。
++/// 构造：4字节预算与5字节完整行abcd换行，不需要分配生产64MiB测试数据。
++/// 执行：通过实际有界读取函数处理真实Socket数据。
++/// 预期：InvalidData，而不是截断为合法请求或等待更多正文。
++#[test]
++fn oversized_request_is_rejected_without_truncation() {
++    let (mut client, mut bridge) = UnixStream::pair().unwrap();
++    client.write_all(b"abcd\n").unwrap();
++    let error = read_request_line(&mut bridge, &AtomicBool::new(false), 4).unwrap_err();
++    assert_eq!(
++        error.kind(),
++        ErrorKind::InvalidData,
++        "超限不能截断或改写请求"
++    );
++}
+diff --git a/crates/app/tests/unit/mobile_image_platform_tests.rs b/crates/app/tests/unit/mobile_image_platform_tests.rs
+new file mode 100644
+index 00000000..408666cf
+--- /dev/null
++++ b/crates/app/tests/unit/mobile_image_platform_tests.rs
+@@ -0,0 +1,75 @@
++use crate::image_store;
++use image::{ImageFormat, Rgb, RgbImage};
++use sha2::{Digest, Sha256};
++use std::io::Cursor;
++
++fn png() -> Vec<u8> {
++    let image = RgbImage::from_pixel(2, 2, Rgb([7, 19, 31]));
++    let mut bytes = Cursor::new(Vec::new());
++    image.write_to(&mut bytes, ImageFormat::Png).unwrap();
++    bytes.into_inner()
++}
++
++/// 场景：手机附件必须通过真实图片校验并在私有目录中原样保存和读取。
++/// 构造：2×2 PNG以及正文SHA-256地址；隔离根目录/项目目录均由实际store创建。
++/// 执行：验证、保存、读取同一图片，随后破坏正文再次读取。
++/// 预期：首轮字节完全相同；篡改后不能返回正文，也不能把坏图当作成功附件。
++#[test]
++fn image_roundtrip_then_tampering_is_rejected() {
++    let temp = tempfile::tempdir().unwrap();
++    let folder = temp.path().join("attachments").join("project");
++    let bytes = png();
++    assert_eq!(
++        image_store::validate(&bytes),
++        Ok("png"),
++        "真实PNG应通过解码和尺寸校验"
++    );
++    let id = format!("{:x}", Sha256::digest(&bytes));
++    let path = image_store::save(&folder, &id, "png", &bytes).unwrap();
++    let (_, loaded) = image_store::read(&folder, &id).unwrap();
++    assert_eq!(loaded, bytes, "读回必须等于原附件，不能截断或替换");
++    std::fs::write(path, b"tampered").unwrap();
++    assert_eq!(
++        image_store::read(&folder, &id).unwrap_err(),
++        "invalid_image",
++        "哈希地址不能返回被替换的正文"
++    );
++}
++
++/// 场景：附件父目录被普通文件占据时必须拒绝，不得覆盖用户文件。
++/// 构造：attachments路径写入固定标记，项目目录尚不存在。
++/// 执行：实际save尝试建目录。
++/// 预期：明确存储错误且标记不变，不留下部分附件。
++#[test]
++fn image_parent_file_is_preserved() {
++    let temp = tempfile::tempdir().unwrap();
++    let parent = temp.path().join("attachments");
++    std::fs::write(&parent, b"keep").unwrap();
++    let bytes = png();
++    let id = format!("{:x}", Sha256::digest(&bytes));
++    assert_eq!(
++        image_store::save(&parent.join("project"), &id, "png", &bytes).unwrap_err(),
++        "image_storage_unavailable",
++        "非目录父路径必须拒绝"
++    );
++    assert_eq!(std::fs::read(parent).unwrap(), b"keep", "不得覆盖原文件");
++}
++
++/// 场景：读取超过2MiB的缓存正文必须拒绝，即使文件名匹配其真实哈希。
++/// 构造：实际LIMIT+1字节，超过上限仅1字节，不需要解码大图片。
++/// 执行：把正文放入真实项目目录并调用实际读取入口。
++/// 预期：invalid_image，不能因内容寻址正确而绕过资源上限。
++#[test]
++fn oversized_image_file_cannot_bypass_read_limit() {
++    let temp = tempfile::tempdir().unwrap();
++    let folder = temp.path().join("attachments").join("project");
++    std::fs::create_dir_all(&folder).unwrap();
++    let bytes = vec![3; image_store::LIMIT + 1];
++    let id = format!("{:x}", Sha256::digest(&bytes));
++    std::fs::write(folder.join(format!("{id}.png")), bytes).unwrap();
++    assert_eq!(
++        image_store::read(&folder, &id).unwrap_err(),
++        "invalid_image",
++        "超过实际协议上限的文件必须拒绝"
++    );
++}

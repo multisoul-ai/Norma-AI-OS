@@ -43,8 +43,7 @@ impl MultisoulApp {
             key,
             super::overview_detail_view::title(&row.primary, "chrome.brain_approval_title"),
             row.secondary.clone(),
-            "◇",
-            theme.accent_warm,
+            ("◇", theme.accent_warm),
             self,
             cx,
         );

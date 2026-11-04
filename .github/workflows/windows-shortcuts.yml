@@ -1,0 +1,57 @@
+name: App platform shortcut contracts
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/windows-audio-*']
+    paths: ['crates/app/src/shortcuts.rs', 'crates/app/src/shortcuts/**', 'crates/app/tests/keyboard_probe/**', '!crates/app/tests/keyboard_probe/src/window_lifecycle.rs', '.github/workflows/windows-shortcuts.yml']
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_TERM_COLOR: never
+jobs:
+  keyboard:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-native-keyboard
+          cache-workspace-crates: true
+          cache-on-failure: true
+      - uses: actions/cache@v4
+        with:
+          path: target/sherpa-onnx-prebuilt
+          key: sherpa-prebuilt-${{ runner.os }}-${{ runner.arch }}-1.13.3-static
+      - name: Verify the frozen probe lock against the product lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/keyboard
+          python3 scripts/check-probe-lock.py Cargo.lock crates/app/tests/keyboard_probe/Cargo.lock
+          cp crates/app/tests/keyboard_probe/Cargo.lock artifacts/keyboard/Cargo.lock
+      - name: Require native primary-modifier dispatch
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/keyboard
+          rustc -vV | tee artifacts/keyboard/rustc.log
+          cargo test --locked --manifest-path crates/app/tests/keyboard_probe/Cargo.toml --target-dir target --lib native_ -- --nocapture 2>&1 | tee artifacts/keyboard/tests.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: keyboard-${{ matrix.os }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/keyboard/
+          if-no-files-found: error
+          retention-days: 3

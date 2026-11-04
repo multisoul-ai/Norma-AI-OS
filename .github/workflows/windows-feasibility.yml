@@ -1,0 +1,274 @@
+name: Windows feasibility probe
+
+on:
+  push:
+    branches: ['codex/windows-feasibility-*']
+    paths:
+      - '.github/workflows/windows-feasibility.yml'
+      - 'scripts/windows/**'
+      - 'scripts/test-windows-probe.py'
+      - 'scripts/test-sherpa-platform-dependencies.py'
+      - 'scripts/check-domain-contracts.py'
+      - 'scripts/test-check-domain-contracts.py'
+      - 'test/windows-probe/**'
+      - 'vendor/gpui-0.2.2/**'
+      - 'vendor/sherpa-onnx-sys-1.13.3/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-feasibility-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: '1'
+  CARGO_INCREMENTAL: '0'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_TERM_COLOR: never
+  RUST_BACKTRACE: '1'
+
+jobs:
+  environment-and-agents:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - name: Test report semantics and baseline contracts
+        shell: pwsh
+        run: |
+          python scripts/test-windows-probe.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-check-domain-contracts.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/check-domain-contracts.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-sherpa-platform-dependencies.py
+          exit $LASTEXITCODE
+      - name: Observe runner and DirectX capabilities
+        shell: pwsh
+        run: python scripts/windows/probe.py environment
+      - name: Probe pinned CLIs without credentials or model tasks
+        if: always()
+        shell: pwsh
+        run: python scripts/windows/probe.py agents
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-environment-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          retention-days: 7
+          if-no-files-found: error
+
+  compile:
+    runs-on: windows-2025
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - name: Test canvas and record real Windows compiler failures
+        shell: pwsh
+        run: python scripts/windows/probe.py compile
+      - name: Require norma Windows compilation without feature overrides
+        if: always()
+        shell: pwsh
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-windows-probe-target'
+          cargo check --locked -p norma --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --no-fail-fast -p norma --lib --test client_platform --test codex_question --test cursor_questions --test client_tests --test protocol_tests --target x86_64-pc-windows-msvc
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-compile-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          retention-days: 7
+          if-no-files-found: error
+
+  app-platform:
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - name: Exercise actual App socket and image adapters without the GPUI dependency graph
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/windows-feasibility/app-adapters | Out-Null
+          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-app-adapter-target'
+          cargo test --locked --manifest-path crates/app/tests/platform_probe/Cargo.toml --lib --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/app-adapters/transport.log
+          $transport = $LASTEXITCODE
+          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; transport_exit = $transport } | ConvertTo-Json | Set-Content artifacts/windows-feasibility/app-adapters/report.json
+          python scripts/windows/probe.py record-app-adapters
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          exit $transport
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-app-adapters-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          retention-days: 7
+          if-no-files-found: error
+
+  codex-control:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - name: Require Codex control request errors and shutdown on Windows
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/windows-feasibility/control | Out-Null
+          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-codex-control-target'
+          cargo test --locked -p norma --test control_identity_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/control/identity.log
+          $identity = $LASTEXITCODE
+          cargo test --locked --no-fail-fast -p norma --lib --test codex_control_platform --test codex_control_handshake --test codex_control_shutdown --test codex_connection --test codex_question_relay --test codex_question_host --test codex_question_connections --test codex_question_version --test codex_question_relay_permissions --test codex_question_relay_identity --test codex_question_relay_backpressure --test codex_question_relay_ephemeral --test codex_question_relay_large --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/control/control.log
+          $control = $LASTEXITCODE
+          cargo test --locked --no-fail-fast -p runtime --test codex_question_host --test codex_question_blocker --test codex_turn_lifecycle --test codex_questions --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/control/runtime.log
+          $runtime = $LASTEXITCODE
+          cargo test --locked -p norma --test opencode_question_transport --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/control/opencode_transport.log
+          $opencode_transport = $LASTEXITCODE
+          cargo test --locked -p runtime --test opencode_question_host --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/control/opencode_runtime.log
+          $opencode_runtime = $LASTEXITCODE
+          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; control_exit = $control; identity_exit = $identity; runtime_exit = $runtime; opencode_transport_exit = $opencode_transport; opencode_runtime_exit = $opencode_runtime } | ConvertTo-Json | Set-Content artifacts/windows-feasibility/control/report.json
+          python scripts/windows/probe.py record-control
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($control -ne 0 -or $identity -ne 0 -or $runtime -ne 0 -or $opencode_transport -ne 0 -or $opencode_runtime -ne 0) { exit 1 }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-control-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          retention-days: 7
+          if-no-files-found: error
+
+  platform-boundaries:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - name: Require real storage Review and A1 platform regressions
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/windows-feasibility/platform | Out-Null
+          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'norma-platform-target'
+          cargo test --locked -p storage --test memory_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/platform/memory_platform.log
+          $memory = $LASTEXITCODE
+          cargo test --locked --no-fail-fast -p workspace --lib --test review_platform --test scoped_directory --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/platform/review_platform.log
+          $review = $LASTEXITCODE
+          cargo test --locked -p asr --test a1_platform --target x86_64-pc-windows-msvc -- --nocapture 2>&1 | Tee-Object artifacts/windows-feasibility/platform/a1_platform.log
+          $a1 = $LASTEXITCODE
+          @{ source_sha = $env:GITHUB_SHA; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; memory_exit = $memory; review_exit = $review; a1_exit = $a1 } | ConvertTo-Json | Set-Content artifacts/windows-feasibility/platform/report.json
+          python scripts/windows/probe.py record-platform
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($memory -ne 0 -or $review -ne 0 -or $a1 -ne 0) { exit 1 }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-platform-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          retention-days: 7
+          if-no-files-found: error
+
+  speech:
+    runs-on: windows-2025
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - name: Record default voice_input compile and affected speech tests
+        shell: pwsh
+        run: python scripts/windows/probe.py speech
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-speech-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Require the captured native speech checks
+        if: always()
+        shell: pwsh
+        run: python scripts/windows/probe.py speech-gate
+
+  graphics:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - name: Build and observe the vendored GPUI sample
+        shell: pwsh
+        run: python scripts/windows/probe.py graphics
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-graphics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          retention-days: 3
+          if-no-files-found: error
+
+  feasibility-verdict:
+    if: always()
+    needs: [environment-and-agents, compile, graphics, speech, platform-boundaries, codex-control, app-platform]
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: windows-feasibility-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/windows-feasibility/
+          merge-multiple: true
+      - name: Preserve FAIL and NOT_RUN gates; never claim migration complete
+        if: always()
+        shell: pwsh
+        run: python scripts/windows/probe.py summary
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: windows-feasibility-verdict-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/windows-feasibility/feasibility.json
+            artifacts/windows-feasibility/summary.md
+          retention-days: 7
+          if-no-files-found: error

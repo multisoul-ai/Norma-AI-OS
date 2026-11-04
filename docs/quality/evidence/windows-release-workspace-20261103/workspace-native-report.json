@@ -1,0 +1,14 @@
+{
+  "workspace_name": "Runner 中文 workspace 41638906755",
+  "visual_verification": "PENDING",
+  "executable": "D:\\a\\_temp\\Norma 中文 candidate\\norma-os-0.1.77-windows-x64-94e4bc83\\norma-os.exe",
+  "workspace_id": "4a34cb6a-72d9-46c3-bec1-f05b9d7fa092",
+  "status": "PASS",
+  "workspace_persisted": true,
+  "source_sha": "94e4bc83a7940a39ef0888d97d5f90669c5ccacd",
+  "exit_mode": "workspace-reopen",
+  "scope": "Actual App: native Ctrl+N, Unicode workspace creation, close and reopen; screenshots require visual verification; package provenance is checked separately by the caller",
+  "probe_sha": "cdc35620a926f282bcb80307a414afdb36bcacfd",
+  "run_attempt": "1",
+  "run_id": "41638906755"
+}

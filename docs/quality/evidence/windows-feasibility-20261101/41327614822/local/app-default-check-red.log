@@ -1,0 +1,14 @@
+F.........
+======================================================================
+FAIL: test_app_check_includes_default_binary_targets (__main__.FeasibilityReportTests)
+场景：App 默认构建包含主程序和 helper；采集命令计划；
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/norma-windows-feasibility-20261101/scripts/test-windows-probe.py", line 54, in test_app_check_includes_default_binary_targets
+    self.assertNotIn("--lib", args, "App evidence must cover the default main/helper targets")
+AssertionError: '--lib' unexpectedly found in ['cargo', 'check', '--locked', '-p', 'app', '--lib', '--target', 'x86_64-pc-windows-msvc', '--message-format=short'] : App evidence must cover the default main/helper targets
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.532s
+
+FAILED (failures=1)

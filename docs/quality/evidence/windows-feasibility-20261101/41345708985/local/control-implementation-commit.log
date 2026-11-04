@@ -1,0 +1,7 @@
+OK: codesign readiness check passed
+[pre-commit] running cargo check...
+[pre-commit] running cargo fmt --check...
+[codex/windows-feasibility-20261101 9b9a4e00] fix(windows): enable Codex local control relay with bounded socket readiness
+ 27 files changed, 331 insertions(+), 61 deletions(-)
+ create mode 100644 crates/norma/src/codex/relay/transport/windows.rs
+ create mode 100644 crates/norma/tests/codex_control_shutdown.rs

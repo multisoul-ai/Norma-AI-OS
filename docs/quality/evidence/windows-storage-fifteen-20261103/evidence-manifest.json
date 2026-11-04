@@ -1,0 +1,1974 @@
+{
+  "format_version": 1,
+  "verified_source": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+  "final_run": 41760987212,
+  "path_base": "docs/quality/evidence/windows-storage-fifteen-20261103",
+  "excludes": [
+    "evidence-manifest.json"
+  ],
+  "run_sources": {
+    "atomic-red-41759894115": {
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    "baseline-41756328226": {
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    "full-fix-41760987212": {
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    "memory-41759424737": {
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    "probe-41757755342": {
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    }
+  },
+  "secret_scan": {
+    "patterns": "GitHub token, model API key, AWS access key, private key header",
+    "matched_files": 0
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 11696,
+      "sha256": "c0ad8758696a27cb6964cb5a0458cfeb4c9936ff5dcf19d9eb1bd3c8a6690c97",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "note": "Derived analysis; see referenced baseline and diagnostic run_sources"
+    },
+    {
+      "path": "atomic-red-41759894115/artifacts.json",
+      "bytes": 1808,
+      "sha256": "5a0b4699bc41a18ab4f07abd41b351fb311a686a514a5122e3e0117945e559a9",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "atomic-red-41759894115/jobs.json",
+      "bytes": 3983,
+      "sha256": "21efc8571f484bd249af84df401a8675a92d093c086bc44c1c84395ec272c9a9",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "atomic-red-41759894115/macos-job.log",
+      "bytes": 57363,
+      "sha256": "2e4c0c8b4b30861e9484e8268e73787981e4fd2e98beaa46e65a5019d47f7eeb",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "atomic-red-41759894115/macos-latest/atomic-migration.log",
+      "bytes": 4503,
+      "sha256": "4a0ae906eb8e62dca39c29a0135adab94b98ca42bb410a919501f32067c353f6",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "atomic-red-41759894115/macos-latest/boundaries.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "atomic-red-41759894115/macos-latest/performance.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "atomic-red-41759894115/macos-latest/report.json",
+      "bytes": 1034,
+      "sha256": "5dd1c5fbf97897c743c0ed4d6e852969ddf45fe3fec63b43698bf95c59206f74",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "atomic-red-41759894115/windows-2025/atomic-migration.log",
+      "bytes": 4701,
+      "sha256": "2455f6b0d0ecf23700f05b583f0cdfbdf56c1ad3d94e2f6636ba71943135cd6c",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "atomic-red-41759894115/windows-2025/boundaries.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "atomic-red-41759894115/windows-2025/performance.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "atomic-red-41759894115/windows-2025/report.json",
+      "bytes": 1072,
+      "sha256": "6ede269a575983770ce9e07b949d8f12400652ed8cd664934b707d55a67bf2f2",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "atomic-red-41759894115/windows-job.log",
+      "bytes": 59168,
+      "sha256": "b34792b60873e6b6e0d98d672e1ad53a8a0abd3c900351992b1f7242c3627de2",
+      "source_sha": "fdf5c60cbd6f6a3199c2282ec027fc6f6f9f4c14",
+      "run_id": 41759894115
+    },
+    {
+      "path": "baseline-41756328226/artifacts.json",
+      "bytes": 1810,
+      "sha256": "177faa59a334878274de062779c73fd7efbd6b4d2fc8fd731141b6e103a7d077",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/jobs.json",
+      "bytes": 3999,
+      "sha256": "5ecd30e2a9861153ea6ca75699e529e223ce35c0fb7799e6d850b8c0fa83eea1",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-job.log",
+      "bytes": 157119,
+      "sha256": "44c1b1db7fe9886cbc7dbf79cabf20afedd468bebbd824da08faddd807904a4c",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/boundaries.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/full-storage.log",
+      "bytes": 51211,
+      "sha256": "80dcc17ad5cc4d7d253a63eb8c350755b47ef6a94beb66b454dd829cbeec1c31",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/legacy.log",
+      "bytes": 773,
+      "sha256": "0dc7228213961669a46651b3a640a3bdfdba7f1f8425d7f29ca3e5c97f85d749",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/live_operation_store-01.log",
+      "bytes": 651,
+      "sha256": "3525e9d526b58972b0d680b09c349f959b927712bedec49cf4d92f9657e6e359",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/live_operation_store-02.log",
+      "bytes": 651,
+      "sha256": "f2235c804cd31534f466a538ad55e450bd661ab19357873aa40a6722c8eb23c9",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/live_operation_store-03.log",
+      "bytes": 651,
+      "sha256": "05876760ab0ff0f4f97ac31271bd5cc3fca3d1027b84a65c1c39f4d71b4df7c5",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/live_operation_store-04.log",
+      "bytes": 651,
+      "sha256": "6006bdd3c394d0b31dfc9b49373bf2fa13ab14d05a43b5ce23613c45219581da",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/live_operation_store-05.log",
+      "bytes": 651,
+      "sha256": "ff6679135b64e1c93368c49bbdf113301e39517bbc7bd5b5e5c57327a6dbe524",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/memory.log",
+      "bytes": 327,
+      "sha256": "a0b4f302955e8119cb8f3459299ade2105cd68b8bc941f0406737c4ca7586e36",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/mobile_commands-01.log",
+      "bytes": 480,
+      "sha256": "d658f7193423addd92aecc8a538e1377753b46c185ab113884e3aafc79893e65",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/mobile_commands-02.log",
+      "bytes": 480,
+      "sha256": "d61bc6c07f7eada010d127d9edd56dd8c06391c5224cbabd6ce457a07065df38",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/mobile_commands-03.log",
+      "bytes": 480,
+      "sha256": "d386f048bebc2915c2675ccc9c6184d11036db41f807d97f97f990ff5873a2fe",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/mobile_commands-04.log",
+      "bytes": 480,
+      "sha256": "de5bfd5386eaf07f769fe156f1a78cdbcefd83b0f4fa747ec1a72272e15d1e14",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/mobile_commands-05.log",
+      "bytes": 480,
+      "sha256": "3cc425f9b12b5b28c7743f3c4644656c009f5141e0fdee9f5ba940b4d15cbf3b",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/paths.log",
+      "bytes": 356,
+      "sha256": "04aa5bc1163918d554d1a16bef62e1f427985ac96d66e1cea0b0127227edf114",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/performance.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/report.json",
+      "bytes": 9836,
+      "sha256": "d200e741a506f33de7cee9d252a08f8f5948453743638c2d60a3278b4777e981",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/sessions.log",
+      "bytes": 599,
+      "sha256": "c185f535697be6c0505bc054493b20f94ef7d656c250fddc6e3cba2de42e3a8d",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/workspace_chat_time-01.log",
+      "bytes": 396,
+      "sha256": "2eda694df7f8168cab94c75fe21d2cf09247c1c6506f154c3010377d1136e545",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/workspace_chat_time-02.log",
+      "bytes": 396,
+      "sha256": "3acda8d7250cadb730a26dff6ad922f3714d7f9e9e46fae04b403faf7274457e",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/workspace_chat_time-03.log",
+      "bytes": 396,
+      "sha256": "b8f3b310da4ca3bdfca17dfff7d62b813cec4322978e3c87b6e125f748f2d5b9",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/workspace_chat_time-04.log",
+      "bytes": 396,
+      "sha256": "16c5a1dfa7ca8b837c3bde6dd16ee81573ac74443e96f7e2eef52d70d34a85c8",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/macos-latest/workspace_chat_time-05.log",
+      "bytes": 396,
+      "sha256": "c2bfb783c785c7804c50352252eef588bd9bd8eedaa943479d55273f72511b7c",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/boundaries.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/full-storage.log",
+      "bytes": 87813,
+      "sha256": "4a61deef940376c16008302aaf3be1fe7a9d3decf1208a3ca7185bffe8d42cb8",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/legacy.log",
+      "bytes": 15468,
+      "sha256": "f81fca2acef35c736a3bca91a9f2c3965ea88cb5f1ad1b9b8d0a7d19003aa765",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/live_operation_store-01.log",
+      "bytes": 4620,
+      "sha256": "fa28facdbd895fe8f2396cd207dff71d8110c65dbd63a5214625afd610038adc",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/live_operation_store-02.log",
+      "bytes": 4619,
+      "sha256": "5cafca804a5ef6dadbd604f6788a5f83beea6f7f7a645fe7ad161eee59f7631a",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/live_operation_store-03.log",
+      "bytes": 4620,
+      "sha256": "0f65ad573b4ef3c8e39b60f83d5d4781bc534e89081e547a561dec78680483aa",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/live_operation_store-04.log",
+      "bytes": 4620,
+      "sha256": "9a4fa3a20bf7d2865e20035625af24ce661a2ac091184be1e274549b2f052d23",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/live_operation_store-05.log",
+      "bytes": 4620,
+      "sha256": "9de34fece09a463cf6b7064dbf6b3ee998f1eccff9a5fcad04373afe089e2481",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/memory.log",
+      "bytes": 2007,
+      "sha256": "f469c4e3f5aab1e867310f43521fac7ea6dd8b3a022d30cf3d31bdfa0e1f94ce",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/mobile_commands-01.log",
+      "bytes": 3172,
+      "sha256": "21a4f0b5f9f6b2bd99dfba9b27378d6086320d7d9a947e8e6eda75ecd5a62371",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/mobile_commands-02.log",
+      "bytes": 3172,
+      "sha256": "98b0302613a24c01200fb1ca48790cd6f8f3feed90c45a8ab803e2f16c33bfde",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/mobile_commands-03.log",
+      "bytes": 3172,
+      "sha256": "0ec9d038a7735bbf15ff65353d19d71d708c2b0b884ec67312314341453b2860",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/mobile_commands-04.log",
+      "bytes": 3172,
+      "sha256": "336a5a4153c17b9811cb914ec2594fb16f1524a3e4936da2c7f6ece361f67f7d",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/mobile_commands-05.log",
+      "bytes": 3172,
+      "sha256": "bfbc433b0299f94f22844aa5e46716023abb1749e7d0224490b39e5c459f8c86",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/paths.log",
+      "bytes": 2551,
+      "sha256": "965a4415d912aea07daaaf363be9eea242af4e163bd6eb31a4cd7fe320a8a41f",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/performance.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/report.json",
+      "bytes": 13202,
+      "sha256": "c842dc30d5d93f8942a53957e89b7445de78b2c7add56fc65332f28c25768664",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/sessions.log",
+      "bytes": 8699,
+      "sha256": "4cea19e65ab7de7c4072af526918720eb0395847be87fdb9e09dbf9f16f32233",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/workspace_chat_time-01.log",
+      "bytes": 2421,
+      "sha256": "5168214b070ff3663b7fca6ef4494476d6dcbe0e78ceb7f6968a64969d62a9e6",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/workspace_chat_time-02.log",
+      "bytes": 2421,
+      "sha256": "75283ddc8607733898c553e5043efd01c1844646c50f79f045ca9dc443ad71f1",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/workspace_chat_time-03.log",
+      "bytes": 2360,
+      "sha256": "8f5700bc2ca236a1444f41a732c9f77dde039f1adffc1ee41809110f7ad7d422",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/workspace_chat_time-04.log",
+      "bytes": 2360,
+      "sha256": "06251566cb18f03d8dcc64222008e38a2f2fe5e2a1957f23e6af041511dcdd4d",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-2025/workspace_chat_time-05.log",
+      "bytes": 2360,
+      "sha256": "f737713025ab71c1ff3853acf3cf29b41b1bf0590e73aa9214b83f6cdfb12553",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-41756328226/windows-job.log",
+      "bytes": 301349,
+      "sha256": "b51a8fdc444e71d0c6b18f90a179d4da8fb2978dd1af5f3c72f6f3bf82680161",
+      "source_sha": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+      "run_id": 41756328226
+    },
+    {
+      "path": "baseline-failure-names.json",
+      "bytes": 1242,
+      "sha256": "ccec2a298f24e6242da99d32baef12941956ada6a17f5fe4717aaea0a6f939c7",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "note": "Derived analysis; see referenced baseline and diagnostic run_sources"
+    },
+    {
+      "path": "full-fix-41760987212/artifacts.json",
+      "bytes": 1810,
+      "sha256": "8be4b915e445c2c05d28439fc4d078b57e7c3254c0413d2bf681143bd225de63",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/jobs.json",
+      "bytes": 4669,
+      "sha256": "30f56464821a2227a079893109205edd6cd6eccbd76717ca7d07346d60a9e8e5",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-job.log",
+      "bytes": 175691,
+      "sha256": "8979b31cbe3c73578d7a81bf511f9595bd69d13665af43553316c7404e6d78c3",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/atomic-migration.log",
+      "bytes": 427,
+      "sha256": "0631eab1124226400b43823e55e8aa3ed6df46efd430a6d4e7353364aa6c1dba",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/boundaries.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/clippy.log",
+      "bytes": 6490,
+      "sha256": "34e927fbf42ee3cbd2cc7f20717078d30f972eda45f9d0856e1f867ce9d492e0",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/full-storage.log",
+      "bytes": 37132,
+      "sha256": "87fb8288a1291fe4b171132502fc8b301ef6b5c7f127147e6cd4a1b80fc911a3",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/legacy.log",
+      "bytes": 773,
+      "sha256": "2013a7508fd5df61de4f2d5dfe2630483a5b78497f683fdb7e34c535a6276526",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-01.log",
+      "bytes": 651,
+      "sha256": "0cc6b5c9051767572b47fd7eac7b69ebcf4c62e81f13d32e2212dcb4247f656e",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-02.log",
+      "bytes": 651,
+      "sha256": "01a8333031e0efd0f6bb09d542c28bc5c75b9a39da67f18161fac7e5971385bc",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-03.log",
+      "bytes": 651,
+      "sha256": "5bcfad333136e803b09b4a88d94b9974c4a9ffc0dce6449d8bd1cd108c756bf6",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-04.log",
+      "bytes": 651,
+      "sha256": "06e10ad10a678cd55547c40036c527d629a422e0e7b881a50d182446ce23de99",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-05.log",
+      "bytes": 651,
+      "sha256": "2a69df83abfc487d9a8357b323aa44da9f3fc430cc0da4d2495b242b076ec497",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-06.log",
+      "bytes": 651,
+      "sha256": "c71bf65046beb22ecef9912a2df2c052fd365b2ea514740f50ff6f28bd38af69",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-07.log",
+      "bytes": 651,
+      "sha256": "a1112899b984251fcd6f23a52c3274ce25b6302f4eb180b830069348bed793e2",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-08.log",
+      "bytes": 651,
+      "sha256": "036bf218b1337570446ffcf412ed93f7fcfd0ce16fa6b81f5c72dd18c63fff66",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-09.log",
+      "bytes": 651,
+      "sha256": "852fa83c7826f3aa4223b7cf880d99d1d8ceca27eef64352cae4dfea1bf17520",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-10.log",
+      "bytes": 651,
+      "sha256": "d17c374155fd1c718be7fbbc23d7b0b5e7161c871e275199e53e05cbd354e975",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-11.log",
+      "bytes": 651,
+      "sha256": "66c756ad83ceb4f7a9bc4285edc9bdcaa24a4230d110f1940a72be15726796ec",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-12.log",
+      "bytes": 651,
+      "sha256": "c100a4592ae5b65a7d11a1ce9a769844809515bbfe69c77ecb40918361c2a2ff",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-13.log",
+      "bytes": 651,
+      "sha256": "edb2a5f32aad6a14ed3e38f51e48b1c8bad48cc98dcb6b04ca32c95415ea3b15",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-14.log",
+      "bytes": 651,
+      "sha256": "d25b21b29d006a259ec74f9b3d6bdeb9f5b9866f2c345f30e9e881f035f55108",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-15.log",
+      "bytes": 651,
+      "sha256": "e5bfab4ad0ae5160c326db7f694b5a69698a9fbcf8705c600551ad3470aa8ee3",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-16.log",
+      "bytes": 651,
+      "sha256": "6d839bc78ee9d13d6a3e38f5c4cc6c15047d3b554d8c674bd1ace4f970b6eee9",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-17.log",
+      "bytes": 651,
+      "sha256": "b7ab32ff6613be7c207b25642945e5baff982fd0ddb4155e7e37cb90834d886c",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-18.log",
+      "bytes": 651,
+      "sha256": "d95ea61f5cd1ad82f624902ad771915166bc471161980584c688b2b67707529d",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-19.log",
+      "bytes": 651,
+      "sha256": "acaa7ad46c1b92861a5f6a6f0b1679cf7b49d07675b80bfb1b80fffb842b2393",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/live_operation_store-20.log",
+      "bytes": 651,
+      "sha256": "304ec969e20830bda20998002d3b9059c0a0ae8176b5f6da1004410de4294c61",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/memory.log",
+      "bytes": 406,
+      "sha256": "4c72fd9d0e11ed4fcb2b7e75d9fb147f4a5740daa2918621a961efcb6e0548fd",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-01.log",
+      "bytes": 480,
+      "sha256": "50e4b34deaecb14a329e7a6a50a14cebced8d864b61d57f438ef6b3a10bfb934",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-02.log",
+      "bytes": 480,
+      "sha256": "e541d759a975a9b13a6366124f71d7988dbf25f85cdb87a5a66da6387d8894a3",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-03.log",
+      "bytes": 480,
+      "sha256": "98015175f603f5ca480a3ae9a1cca8d42e75bd682cfe1e414d9d7cf21bd81a96",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-04.log",
+      "bytes": 480,
+      "sha256": "f2006378a6c6f2a5f04ff440b5382824b0e2ef2ebe2424304ba454f79d38e75d",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-05.log",
+      "bytes": 480,
+      "sha256": "a01275a2d88ef6a12ff323d0bc6c227633c37f8430587a2d0af3a3950e9272f2",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-06.log",
+      "bytes": 480,
+      "sha256": "a01275a2d88ef6a12ff323d0bc6c227633c37f8430587a2d0af3a3950e9272f2",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-07.log",
+      "bytes": 480,
+      "sha256": "32343805667fa0ee7f7c4d37be012d00c08eee426efc1d6ff543635d92dca6a6",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-08.log",
+      "bytes": 480,
+      "sha256": "01cc706343866f6ef40540f3ff4c6becce24d3fa53c859d8ff988033ef127c43",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-09.log",
+      "bytes": 480,
+      "sha256": "4d897edafb1e88faedb1415f223fd9944bf4081ca2d3dee67ee8294119ca22f4",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-10.log",
+      "bytes": 480,
+      "sha256": "50e4b34deaecb14a329e7a6a50a14cebced8d864b61d57f438ef6b3a10bfb934",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-11.log",
+      "bytes": 480,
+      "sha256": "7a1a42f88311217e12a5c0a944c12bb7d15798b0505fd0fcffe3c6902e5a1553",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-12.log",
+      "bytes": 480,
+      "sha256": "01cc706343866f6ef40540f3ff4c6becce24d3fa53c859d8ff988033ef127c43",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-13.log",
+      "bytes": 480,
+      "sha256": "673960f9b523220004cceaf04116fcfa16646c0f013aa0466503c6c569e4d46e",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-14.log",
+      "bytes": 480,
+      "sha256": "625710fee7ccf15c24a251611cb413d6533cc7ecb7d130b7a0b36024fc8dcfef",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-15.log",
+      "bytes": 480,
+      "sha256": "79879422f53a04dd5ad4d79c1b57169dafc8c18184904604bfa7e54411933afe",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-16.log",
+      "bytes": 480,
+      "sha256": "af34cf3368d056788e1b832b88daa5f2a58991fa97504025da8eb947792af392",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-17.log",
+      "bytes": 480,
+      "sha256": "d57786ce5438572fd125acb8224aeede7e4c6b484521814d31402484f9129169",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-18.log",
+      "bytes": 480,
+      "sha256": "b568e95572c3fc23509853a89df6e19519021c3a97ac0ee8e3bc1a13a05bc10f",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-19.log",
+      "bytes": 480,
+      "sha256": "a01275a2d88ef6a12ff323d0bc6c227633c37f8430587a2d0af3a3950e9272f2",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/mobile_commands-20.log",
+      "bytes": 480,
+      "sha256": "b568e95572c3fc23509853a89df6e19519021c3a97ac0ee8e3bc1a13a05bc10f",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/paths.log",
+      "bytes": 356,
+      "sha256": "98b748d3fd2d94b40bd1df5c070ff216c8400be77a8fe25b6cc7c228cb063c86",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/performance.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/report.json",
+      "bytes": 32296,
+      "sha256": "c5772f19ebd54dd9b8d7aba8af98f8f93ee939226d7a03bfaf42002fa43b011f",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/sessions.log",
+      "bytes": 671,
+      "sha256": "238a7aa20a506d8bee3c5f74eb71720ed1bc972e1d41d4c9c1f747c4aaab50a0",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/warm-read-with-writer.log",
+      "bytes": 415,
+      "sha256": "aecb9c44f576e37f0a18c8d8ed619c43adb4fe26f2cbedea03635af1c717d71a",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-01.log",
+      "bytes": 396,
+      "sha256": "a1404ab395ad76e008721bdc57724eff4e1b774f1fa5b0d2bf02cc257a58242f",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-02.log",
+      "bytes": 396,
+      "sha256": "78c736f7993ae408e0ca1e47b44b2b2edd8cbb1207b113d915301a1fa699a691",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-03.log",
+      "bytes": 396,
+      "sha256": "a61d59bf0ac7310f61efe0d7b7d963f0e6b12ddd0a18c5f366ef0e116b18f78f",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-04.log",
+      "bytes": 396,
+      "sha256": "2b49daeeeb80bb273f29269e095c2ee1a63aa0dec546df3e6b249f8bec65264b",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-05.log",
+      "bytes": 396,
+      "sha256": "cfa6a5771b1ab27ea14438c7f4eca538be66afe8382b6866235e30a2344768ae",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-06.log",
+      "bytes": 396,
+      "sha256": "78c736f7993ae408e0ca1e47b44b2b2edd8cbb1207b113d915301a1fa699a691",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-07.log",
+      "bytes": 396,
+      "sha256": "cfa6a5771b1ab27ea14438c7f4eca538be66afe8382b6866235e30a2344768ae",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-08.log",
+      "bytes": 396,
+      "sha256": "731c9536013e5c39592bc9572a5a7c2bb9f1f8be6ab5e96b0ee4fb87c33a8f98",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-09.log",
+      "bytes": 396,
+      "sha256": "114ee699964d7dd319b635640a427cf3b41e7265c383854a46d4131c2e58a57b",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-10.log",
+      "bytes": 396,
+      "sha256": "23b9cc752f2d590f9bd7e096f9a7be9c707636c1b6f0bd05ce5a3ee7a86f605a",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-11.log",
+      "bytes": 396,
+      "sha256": "cf428122c1c13fa76f2c546805aa49ba6fa59678ea5bd0f09f347c0cefbcf34c",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-12.log",
+      "bytes": 396,
+      "sha256": "79382e70559fc48bfde15dc446d6c4deb7b2231062a86fd037d8732fa6cafe01",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-13.log",
+      "bytes": 396,
+      "sha256": "8c35c4d61dbfe1d8bae1a8344b4e7aaaa6187cb72565da13b9580820bed00f8d",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-14.log",
+      "bytes": 396,
+      "sha256": "1f12fdb4618e8f6b276f13ae05a47e2e95b7249704de7a190154e11d5a329176",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-15.log",
+      "bytes": 396,
+      "sha256": "18889577ebccde1559962e3cee07acc92a986455c10360939601399882b81767",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-16.log",
+      "bytes": 396,
+      "sha256": "ca16d3a7b62f33f906d23801b80dedfe8ed1189a99c03182cce87f582253489f",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-17.log",
+      "bytes": 396,
+      "sha256": "97d23a45205a464e18b96516ecec8fb4d4db839d26b9258ca23fe92e364c5845",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-18.log",
+      "bytes": 396,
+      "sha256": "00afd98454aa0983f9fe82ec32bf6799943c24f5541237a437d4e9425f47cf34",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-19.log",
+      "bytes": 396,
+      "sha256": "a28c872f79da3b176d969c2689babd290a1b3b6e0fa0d1fc80cd79786fe26eb1",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/macos-latest/workspace_chat_time-20.log",
+      "bytes": 396,
+      "sha256": "681a096068d56ddae3c06502e1514a7747aadf3cf965381436b0288631038a5c",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/atomic-migration.log",
+      "bytes": 440,
+      "sha256": "1b07d7fb470e5a3cbf8175b6f9aacd6a062e7138581e4113711d258d09c46c2b",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/boundaries.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/clippy.log",
+      "bytes": 6498,
+      "sha256": "11abc1420d6cf3c19196f246230de77088b7447a26e05ffac8bae1e3594b3a68",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/full-storage.log",
+      "bytes": 37948,
+      "sha256": "23d61927abdeec8485172a5ba6e625117dd78d60016c8b367e371554ae61596b",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/legacy.log",
+      "bytes": 791,
+      "sha256": "9192f52806d066a242b299d2ba8955ea134ef5623351064ddf9d50546c051372",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-01.log",
+      "bytes": 667,
+      "sha256": "96800fd57fd27bc6a4ee2323baaec0123a9f60fb4611acbc7a07f60282c99d05",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-02.log",
+      "bytes": 667,
+      "sha256": "1e83d75ecc0daef6a2b505a6573688a8607a7851282ffacd60d1ce90c951c100",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-03.log",
+      "bytes": 667,
+      "sha256": "db0814bd3092015c73d8d6a42db7589c49468dc1bcc892398521d347d70c80d0",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-04.log",
+      "bytes": 667,
+      "sha256": "c2a48335722586266a52ddc0ce10087f66876235981c87102d3fb8d81d7ca8d2",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-05.log",
+      "bytes": 667,
+      "sha256": "69887393874cc0f8ce05aa348dd626cd847772eb77d984019cbd20f44c46fd01",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-06.log",
+      "bytes": 667,
+      "sha256": "4ca5cef6d1dbc3bba1a9fdadf04e1ef847550609568813ff07143ace486a8434",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-07.log",
+      "bytes": 667,
+      "sha256": "334d0d79ac7747e5c1695ec80a66715738d24718713bb3e865e65fd8a95df7e8",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-08.log",
+      "bytes": 667,
+      "sha256": "fb59e7b10610a1b38e9ac734594c702fdd0a4774fee1aa537d7fc1f8609d534f",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-09.log",
+      "bytes": 667,
+      "sha256": "1310573df441ac28ac3e0908f97cfa467ec3c82048805b7ab708b5bd5565ad69",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-10.log",
+      "bytes": 667,
+      "sha256": "fd1ad98ce2bf0d500b4c7e0a9bddd93895cf06b93f08d1c167cd00013bb25cf7",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-11.log",
+      "bytes": 667,
+      "sha256": "7c2c0e9064571ba11972d5b71669681c23841dfea6d429ad11ee5ea128bc5d30",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-12.log",
+      "bytes": 667,
+      "sha256": "4e930f19c136e63370c1461776bba52e87bbdd49ff1e1bbfae28f6f3d674db64",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-13.log",
+      "bytes": 667,
+      "sha256": "3fbde2c6d7561410515637941e17062d10e07516927184c9d7bc79d03d5ba98b",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-14.log",
+      "bytes": 667,
+      "sha256": "650acb73df901c02dee4c32529e450661f7351894d3268b419c23e3926ed754e",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-15.log",
+      "bytes": 667,
+      "sha256": "40f1c3a6f10ed725099cca698edfc2d4e39acd104cdc69d329109b6d3705dd4d",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-16.log",
+      "bytes": 667,
+      "sha256": "94d015ab4d3b6a09035146dd93e092657ea9b1043acb7b92d663021596aad943",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-17.log",
+      "bytes": 667,
+      "sha256": "0859c58145625ac853b16bd4c86bca5fe3831b217a51d66ce9b1ab50e6af1672",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-18.log",
+      "bytes": 667,
+      "sha256": "c2e363e3957cfbc63445bc56f1f29a6477e78140cc8a5418b2da88ecb8fc3e22",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-19.log",
+      "bytes": 667,
+      "sha256": "59cabad1e4923ca9132bd346d643b338a0d27d10da7d67b92e8cc0815d7ed1cb",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/live_operation_store-20.log",
+      "bytes": 667,
+      "sha256": "db0814bd3092015c73d8d6a42db7589c49468dc1bcc892398521d347d70c80d0",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/memory.log",
+      "bytes": 419,
+      "sha256": "d8c79468fc0715e1461343b188dc36a873a151541b16440288118c4d2415fba3",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-01.log",
+      "bytes": 494,
+      "sha256": "853321105214f6b6bc3c3282959981e6dacf60afde186a9135b46ff221964c5d",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-02.log",
+      "bytes": 494,
+      "sha256": "f4ab8950dae076c707133b3ca2b08b49c37d4d4c2fb07fa706fce41b8fb86265",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-03.log",
+      "bytes": 494,
+      "sha256": "f2efd71635bff17c9e7719ff9bf40a128da15641f2d9497f9c4518d2835060ab",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-04.log",
+      "bytes": 494,
+      "sha256": "c86fa1a2d5006621dc9fbd692000f03d8de5cb08c16332fedfdbe378b00df616",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-05.log",
+      "bytes": 494,
+      "sha256": "c6544fa467a71db79e0eb266598e51061e033bfc3728327e2b80e7dbd3a91fd8",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-06.log",
+      "bytes": 494,
+      "sha256": "5501969f31316f607d49bd91cb308d901ae4f76dbcb3147045c8c153e4e85e97",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-07.log",
+      "bytes": 494,
+      "sha256": "673ceb33572d26d532e0834c4bd4e90c891dd2878e7153b2b703214a6f979deb",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-08.log",
+      "bytes": 494,
+      "sha256": "e624cbcc78ed393284aaf553bbba010a66b64e86a81c078f82bb1e90cfd01ca5",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-09.log",
+      "bytes": 494,
+      "sha256": "f4ab8950dae076c707133b3ca2b08b49c37d4d4c2fb07fa706fce41b8fb86265",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-10.log",
+      "bytes": 494,
+      "sha256": "008bd0c765dd2b6670baa8ccb7fcb9dd817ef0849f88a48aee9c272c66f808de",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-11.log",
+      "bytes": 494,
+      "sha256": "780719f5cecb7ce61532dbd90460665a93ccceb2411673704f243cd15fc31fad",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-12.log",
+      "bytes": 494,
+      "sha256": "ae7ee0b8df799e75fc72a7887beff193783e8c00c5284feb93e890231907917c",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-13.log",
+      "bytes": 494,
+      "sha256": "ec00dc5a596dc823e43ebf156afbf9358422d5c1a8ba51574a4b272aa1b2e33a",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-14.log",
+      "bytes": 494,
+      "sha256": "79572b2319d3410f4dbcaf91582f05c474eecbadaaeaf666d33465c787de2af1",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-15.log",
+      "bytes": 494,
+      "sha256": "4dcc2a7c7f5639c3f1efbe19f78e852baa0ad26f8ccb0e1a0c3f1aa86b52278e",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-16.log",
+      "bytes": 494,
+      "sha256": "89f830e47b869157ffd7b72de298b4732f5d7e6e5feedc74b3d19265b7ce0806",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-17.log",
+      "bytes": 494,
+      "sha256": "cc418c036d9d56b5b20b73a21ab231c8b8456256e985a9b3f92338b77dd17558",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-18.log",
+      "bytes": 494,
+      "sha256": "780719f5cecb7ce61532dbd90460665a93ccceb2411673704f243cd15fc31fad",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-19.log",
+      "bytes": 494,
+      "sha256": "e624cbcc78ed393284aaf553bbba010a66b64e86a81c078f82bb1e90cfd01ca5",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/mobile_commands-20.log",
+      "bytes": 494,
+      "sha256": "698423511714e05d69829ce98b64ad684b642bfe139c7e5d0939526653f04c35",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/paths.log",
+      "bytes": 368,
+      "sha256": "4397d1321ac14a4218bd855ba4b90940dc24817be2be393e9167945f54ea1bc2",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/performance.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/report.json",
+      "bytes": 34353,
+      "sha256": "542eeded7f788cd5999e51195969686bd269cd3c1d9aeb67b8895d08d4881c39",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/sessions.log",
+      "bytes": 688,
+      "sha256": "258898b9b21c8a675ae63529fa40b2e003ff44887712922a4c78eb306366ea02",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/warm-read-with-writer.log",
+      "bytes": 429,
+      "sha256": "b8b95d5fdae7500ca745facb3a021a6a5fdc840da041f838d1e897d80d76b1cf",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace-clippy.log",
+      "bytes": 918,
+      "sha256": "f0af673e0740f04e7c97e92d0e0afb8fe659a6b77649eaa703ab256145c8fc05",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace-native.log",
+      "bytes": 7335,
+      "sha256": "258977dcbd6ee4f665deeeaad270d47776c0789e54e581afd101ea3626d0d6ac",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-01.log",
+      "bytes": 409,
+      "sha256": "aab63041421023a090df994a0a0fbc71a7a4043e536e5806dfe394d168e7fdcb",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-02.log",
+      "bytes": 409,
+      "sha256": "ed11907292d6f814637ab0998263d2bf1d109d3994b797d08970f9f036ab49fd",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-03.log",
+      "bytes": 409,
+      "sha256": "80a70eb8f0a9d069a6c7eb3dea514b216633a84d0708e54e1dcaff3c137539b1",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-04.log",
+      "bytes": 409,
+      "sha256": "43bc73607edc32df64ac06387fcfc58c61298371637346cb5a5949fd20febc64",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-05.log",
+      "bytes": 409,
+      "sha256": "fdfe083037511d3b9d2571facf7007c326d52137824a01db8fe88282512e3ea1",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-06.log",
+      "bytes": 409,
+      "sha256": "16a6af67fe1aa799b91540f2dacdcc9824a2ff371862cea950a65fa0daf77f23",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-07.log",
+      "bytes": 409,
+      "sha256": "1f4a9d5c9bcc032c03b232f00898fce24dbc5afa0e73c9b465c16663d39df37d",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-08.log",
+      "bytes": 409,
+      "sha256": "1e65fef31e22070d1cc6f1a46b4d1cfb25f78a2da4f01b93b9c970f3d5ee1f9b",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-09.log",
+      "bytes": 409,
+      "sha256": "8e39c423fa66930cdb1401a887d3ac33c19e76ba3997da7d3238302a45a80e28",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-10.log",
+      "bytes": 409,
+      "sha256": "73450da637b9c6f698941d2e2af61c0a9892ec0fa18077b9c00ecce7da1df21b",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-11.log",
+      "bytes": 409,
+      "sha256": "c635d8b1d393c8492e509cec371cd487940881fadab775c82204bc75de3138b9",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-12.log",
+      "bytes": 409,
+      "sha256": "b5fde700e1a6a3c3d2be43b3f674b3121f71c477c5cd7936bdc47585134e3db8",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-13.log",
+      "bytes": 409,
+      "sha256": "1fc668f7fd3f6730aeed284dab5d5a174cbdca9ac6153ed55edc22f482101cd1",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-14.log",
+      "bytes": 409,
+      "sha256": "79bc3f2b97fb8e52ff3a5f410c06084eec2c2f849ececc086f70832a0242dc78",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-15.log",
+      "bytes": 409,
+      "sha256": "11da78b3f7eac74b3ea91ba27506b10a968190ec400b1dfa726dd5ce0f082a2c",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-16.log",
+      "bytes": 409,
+      "sha256": "3b13bfabc998e60c192b7c8003aec56c42fce434af7de59cb7725a2ab779cbd2",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-17.log",
+      "bytes": 409,
+      "sha256": "8f394828be8b1ad55b2ca9a89d0bf3123d0b44911acdb5084806b5ccee119b0f",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-18.log",
+      "bytes": 409,
+      "sha256": "bc35bbf22030c2e6a708fccf82fb018f9b161a0304b3289b02ff7fe8e120782a",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-19.log",
+      "bytes": 409,
+      "sha256": "b34fad0745e0719746f4851ea8913be8ddc8b91838750aa19c0426494e763d5e",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-2025/workspace_chat_time-20.log",
+      "bytes": 409,
+      "sha256": "79bc3f2b97fb8e52ff3a5f410c06084eec2c2f849ececc086f70832a0242dc78",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "full-fix-41760987212/windows-job.log",
+      "bytes": 191376,
+      "sha256": "efbe4ab836dce8f66b26fe728e87e27f6d0a662a35f30f5fd66c70242481c617",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212
+    },
+    {
+      "path": "memory-41759424737/artifacts.json",
+      "bytes": 1808,
+      "sha256": "18f1f9b51eb2533d327aab46b1445acdc1d4f00e3854f5f512d28456f31c5c7a",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/jobs.json",
+      "bytes": 3983,
+      "sha256": "3c107276815b9274abf636affada5165549efc6cc557df95222e42114def4e98",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/macos-job.log",
+      "bytes": 52299,
+      "sha256": "400b1c7990804fa08d61e2eb506e902eaf4a987dfe20365049a06d111dd58800",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/macos-latest/boundaries.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/macos-latest/memory.log",
+      "bytes": 978,
+      "sha256": "e490fc4ffabebf3f2fa3e326da4d5957bc87157dc549d5f60ef215cdc5bd0572",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/macos-latest/performance.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/macos-latest/report.json",
+      "bytes": 925,
+      "sha256": "78b3084817533c2ad1aef6a7dd91169b44aea1358ad4e7848add1f4f652fff2b",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/windows-2025/boundaries.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/windows-2025/memory.log",
+      "bytes": 16228,
+      "sha256": "6eaa40bfddb33571e0f4580c1b349c131ea18896d11e81d44ee104ea45f09292",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/windows-2025/performance.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/windows-2025/report.json",
+      "bytes": 1470,
+      "sha256": "946fa65948e810f664e9e399b010486cdded88f1b422d1dfc25ed3ce1f85dce1",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/windows-2025/workspace-native.log",
+      "bytes": 7335,
+      "sha256": "932cbfc3cca9c26dc22a9c2f64ef6e0c2cfa8b095ff8b4951e4719660bd42b90",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "memory-41759424737/windows-job.log",
+      "bytes": 97339,
+      "sha256": "6d6dbb5445a084b6938c782686f4081ef499bca36d56ea0d00f90251d1b6d82f",
+      "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+      "run_id": 41759424737
+    },
+    {
+      "path": "mobile-receipt-status.json",
+      "bytes": 1300,
+      "sha256": "0b5b5541b1efb17e274fbcfa1d6ff3c9b253989444ed742f23c1457903dc3416",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "note": "Derived analysis; see referenced baseline and diagnostic run_sources"
+    },
+    {
+      "path": "probe-41757755342/artifacts.json",
+      "bytes": 1810,
+      "sha256": "131f3518e31c79bb7c7c87aef82d3c5fcd2b6cb3b7fbaa65284c94491773672b",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/jobs.json",
+      "bytes": 3999,
+      "sha256": "a0b11edde78b7ee294d9f81f0b3ff14ebc647c09923e87afb112fe6c86f7eee5",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-job.log",
+      "bytes": 67425,
+      "sha256": "99d163a024cce8332a049f2f716195b57fc133a125d0ea3011751d9e6bdb2cd0",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/boundaries.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/legacy.log",
+      "bytes": 1195,
+      "sha256": "3547b9180a4fe8932fdeee0277daee912e2938a6599e2f062e1059550a60501f",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/live_operation_store-01.log",
+      "bytes": 740,
+      "sha256": "62109af42cbfa0b7afeb706cd18a70244cfd2a6876634babfb3fd40f93608cd6",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/live_operation_store-02.log",
+      "bytes": 651,
+      "sha256": "0c4f89ab1b69b181719aff93e9865f2ae2baee39576bbc645735f2480dc50301",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/live_operation_store-03.log",
+      "bytes": 651,
+      "sha256": "72b040b7dc11fdf67ec17abbc92697ed02465b5e5eb5d8cbdf6958a49b0a716f",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/live_operation_store-04.log",
+      "bytes": 651,
+      "sha256": "8d032b01b66cda2510fe2246a2708a7b4cb59e7e34358aaf89e79d34ff2a0251",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/live_operation_store-05.log",
+      "bytes": 651,
+      "sha256": "af63805fae51881eecdaf7397bba7916bca16eb219e6efc5cbcda3cca08a2920",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/memory.log",
+      "bytes": 495,
+      "sha256": "55a78c5af6b11f3913958bac049140c696667d8b6e253b450e93ded4bc06ebb3",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/mobile_commands-01.log",
+      "bytes": 569,
+      "sha256": "ccc9b19ed26336571ff3da721de294188c32baa5fe7bc4a2f3d710b871976cdc",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/mobile_commands-02.log",
+      "bytes": 480,
+      "sha256": "bfa4388e27cf5856d87efef020d2250134e479c2e767539b72d2ec5193689c0c",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/mobile_commands-03.log",
+      "bytes": 480,
+      "sha256": "85c8b5b8bd75121046c8d370f15844d18205947a0eaae02e06acd92a52038ebd",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/mobile_commands-04.log",
+      "bytes": 480,
+      "sha256": "bff4595761f5e9bf4b8b8824ef0e8be9d42e6a7e30cb654db8d4b2e6b3c9511f",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/mobile_commands-05.log",
+      "bytes": 480,
+      "sha256": "f6d6cb4b0eaaa02fc5a039da321bc0945b46424b8634429a2f77995376fd1d89",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/paths.log",
+      "bytes": 928,
+      "sha256": "8fcaafd91c4651db0b76b698c88a972f1fa3a0a5763713d751fd3cadf1f02d86",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/performance.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/report.json",
+      "bytes": 9429,
+      "sha256": "e3b8e686730101e5359b4f114a76b84ee533256d64df62e899578a5ea31c41fc",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/sessions.log",
+      "bytes": 760,
+      "sha256": "5ae9155f269060c162a6036955b55aa9b1cbd25e5ee8290ee9097afb3d0cb0b4",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/workspace_chat_time-01.log",
+      "bytes": 485,
+      "sha256": "086cfa45a9b8bc11bdca3f1d68a282c58e713f0a484e580c4cc000b0a311bdf4",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/workspace_chat_time-02.log",
+      "bytes": 396,
+      "sha256": "ac67eb941ec0ae672e197a4c00d6e1472d50f51b9a4677bb5ffb38016d399947",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/workspace_chat_time-03.log",
+      "bytes": 396,
+      "sha256": "f654889d61e1e0b74b94dbf8eb94d3e30be6a33c9017b62423544253e05f53b0",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/workspace_chat_time-04.log",
+      "bytes": 396,
+      "sha256": "d7c0b736b522958b07fcca0631bf8e5c27c100e295ac3998441e9e5b42e83b2b",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/macos-latest/workspace_chat_time-05.log",
+      "bytes": 396,
+      "sha256": "1bacf1985f9a73b66a41b477dbc2a568185b08b5760ffa82309dca2489420ab9",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/boundaries.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/legacy.log",
+      "bytes": 17505,
+      "sha256": "8470a2c5b730d0b300838a56b88ab77977c701441d1e1463893eebc72af3c3ff",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/live_operation_store-01.log",
+      "bytes": 5006,
+      "sha256": "37d04b14523f8ce8b2c8b50c1cdab092b065666461eab29f548b4eb9f22053d0",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/live_operation_store-02.log",
+      "bytes": 4931,
+      "sha256": "1ee65fa513d50ef632d78d59e9ec3ead331e5c190a012bb0b009b68f7d21524a",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/live_operation_store-03.log",
+      "bytes": 668,
+      "sha256": "c5cc6b197e24083c39c736d90f62b478e876cd16aef234e77894456a55719304",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/live_operation_store-04.log",
+      "bytes": 4931,
+      "sha256": "fc5538b11aeb596db7511b9babc5e378989bb4414bf53ec9332371daa3ec8266",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/live_operation_store-05.log",
+      "bytes": 4931,
+      "sha256": "4e32384eae8f82c4d9e27b0b5129f08e97a6ca4dea15561b828e96e4d8497e3c",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/memory.log",
+      "bytes": 3785,
+      "sha256": "02ec4d7359ecaa857c66f689b73eb5785a83fbce68f12ed77414ddd2df7b96a2",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/mobile_commands-01.log",
+      "bytes": 3559,
+      "sha256": "fe98386e5dcc6e218e23eeade04bd734db63e3fa48873469a62470d5277626a4",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/mobile_commands-02.log",
+      "bytes": 3480,
+      "sha256": "9fe4d4d2dcc6c0b3cdd134e9feb8a988867840273eaa2c24e917b1dda1ae3771",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/mobile_commands-03.log",
+      "bytes": 3483,
+      "sha256": "d1ebe974878e94d493756033bb8fb02c734d792faacabfa58f1006077bb01f30",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/mobile_commands-04.log",
+      "bytes": 3483,
+      "sha256": "bfbe16b7674bf333ca57724fbba9bfff9485d8fcc8266dcd870b48b1de69846a",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/mobile_commands-05.log",
+      "bytes": 3482,
+      "sha256": "bfa59cf5041e91303eda5517452b57ce61736123cc4d3144d6f9fe3d0df07b7d",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/paths.log",
+      "bytes": 16177,
+      "sha256": "deb0a21b95ed9d227f4beb579114e10b50c561a3c9a3249b8a5e48c23d9842a3",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/performance.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/report.json",
+      "bytes": 11496,
+      "sha256": "afc8860f8a47e733935623da6aca069c72a69da8238808dd6c8cc582ece55711",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/sessions.log",
+      "bytes": 765,
+      "sha256": "ef38f0976a50d7fd7bb2808a0e55f895fb70feab74ed6d13e8237b3b23f30a1f",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/workspace_chat_time-01.log",
+      "bytes": 3369,
+      "sha256": "79d3822b763f60e266e5bf649523b6d92744825897ae1b73b322595b6dfdb024",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/workspace_chat_time-02.log",
+      "bytes": 3293,
+      "sha256": "48b127438e724b205d72dbd38b59aadf52dac98439333a1fcb57620deea1bda3",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/workspace_chat_time-03.log",
+      "bytes": 3293,
+      "sha256": "2d34570842760d731990c8586b6fa340a03f940e3f5fe430f3337dcd82adf7fb",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/workspace_chat_time-04.log",
+      "bytes": 3043,
+      "sha256": "ae1d1d117bb51b84d88fb4e16996641edcf0a2ca162a0ac46dbedc9be05b1e16",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-2025/workspace_chat_time-05.log",
+      "bytes": 3293,
+      "sha256": "d909b11c5c91767223c688a547bcca85bb4d42f834335e96ad4f08982acdfdc9",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "probe-41757755342/windows-job.log",
+      "bytes": 190856,
+      "sha256": "423c6b9b4eaef5d4e012d81aa3084f624e2ef9cdd1fc0fbc4d9e544a7e346070",
+      "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+      "run_id": 41757755342
+    },
+    {
+      "path": "storage-comparison.json",
+      "bytes": 11115,
+      "sha256": "a4ab90b11619a9e63613ceb4609f193222451abae712ab08ff4d81c036a1b7a1",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "note": "Derived analysis; see referenced baseline and diagnostic run_sources"
+    },
+    {
+      "path": "verification-reuse.json",
+      "bytes": 1408,
+      "sha256": "f486105131c20d168321dc2599252b46e767afb3d30aa97e803896d71c5f5194",
+      "source_sha": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+      "run_id": 41760987212,
+      "note": "Derived analysis; see referenced baseline and diagnostic run_sources"
+    }
+  ]
+}

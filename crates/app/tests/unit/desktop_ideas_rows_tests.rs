@@ -1,5 +1,4 @@
-#[path = "../support/drawer_locale.rs"]
-mod drawer_locale;
+use crate::test_support::drawer_locale;
 use drawer_locale::expected_copy;
 
 use super::{clamp_cursor, ideas_screen, relative_age, IdeaStatus, IdeasTab};

@@ -1,7 +1,6 @@
 use crate::{current_unix_timestamp, migrations::open_app_connection, StorageResult};
+use ring::rand::{SecureRandom, SystemRandom};
 use rusqlite::{params, OptionalExtension, Row};
-use std::fs::File;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -108,7 +107,9 @@ fn decode_identity(row: &Row<'_>) -> rusqlite::Result<WorkspaceIdentity> {
 
 pub(crate) fn random_workspace_id() -> StorageResult<String> {
     let mut bytes = [0u8; 16];
-    File::open("/dev/urandom")?.read_exact(&mut bytes)?;
+    SystemRandom::new()
+        .fill(&mut bytes)
+        .map_err(std::io::Error::other)?;
     // RFC 4122 v4: version nibble = 0100, variant high bits = 10.
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;

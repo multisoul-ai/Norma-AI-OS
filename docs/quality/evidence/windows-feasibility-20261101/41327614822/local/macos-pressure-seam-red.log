@@ -1,0 +1,11 @@
+   Compiling asr v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/asr)
+error[E0560]: struct `host::A1EngineHost` has no field named `pressure`
+  --> crates/asr/src/providers/local/a1/../../../../tests/unit/a1_host_tests.rs:32:67
+   |
+32 |     let host = Arc::new(A1EngineHost { state: Default::default(), pressure });
+   |                                                                   ^^^^^^^^ `host::A1EngineHost` does not have this field
+   |
+   = note: all struct fields are already assigned
+
+For more information about this error, try `rustc --explain E0560`.
+error: could not compile `asr` (lib test) due to 1 previous error

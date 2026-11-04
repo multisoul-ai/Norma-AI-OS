@@ -1,9 +1,9 @@
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 use norma::codex::native_questions::{CodexNativeEvent, CodexQuestionHost};
 use norma::codex::relay::CodexQuestionRelay;
+use norma::codex::{UnixListener, UnixStream};
 use norma::protocol::{QuestionAnswer, QuestionState};
 use serde_json::json;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Duration, Instant};
 #[path = "support/codex_relay.rs"]
 mod support;
@@ -18,7 +18,11 @@ fn same_process_host_carries_owned_attachment_ticket_and_consumption() {
     for cancel in [false, true] {
         let dir = tempfile::Builder::new()
             .prefix("nqh-")
-            .tempdir_in("/tmp")
+            .tempdir_in(if cfg!(windows) {
+                std::env::temp_dir()
+            } else {
+                "/tmp".into()
+            })
             .unwrap();
         let path = dir.path().join("s.sock");
         let listener = UnixListener::bind(&path).unwrap();

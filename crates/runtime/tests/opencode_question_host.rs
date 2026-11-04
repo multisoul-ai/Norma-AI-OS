@@ -14,17 +14,33 @@ use std::time::{Duration, Instant};
 /// 构造：可写echo PTY与仅原question/message路由的本机HTTP服务，真实三题夹具。
 /// 执行：原run采用host→原题占有输入→提交或先撤销→真实HTTP结果对账。
 /// 回包丢失分支：同工具消费只关闭原题，不保留我方交付归属，也不得重发。
+/// 核对门闩分支：消费发布后暂停第二轮HTTP核对，先证明输入仍受闸门保护，再在原5秒内共同观察消费与解锁。
 /// 预期：原会话原题Answered且唯一POST，接管零POST；错误process不能接管，普通任务始终被原题挡住。
 #[test]
 fn owned_opencode_host_routes_current_question_through_runtime() {
-    for (cancel, drop_reply) in [(false, false), (true, false), (false, true)] {
+    for (cancel, drop_reply, hold_after_consumption) in [
+        (false, false, true),
+        (false, false, false),
+        (true, false, false),
+        (false, true, false),
+    ] {
+        let workspace = tempfile::Builder::new()
+            .prefix("opencode owned ")
+            .tempdir()
+            .unwrap();
+        let directory = workspace.path().to_str().unwrap();
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
         let stop = Arc::new(AtomicBool::new(false));
         let posts = Arc::new(AtomicUsize::new(0));
         let (worker_stop, worker_posts) = (stop.clone(), posts.clone());
+        let (holding, held) = crossbeam_channel::bounded(1);
+        let (release, resume) = crossbeam_channel::bounded(1);
+        let mut pending_when_consumed = None;
         let server = std::thread::spawn(move || {
+            let mut empty_reads = 0;
+
             'connections: while !worker_stop.load(Ordering::Acquire) {
                 let mut socket = match listener.accept() {
                     Ok((s, _)) => s,
@@ -34,6 +50,8 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
                     }
                     Err(e) => panic!("本机服务失败:{e}"),
                 };
+                // macOS accepted sockets inherit listener flags; the mock honors bounded blocking HTTP.
+                socket.set_nonblocking(false).unwrap();
                 socket
                     .set_read_timeout(Some(Duration::from_millis(200)))
                     .unwrap();
@@ -60,6 +78,13 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
                 reader.read_exact(&mut body).unwrap();
                 let value = if first.starts_with("GET /question?") {
                     if worker_posts.load(Ordering::Acquire) > 0 {
+                        empty_reads += 1;
+                        // The first empty snapshot publishes consumption. Hold the next query
+                        // so the old instantaneous input assertion deterministically sees revalidation.
+                        if hold_after_consumption && empty_reads == 2 {
+                            holding.send(()).unwrap();
+                            resume.recv_timeout(Duration::from_secs(3)).unwrap();
+                        }
                         json!([])
                     } else {
                         json!([serde_json::from_str::<Value>(include_str!(
@@ -88,13 +113,17 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
                 let _=write!(socket,"HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",body.len());
             }
         });
-        let mut runtime = Runtime::new_for_workspace("/tmp/opencode-owned-test");
+        let mut runtime = Runtime::new_for_workspace(directory);
         runtime.set_agent_hook_config(Some(AgentHookRuntimeConfig {
             endpoint: "http://127.0.0.1:9/agent-hooks".into(),
             token: "test".into(),
             workspace_id: "w".into(),
             workspace_route_id: "r".into(),
-            norma_socket: "/tmp/unused.sock".into(),
+            norma_socket: workspace
+                .path()
+                .join("unused.sock")
+                .to_string_lossy()
+                .into_owned(),
         }));
         runtime.set_pty_factory(Box::new(|_, _, _, sender| {
             Ok(Box::new(terminal::TestPtyBackend::echo(sender)))
@@ -114,7 +143,7 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
         let client = || {
             OpenCodeQuestionClient::new(
                 &endpoint,
-                "/tmp/opencode-owned-test",
+                directory,
                 "ses_e818a6dfbffehqPKTZcQvWJCLL",
                 "opencode",
                 "test-secret",
@@ -201,18 +230,43 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
                 QuestionState::Answered
             };
             let deadline = Instant::now() + Duration::from_secs(5);
-            while runtime.question_snapshot(&target).unwrap().state != expected
-                && Instant::now() < deadline
-            {
+            if hold_after_consumption {
+                held.recv_timeout(Duration::from_secs(4))
+                    .expect("消费后第二轮HTTP核对必须真正进入门闩");
+            }
+            let mut gate = hold_after_consumption.then_some(release);
+            let mut joint = None;
+            let mut last = (runtime.question_snapshot(&target).unwrap().state, true);
+            let mut held_consumption_seen = false;
+            while Instant::now() < deadline {
                 runtime.drain_native_question_hosts("p");
+                let state = runtime.question_snapshot(&target).unwrap().state;
+                let pending = runtime.has_pending_question(node);
+                if state == expected {
+                    if let Some(gate) = gate.take() {
+                        assert!(pending, "受控HTTP核对未返回时必须保留输入闸门");
+                        held_consumption_seen = true;
+                        eprintln!("OpenCode held revalidation witness: state={state:?}, input_pending={pending}");
+                        gate.send(()).unwrap();
+                    }
+                    if !pending {
+                        joint = Some((state, pending));
+                        break;
+                    }
+                }
+                last = (state, pending);
                 std::thread::sleep(Duration::from_millis(5));
             }
-            assert_eq!(
-                runtime.question_snapshot(&target).unwrap().state,
-                expected,
-                "必须等待原工具精确消费"
-            );
-            assert!(!runtime.has_pending_question(node), "消费后输入锁解除");
+            let (state, pending) = joint.unwrap_or(last);
+            assert_eq!(state, expected, "必须等待原工具精确消费");
+            if hold_after_consumption {
+                assert!(
+                    held_consumption_seen,
+                    "门闩必须实际覆盖消费已发布而核对仍未结束的窗口"
+                );
+            }
+            pending_when_consumed = Some(pending);
+            eprintln!("OpenCode joined milestone: held={hold_after_consumption}, state={state:?}, input_pending={pending}");
             assert!(
                 !runtime.observe_mobile_hook(&child_session),
                 "空闲时子Agent创建session也不能替换原TUI归属"
@@ -240,6 +294,9 @@ fn owned_opencode_host_routes_current_question_through_runtime() {
         drop(runtime);
         stop.store(true, Ordering::Release);
         server.join().unwrap();
+        if let Some(pending) = pending_when_consumed {
+            assert!(!pending, "消费后输入锁解除");
+        }
         assert_eq!(
             posts.load(Ordering::Acquire),
             usize::from(!cancel),

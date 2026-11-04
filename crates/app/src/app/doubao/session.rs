@@ -8,6 +8,19 @@ use tokio_util::sync::CancellationToken;
 use ui::i18n::LocalizedText;
 
 impl MultisoulApp {
+    pub(crate) fn observe_doubao_window_activation(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.doubao.activation = Some(cx.observe_window_activation(window, |app, window, cx| {
+            if !window.is_window_active() && app.doubao.recording.is_some() {
+                // 失活时可能收不到松键事件；结束采集后仍须完成当前转写和回复。
+                app.end_doubao_recording(cx);
+            }
+        }));
+    }
+
     pub(super) fn start_doubao_context_requests(
         &mut self,
         generation: u64,
@@ -165,12 +178,7 @@ impl MultisoulApp {
             recordings,
             listens,
         };
-        self.doubao.activation = Some(cx.observe_window_activation(window, |app, window, cx| {
-            if !window.is_window_active() && app.doubao.recording.is_some() {
-                // 失活时可能收不到松键事件；结束采集后仍须完成当前转写和回复。
-                app.end_doubao_recording(cx);
-            }
-        }));
+        self.observe_doubao_window_activation(window, cx);
         self.doubao.reports = Some(reports_tx);
         let playback_events = self
             .voice_window_inset_events

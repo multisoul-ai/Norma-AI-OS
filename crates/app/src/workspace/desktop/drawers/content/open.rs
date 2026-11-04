@@ -104,13 +104,12 @@ impl MultisoulApp {
                             "drawers.open_superseded",
                         )));
                     }
-                    let (tab, created, tabs) = opened.map_err(|error| {
+                    let (tab, created, tabs) = opened.inspect_err(|error| {
                         app.desktop_workspace.error = Some(ui::i18n::message(
                             "drawers.open_content_failed",
                             &[("error", (error).to_string())],
                         ));
                         cx.notify();
-                        error
                     })?;
                     app.hide_desktop_content_browsers();
                     // Reused files must refresh both content and type. Invalidate in-flight reads too.

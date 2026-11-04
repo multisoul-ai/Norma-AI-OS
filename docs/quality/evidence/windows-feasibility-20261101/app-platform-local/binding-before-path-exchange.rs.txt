@@ -1,0 +1,178 @@
+//! An exclusive endpoint lease and identity-bound cleanup; never unlink a replacement file.
+use super::{Error, ErrorKind, Path, PathBuf};
+use std::fs::{self, File, OpenOptions, TryLockError};
+
+pub(super) struct SocketLease(File);
+impl SocketLease {
+    pub(super) fn acquire(path: &Path) -> std::io::Result<Self> {
+        let file = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(path.with_extension("lock"))?;
+        file.try_lock().map_err(|error| match error {
+            TryLockError::WouldBlock => Error::new(
+                ErrorKind::AddrInUse,
+                "another Norma endpoint owns the socket lease",
+            ),
+            TryLockError::Error(error) => error,
+        })?;
+        Ok(Self(file))
+    }
+}
+impl Drop for SocketLease {
+    fn drop(&mut self) {
+        // File close also releases the OS lock; explicitly observe unlock failures for diagnostics.
+        if let Err(error) = self.0.unlock() {
+            tracing::warn!(%error, "Norma endpoint lease unlock failed");
+        }
+    }
+}
+
+pub(super) struct SocketBinding {
+    pub(super) path: PathBuf,
+    identity: SocketIdentity,
+    _lease: SocketLease,
+}
+impl SocketBinding {
+    pub(super) fn capture(path: PathBuf, lease: SocketLease) -> std::io::Result<Self> {
+        let identity = SocketIdentity::capture(&path)?;
+        Ok(Self {
+            path,
+            identity,
+            _lease: lease,
+        })
+    }
+}
+impl Drop for SocketBinding {
+    fn drop(&mut self) {
+        if !SocketIdentity::capture(&self.path)
+            .is_ok_and(|current| current.key == self.identity.key)
+        {
+            tracing::debug!(path = %self.path.display(), "Norma socket binding was replaced; skipped stale cleanup");
+            return;
+        }
+        if let Err(error) = self.identity.remove(&self.path) {
+            tracing::warn!(path = %self.path.display(), %error, "failed to remove owned Norma socket");
+        }
+    }
+}
+
+pub(super) fn prepare_socket_path(path: &Path) -> std::io::Result<()> {
+    prepare_socket_path_with(path, |path| super::UnixStream::connect(path).is_ok())
+}
+fn prepare_socket_path_with(
+    path: &Path,
+    is_active: impl FnOnce(&Path) -> bool,
+) -> std::io::Result<()> {
+    match SocketIdentity::capture(path) {
+        Ok(_) => {}
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    }
+    if is_active(path) {
+        return Err(Error::new(
+            ErrorKind::AddrInUse,
+            "an active Norma endpoint already owns the socket",
+        ));
+    }
+    fs::remove_file(path)
+}
+
+struct SocketIdentity {
+    key: (u64, u64),
+    #[cfg(windows)]
+    file: File,
+}
+#[cfg(unix)]
+impl SocketIdentity {
+    fn capture(path: &Path) -> std::io::Result<Self> {
+        use std::os::unix::fs::{FileTypeExt, MetadataExt};
+        let metadata = fs::symlink_metadata(path)?;
+        if !metadata.file_type().is_socket() {
+            return Err(Error::new(
+                ErrorKind::AddrInUse,
+                "Norma socket path is occupied by a non-socket file",
+            ));
+        }
+        Ok(Self {
+            key: (metadata.dev(), metadata.ino()),
+        })
+    }
+    fn remove(&self, path: &Path) -> std::io::Result<()> {
+        fs::remove_file(path)
+    }
+}
+#[cfg(windows)]
+impl SocketIdentity {
+    fn capture(path: &Path) -> std::io::Result<Self> {
+        use std::os::windows::{fs::OpenOptionsExt, io::AsRawHandle};
+        use windows_sys::Win32::Storage::FileSystem::{
+            FileAttributeTagInfo, GetFileInformationByHandle, GetFileInformationByHandleEx,
+            BY_HANDLE_FILE_INFORMATION, DELETE, FILE_ATTRIBUTE_TAG_INFO,
+            FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES,
+            FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        };
+        use windows_sys::Win32::System::SystemServices::IO_REPARSE_TAG_AF_UNIX;
+        let file = OpenOptions::new()
+            .access_mode(FILE_READ_ATTRIBUTES | DELETE)
+            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
+            .open(path)?;
+        let mut tag: FILE_ATTRIBUTE_TAG_INFO = unsafe { std::mem::zeroed() };
+        // The handle pins the reparse point itself; never follow symlinks or junctions.
+        if unsafe {
+            GetFileInformationByHandleEx(
+                file.as_raw_handle(),
+                FileAttributeTagInfo,
+                (&mut tag as *mut FILE_ATTRIBUTE_TAG_INFO).cast(),
+                std::mem::size_of_val(&tag) as u32,
+            )
+        } == 0
+        {
+            return Err(Error::last_os_error());
+        }
+        if tag.ReparseTag != IO_REPARSE_TAG_AF_UNIX {
+            return Err(Error::new(
+                ErrorKind::AddrInUse,
+                "Norma socket path is occupied by a non-socket file",
+            ));
+        }
+        let mut identity: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+        if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut identity) } == 0 {
+            return Err(Error::last_os_error());
+        }
+        Ok(Self {
+            key: (
+                u64::from(identity.dwVolumeSerialNumber),
+                (u64::from(identity.nFileIndexHigh) << 32) | u64::from(identity.nFileIndexLow),
+            ),
+            file,
+        })
+    }
+    fn remove(&self, _path: &Path) -> std::io::Result<()> {
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::Storage::FileSystem::{
+            FileDispositionInfo, SetFileInformationByHandle, FILE_DISPOSITION_INFO,
+        };
+        let disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
+        // Delete through the pinned handle, so a concurrent path replacement is never removed.
+        if unsafe {
+            SetFileInformationByHandle(
+                self.file.as_raw_handle(),
+                FileDispositionInfo,
+                (&disposition as *const FILE_DISPOSITION_INFO).cast(),
+                std::mem::size_of_val(&disposition) as u32,
+            )
+        } == 0
+        {
+            return Err(Error::last_os_error());
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+#[path = "../../../tests/unit/app_transport_binding_tests.rs"]
+mod tests;

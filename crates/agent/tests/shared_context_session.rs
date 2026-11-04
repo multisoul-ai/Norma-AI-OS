@@ -1,5 +1,5 @@
 #[path = "support/sse.rs"]
-mod sse;
+pub mod sse;
 use agent::{
     context::*, AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter, NormaSession,
     ProviderConfig, ProviderProtocol, ToolContext,

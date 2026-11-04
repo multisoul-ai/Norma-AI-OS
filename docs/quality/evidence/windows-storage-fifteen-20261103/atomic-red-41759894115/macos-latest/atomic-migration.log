@@ -1,0 +1,47 @@
+    Updating crates.io index
+   Compiling mobile_pairing v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/mobile_pairing)
+   Compiling workspace v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/workspace)
+   Compiling norma v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/norma)
+   Compiling canvas v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/canvas)
+   Compiling agent v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/agent)
+   Compiling storage v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/storage)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1m 11s
+     Running tests/app_migration_atomic.rs (target/debug/deps/app_migration_atomic-fc443ee106149b8e)
+
+running 2 tests
+test user_version_one_does_not_skip_the_remaining_app_schema ... ok
+[DEBUG-storage15] migration stage=storage::mobile_task_delivery_store::migrate thread=ThreadId(2) path=Some("/private/var/folders/n6/hn37q6pj7sj_9dmqqc2113800000gn/T/.tmpWqKzX2/app.sqlite") elapsed_ms=0 autocommit=true error=Sqlite(SqlInputError { error: Error { code: Unknown, extended_code: 1 }, msg: "no such column: workspace_id", sql: " CREATE INDEX IF NOT EXISTS mobile_task_delivery_history ON mobile_task_deliveries(workspace_id,node_id,sequence);\n    CREATE INDEX IF NOT EXISTS mobile_task_delivery_project_history ON mobile_task_deliveries(workspace_id,sequence)", offset: 83 })
+
+thread 'app_migration_failure_preserves_original_schema_and_can_retry' (13949) panicked at crates/storage/tests/app_migration_atomic.rs:32:5:
+assertion `left == right` failed: 失败迁移不能留下半套新增表或完成标记
+  left: ["agent_creation_operations", "brain_actions", "brain_activity_state", "brain_trace_items", "brain_turns", "desktop_area_status", "desktop_configuration_fingerprints", "desktop_configuration_revisions", "desktop_content_state", "desktop_content_tabs", "desktop_project_areas", "desktop_workspaces", "live_task_facts", "live_task_watches", "live_tool_operations", "memory_operations", "memory_scope_bindings", "memory_sources", "mobile_activity_subscriptions", "mobile_collaboration_threads", "mobile_commands", "mobile_devices", "mobile_message_queue", "mobile_push_subscriptions", "mobile_realtime_calls", "mobile_sessions", "mobile_task_baselines", "mobile_task_deliveries", "mobile_thread_commands", "mobile_thread_events", "mobile_thread_execution_events", "mobile_thread_messages", "mobile_turn_outcomes", "orchestration_authorizations", "orchestration_task_operations", "orchestration_task_routes", "project_plans", "project_todo_decisions", "project_todo_retries", "question_deliveries", "recent_workspaces", "settings", "shared_context_events", "shared_context_state", "sqlite_sequence", "workspace_chat_events", "workspace_chat_operations", "workspace_ideas", "workspace_identities"]
+ right: ["mobile_task_deliveries"]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/panicking.rs:698:5
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/panicking.rs:75:14
+   2: core::panicking::assert_failed_inner
+   3: assert_failed<alloc::vec::Vec<alloc::string::String, alloc::alloc::Global>, alloc::vec::Vec<&str, alloc::alloc::Global>>
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/panicking.rs:394:5
+   4: app_migration_failure_preserves_original_schema_and_can_retry
+             at ./tests/app_migration_atomic.rs:32:5
+   5: {closure#0}
+             at ./tests/app_migration_atomic.rs:19:67
+   6: call_once<app_migration_atomic::app_migration_failure_preserves_original_schema_and_can_retry::{closure_env#0}, ()>
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ops/function.rs:250:5
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test app_migration_failure_preserves_original_schema_and_can_retry ... FAILED
+
+failures:
+
+failures:
+    app_migration_failure_preserves_original_schema_and_can_retry
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p storage --test app_migration_atomic`
+error: 1 target failed:
+    `-p storage --test app_migration_atomic`

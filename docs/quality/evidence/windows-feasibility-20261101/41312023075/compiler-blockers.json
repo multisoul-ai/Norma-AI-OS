@@ -1,0 +1,106 @@
+{
+  "run_id": "41312023075",
+  "run_attempt": 1,
+  "source_sha": "e0e75071fb431d9ff93d432f7f95f899802f57a4",
+  "baseline_run_id": "41307703559",
+  "original_vad_errors": 5,
+  "current_vad_compile_errors": 0,
+  "original_vad_errors_eliminated": true,
+  "voice_input_compile": {
+    "id": "voice_input_compile",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "voice_input",
+      "--lib",
+      "--target",
+      "x86_64-pc-windows-msvc",
+      "--message-format=short"
+    ],
+    "log": "voice_input_compile.log",
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_seconds": 116.39
+  },
+  "norma_lib": {
+    "id": "norma_compile",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "norma",
+      "--lib",
+      "--target",
+      "x86_64-pc-windows-msvc",
+      "--message-format=short"
+    ],
+    "log": "norma_compile.log",
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_seconds": 187.03
+  },
+  "norma_default_cli_helper_gate": "success",
+  "norma_platform_tests": {
+    "passed": 43,
+    "failed": 0,
+    "ignored": 0
+  },
+  "canvas_tests": {
+    "passed": 52,
+    "failed": 0,
+    "ignored": 0
+  },
+  "app": {
+    "status": "FAIL",
+    "exit_code": 101,
+    "errors": [
+      "crates\\storage\\src\\mobile_task_baseline_store.rs:7:16: error[E0432]: unresolved import `workspace::review`: could not find `review` in `workspace`",
+      "crates\\storage\\src\\mobile_task_delivery_store.rs:8:16: error[E0432]: unresolved import `workspace::review`: could not find `review` in `workspace`",
+      "crates\\storage\\src\\memory\\fs.rs:9:14: error[E0433]: failed to resolve: could not find `unix` in `os`: could not find `unix` in `os`",
+      "crates\\storage\\src\\memory\\fs.rs:129:18: error[E0433]: failed to resolve: could not find `unix` in `os`: could not find `unix` in `os`",
+      "crates\\storage\\src\\memory\\fs.rs:8:14: error[E0432]: unresolved import `std::os::fd`: could not find `fd` in `os`",
+      "crates\\storage\\src\\memory\\fs.rs:18:33: error[E0425]: cannot find value `O_DIRECTORY` in crate `libc`: not found in `libc`",
+      "crates\\storage\\src\\memory\\fs.rs:18:53: error[E0425]: cannot find value `O_NOFOLLOW` in crate `libc`: not found in `libc`",
+      "crates\\storage\\src\\memory\\fs.rs:18:72: error[E0425]: cannot find value `O_CLOEXEC` in crate `libc`: not found in `libc`",
+      "crates\\storage\\src\\memory\\fs.rs:27:41: error[E0425]: cannot find function `mkdirat` in crate `libc`: help: a function with a similar name exists: `mkdir`",
+      "crates\\storage\\src\\memory\\fs.rs:34:54: error[E0425]: cannot find value `O_DIRECTORY` in crate `libc`: not found in `libc`",
+      "crates\\storage\\src\\memory\\fs.rs:41:27: error[E0425]: cannot find function `mkdirat` in crate `libc`: help: a function with a similar name exists: `mkdir`",
+      "crates\\storage\\src\\memory\\fs.rs:44:54: error[E0425]: cannot find value `O_DIRECTORY` in crate `libc`: not found in `libc`",
+      "crates\\storage\\src\\memory\\fs.rs:51:19: error[E0425]: cannot find function `openat` in crate `libc`: help: a function with a similar name exists: `open`",
+      "crates\\storage\\src\\memory\\fs.rs:54:31: error[E0425]: cannot find value `O_NOFOLLOW` in crate `libc`: not found in `libc`",
+      "crates\\storage\\src\\memory\\fs.rs:54:50: error[E0425]: cannot find value `O_CLOEXEC` in crate `libc`: not found in `libc`",
+      "crates\\storage\\src\\memory\\fs.rs:54:68: error[E0425]: cannot find value `O_NONBLOCK` in crate `libc`: not found in `libc`",
+      "crates\\storage\\src\\memory\\fs.rs:103:19: error[E0425]: cannot find function `renameat` in crate `libc`: help: a function with a similar name exists: `rename`",
+      "crates\\storage\\src\\memory\\fs.rs:18:14: error[E0599]: no method named `custom_flags` found for mutable reference `&mut OpenOptions` in the current scope: method not found in `&mut OpenOptions`",
+      "crates\\storage\\src\\memory\\fs.rs:27:56: error[E0599]: no method named `as_raw_fd` found for struct `File` in the current scope",
+      "crates\\storage\\src\\memory\\fs.rs:41:42: error[E0599]: no method named `as_raw_fd` found for struct `File` in the current scope",
+      "crates\\storage\\src\\memory\\fs.rs:52:24: error[E0599]: no method named `as_raw_fd` found for struct `File` in the current scope",
+      "crates\\storage\\src\\memory\\fs.rs:62:27: error[E0599]: no function or associated item named `from_raw_fd` found for struct `File` in the current scope: function or associated item not found in `File`",
+      "crates\\storage\\src\\memory\\fs.rs:104:24: error[E0599]: no method named `as_raw_fd` found for struct `File` in the current scope",
+      "crates\\storage\\src\\memory\\fs.rs:106:24: error[E0599]: no method named `as_raw_fd` found for struct `File` in the current scope",
+      "crates\\storage\\src\\memory\\fs.rs:131:40: error[E0599]: no method named `nlink` found for struct `std::fs::Metadata` in the current scope: method not found in `std::fs::Metadata`"
+    ],
+    "scope": "First failed downstream dependency; not a complete porting error inventory."
+  },
+  "speech_tests": {
+    "command_status": "FAIL",
+    "command_exit_code": 101,
+    "counts": null,
+    "test_execution": "NOT_RUN",
+    "compiler_errors": [
+      "error[E0433]: failed to resolve: use of undeclared type `A1RecognizerFactory`\n   --> crates\\asr\\src\\providers\\mod.rs:114:59\n    |\n114 |         BuiltinAsrProfile::LocalA1(config) => Ok(Box::new(A1RecognizerFactory::new(config))),\n    |                                                           ^^^^^^^^^^^^^^^^^^^"
+    ],
+    "root_cause": "ASR providers::make_recognizer_factory references A1RecognizerFactory excluded by cfg(unix)."
+  },
+  "unverified": [
+    "physical_microphone",
+    "real_model_vad",
+    "real_norma_graphics",
+    "real_agents",
+    "candidate_package"
+  ],
+  "goal_complete": false
+}

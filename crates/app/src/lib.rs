@@ -7,6 +7,7 @@ mod app;
 mod assets;
 mod boot_splash;
 mod browser_auth_host;
+mod bundle_paths;
 mod canvas;
 mod cards;
 mod database;
@@ -29,6 +30,8 @@ mod norma;
 mod panic_hook;
 mod performance_monitor;
 mod preview;
+#[cfg(any(windows, test))]
+mod quit_shortcut;
 mod settings;
 mod shortcuts;
 mod telemetry;
@@ -81,7 +84,9 @@ pub use mobile::{
 #[cfg(feature = "e2e-test-support")]
 pub use license_gate::{build_activation_root_e2e, build_configured_unlicensed_root_e2e};
 
-use gpui::{App, Application, KeyBinding};
+#[cfg(not(windows))]
+use gpui::KeyBinding;
+use gpui::{App, Application};
 
 fn register_global_actions(cx: &mut App) {
     cx.on_action(|_: &QuitNormaOs, cx| {
@@ -147,15 +152,17 @@ pub fn run_norma_os() {
             );
         }
 
-        // Quit 是唯一由 GPUI keymap 固定绑定的菜单快捷键；可配置命令仍由
-        // ShortcutSettingsState 统一处理，暂不在原生菜单中显示提示。
+        // Windows Quit participates in the editable registry; macOS retains its menu binding.
         register_global_actions(cx);
+        #[cfg(windows)]
+        quit_shortcut::install(cx);
         #[cfg(all(
             target_os = "macos",
             debug_assertions,
             not(feature = "production-data")
         ))]
         e2e_control::install(cx);
+        #[cfg(not(windows))]
         cx.bind_keys([KeyBinding::new("cmd-q", QuitNormaOs, None)]);
         cx.set_menus(menu_bar::menu_bar());
 
@@ -181,3 +188,7 @@ pub fn run_norma_os() {
         settings::general::open_initial_window(cx);
     });
 }
+
+#[cfg(test)]
+#[path = "../tests/support/shared.rs"]
+mod test_support;

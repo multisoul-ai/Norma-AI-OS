@@ -1,0 +1,293 @@
+任务缓存：/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target
+   Compiling libc v0.2.186
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.46
+   Compiling cfg-if v1.0.4
+   Compiling find-msvc-tools v0.1.9
+   Compiling shlex v2.0.1
+   Compiling bitflags v2.13.0
+   Compiling pkg-config v0.3.33
+   Compiling stable_deref_trait v1.2.1
+   Compiling subtle v2.6.1
+   Compiling once_cell v1.21.4
+   Compiling zeroize v1.9.0
+   Compiling version_check v0.9.5
+   Compiling rustls-pki-types v1.15.0
+   Compiling untrusted v0.9.0
+   Compiling writeable v0.6.3
+   Compiling litemap v0.8.2
+   Compiling utf8_iter v1.0.4
+   Compiling icu_normalizer_data v2.2.0
+   Compiling icu_properties_data v2.2.0
+   Compiling log v0.4.33
+   Compiling bytes v1.12.0
+   Compiling itoa v1.0.18
+   Compiling pin-project-lite v0.2.17
+   Compiling fs_extra v1.3.0
+   Compiling generic-array v0.14.7
+   Compiling dunce v1.0.5
+   Compiling typenum v1.20.1
+   Compiling futures-core v0.3.32
+   Compiling aws-lc-rs v1.17.3
+   Compiling base64 v0.22.1
+   Compiling http v1.4.2
+   Compiling serde_core v1.0.228
+   Compiling crc32fast v1.5.0
+   Compiling smallvec v1.15.2
+   Compiling httparse v1.10.1
+   Compiling simd-adler32 v0.3.9
+   Compiling adler2 v2.0.1
+   Compiling miniz_oxide v0.8.9
+   Compiling webpki-roots v1.0.8
+   Compiling rustls v0.23.41
+   Compiling objc2 v0.6.4
+   Compiling byteorder v1.5.0
+   Compiling zmij v1.0.21
+   Compiling serde v1.0.228
+   Compiling jobserver v0.1.35
+   Compiling getrandom v0.2.17
+   Compiling errno v0.3.14
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling syn v2.0.118
+   Compiling digest v0.10.7
+   Compiling cc v1.2.66
+   Compiling flate2 v1.1.9
+   Compiling socks v0.3.4
+   Compiling filetime v0.2.29
+   Compiling serde_json v1.0.150
+   Compiling core-foundation-sys v0.8.7
+   Compiling crossbeam-utils v0.8.22
+   Compiling rustix v1.1.4
+   Compiling objc2-encode v4.1.0
+   Compiling percent-encoding v2.3.2
+   Compiling socket2 v0.6.4
+   Compiling cmake v0.1.58
+   Compiling mio v1.2.1
+   Compiling cpufeatures v0.2.17
+   Compiling memchr v2.8.2
+   Compiling form_urlencoded v1.2.2
+   Compiling core-foundation v0.10.0
+   Compiling security-framework-sys v2.17.0
+   Compiling thiserror v2.0.18
+   Compiling security-framework v3.7.0
+   Compiling block2 v0.6.2
+   Compiling webpki-roots v0.26.11
+   Compiling tracing-core v0.1.36
+   Compiling xattr v1.6.1
+   Compiling dispatch2 v0.3.1
+   Compiling tar v0.4.46
+   Compiling sha2 v0.10.9
+   Compiling http-body v1.0.1
+   Compiling futures-task v0.3.32
+   Compiling slab v0.4.12
+   Compiling objc2-core-foundation v0.3.2
+   Compiling concurrent-queue v2.5.0
+   Compiling futures-util v0.3.32
+   Compiling getrandom v0.4.3
+   Compiling parking v2.2.1
+   Compiling tower-service v0.3.3
+   Compiling try-lock v0.2.5
+   Compiling option-ext v0.2.0
+   Compiling want v0.3.1
+   Compiling dirs-sys v0.5.0
+   Compiling event-listener v5.4.1
+   Compiling synstructure v0.13.2
+   Compiling futures-channel v0.3.32
+   Compiling atomic-waker v1.1.2
+   Compiling event-listener-strategy v0.5.4
+   Compiling dirs v6.0.0
+   Compiling sync_wrapper v1.0.2
+   Compiling fastrand v2.4.1
+   Compiling ipnet v2.12.0
+   Compiling tower-layer v0.3.3
+   Compiling tempfile v3.27.0
+   Compiling async-channel v2.5.0
+   Compiling zerocopy v0.8.53
+   Compiling http-body-util v0.1.3
+   Compiling futures-sink v0.3.32
+   Compiling objc2-foundation v0.3.2
+   Compiling getrandom v0.3.4
+   Compiling objc2-core-audio-types v0.3.2
+   Compiling semver v1.0.28
+   Compiling rustc_version v0.4.1
+   Compiling objc2-core-graphics v0.3.2
+   Compiling objc2-core-video v0.3.2
+   Compiling objc2-media-toolbox v0.3.2
+   Compiling objc2-image-io v0.3.2
+   Compiling crossbeam-channel v0.5.16
+   Compiling ahash v0.8.12
+   Compiling hound v3.5.1
+   Compiling curve25519-dalek v4.1.3
+   Compiling ring v0.17.14
+   Compiling aws-lc-sys v0.43.0
+   Compiling bzip2-sys v0.1.13+1.0.8
+   Compiling rand_core v0.9.5
+   Compiling vcpkg v0.2.15
+   Compiling utf8parse v0.2.2
+   Compiling anstyle-parse v1.0.0
+   Compiling bzip2 v0.4.4
+   Compiling bzip2 v0.5.2
+   Compiling hmac v0.12.1
+   Compiling rand_core v0.6.4
+   Compiling anyhow v1.0.103
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling colorchoice v1.0.5
+   Compiling anstyle v1.0.14
+   Compiling powerfmt v0.2.0
+   Compiling anstyle-query v1.1.5
+   Compiling deranged v0.5.8
+   Compiling num-conv v0.2.2
+   Compiling time-core v0.1.9
+   Compiling anstream v1.0.0
+   Compiling hkdf v0.12.4
+   Compiling rustls-native-certs v0.8.4
+   Compiling time v0.3.53
+   Compiling libsqlite3-sys v0.30.1
+   Compiling sha1 v0.10.7
+   Compiling ureq-proto v0.6.0
+   Compiling clap_lex v1.1.0
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.9.0
+   Compiling hashbrown v0.14.5
+   Compiling utf8-zero v0.8.1
+   Compiling rand v0.9.4
+   Compiling utf-8 v0.7.6
+   Compiling heck v0.5.0
+   Compiling strsim v0.11.1
+   Compiling data-encoding v2.11.0
+   Compiling clap_builder v4.6.0
+   Compiling hashlink v0.9.1
+   Compiling yasna v0.5.2
+   Compiling spake2 v0.4.0
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling fallible-iterator v0.3.0
+   Compiling hex v0.4.3
+   Compiling md-5 v0.10.6
+   Compiling rustls-webpki v0.103.13
+   Compiling mobile_pairing v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/mobile_pairing)
+   Compiling rcgen v0.13.2
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling displaydoc v0.2.6
+   Compiling serde_derive v1.0.228
+   Compiling tokio-macros v2.7.0
+   Compiling tracing-attributes v0.1.31
+   Compiling zerofrom v0.1.8
+   Compiling thiserror-impl v2.0.18
+   Compiling yoke v0.8.3
+   Compiling objc2-audio-toolbox v0.3.2
+   Compiling zerovec v0.11.6
+   Compiling tinystr v0.8.3
+   Compiling potential_utf v0.1.5
+   Compiling zerotrie v0.2.4
+   Compiling icu_locale_core v2.2.0
+   Compiling icu_collections v2.2.0
+   Compiling objc2-avf-audio v0.3.2
+   Compiling tokio v1.52.3
+   Compiling icu_provider v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling tracing v0.1.44
+   Compiling ureq v2.12.1
+   Compiling hyper v1.10.1
+   Compiling tower v0.5.3
+   Compiling tokio-util v0.7.18
+   Compiling objc2-quartz-core v0.3.2
+   Compiling tower-http v0.6.11
+   Compiling objc2-core-image v0.3.2
+   Compiling hyper-util v0.1.20
+   Compiling objc2-av-foundation v0.3.2
+   Compiling clap_derive v4.6.1
+   Compiling rusqlite v0.32.1
+   Compiling audio v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/audio)
+   Compiling model_store v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/model_store)
+   Compiling sherpa-onnx-sys v1.13.3 (/private/tmp/norma-windows-feasibility-20261101/vendor/sherpa-onnx-sys-1.13.3)
+   Compiling clap v4.6.1
+   Compiling sherpa-onnx v1.13.3
+   Compiling voice_input v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/voice_input)
+   Compiling tokio-rustls v0.26.4
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling ureq v3.3.0
+   Compiling tungstenite v0.28.0
+   Compiling hyper-rustls v0.27.9
+   Compiling reqwest v0.13.4
+   Compiling norma v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/norma)
+   Compiling asr v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/asr)
+   Compiling tts v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/tts)
+   Compiling dialogue v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/dialogue)
+   Compiling voice_sherpa v0.1.77 (/private/tmp/norma-windows-feasibility-20261101/crates/voice_sherpa)
+    Finished `test` profile [optimized + debuginfo] target(s) in 2m 21s
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/9a9f244d30c87f16/windows-vad-20261101/target/debug/deps/asr-d1dcf8ac230b82e0)
+
+running 29 tests
+test installation_tests::test_model_installation_root_is_stable_under_application_data ... ok
+test catalog_tests::test_builtin_catalog_finds_paraformer_and_rejects_unknown_id ... ok
+test catalog_tests::test_zipformer_bilingual_catalog_entry_pins_official_transducer_artifact ... ok
+test catalog_tests::test_zipformer_ctc_catalog_entry_pins_official_ctc_artifact ... ok
+test catalog_tests::test_zipformer_catalog_entry_pins_official_artifact_without_recommendation ... ok
+test model_id_tests::test_model_id_round_trips_and_rejects_blank_values ... ok
+test providers::cloud::azure::azure_tests::azure_config_derives_public_stt_endpoint_and_redacts_secret ... ok
+test installation_tests::test_validate_installation_requires_matching_manifest_and_all_model_files ... ok
+test installation_tests::test_remove_installation_protects_selected_model_then_removes_unselected_model ... ok
+test installer_tests::test_install_archive_missing_required_file_never_becomes_ready ... ok
+test installation_tests::test_legacy_bilingual_installation_reports_recoverable_update ... ok
+test installer_tests::test_install_archive_is_atomic_and_rejects_hash_mismatch ... ok
+test installer_tests::test_install_archive_confines_traversal_entry_to_managed_root ... ok
+test providers::cloud::azure::azure_tests::azure_recognizer_buffers_pcm_as_wav_and_returns_final_text ... ok
+test providers::cloud::azure::azure_tests::azure_auth_failure_maps_http_status_without_secret ... ok
+test providers::cloud::azure::azure_tests::azure_success_with_empty_display_text_returns_none ... ok
+test providers::cloud::azure::azure_tests::azure_non_success_status_is_explicit_and_secret_free ... ok
+test providers::cloud::azure::azure_tests::azure_credential_validation_accepts_authenticated_silence_response ... ok
+test support_tests::test_silero_vad_install_rejects_wrong_hash_without_ready_file ... ok
+test support_tests::test_silero_vad_support_artifact_is_pinned_and_shared ... ok
+test providers::local::a1::transport::tests::worker_roundtrip_reuses_process_and_reaps_on_drop ... ok
+test providers::local::a1::host::tests::cancelled_startup_never_acquires_the_host ... FAILED
+test providers::local::a1::host::tests::shared_host_has_one_session_and_reuses_successful_workers ... FAILED
+test providers::local::a1::host::tests::preparation_waits_for_cancelled_reservation_to_unwind ... FAILED
+test providers::local::a1::host::tests::shutdown_reaps_active_workers_without_waiting_for_more_pcm ... FAILED
+test providers::local::a1::transport::tests::invalid_or_degraded_responses_never_become_final_text ... ok
+test providers::local::a1::transport::tests::cancellation_interrupts_waiting_and_reaps_worker ... ok
+test providers::local::a1::transport::tests::deadline_bounds_a_hung_worker ... ok
+test providers::cloud::azure::azure_tests::azure_inflight_request_is_cancelled_before_server_response ... ok
+
+failures:
+
+---- providers::local::a1::host::tests::cancelled_startup_never_acquires_the_host stdout ----
+
+thread 'providers::local::a1::host::tests::cancelled_startup_never_acquires_the_host' (8643254) panicked at crates/asr/src/providers/local/a1/../../../../tests/unit/a1_host_tests.rs:102:5:
+assertion `left == right` failed: 旧准备任务必须被拦截
+  left: Err(Provider("A1: system memory pressure is elevated"))
+ right: Err(SessionClosed)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- providers::local::a1::host::tests::shared_host_has_one_session_and_reuses_successful_workers stdout ----
+
+thread 'providers::local::a1::host::tests::shared_host_has_one_session_and_reuses_successful_workers' (8643258) panicked at crates/asr/src/providers/local/a1/../../../../tests/unit/a1_host_tests.rs:43:38:
+第一会话应启动: Provider("A1: system memory pressure is elevated")
+
+---- providers::local::a1::host::tests::preparation_waits_for_cancelled_reservation_to_unwind stdout ----
+
+thread 'providers::local::a1::host::tests::preparation_waits_for_cancelled_reservation_to_unwind' (8643255) panicked at crates/asr/src/providers/local/a1/../../../../tests/unit/a1_host_tests.rs:119:36:
+called `Result::unwrap()` on an `Err` value: Provider("A1: system memory pressure is elevated")
+
+---- providers::local::a1::host::tests::shutdown_reaps_active_workers_without_waiting_for_more_pcm stdout ----
+
+thread 'providers::local::a1::host::tests::shutdown_reaps_active_workers_without_waiting_for_more_pcm' (8643260) panicked at crates/asr/src/providers/local/a1/../../../../tests/unit/a1_host_tests.rs:70:40:
+called `Result::unwrap()` on an `Err` value: Provider("A1: system memory pressure is elevated")
+
+
+failures:
+    providers::local::a1::host::tests::cancelled_startup_never_acquires_the_host
+    providers::local::a1::host::tests::preparation_waits_for_cancelled_reservation_to_unwind
+    providers::local::a1::host::tests::shared_host_has_one_session_and_reuses_successful_workers
+    providers::local::a1::host::tests::shutdown_reaps_active_workers_without_waiting_for_more_pcm
+
+test result: FAILED. 25 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.01s
+
+error: test failed, to rerun pass `-p asr --lib`

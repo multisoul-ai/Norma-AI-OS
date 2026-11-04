@@ -1,0 +1,12 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.39s
+     Running tests\live_operation_store.rs (target\debug\deps\live_operation_store-32731ddc34d8bbbd.exe)
+
+running 5 tests
+test live_failure_after_side_effect_requires_reconciliation ... ok
+test live_lease_cannot_record_into_another_database ... ok
+test live_receipt_survives_restart_and_conflicts_do_not_reexecute ... ok
+test live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown ... ok
+test live_reconciliation_lists_original_operations_for_only_the_requested_project ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.74s
+

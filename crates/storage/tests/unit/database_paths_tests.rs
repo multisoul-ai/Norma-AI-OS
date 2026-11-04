@@ -88,7 +88,8 @@ fn production_and_local_test_database_paths_are_physically_isolated() {
 #[test]
 fn isolated_test_paths_stay_under_the_explicit_test_boundary() {
     let data_root = Path::new("/tmp/norma-case-1");
-    let workspace = data_root.join("workspace");
+    // Keep the input bytes identical across platforms; PathBuf::join inserts native separators.
+    let workspace = Path::new("/tmp/norma-case-1/workspace");
 
     let paths = DatabasePaths::isolated_test(data_root);
 
@@ -103,7 +104,7 @@ fn isolated_test_paths_stay_under_the_explicit_test_boundary() {
         "自动化测试 app DB 必须直接位于显式临时数据根"
     );
     assert_eq!(
-        paths.project_db_path(&workspace),
+        paths.project_db_path(workspace),
         Path::new("/tmp/norma-case-1/projects/260637378a9c752fed42b44759168e7455d0e2b178404463b597ec672b4109e1/project.test.sqlite"),
         "自动化测试项目库必须位于隔离数据根的 projects 目录"
     );
@@ -115,9 +116,7 @@ fn isolated_test_paths_stay_under_the_explicit_test_boundary() {
         "自动化测试 app DB 不得落入 Production Application Support 目录"
     );
     assert!(
-        !paths
-            .project_db_path(&workspace)
-            .ends_with("project.sqlite"),
+        !paths.project_db_path(workspace).ends_with("project.sqlite"),
         "自动化测试项目库不得回退到 Production 的 project.sqlite"
     );
 }

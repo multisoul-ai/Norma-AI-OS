@@ -1,0 +1,20 @@
+任务缓存：/Users/openclawd/.cache/norma-build/8e0a5c86f37025c2/app-transport-20261101/target
+   Compiling app-platform-probe v0.1.0 (/private/tmp/norma-windows-feasibility-20261101/crates/app/tests/platform_probe)
+    Finished `test` profile [optimized + debuginfo] target(s) in 2.87s
+     Running unittests src/lib.rs (/Users/openclawd/.cache/norma-build/8e0a5c86f37025c2/app-transport-20261101/target/debug/deps/app_platform_probe-5dab9304da776f31)
+
+running 1 test
+
+thread 'transport::binding::tests::stale_probe_path_exchange_never_deletes_replacement' (10408223) panicked at src/../../../src/norma/transport/../../../tests/unit/app_transport_binding_tests.rs:86:30:
+陈旧探测不能删掉替代正文: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test transport::binding::tests::stale_probe_path_exchange_never_deletes_replacement ... FAILED
+
+failures:
+
+failures:
+    transport::binding::tests::stale_probe_path_exchange_never_deletes_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

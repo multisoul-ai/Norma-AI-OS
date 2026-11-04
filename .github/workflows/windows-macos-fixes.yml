@@ -1,0 +1,123 @@
+name: Windows port macOS regression fixes
+on:
+  workflow_dispatch:
+    inputs:
+      full_app:
+        description: Run the complete macOS App test harness after the focused regressions
+        type: boolean
+        default: false
+      retry_diagnostics:
+        description: Diagnose the existing question retry failure without hiding any failed iteration
+        type: boolean
+        default: false
+  push:
+    branches: ['codex/windows-audio-*']
+    paths: ['crates/app/tests/unit/voice_settings_redesign_tests.rs', 'crates/app/tests/unit/browser_view_tests.rs', 'crates/app/tests/unit/browser_page_interaction_tests.rs', 'crates/app/tests/unit/desktop_voice_inset_tests.rs', 'crates/app/tests/unit/desktop_master_visibility_tests.rs', 'crates/app/tests/unit/doubao_hold_keyboard_tests.rs', 'crates/app/src/app/doubao/session.rs', 'vendor/gpui-0.2.2/src/app/test_context.rs', 'scripts/check-norma-qr.swift', 'crates/app/src/mobile/qr.rs', 'crates/runtime/tests/opencode_foreground.rs', 'crates/runtime/tests/support/opencode_foreground.rs']
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_TERM_COLOR: never
+jobs:
+  focused-regression:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          lfs: true
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-port-macos-regression-native-watch-v2
+          cache-workspace-crates: true
+          cache-on-failure: true
+      - uses: actions/cache@v4
+        with:
+          path: target/sherpa-onnx-prebuilt
+          key: sherpa-prebuilt-${{ runner.os }}-${{ runner.arch }}-1.13.3-static
+      - name: Build the complete App test harness once
+        id: app_tests
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/macos-fixes
+          rustc -vV | tee artifacts/macos-fixes/rustc.log
+          cargo test --locked -p app --lib --no-run 2>&1 | tee artifacts/macos-fixes/app-build.log
+      - name: Require original foreground and exact QR round trip
+        if: always() && steps.app_tests.outcome == 'success'
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --locked -p app --lib native_qr_pixels_round_trip_through_vision -- --nocapture 2>&1 | tee artifacts/macos-fixes/qr.log
+      - name: Require original foreground session and receipt history
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --locked -p runtime --test opencode_foreground -- --nocapture 2>&1 | tee artifacts/macos-fixes/foreground.log
+      - name: Reproduce Azure source click independently of the full suite
+        if: always() && steps.app_tests.outcome == 'success'
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --locked -p app --lib voice_redesign_task_layout_and_mode_persistence -- --nocapture 2>&1 | tee artifacts/macos-fixes/azure.log
+      - name: Diagnose the existing question retry failure
+        if: always() && steps.app_tests.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.retry_diagnostics
+        shell: bash
+        run: |
+          set -o pipefail
+          had_failure=0
+          for round in $(seq 1 10); do
+            if ! cargo test --locked -p app --lib question_prepared_lease_survives_poll_and_context_read_failure -- --nocapture 2>&1 | tee "artifacts/macos-fixes/question-retry-$round.log"; then had_failure=1; fi
+          done
+          exit "$had_failure"
+      - name: Require the remaining full-suite regressions through production event paths
+        if: always() && steps.app_tests.outcome == 'success'
+        shell: bash
+        run: |
+          had_failure=0
+          for filter in browser_page_interaction desktop_doubao_inset desktop_master_first test_doubao_hold_window_deactivation quit_shortcut_routes test_successful_helper_result_on_stderr_is_parsed; do
+            if ! cargo test --locked -p app --lib "$filter" -- --nocapture 2>&1 | tee "artifacts/macos-fixes/$filter.log"; then had_failure=1; fi
+          done
+          exit "$had_failure"
+      - name: Require the complete macOS App regression harness
+        if: always() && steps.app_tests.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.full_app
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 -u - <<'PY' 2>&1 | tee artifacts/macos-fixes/app-full.log
+          import os
+          import signal
+          import subprocess
+          import sys
+
+          # The last complete baseline took 212s. A 600s timeout preserves stuck-test
+          # names and fails this run rather than leaving its evidence unavailable for 90min.
+          process = subprocess.Popen(
+              ["cargo", "test", "--locked", "--no-fail-fast", "-p", "app", "--lib"],
+              start_new_session=True,
+          )
+          try:
+              status = process.wait(timeout=600)
+          except subprocess.TimeoutExpired:
+              try:
+                  os.killpg(process.pid, signal.SIGKILL)
+              except ProcessLookupError:
+                  pass
+              process.wait()
+              print("FAIL: complete App harness exceeded 600s; preserve all preceding test output", flush=True)
+              status = 124
+          sys.exit(status)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: macos-fixes-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/macos-fixes/
+          if-no-files-found: error
+          retention-days: 3

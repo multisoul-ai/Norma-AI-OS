@@ -1,9 +1,9 @@
 //! One native TUI and its own app-server socket. Automation failure leaves native frames flowing.
 use super::questions::{CodexQuestion, CodexQuestionChange, CodexQuestions};
+use super::UnixStream;
 use crate::protocol::QuestionAnswer;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use serde_json::Value;
-use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -24,7 +24,11 @@ const CAPACITY: usize = 128;
 // A native configuration/context response is ~23 MiB on the tested installation.
 // Keep transport at tungstenite's 64 MiB message budget; question ledgers remain 1/8 MiB.
 const MAX_MESSAGE: usize = 64 * 1024 * 1024;
-type Socket = WebSocket<UnixStream>;
+#[cfg(not(test))]
+type RelayStream = UnixStream;
+#[cfg(test)]
+use partial_tests::ControlledStream as RelayStream;
+type Socket = WebSocket<RelayStream>;
 type AnswerResult = Result<(), String>;
 
 #[derive(Clone, Debug)]
@@ -138,9 +142,37 @@ impl CodexQuestionRelay {
         forwarding: bool,
         full_access: bool,
     ) -> Result<Self, String> {
+        Self::connect_with(
+            native,
+            || {
+                let stream = UnixStream::connect(server)?;
+                #[cfg(test)]
+                let stream = RelayStream::from(stream);
+                Ok(stream)
+            },
+            check_version,
+            forwarding,
+            full_access,
+            transport::Readiness::new,
+        )
+    }
+
+    fn connect_with(
+        native: UnixStream,
+        connect: impl FnOnce() -> std::io::Result<RelayStream>,
+        check_version: bool,
+        forwarding: bool,
+        full_access: bool,
+        readiness: transport::ReadinessFactory,
+    ) -> Result<Self, String> {
+        let native = RelayStream::from(native);
         let owner = crate::agent_hook::fresh_control_id().map_err(|error| error.to_string())?;
-        let upstream = UnixStream::connect(server).map_err(|error| error.to_string())?;
+        let upstream = connect().map_err(|error| error.to_string())?;
         for stream in [&native, &upstream] {
+            // An accepted stream may inherit nonblocking mode; handshakes run off-thread.
+            stream
+                .set_nonblocking(false)
+                .map_err(|error| error.to_string())?;
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
                 .map_err(|error| error.to_string())?;
@@ -204,7 +236,7 @@ impl CodexQuestionRelay {
                 {
                     std::thread::sleep(Duration::from_millis(1));
                 }
-                let result = relay.pump();
+                let result = relay.pump(readiness);
                 if let Err(reason) = &result {
                     tracing::warn!(%reason, "native Codex relay disconnected");
                 }
@@ -300,7 +332,8 @@ struct Relay {
 }
 
 impl Relay {
-    fn pump(&mut self) -> Result<(), String> {
+    fn pump(&mut self, factory: transport::ReadinessFactory) -> Result<(), String> {
+        let mut readiness = factory(&self.native, &self.server)?;
         while self.running.load(Ordering::Acquire) {
             let mut active = false;
             // A WouldBlock send has buffered its frame. Flush before reading more into that side.
@@ -349,6 +382,14 @@ impl Relay {
                 self.server_frame(&frame);
                 native_ready = send(&mut self.native, frame)?;
             }
+            #[cfg(windows)]
+            readiness.probe_backpressure(
+                &mut self.native,
+                &mut self.server,
+                &mut native_ready,
+                &mut server_ready,
+                self.pending_send.is_some(),
+            )?;
             if !self.observing.load(Ordering::Acquire) && !self.disabled {
                 self.disable("codex_question_observer_disabled");
             }
@@ -366,7 +407,7 @@ impl Relay {
                 self.publish_changes();
             }
             if !active {
-                transport::wait_ready(
+                readiness.wait_ready(
                     &self.native,
                     &self.server,
                     native_ready,
@@ -429,3 +470,15 @@ impl Relay {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/codex_question_relay_partial.rs"]
+mod partial_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/codex_relay_output_backpressure.rs"]
+mod output_backpressure_tests;
+
+#[cfg(all(test, windows))]
+#[path = "../../tests/unit/windows_relay_compat.rs"]
+mod compat_tests;

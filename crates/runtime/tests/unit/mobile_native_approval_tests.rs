@@ -121,7 +121,7 @@ fn native_claude_approval_is_bound_and_desktop_input_invalidates_it() {
     let snapshot = r.mobile_approval_snapshots(node).expect("审批").remove(0);
     assert_eq!(
         r.cached_mobile_approval_snapshots(node).expect("缓存审批"),
-        [snapshot.clone()],
+        std::slice::from_ref(&snapshot),
         "概览读取不得丢失原生请求身份，也不得推进 Provider 或审计 IO"
     );
     assert_eq!(snapshot.tool, "Bash", "原卡必须显示真实待确认工具");

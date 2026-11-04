@@ -1,0 +1,12 @@
+    Checking norma-scoped-fs-check v0.0.0 (/private/tmp/norma-scoped-fs-check)
+error: no rules expected `FILE_RENAME_REPLACE_IF_EXISTS`
+   --> /private/tmp/norma-windows-feasibility-20261101/crates/workspace/src/scoped_directory/mod.rs:309:13
+    |
+309 |             FILE_RENAME_REPLACE_IF_EXISTS,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no rules expected this token in macro call
+    |
+    = note: while trying to match sequence end
+
+error: could not compile `norma-scoped-fs-check` (lib test) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `norma-scoped-fs-check` (lib) due to 1 previous error

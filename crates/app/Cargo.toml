@@ -49,6 +49,7 @@ name = "native_input_focus"
 harness = false
 
 [dependencies]
+socket2 = "=0.6.4"
 gpui.workspace = true
 ui.workspace = true
 runtime.workspace = true
@@ -141,6 +142,16 @@ block2 = "0.6"
 raw-window-handle = "0.6"
 wry = { version = "0.55.1", default-features = false, features = ["protocol"] }
 cef = { version = "149.3.0", optional = true, default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+raw-window-handle = "0.6"
+windows = { version = "=0.61.3", features = ["Win32_Media_Audio", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_System_WinRT", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
+uds_windows = "=1.2.1"
+chrono = "0.4"
+qrcodegen = "=1.8.0"
+wry = { version = "0.55.1", default-features = false, features = ["protocol"] }
+
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock", "Win32_System_Registry"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

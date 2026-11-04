@@ -1,0 +1,96 @@
+{
+  "task": "compile",
+  "source_sha": "e0e75071fb431d9ff93d432f7f95f899802f57a4",
+  "checks": [
+    {
+      "id": "canvas_tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "canvas",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "log": "canvas_tests.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 49.56
+    },
+    {
+      "id": "norma_compile",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "norma",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc",
+        "--message-format=short"
+      ],
+      "log": "norma_compile.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 187.03
+    },
+    {
+      "id": "app_compile",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "app",
+        "--lib",
+        "--target",
+        "x86_64-pc-windows-msvc",
+        "--message-format=short"
+      ],
+      "log": "app_compile.log",
+      "status": "FAIL",
+      "exit_code": 101,
+      "duration_seconds": 879.12
+    },
+    {
+      "id": "norma_platform_tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "norma",
+        "--lib",
+        "--test",
+        "client_platform",
+        "--test",
+        "codex_question",
+        "--test",
+        "cursor_questions",
+        "--test",
+        "client_tests",
+        "--test",
+        "protocol_tests",
+        "--target",
+        "x86_64-pc-windows-msvc"
+      ],
+      "log": "norma_platform_tests.log",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_seconds": 152.5
+    }
+  ],
+  "metadata": {
+    "target": "x86_64-pc-windows-msvc",
+    "release_build": "NOT_RUN"
+  },
+  "timestamp": "2026-11-01T13:57:37.235894+00:00",
+  "os": "Windows-2025Server-10.0.26100-SP0",
+  "run_id": "41312023075",
+  "run_attempt": "1",
+  "image_version": "20261021.278.1",
+  "disk_free_bytes": 154096652288
+}

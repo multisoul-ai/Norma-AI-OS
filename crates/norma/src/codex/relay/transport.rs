@@ -1,8 +1,46 @@
 //! Bounded socket IO and readiness waits, independent of question observation.
 use super::Socket;
+#[cfg(unix)]
 use std::os::fd::AsRawFd;
 use tungstenite::{Error, Message};
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+pub(super) use windows::Readiness;
+pub(super) type ReadinessFactory = fn(&Socket, &Socket) -> Result<Readiness, String>;
 
+#[cfg(test)]
+pub(super) fn readiness_factories() -> Vec<(&'static str, ReadinessFactory)> {
+    let modes: Vec<(&'static str, ReadinessFactory)> = vec![("auto", Readiness::new)];
+    #[cfg(windows)]
+    let modes = {
+        let mut modes = modes;
+        modes.push(("missing-api", Readiness::without_socket_notifications));
+        modes
+    };
+    modes
+}
+
+#[cfg(unix)]
+pub(super) struct Readiness;
+#[cfg(unix)]
+impl Readiness {
+    pub(super) fn new(_native: &Socket, _server: &Socket) -> Result<Self, String> {
+        Ok(Self)
+    }
+    pub(super) fn wait_ready(
+        &mut self,
+        native: &Socket,
+        server: &Socket,
+        native_ready: bool,
+        server_ready: bool,
+        read_server: bool,
+    ) -> Result<(), String> {
+        wait_ready(native, server, native_ready, server_ready, read_server)
+    }
+}
+
+#[cfg(unix)]
 pub(super) fn wait_ready(
     native: &Socket,
     server: &Socket,

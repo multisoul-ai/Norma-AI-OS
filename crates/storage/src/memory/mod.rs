@@ -2,6 +2,10 @@
 //! executors; this crate does not connect them to conversation or GPUI paths.
 
 mod document;
+#[cfg(unix)]
+mod fs;
+#[cfg(windows)]
+#[path = "fs_windows.rs"]
 mod fs;
 mod revision;
 
