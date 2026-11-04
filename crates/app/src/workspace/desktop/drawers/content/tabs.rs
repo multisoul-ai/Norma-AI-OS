@@ -238,6 +238,7 @@ impl MultisoulApp {
             return;
         };
         self.hide_desktop_content_browsers();
+        self.desktop_workspace.content_browser.new_tab_page = false;
         let store =
             storage::DesktopContentTabStore::new(self.database_paths.app_db_path().to_owned());
         let tab_id = tab_id.to_owned();
@@ -316,6 +317,7 @@ impl MultisoulApp {
         let tab_id = tab_id.to_owned();
         let expected_workspace_id = workspace_id.clone();
         self.browsers.remove(content_node_id(&tab_id));
+        self.desktop_workspace.content_browser.new_tab_page = false;
         self.desktop_workspace.content_previews.remove(&tab_id);
         self.desktop_workspace.content_snapshots.remove(&tab_id);
         self.desktop_workspace.content_resources.remove(&tab_id);

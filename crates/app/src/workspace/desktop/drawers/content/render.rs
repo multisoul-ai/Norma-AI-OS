@@ -2,7 +2,7 @@
 use super::super::content_node_id;
 use crate::app::MultisoulApp;
 use crate::preview::local_content::{preview_kind, Kind};
-use gpui::{div, prelude::*, px, AnyElement, Context};
+use gpui::{div, prelude::*, px, rgba, AnyElement, Context};
 use storage::{DesktopContentKind, DesktopContentTab};
 
 impl MultisoulApp {
@@ -30,11 +30,46 @@ impl MultisoulApp {
                 .map(|p| p.url.clone())
         };
         if let Some(url) = url {
+            // A native view paints white until its first commit, so keep a themed status page
+            // underneath; about:blank never needs a native view at all.
+            let blank = browser && url == "about:blank";
+            let theme = self.desktop_theme();
+            let node_id = content_node_id(&tab.id);
+            if blank {
+                // A tab navigated to about:blank may still own a native view; it would cover the hint.
+                self.browsers.hide(node_id);
+            }
+            let status = if blank {
+                Some(ui::i18n::text("drawers.blank_page_hint"))
+            } else {
+                self.browsers
+                    .awaiting_first_commit(node_id)
+                    .then(|| ui::i18n::text("drawers.browser_loading"))
+            };
             return content
                 .child(
-                    div().relative().flex_1().min_h(px(0.0)).child(
-                        self.browser_scene_element_filling(content_node_id(&tab.id), url, cx),
-                    ),
+                    div()
+                        .relative()
+                        .flex_1()
+                        .min_h(px(0.0))
+                        .child(
+                            div()
+                                .absolute()
+                                .size_full()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .text_size(px(12.0))
+                                .text_color(rgba(theme.text_secondary))
+                                .children(status),
+                        )
+                        .when(!blank, |body| {
+                            body.child(self.browser_scene_element_filling(
+                                content_node_id(&tab.id),
+                                url,
+                                cx,
+                            ))
+                        }),
                 )
                 .into_any_element();
         }

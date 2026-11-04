@@ -16,6 +16,8 @@ pub(crate) struct ContentBrowserState {
     pub location: Option<String>,
     pub home_notice: Option<ui::i18n::LocalizedText>,
     pub home_notice_generation: u64,
+    /// "+" shows the new-tab page even while tabs exist; cleared by any tab open/select/close.
+    pub new_tab_page: bool,
 }
 
 pub(super) fn browser_input(draft: &str) -> Result<String, ui::i18n::LocalizedText> {
@@ -82,6 +84,7 @@ impl MultisoulApp {
             .content_tabs
             .iter()
             .find(|t| t.selected && t.kind == DesktopContentKind::Browser)
+            .filter(|_| !self.desktop_workspace.content_browser.new_tab_page)
             .cloned()
         {
             let id = content_node_id(&tab.id);

@@ -32,6 +32,8 @@ struct BrowserView {
     url: String,
     bounds: BrowserViewBounds,
     visible: bool,
+    /// Native views stay hidden (showing the GPUI loading page) until the first commit.
+    committed: bool,
     native_view: Option<NativeBrowserView>,
     load_timeline: LoadTimeline,
     presentation: Option<(gpui::ScenePresentation, bool, gpui::AnyWindowHandle)>,
@@ -74,6 +76,9 @@ impl BrowserStore {
                 view.release_input();
             }
             view.presentation = Some(next);
+            if !view.visible {
+                return;
+            }
             if let Some(native) = &mut view.native_view {
                 native.present(placement, interactive, window);
             }
@@ -96,8 +101,9 @@ impl BrowserStore {
                     self.accept_location_change(node_id, url)
                 }
                 BrowserEvent::PageLoad { node_id, phase, at } => {
-                    self.record_page_load(node_id, phase, at);
-                    None
+                    // The first commit reveals the hidden native view, which needs a repaint.
+                    self.record_page_load(node_id, phase, at)
+                        .then_some(BrowserEvent::PageLoad { node_id, phase, at })
                 }
                 event => Some(event),
             })
@@ -124,6 +130,13 @@ impl BrowserStore {
             .is_some_and(|view| view.load_timeline.is_loading(Instant::now()))
     }
 
+    /// True while the GPUI loading page should show: the native view is absent or still unrevealed.
+    pub(crate) fn awaiting_first_commit(&self, node_id: NodeId) -> bool {
+        self.views
+            .get(&node_id)
+            .is_none_or(|view| !view.committed && view.load_timeline.is_loading(Instant::now()))
+    }
+
     pub(crate) fn any_loading(&self) -> bool {
         let now = Instant::now();
         self.views
@@ -131,12 +144,13 @@ impl BrowserStore {
             .any(|view| view.load_timeline.is_loading(now))
     }
 
-    fn record_page_load(&mut self, node_id: NodeId, phase: BrowserLoadPhase, at: Instant) {
+    fn record_page_load(&mut self, node_id: NodeId, phase: BrowserLoadPhase, at: Instant) -> bool {
         let Some(view) = self.views.get_mut(&node_id) else {
-            return;
+            return false;
         };
+        let first_commit = !std::mem::replace(&mut view.committed, true);
         let Some(report) = view.load_timeline.record(phase, at) else {
-            return;
+            return first_commit;
         };
         let url = view.url.clone();
         view.report_resource_timing(node_id);
@@ -150,6 +164,7 @@ impl BrowserStore {
             resizes_during_load = report.resizes,
             "browser_load_timing"
         );
+        first_commit
     }
 
     pub(crate) fn sync_view(
@@ -169,6 +184,7 @@ impl BrowserStore {
             url: url.to_string(),
             bounds,
             visible: false,
+            committed: false,
             native_view: None,
             load_timeline: LoadTimeline::default(),
             presentation: None,
