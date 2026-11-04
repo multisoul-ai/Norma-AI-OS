@@ -214,7 +214,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--output", type=Path, default=Path("build/release-media"))
-    parser.add_argument("--profile", choices=PROFILES, default="full")
+    parser.add_argument("--profile", choices=PROFILES, default="light")
     args = parser.parse_args()
     output = args.output if args.output.is_absolute() else args.root / args.output
     try:

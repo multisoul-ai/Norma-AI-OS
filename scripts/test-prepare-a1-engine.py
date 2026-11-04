@@ -51,5 +51,33 @@ class EnginePackageTests(unittest.TestCase):
                 builder.materialize(source, root / "rejected")
             self.assertFalse((root / "rejected").exists(), "失败不得发布半成品目录")
 
+class EngineReleaseTests(unittest.TestCase):
+    # 场景：独立运行环境发布前必须校验真实字节，不能只检查下载地址可达。
+    # 构造：固定小型归档和可信描述；执行校验，再把归档替换为同长度坏内容。
+    # 预期：正确资源通过，损坏归档和可变latest地址均被拒绝。
+    def test_release_assets_require_exact_bytes_and_immutable_https(self):
+        spec = importlib.util.spec_from_file_location("release_check", ROOT / "scripts/verify-a1-engine-release.py")
+        check = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(check)
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            payload = b"verified-runtime"
+            manifest = {"schema":1, "target":"aarch64-apple-darwin", "minimum_macos_major":26,
+                "requirements_sha256":builder.digest(builder.LOCK), "archive_bytes":len(payload),
+                "archive_sha256":builder.hashlib.sha256(payload).hexdigest()}
+            raw = json.dumps(manifest).encode()
+            (root / "engine.json").write_bytes(raw)
+            (root / "engine.tar.bz2").write_bytes(payload)
+            release = {k:manifest[k] for k in ("schema","target","minimum_macos_major","requirements_sha256")}
+            release.update(base_url="https://github.com/multisoul-ai/norma-os-releases/releases/download/a1-runtime-v1",
+                manifest_bytes=len(raw),manifest_sha256=builder.hashlib.sha256(raw).hexdigest())
+            check.verify(release, ROOT, root)
+            (root / "engine.tar.bz2").write_bytes(b"x" * len(payload))
+            with self.assertRaises(ValueError, msg="同长度篡改也不能发布"):
+                check.verify(release, ROOT, root)
+            release["base_url"] = "https://github.com/multisoul-ai/norma-os-releases/releases/latest/download"
+            with self.assertRaises(ValueError, msg="不能通过可变地址分发可执行运行环境"):
+                check.verify(release, ROOT, root)
+
 if __name__ == "__main__":
     unittest.main()

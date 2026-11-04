@@ -10,10 +10,10 @@ formats = ["app", "dmg"]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build/dev"
 binaries-dir = "."
-before-packaging-command = "scripts/prepare-release-media.sh --local-test && python3 scripts/prepare-a1-engine.py && scripts/prepare-sparkle.sh && scripts/prepare-app-icon.sh && scripts/prepare-release-info-plist.sh && cargo build --release -p app --no-default-features --features production-data && cargo build --release -p norma --bins"
+before-packaging-command = "scripts/prepare-release-media.sh --local-test && python3 scripts/verify-a1-engine-release.py --local-test && scripts/prepare-sparkle.sh && scripts/prepare-app-icon.sh && scripts/prepare-release-info-plist.sh && cargo build --release -p app --no-default-features --features production-data && cargo build --release -p norma --bins"
 resources = [
   "THIRD_PARTY_NOTICES.md",
-  { src = "build/a1-engine", target = "a1-engine" },
+  { src = "packaging/a1-engine", target = "a1-engine" },
   "build/icons/Assets.car",
   { src = "packaging/macos/en.lproj", target = "en.lproj" },
   { src = "packaging/macos/zh-CN.lproj", target = "zh-CN.lproj" },

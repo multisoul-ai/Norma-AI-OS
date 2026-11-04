@@ -99,7 +99,7 @@ pub(crate) fn ensure_runtime(
     cancelled: &impl InstallCancellation,
 ) -> Result<asr::A1Config, asr::AsrError> {
     let mut config = asr::A1Config::from_model_root(root)?;
-    let python = runtime::prepare(root, &engine_bundle(), cancelled)
+    let python = runtime::prepare_cached(root, &engine_bundle(), cancelled)
         .map_err(|e| asr::AsrError::Provider(format!("A1 managed engine: {e:?}")))?;
     if config.python == python {
         config.validate()?;
@@ -119,7 +119,7 @@ pub(crate) fn engine_bundle() -> PathBuf {
     if let Some(resources) = crate::app::wallpaper_resolvers::bundle_resources_dir() {
         return resources.join("a1-engine");
     }
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/a1-engine")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packaging/a1-engine")
 }
 
 /// No model loading and no provider switch. Publish runtime.json only after every check.
@@ -131,7 +131,23 @@ pub(crate) fn install_a1(
 ) -> Result<asr::A1Config, A1InstallFailure> {
     check_cancelled(cancelled)?;
     progress(A1InstallProgress::Runtime);
-    let python = runtime::prepare(root, bundle, cancelled)?;
+    let python =
+        runtime::prepare_with_progress(root, bundle, cancelled, |file, completed, total| {
+            progress(A1InstallProgress::Download {
+                file: file.into(),
+                completed,
+                total,
+            });
+        })?;
+    if let Ok(mut previous) = asr::A1Config::from_model_root(root) {
+        previous.python = python.clone();
+        previous.python_sha256 = runtime::file_hash(&python)?;
+        if previous.validate().is_ok() {
+            progress(A1InstallProgress::Verify);
+            publish_config(&previous, root, cancelled)?;
+            return Ok(previous);
+        }
+    }
     let artifacts = asr::a1_model_artifacts().map_err(|_| A1InstallFailure::Manifest)?;
     let files: Vec<_> = artifacts
         .iter()
@@ -194,6 +210,17 @@ pub(crate) fn install_a1(
         zipformer: installed.root().join("zipformer"),
         qwen: installed.root().join("qwen"),
     };
+    publish_config(&config, root, cancelled)?;
+    pending.commit();
+    Ok(config)
+}
+
+fn publish_config(
+    config: &asr::A1Config,
+    root: &Path,
+    cancelled: &impl InstallCancellation,
+) -> Result<(), A1InstallFailure> {
+    check_cancelled(cancelled)?;
     config
         .install_with_gate(root, || {
             check_cancelled(cancelled)
@@ -206,8 +233,7 @@ pub(crate) fn install_a1(
                 A1InstallFailure::Manifest
             }
         })?;
-    pending.commit();
-    Ok(config)
+    Ok(())
 }
 
 /// Runs on a background worker. Bytes are bounded and hashed before publishing the file.
@@ -229,6 +255,7 @@ pub(crate) fn download_verified_file(
         .map_err(|_| A1InstallFailure::Network(file.path.clone()))?;
     runtime.block_on(async {
         let mut builder = reqwest::Client::builder()
+            .https_only(url.starts_with("https://"))
             .connect_timeout(Duration::from_secs(10))
             .read_timeout(Duration::from_secs(20))
             .timeout(Duration::from_secs(1800));

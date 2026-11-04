@@ -11,7 +11,7 @@
 - secondary binary: `target/release/multisoul-agent-hook`
 - minimum macOS: `12.0`
 
-正式发布使用仓库入口；公证模式默认打轻量包：
+所有打包模式默认使用轻量媒体；正式发布使用仓库入口：
 
 ```bash
 ./scripts/release-local.sh
@@ -300,6 +300,35 @@ Sparkle 按递增 build version 更新。正确回滚是从已知良好 commit �
 Sparkle 协议、签名 appcast 与 immutable 资产。GitHub feed 至少保留 6–12 个月，
 覆盖未升级到桥接版本的客户端；在该窗口结束前不得删除旧 appcast 或 tag 资产。
 
+## A1 运行环境按需安装
+
+主 App 与开发 App 只携带 `packaging/a1-engine/release.json` 及无损压缩的可信文件清单
+`packaging/a1-engine/engine.json.gz`（用于旧安装离线校验，解压后保持原始字节和SHA不变），不再构建或复制
+`build/a1-engine`。用户选择“下载安装 A1”后，后台下载固定版本的清单和已构建、
+已签名的运行环境；清单长度与 SHA-256 由 App 的可信描述固定，环境归档及展开文件
+继续逐项校验。没有系统 Python 的用户也无需安装 Python、Homebrew 或运行 pip。
+
+已有完整环境从本地校验并复用；下载失败或取消不得替换原配置，已有模型保留。
+检查本地文件和启用已有安装不得隐式联网安装环境。环境缓存按清单指纹隔离，
+同一版本的并发准备串行执行；成功安装后移除可重新下载的环境归档，保留可信清单。
+
+独立资源使用公开更新仓库中固定的 `a1-runtime-*` tag，不能使用 `latest`。
+首次资源复用公开版本 v0.1.82 中的正式签名环境，避免重新签名造成字节变化。
+后续升级由维护者单独运行 `scripts/prepare-a1-engine.py --signing-identity '<Developer ID>'`，
+审核环境、签名与完整性后，发布独立资源并更新描述中的固定 URL、长度、SHA-256 和依赖指纹。
+资源发布时必须使用 `--latest=false`，避免覆盖 App 的 Sparkle latest 更新入口。
+
+正式主包在构建前运行 `python3 scripts/verify-a1-engine-release.py`，流式下载并完整校验
+远端清单及归档；资源尚未发布、无法下载或不匹配时拒绝打包。以下命令只验证待发布资源，
+不能替代匿名 HTTPS 可用性验收：
+
+```bash
+python3 scripts/verify-a1-engine-release.py --local-assets build/a1-runtime-release
+```
+
+开发包使用 `--local-test` 只检查可信描述，不声称线上资源已经可用。运行环境资源独立发布
+需要正常的对外发布授权，不随主 App 打包自动上传。
+
 ## Wallpaper resources
 
 Built-in wallpapers live in `crates/app/assets/wallpapers/`: the Canvas catalog
@@ -327,8 +356,8 @@ resources = [
 
 `NORMA_MEDIA_PROFILE` 支持 `full`（全部内置）、`wallpapers-on-demand`
 （动态壁纸按需下载）和 `light`（动态壁纸与教程视频均按需下载）。
-`release-local.sh --notarize` 的线上发布默认使用 `light`；其他打包模式仍默认
-`full`，需要完整离线发布时可显式设置 `NORMA_MEDIA_PROFILE=full`。清单
+所有打包入口均默认使用 `light`；需要完整离线媒体时可显式设置
+`NORMA_MEDIA_PROFILE=full`。A1 运行环境独立按需安装，不随媒体 profile 内置。清单
 `packaging/media/resources.json` 固定原始文件大小、SHA-256、分类与资源版本。
 `light` 保留 28 项核心资源（含九张教程海报与默认视频壁纸 `norma-awake.mp4`）、7 份动态壁纸静态预览和可信目录；16 项可选媒体
 下载后经长度、SHA-256 校验及原子提升进入用户缓存，不转码原文件。

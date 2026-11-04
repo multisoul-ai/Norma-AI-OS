@@ -1,3 +1,4 @@
+use super::managed::prepare;
 use super::*;
 use std::sync::atomic::AtomicBool;
 
@@ -226,3 +227,6 @@ fn voice_a1_runtime_deadline_includes_descendant_pipe_lifetime() {
         "管道收集也必须有界，不能无条件join到后代退出"
     );
 }
+
+#[path = "voice_a1_remote_tests.rs"]
+mod remote;

@@ -7,7 +7,7 @@ use std::{
 
 /// 场景：已有A1配置引用已删除的外部Python，升级应用应只迁移引擎并复用模型。
 /// 构造：读取本机已校验真实模型，将其只读路径写进隔离配置，解释器设为不存在。
-/// 执行：通过显式运行环境迁移入口准备应用自带引擎并重开配置。
+/// 执行：通过显式下载安装入口迁移运行环境；若开始下载模型，立即取消并使测试失败。
 /// 预期：模型路径完全保留，解释器转入本次受管目录，完整校验通过且无模型下载目录。
 #[test]
 #[ignore = "requires real A1 engine package and previously verified model files"]
@@ -25,7 +25,18 @@ fn voice_a1_real_engine_migration_reuses_existing_models() {
         serde_json::to_vec(&legacy).expect("旧配置JSON"),
     )
     .expect("旧配置");
-    let upgraded = ensure_runtime(temp.path(), &AtomicBool::new(false)).expect("引擎自动迁移");
+    let bundle = std::env::var_os("NORMA_A1_ACCEPTANCE_BUNDLE")
+        .map(PathBuf::from)
+        .unwrap_or_else(engine_bundle);
+    let cancelled = AtomicBool::new(false);
+    let upgraded = install_a1(temp.path(), &bundle, &cancelled, |event| {
+        if let A1InstallProgress::Download { file, .. } = event {
+            if !matches!(file.as_str(), "engine.json" | "engine.tar.bz2") {
+                cancelled.store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
+    })
+    .expect("显式安装必须迁移引擎并复用已校验模型，不能重新下载模型");
     assert_eq!(
         upgraded.zipformer, previous.zipformer,
         "升级不能重新下载或移动原预览模型"

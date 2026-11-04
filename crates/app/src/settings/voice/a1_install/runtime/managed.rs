@@ -20,31 +20,20 @@ struct EngineFile {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct EngineManifest {
+pub(super) struct EngineManifest {
     schema: u32,
     minimum_macos_major: u32,
-    archive_bytes: u64,
-    archive_sha256: String,
+    pub(super) archive_bytes: u64,
+    pub(super) archive_sha256: String,
     target: String,
     python: String,
     requirements_sha256: String,
     files: Vec<EngineFile>,
 }
 
-pub(super) fn prepare(
-    root: &Path,
-    bundle: &Path,
-    cancelled: &impl InstallCancellation,
-) -> Result<PathBuf, A1InstallFailure> {
-    check_cancelled(cancelled)?;
-    let manifest = bundle.join("engine.json");
-    let metadata = fs::symlink_metadata(&manifest).map_err(|_| A1InstallFailure::EngineMissing)?;
-    if !metadata.is_file() || metadata.len() > 16 * 1024 * 1024 {
-        return Err(A1InstallFailure::EngineIntegrity);
-    }
-    let bytes = fs::read(&manifest).map_err(|e| disk(&manifest, e))?;
+pub(super) fn validate_manifest(bytes: &[u8]) -> Result<EngineManifest, A1InstallFailure> {
     let specification: EngineManifest =
-        serde_json::from_slice(&bytes).map_err(|_| A1InstallFailure::EngineIntegrity)?;
+        serde_json::from_slice(bytes).map_err(|_| A1InstallFailure::EngineIntegrity)?;
     if specification.schema != 1
         || specification.target != "aarch64-apple-darwin"
         || !cfg!(all(target_os = "macos", target_arch = "aarch64"))
@@ -71,6 +60,22 @@ pub(super) fn prepare(
     {
         return Err(A1InstallFailure::EngineIntegrity);
     }
+    Ok(specification)
+}
+
+pub(super) fn prepare(
+    root: &Path,
+    bundle: &Path,
+    cancelled: &impl InstallCancellation,
+) -> Result<PathBuf, A1InstallFailure> {
+    check_cancelled(cancelled)?;
+    let manifest = bundle.join("engine.json");
+    let metadata = fs::symlink_metadata(&manifest).map_err(|_| A1InstallFailure::EngineMissing)?;
+    if !metadata.is_file() || metadata.len() > 16 * 1024 * 1024 {
+        return Err(A1InstallFailure::EngineIntegrity);
+    }
+    let bytes = fs::read(&manifest).map_err(|e| disk(&manifest, e))?;
+    let specification = validate_manifest(&bytes)?;
     let files: Vec<_> = specification
         .files
         .iter()
