@@ -88,19 +88,18 @@ fn migrate_project_instances(connection: &Connection) -> StorageResult<()> {
     if !has_unique_project(connection)? {
         return Ok(());
     }
-    let transaction =
-        rusqlite::Transaction::new_unchecked(connection, rusqlite::TransactionBehavior::Immediate)?;
-    // Another background reader may have upgraded this catalog while we waited for the lock.
-    if !has_unique_project(&transaction)? {
-        return Ok(());
-    }
-    // Copy before dropping the catalog; IDs keep canvas files and expanded views intact.
-    // Recreate the existing indexes/triggers only after copying, so revisions do not advance.
-    let schema_objects = transaction
+    crate::migrations::with_immediate(connection, |transaction| {
+        // Another background reader may have upgraded this catalog while we waited for the lock.
+        if !has_unique_project(transaction)? {
+            return Ok(());
+        }
+        // Copy before dropping the catalog; IDs keep canvas files and expanded views intact.
+        // Recreate the existing indexes/triggers only after copying, so revisions do not advance.
+        let schema_objects = transaction
         .prepare("SELECT sql FROM sqlite_master WHERE tbl_name='desktop_project_areas' AND type IN ('index','trigger') AND sql IS NOT NULL")?
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<Result<Vec<_>, _>>()?;
-    transaction.execute_batch(
+        transaction.execute_batch(
         "CREATE TABLE desktop_project_areas_instances (
             id TEXT PRIMARY KEY NOT NULL,
             desktop_workspace_id TEXT NOT NULL REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
@@ -117,11 +116,11 @@ fn migrate_project_instances(connection: &Connection) -> StorageResult<()> {
         DROP TABLE desktop_project_areas;
         ALTER TABLE desktop_project_areas_instances RENAME TO desktop_project_areas;",
     )?;
-    for sql in schema_objects {
-        transaction.execute_batch(&sql)?;
-    }
-    transaction.commit()?;
-    Ok(())
+        for sql in schema_objects {
+            transaction.execute_batch(&sql)?;
+        }
+        Ok(())
+    })
 }
 
 fn has_unique_project(connection: &Connection) -> StorageResult<bool> {
@@ -161,49 +160,45 @@ fn migrate_wallpapers(connection: &Connection) -> StorageResult<()> {
     // from overwriting independent selections, including intentionally empty values.
     // Acquire the write lock before schema/marker reads to avoid a Deferred
     // read-to-write upgrade racing another background opener.
-    let transaction =
-        rusqlite::Transaction::new_unchecked(connection, rusqlite::TransactionBehavior::Immediate)?;
-    super::ensure_column(
-        &transaction,
-        "desktop_workspaces",
-        "wallpaper_json",
-        "wallpaper_json TEXT",
-    )?;
-    super::ensure_column(
-        &transaction,
-        "desktop_project_areas",
-        "wallpaper_json",
-        "wallpaper_json TEXT",
-    )?;
-    let migrated: bool = transaction.query_row(
-        "SELECT EXISTS(SELECT 1 FROM settings WHERE key='wallpaper.desktop_migrated.v1')",
-        [],
-        |row| row.get(0),
-    )?;
-    if !migrated {
-        if let Some(reference) =
-            crate::desktop_workspace_store::wallpaper::legacy_reference(&transaction)?
-        {
-            transaction.execute(
-                "UPDATE desktop_workspaces SET wallpaper_json=?1 WHERE wallpaper_json IS NULL",
-                [serde_json::to_string(&reference)?],
-            )?;
+    crate::migrations::with_immediate(connection, |transaction| {
+        super::ensure_column(
+            transaction,
+            "desktop_workspaces",
+            "wallpaper_json",
+            "wallpaper_json TEXT",
+        )?;
+        super::ensure_column(
+            transaction,
+            "desktop_project_areas",
+            "wallpaper_json",
+            "wallpaper_json TEXT",
+        )?;
+        let migrated: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM settings WHERE key='wallpaper.desktop_migrated.v1')",
+            [],
+            |row| row.get(0),
+        )?;
+        if !migrated {
+            if let Some(reference) =
+                crate::desktop_workspace_store::wallpaper::legacy_reference(transaction)?
+            {
+                transaction.execute(
+                    "UPDATE desktop_workspaces SET wallpaper_json=?1 WHERE wallpaper_json IS NULL",
+                    [serde_json::to_string(&reference)?],
+                )?;
+            }
+            transaction.execute("INSERT INTO settings(key,value,updated_at_unix) VALUES('wallpaper.desktop_migrated.v1','1',0)", [])?;
         }
-        transaction.execute("INSERT INTO settings(key,value,updated_at_unix) VALUES('wallpaper.desktop_migrated.v1','1',0)", [])?;
-    }
-    transaction.commit()?;
-    Ok(())
+        Ok(())
+    })
 }
 
 fn migrate_content_workbench(connection: &Connection) -> StorageResult<()> {
     if !content_schema_contains(connection, "project_files")? {
-        let transaction = rusqlite::Transaction::new_unchecked(
-            connection,
-            rusqlite::TransactionBehavior::Immediate,
-        )?;
-        // Do not rebuild a schema that another opener has already advanced.
-        if !content_schema_contains(&transaction, "project_files")? {
-            transaction.execute_batch("ALTER TABLE desktop_content_tabs RENAME TO desktop_content_tabs_old;
+        crate::migrations::with_immediate(connection, |transaction| {
+            // Do not rebuild a schema that another opener has already advanced.
+            if !content_schema_contains(transaction, "project_files")? {
+                transaction.execute_batch("ALTER TABLE desktop_content_tabs RENAME TO desktop_content_tabs_old;
             CREATE TABLE desktop_content_tabs (
                 id TEXT PRIMARY KEY NOT NULL,
                 workspace_id TEXT NOT NULL REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
@@ -217,8 +212,9 @@ fn migrate_content_workbench(connection: &Connection) -> StorageResult<()> {
             CREATE INDEX idx_desktop_content_tabs_workspace ON desktop_content_tabs(workspace_id,position);
             CREATE UNIQUE INDEX idx_desktop_content_tabs_selected ON desktop_content_tabs(workspace_id) WHERE selected=1;
             ")?;
-        }
-        transaction.commit()?;
+            }
+            Ok(())
+        })?;
     }
     connection.execute_batch(
         "CREATE TABLE IF NOT EXISTS desktop_content_state (

@@ -73,8 +73,10 @@ jobs:
               'paths-sessions': ['paths', 'sessions'], 'memory': ['memory'],
               'legacy': ['legacy'], 'concurrency': [], 'atomic': []}[suite]
           cases += [groups[name] for name in selected]
-          if suite == 'atomic':
+          if suite in ('full', 'focused', 'atomic'):
               cases.append(('atomic-migration', 'storage', ['--test', 'app_migration_atomic']))
+          if suite in ('full', 'focused', 'atomic', 'concurrency'):
+              cases.append(('warm-read-with-writer', 'storage', ['--test', 'mobile_access', 'authentication_does_not_write_or_wait_for_a_writer']))
           if platform.system() == 'Windows' and suite in ('full', 'focused', 'memory'):
               cases.append(('workspace-native', 'workspace', ['--lib', '--test', 'scoped_directory']))
           if suite in ('full', 'focused', 'concurrency'):

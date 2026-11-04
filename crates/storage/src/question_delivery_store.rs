@@ -264,15 +264,12 @@ pub(crate) fn migrate(connection: &Connection) -> StorageResult<()> {
     if !has_outcome {
         // Another background reader can migrate this legacy table after our first check.
         // Serialize only the upgrade and recheck under its writer lock.
-        let transaction =
-            rusqlite::Transaction::new_unchecked(connection, TransactionBehavior::Immediate)?;
         crate::migrations::ensure_column(
-            &transaction,
+            connection,
             "question_deliveries",
             "outcome",
             "outcome TEXT",
         )?;
-        transaction.commit()?;
     }
     Ok(())
 }

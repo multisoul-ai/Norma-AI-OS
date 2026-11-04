@@ -173,25 +173,15 @@ fn import_legacy_project(paths: &DatabasePaths, root: &Path, target: &Path) -> S
     // SQLite backup includes committed WAL pages without modifying the legacy database.
     let source =
         rusqlite::Connection::open_with_flags(legacy, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-    source
-        .backup(rusqlite::DatabaseName::Main, staged.path(), None)
-        .inspect_err(|error| import_probe("backup", target, error))?;
-    drop(
-        crate::migrations::open_project_connection(staged.path())
-            .inspect_err(|error| import_probe("migrate-staged", target, error))?,
-    );
-    staged
-        .as_file()
-        .sync_all()
-        .inspect_err(|error| import_probe("file-sync", target, error))?;
+    source.backup(rusqlite::DatabaseName::Main, staged.path(), None)?;
+    drop(crate::migrations::open_project_connection(staged.path())?);
+    staged.as_file().sync_all()?;
     match staged.persist_noclobber(target) {
         Ok(_) => {
-            sync_directory(parent)
-                .inspect_err(|error| import_probe("parent-sync", target, error))?;
+            sync_directory(parent)?;
         }
         Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {}
         Err(error) => {
-            import_probe("persist", target, &error.error);
             return Err(error.error.into());
         }
     }
@@ -208,10 +198,6 @@ fn sync_directory(path: &Path) -> std::io::Result<()> {
     {
         std::fs::File::open(path)?.sync_all()
     }
-}
-
-fn import_probe(stage: &str, target: &Path, error: &impl std::fmt::Debug) {
-    eprintln!("[DEBUG-storage15] legacy stage={stage} thread={:?} target={target:?} published={} error={error:?}", std::thread::current().id(), target.is_file());
 }
 
 pub(crate) fn desktop_canvas_path(

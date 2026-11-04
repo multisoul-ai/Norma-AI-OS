@@ -295,8 +295,18 @@ fn migrate_mobile_message_queue_profiles(connection: &Connection) -> StorageResu
     if schema.as_ref().is_none_or(|sql| sql.contains("'Cursor'")) {
         return Ok(());
     }
-    let transaction = connection.unchecked_transaction()?;
-    transaction.execute_batch(
+    crate::migrations::with_immediate(connection, |transaction| {
+        let current: Option<String> = transaction
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='mobile_message_queue'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if current.as_ref().is_none_or(|sql| sql.contains("'Cursor'")) {
+            return Ok(());
+        }
+        transaction.execute_batch(
         r#"
         CREATE TABLE mobile_message_queue_next (
             sequence INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -323,6 +333,6 @@ fn migrate_mobile_message_queue_profiles(connection: &Connection) -> StorageResu
         CREATE INDEX idx_mobile_queue_state_sequence ON mobile_message_queue(state,sequence);
         "#,
     )?;
-    transaction.commit()?;
-    Ok(())
+        Ok(())
+    })
 }

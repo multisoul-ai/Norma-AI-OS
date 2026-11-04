@@ -1,5 +1,6 @@
+mod app;
 mod columns;
-mod probe;
+pub(crate) use app::with_immediate;
 pub(crate) use columns::ensure_column;
 mod desktop;
 pub(crate) mod desktop_canvas;
@@ -32,16 +33,20 @@ fn open_connection(path: &Path) -> StorageResult<Connection> {
     Ok(connection)
 }
 pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
-    probe::step(connection, crate::question_delivery_store::migrate)?;
-    probe::step(connection, crate::context_store::migrate)?;
-    probe::step(connection, crate::live_operation_store::migrate)?;
-    probe::step(connection, crate::workspace_chat_store::migrate)?;
-    probe::step(connection, crate::agent_creation_store::migrate)?;
-    probe::step(connection, crate::memory_access::journal::migrate)?;
-    probe::step(connection, crate::thread_message_store::migrate)?;
-    probe::step(connection, crate::mobile_session_store::migrate)?;
-    probe::step(connection, crate::mobile_turn_store::migrate)?;
-    probe::step(connection, crate::mobile_command_store::migrate)?;
+    app::migrate(connection)
+}
+
+fn migrate_app_schema(connection: &Connection) -> StorageResult<()> {
+    crate::question_delivery_store::migrate(connection)?;
+    crate::context_store::migrate(connection)?;
+    crate::live_operation_store::migrate(connection)?;
+    crate::workspace_chat_store::migrate(connection)?;
+    crate::agent_creation_store::migrate(connection)?;
+    crate::memory_access::journal::migrate(connection)?;
+    crate::thread_message_store::migrate(connection)?;
+    crate::mobile_session_store::migrate(connection)?;
+    crate::mobile_turn_store::migrate(connection)?;
+    crate::mobile_command_store::migrate(connection)?;
     connection.execute_batch(
         r#"
         CREATE TABLE IF NOT EXISTS recent_workspaces (
@@ -124,12 +129,9 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
         );
         "#,
     )?;
-    probe::step(connection, desktop::migrate)?;
-    probe::step(connection, crate::ideas_codec::migrate)?;
-    probe::step(
-        connection,
-        crate::desktop_workspace_store::mobile_configuration::migrate,
-    )?;
+    desktop::migrate(connection)?;
+    crate::ideas_codec::migrate(connection)?;
+    crate::desktop_workspace_store::mobile_configuration::migrate(connection)?;
     ensure_column(
         connection,
         "orchestration_task_routes",
@@ -175,20 +177,20 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
     if connection.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))? != 1 {
         connection.pragma_update(None, "user_version", 1)?;
     }
-    probe::step(connection, crate::mobile_access_store::migrate)?;
-    probe::step(connection, crate::mobile_push_store::migrate)?;
-    probe::step(connection, crate::mobile_activity_store::migrate)?;
-    probe::step(connection, crate::brain_activity_store::migrate)?;
-    probe::step(connection, crate::project_plan_store::migrate)?;
-    probe::step(connection, crate::mobile_task_baseline_store::migrate)?;
-    probe::step(connection, crate::mobile_task_delivery_store::migrate)?;
+    crate::mobile_access_store::migrate(connection)?;
+    crate::mobile_push_store::migrate(connection)?;
+    crate::mobile_activity_store::migrate(connection)?;
+    crate::brain_activity_store::migrate(connection)?;
+    crate::project_plan_store::migrate(connection)?;
+    crate::mobile_task_baseline_store::migrate(connection)?;
+    crate::mobile_task_delivery_store::migrate(connection)?;
     crate::mobile_command_store::migrate_delivery_acceptances(connection)?;
     crate::mobile_command_store::migrate_delivery_feedback(connection)?;
     Ok(())
 }
 pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
-    probe::step(connection, crate::mobile_session_store::migrate)?;
-    probe::step(connection, crate::mobile_turn_store::migrate)?;
+    crate::mobile_session_store::migrate(connection)?;
+    crate::mobile_turn_store::migrate(connection)?;
     connection.execute_batch(
         r#"
         CREATE TABLE IF NOT EXISTS approval_audit (
