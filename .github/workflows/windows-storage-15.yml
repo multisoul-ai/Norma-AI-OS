@@ -5,7 +5,7 @@ on:
       suite:
         description: Full storage or affected groups only; every failure remains recorded
         type: choice
-        options: [full, focused]
+        options: [full, focused, paths-sessions, memory, legacy, concurrency]
         default: full
       repeats:
         description: Repetitions of the complete unchanged concurrency test files
@@ -61,16 +61,26 @@ jobs:
                     'image': os.environ.get('ImageVersion'), 'processors': os.cpu_count(),
                     'suite': os.environ.get('STORAGE_SUITE', 'full'), 'repeats': count,
                     'compiler': subprocess.check_output(['rustc', '-vV'], text=True), 'commands': []}
-          cases = [('full-storage', [])] if os.environ['STORAGE_SUITE'] == 'full' else []
-          cases += [('paths', ['--lib', 'database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary']),
-                    ('legacy', ['--test', 'global_project_storage']),
-                    ('memory', ['--test', 'memory_scope']),
-                    ('sessions', ['--test', 'mobile_sessions'])]
-          for i in range(1, count + 1):
-              for name in ('live_operation_store', 'mobile_commands', 'workspace_chat_time'):
-                  cases.append((f'{name}-{i:02}', ['--test', name]))
-          for label, args in cases:
-              command = ['cargo', 'test', '--locked', '--no-fail-fast', '-p', 'storage', *args, '--', '--nocapture']
+          suite = os.environ['STORAGE_SUITE']
+          groups = {
+              'paths': ('paths', 'storage', ['--lib', 'database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary']),
+              'legacy': ('legacy', 'storage', ['--test', 'global_project_storage']),
+              'memory': ('memory', 'storage', ['--test', 'memory_scope']),
+              'sessions': ('sessions', 'storage', ['--test', 'mobile_sessions']),
+          }
+          cases = [('full-storage', 'storage', [])] if suite == 'full' else []
+          selected = list(groups) if suite in ('full', 'focused') else {
+              'paths-sessions': ['paths', 'sessions'], 'memory': ['memory'],
+              'legacy': ['legacy'], 'concurrency': []}[suite]
+          cases += [groups[name] for name in selected]
+          if platform.system() == 'Windows' and suite in ('full', 'focused', 'memory'):
+              cases.append(('workspace-native', 'workspace', ['--lib', '--test', 'scoped_directory']))
+          if suite in ('full', 'focused', 'concurrency'):
+              for i in range(1, count + 1):
+                  for name in ('live_operation_store', 'mobile_commands', 'workspace_chat_time'):
+                      cases.append((f'{name}-{i:02}', 'storage', ['--test', name]))
+          for label, package, args in cases:
+              command = ['cargo', 'test', '--locked', '--no-fail-fast', '-p', package, *args, '--', '--nocapture']
               started = time.monotonic()
               report['active_command'] = {'label': label, 'command': command}
               (root / 'report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
