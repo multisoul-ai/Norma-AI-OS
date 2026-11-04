@@ -12,7 +12,6 @@ mod commands;
 pub(crate) use commands::parse_adapter_command;
 mod definitions;
 mod ideas;
-mod task_handoff;
 mod voice;
 pub use definitions::norma_tool_definitions;
 mod delete_intent;
@@ -410,7 +409,6 @@ impl NormaToolRuntime {
                 "用户原始请求没有明确授权删除这个卡片目标".to_string(),
             ));
         }
-        task_handoff::preserve_doubao_request(&mut command, context);
         let result = self.adapter.execute(command, context).await;
         if let Some(operation_id) = context.operation_id.as_deref() {
             self.operation_receipts
