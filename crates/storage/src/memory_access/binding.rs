@@ -33,7 +33,14 @@ fn signature(path: &Path) -> Result<String, AdapterError> {
             meta.ino()
         ))
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    {
+        let directory =
+            workspace::scoped_directory::Directory::open(path, false).map_err(failure)?;
+        let (volume, index, birth) = directory.identity_with_creation_time().map_err(failure)?;
+        Ok(format!("{}:{volume}:{index}:{birth}", path.display()))
+    }
+    #[cfg(not(any(unix, windows)))]
     {
         Err(AdapterError::Rejected(
             "当前平台尚不能核验项目目录身份".into(),

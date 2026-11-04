@@ -2,6 +2,45 @@
 use std::{io::ErrorKind, process::Command};
 use workspace::scoped_directory::Directory;
 
+/// 场景：同一目录跨句柄身份稳定，同一路径被替换后身份必须改变。
+/// 构造：真实临时NTFS普通目录，读取volume/file-index/creation-time三元组。
+/// 执行：两个独立句柄读取→释放句柄→移走目录并在完全同一路径重建→再次读取。
+/// 预期：同一文件身份相等，替换身份不相等，创建时间非零；原二元组API保持一致。
+#[test]
+fn directory_identity_with_birth_distinguishes_same_path_replacement() {
+    let temp = tempfile::tempdir().expect("隔离目录身份根");
+    let path = temp.path().join("project");
+    std::fs::create_dir(&path).expect("原目录");
+    let first = Directory::open(&path, false).expect("原目录能力");
+    let original = first
+        .identity_with_creation_time()
+        .expect("同一handle三元组");
+    assert_eq!(
+        (original.0, original.1),
+        first.identity().expect("原二元组"),
+        "不能改变现有删除/clone依赖的身份"
+    );
+    assert!(original.2 > 0, "NTFS创建时间必须真实可查询");
+    let second = Directory::open(&path, false).expect("第二个独立句柄");
+    assert_eq!(
+        second.identity_with_creation_time().expect("同目录身份"),
+        original,
+        "跨句柄身份必须稳定"
+    );
+    drop(first);
+    drop(second);
+    std::fs::rename(&path, temp.path().join("moved")).expect("释放句柄后移走原目录");
+    std::fs::create_dir(&path).expect("同一路径新目录");
+    let replacement = Directory::open(&path, false).expect("新目录能力");
+    assert_ne!(
+        replacement
+            .identity_with_creation_time()
+            .expect("新目录身份"),
+        original,
+        "路径字符串相同也不能继承旧目录身份"
+    );
+}
+
 /// 场景：真实 NTFS 目录与文件发布；数据为独立目录和两个合法指针正文。
 /// 执行：创建、刷目录、写文件、替换并刷目录，再读取。
 /// 预期：目录同步真实成功；原子替换保留新正文，不得吞掉同步或权限错误。

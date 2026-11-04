@@ -24,6 +24,17 @@ use windows_sys::Win32::{
 };
 
 impl Directory {
+    /// Stable identity and birth time are read from the same pinned directory handle.
+    pub fn identity_with_creation_time(&self) -> io::Result<(u32, u64, u64)> {
+        let info = information(&self.file)?;
+        Ok((
+            info.dwVolumeSerialNumber,
+            (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
+            (u64::from(info.ftCreationTime.dwHighDateTime) << 32)
+                | u64::from(info.ftCreationTime.dwLowDateTime),
+        ))
+    }
+
     pub fn identity(&self) -> io::Result<(u32, u64)> {
         let info = information(&self.file)?;
         Ok((
