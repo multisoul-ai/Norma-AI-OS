@@ -79,7 +79,12 @@ pub(crate) fn voice_settings(
                 voice_shortcut_label,
                 cx,
             ))
-            .children(status_message(theme, state));
+            // The GPT-Live footer already reports saved state; only surface failures here.
+            .children(
+                status_message(theme, state)
+                    .into_iter()
+                    .filter(|_| state.status().is_some_and(|(_, error)| error)),
+            );
     }
     let page = page.child(voice_status_overview(
         theme,

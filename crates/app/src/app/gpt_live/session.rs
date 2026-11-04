@@ -118,6 +118,31 @@ fn local_call_error(
 #[path = "../../../tests/unit/gpt_live_audio_loop_tests.rs"]
 mod tests;
 
+fn drain_microphone(
+    control: &live_voice::LiveControl,
+    microphone: &mut std::collections::VecDeque<u8>,
+    retain_bytes: usize,
+    submitted_samples: &mut u64,
+    last_real_sample: &mut Option<u64>,
+) -> Result<(), LoopError> {
+    while microphone.len() > retain_bytes {
+        let mut bytes = vec![0; 640];
+        for byte in &mut bytes {
+            if let Some(sample_byte) = microphone.pop_front() {
+                *byte = sample_byte;
+            } else {
+                break;
+            }
+        }
+        let pcm = PcmAudioChunk::new(audio::PcmFormat::Pcm16, 16_000, 1, bytes)
+            .map_err(|error| format!("Invalid microphone frame: {error:?}"))?;
+        control.send_audio(pcm)?;
+        *submitted_samples += 320;
+        *last_real_sample = Some(*submitted_samples);
+    }
+    Ok(())
+}
+
 pub(super) async fn run_audio_loop(
     mut connection: live_voice::LiveConnection,
     capture: CaptureInput,
@@ -210,13 +235,10 @@ pub(super) async fn run_audio_loop(
                 _ = clock.tick() => {
                     reports.pump(|command, scope| control.send_scoped_append(command, scope))?;
                     if user_muted || microphone.is_empty() { control.send_silence(320)?; submitted_samples += 320; }
+                    // Send at least one 20ms frame and catch up to at most 100ms of local backlog.
                     else {
-                        let mut bytes = vec![0;640];
-                        for byte in &mut bytes { if let Some(sample_byte) = microphone.pop_front() { *byte = sample_byte; } else { break; } }
-                        let pcm = PcmAudioChunk::new(audio::PcmFormat::Pcm16,16_000,1,bytes).map_err(|error| format!("Invalid microphone frame: {error:?}"))?;
-                        control.send_audio(pcm)?;
-                        submitted_samples += 320;
-                        last_real_sample = Some(submitted_samples);
+                        let retain_bytes = microphone.len().saturating_sub(640).min(3200);
+                        drain_microphone(&control, &mut microphone, retain_bytes, &mut submitted_samples, &mut last_real_sample)?;
                     }
                 },
                 observation = uploaded.recv() => {
@@ -238,7 +260,11 @@ pub(super) async fn run_audio_loop(
                             return Err("Microphone returned invalid PCM".into());
                         }
                         // 16000 samples/s × 2B × 0.2s = 6400B of local microphone backlog.
-                        if microphone.len() + chunk.bytes.len() > 6400 { return Err("Microphone audio exceeded the 200ms buffer".into()); }
+                        if chunk.bytes.len() > 6400 { return Err("Microphone audio exceeded the 200ms buffer".into()); }
+                        // Multiple capture blocks can already be ready after a scheduler stall.
+                        if microphone.len() + chunk.bytes.len() > 6400 {
+                            drain_microphone(&control, &mut microphone, 6400 - chunk.bytes.len(), &mut submitted_samples, &mut last_real_sample)?;
+                        }
                         microphone.extend(chunk.bytes);
                     }
                     CaptureEvent::Stopped { generation } => draining_generations.retain(|pending| *pending > generation),
