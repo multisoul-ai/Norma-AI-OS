@@ -123,13 +123,13 @@ fn gpt_live_material_settings_progressively_disclose_key_and_diagnostics() {
 }
 
 /// 首次配置 Key 时，分两次原生文本输入不能被自动保存引起的重绘打断。
-/// 数据构造：隔离空 Key 配置；先输入一个字符，再补齐本地无效夹具，不连接云端；分别用 Enter、鼠标隐藏和移除结束。
+/// 数据构造：隔离空 Key 配置；先输入一个字符，再补齐本地无效夹具，不连接云端；分别用 Enter、鼠标完成、移除与 Tab 失焦结束。
 /// 执行过程：点击 Key 输入框→输入首字符→等待后台保存→继续输入→Enter 或 MouseDown/重绘/MouseUp→等待保存。
 /// 预期结果：首次输入期间字段持续存在；提交后收起，凭据存储中保存的是完整值。
 #[test]
 fn gpt_live_material_first_key_stays_visible_until_editing_finishes() {
     use gpui::{EntityInputHandler, Focusable};
-    for finish in ["enter", "hide", "remove"] {
+    for finish in ["enter", "hide", "remove", "blur"] {
         let temp = tempfile::tempdir().expect("隔离目录");
         let paths = storage::DatabasePaths::isolated_test(temp.path());
         let store = storage::AppStore::initialize(&paths).expect("隔离存储");
@@ -145,6 +145,9 @@ fn gpt_live_material_first_key_stays_visible_until_editing_finishes() {
             ui::component::Root::new(entity, window, cx)
         });
         cx.simulate_resize(size(px(1280.0), px(900.0)));
+        // Test windows start inactive; focus/blur subscriptions require actual activation.
+        cx.update(|window, _| window.activate_window());
+        cx.run_until_parked();
         let host = host.expect("宿主");
         host.update_in(cx, |app, window, cx| app.open_voice_settings(window, cx));
         cx.run_until_parked();
@@ -159,17 +162,6 @@ fn gpt_live_material_first_key_stays_visible_until_editing_finishes() {
             app.voice_settings_inputs
                 .input(crate::settings::voice::VoiceSettingsField::GptLiveApiKey)
         });
-        // This test starts at the native editing seam; pointer focus is covered by desktop-e2e.
-        host.update_in(cx, |app, window, cx| {
-            app.begin_voice_text_input(
-                crate::settings::voice::VoiceSettingsField::GptLiveApiKey,
-                String::new(),
-                cx,
-            );
-            input.read(cx).focus_handle(cx).focus(window);
-        });
-        cx.update(|window, cx| window.draw(cx).clear());
-        cx.run_until_parked();
         let focused = host.read_with(cx, |app, _| app.voice_settings.editing_field());
         assert_eq!(
             focused,
@@ -215,7 +207,13 @@ fn gpt_live_material_first_key_stays_visible_until_editing_finishes() {
                 .is_some(),
             "补齐 Key 后提交前仍能编辑"
         );
-        if finish != "enter" {
+        if finish == "blur" {
+            assert!(
+                cx.update(|window, cx| input.read(cx).focus_handle(cx).is_focused(window)),
+                "失焦前必须真实聚焦输入框"
+            );
+            cx.simulate_keystrokes("tab");
+        } else if finish != "enter" {
             host.update(cx, |app, cx| app.persist_voice_settings_in_background(cx));
             let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
             loop {
@@ -357,4 +355,119 @@ fn gpt_live_material_actions_activate_once_per_complete_key_press() {
     let button = cx.debug_bounds("live-keyboard-fixture").expect("按钮可见");
     cx.simulate_click(button.center(), Modifiers::none());
     assert_eq!(count.get(), 3, "鼠标仍使用同一生产回调且不重复执行");
+}
+
+/// 设置页只保留配置；上次通话失败时给出摘要，原始报错留在诊断里。
+/// 数据构造：隔离 SQLite 选 GPT-Live、无 Key、不连接云端；用生产 fail 注入上次通话错误。
+/// 执行过程：打开设置→检查无连接按钮与提醒→注入错误→点击「查看详情」。
+/// 预期结果：无连接/挂断按钮；错误后出现提醒；点击后诊断展开并显示原始报错区域。
+#[test]
+fn gpt_live_material_failed_call_alert_opens_diagnostics() {
+    let temp = tempfile::tempdir().expect("隔离数据目录");
+    let paths = storage::DatabasePaths::isolated_test(temp.path());
+    let store = storage::AppStore::initialize(&paths).expect("隔离存储");
+    store
+        .settings_store()
+        .set_string("voice.desktop.mode", "gpt_live")
+        .expect("GPT模式");
+    let mut test = TestAppContext::single();
+    let mut host = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        host = Some(entity.clone());
+        ui::component::Root::new(entity, window, cx)
+    });
+    cx.simulate_resize(size(px(1280.0), px(900.0)));
+    let host = host.expect("创建宿主");
+    host.update_in(cx, |app, window, cx| app.open_voice_settings(window, cx));
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("settings-live-connect-button").is_none(),
+        "通话由快捷键开启，设置页不放连接按钮"
+    );
+    assert!(
+        cx.debug_bounds("settings-live-alert").is_none(),
+        "无错误时不提醒"
+    );
+    host.update(cx, |app, cx| {
+        app.gpt_live
+            .fail("Microphone audio exceeded the 200ms buffer".into());
+        cx.notify();
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let details = cx
+        .debug_bounds("settings-live-alert-details")
+        .expect("失败后出现提醒与查看详情");
+    assert!(
+        cx.debug_bounds("settings-live-raw-error").is_none(),
+        "诊断默认收起"
+    );
+    cx.simulate_click(details.center(), Modifiers::none());
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        host.read_with(cx, |app, _| app
+            .voice_settings
+            .gpt_live_diagnostics_expanded()),
+        "查看详情展开诊断"
+    );
+    assert!(
+        cx.debug_bounds("settings-live-raw-error").is_some(),
+        "诊断中显示原始报错"
+    );
+    host.update(cx, |app, cx| {
+        let height = app.settings_viewport.content_scroll.max_offset().height;
+        app.settings_viewport
+            .content_scroll
+            .set_offset(gpui::point(px(0.0), -height));
+        cx.notify();
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let chevron = cx
+        .debug_bounds("settings-live-diagnostics-chevron")
+        .expect("键盘可聚焦的展开按钮");
+    cx.simulate_click(chevron.center(), Modifiers::none());
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        !host.read_with(cx, |app, _| app
+            .voice_settings
+            .gpt_live_diagnostics_expanded()),
+        "点箭头只切换一次，不被整行点击重复切回"
+    );
+}
+
+/// 页脚仅在全部设置成功落库后报告成功，不能掩盖普通写入或凭据重试。
+/// 数据构造：隔离 SQLite；普通音色写入分成功和失败批次，凭据仅用本地无效夹具。
+/// 执行过程：排队音色→执行中→完成→失败→凭据失败→清除临时错误状态。
+/// 预期结果：排队与执行中显示保存中；失败及待重试均不能显示所有更改已保存。
+#[test]
+fn gpt_live_material_footer_tracks_all_pending_writes_and_failures() {
+    use super::footer_status as status;
+    use crate::settings::voice::{VoiceSettingsField, VoiceSettingsState};
+    let temp = tempfile::tempdir().expect("隔离设置目录");
+    let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
+    let mut state = VoiceSettingsState::load_from_store(store);
+    assert_eq!(status(&state), Some("voice.live_all_saved"), "初始已保存");
+    state.select_gpt_live_voice("cedar");
+    assert!(state.settings_persistence_pending(), "普通设置写入已排队");
+    assert!(!state.credential_persistence_pending(), "无凭据写入");
+    assert_eq!(status(&state), Some("voice.saving"), "排队未完成");
+    let writes = state.take_pending_writes();
+    assert_eq!(status(&state), Some("voice.saving"), "执行未完成");
+    for write in writes {
+        write.execute().expect("完成普通设置写入");
+    }
+    state.record_persistence_result(Ok(()));
+    assert_eq!(status(&state), Some("voice.live_all_saved"), "成功才完成");
+    state.select_gpt_live_voice("marin");
+    drop(state.take_pending_writes());
+    state.record_persistence_result(Err("fixture write failure".into()));
+    assert_eq!(status(&state), None, "普通设置保存失败不能显示成功标记");
+    state.commit_edit_value(VoiceSettingsField::GptLiveApiKey, "fixture-only-key".into());
+    drop(state.take_pending_writes());
+    state.record_persistence_result(Err("fixture credential failure".into()));
+    state.begin_edit(VoiceSettingsField::GptLiveApiKey);
+    state.cancel_edit_field(VoiceSettingsField::GptLiveApiKey);
+    assert!(state.has_gpt_live_credential_retry(), "仍须重试");
+    assert_eq!(status(&state), None, "重试时无成功标记");
 }

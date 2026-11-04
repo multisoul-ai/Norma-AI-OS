@@ -16,6 +16,7 @@ pub(crate) struct LiveCallView {
     pub reconciliation: Option<String>,
     pub reconciling: bool,
     pub status: String,
+    pub error: Option<String>,
     pub usage: Option<live_voice::LiveUsage>,
     pub usage_pending: bool,
 }
@@ -102,7 +103,7 @@ impl GptLiveVoiceState {
         self.status = CallStatus::Idle;
     }
 
-    pub(super) fn fail(&mut self, message: String) {
+    pub(crate) fn fail(&mut self, message: String) {
         self.stop();
         self.status = CallStatus::Failed(message);
     }
@@ -122,6 +123,10 @@ impl GptLiveVoiceState {
             status: match &self.status {
                 CallStatus::Failed(error) => format!("{}：{error}", self.label()),
                 _ => self.label().into(),
+            },
+            error: match &self.status {
+                CallStatus::Failed(error) => Some(error.clone()),
+                _ => None,
             },
             usage: self.usage_reported.then(|| self.usage()),
             usage_pending: self.last_call_generation.is_some() && !self.usage_reported,

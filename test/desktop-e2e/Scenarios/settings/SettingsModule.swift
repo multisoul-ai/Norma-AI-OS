@@ -28,7 +28,7 @@ public enum SettingsModule {
             SettingsDispatchEffects.name,
             SettingsRunEffects.name,
         ],
-        visualScenarioNames: [SettingsThemeConsistency.name, SettingsLiveI18n.name, SettingsA1Configuration.name, SettingsVoiceCommandsPrototype.name, SettingsVoiceCommandsPrototype.sectionsName, SettingsVoiceCapabilities.a1Name, SettingsA1InstalledActions.name, SettingsVoiceCapabilities.jevName, SettingsVoiceCapabilities.errorsName],
+        visualScenarioNames: [SettingsThemeConsistency.name, SettingsLiveConfiguration.name, SettingsLiveI18n.name, SettingsA1Configuration.name, SettingsVoiceCommandsPrototype.name, SettingsVoiceCommandsPrototype.sectionsName, SettingsVoiceCapabilities.a1Name, SettingsA1InstalledActions.name, SettingsVoiceCapabilities.jevName, SettingsVoiceCapabilities.errorsName],
         run: { scenario, session in
             switch scenario {
             case SettingsA1InstalledActions.name:
