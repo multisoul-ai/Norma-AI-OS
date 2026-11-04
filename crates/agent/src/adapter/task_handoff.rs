@@ -25,7 +25,7 @@ pub(super) fn preserve_doubao_request(command: &mut AdapterCommand, context: &To
         AdapterCommand::HandoffToBrain { request } => request,
         _ => return,
     };
-    if text == context.user_input.trim() {
+    if text == context.user_input.trim() || is_near_verbatim(text, &context.user_input) {
         *text = context.user_input.clone();
         return;
     }
@@ -56,6 +56,21 @@ pub(super) fn preserve_doubao_request(command: &mut AdapterCommand, context: &To
         readable.push_str(original);
     }
     *text = readable;
+}
+
+/// The model often quotes the transcript minus a few words ("克洛伊，"). Sending only the
+/// transcript avoids a near-duplicate; it is a superset, so a dropped "别" is never lost.
+fn is_near_verbatim(text: &str, original: &str) -> bool {
+    const MAX_DROPPED_CHARS: usize = 10;
+    let text = text.trim();
+    !text.is_empty()
+        && original.contains(text)
+        && original
+            .replacen(text, "", 1)
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .count()
+            <= MAX_DROPPED_CHARS
 }
 
 fn append_section<'a>(sections: &mut Vec<&'a str>, section: &'a str, original: &str) {

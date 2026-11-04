@@ -34,11 +34,12 @@ impl MultisoulApp {
     ) -> Stateful<Div> {
         let theme = self.desktop_theme();
         let frost = self.render_drawer_frost(false, width, edge_inset, window);
+        let new_tab_page = self.desktop_workspace.content_browser.new_tab_page;
         let selected = self
             .desktop_workspace
             .content_tabs
             .iter()
-            .find(|tab| tab.selected)
+            .find(|tab| tab.selected && !new_tab_page)
             .cloned();
         div()
             .id("desktop-assistant-right")
@@ -83,9 +84,10 @@ impl MultisoulApp {
                     .when_some(selected, |body, tab| {
                         body.child(self.render_content_tab_body(&tab, width, window, cx))
                     })
-                    .when(self.desktop_workspace.content_tabs.is_empty(), |body| {
-                        body.child(self.render_content_home(width, window, cx))
-                    }),
+                    .when(
+                        new_tab_page || self.desktop_workspace.content_tabs.is_empty(),
+                        |body| body.child(self.render_content_home(width, window, cx)),
+                    ),
             )
     }
 }

@@ -46,6 +46,8 @@
   "drawers.binary_preview": "Inline preview is unavailable for this binary file",
   "drawers.missing_file_source": "The file's source directory is missing",
   "drawers.outside_project": "The file is outside the source project",
+  "drawers.browser_loading": "Loading…",
+  "drawers.blank_page_hint": "Enter an address to start browsing",
   "drawers.opening_file": "Opening file…",
   "drawers.open_system": "Open with system app",
   "drawers.desktop_closed": "The desktop workspace is closed",

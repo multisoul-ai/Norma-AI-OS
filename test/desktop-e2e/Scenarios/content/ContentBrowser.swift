@@ -21,10 +21,11 @@ extension ContentWorkbench {
             // 新建网页的 + 固定在标签栏最右端；固定 1280px 场景中的位置已看图核对。
             let plusX = file.windowFrame.width - 29
             try await session.click(local: CGPoint(x: plusX, y: 26), on: file)
-            let blank = try await session.wait(Expectation(allOf: ["about:blank"], timeout: 10))
-            guard let address = blank.pick(["about:blank"], .bottom) else { throw E2EError.product("浏览器地址栏不可见") }
-            try await session.click(local: address.center, on: blank)
-            try await session.shortcut(key: 0, modifiers: [0x37])
+            // “+” 打开新标签页（工具选择页），而不是 about:blank 浏览器。
+            let home = try await session.wait(Expectation(anyOf: ["搜索或输入网址", "Search or enter address"], timeout: 10))
+            try session.save(home, "09-new-tab-home.png")
+            guard let address = home.pick(["搜索或输入网址", "Search or enter address"], .top) else { throw E2EError.product("新标签页地址栏不可见") }
+            try await session.click(local: address.center, on: home)
             try await session.type(server.address)
             try await session.shortcut(key: 36, modifiers: [])
             _ = try await session.wait(Expectation(allOf: ["BROWSER FIRST E2E", "Session marker"], timeout: 15))

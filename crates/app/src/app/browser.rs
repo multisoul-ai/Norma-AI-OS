@@ -273,7 +273,7 @@ impl MultisoulApp {
                         changed = true;
                     }
                 }
-                BrowserEvent::PageLoad { .. } => {}
+                BrowserEvent::PageLoad { .. } => changed = true,
                 BrowserEvent::NavigateCurrentCard { node_id, url } => {
                     if self.update_desktop_browser_tab_location(node_id, url.clone(), cx)
                         || self.set_browser_url(node_id, url.clone())

@@ -1,6 +1,9 @@
 //! Lifecycle and commands for one native browser view.
 use super::*;
 
+/// Failed loads never commit; reveal anyway so the native error/blank page is not hidden.
+const FIRST_COMMIT_REVEAL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
 impl BrowserView {
     pub(super) fn sync(
         &mut self,
@@ -47,7 +50,15 @@ impl BrowserView {
             self.url = url.to_string();
             self.load_url(url);
         }
-        self.set_visible(true);
+        let reveal = self.committed
+            || !self
+                .load_timeline
+                .is_loading_within(Instant::now(), FIRST_COMMIT_REVEAL_TIMEOUT);
+        if reveal && !self.visible {
+            // present() skipped hidden views, so replay the cached placement.
+            self.presentation = None;
+        }
+        self.set_visible(reveal);
     }
 
     pub(super) fn load_url(&mut self, url: &str) {

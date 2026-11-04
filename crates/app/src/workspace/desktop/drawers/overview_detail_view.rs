@@ -36,13 +36,11 @@ pub(super) fn header(
         .items_center()
         .gap(px(7.))
         .rounded(px(6.))
-        .border_1()
-        .border_color(rgba(0))
         .tab_index(0)
         .cursor_pointer()
         .hover(move |s| s.bg(rgba(feedback.hover)))
         .active(move |s| s.bg(rgba(feedback.pressed)))
-        .focus(move |s| s.border_color(rgba(feedback.focus)))
+        .focus(move |s| s.bg(rgba(feedback.pressed)))
         .on_click(cx.listener(move |app, _, _, cx| {
             cx.stop_propagation();
             toggle(app, key.clone(), cx);
@@ -208,8 +206,10 @@ fn fact(label: &'static str, value: &str, theme: ui::Theme) -> Div {
         .text_size(px(11.))
         .child(
             div()
-                .w(px(34.))
+                // 英文标签（Reason / Output）比中文宽，34px 会逐字折行。
+                .w(px(46.))
                 .flex_none()
+                .whitespace_nowrap()
                 .text_color(rgba(theme.text_tertiary))
                 .child(ui::i18n::text(label)),
         )

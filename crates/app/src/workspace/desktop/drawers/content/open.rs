@@ -25,6 +25,7 @@ impl MultisoulApp {
             .content_tab_generation
             .wrapping_add(1);
         self.desktop_workspace.content_tabs.clear();
+        self.desktop_workspace.content_browser.new_tab_page = false;
         self.desktop_workspace.content_previews.clear();
         self.desktop_workspace.content_snapshots.clear();
         self.desktop_workspace.content_resources.clear();
@@ -127,6 +128,7 @@ impl MultisoulApp {
                         app.desktop_workspace.content_load_versions.remove(&tab.id);
                     }
                     app.desktop_workspace.content_tabs = tabs;
+                    app.desktop_workspace.content_browser.new_tab_page = false;
                     app.desktop_workspace.drawers = route_drawer(
                         app.desktop_workspace.drawers,
                         DesktopDrawerEvent::OpenArtifact,
