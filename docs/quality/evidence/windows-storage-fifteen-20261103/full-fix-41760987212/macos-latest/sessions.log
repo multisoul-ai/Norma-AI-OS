@@ -1,0 +1,13 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.27s
+     Running tests/mobile_sessions.rs (target/debug/deps/mobile_sessions-17b0989ddd908922)
+
+running 6 tests
+test cursor_session_persists_bound_transcript_reference ... ok
+test native_events_preserve_session_identity_and_record_exact_turn ... ok
+test session_rejects_unsafe_paths_without_persisting_an_identity ... ok
+test session_index_is_durable_scoped_and_immutable ... ok
+test session_history_pages_without_duplicates ... ok
+test transcript_reference_uses_existing_writer_and_cannot_be_rebound ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+

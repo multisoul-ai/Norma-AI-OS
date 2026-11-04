@@ -1,0 +1,9 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.23s
+     Running tests/memory_scope.rs (target/debug/deps/memory_scope-40ae74c13a72ac68)
+
+running 2 tests
+test replacement_at_the_same_plain_path_cannot_inherit_memory_identity ... ok
+test repository_worktrees_share_only_project_memory ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+

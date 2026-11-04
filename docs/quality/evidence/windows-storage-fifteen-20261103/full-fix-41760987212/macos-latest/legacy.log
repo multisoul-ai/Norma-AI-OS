@@ -1,0 +1,14 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.26s
+     Running tests/global_project_storage.rs (target/debug/deps/global_project_storage-adf343a04e25afe0)
+
+running 7 tests
+test failed_import_does_not_publish_an_empty_database_and_can_retry ... ok
+test constructing_a_project_store_cannot_bypass_legacy_import ... ok
+test concurrent_initialization_publishes_one_complete_database ... ok
+test opening_project_keeps_database_outside_the_repository ... ok
+test legacy_database_is_imported_once_including_committed_wal_data ... ok
+test project_identity_and_database_mode_remain_isolated ... ok
+test test_mode_never_imports_the_production_legacy_database ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+

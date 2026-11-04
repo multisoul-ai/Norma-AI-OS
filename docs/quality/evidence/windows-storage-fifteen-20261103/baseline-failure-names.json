@@ -1,0 +1,25 @@
+{
+  "run_id": 41756328226,
+  "source": "8a4090375ccde85c81ac9ed216b13ad171f03f28",
+  "passed": 267,
+  "failed": 15,
+  "ignored": 0,
+  "failed_names": [
+    "concurrent_creation_migrates_legacy_chat_time_once",
+    "concurrent_initialization_publishes_one_complete_database",
+    "constructing_a_project_store_cannot_bypass_legacy_import",
+    "cursor_session_persists_bound_transcript_reference",
+    "database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary",
+    "failed_import_does_not_publish_an_empty_database_and_can_retry",
+    "legacy_database_is_imported_once_including_committed_wal_data",
+    "live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown",
+    "mobile_command_is_reserved_once_and_receipt_is_immutable",
+    "native_events_preserve_session_identity_and_record_exact_turn",
+    "repository_worktrees_share_only_project_memory",
+    "session_history_pages_without_duplicates",
+    "session_index_is_durable_scoped_and_immutable",
+    "test_mode_never_imports_the_production_legacy_database",
+    "transcript_reference_uses_existing_writer_and_cannot_be_rebound"
+  ],
+  "note": "Parsed final libtest failure lists; inline test lines can interleave and the raw report missed two names."
+}

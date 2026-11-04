@@ -1,0 +1,36 @@
+{
+  "source_sha": "792d8d8d2154692f17007a20cda0e7358a2dd98f",
+  "run_id": "41759424737",
+  "attempt": "1",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "image": "20261026.0455.2",
+  "processors": 3,
+  "suite": "memory",
+  "repeats": 1,
+  "compiler": "rustc 1.91.1 (ed61e7d7e 2025-11-07)\nbinary: rustc\ncommit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb\ncommit-date: 2025-11-07\nhost: aarch64-apple-darwin\nrelease: 1.91.1\nLLVM version: 21.1.2\n",
+  "commands": [
+    {
+      "label": "memory",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "memory_scope",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "valid_counts": true,
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "failed_names": [],
+      "seconds": 67.413,
+      "log": "memory.log"
+    }
+  ]
+}

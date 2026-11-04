@@ -1,0 +1,55 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.48s
+     Running tests\mobile_commands.rs (target\debug\deps\mobile_commands-ab49d0e0b2059d84.exe)
+
+running 3 tests
+[DEBUG-storage15] migration stage=storage::mobile_session_store::migrate thread=ThreadId(5) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpasZWzB\\app.sqlite") elapsed_ms=6574 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+
+thread '<unnamed>' (6764) panicked at crates\storage\tests\mobile_commands.rs:92:61:
+首线程 reserve: Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$0
+             at .\tests\mobile_commands.rs:92
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+thread 'mobile_command_is_reserved_once_and_receipt_is_immutable' (8160) panicked at crates\storage\tests\mobile_commands.rs:94:33:
+线程一: Any { .. }
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable
+             at .\tests\mobile_commands.rs:94
+   5: mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure$0
+             at .\tests\mobile_commands.rs:84
+   6: core::ops::function::FnOnce::call_once<mobile_commands::mobile_command_is_reserved_once_and_receipt_is_immutable::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test mobile_command_is_reserved_once_and_receipt_is_immutable ... FAILED
+test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+test mobile_command_failures_preserve_known_outcome ... ok
+
+failures:
+
+failures:
+    mobile_command_is_reserved_once_and_receipt_is_immutable
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.41s
+
+error: test failed, to rerun pass `-p storage --test mobile_commands`
+error: 1 target failed:
+    `-p storage --test mobile_commands`

@@ -1,0 +1,27 @@
+{
+  "test": "mobile_command_is_reserved_once_and_receipt_is_immutable",
+  "part_of_original_15": true,
+  "baseline_same_image_full_suite": "FAIL",
+  "probe_run": 41757755342,
+  "probe_repeated_failures": "5/5 complete mobile_commands files failed within migrate_app_db, before reserve Immediate",
+  "historical_same_vm_run": 41655531581,
+  "historical_attribution": "Original baseline also reproduced; not attributed to a 7cf regression",
+  "root_cause": "Competing cold schema openers repeatedly acquire independent DDL write commits; another opener exhausts busy wait before business reservation. Cold full-chain transaction now serializes initialization and publishes the revision marker only on complete success.",
+  "fix_commit": "51d642ed",
+  "verified_source": "90522917d26fd2fec8f554d9765950d3c97eb4f0",
+  "final_run": 41760987212,
+  "status": "PASS",
+  "rounds": 20,
+  "passed_rounds": 20,
+  "default_parallel": true,
+  "ignored": 0,
+  "business_assertions_unchanged": [
+    "one New and one Existing",
+    "reopen of pending receipt is outcome_unknown",
+    "finish result keeps node_id 7",
+    "conflicting node_id 8 cannot overwrite",
+    "different device/workspace/body cannot claim receipt"
+  ],
+  "actual_windows_device": "NOT_RUN_USER_OWNED",
+  "live_models": "NOT_RUN_USER_OWNED"
+}

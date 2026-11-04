@@ -1,0 +1,10 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.26s
+     Running tests/mobile_commands.rs (target/debug/deps/mobile_commands-734615910c12dc3e)
+
+running 3 tests
+test mobile_command_lookup_never_reserves_and_checks_original_payload ... ok
+test mobile_command_failures_preserve_known_outcome ... ok
+test mobile_command_is_reserved_once_and_receipt_is_immutable ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+

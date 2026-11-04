@@ -1,0 +1,16 @@
+   Compiling storage v0.1.77 (/Users/runner/work/Norma-AI-OS/Norma-AI-OS/crates/storage)
+    Finished `test` profile [optimized + debuginfo] target(s) in 22.03s
+     Running tests/global_project_storage.rs (target/debug/deps/global_project_storage-adf343a04e25afe0)
+
+running 7 tests
+[DEBUG-storage15] legacy stage=backup thread=ThreadId(4) target="/var/folders/n6/hn37q6pj7sj_9dmqqc2113800000gn/T/.tmpQ524rB/data/projects/3f03639bcdb688ae2ed1a0e40ee4083172518a4994714fd06871ff73f4dd652f/project.test.sqlite" published=false error=SqliteFailure(Error { code: NotADatabase, extended_code: 26 }, Some("not an error"))
+test failed_import_does_not_publish_an_empty_database_and_can_retry ... ok
+test concurrent_initialization_publishes_one_complete_database ... ok
+test constructing_a_project_store_cannot_bypass_legacy_import ... ok
+test opening_project_keeps_database_outside_the_repository ... ok
+test legacy_database_is_imported_once_including_committed_wal_data ... ok
+test project_identity_and_database_mode_remain_isolated ... ok
+test test_mode_never_imports_the_production_legacy_database ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+

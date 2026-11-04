@@ -1,0 +1,39 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.57s
+     Running unittests src\lib.rs (target\debug\deps\storage-142fd333ac84b1b8.exe)
+
+running 1 test
+
+thread 'database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary' (4356) panicked at crates\storage\src\..\tests\unit\database_paths_tests.rs:105:5:
+assertion `left == right` failed: 自动化测试项目库必须位于隔离数据根的 projects 目录
+  left: "/tmp/norma-case-1\\projects\\a176c4e1d813c0d2723061b34ab49985e50fcf8e2fa3b314fee06f5a994a1eae\\project.test.sqlite"
+ right: "/tmp/norma-case-1/projects/260637378a9c752fed42b44759168e7455d0e2b178404463b597ec672b4109e1/project.test.sqlite"
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::panicking::assert_failed_inner
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:434
+   3: core::panicking::assert_failed<std::path::PathBuf,ref$<std::path::Path> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\panicking.rs:394
+   4: storage::database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary
+             at .\tests\unit\database_paths_tests.rs:105
+   5: storage::database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary::closure$0
+             at .\tests\unit\database_paths_tests.rs:89
+   6: core::ops::function::FnOnce::call_once<storage::database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary ... FAILED
+
+failures:
+
+failures:
+    database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 75 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `-p storage --lib`
+error: 1 target failed:
+    `-p storage --lib`

@@ -1,0 +1,37 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.46s
+     Running tests\workspace_chat_time.rs (target\debug\deps\workspace_chat_time-2fbe8333498931ff.exe)
+
+running 2 tests
+[DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(6) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpC0Phg4\\app.sqlite") elapsed_ms=6586 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+[DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(4) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpC0Phg4\\app.sqlite") elapsed_ms=6641 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+[DEBUG-storage15] migration stage=storage::question_delivery_store::migrate thread=ThreadId(5) path=Some("C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpC0Phg4\\app.sqlite") elapsed_ms=6697 autocommit=true error=Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))
+test reconnect_retains_original_event_time ... ok
+
+thread 'concurrent_creation_migrates_legacy_chat_time_once' (5716) panicked at crates\storage\tests\workspace_chat_time.rs:74:5:
+并发首次迁移不能因重复时间字段导致创建失败：[Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Err(Sqlite(SqliteFailure(Error { code: DatabaseBusy, extended_code: 5 }, Some("database is locked")))), Ok(AgentCreationReceipt { device_id: "phone", mac_id: "mac", desktop_workspace_id: "space", operation_id: "create", state: "received", result: None, error: None })]
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once
+             at .\tests\workspace_chat_time.rs:74
+   3: workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure$0
+             at .\tests\workspace_chat_time.rs:49
+   4: core::ops::function::FnOnce::call_once<workspace_chat_time::concurrent_creation_migrates_legacy_chat_time_once::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   5: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test concurrent_creation_migrates_legacy_chat_time_once ... FAILED
+
+failures:
+
+failures:
+    concurrent_creation_migrates_legacy_chat_time_once
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.12s
+
+error: test failed, to rerun pass `-p storage --test workspace_chat_time`
+error: 1 target failed:
+    `-p storage --test workspace_chat_time`

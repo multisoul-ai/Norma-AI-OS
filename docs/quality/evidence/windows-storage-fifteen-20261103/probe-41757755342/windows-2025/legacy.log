@@ -1,0 +1,191 @@
+   Compiling storage v0.1.77 (D:\a\Norma-AI-OS\Norma-AI-OS\crates\storage)
+    Finished `test` profile [optimized + debuginfo] target(s) in 35.76s
+     Running tests\global_project_storage.rs (target\debug\deps\global_project_storage-73071c07d0c1dcbf.exe)
+
+running 7 tests
+[DEBUG-storage15] legacy stage=backup thread=ThreadId(4) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpa6j3c6\\data\\projects\\26f7f08943cd8dad1345e81fa520fb217445dae6cd2f24b3bec4f523ee53e354\\project.test.sqlite" published=false error=SqliteFailure(Error { code: NotADatabase, extended_code: 26 }, Some("not an error"))
+[DEBUG-storage15] legacy stage=parent-open thread=ThreadId(4) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpa6j3c6\\data\\projects\\26f7f08943cd8dad1345e81fa520fb217445dae6cd2f24b3bec4f523ee53e354\\project.test.sqlite" published=true error=Os { code: 5, kind: PermissionDenied, message: "Access is denied." }
+
+thread 'failed_import_does_not_publish_an_empty_database_and_can_retry' (7200) panicked at crates\storage\tests\global_project_storage.rs:222:68:
+修复来源后应能重试: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpa6j3c6\\data\\projects\\3073859019cce026e9ecbd6e4a60d8b26a63634b07cd8d044066dde2b9ef6d3a\\project.test.sqlite", source: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpa6j3c6\\data\\projects\\26f7f08943cd8dad1345e81fa520fb217445dae6cd2f24b3bec4f523ee53e354\\project.test.sqlite", source: Io(Os { code: 5, kind: PermissionDenied, message: "Access is denied." }) } }
+stack backtrace:
+[DEBUG-storage15] legacy stage=parent-open thread=ThreadId(6) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpUBmQBD\\data\\projects\\7cd2cfabeb3141e61eb42f9e993470ff0dcf1319d0932239ad9aa76a3fe3c1bf\\project.test.sqlite" published=true error=Os { code: 5, kind: PermissionDenied, message: "Access is denied." }
+[DEBUG-storage15] legacy stage=parent-open thread=ThreadId(3) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmp3TfKqZ\\data\\projects\\05c812471bee38c5848722acef74810c065bc990557ff7067bd8a3318c3d4365\\project.test.sqlite" published=true error=Os { code: 5, kind: PermissionDenied, message: "Access is denied." }
+[DEBUG-storage15] legacy stage=parent-open thread=ThreadId(5) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpxAfe15\\data\\projects\\2df6bd5599e11b706b15007646be2db53a7d8fa8e0199199d97f1e065210897b\\project.test.sqlite" published=true error=Os { code: 5, kind: PermissionDenied, message: "Access is denied." }
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: global_project_storage::failed_import_does_not_publish_an_empty_database_and_can_retry
+             at .\tests\global_project_storage.rs:222
+   5: global_project_storage::failed_import_does_not_publish_an_empty_database_and_can_retry::closure$0
+             at .\tests\global_project_storage.rs:183
+   6: core::ops::function::FnOnce::call_once<global_project_storage::failed_import_does_not_publish_an_empty_database_and_can_retry::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+thread '<unnamed>' (2500) panicked at crates\storage\tests\global_project_storage.rs:356:26:
+并发初始化应成功: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpUBmQBD\\data\\projects\\ffd9b8b0f3f9a852735916f6cb229e497e4e6d06b6fe4382b0a2923868f41e8d\\project.test.sqlite", source: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpUBmQBD\\data\\projects\\7cd2cfabeb3141e61eb42f9e993470ff0dcf1319d0932239ad9aa76a3fe3c1bf\\project.test.sqlite", source: Io(Os { code: 5, kind: PermissionDenied, message: "Access is denied." }) } }
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: global_project_storage::concurrent_initialization_publishes_one_complete_database::closure$0::closure$0::closure$0
+             at .\tests\global_project_storage.rs:356
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+thread 'constructing_a_project_store_cannot_bypass_legacy_import' (3764) panicked at crates\storage\tests\global_project_storage.rs:257:10:
+应构造存储: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmp3TfKqZ\\data\\projects\\05c812471bee38c5848722acef74810c065bc990557ff7067bd8a3318c3d4365\\project.test.sqlite", source: Io(Os { code: 5, kind: PermissionDenied, message: "Access is denied." }) }
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: global_project_storage::constructing_a_project_store_cannot_bypass_legacy_import
+             at .\tests\global_project_storage.rs:257
+   5: global_project_storage::constructing_a_project_store_cannot_bypass_legacy_import::closure$0
+             at .\tests\global_project_storage.rs:238
+   6: core::ops::function::FnOnce::call_once<global_project_storage::constructing_a_project_store_cannot_bypass_legacy_import::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+thread 'legacy_database_is_imported_once_including_committed_wal_data' (5612) panicked at crates\storage\tests\global_project_storage.rs:74:68:
+应迁移旧项目数据库: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpxAfe15\\data\\projects\\bdcfad100ade34b7823a288902cad2354fc1149468837fc837f884c3a973d05d\\project.test.sqlite", source: DatabaseInitialization { mode: Test, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpxAfe15\\data\\projects\\2df6bd5599e11b706b15007646be2db53a7d8fa8e0199199d97f1e065210897b\\project.test.sqlite", source: Io(Os { code: 5, kind: PermissionDenied, message: "Access is denied." }) } }
+stack backtrace:
+test failed_import_does_not_publish_an_empty_database_and_can_retry ... FAILED
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: global_project_storage::legacy_database_is_imported_once_including_committed_wal_data
+             at .\tests\global_project_storage.rs:74
+   5: global_project_storage::legacy_database_is_imported_once_including_committed_wal_data::closure$0
+             at .\tests\global_project_storage.rs:40
+   6: core::ops::function::FnOnce::call_once<global_project_storage::legacy_database_is_imported_once_including_committed_wal_data::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+thread 'concurrent_initialization_publishes_one_complete_database' (8488) panicked at crates\storage\tests\global_project_storage.rs:362:41:
+线程不应崩溃: Any { .. }
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: global_project_storage::concurrent_initialization_publishes_one_complete_database::closure$0::closure$1
+             at .\tests\global_project_storage.rs:362
+   5: core::iter::adapters::map::map_fold::closure$0
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:88
+   6: alloc::vec::into_iter::impl$5::fold
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\into_iter.rs:323
+   7: core::iter::adapters::map::impl$2::fold
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\adapters\map.rs:128
+   8: core::iter::traits::iterator::Iterator::for_each
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\iterator.rs:827
+   9: alloc::vec::Vec::extend_trusted
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\mod.rs:3824
+  10: alloc::vec::spec_extend::impl$1::spec_extend
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\spec_extend.rs:29
+  11: alloc::vec::spec_from_iter_nested::impl$1::from_iter
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\spec_from_iter_nested.rs:62
+  12: alloc::vec::spec_from_iter_nested::impl$1::from_iter
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\spec_from_iter_nested.rs:52
+  13: alloc::vec::in_place_collect::impl$1::from_iter<storage::project_store::ProjectStore,core::iter::adapters::map::Map<alloc::vec::into_iter::IntoIter<std::thread::scoped::ScopedJoinHandle<storage::project_store::ProjectStore>,alloc::alloc::Global>,global_pro
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\in_place_collect.rs:246
+  14: alloc::vec::impl$15::from_iter
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\alloc\src\vec\mod.rs:3683
+  15: core::iter::traits::iterator::Iterator::collect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\iter\traits\iterator.rs:2027
+  16: global_project_storage::concurrent_initialization_publishes_one_complete_database::closure$0
+             at .\tests\global_project_storage.rs:363
+  17: std::thread::scoped::scope::closure$0
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\thread\scoped.rs:151
+  18: core::panic::unwind_safe::impl$25::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\panic\unwind_safe.rs:274
+  19: std::panicking::catch_unwind::do_call
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\panicking.rs:590
+  20: std::panicking::catch_unwind
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\panicking.rs:553
+  21: std::panic::catch_unwind
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\panic.rs:359
+  22: std::thread::scoped::scope<global_project_storage::concurrent_initialization_publishes_one_complete_database::closure_env$0,alloc::vec::Vec<storage::project_store::ProjectStore,alloc::alloc::Global> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\std\src\thread\scoped.rs:151
+  23: global_project_storage::concurrent_initialization_publishes_one_complete_database
+             at .\tests\global_project_storage.rs:350
+  24: global_project_storage::concurrent_initialization_publishes_one_complete_database::closure$0
+             at .\tests\global_project_storage.rs:332
+test constructing_a_project_store_cannot_bypass_legacy_import ... FAILED
+  25: core::ops::function::FnOnce::call_once<global_project_storage::concurrent_initialization_publishes_one_complete_database::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+  26: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test concurrent_initialization_publishes_one_complete_database ... FAILED
+test legacy_database_is_imported_once_including_committed_wal_data ... FAILED
+test opening_project_keeps_database_outside_the_repository ... ok
+[DEBUG-storage15] legacy stage=parent-open thread=ThreadId(10) target="C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpfKpyxB\\Library\\Application Support\\Norma OS\\projects\\0d109cf3a3c9b2b3de6b793d86b94a26ad90baa6f576dee0b83077c542b1439d\\project.sqlite" published=true error=Os { code: 5, kind: PermissionDenied, message: "Access is denied." }
+
+thread 'test_mode_never_imports_the_production_legacy_database' (1536) panicked at crates\storage\tests\global_project_storage.rs:304:6:
+应迁移 Production: DatabaseInitialization { mode: Production, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpfKpyxB\\Library\\Application Support\\Norma OS\\projects\\bb6d12b6cecb26b24fc473029dc5eb061aa0fed5828d1f9bb5a6c5d8ed2735d1\\project.sqlite", source: DatabaseInitialization { mode: Production, path: "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\.tmpfKpyxB\\Library\\Application Support\\Norma OS\\projects\\0d109cf3a3c9b2b3de6b793d86b94a26ad90baa6f576dee0b83077c542b1439d\\project.sqlite", source: Io(Os { code: 5, kind: PermissionDenied, message: "Access is denied." }) } }
+stack backtrace:
+   0: std::panicking::panic_handler
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\std\src\panicking.rs:698
+   1: core::panicking::panic_fmt
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\panicking.rs:75
+   2: core::result::unwrap_failed
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\result.rs:1855
+   3: core::result::Result::expect
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\result.rs:1178
+   4: global_project_storage::test_mode_never_imports_the_production_legacy_database
+             at .\tests\global_project_storage.rs:304
+   5: global_project_storage::test_mode_never_imports_the_production_legacy_database::closure$0
+             at .\tests\global_project_storage.rs:279
+   6: core::ops::function::FnOnce::call_once<global_project_storage::test_mode_never_imports_the_production_legacy_database::closure_env$0,tuple$<> >
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb\library\core\src\ops\function.rs:250
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library\core\src\ops\function.rs:250
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test test_mode_never_imports_the_production_legacy_database ... FAILED
+test project_identity_and_database_mode_remain_isolated ... ok
+
+failures:
+
+failures:
+    concurrent_initialization_publishes_one_complete_database
+    constructing_a_project_store_cannot_bypass_legacy_import
+    failed_import_does_not_publish_an_empty_database_and_can_retry
+    legacy_database_is_imported_once_including_committed_wal_data
+    test_mode_never_imports_the_production_legacy_database
+
+test result: FAILED. 2 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.27s
+
+error: test failed, to rerun pass `-p storage --test global_project_storage`
+error: 1 target failed:
+    `-p storage --test global_project_storage`

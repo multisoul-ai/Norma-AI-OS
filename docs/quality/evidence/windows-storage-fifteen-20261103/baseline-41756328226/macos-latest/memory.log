@@ -1,0 +1,8 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.27s
+     Running tests/memory_scope.rs (target/debug/deps/memory_scope-40ae74c13a72ac68)
+
+running 1 test
+test repository_worktrees_share_only_project_memory ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+

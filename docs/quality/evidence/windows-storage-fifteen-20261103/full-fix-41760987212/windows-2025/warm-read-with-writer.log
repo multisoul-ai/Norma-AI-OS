@@ -1,0 +1,10 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.40s
+     Running tests\mobile_access.rs (target\debug\deps\mobile_access-7652ab17e3c5d552.exe)
+
+running 1 test
+MOBILE_AUTH_32_READS_MS=128.176
+MOBILE_AUTH_WITH_WRITER_MS=3.945 DB_CHANGED=false
+test authentication_does_not_write_or_wait_for_a_writer ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.25s
+

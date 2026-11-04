@@ -1,0 +1,485 @@
+{
+  "source_sha": "11a81b524e99df8f7b7101000c6891d8902b081c",
+  "run_id": "41757755342",
+  "attempt": "1",
+  "platform": "Windows-2025Server-10.0.26100-SP0",
+  "image": "20261030.294.1",
+  "processors": 4,
+  "compiler": "rustc 1.91.1 (ed61e7d7e 2025-11-07)\nbinary: rustc\ncommit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb\ncommit-date: 2025-11-07\nhost: x86_64-pc-windows-msvc\nrelease: 1.91.1\nLLVM version: 21.1.2\n",
+  "commands": [
+    {
+      "label": "paths",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--lib",
+        "database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "valid_counts": true,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "failed_names": [],
+      "seconds": 674.453,
+      "log": "paths.log"
+    },
+    {
+      "label": "legacy",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "global_project_storage",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 2,
+      "failed": 5,
+      "ignored": 0,
+      "failed_names": [
+        "concurrent_initialization_publishes_one_complete_database",
+        "constructing_a_project_store_cannot_bypass_legacy_import",
+        "failed_import_does_not_publish_an_empty_database_and_can_retry",
+        "legacy_database_is_imported_once_including_committed_wal_data",
+        "test_mode_never_imports_the_production_legacy_database"
+      ],
+      "seconds": 44.156,
+      "log": "legacy.log"
+    },
+    {
+      "label": "memory",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "memory_scope",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 0,
+      "failed": 2,
+      "ignored": 0,
+      "failed_names": [
+        "replacement_at_the_same_plain_path_cannot_inherit_memory_identity",
+        "repository_worktrees_share_only_project_memory"
+      ],
+      "seconds": 3.375,
+      "log": "memory.log"
+    },
+    {
+      "label": "sessions",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "mobile_sessions",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "valid_counts": true,
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "failed_names": [],
+      "seconds": 18.688,
+      "log": "sessions.log"
+    },
+    {
+      "label": "live_operation_store-01",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "live_operation_store",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 4,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown"
+      ],
+      "seconds": 22.234,
+      "log": "live_operation_store-01.log"
+    },
+    {
+      "label": "mobile_commands-01",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "mobile_commands",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 2,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "mobile_command_is_reserved_once_and_receipt_is_immutable"
+      ],
+      "seconds": 13.75,
+      "log": "mobile_commands-01.log"
+    },
+    {
+      "label": "workspace_chat_time-01",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "workspace_chat_time",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 1,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "concurrent_creation_migrates_legacy_chat_time_once"
+      ],
+      "seconds": 10.031,
+      "log": "workspace_chat_time-01.log"
+    },
+    {
+      "label": "live_operation_store-02",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "live_operation_store",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 4,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown"
+      ],
+      "seconds": 20.938,
+      "log": "live_operation_store-02.log"
+    },
+    {
+      "label": "mobile_commands-02",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "mobile_commands",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 2,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "mobile_command_is_reserved_once_and_receipt_is_immutable"
+      ],
+      "seconds": 11.0,
+      "log": "mobile_commands-02.log"
+    },
+    {
+      "label": "workspace_chat_time-02",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "workspace_chat_time",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 1,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "concurrent_creation_migrates_legacy_chat_time_once"
+      ],
+      "seconds": 8.765,
+      "log": "workspace_chat_time-02.log"
+    },
+    {
+      "label": "live_operation_store-03",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "live_operation_store",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "valid_counts": true,
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "failed_names": [],
+      "seconds": 20.985,
+      "log": "live_operation_store-03.log"
+    },
+    {
+      "label": "mobile_commands-03",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "mobile_commands",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 2,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "mobile_command_is_reserved_once_and_receipt_is_immutable"
+      ],
+      "seconds": 10.984,
+      "log": "mobile_commands-03.log"
+    },
+    {
+      "label": "workspace_chat_time-03",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "workspace_chat_time",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 1,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "concurrent_creation_migrates_legacy_chat_time_once"
+      ],
+      "seconds": 7.969,
+      "log": "workspace_chat_time-03.log"
+    },
+    {
+      "label": "live_operation_store-04",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "live_operation_store",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 4,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown"
+      ],
+      "seconds": 20.531,
+      "log": "live_operation_store-04.log"
+    },
+    {
+      "label": "mobile_commands-04",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "mobile_commands",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 2,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "mobile_command_is_reserved_once_and_receipt_is_immutable"
+      ],
+      "seconds": 11.078,
+      "log": "mobile_commands-04.log"
+    },
+    {
+      "label": "workspace_chat_time-04",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "workspace_chat_time",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 1,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "concurrent_creation_migrates_legacy_chat_time_once"
+      ],
+      "seconds": 8.219,
+      "log": "workspace_chat_time-04.log"
+    },
+    {
+      "label": "live_operation_store-05",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "live_operation_store",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 4,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "live_concurrent_claim_is_unique_and_unfinished_restart_is_unknown"
+      ],
+      "seconds": 20.984,
+      "log": "live_operation_store-05.log"
+    },
+    {
+      "label": "mobile_commands-05",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "mobile_commands",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 2,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "mobile_command_is_reserved_once_and_receipt_is_immutable"
+      ],
+      "seconds": 10.797,
+      "log": "mobile_commands-05.log"
+    },
+    {
+      "label": "workspace_chat_time-05",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--no-fail-fast",
+        "-p",
+        "storage",
+        "--test",
+        "workspace_chat_time",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "valid_counts": true,
+      "passed": 1,
+      "failed": 1,
+      "ignored": 0,
+      "failed_names": [
+        "concurrent_creation_migrates_legacy_chat_time_once"
+      ],
+      "seconds": 8.687,
+      "log": "workspace_chat_time-05.log"
+    }
+  ]
+}
