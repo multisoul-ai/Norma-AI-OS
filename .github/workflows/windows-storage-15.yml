@@ -43,7 +43,7 @@ jobs:
           shared-key: windows-native-contracts
           cache-workspace-crates: true
           cache-on-failure: true
-      - name: Run full storage and each affected group without hiding any failed attempt
+      - name: Run the selected storage contracts and retain every failed attempt
         shell: bash
         env:
           STORAGE_REPEATS: ${{ inputs.repeats }}
@@ -59,6 +59,7 @@ jobs:
           report = {'source_sha': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'],
                     'attempt': os.environ['GITHUB_RUN_ATTEMPT'], 'platform': platform.platform(),
                     'image': os.environ.get('ImageVersion'), 'processors': os.cpu_count(),
+                    'suite': os.environ.get('STORAGE_SUITE', 'full'), 'repeats': count,
                     'compiler': subprocess.check_output(['rustc', '-vV'], text=True), 'commands': []}
           cases = [('full-storage', [])] if os.environ['STORAGE_SUITE'] == 'full' else []
           cases += [('paths', ['--lib', 'database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary']),
@@ -71,16 +72,26 @@ jobs:
           for label, args in cases:
               command = ['cargo', 'test', '--locked', '--no-fail-fast', '-p', 'storage', *args, '--', '--nocapture']
               started = time.monotonic()
-              result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                      encoding='utf-8', errors='replace')
-              (root / f'{label}.log').write_text(result.stdout, encoding='utf-8')
-              print(result.stdout, flush=True)
-              summaries = re.findall(r'test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;', result.stdout)
+              report['active_command'] = {'label': label, 'command': command}
+              (root / 'report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+              process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                         encoding='utf-8', errors='replace')
+              lines = []
+              with (root / f'{label}.log').open('w', encoding='utf-8') as log:
+                  for line in process.stdout:
+                      log.write(line)
+                      log.flush()
+                      print(line, end='', flush=True)
+                      lines.append(line)
+              code = process.wait()
+              output = ''.join(lines)
+              summaries = re.findall(r'test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;', output)
               totals = {key: sum(int(row[i]) for row in summaries) for i, key in enumerate(('passed', 'failed', 'ignored'), 1)}
               valid = bool(summaries) and totals['passed'] + totals['failed'] > 0 and totals['ignored'] == 0
-              failures = sorted(set(re.findall(r'^test (\S+) \.\.\. FAILED\s*$', result.stdout, re.MULTILINE)))
-              report['commands'].append({'label': label, 'command': command, 'exit_code': result.returncode,
+              failures = sorted(set(re.findall(r'^test (\S+) \.\.\. FAILED\s*$', output, re.MULTILINE)))
+              report['commands'].append({'label': label, 'command': command, 'exit_code': code,
                   'valid_counts': valid, **totals, 'failed_names': failures, 'seconds': round(time.monotonic()-started, 3), 'log': f'{label}.log'})
+              report.pop('active_command', None)
               (root / 'report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
           sys.exit(1 if any(c['exit_code'] or not c['valid_counts'] for c in report['commands']) else 0)
           PYCODE

@@ -33,7 +33,7 @@ fn session_rejects_unsafe_paths_without_persisting_an_identity() {
     let paths = vec![
         "relative/project".into(),
         dir.path().join("../outside"),
-        "invalid\0path".into(),
+        dir.path().join("invalid\0path"),
     ];
     #[cfg(windows)]
     let paths = {

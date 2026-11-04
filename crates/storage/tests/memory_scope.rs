@@ -10,8 +10,14 @@ fn replacement_at_the_same_plain_path_cannot_inherit_memory_identity() {
     let temp = tempfile::tempdir().expect("独立目录身份根");
     let root = temp.path().join("plain-project");
     std::fs::create_dir(&root).expect("普通项目目录");
+    let original_identity = workspace::project::identify_project(&root).expect("普通目录项目身份");
+    assert_eq!(
+        original_identity.key, original_identity.root,
+        "夹具必须无Git且key等于root"
+    );
     let paths = DatabasePaths::isolated_test(&temp.path().join("data"));
     let mut old = MemoryAccess::new(paths.clone(), Some(root.clone()));
+    let mut revisions = Vec::new();
     for alias in [MemoryScopeAlias::Project, MemoryScopeAlias::Worktree] {
         old.settings_save(
             alias,
@@ -21,25 +27,45 @@ fn replacement_at_the_same_plain_path_cannot_inherit_memory_identity() {
             &format!("original-{alias:?}"),
         )
         .expect("旧目录合法身份可保存");
+        revisions.push((
+            alias,
+            old.settings_snapshot(alias).expect("原范围版本").revision(),
+        ));
     }
     std::fs::rename(&root, temp.path().join("moved")).expect("移走普通目录");
     std::fs::create_dir(&root).expect("完全同一路径的新目录");
-    let mut fresh = MemoryAccess::new(paths, Some(root));
-    for alias in [MemoryScopeAlias::Project, MemoryScopeAlias::Worktree] {
+    let replaced_identity = workspace::project::identify_project(&root).expect("新目录项目身份");
+    assert_eq!(
+        replaced_identity.key, original_identity.key,
+        "替换前后key路径必须完全相同"
+    );
+    assert_eq!(
+        replaced_identity.root, original_identity.root,
+        "替换前后root路径必须完全相同"
+    );
+    let mut fresh = MemoryAccess::new(paths, Some(root.clone()));
+    for (alias, revision) in &revisions {
+        let alias = *alias;
+        let rejected = old
+            .settings_snapshot(alias)
+            .expect_err("旧目录读取必须被身份校验拒绝");
         assert!(
-            old.settings_snapshot(alias).is_err(),
-            "旧会话不能读取替换目录范围"
+            matches!(rejected, agent::AdapterError::Rejected(ref text) if text.contains("身份已变化")),
+            "必须为身份拒绝：{rejected:?}"
         );
+        let rejected = match old.settings_save(
+            alias,
+            *revision,
+            vec![("late".into(), "迟到写入".into())],
+            "拒绝写入",
+            &format!("late-{alias:?}"),
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("旧会话不能向替换目录写入"),
+        };
         assert!(
-            old.settings_save(
-                alias,
-                agent::MemoryRevision::INITIAL,
-                vec![("late".into(), "迟到写入".into())],
-                "拒绝写入",
-                "late-op"
-            )
-            .is_err(),
-            "旧会话不能向替换目录写入"
+            matches!(rejected, agent::AdapterError::Rejected(ref text) if text.contains("身份已变化")),
+            "不能以版本冲突冒充身份拒绝：{rejected:?}"
         );
         assert_eq!(
             fresh
@@ -49,6 +75,27 @@ fn replacement_at_the_same_plain_path_cannot_inherit_memory_identity() {
                 .count(),
             0,
             "新身份不能继承旧记忆或迟到写入"
+        );
+    }
+    drop(fresh);
+    std::fs::rename(&root, temp.path().join("replacement")).expect("移走新目录");
+    std::fs::rename(temp.path().join("moved"), &root).expect("恢复原文件身份到原路径");
+    for (alias, revision) in revisions {
+        let snapshot = old.settings_snapshot(alias).expect("原身份恢复后可读");
+        assert_eq!(
+            snapshot.revision(),
+            revision,
+            "失败的迟到写不能推进原范围版本"
+        );
+        assert!(
+            snapshot
+                .entries()
+                .any(|entry| entry.id.as_str() == "original"),
+            "原记忆必须保留"
+        );
+        assert!(
+            !snapshot.entries().any(|entry| entry.id.as_str() == "late"),
+            "原范围也不能被迟到写污染"
         );
     }
 }
