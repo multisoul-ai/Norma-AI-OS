@@ -116,6 +116,19 @@ jobs:
           set -o pipefail
           bash scripts/check-storage-boundaries.sh 2>&1 | tee artifacts/storage-15/boundaries.log
           bash scripts/check-performance-guardrails.sh 2>&1 | tee artifacts/storage-15/performance.log
+      - name: Require storage Clippy and formatting
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --locked -p storage --all-targets -- -D warnings 2>&1 | tee artifacts/storage-15/clippy.log
+          cargo fmt --all --check
+      - name: Require the changed native directory API
+        if: always() && runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --locked -p workspace --lib --test scoped_directory -- -D warnings 2>&1 | tee artifacts/storage-15/workspace-clippy.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
