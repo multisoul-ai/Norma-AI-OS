@@ -2,6 +2,11 @@ name: Windows storage fifteen contracts
 on:
   workflow_dispatch:
     inputs:
+      suite:
+        description: Full storage or affected groups only; every failure remains recorded
+        type: choice
+        options: [full, focused]
+        default: full
       repeats:
         description: Repetitions of the complete unchanged concurrency test files
         type: number
@@ -42,6 +47,7 @@ jobs:
         shell: bash
         env:
           STORAGE_REPEATS: ${{ inputs.repeats }}
+          STORAGE_SUITE: ${{ inputs.suite }}
         run: |
           python - <<'PYCODE'
           import json, os, pathlib, platform, re, subprocess, sys, time
@@ -54,7 +60,7 @@ jobs:
                     'attempt': os.environ['GITHUB_RUN_ATTEMPT'], 'platform': platform.platform(),
                     'image': os.environ.get('ImageVersion'), 'processors': os.cpu_count(),
                     'compiler': subprocess.check_output(['rustc', '-vV'], text=True), 'commands': []}
-          cases = [('full-storage', [])]
+          cases = [('full-storage', [])] if os.environ['STORAGE_SUITE'] == 'full' else []
           cases += [('paths', ['--lib', 'database_paths::tests::isolated_test_paths_stay_under_the_explicit_test_boundary']),
                     ('legacy', ['--test', 'global_project_storage']),
                     ('memory', ['--test', 'memory_scope']),

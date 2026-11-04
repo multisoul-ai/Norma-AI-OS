@@ -1,9 +1,9 @@
-use std::{path::PathBuf, time::Duration};
+use std::{path::Path, time::Duration};
 use storage::{
     ApprovalAuditStore, BackgroundApprovalAudit, MobileSession, MobileSessionKey, MobileTurnStore,
 };
 
-fn session(run: &str) -> MobileSession {
+fn session(root: &Path, run: &str) -> MobileSession {
     MobileSession {
         key: MobileSessionKey {
             node_id: 7,
@@ -11,15 +11,63 @@ fn session(run: &str) -> MobileSession {
             run_id: run.into(),
             session_id: "session-a".into(),
         },
-        workspace_root: PathBuf::from("/tmp/project-a"),
+        workspace_root: root.join("project-a"),
         title: "修复登录".into(),
     }
 }
 
-fn cursor_session(run: &str) -> MobileSession {
-    let mut value = session(run);
+fn cursor_session(root: &Path, run: &str) -> MobileSession {
+    let mut value = session(root, run);
     value.key.profile = "Cursor".into();
     value
+}
+
+/// 合法原生绝对路径可登记，rooted/drive-relative、父级穿越及NUL不能变成会话引用。
+/// 构造：隔离目录下project-a为正例；相对、父级和NUL为通用负例，Windows另覆盖缺盘符根路径。
+/// 执行：逐项提交不同run并查询，最后提交一个合法身份并重读。
+/// 预期：非法路径不产生身份记录，合法路径精确保留；不能为修复夹具放宽valid_path。
+#[test]
+fn session_rejects_unsafe_paths_without_persisting_an_identity() {
+    let dir = tempfile::tempdir().expect("隔离路径验证库");
+    let store = MobileTurnStore::new(dir.path().join("app.sqlite"));
+    let paths = vec![
+        "relative/project".into(),
+        dir.path().join("../outside"),
+        "invalid\0path".into(),
+    ];
+    #[cfg(windows)]
+    let paths = {
+        let mut paths = paths;
+        paths.extend(["/tmp/project-a".into(), "C:relative".into()]);
+        paths
+    };
+    for (index, path) in paths.into_iter().enumerate() {
+        let mut invalid = session(dir.path(), &format!("invalid-{index}"));
+        invalid.workspace_root = path;
+        assert!(
+            store.record_session(&invalid).is_err(),
+            "非法路径必须拒绝：{invalid:?}"
+        );
+        assert!(
+            store.session(&invalid.key).expect("查询失败身份").is_none(),
+            "拒绝路径不能生成记录"
+        );
+    }
+    let valid = session(dir.path(), "valid-path");
+    assert!(
+        valid.workspace_root.is_absolute(),
+        "正例必须是真实平台绝对路径"
+    );
+    store.record_session(&valid).expect("合法路径保持可用");
+    assert_eq!(
+        store
+            .session(&valid.key)
+            .expect("重读")
+            .expect("身份存在")
+            .session,
+        valid,
+        "合法引用必须精确保留"
+    );
 }
 
 /// 会话索引在任务完成前落盘，不依赖画布节点，重复登记不能更换身份。
@@ -32,7 +80,7 @@ fn session_index_is_durable_scoped_and_immutable() {
     let dir = tempfile::tempdir().expect("独立目录");
     let path = dir.path().join("app.sqlite");
     let store = MobileTurnStore::for_workspace(path.clone(), "workspace-a".into());
-    let original = session("run-a");
+    let original = session(dir.path(), "run-a");
     store.record_session(&original).expect("启动身份提交");
     store.record_session(&original).expect("相同身份幂等");
     let mut conflict = original.clone();
@@ -68,18 +116,18 @@ fn session_index_is_durable_scoped_and_immutable() {
         "重开必须恢复完整身份与标题"
     );
     reopened
-        .record_session(&session("run-b"))
+        .record_session(&session(dir.path(), "run-b"))
         .expect("恢复同会话的新运行独立登记");
     assert!(
         reopened
-            .session(&session("run-b").key)
+            .session(&session(dir.path(), "run-b").key)
             .expect("第二run")
             .is_some(),
         "新运行不能覆盖旧run"
     );
     assert!(
         reopened
-            .session(&session("run-a").key)
+            .session(&session(dir.path(), "run-a").key)
             .expect("原run")
             .is_some(),
         "原运行不能随重开删除"
@@ -110,7 +158,7 @@ fn transcript_reference_uses_existing_writer_and_cannot_be_rebound() {
     let project_path = dir.path().join("project.sqlite");
     let store = MobileTurnStore::for_workspace(app_path, "workspace-a".into());
     let audit = ApprovalAuditStore::new(project_path.clone()).with_turn_store(store.clone());
-    let original = session("run-a");
+    let original = session(dir.path(), "run-a");
     audit.record_session(&original).expect("后台准备先提交身份");
     let writer = BackgroundApprovalAudit::new(audit).expect("复用串行writer");
     let path = dir.path().join("session-a.jsonl");
@@ -144,7 +192,7 @@ fn transcript_reference_uses_existing_writer_and_cannot_be_rebound() {
         "文件名必须绑定准确会话"
     );
     writer
-        .bind_session_transcript(session("unknown-run").key, path.clone())
+        .bind_session_transcript(session(dir.path(), "unknown-run").key, path.clone())
         .expect("未登记入队")
         .recv_timeout(budget)
         .expect("未登记回执")
@@ -178,7 +226,7 @@ fn cursor_session_persists_bound_transcript_reference() {
     let dir = tempfile::tempdir().expect("隔离目录");
     let path = dir.path().join("app.sqlite");
     let store = MobileTurnStore::for_workspace(path.clone(), "workspace-a".into());
-    let original = cursor_session("run-cursor");
+    let original = cursor_session(dir.path(), "run-cursor");
     store.record_session(&original).expect("登记Cursor会话");
     let transcript = dir.path().join("session-a.jsonl");
     store
@@ -199,7 +247,7 @@ fn cursor_session_persists_bound_transcript_reference() {
     assert!(
         reopened
             .record_native_event(
-                &cursor_session("run-cursor"),
+                &cursor_session(dir.path(), "run-cursor"),
                 Some(&dir.path().join("another-session.jsonl")),
                 None,
             )
@@ -219,10 +267,12 @@ fn session_history_pages_without_duplicates() {
     let store = MobileTurnStore::new(dir.path().join("project.sqlite"));
     for number in 0..21 {
         store
-            .record_session(&session(&format!("run-{number}")))
+            .record_session(&session(dir.path(), &format!("run-{number}")))
             .expect("登记");
     }
-    store.record_session(&session("run-0")).expect("旧身份幂等");
+    store
+        .record_session(&session(dir.path(), "run-0"))
+        .expect("旧身份幂等");
     let first = store.sessions(None).expect("首页");
     assert_eq!(first.len(), 20, "首页不能无界枚举");
     assert_eq!(first[0].session.key.run_id, "run-20", "最新登记在第一项");
@@ -257,7 +307,7 @@ fn native_events_preserve_session_identity_and_record_exact_turn() {
     let dir = tempfile::tempdir().expect("隔离数据库");
     let path = dir.path().join("app.sqlite");
     let store = MobileTurnStore::for_workspace(path.clone(), "workspace-a".into());
-    let mut original = session("run-native");
+    let mut original = session(dir.path(), "run-native");
     store
         .record_native_event(&original, None, None)
         .expect("原生启动");
