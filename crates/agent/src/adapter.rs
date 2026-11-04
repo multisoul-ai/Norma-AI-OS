@@ -372,7 +372,7 @@ impl NormaToolRuntime {
             }
         }
 
-        let mut command = parse_adapter_command(tool_name, arguments)?;
+        let command = parse_adapter_command(tool_name, arguments)?;
         if context.input_source == crate::AgentInputSource::MobileDiscussion
             && !matches!(
                 command,
