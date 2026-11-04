@@ -70,6 +70,7 @@ ui -> {gpui, gpui-component}
 - **Single Rust source files stay at or below 500 lines**: enforced by [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh); split responsibilities instead of raising the cap.
 - **Agent guides stay at or below 300 lines**: `AGENTS.md` and `CLAUDE.md` are enforced by [`scripts/check-agent-guide-lines.sh`](scripts/check-agent-guide-lines.sh); archive detail to `docs/` and link from [`AGENTS.md`](AGENTS.md) §4.
 - **Native pre-commit is available**: run `bash scripts/install-git-hooks.sh` to enable `.githooks/pre-commit`, which runs staged constraints plus lightweight Rust checks.
+- **禁止在主目录 `dev` 上直接改代码**：主仓库目录只保持干净的 `dev` 检出；任何修改（含文档）先 `git worktree add -b <type>/<topic>-<date> ../<dir> dev`，在 worktree 分支里开发并通过 PR 合并。不要用 `git stash` 在 worktree 之间搬运改动（stash 栈全仓共享），改用 patch 或提交。
 - **Agents must not bypass commit verification**: never use `git commit --no-verify`, `git commit -n`, or disable/replace the configured hook path. See [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md) for the enforcement limits and escalation path.
 - **Keep source files small enough to navigate**: split before a file turns into a mixed-responsibility dumping ground.
 - **Do not treat `.superpowers/sdd/` as the new documentation home**: it is useful historical construction context. New durable specs/plans should use a future `docs/` tree.
