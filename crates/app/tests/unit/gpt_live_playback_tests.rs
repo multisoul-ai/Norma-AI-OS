@@ -26,14 +26,18 @@ impl AssistantAudioSink for HeldSink {
     }
 }
 fn pcm_600ms() -> PcmAudioChunk {
-    // 16000 samples/s × 0.6s × 2B = 19200B, two chunks exceed the 1s budget.
+    // 16000 samples/s × 0.6s × 2B = 19200B.
     PcmAudioChunk::new(audio::PcmFormat::Pcm16, 16000, 1, vec![0; 19200]).expect("600ms PCM")
 }
+fn pcm_1s() -> PcmAudioChunk {
+    // 16000 samples/s × 1s × 2B = 32000B, the largest single Live packet; five fill the 5s budget.
+    PcmAudioChunk::new(audio::PcmFormat::Pcm16, 16000, 1, vec![0; 32000]).expect("1s PCM")
+}
 
-/// AC03/AC11：Live的1秒播放预算覆盖排队和硬件已schedule但未完成的PCM。
-/// 数据构造：600ms PCM、持有完成回调及可阻塞stop的sink；预算上限1000ms。
-/// 执行过程：schedule首包→拒绝第二包→真实完成首包→接受新包→阻塞interrupt/stop→拒绝超限→释放stop。
-/// 预期结果：墙钟和出队不能释放预算；只有完成/实际stop释放；关闭后预算归零且不能继续schedule。
+/// AC03/AC11：Live的5秒播放预算覆盖排队和硬件已schedule但未完成的PCM。
+/// 数据构造：1s PCM（单包上限）、持有完成回调及可阻塞stop的sink；预算上限5000ms。
+/// 执行过程：连续schedule五个1s包→拒绝第六包→真实完成首包→接受新包→阻塞interrupt/stop→拒绝超限→释放stop。
+/// 预期结果：背靠背到达的1s包不再断线；墙钟和出队不能释放预算；只有完成/实际stop释放；关闭后预算归零。
 #[tokio::test]
 async fn live_playback_budget_covers_hardware_until_completion_or_stop() {
     let (scheduled, scheduled_rx) = crossbeam_channel::unbounded();
@@ -50,33 +54,42 @@ async fn live_playback_budget_covers_hardware_until_completion_or_stop() {
         },
         bus.sink(TtsPlaybackSource::GptLive),
     );
-    playback.enqueue_for(0, pcm_600ms()).expect("首包在预算内");
-    let first = scheduled_rx
-        .recv_timeout(Duration::from_secs(2))
-        .expect("首包确实schedule");
-    assert!(
-        playback.enqueue_for(0, pcm_600ms()).is_err(),
-        "已schedule未完成的600ms也占预算，第二包必须拒绝"
-    );
+    let mut held = Vec::new();
+    for packet in 0..5 {
+        playback
+            .enqueue_for(0, pcm_1s())
+            .unwrap_or_else(|_| panic!("第{}个1s包在5秒预算内", packet + 1));
+        held.push(
+            scheduled_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("1s包确实schedule"),
+        );
+    }
     assert_eq!(
         playback.buffered_duration(),
-        Duration::from_millis(600),
+        Duration::from_secs(5),
         "预算包括硬件积压"
     );
-    first.try_send(()).expect("实际完成首包");
+    assert!(
+        playback.enqueue_for(0, pcm_600ms()).is_err(),
+        "已schedule未完成的5s占满预算，再来600ms必须拒绝"
+    );
+    held.remove(0).try_send(()).expect("实际完成首包");
     let deadline = Instant::now() + Duration::from_secs(2);
-    while playback.buffered_duration() != Duration::ZERO && Instant::now() < deadline {
+    while playback.buffered_duration() != Duration::from_secs(4) && Instant::now() < deadline {
         tokio::task::yield_now().await;
     }
     assert_eq!(
         playback.buffered_duration(),
-        Duration::ZERO,
-        "完成回调释放预算"
+        Duration::from_secs(4),
+        "完成回调只释放首包的1s"
     );
-    playback.enqueue_for(0, pcm_600ms()).expect("完成后可继续");
-    let _held = scheduled_rx
-        .recv_timeout(Duration::from_secs(2))
-        .expect("新包schedule");
+    playback.enqueue_for(0, pcm_1s()).expect("完成后可继续");
+    held.push(
+        scheduled_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("新包schedule"),
+    );
     playback.interrupt();
     stopping_rx
         .recv_timeout(Duration::from_secs(2))
@@ -124,9 +137,9 @@ async fn live_playback_budget_covers_hardware_until_completion_or_stop() {
 }
 
 /// AC03/AC11：丢失硬件完成回调不等于硬件已停止，不得提前释放时长预算。
-/// 数据构造：600ms已schedule后主动丢弃完成Sender，sink的stop等待显式许可。
+/// 数据构造：5个1s包占满预算后丢弃首包完成Sender，sink的stop等待显式许可。
 /// 执行过程：触发callback lost→等待stop进入→读取预算并尝试第二个600ms→允许stop/退出。
-/// 预期结果：异常清理期间旧600ms仍占预算，第二包被拒绝，退出后才归零。
+/// 预期结果：异常清理期间旧5s仍占预算，第二包被拒绝，退出后才归零。
 #[tokio::test]
 async fn live_playback_lost_callback_holds_budget_until_confirmed_stop() {
     let (scheduled, scheduled_rx) = crossbeam_channel::unbounded();
@@ -143,11 +156,16 @@ async fn live_playback_lost_callback_holds_budget_until_confirmed_stop() {
         },
         bus.sink(TtsPlaybackSource::GptLive),
     );
-    playback.enqueue_for(0, pcm_600ms()).expect("首包");
-    let callback = scheduled_rx
-        .recv_timeout(Duration::from_secs(2))
-        .expect("已schedule");
-    drop(callback);
+    let mut callbacks = Vec::new();
+    for _ in 0..5 {
+        playback.enqueue_for(0, pcm_1s()).expect("5s预算内");
+        callbacks.push(
+            scheduled_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("已schedule"),
+        );
+    }
+    drop(callbacks.remove(0));
     stopping_rx
         .recv_timeout(Duration::from_secs(2))
         .expect("丢失回调后停止硬件");
@@ -159,7 +177,7 @@ async fn live_playback_lost_callback_holds_budget_until_confirmed_stop() {
         .expect("停止后退出");
     assert_eq!(
         held,
-        Duration::from_millis(600),
+        Duration::from_secs(5),
         "callback丢失不能在硬件停止前释放预算"
     );
     assert!(overflow_rejected, "异常stop未确认前必须拒绝超限音频");

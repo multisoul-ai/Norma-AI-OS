@@ -6,8 +6,9 @@ use std::sync::{
 use std::time::Duration;
 use ui::i18n::LocalizedText;
 
-// Live PCM may arrive in 1s packets. Count both queued and hardware-scheduled PCM.
-const LIMIT_NANOS: u64 = 1_000_000_000;
+// Live PCM may arrive in 1s packets, often several back to back after a stall.
+// Count both queued and hardware-scheduled PCM.
+const LIMIT_NANOS: u64 = 5_000_000_000;
 
 #[derive(Default)]
 pub(super) struct Budget(AtomicU64);

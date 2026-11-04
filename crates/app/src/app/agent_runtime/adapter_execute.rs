@@ -300,6 +300,7 @@ fn execute_norma_adapter_command_unchecked(
                     agent::AgentInputSource::Voice
                         | agent::AgentInputSource::SingleVoiceCommand { .. }
                         | agent::AgentInputSource::DoubaoVoice
+                        | agent::AgentInputSource::GptLiveVoice
                 )
             }) {
                 let visible_area = app.visible_canvas_rect(window);
