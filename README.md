@@ -29,7 +29,7 @@
 
 <p align="center">
   <a href="https://github.com/multisoul-ai/norma-os-releases/releases/latest"><img src="https://img.shields.io/github/v/release/multisoul-ai/norma-os-releases?label=release&amp;color=111214" alt="Latest release" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-111214" alt="MIT License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only-111214" alt="GNU AGPL v3.0 only" /></a>
   <img src="https://img.shields.io/badge/macOS-12%2B-111214" alt="macOS 12 or later" />
 </p>
 
@@ -312,4 +312,10 @@ Building with Norma, or want to try it early? Come say hi.
 
 ## License
 
-[MIT](LICENSE) · Copyright © 2026 multisoul-ai. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party components and resources.
+[GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`) · Copyright © 2026 multisoul-ai.
+
+Norma OS is **open-source software under AGPL v3**. Commercial use and charging fees are permitted, subject to the license. When distributing covered software, you must comply with its license notice and Corresponding Source requirements. If you modify the program and let users interact with it remotely over a network, your modified version must prominently offer those users access to its Corresponding Source at no charge, as required by section 13.
+
+Previously published MIT-licensed versions retain their MIT permissions; this change does not revoke rights already granted.
+
+Third-party code, dependencies, and assets retain their own licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the license files accompanying those components.

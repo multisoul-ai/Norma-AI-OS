@@ -29,7 +29,7 @@
 
 <p align="center">
   <a href="https://github.com/multisoul-ai/norma-os-releases/releases/latest"><img src="https://img.shields.io/github/v/release/multisoul-ai/norma-os-releases?label=release&amp;color=111214" alt="最新版本" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-111214" alt="MIT License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only-111214" alt="GNU AGPL v3.0，仅限第 3 版" /></a>
   <img src="https://img.shields.io/badge/macOS-12%2B-111214" alt="macOS 12 或更高版本" />
 </p>
 
@@ -310,4 +310,10 @@ Norma OS 的桌面端使用 **Rust + GPUI + Metal**。画布、终端、运行�
 
 ## 许可
 
-[MIT](LICENSE) · Copyright © 2026 multisoul-ai。第三方组件与资源说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+[GNU Affero General Public License v3.0，仅限第 3 版](LICENSE)（`AGPL-3.0-only`）· Copyright © 2026 multisoul-ai。
+
+Norma OS **以 AGPL v3 开源**。遵守许可证的前提下，允许商业使用和收费。分发受许可证约束的软件时，须履行许可声明及相应源码提供义务。如果修改程序并允许用户通过网络与修改版远程交互，须按第 13 条，在修改版中显著提供让这些用户免费获取该版本相应源码的途径。
+
+此前已按 MIT 发布的版本仍保留 MIT 授予的权限；本次变更不会撤销已授予的权利。
+
+第三方代码、依赖和素材继续遵循各自的许可证。详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 及相关组件随附的许可文件。
