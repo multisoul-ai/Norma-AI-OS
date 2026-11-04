@@ -67,7 +67,7 @@ Norma后台 -> 项目工具: NormaSession / typed tools
 | 写入去重 | MobileCommandStore；project/session/call ID | LiveOperationStore；稳定意图、操作与 claim token |
 | 未知执行结果 | 不应自动重复副作用 | 持久记录 unknown，先只读核对 |
 | 授权来源 | DoubaoVoice | 独立 GptLiveVoice；复验原话、revision 和通话代次 |
-| 音频输出预算 | 原有播放队列 | 另加 1 秒排队及已调度音频预算 |
+| 音频输出预算 | 原有播放队列 | 另加 5 秒排队及已调度音频预算 |
 
 两边都要以真实工具回执判断执行结果。模型口头说“完成”不能证明项目已经改变。
 
