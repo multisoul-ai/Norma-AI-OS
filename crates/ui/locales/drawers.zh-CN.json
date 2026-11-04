@@ -46,6 +46,8 @@
   "drawers.binary_preview": "该二进制文件暂不支持内嵌预览",
   "drawers.missing_file_source": "缺少文件来源目录",
   "drawers.outside_project": "文件位于项目外部",
+  "drawers.browser_loading": "正在加载…",
+  "drawers.blank_page_hint": "输入网址开始浏览",
   "drawers.opening_file": "正在打开文件…",
   "drawers.open_system": "使用系统应用打开",
   "drawers.desktop_closed": "桌面工作空间已关闭",
