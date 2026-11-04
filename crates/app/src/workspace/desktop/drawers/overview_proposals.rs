@@ -1,4 +1,4 @@
-//! “需要你处理”里大脑提议的下一步：标题行右侧始终是“拒绝 / 采纳”，点行展开完整指令与理由。
+//! “需要你处理”里大脑提议的下一步：标题下方独立一行靠右显示“拒绝 / 采纳”，点行展开完整指令与理由。
 //! 派发和忽略都在拥有该提议的项目会话里执行，不经过大脑。
 
 use super::super::overview_rows::OverviewFeedback;
@@ -83,20 +83,11 @@ impl MultisoulApp {
             .flex_col()
             .on_key_down(super::overview_detail_view::isolate_navigation)
             .rounded(px(7.))
-            .border_b_1()
-            .border_color(rgba(theme.node_stroke))
             .when(expanded, |row| {
                 row.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x07)))
             })
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(4.))
-                    .pr(px(6.))
-                    .child(head)
-                    .child(aside),
-            )
+            .child(head)
+            .child(aside)
             .when_some(hint, |row, message| {
                 row.child(
                     div()
@@ -175,10 +166,15 @@ impl MultisoulApp {
                 })
             })
         });
+        // 侧栏很窄：按钮单独一行靠右，标题才能占满整行宽度。
         div()
             .flex_none()
             .flex()
+            .justify_end()
             .gap(px(4.0))
+            .pl(px(27.))
+            .pr(px(8.))
+            .pb(px(6.))
             .child(ignore)
             .child(dispatch)
     }

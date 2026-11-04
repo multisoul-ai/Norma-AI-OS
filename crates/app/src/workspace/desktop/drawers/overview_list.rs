@@ -130,8 +130,6 @@ impl MultisoulApp {
                     |body| {
                         body.gap(px(0.))
                             .rounded(px(8.))
-                            .border_1()
-                            .border_color(rgba(theme.node_stroke))
                             .bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x04)))
                     },
                 )
