@@ -186,10 +186,7 @@ fn import_legacy_project(paths: &DatabasePaths, root: &Path, target: &Path) -> S
         .inspect_err(|error| import_probe("file-sync", target, error))?;
     match staged.persist_noclobber(target) {
         Ok(_) => {
-            let directory = std::fs::File::open(parent)
-                .inspect_err(|error| import_probe("parent-open", target, error))?;
-            directory
-                .sync_all()
+            sync_directory(parent)
                 .inspect_err(|error| import_probe("parent-sync", target, error))?;
         }
         Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {}
@@ -199,6 +196,18 @@ fn import_legacy_project(paths: &DatabasePaths, root: &Path, target: &Path) -> S
         }
     }
     Ok(())
+}
+
+fn sync_directory(path: &Path) -> std::io::Result<()> {
+    #[cfg(windows)]
+    {
+        // Win32 File::open cannot open a directory; use the existing native directory capability.
+        workspace::scoped_directory::Directory::open(&path.canonicalize()?, true)?.sync()
+    }
+    #[cfg(not(windows))]
+    {
+        std::fs::File::open(path)?.sync_all()
+    }
 }
 
 fn import_probe(stage: &str, target: &Path, error: &impl std::fmt::Debug) {
