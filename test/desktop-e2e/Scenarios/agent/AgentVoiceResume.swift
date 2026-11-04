@@ -84,20 +84,20 @@ public enum AgentVoiceResume {
             return interrupted.summary
         }
 
-        try await session.step("语音续发：同一 CLI 执行完整正文，没有重复交接模板") {
+        try await session.step("语音续发：同一 CLI 原样执行原话正文，不追加原话副本") {
             guard let fake, let target = try session.agentDefinitions().first else {
                 throw E2EError.env("目标智能体丢失")
             }
             let original = "继续刚才的修改，审批按钮应该放在外面，不要展开后才显示。保留按钮文案，不改变审批权限。"
-            let legacy = "Original user request (verbatim):\nUse the full request below to preserve this assignment's background, requirements, examples and constraints. Do not take over work assigned to other agents.\n"
-            let message = "把审批按钮移到卡片外层。\n\n\(legacy)背景：原型留白太多。\n\n\(legacy)背景：原型留白太多。"
+            let message = "审批按钮应该放在外面，不要展开后才显示。保留按钮文案，不改变审批权限。"
             try enqueueReply(ark, agent: target.name, id: "resume-tool-1", message: message)
             try await session.doubaoTranscript(original)
             let executed = try await session.wait(Expectation(allOf: ["EXECUTED 2"], timeout: 25))
             // 回复队列每帧推进、Enter 延迟 100ms；观察 3s，覆盖至少 30 个 Enter 延迟窗口。
             try await Task.sleep(nanoseconds: 3_000_000_000)
             let received = InterruptibleAgentShell.messages(fake)
-            let expected = "把审批按钮移到卡片外层。\n\n---\n\n背景：原型留白太多。\n\n---\n\n\(original)"
+            // 正文原样转发模型给出的原话，不追加分隔线或整段原话。
+            let expected = message
             guard received == ["INITIALTASK", expected],
                   FileManager.default.fileExists(atPath: fake.root.appendingPathComponent("executed-2").path) else {
                 throw E2EError.product("中断后必须执行一次完整的新指令，实际：\(received)")
