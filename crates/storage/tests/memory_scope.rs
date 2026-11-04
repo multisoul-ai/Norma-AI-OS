@@ -18,7 +18,7 @@ fn replacement_at_the_same_plain_path_cannot_inherit_memory_identity() {
             agent::MemoryRevision::INITIAL,
             vec![("original".into(), "旧目录的独立记忆".into())],
             "原记录",
-            "original-op",
+            &format!("original-{alias:?}"),
         )
         .expect("旧目录合法身份可保存");
     }
