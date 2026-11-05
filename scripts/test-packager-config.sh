@@ -14,7 +14,7 @@
 #   app default features = []（普通构建不启用 License 硬门控）
 #   release feature mode = --no-default-features + production-data
 #   release profile      = thin LTO + 1 codegen unit + symbol stripping
-#   wallpaper budget     = 140 MiB = 140 * 1024 * 1024 bytes
+#   default media budget = 50 MiB = 50 * 1024 * 1024 bytes, including previews/catalog
 #
 # Execution:
 #   1. Read Packager.toml from the repository root.
@@ -32,7 +32,7 @@
 #   - Positive: normal and packaged builds both leave the License feature disabled.
 #   - Negative: the packaging hook must not explicitly enable `licenses`.
 #   - Positive: release binaries use size-conscious link/strip settings.
-#   - Positive: packaged wallpaper sources stay within the 140 MiB budget.
+#   - Positive: actual default light media stay within the 50 MiB budget.
 #   - Negative: the old target/release/multisoul main binary path is not retained.
 #   - Negative: old Multisoul product metadata is not retained.
 #   - Negative: the packager hook must not bump manifests after cargo-packager parsed them.
@@ -73,7 +73,6 @@ app_icon_renderer="$repo_root/scripts/render-app-icon.sh"
 dmg_background="$repo_root/assets/dmg-background.png"
 dmg_background_source="$repo_root/assets/dmg-background.svg"
 dmg_background_renderer="$repo_root/scripts/render-dmg-background.sh"
-wallpaper_resources="$repo_root/crates/app/assets/wallpapers"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -90,15 +89,13 @@ for release_setting in 'lto = "thin"' 'codegen-units = 1' 'strip = "symbols"'; d
   fi
 done
 
-# Current optimized sources total about 135.72 MiB. The 140 MiB ceiling leaves
-# roughly 4.28 MiB for deliberate additions while protecting the package's
-# 50%-reduction margin and rejecting the previous ~171 MiB intermediate payload.
-wallpaper_budget_bytes=$((140 * 1024 * 1024))
-wallpaper_bytes=$(find "$wallpaper_resources" -type f -exec stat -f '%z' {} + \
-  | awk '{ total += $1 } END { print total + 0 }')
-if (( wallpaper_bytes > wallpaper_budget_bytes )); then
-  fail "packaged wallpapers use $wallpaper_bytes bytes; budget is $wallpaper_budget_bytes bytes"
-fi
+# Check the same whitelist-verified staging used by packaging, not optional source files.
+mkdir -p "$repo_root/build"
+media_budget_dir=$(mktemp -d "$repo_root/build/.media-budget.XXXXXX")
+python3 "$repo_root/scripts/prepare-release-media.py" --profile light \
+  --output "$media_budget_dir/staged" --max-bytes 52428800 \
+  || { rm -rf "$media_budget_dir"; fail "default packaged media exceed budget or fail integrity"; }
+rm -rf "$media_budget_dir"
 
 if ! grep -Fq 'path = "target/release/norma-os"' "$config"; then
   fail "Packager.toml must package target/release/norma-os as the main app binary"

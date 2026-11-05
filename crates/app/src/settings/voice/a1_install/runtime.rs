@@ -163,10 +163,30 @@ fn save_cache(cached: &Path, python: &Path) -> Result<(), A1InstallFailure> {
 
 mod managed;
 
+mod remote;
+
+#[cfg(test)]
 pub(super) fn prepare(
     root: &Path,
     bundle: &Path,
     cancelled: &impl InstallCancellation,
 ) -> Result<PathBuf, A1InstallFailure> {
-    managed::prepare(root, bundle, cancelled)
+    prepare_with_progress(root, bundle, cancelled, |_, _, _| {})
+}
+
+pub(super) fn prepare_cached(
+    root: &Path,
+    bundle: &Path,
+    cancelled: &impl InstallCancellation,
+) -> Result<PathBuf, A1InstallFailure> {
+    remote::prepare(root, bundle, cancelled, false, |_, _, _| {})
+}
+
+pub(super) fn prepare_with_progress(
+    root: &Path,
+    bundle: &Path,
+    cancelled: &impl InstallCancellation,
+    progress: impl FnMut(&str, u64, u64),
+) -> Result<PathBuf, A1InstallFailure> {
+    remote::prepare(root, bundle, cancelled, true, progress)
 }

@@ -14,6 +14,7 @@ public enum SettingsModule {
             SettingsLiveConfiguration.name,
             SettingsLiveI18n.name,
             SettingsA1Configuration.name,
+            SettingsA1RuntimeDownload.name,
             SettingsVoiceCommandsPrototype.name,
             SettingsVoiceCommandsPrototype.sectionsName,
             SettingsVoiceCapabilities.a1Name,
@@ -28,9 +29,11 @@ public enum SettingsModule {
             SettingsDispatchEffects.name,
             SettingsRunEffects.name,
         ],
-        visualScenarioNames: [SettingsThemeConsistency.name, SettingsLiveConfiguration.name, SettingsLiveI18n.name, SettingsA1Configuration.name, SettingsVoiceCommandsPrototype.name, SettingsVoiceCommandsPrototype.sectionsName, SettingsVoiceCapabilities.a1Name, SettingsA1InstalledActions.name, SettingsVoiceCapabilities.jevName, SettingsVoiceCapabilities.errorsName],
+        visualScenarioNames: [SettingsA1RuntimeDownload.name, SettingsThemeConsistency.name, SettingsLiveConfiguration.name, SettingsLiveI18n.name, SettingsA1Configuration.name, SettingsVoiceCommandsPrototype.name, SettingsVoiceCommandsPrototype.sectionsName, SettingsVoiceCapabilities.a1Name, SettingsA1InstalledActions.name, SettingsVoiceCapabilities.jevName, SettingsVoiceCapabilities.errorsName],
         run: { scenario, session in
             switch scenario {
+            case SettingsA1RuntimeDownload.name:
+                try await SettingsA1RuntimeDownload.run(session)
             case SettingsA1InstalledActions.name:
                 try await SettingsA1InstalledActions.run(session)
             case SettingsVoiceCapabilities.errorsName:

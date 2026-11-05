@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "base_url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/a1-runtime-v1",
+  "manifest_bytes": 5762156,
+  "manifest_sha256": "b2d8a72c64d54366b0b41733804e9b4c65422d1250b8640bb897e3574a5f6ba1",
+  "minimum_macos_major": 26,
+  "target": "aarch64-apple-darwin",
+  "requirements_sha256": "a8c84bd5959827facc500942511ffd416b5c75bc4a39c6c5e53cb6037af73aa5"
+}
