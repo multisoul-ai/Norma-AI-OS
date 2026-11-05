@@ -153,37 +153,8 @@ impl MultisoulApp {
                     .unwrap_or(std::path::Path::new(""))
                     .join(path)
             };
-            cx.background_executor().spawn(async move {
-                let project_root = root
-                    .or_else(|| path.parent().map(std::path::Path::to_path_buf))
-                    .ok_or(ui::i18n::LocalizedText::new("drawers.missing_file_source"))?;
-                let project = Project::open(&project_root).map_err(content_error)?;
-                let path = path.canonicalize().map_err(|e| e.to_string())?;
-                let relative = path
-                    .strip_prefix(project.root())
-                    .map_err(|_| ui::i18n::LocalizedText::new("drawers.outside_project"))?;
-                let text = if matches!(
-                    kind(&tab_resource),
-                    Kind::Text | Kind::Markdown | Kind::Html
-                ) {
-                    Some(project.read_text(relative).map_err(content_error)?.text)
-                } else {
-                    None
-                };
-                if kind(&tab_resource) == Kind::Text {
-                    return Ok(LoadedContent::Text(text.unwrap_or_default()));
-                }
-                let preview = LocalPreview::new(
-                    project.root(),
-                    &relative.to_string_lossy(),
-                    text.as_deref(),
-                )?;
-                Ok(LoadedContent::Rich {
-                    text,
-                    preview,
-                    snapshot: None,
-                })
-            })
+            cx.background_executor()
+                .spawn(async move { load_local_file(root, path, &tab_resource) })
         };
         self.desktop_workspace.content_loading.insert(id.clone());
         cx.spawn(async move |this, cx| {
@@ -242,6 +213,54 @@ impl MultisoulApp {
     }
 }
 
+fn load_local_file(
+    root: Option<std::path::PathBuf>,
+    path: std::path::PathBuf,
+    tab_resource: &str,
+) -> Result<LoadedContent, ui::i18n::LocalizedText> {
+    let path = path.canonicalize().map_err(|error| error.to_string())?;
+    if !path
+        .metadata()
+        .map_err(|error| error.to_string())?
+        .is_file()
+    {
+        return Err(content_error(
+            workspace::content::ContentError::NotRegularFile,
+        ));
+    }
+    // A file tab authorizes its selected file, not the entire external parent directory.
+    // Keep project-relative assets available only when the target is inside that project.
+    let project_root = root
+        .and_then(|root| root.canonicalize().ok())
+        .filter(|root| path.starts_with(root));
+    let isolated = project_root.is_none();
+    let root = project_root
+        .or_else(|| path.parent().map(std::path::Path::to_path_buf))
+        .ok_or(ui::i18n::LocalizedText::new("drawers.missing_file_source"))?;
+    let project = Project::open(&root).map_err(content_error)?;
+    let relative = path
+        .strip_prefix(project.root())
+        .map_err(|_| ui::i18n::LocalizedText::new("drawers.outside_project"))?;
+    let text = if matches!(kind(tab_resource), Kind::Text | Kind::Markdown | Kind::Html) {
+        Some(project.read_text(relative).map_err(content_error)?.text)
+    } else {
+        None
+    };
+    if kind(tab_resource) == Kind::Text {
+        return Ok(LoadedContent::Text(text.unwrap_or_default()));
+    }
+    let preview = if isolated {
+        LocalPreview::snapshot(&path, text.as_deref())?
+    } else {
+        LocalPreview::new(project.root(), &relative.to_string_lossy(), text.as_deref())?
+    };
+    Ok(LoadedContent::Rich {
+        text,
+        preview,
+        snapshot: None,
+    })
+}
+
 fn load_presented_file(
     path: std::path::PathBuf,
     preview_type: canvas::PreviewType,
@@ -270,3 +289,7 @@ fn load_presented_file(
 #[cfg(test)]
 #[path = "../../../../../tests/unit/desktop_presentation_preview_tests.rs"]
 mod presentation_preview_tests;
+
+#[cfg(test)]
+#[path = "../../../../../tests/unit/desktop_external_file_tests.rs"]
+mod external_file_tests;

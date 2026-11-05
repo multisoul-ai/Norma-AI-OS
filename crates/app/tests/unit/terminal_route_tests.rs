@@ -93,7 +93,7 @@ fn test_route_terminal_path_reveals_project_directory_and_sends_outside_to_syste
 ///   MAX = 1_048_576；等于 MAX → 允许；MAX + 1 = 1_048_577 → 超限
 ///   binary=true 模拟前 8 KiB 含 NUL；movie.mp4 / doc.pdf 属 Video/Other 扩展名
 ///
-/// 预期结果：只有 MAX 本身为 Workbench，其余均为 System。
+/// 预期结果：只有 MAX 本身为 Workbench；视频走预览，其余均为 System。
 #[test]
 fn test_route_terminal_path_sends_oversized_binary_and_media_to_system() {
     let exact = route_terminal_path(Path::new("/p/a.rs"), &facts(1_048_576), true);
@@ -125,7 +125,7 @@ fn test_route_terminal_path_sends_oversized_binary_and_media_to_system() {
         TerminalPathRoute::System,
         "二进制内容不能作为文本打开"
     );
-    assert_eq!(video, TerminalPathRoute::System, "视频应交系统应用");
+    assert_eq!(video, TerminalPathRoute::PreviewTab, "视频应使用抽屉播放器");
     assert_eq!(pdf, TerminalPathRoute::System, "pdf 应交系统应用");
 }
 
@@ -274,4 +274,54 @@ fn test_system_open_mode_reveals_launchable_targets_instead_of_running_them() {
         SystemOpen::Open,
         "取不到权限位时按扩展名判断，普通文本照常打开"
     );
+}
+
+/// 场景：终端点击项目外视频，复用内容抽屉已有的视频播放器。
+/// 数据构造：MP4/MOV/M4V/WebM 路径与二进制文件探测结果，PDF 作为系统应用对照。
+/// 执行过程：逐项调用生产路由函数。
+/// 预期结果：视频进入预览标签，PDF 仍交系统应用。
+#[test]
+fn external_file_video_routes_to_preview() {
+    let media = PathFacts {
+        is_dir: false,
+        size: 40 * 1024 * 1024,
+        binary: true,
+    };
+    for name in [
+        "/tmp/movie.mp4",
+        "/tmp/movie.MOV",
+        "/tmp/movie.m4v",
+        "/tmp/movie.webm",
+    ] {
+        assert_eq!(
+            route_terminal_path(Path::new(name), &media, false),
+            TerminalPathRoute::PreviewTab,
+            "支持的视频应在内容抽屉打开：{name}"
+        );
+    }
+    assert_eq!(
+        route_terminal_path(Path::new("/tmp/report.pdf"), &media, false),
+        TerminalPathRoute::System,
+        "PDF 仍保留系统应用打开行为"
+    );
+}
+
+/// 场景：项目外网页文档通过终端路径点击进入已有 HTML 预览器。
+/// 数据构造：小型 .html/.htm 文档和项目内同类型文件。
+/// 执行过程：调用实际终端路由；同时检查项目内的工作台路径。
+/// 预期结果：外部 HTML 进入预览，项目内可编辑 HTML 保持工作台行为。
+#[test]
+fn external_file_html_routes_to_preview() {
+    for name in ["/tmp/page.html", "/tmp/page.HTM"] {
+        assert_eq!(
+            route_terminal_path(Path::new(name), &facts(128), false),
+            TerminalPathRoute::PreviewTab,
+            "外部 HTML 应在抽屉显示：{name}"
+        );
+        assert_eq!(
+            route_terminal_path(Path::new(name), &facts(128), true),
+            TerminalPathRoute::Workbench,
+            "项目内 HTML 保留编辑工作台：{name}"
+        );
+    }
 }
