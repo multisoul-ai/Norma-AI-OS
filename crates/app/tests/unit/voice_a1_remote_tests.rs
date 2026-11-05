@@ -207,10 +207,10 @@ fn voice_a1_remote_engine_rejects_corruption_and_retries_without_replacing_old_s
     }
 }
 
-/// 场景：用户在环境下载进度到达时取消，不能发布归档、解释器指针或模型配置。
-/// 构造：正确HTTP资源，在实际归档进度回调中置位取消；随后重试同一描述。
-/// 执行：通过安装准备入口下载并取消，核对副作用，再解除取消重试。
-/// 预期：Cancelled且无受管解释器，重试可正常完成，不依赖系统Python。
+/// 场景：已有安装的用户在新环境下载中取消，原解释器指针和模型配置须保留。
+/// 构造：原指针/模型配置字节及正确HTTP资源，在实际归档进度回调中置位取消。
+/// 执行：下载并取消，核对旧状态；解除取消后重试同一描述。
+/// 预期：Cancelled且不执行候选；重试成功可更新解释器，但原模型配置始终不变。
 #[test]
 fn voice_a1_remote_engine_download_can_be_cancelled_and_retried() {
     use std::sync::atomic::Ordering;
@@ -218,6 +218,11 @@ fn voice_a1_remote_engine_download_can_be_cancelled_and_retried() {
     let source = engine_fixture(temp.path());
     let remote = RemoteEngine::new(&source, None);
     let root = temp.path().join("models");
+    fs::create_dir_all(root.join("a1")).expect("已有安装配置目录");
+    let pointer = root.join("a1/python-runtime.json");
+    let config = root.join("a1/runtime.json");
+    fs::write(&pointer, b"previous-engine-pointer").expect("已有解释器指针");
+    fs::write(&config, b"previous-model-config").expect("已有模型配置");
     let cancelled = AtomicBool::new(false);
     let result =
         super::super::prepare_with_progress(&root, &remote.bundle, &cancelled, |name, _, _| {
@@ -230,13 +235,15 @@ fn voice_a1_remote_engine_download_can_be_cancelled_and_retried() {
         Err(A1InstallFailure::Cancelled),
         "下载中的取消必须生效"
     );
-    assert!(
-        !root.join("a1/python-runtime.json").exists(),
-        "取消不能发布运行环境指针"
+    assert_eq!(
+        fs::read(&pointer).expect("取消后的旧指针"),
+        b"previous-engine-pointer",
+        "取消不能替换原运行环境指针"
     );
-    assert!(
-        !root.join("a1/runtime.json").exists(),
-        "取消不能发布模型配置"
+    assert_eq!(
+        fs::read(&config).expect("取消后的旧配置"),
+        b"previous-model-config",
+        "取消不能删除或替换原模型配置"
     );
     assert!(
         !root.join("a1/engines").exists(),
@@ -246,6 +253,11 @@ fn voice_a1_remote_engine_download_can_be_cancelled_and_retried() {
     assert!(
         super::super::prepare(&root, &remote.bundle, &cancelled).is_ok(),
         "取消后必须能重试完整安装"
+    );
+    assert_eq!(
+        fs::read(&config).expect("重试后的原配置"),
+        b"previous-model-config",
+        "环境重试成功不能改写原模型配置"
     );
 }
 

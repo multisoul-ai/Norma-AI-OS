@@ -18,4 +18,10 @@ esac
 if [ "$PROFILE" != full ] && [ "$LOCAL_TEST" = false ]; then
   python3 scripts/verify-release-media.py --profile "$PROFILE"
 fi
-python3 scripts/prepare-release-media.py --profile "$PROFILE"
+if [ "$PROFILE" = light ]; then
+  # 50 MiB covers all shipped media, previews and catalog; optional sources are excluded.
+  set -- --max-bytes 52428800
+else
+  set --
+fi
+python3 scripts/prepare-release-media.py --profile "$PROFILE" "$@"

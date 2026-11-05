@@ -125,7 +125,9 @@ def is_bundled(policy, profile):
         profile == "wallpapers-on-demand" and policy == "tutorial-video")
 
 
-def prepare(root, output, profile):
+def prepare(root, output, profile, max_bytes=None):
+    if max_bytes is not None and max_bytes <= 0:
+        raise PreparationError("media budget must be positive")
     root = root.resolve()
     build = root / "build"
     if build.is_symlink():
@@ -190,6 +192,10 @@ def prepare(root, output, profile):
             "catalog_bytes": len(catalog_json.encode("utf-8")),
             "media_payload_bytes": bundled_bytes + preview_bytes + len(catalog_json.encode("utf-8")),
         }
+        if max_bytes is not None and report["media_payload_bytes"] > max_bytes:
+            raise PreparationError(
+                f"{profile} media payload uses {report['media_payload_bytes']} bytes; "
+                f"budget is {max_bytes} bytes")
         (stage / "media-catalog.json").write_text(catalog_json)
         (stage / "media-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
         if output.exists():
@@ -215,10 +221,11 @@ def main():
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--output", type=Path, default=Path("build/release-media"))
     parser.add_argument("--profile", choices=PROFILES, default="light")
+    parser.add_argument("--max-bytes", type=int, help="reject an oversized staged payload before promotion")
     args = parser.parse_args()
     output = args.output if args.output.is_absolute() else args.root / args.output
     try:
-        print(json.dumps(prepare(args.root, output, args.profile), ensure_ascii=False))
+        print(json.dumps(prepare(args.root, output, args.profile, args.max_bytes), ensure_ascii=False))
     except (PreparationError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
         print(f"release media preparation failed: {error}", file=sys.stderr)
         return 1

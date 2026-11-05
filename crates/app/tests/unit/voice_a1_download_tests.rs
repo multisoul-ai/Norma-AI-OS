@@ -7,8 +7,8 @@ use std::{
 
 /// 场景：已有A1配置引用已删除的外部Python，升级应用应只迁移引擎并复用模型。
 /// 构造：读取本机已校验真实模型，将其只读路径写进隔离配置，解释器设为不存在。
-/// 执行：通过显式下载安装入口迁移运行环境；若开始下载模型，立即取消并使测试失败。
-/// 预期：模型路径完全保留，解释器转入本次受管目录，完整校验通过且无模型下载目录。
+/// 执行：迁移运行环境，模型下载立即取消；改用不可达资源地址，离线重开并运行生产推理。
+/// 预期：模型路径保留，受管解释器通过校验；网络被生产 sandbox 禁止时仍可加载并推理。
 #[test]
 #[ignore = "requires real A1 engine package and previously verified model files"]
 fn voice_a1_real_engine_migration_reuses_existing_models() {
@@ -62,6 +62,45 @@ fn voice_a1_real_engine_migration_reuses_existing_models() {
         !temp.path().join("a1/packages").exists(),
         "运行环境迁移不应启动模型重下载"
     );
+    let offline = temp.path().join("offline-bundle");
+    fs::create_dir(&offline).expect("隔离离线描述目录");
+    let mut release: serde_json::Value =
+        serde_json::from_slice(&fs::read(bundle.join("release.json")).expect("原下载描述"))
+            .expect("描述JSON");
+    release["base_url"] = serde_json::json!("http://127.0.0.1:9");
+    fs::write(
+        offline.join("release.json"),
+        serde_json::to_vec(&release).expect("离线描述JSON"),
+    )
+    .expect("仅测试副本设置不可达地址");
+    fs::copy(
+        bundle.join("engine.json.gz"),
+        offline.join("engine.json.gz"),
+    )
+    .expect("复制可信清单原件");
+    assert_eq!(
+        runtime::prepare_cached(temp.path(), &offline, &cancelled).expect("离线重开环境"),
+        upgraded.python,
+        "资源地址不可达仍须复用同一已校验解释器"
+    );
+    // The production worker verifies OS-enforced network denial before loading either model.
+    struct Shutdown;
+    impl Drop for Shutdown {
+        fn drop(&mut self) {
+            asr::shutdown_shared_a1();
+        }
+    }
+    let _shutdown = Shutdown;
+    let factory = asr::A1RecognizerFactory::new(upgraded);
+    factory
+        .prepare()
+        .expect("真实模型须在生产网络沙箱中离线加载");
+    let mut recognizer = asr::RecognizerFactory::create(&factory).expect("离线创建识别会话");
+    // 16,000 samples/s × 1 s × 2 bytes/sample = 32,000 B; this checks execution, not accuracy.
+    let silence = audio::PcmAudioChunk::new(audio::PcmFormat::Pcm16, 16_000, 1, vec![0; 32_000])
+        .expect("一秒PCM16静音");
+    recognizer.accept_pcm(&silence).expect("离线接受真实PCM帧");
+    recognizer.finish().expect("真实双模型离线推理须完成");
 }
 
 fn server(body: &'static [u8]) -> (String, std::thread::JoinHandle<()>) {

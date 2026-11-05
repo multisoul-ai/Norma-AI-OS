@@ -394,8 +394,12 @@ uses lossless WebP (SSIM 1.0); the other five use `cwebp -q 100` and retain thei
 original pixel dimensions (measured SSIM 0.9896–0.9977). Persisted selections that
 still name the old PNGs are migrated and rewritten to the matching WebP path.
 
-`scripts/test-packager-config.sh` enforces a 140 MiB source budget for the
-packaged wallpaper directory (current total: 135.72 MiB). Video optimization
+`scripts/test-packager-config.sh` and the light packaging entrypoint enforce a
+50 MiB budget for the actual staged light media (originals, previews and catalog;
+currently 49,432,450 B). All source media remain whitelist/hash validated, while
+optional downloads do not count toward the shipped payload. A budget failure
+occurs before staging promotion and preserves the previous output. The explicit
+full profile remains available for offline packages. Video optimization
 keeps the original dimensions, frame rate, H.264/yuv420p compatibility, and
 removes unused audio; changes must be compared against the source before
 replacing an asset.
