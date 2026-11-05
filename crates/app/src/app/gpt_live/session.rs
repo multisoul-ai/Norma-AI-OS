@@ -162,6 +162,7 @@ pub(super) async fn run_audio_loop(
     let uploaded = control.observe_uploaded_audio();
     let mut microphone = std::collections::VecDeque::new();
     let mut output_blocked = false;
+    let mut barge_in = super::output::BargeIn::default();
     let mut reports = super::native_report::NativeReports::default();
     let mut report_input_open = true;
     let mut mode = *capture_mode.borrow();
@@ -248,6 +249,16 @@ pub(super) async fn run_audio_loop(
                     }
                     if let Some(vad) = vad.as_mut() {
                         let observed = vad.observe_pcm(&observation.pcm).map_err(|error| error.to_string())?;
+                        if let Some(dropped) = barge_in.observe(observed.speech_active, &observation.pcm, &playback) {
+                            tracing::debug!(dropped_ms = dropped.as_millis(), "Live barge-in dropped stale playback");
+                            // Withheld audio stays in model context; tell it the user never heard it.
+                            control.send_command(&live_voice::LiveCommand::Append {
+                                event_id: uuid::Uuid::new_v4().to_string(),
+                                kind: live_voice::AppendKind::Instructions,
+                                delegation_id: None,
+                                content: format!("用户插话时，宿主丢弃了最多约{}毫秒尚未播出的语音；不要声称用户听到了这部分内容。", dropped.as_millis()),
+                            })?;
+                        }
                         if !observed.events.is_empty() || !observed.completed_spans.is_empty() {
                             send_event(CallEvent::SpeechActivity(observed))?;
                         }

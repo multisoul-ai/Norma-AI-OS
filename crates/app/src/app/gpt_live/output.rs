@@ -1,3 +1,43 @@
+use crate::app::doubao::playback::PlaybackQueue;
+use std::time::Duration;
+
+// Live has no server-side clear, so a short backlog stays for natural backchannels.
+const STALE_BACKLOG: Duration = Duration::from_secs(1);
+// Sustained speech, not a short "嗯", cough or echo blip.
+const SUSTAINED_SPEECH: Duration = Duration::from_millis(600);
+
+/// Barge-in drops local audio the user would otherwise hear long after they started talking.
+#[derive(Default)]
+pub(super) struct BargeIn {
+    speaking: Duration,
+    handled: bool,
+}
+
+impl BargeIn {
+    /// Feed each uploaded PCM span with its VAD state; returns the dropped backlog, at most once per utterance.
+    pub(super) fn observe(
+        &mut self,
+        speech_active: bool,
+        pcm: &audio::PcmAudioChunk,
+        playback: &PlaybackQueue,
+    ) -> Option<Duration> {
+        if !speech_active {
+            *self = Self::default();
+            return None;
+        }
+        self.speaking += crate::app::voice::playback::pcm_chunk_duration(pcm);
+        if self.handled || self.speaking < SUSTAINED_SPEECH {
+            return None;
+        }
+        self.handled = true;
+        let buffered = playback.buffered_duration();
+        (buffered > STALE_BACKLOG).then(|| {
+            playback.interrupt();
+            buffered
+        })
+    }
+}
+
 pub(super) fn set_blocked(
     blocked: bool,
     playback: &crate::app::doubao::playback::PlaybackQueue,
@@ -20,3 +60,7 @@ pub(super) fn set_blocked(
         .try_send(super::session::CallEvent::OutputBlocked(blocked))
         .map_err(|_| "Live UI event queue is full or closed".into())
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/gpt_live_barge_in_tests.rs"]
+mod barge_in_tests;
