@@ -318,6 +318,11 @@ Sparkle 协议、签名 appcast 与 immutable 资产。GitHub feed 至少保留 
 审核环境、签名与完整性后，发布独立资源并更新描述中的固定 URL、长度、SHA-256 和依赖指纹。
 资源发布时必须使用 `--latest=false`，避免覆盖 App 的 Sparkle latest 更新入口。
 
+`a1-runtime-v1` 已于2026-11-05 UTC独立发布，固定基址为
+`https://github.com/multisoul-ai/norma-os-releases/releases/download/a1-runtime-v1`。
+匿名HTTPS完整清单/归档校验与真实客户端HTTPS安装、旧模型复用和离线环境重开已通过；
+模型推理和主App正式签名/公证验收单独记录，不随资源发布自动视为通过。
+
 正式主包在构建前运行 `python3 scripts/verify-a1-engine-release.py`，流式下载并完整校验
 远端清单及归档；资源尚未发布、无法下载或不匹配时拒绝打包。以下命令只验证待发布资源，
 不能替代匿名 HTTPS 可用性验收：

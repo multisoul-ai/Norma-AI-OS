@@ -102,3 +102,28 @@ Draft/tag、上传、公开发布、公证或合并 PR。以下仅为当前 PR 0
 首次环境下载目前只有本机HTTP证据。A1公开地址、全新模型下载、新DMG GUI与正式签名/
 公证仍待验收；当前钥匙串没有Developer ID，仅有Apple Development，ad-hoc不能作正式分发。
 正式发版须同步目标代码与递增版本后重新构建验收，不能直接发布此旧版本测量包。
+
+## 独立资源接通（2026-11-05 UTC）
+
+用户后续要求“接通一下”，本轮仅公开独立A1资源，未发布主App、合并PR或开启自动合并。
+`a1-runtime-v1` 已发布至 `multisoul-ai/norma-os-releases`，Release ID 为434752134，
+target固定为 `05b4e4a73ed1da6ac97cfb2fbacd9c2238ee9732`。先Draft上传三项原件、
+认证回读校验80.06秒通过，再以 `--latest=false` 公开；App latest仍为v0.1.82。
+
+- 生产发布gate无本地参数，匿名HTTPS完整读取清单和408,602,523 B归档，长度/SHA通过。
+- 公开SHA256SUMS匿名GET为200，159 B原字节与审核原件一致。
+- 新增独立真实HTTPS安装用例，使用测量App原始描述及空安装目录，1/1通过，239.38秒。
+  真实下载、环境校验/安装、旧权重复用、原配置重开与离线cached环境复用均通过；
+  用户原配置SHA前后相同。该用例不加载模型推理，不当作GUI或全新模型下载证据。
+- 原安装/取消/损坏用例13/13，另2项真实用例默认忽略；原完整推理用例的所有断言保留。
+- 此轮先执行的完整HTTPS+推理用例在最后Finish报SessionClosed，296.22秒，未计通过；
+  当时系统内存压力为WARN=2，生产资源watcher会释放模型。失败日志和源码/二进制原样
+  保留，未绕过保护。此前102.23秒的独立离线推理通过记录仍按其原始范围引用。
+
+新安装验收与原推理测试共用真实安装断言并分开命名，独立review确认没有跳过下载、
+删除推理断言或丢失临时目录生命周期。明细位于资源审阅目录的
+`evidence/connect-publication.json`、`evidence/connect-public-https-gate.log`、
+`evidence/connect-https-install.json` 和 `evidence/full-inference-failed-connect-https-install.log`。
+
+客户端固定URL/pins未修改，原116.13 MB测量包无需重新打包；A1远端不可用这一阻塞已解除。
+主App正式签名/公证、递增版本、新DMG GUI和全新模型下载验收仍待后续处理。

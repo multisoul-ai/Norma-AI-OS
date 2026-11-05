@@ -5,13 +5,13 @@ use std::{
     sync::atomic::AtomicBool,
 };
 
-/// 场景：已有A1配置引用已删除的外部Python，升级应用应只迁移引擎并复用模型。
-/// 构造：读取本机已校验真实模型，将其只读路径写进隔离配置，解释器设为不存在。
-/// 执行：迁移运行环境，模型下载立即取消；改用不可达资源地址，离线重开并运行生产推理。
-/// 预期：模型路径保留，受管解释器通过校验；网络被生产 sandbox 禁止时仍可加载并推理。
-#[test]
-#[ignore = "requires real A1 engine package and previously verified model files"]
-fn voice_a1_real_engine_migration_reuses_existing_models() {
+fn real_engine_bundle() -> PathBuf {
+    std::env::var_os("NORMA_A1_ACCEPTANCE_BUNDLE")
+        .map(PathBuf::from)
+        .unwrap_or_else(engine_bundle)
+}
+
+fn verify_real_engine_installation(bundle: &Path) -> (tempfile::TempDir, asr::A1Config) {
     let source =
         PathBuf::from(std::env::var_os("NORMA_A1_ACCEPTANCE_SOURCE_ROOT").expect("真实模型源目录"));
     let previous = asr::A1Config::from_model_root(&source).expect("真实已安装模型配置");
@@ -25,11 +25,8 @@ fn voice_a1_real_engine_migration_reuses_existing_models() {
         serde_json::to_vec(&legacy).expect("旧配置JSON"),
     )
     .expect("旧配置");
-    let bundle = std::env::var_os("NORMA_A1_ACCEPTANCE_BUNDLE")
-        .map(PathBuf::from)
-        .unwrap_or_else(engine_bundle);
     let cancelled = AtomicBool::new(false);
-    let upgraded = install_a1(temp.path(), &bundle, &cancelled, |event| {
+    let upgraded = install_a1(temp.path(), bundle, &cancelled, |event| {
         if let A1InstallProgress::Download { file, .. } = event {
             if !matches!(file.as_str(), "engine.json" | "engine.tar.bz2") {
                 cancelled.store(true, std::sync::atomic::Ordering::Release);
@@ -83,6 +80,40 @@ fn voice_a1_real_engine_migration_reuses_existing_models() {
         upgraded.python,
         "资源地址不可达仍须复用同一已校验解释器"
     );
+    (temp, upgraded)
+}
+
+/// 场景：发布后客户端必须从固定HTTPS地址安装真实环境并保留旧模型。
+/// 构造：真实已校验权重、无引擎缓存的隔离目录，以及App原始下载描述。
+/// 执行：真实下载、安装、逐项校验及离线重开；不加载模型做推理。
+/// 预期：受管解释器可执行，旧模型路径/配置保留，资源检查不能冒充推理验收。
+#[test]
+#[ignore = "requires published A1 HTTPS assets and previously verified model files"]
+fn voice_a1_real_https_install_reuses_existing_models() {
+    let bundle = real_engine_bundle();
+    let descriptor: serde_json::Value =
+        serde_json::from_slice(&fs::read(bundle.join("release.json")).expect("客户端描述"))
+            .expect("描述JSON");
+    assert_eq!(
+        descriptor["base_url"],
+        "https://github.com/multisoul-ai/norma-os-releases/releases/download/a1-runtime-v1",
+        "线上安装验收必须使用生产固定HTTPS地址，不能改为本机服务"
+    );
+    let (_temp, upgraded) = verify_real_engine_installation(&bundle);
+    assert!(
+        upgraded.python.is_file(),
+        "线上安装须保留已验证的实际解释器"
+    );
+}
+
+/// 场景：已有A1配置引用已删除的外部Python，升级应用应只迁移引擎并复用模型。
+/// 构造：读取本机已校验真实模型，将其只读路径写进隔离配置，解释器设为不存在。
+/// 执行：迁移运行环境，模型下载立即取消；改用不可达资源地址，离线重开并运行生产推理。
+/// 预期：模型路径保留，受管解释器通过校验；网络被生产 sandbox 禁止时仍可加载并推理。
+#[test]
+#[ignore = "requires real A1 engine package and previously verified model files"]
+fn voice_a1_real_engine_migration_reuses_existing_models() {
+    let (_temp, upgraded) = verify_real_engine_installation(&real_engine_bundle());
     // The production worker verifies OS-enforced network denial before loading either model.
     struct Shutdown;
     impl Drop for Shutdown {
