@@ -113,3 +113,45 @@ fn delegation_prompt_requires_verbatim_task_text() {
     );
     assert!(!prompt.contains("润色只调整表达"), "不得再指示润色任务正文");
 }
+
+/// 场景：模型生成正文时漏掉了原话里的否定限制，宿主兜底附上原话；没漏则不附加。
+/// 构造：原话“Daisy，你去看下登录页有什么问题，别改数据库，不要提交”；
+///   漏限制正文“你去看下登录页有什么问题”，完整正文“你去看下登录页有什么问题，别改数据库，不要提交”，
+///   以及只去掉“能不能/方不方便”询问、“不对”纠正称呼的正文，和漏掉“无需”限制的正文。
+/// 执行：经公开工具运行时逐个派发，检查宿主实际收到的正文。
+/// 预期：漏限制（含“无需”）时正文后附原话并提示只做自己的部分；完整保留或只去掉寒暄/询问/纠正时原样发送。
+#[tokio::test]
+async fn delegation_appends_transcript_only_when_constraints_dropped() {
+    let original = "Daisy，你去看下登录页有什么问题，别改数据库，不要提交";
+    let kept = "你去看下登录页有什么问题，别改数据库，不要提交";
+    for (original, task, expected) in [
+        (
+            original,
+            "你去看下登录页有什么问题",
+            format!(
+                "你去看下登录页有什么问题\n\n用户原话（核对限制，只做派给你的部分）：{original}"
+            ),
+        ),
+        (original, kept, kept.to_string()),
+        (
+            "Grace 能不能帮我看下登录页",
+            "帮我看下登录页",
+            "帮我看下登录页".to_string(),
+        ),
+    ] {
+        let adapter = Arc::new(RecordingAdapter::default());
+        NormaToolRuntime::new(adapter.clone())
+            .execute(
+                "assign_agent_task",
+                json!({"agent":"Daisy","task":task}),
+                &context(original),
+            )
+            .await
+            .expect("合法任务应交给宿主");
+        let commands = adapter.0.lock().expect("实际交接记录");
+        let AdapterCommand::AssignAgentTask { task: sent, .. } = &commands[0] else {
+            panic!("必须仍是派发任务");
+        };
+        assert_eq!(sent, &expected, "正文 {task:?} 的兜底结果不符");
+    }
+}
