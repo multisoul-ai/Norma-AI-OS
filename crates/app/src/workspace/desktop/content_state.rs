@@ -16,16 +16,26 @@ pub(crate) struct DesktopArtifact {
 
 impl DesktopArtifact {
     pub(super) fn read_key(&self, workspace_id: &str) -> String {
-        let identity = serde_json::to_string(&(
+        artifact_read_key(
             workspace_id,
             &self.area_id,
             self.node_id,
             &self.version,
             &self.source_path,
-        ))
-        .expect("artifact identity must serialize");
-        format!("desktop.artifact.read.v1:{identity}")
+        )
     }
+}
+
+pub(crate) fn artifact_read_key(
+    workspace: &str,
+    area: &str,
+    node: u64,
+    version: &str,
+    path: &str,
+) -> String {
+    let identity = serde_json::to_string(&(workspace, area, node, version, path))
+        .expect("artifact identity is serializable");
+    format!("desktop.artifact.read.v1:{identity}")
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]

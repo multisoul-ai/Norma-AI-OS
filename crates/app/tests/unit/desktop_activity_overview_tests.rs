@@ -178,6 +178,7 @@ fn entry(
     turn_id: Option<&str>,
 ) -> WorkspaceActivityAgentEntry {
     WorkspaceActivityAgentEntry {
+        profile: "Codex".into(),
         area_id: area_id.into(),
         node_id,
         name: name.into(),

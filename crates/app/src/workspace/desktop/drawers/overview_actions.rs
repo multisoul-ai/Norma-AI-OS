@@ -163,7 +163,7 @@ impl MultisoulApp {
         true
     }
 
-    pub(super) fn activate_overview_action(
+    pub(in crate::workspace::desktop) fn activate_overview_action(
         &mut self,
         action: OverviewAction,
         window: &mut Window,

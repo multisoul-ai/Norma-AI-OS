@@ -12,6 +12,8 @@ mod e2e;
 
 const APP_DISPLAY_NAME: &str = "Norma OS";
 mod project_storage;
+mod retained;
+pub(crate) use retained::reopen_desktop_host;
 
 #[derive(Default)]
 pub(crate) struct WorkspaceWindowRegistry {

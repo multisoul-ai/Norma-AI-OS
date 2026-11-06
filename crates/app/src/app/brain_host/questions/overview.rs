@@ -3,13 +3,14 @@ use crate::app::OverviewQuestion;
 
 impl MultisoulApp {
     /// Revoke an unconsumed delegation before a user's manual submission is validated.
-    pub(crate) fn revoke_overview_question_delegation(
+    fn revoke_overview_question_delegation_at(
         &mut self,
+        workspace: &str,
         area: &str,
         target: &QuestionRef,
         cx: &mut Context<Self>,
     ) {
-        self.with_overview_session(area, cx, |app, cx| {
+        self.with_overview_session_at(workspace, area, cx, |app, cx| {
             app.brain
                 .questions
                 .delegated
@@ -25,8 +26,21 @@ impl MultisoulApp {
         target: &QuestionRef,
         cx: &mut Context<Self>,
     ) -> bool {
+        let Some(workspace) = self.desktop_workspace.active_id.clone() else {
+            return false;
+        };
+        self.prepare_overview_question_edit_at(&workspace, area, target, cx)
+    }
+
+    pub(crate) fn prepare_overview_question_edit_at(
+        &mut self,
+        workspace: &str,
+        area: &str,
+        target: &QuestionRef,
+        cx: &mut Context<Self>,
+    ) -> bool {
         let result = self
-            .with_overview_session(area, cx, |app, cx| {
+            .with_overview_session_at(workspace, area, cx, |app, cx| {
                 app.question_context(target)?;
                 if !app.runtime.native_question_available(target) {
                     return Err("question_not_available".to_owned());
@@ -142,13 +156,27 @@ impl MultisoulApp {
         answers: Vec<QuestionAnswer>,
         cx: &mut Context<Self>,
     ) -> Task<()> {
-        self.revoke_overview_question_delegation(area, &target, cx);
+        let Some(workspace) = self.desktop_workspace.active_id.clone() else {
+            return Task::ready(());
+        };
+        self.submit_overview_question_at(&workspace, area, target, answers, cx)
+    }
+
+    pub(crate) fn submit_overview_question_at(
+        &mut self,
+        workspace: &str,
+        area: &str,
+        target: QuestionRef,
+        answers: Vec<QuestionAnswer>,
+        cx: &mut Context<Self>,
+    ) -> Task<()> {
+        self.revoke_overview_question_delegation_at(workspace, area, &target, cx);
         self.brain
             .questions
             .ui_errors
             .retain(|(key, _)| key != &target);
         let result = self
-            .with_overview_session(area, cx, |app, cx| {
+            .with_overview_session_at(workspace, area, cx, |app, cx| {
                 let permit = app.authorize_question_answer(&target, answers)?;
                 app.begin_authorized_answer(permit, cx)
             })

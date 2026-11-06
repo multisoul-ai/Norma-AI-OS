@@ -118,7 +118,10 @@ impl DesktopContentTabStore {
         preview_type: Option<canvas::PreviewType>,
     ) -> StorageResult<(DesktopContentTab, bool)> {
         let mut connection = open_app_connection(&self.path)?;
-        let transaction = connection.transaction()?;
+        // Reserve the writer before reading the existing tab. A deferred read-to-write
+        // upgrade can fail immediately while a workspace/background writer is active.
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let kind = request.kind.as_str();
         let version = request.version.as_deref().unwrap_or("");
         let existing: Option<String> = if create_new {

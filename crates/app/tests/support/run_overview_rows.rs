@@ -120,6 +120,7 @@ fn agent(
     task: Option<&str>,
 ) -> RunOverviewAgent {
     RunOverviewAgent {
+        profile: "Codex".into(),
         area_id: "area-current".into(),
         project: "Norma-AI-OS".into(),
         current: true,

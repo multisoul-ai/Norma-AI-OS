@@ -37,6 +37,10 @@ pub(super) enum MousePhase {
 #[serde(tag = "op", rename_all = "snake_case")]
 pub(super) enum Command {
     Window,
+    Windows,
+    SelectWindow {
+        number: Option<i64>,
+    },
     Activate,
     /// 模拟用户离开：把窗口标记为不活跃。
     Deactivate,
@@ -150,6 +154,8 @@ pub(super) struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     window: Option<WindowInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    windows: Option<Vec<WindowInfo>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
 }
 
@@ -158,6 +164,7 @@ impl Response {
         Self {
             ok: true,
             window: None,
+            windows: None,
             error: None,
         }
     }
@@ -166,6 +173,7 @@ impl Response {
         Self {
             ok: true,
             window: Some(window),
+            windows: None,
             error: None,
         }
     }
@@ -174,12 +182,20 @@ impl Response {
         Self {
             ok: false,
             window: None,
+            windows: None,
             error: Some(message.into()),
         }
     }
 
     pub(super) fn to_line(&self) -> String {
         serde_json::to_string(self).unwrap_or_else(|_| r#"{"ok":false}"#.into())
+    }
+
+    pub(super) fn windows(windows: Vec<WindowInfo>) -> Self {
+        Self {
+            windows: Some(windows),
+            ..Self::ok()
+        }
     }
 }
 

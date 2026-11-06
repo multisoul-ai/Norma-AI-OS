@@ -7,7 +7,7 @@ use ui::Theme;
 
 #[path = "overview_attention.rs"]
 mod overview_attention;
-use overview_attention::attention_row;
+pub(super) use overview_attention::attention_row;
 
 #[path = "overview_copy.rs"]
 mod overview_copy;

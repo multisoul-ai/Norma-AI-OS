@@ -4,7 +4,7 @@ use super::{
 };
 use norma::mobile::{RunOverviewAttention, RunOverviewAttentionKind};
 
-pub(super) fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
+pub(in crate::workspace::desktop) fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
     let (prefix, tone) = match row.kind {
         RunOverviewAttentionKind::Failed => {
             (ui::i18n::text("drawers.error"), OverviewStatusTone::Failed)

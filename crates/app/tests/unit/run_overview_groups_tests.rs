@@ -261,6 +261,7 @@ fn agent(
     current: bool,
 ) -> RunOverviewAgent {
     RunOverviewAgent {
+        profile: "Codex".into(),
         area_id: area_id.into(),
         project: project.into(),
         current,

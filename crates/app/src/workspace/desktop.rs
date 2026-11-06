@@ -102,6 +102,8 @@ pub(crate) enum DesktopDeleteTarget {
 }
 
 mod content_state;
+mod island;
+pub(crate) use content_state::artifact_read_key;
 pub(crate) use content_state::{DesktopArtifact, DesktopArtifactVersion};
 
 pub(crate) struct DesktopWorkspaceUiState {
