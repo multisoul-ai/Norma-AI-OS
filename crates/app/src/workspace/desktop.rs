@@ -166,6 +166,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) artifact_refreshing: bool,
     pub(crate) status_cache: HashMap<String, storage::DesktopAreaStatus>,
     pub(crate) status_live_seen: HashSet<String>,
+    activity_monitor: activity_cache::ActivityMonitor,
     pub(crate) activity_gate: norma::mobile::ActivityRefreshGate,
     pub(crate) activity_generation: u64,
     pub(crate) activity_summary: Option<norma::mobile::WorkspaceActivitySummary>,
@@ -345,6 +346,7 @@ impl DesktopWorkspaceUiState {
             artifact_refreshing: false,
             status_cache: HashMap::new(),
             status_live_seen: HashSet::new(),
+            activity_monitor: activity_cache::ActivityMonitor::default(),
             activity_gate: norma::mobile::ActivityRefreshGate::default(),
             activity_generation: 0,
             activity_summary: None,
@@ -454,6 +456,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn stop_desktop_sessions(&mut self, cx: &mut gpui::Context<Self>) {
+        self.stop_island_activity(cx);
         self.flush_left_drawer_view_on_exit();
         let sessions = std::mem::take(&mut self.desktop_workspace.sessions);
         for session in sessions.into_values() {

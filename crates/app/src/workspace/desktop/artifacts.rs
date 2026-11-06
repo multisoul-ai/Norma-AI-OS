@@ -131,42 +131,7 @@ impl MultisoulApp {
             let artifacts = cx
                 .background_executor()
                 .spawn(async move {
-                    let settings = storage::SettingsStore::new(database.clone());
-                    let store = MobileTaskDeliveryStore::new(database);
-                    let mut artifacts = Vec::new();
-                    for area in areas {
-                        let source = format!("desktop:{}:{}", background_workspace_id, area.id);
-                        let refs = store.reviewable_file_refs(&source)?;
-                        for item in refs {
-                            let path = area.root.join(&item.path);
-                            let Ok(path) = path.canonicalize() else {
-                                continue;
-                            };
-                            if !path.starts_with(&area.root) || !path.is_file() {
-                                continue;
-                            }
-                            let artifact = DesktopArtifact {
-                                area_id: area.id.clone(),
-                                node_id: item.node_id,
-                                agent_profile: item.profile,
-                                turn_id: item.turn_id,
-                                path,
-                                source_path: item.path,
-                                version: item.fingerprint,
-                                saved_at_unix: item.saved_at_unix,
-                                viewed: false,
-                            };
-                            artifacts.push(artifact);
-                        }
-                    }
-                    artifacts.sort_by_key(|item| std::cmp::Reverse(item.saved_at_unix));
-                    artifacts.truncate(80);
-                    for artifact in &mut artifacts {
-                        artifact.viewed = settings
-                            .get_string(&artifact.read_key(&background_workspace_id))?
-                            .is_some();
-                    }
-                    Ok::<_, storage::StorageError>(artifacts)
+                    load_desktop_artifacts(&database, &background_workspace_id, &areas)
                 })
                 .await;
             let _ = this.update(cx, |app, cx| {
@@ -338,4 +303,48 @@ impl MultisoulApp {
         })
         .detach();
     }
+}
+
+/// Shared background-only loader; receipts are scoped by workspace, area, node and version.
+pub(super) fn load_desktop_artifacts(
+    database: &std::path::Path,
+    workspace_id: &str,
+    areas: &[storage::DesktopProjectArea],
+) -> storage::StorageResult<Vec<DesktopArtifact>> {
+    let settings = storage::SettingsStore::new(database.to_owned());
+    let store = MobileTaskDeliveryStore::new(database.to_owned());
+    let mut artifacts = Vec::new();
+    for area in areas {
+        let source = format!("desktop:{}:{}", workspace_id, area.id);
+        let refs = store.reviewable_file_refs(&source)?;
+        for item in refs {
+            let path = area.root.join(&item.path);
+            let Ok(path) = path.canonicalize() else {
+                continue;
+            };
+            if !path.starts_with(&area.root) || !path.is_file() {
+                continue;
+            }
+            let artifact = DesktopArtifact {
+                area_id: area.id.clone(),
+                node_id: item.node_id,
+                agent_profile: item.profile,
+                turn_id: item.turn_id,
+                path,
+                source_path: item.path,
+                version: item.fingerprint,
+                saved_at_unix: item.saved_at_unix,
+                viewed: false,
+            };
+            artifacts.push(artifact);
+        }
+    }
+    artifacts.sort_by_key(|item| std::cmp::Reverse(item.saved_at_unix));
+    artifacts.truncate(80);
+    for artifact in &mut artifacts {
+        artifact.viewed = settings
+            .get_string(&artifact.read_key(workspace_id))?
+            .is_some();
+    }
+    Ok::<_, storage::StorageError>(artifacts)
 }

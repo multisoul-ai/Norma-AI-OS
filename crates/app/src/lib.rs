@@ -18,6 +18,7 @@ mod database;
 mod e2e_control;
 mod effects;
 mod frame_diagnostics;
+mod island;
 mod license_gate;
 mod logging;
 mod media;
