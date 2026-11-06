@@ -20,6 +20,7 @@ fn main() {
         let _ = scene_clip::NativeSceneClip::present;
         test_release_input_recovers_window_responder();
         test_hide_and_drop_release_input();
+        test_clip_preserves_attached_window();
     });
 }
 
@@ -248,4 +249,60 @@ fn test_release_input_recovers_window_responder() {
         "browser release must not steal focus from a sibling editor"
     );
     println!("PASS NIF-1: orphaned responder recovered; sibling editor preserved");
+}
+
+/// NIF-3: 包装已挂载的浏览器时，首次 present 前也必须保留原生窗口。
+/// 数据：未显示的 400 × 300 NSWindow、宿主 NSView 和一个已挂载子视图；尺寸只提供合法布局。
+/// 执行：先挂载内容，再调用生产 NativeSceneClip::new，不调用 present；检查窗口与父子关系，最后 drop。
+/// 预期：包装后仍属于同一窗口、内容不再直接位于宿主下；释放后容器和内容脱离窗口。
+#[cfg(target_os = "macos")]
+fn test_clip_preserves_attached_window() {
+    use objc2::{MainThreadMarker, MainThreadOnly};
+    use objc2_app_kit::{NSBackingStoreType, NSView, NSWindow, NSWindowStyleMask};
+    use objc2_foundation::{NSPoint, NSRect, NSSize};
+    let mtm = MainThreadMarker::new().expect("AppKit test runs on main thread");
+    let window = unsafe {
+        NSWindow::initWithContentRect_styleMask_backing_defer(
+            NSWindow::alloc(mtm),
+            NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(400.0, 300.0)),
+            NSWindowStyleMask::Borderless,
+            NSBackingStoreType::Buffered,
+            false,
+        )
+    };
+    let parent = NSView::new(mtm);
+    window.setContentView(Some(&parent));
+    let content = NSView::new(mtm);
+    parent.addSubview(&content);
+    assert_eq!(
+        content.window().as_deref(),
+        Some(&*window),
+        "fixture must start attached to the real window"
+    );
+    let clip = scene_clip::NativeSceneClip::new(&content);
+    assert_eq!(
+        content.window().as_deref(),
+        Some(&*window),
+        "wrapping must preserve window before Wry set_bounds or first present"
+    );
+    let container = unsafe { content.superview() }.expect("clip must own content");
+    assert_ne!(
+        &*container, &*parent,
+        "content must be wrapped rather than directly attached"
+    );
+    assert_eq!(
+        unsafe { container.superview() }.as_deref(),
+        Some(&*parent),
+        "clip must inherit original parent"
+    );
+    drop(clip);
+    assert!(
+        content.window().is_none(),
+        "dropping clip must detach its content from window"
+    );
+    assert!(
+        unsafe { container.superview() }.is_none(),
+        "dropped clip must leave parent tree"
+    );
+    println!("PASS NIF-3: window preserved before first presentation");
 }

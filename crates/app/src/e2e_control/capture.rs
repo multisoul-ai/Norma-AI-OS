@@ -1,5 +1,4 @@
-//! Capture the App's own window. macOS lets a process read its own windows
-//! without Screen Recording permission; other processes' windows still need it.
+//! Encode the current-process screenshot without requiring Screen Recording consent.
 use std::ffi::c_void;
 use std::path::Path;
 
@@ -12,10 +11,6 @@ struct CGRect {
     height: f64,
 }
 
-type CreateWindowImage = unsafe extern "C" fn(CGRect, u32, u32, u32) -> *mut c_void;
-
-const INCLUDING_WINDOW: u32 = 1 << 3;
-const BOUNDS_IGNORE_FRAMING: u32 = 1 << 0;
 const ALPHA_PREMULTIPLIED_LAST: u32 = 1;
 const BYTE_ORDER_32_BIG: u32 = 4 << 12;
 
@@ -23,7 +18,6 @@ const BYTE_ORDER_32_BIG: u32 = 4 << 12;
 extern "C" {
     fn CGImageGetWidth(image: *mut c_void) -> usize;
     fn CGImageGetHeight(image: *mut c_void) -> usize;
-    fn CGImageRelease(image: *mut c_void);
     fn CGColorSpaceCreateDeviceRGB() -> *mut c_void;
     fn CGColorSpaceRelease(space: *mut c_void);
     fn CGBitmapContextCreate(
@@ -39,42 +33,15 @@ extern "C" {
     fn CGContextRelease(context: *mut c_void);
 }
 
-/// The symbol is marked obsoleted in recent SDK headers but is still exported at runtime.
-fn create_window_image() -> Option<CreateWindowImage> {
-    let symbol = unsafe { libc::dlsym(libc::RTLD_DEFAULT, c"CGWindowListCreateImage".as_ptr()) };
-    (!symbol.is_null())
-        .then(|| unsafe { std::mem::transmute::<*mut c_void, CreateWindowImage>(symbol) })
-}
-
 pub(super) fn capture_window_png(window_number: u32, path: &Path) -> Result<(), String> {
-    let create = create_window_image().ok_or("CGWindowListCreateImage unavailable")?;
-    let null_rect = CGRect {
-        x: f64::INFINITY,
-        y: f64::INFINITY,
-        width: 0.0,
-        height: 0.0,
-    };
-    let image = unsafe {
-        create(
-            null_rect,
-            INCLUDING_WINDOW,
-            window_number,
-            BOUNDS_IGNORE_FRAMING,
-        )
-    };
-    if image.is_null() {
-        return Err("window image unavailable".into());
-    }
-    let pixels = unsafe { rgba_pixels(image) };
-    unsafe { CGImageRelease(image) };
-    let (width, height, pixels) = pixels?;
+    let (width, height, pixels) = super::capture_sck::capture(window_number)?;
     image::RgbaImage::from_raw(width, height, pixels)
         .ok_or("pixel buffer size mismatch")?
         .save(path)
         .map_err(|error| format!("write png: {error}"))
 }
 
-unsafe fn rgba_pixels(image: *mut c_void) -> Result<(u32, u32, Vec<u8>), String> {
+pub(super) unsafe fn rgba_pixels(image: *mut c_void) -> Result<(u32, u32, Vec<u8>), String> {
     let width = unsafe { CGImageGetWidth(image) };
     let height = unsafe { CGImageGetHeight(image) };
     if width == 0 || height == 0 {
