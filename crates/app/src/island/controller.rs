@@ -1,8 +1,6 @@
 use super::{IslandModel, IslandWorkspace};
 use gpui::{Context, Entity, Subscription, Task};
-use runtime::island::{
-    displays::IslandDisplays, IslandAlert, IslandAlertKind, IslandEvent, IslandOverview,
-};
+use runtime::island::{displays::IslandDisplays, IslandEvent, IslandOverview};
 use std::time::{Duration, Instant};
 
 pub(super) struct IslandController {
