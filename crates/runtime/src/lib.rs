@@ -10,6 +10,7 @@ pub mod desktop_navigation;
 pub mod ego;
 pub mod events;
 pub mod focus;
+pub mod island;
 pub mod live;
 pub(crate) mod macos_proc;
 pub use agent_descendants::{agent_process_alive, has_agent_turn_descendant};
