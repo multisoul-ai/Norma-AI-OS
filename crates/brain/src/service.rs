@@ -64,9 +64,17 @@ impl BrainConfig {
     }
 }
 
+mod scopes;
+use scopes::Scopes;
+
+enum Command {
+    Event(Box<BrainEvent>),
+    Release(BrainScope),
+}
+
 pub struct BrainService {
-    events: Sender<BrainEvent>,
-    stop: Arc<AtomicBool>,
+    events: Sender<Command>,
+    scopes: Scopes,
     threads: Vec<JoinHandle<()>>,
     read_roots: ReadRoots,
 }
@@ -76,6 +84,7 @@ impl BrainService {
         let (events, inbox) = mpsc::channel();
         let (status_tx, status_rx) = mpsc::channel();
         let stop = Arc::new(AtomicBool::new(false));
+        let scopes = Scopes::new(stop.clone());
         let open = Arc::new(Mutex::new(HashSet::new()));
         let goal = Arc::new(GoalStore::open(config.state_dir.clone()));
         let mut models = backend::models_for(config.backend.kind, config.strategy);
@@ -114,6 +123,7 @@ impl BrainService {
             threads.push(std::thread::spawn(move || worker::run(approval_env, jobs)));
         }
         let dispatcher = Dispatcher {
+            scopes: scopes.clone(),
             router: ScopedRouter::new(RouterConfig {
                 norma_bin: config.norma_bin.display().to_string(),
                 ..config.router
@@ -128,7 +138,7 @@ impl BrainService {
         (
             Self {
                 events,
-                stop,
+                scopes,
                 threads,
                 read_roots: config.read_roots,
             },
@@ -138,7 +148,15 @@ impl BrainService {
 
     /// 非阻塞。服务已关闭时事件被丢弃。
     pub fn push(&self, event: BrainEvent) {
-        let _ = self.events.send(event);
+        if !self.scopes.token(&event.scope).load(Ordering::Relaxed) {
+            let _ = self.events.send(Command::Event(Box::new(event)));
+        }
+    }
+
+    /// Cancel queued and in-flight work for this exact route without stopping other projects.
+    pub fn release_scope(&self, scope: &BrainScope) {
+        self.scopes.release(scope);
+        let _ = self.events.send(Command::Release(scope.clone()));
     }
 
     /// Existing lanes observe added/removed projects without restarting the backend.
@@ -147,7 +165,7 @@ impl BrainService {
     }
 
     pub fn shutdown(self) {
-        self.stop.store(true, Ordering::Relaxed);
+        self.scopes.stop_all();
         drop(self.events);
         for thread in self.threads {
             let _ = thread.join();
@@ -156,6 +174,7 @@ impl BrainService {
 }
 
 struct Dispatcher {
+    scopes: Scopes,
     router: ScopedRouter,
     goal: Arc<GoalStore>,
     open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
@@ -165,7 +184,7 @@ struct Dispatcher {
 }
 
 impl Dispatcher {
-    fn run(mut self, inbox: Receiver<BrainEvent>) {
+    fn run(mut self, inbox: Receiver<Command>) {
         while !self.stop.load(Ordering::Relaxed) {
             let now = Instant::now();
             let wait = self
@@ -176,7 +195,14 @@ impl Dispatcher {
                 })
                 .min(Duration::from_millis(200));
             match inbox.recv_timeout(wait) {
-                Ok(event) => self.handle(event),
+                Ok(Command::Event(event)) => self.handle(*event),
+                Ok(Command::Release(scope)) => {
+                    self.router.remove(&scope);
+                    self.open
+                        .lock()
+                        .expect("open lock")
+                        .retain(|(source, _)| source != &scope);
+                }
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => break,
             }
@@ -187,6 +213,9 @@ impl Dispatcher {
 
     fn handle(&mut self, event: BrainEvent) {
         let BrainEvent { scope, kind: event } = event;
+        if self.scopes.token(&scope).load(Ordering::Relaxed) {
+            return;
+        }
         let approval_id = match &event {
             BrainEventKind::ApprovalRequested(request) => Some(request.id.clone()),
             BrainEventKind::ApprovalClosed { id } => Some(id.clone()),
@@ -225,6 +254,10 @@ impl Dispatcher {
                 },
         } in actions
         {
+            let cancelled = self.scopes.token(&scope);
+            if cancelled.load(Ordering::Relaxed) {
+                continue;
+            }
             let tx = if lane == Lane::Main {
                 &self.main
             } else {
@@ -240,6 +273,7 @@ impl Dispatcher {
                 _ => text,
             };
             let _ = tx.send(Job {
+                cancelled,
                 scope,
                 text,
                 approval_id,

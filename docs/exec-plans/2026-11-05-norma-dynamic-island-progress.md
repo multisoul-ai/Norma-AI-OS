@@ -210,3 +210,15 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 - 修复后 App 幕僚完整聚焦回归 120 通过、1 既有真实 Claude 测试 ignored，日志 `artifacts/island/m4-owner-app-regression-green.log`；补充保留中文语义断言后的最终提议模块 4/4 通过，`artifacts/island/m4-owner-proposal-final.log`。performance/storage/行数/no-allow/Agent指南、2226 双语键、6 条 i18n 脚本测试与 diff-check 通过。最后 Clippy 与正常提交 hook 结果另记。
 - Clippy 首轮指出未投递 BrainEvent 作为 Result 大 Err 变体（296 bytes）；改为返回可选未投递事件，调用者保持原有排队行为，无分配、无 allow。`cargo clippy -p app --all-targets -- -D warnings` 通过，`artifacts/island/m4-owner-clippy-green.log`。此增量后再次运行完整幕僚聚焦测试，最终结果以 `artifacts/island/m4-owner-final-tests.log` 为准。
 - 最新代码完整幕僚聚焦回归再次通过：120 passed、1 既有 ignored，`artifacts/island/m4-owner-final-tests.log`。本轮保存为 M4 本地开发检查点；不提交完整里程碑声明，不合入 dev，M4 后续 PR 仍待迁移、汇报与端到端证据齐备。
+
+
+### M4 项目退出取消（仍未完成迁移和幕僚交互）
+
+- `BrainService::release_scope` 同步取消精确 workspace/route 的 token，dispatcher 清除该 scope 的 router/审批集合；所有排队、重试和迟到生产者共用已取消 token，不能复活该 route。重新打开项目使用新的 route。取消不修改其他项目的 token；全局 shutdown 取消全部 scope。
+- 主任务和审批 worker 使用任务 scope 的取消信号；ACP 握手与 prompt 均可取消，握手返回后再次复查，取消期间不发出新的 Prompt 或放行迟到权限请求。`BrainClient::drop` 在撤销成员及 ReadRoots 后调用 release_scope；最后成员再关闭共享服务。线程 join 与子进程清理仍在后台。
+- 域层 RED：缺少 release_scope 接口，`artifacts/island/m4-scope-release-red.log`。真实脚本 ACP 验收包含同 ID 审批隔离、双 lane 在途/排队/迟到取消、握手期间 PID 存活→退出。最终 brain 全量 118 passed、2 既有 ignored，`artifacts/island/m4-scope-release-brain-final.log`。
+- 独立审查指出原测试的 beta 任意 Turn 会假通过，且发送前 Prompt trace 不能证明子进程收到请求。已改为等待 FAKE_LOG 两条真实 HOLD 输入；beta 两条 lane 必须分别恰好一个 end_turn 且无 BackendDown，alpha 两条必须 cancelled。没有释放 HOLD 文件来帮助被关闭项目完成。
+- App 真实服务 RED：已有两个客户端时，drop alpha 不会取消主 lane，beta 被阻塞。清理服务后确定性失败在 beta 完成断言，`artifacts/island/m4-client-release-red.log`。App 接入取消后，新增测试同时核对脚本实际收到 alpha、beta 完成，以及最后项目释放后后台 shutdown/join 和状态通道排空；最终结果记录在 `artifacts/island/m4-scope-release-app-final.log`。
+- Clippy 首轮要求对服务控制消息的大变体使用 Box，已修复。`cargo clippy -p brain -p app --all-targets -- -D warnings` 通过，`artifacts/island/m4-scope-release-clippy-green.log`；performance/storage/i18n 2226 键与 diff-check 通过。独立增量复核无新增阻塞。
+- 迁移身份来源已核查：普通项目可从 WorkspaceIdentityStore::list 获得稳定身份；桌面项目遍历 DesktopWorkspaceStore 的工作空间/区域，并使用生产 `desktop:<workspace>:<area>` 身份。目录哈希不可逆，迁移不得猜成当前项目。迁移实现、report reply/汇报/TTS、幕僚 UI、M5/M6 仍待完成；仍只提 PR，不合入 dev。
+- 最终 App 幕僚回归 121 passed、1 既有 ignored，`artifacts/island/m4-scope-release-app-final.log`。新增真实服务客户端测试 GREEN，证明 alpha 释放后 beta 实际完成，最后客户端释放后后台服务线程 join/状态排空；该脚本 ACP 证据不冒充真实 Claude 或桌面 E2E。行数/no-allow/Agent指南护栏也通过。本片作为 M4 开发检查点保存，迁移和完整幕僚交互仍未完成。

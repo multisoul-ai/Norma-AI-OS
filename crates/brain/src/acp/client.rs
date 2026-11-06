@@ -52,6 +52,16 @@ pub struct AcpSession {
 
 impl AcpSession {
     pub fn start(options: &SessionOptions) -> Result<Self, AcpError> {
+        Self::start_cancellable(options, &AtomicBool::new(false))
+    }
+
+    pub fn start_cancellable(
+        options: &SessionOptions,
+        cancel: &AtomicBool,
+    ) -> Result<Self, AcpError> {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(AcpError::Cancelled);
+        }
         let mut conn = Connection::spawn(
             &options.program,
             &options.args,
@@ -66,12 +76,13 @@ impl AcpSession {
             "initialize",
             json!({"protocolVersion": 1, "clientCapabilities": {"fs": {"readTextFile": false, "writeTextFile": false}, "terminal": false}}),
             deadline,
+            cancel,
         )?;
         let mut params = json!({"cwd": options.cwd, "mcpServers": []});
         if let Some(meta) = &options.meta {
             params["_meta"] = meta.clone();
         }
-        let created = call(&mut conn, "session/new", params, deadline)?;
+        let created = call(&mut conn, "session/new", params, deadline, cancel)?;
         let session_id = created["sessionId"]
             .as_str()
             .ok_or_else(|| AcpError::Remote("session/new 没有返回 sessionId".into()))?
@@ -82,6 +93,7 @@ impl AcpSession {
                 "session/set_mode",
                 json!({"sessionId": session_id, "modeId": mode}),
                 deadline,
+                cancel,
             )?;
         }
         let configs = [
@@ -96,7 +108,11 @@ impl AcpSession {
                 "session/set_config_option",
                 json!({"sessionId": session_id, "configId": config_id, "value": value}),
                 deadline,
+                cancel,
             ) {
+                if matches!(error, AcpError::Cancelled) {
+                    return Err(error);
+                }
                 tracing::warn!(%error, config_id, value, "大脑会话设置失败");
             }
         }
@@ -130,6 +146,10 @@ impl AcpSession {
         let mut stop_reason = None;
         let mut system_error = false;
         let result = (|| {
+            if cancel.load(Ordering::Relaxed) {
+                self.abort();
+                return Err(AcpError::Cancelled);
+            }
             let id = self
             .conn
             .send_request(
@@ -153,6 +173,10 @@ impl AcpSession {
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
                     Err(_) => return Err(AcpError::Closed),
                 };
+                if cancel.load(Ordering::Relaxed) {
+                    self.abort();
+                    return Err(AcpError::Cancelled);
+                }
                 match incoming {
                     Incoming::Response { id: rid, result } if rid == id => {
                         let stop = result
@@ -271,11 +295,18 @@ fn call(
     method: &str,
     params: Value,
     deadline: Instant,
+    cancel: &AtomicBool,
 ) -> Result<Value, AcpError> {
+    if cancel.load(Ordering::Relaxed) {
+        return Err(AcpError::Cancelled);
+    }
     let id = conn
         .send_request(method, params)
         .map_err(|_| AcpError::Closed)?;
     loop {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(AcpError::Cancelled);
+        }
         let wait = deadline.saturating_duration_since(Instant::now());
         if wait.is_zero() {
             return Err(AcpError::Timeout);

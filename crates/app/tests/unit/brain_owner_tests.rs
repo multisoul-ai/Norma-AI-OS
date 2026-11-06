@@ -273,3 +273,131 @@ fn app_projects_use_the_global_owner_and_release_it_on_stop() {
     beta.update(&mut test, |app, cx| app.stop_project(cx));
     assert!(!owner.is_running(), "最后项目停止后无服务");
 }
+
+/// 真实服务启动后释放一个客户端，必须取消该项目的在途请求，保留项目继续执行。
+/// 数据：一个共享owner、alpha/beta客户端、真实BrainService与脚本ACP子进程。
+/// 执行：alpha占住主lane直到收到实际Prompt，drop alpha后提交beta；最后释放beta并等待后台join。
+/// 预期：无需释放alpha的文件闸门，beta仍完成；最后项目释放使服务线程和子进程收口。
+#[test]
+fn releasing_a_client_cancels_its_real_service_work_and_keeps_other_clients_alive() {
+    let dir = tempfile::tempdir().expect("隔离真实服务夹具");
+    let owner = SharedBrain::default();
+    owner.configure(
+        config::BrainSettings {
+            enabled: true,
+            ..Default::default()
+        },
+        true,
+    );
+    let alpha = owner.register(scope("alpha"), dir.path().join("alpha"));
+    let beta = owner.register(scope("beta"), dir.path().join("beta"));
+    let script =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../brain/tests/support/fake_acp.py");
+    let mut service_config = brain::BrainConfig::new(
+        brain::Backend {
+            kind: brain::BackendKind::ClaudeCode,
+            program: "python3".into(),
+            args: vec![script.display().to_string()],
+        },
+        "/opt/norma/bin/norma".into(),
+        dir.path().into(),
+        dir.path().join("global"),
+    );
+    service_config.router.summary_every = None;
+    service_config.read_roots = owner.read_roots();
+    let log = dir.path().join("prompt.log");
+    service_config.env = vec![
+        ("FAKE_LOG".into(), log.display().to_string()),
+        ("CLAUDE_CONFIG_DIR".into(), dir.path().display().to_string()),
+        (
+            "FAKE_RELEASE".into(),
+            dir.path().join("never-release").display().to_string(),
+        ),
+    ];
+    let ticket = owner.begin_start(Instant::now()).expect("唯一服务启动");
+    let (service, status) = brain::BrainService::start(service_config);
+    owner.complete_start(
+        ticket,
+        Ok(BrainHost {
+            service: Some(service),
+            status,
+            token: "real-shared".into(),
+        }),
+    );
+    assert!(
+        alpha
+            .push(
+                brain::BrainEventKind::UserRequest {
+                    text: "FAKE_HOLD alpha".into()
+                }
+                .in_scope(scope("alpha"))
+            )
+            .is_none(),
+        "alpha事件实际交给服务"
+    );
+    let prompted = wait_for_client_status(
+        &alpha,
+        |status| matches!(&status.kind, BrainStatusKind::Trace(trace) if trace.item.kind == TraceKind::Prompt),
+    );
+    let deadline = Instant::now() + std::time::Duration::from_secs(3);
+    let received = loop {
+        if std::fs::read_to_string(&log).is_ok_and(|text| {
+            text.lines()
+                .any(|line| line.starts_with("prompt:") && line.contains("FAKE_HOLD alpha"))
+        }) {
+            break true;
+        }
+        if Instant::now() >= deadline {
+            break false;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    };
+    drop(alpha);
+    assert!(beta.is_running(), "alpha释放后beta宿主保持运行");
+    assert!(
+        beta.push(
+            brain::BrainEventKind::UserRequest {
+                text: "beta continues".into()
+            }
+            .in_scope(scope("beta"))
+        )
+        .is_none(),
+        "beta事件仍可投递"
+    );
+    let completed = wait_for_client_status(
+        &beta,
+        |status| matches!(&status.kind, BrainStatusKind::Trace(trace) if trace.item.end.as_ref().is_some_and(|end| end.stop_reason == "end_turn")),
+    );
+    drop(beta);
+    // Always clean up the real service before asserting, including the expected RED path.
+    let deadline = Instant::now() + std::time::Duration::from_secs(5);
+    while !owner.0.borrow().retired.is_empty() && Instant::now() < deadline {
+        owner.0.borrow_mut().poll();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert!(
+        owner.0.borrow().retired.is_empty(),
+        "实际后台shutdown已完成并排空状态"
+    );
+    assert!(received, "子进程日志证明实际收到alpha请求");
+    assert!(prompted, "alpha真实进入在途状态，不能靠没启动假通过");
+    assert!(
+        completed,
+        "drop alpha必须取消占用主lane的任务，让beta真实完成"
+    );
+}
+
+fn wait_for_client_status(client: &BrainClient, predicate: impl Fn(&BrainStatus) -> bool) -> bool {
+    // Five seconds bounds a local scripted process; each iteration observes an actual status.
+    let deadline = Instant::now() + std::time::Duration::from_secs(5);
+    while Instant::now() < deadline {
+        if client
+            .try_recv()
+            .is_some_and(|entry| predicate(&entry.status))
+        {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    false
+}

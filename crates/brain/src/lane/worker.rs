@@ -22,6 +22,7 @@ const MAX_BACKOFF: Duration = Duration::from_secs(60);
 const MAX_TRANSIENT_RETRIES: u32 = 3;
 
 pub struct Job {
+    pub cancelled: Arc<AtomicBool>,
     pub scope: BrainScope,
     pub text: String,
     pub approval_id: Option<String>,
@@ -73,9 +74,12 @@ impl LaneEnv {
             .contains(&(scope.clone(), id.to_owned()))
     }
 
-    fn sleep(&self, total: Duration) {
+    fn sleep(&self, total: Duration, cancelled: &AtomicBool) {
         let end = Instant::now() + total;
-        while Instant::now() < end && !self.stop.load(Ordering::Relaxed) {
+        while Instant::now() < end
+            && !self.stop.load(Ordering::Relaxed)
+            && !cancelled.load(Ordering::Relaxed)
+        {
             std::thread::sleep(Duration::from_millis(25));
         }
     }
@@ -134,6 +138,10 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 }
             }
         };
+        let cancelled = job.cancelled.clone();
+        if cancelled.load(Ordering::Relaxed) {
+            continue;
+        }
         if job
             .approval_id
             .as_deref()
@@ -145,7 +153,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
         if session.is_none() || turns >= env.max_turns {
             session = None;
             let connecting = Instant::now();
-            match AcpSession::start(&env.session_options()) {
+            match AcpSession::start_cancellable(&env.session_options(), &cancelled) {
                 Ok(started) => {
                     session = Some(started);
                     turns = 0;
@@ -164,16 +172,30 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                         &job.scope,
                         turn_no,
                         &job.trigger,
-                        TraceItem::turn_end("error", connecting.elapsed().as_millis() as u64),
+                        TraceItem::turn_end(
+                            if matches!(error, AcpError::Cancelled) {
+                                "cancelled"
+                            } else {
+                                "error"
+                            },
+                            connecting.elapsed().as_millis() as u64,
+                        ),
                     );
-                    down(&env, &job.scope, &error);
+                    if !matches!(error, AcpError::Cancelled) {
+                        down(&env, &job.scope, &error);
+                    }
                     env.finish(&job);
                     env.sleep(
                         (env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF),
+                        &cancelled,
                     );
                     continue;
                 }
             }
+        }
+        if cancelled.load(Ordering::Relaxed) {
+            session = None;
+            continue;
         }
         let text = if primed {
             job.text.clone()
@@ -213,7 +235,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
         let result = active.prompt(
             &text,
             &env.gate,
-            &env.stop,
+            &cancelled,
             env.prompt_timeout,
             &mut |item| env.trace(&job.scope, this_turn, &job.trigger, item),
         );
@@ -245,7 +267,10 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 } else {
                     env.finish(&job);
                 }
-                env.sleep((env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF));
+                env.sleep(
+                    (env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF),
+                    &cancelled,
+                );
                 continue;
             }
         }

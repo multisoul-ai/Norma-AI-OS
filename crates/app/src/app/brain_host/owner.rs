@@ -274,6 +274,9 @@ impl Drop for BrainClient {
         if self.live(&owner) {
             owner.members.remove(&self.scope);
             owner.update_roots();
+            if let Some(service) = owner.host.as_ref().and_then(|host| host.service.as_ref()) {
+                service.release_scope(&self.scope);
+            }
             if owner.members.is_empty() {
                 owner.invalidate();
             }
