@@ -50,7 +50,14 @@ impl Render for A1Panel {
                         } => ui::i18n::format(
                             "voice.a1_install_download",
                             &[
-                                ("file", file.clone()),
+                                (
+                                    "file",
+                                    if matches!(file.as_str(), "engine.json" | "engine.tar.bz2") {
+                                        ui::i18n::text("voice.a1_engine_download_label").to_string()
+                                    } else {
+                                        file.clone()
+                                    },
+                                ),
                                 (
                                     "completed",
                                     format!("{:.1}", *completed as f64 / 1_000_000.0),

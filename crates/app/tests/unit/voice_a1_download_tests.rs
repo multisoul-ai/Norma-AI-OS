@@ -5,13 +5,13 @@ use std::{
     sync::atomic::AtomicBool,
 };
 
-/// 场景：已有A1配置引用已删除的外部Python，升级应用应只迁移引擎并复用模型。
-/// 构造：读取本机已校验真实模型，将其只读路径写进隔离配置，解释器设为不存在。
-/// 执行：通过显式运行环境迁移入口准备应用自带引擎并重开配置。
-/// 预期：模型路径完全保留，解释器转入本次受管目录，完整校验通过且无模型下载目录。
-#[test]
-#[ignore = "requires real A1 engine package and previously verified model files"]
-fn voice_a1_real_engine_migration_reuses_existing_models() {
+fn real_engine_bundle() -> PathBuf {
+    std::env::var_os("NORMA_A1_ACCEPTANCE_BUNDLE")
+        .map(PathBuf::from)
+        .unwrap_or_else(engine_bundle)
+}
+
+fn verify_real_engine_installation(bundle: &Path) -> (tempfile::TempDir, asr::A1Config) {
     let source =
         PathBuf::from(std::env::var_os("NORMA_A1_ACCEPTANCE_SOURCE_ROOT").expect("真实模型源目录"));
     let previous = asr::A1Config::from_model_root(&source).expect("真实已安装模型配置");
@@ -25,7 +25,15 @@ fn voice_a1_real_engine_migration_reuses_existing_models() {
         serde_json::to_vec(&legacy).expect("旧配置JSON"),
     )
     .expect("旧配置");
-    let upgraded = ensure_runtime(temp.path(), &AtomicBool::new(false)).expect("引擎自动迁移");
+    let cancelled = AtomicBool::new(false);
+    let upgraded = install_a1(temp.path(), bundle, &cancelled, |event| {
+        if let A1InstallProgress::Download { file, .. } = event {
+            if !matches!(file.as_str(), "engine.json" | "engine.tar.bz2") {
+                cancelled.store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
+    })
+    .expect("显式安装必须迁移引擎并复用已校验模型，不能重新下载模型");
     assert_eq!(
         upgraded.zipformer, previous.zipformer,
         "升级不能重新下载或移动原预览模型"
@@ -51,6 +59,79 @@ fn voice_a1_real_engine_migration_reuses_existing_models() {
         !temp.path().join("a1/packages").exists(),
         "运行环境迁移不应启动模型重下载"
     );
+    let offline = temp.path().join("offline-bundle");
+    fs::create_dir(&offline).expect("隔离离线描述目录");
+    let mut release: serde_json::Value =
+        serde_json::from_slice(&fs::read(bundle.join("release.json")).expect("原下载描述"))
+            .expect("描述JSON");
+    release["base_url"] = serde_json::json!("http://127.0.0.1:9");
+    fs::write(
+        offline.join("release.json"),
+        serde_json::to_vec(&release).expect("离线描述JSON"),
+    )
+    .expect("仅测试副本设置不可达地址");
+    fs::copy(
+        bundle.join("engine.json.gz"),
+        offline.join("engine.json.gz"),
+    )
+    .expect("复制可信清单原件");
+    assert_eq!(
+        runtime::prepare_cached(temp.path(), &offline, &cancelled).expect("离线重开环境"),
+        upgraded.python,
+        "资源地址不可达仍须复用同一已校验解释器"
+    );
+    (temp, upgraded)
+}
+
+/// 场景：发布后客户端必须从固定HTTPS地址安装真实环境并保留旧模型。
+/// 构造：真实已校验权重、无引擎缓存的隔离目录，以及App原始下载描述。
+/// 执行：真实下载、安装、逐项校验及离线重开；不加载模型做推理。
+/// 预期：受管解释器可执行，旧模型路径/配置保留，资源检查不能冒充推理验收。
+#[test]
+#[ignore = "requires published A1 HTTPS assets and previously verified model files"]
+fn voice_a1_real_https_install_reuses_existing_models() {
+    let bundle = real_engine_bundle();
+    let descriptor: serde_json::Value =
+        serde_json::from_slice(&fs::read(bundle.join("release.json")).expect("客户端描述"))
+            .expect("描述JSON");
+    assert_eq!(
+        descriptor["base_url"],
+        "https://github.com/multisoul-ai/norma-os-releases/releases/download/a1-runtime-v1",
+        "线上安装验收必须使用生产固定HTTPS地址，不能改为本机服务"
+    );
+    let (_temp, upgraded) = verify_real_engine_installation(&bundle);
+    assert!(
+        upgraded.python.is_file(),
+        "线上安装须保留已验证的实际解释器"
+    );
+}
+
+/// 场景：已有A1配置引用已删除的外部Python，升级应用应只迁移引擎并复用模型。
+/// 构造：读取本机已校验真实模型，将其只读路径写进隔离配置，解释器设为不存在。
+/// 执行：迁移运行环境，模型下载立即取消；改用不可达资源地址，离线重开并运行生产推理。
+/// 预期：模型路径保留，受管解释器通过校验；网络被生产 sandbox 禁止时仍可加载并推理。
+#[test]
+#[ignore = "requires real A1 engine package and previously verified model files"]
+fn voice_a1_real_engine_migration_reuses_existing_models() {
+    let (_temp, upgraded) = verify_real_engine_installation(&real_engine_bundle());
+    // The production worker verifies OS-enforced network denial before loading either model.
+    struct Shutdown;
+    impl Drop for Shutdown {
+        fn drop(&mut self) {
+            asr::shutdown_shared_a1();
+        }
+    }
+    let _shutdown = Shutdown;
+    let factory = asr::A1RecognizerFactory::new(upgraded);
+    factory
+        .prepare()
+        .expect("真实模型须在生产网络沙箱中离线加载");
+    let mut recognizer = asr::RecognizerFactory::create(&factory).expect("离线创建识别会话");
+    // 16,000 samples/s × 1 s × 2 bytes/sample = 32,000 B; this checks execution, not accuracy.
+    let silence = audio::PcmAudioChunk::new(audio::PcmFormat::Pcm16, 16_000, 1, vec![0; 32_000])
+        .expect("一秒PCM16静音");
+    recognizer.accept_pcm(&silence).expect("离线接受真实PCM帧");
+    recognizer.finish().expect("真实双模型离线推理须完成");
 }
 
 fn server(body: &'static [u8]) -> (String, std::thread::JoinHandle<()>) {
