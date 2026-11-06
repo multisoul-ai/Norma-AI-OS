@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use ui::component::Root;
 
 struct IslandWindows {
-    _manager: Entity<WindowManager>,
+    manager: Entity<WindowManager>,
 }
 #[derive(Default)]
 struct IslandWindowIds(Vec<AnyWindowHandle>);
@@ -74,7 +74,27 @@ pub(crate) fn install(cx: &mut App) {
         .detach();
         manager
     });
-    cx.set_global(IslandWindows { _manager: manager });
+    cx.set_global(IslandWindows { manager });
+}
+
+/// Global hot-key entry: expands or collapses the island on the pointer's (else active) screen.
+pub(super) fn toggle(cx: &mut App) {
+    let Some(manager) = cx.try_global::<IslandWindows>().map(|w| w.manager.clone()) else {
+        return;
+    };
+    manager.update(cx, |manager, cx| {
+        if manager.hidden {
+            return;
+        }
+        manager.controller.update(cx, |controller, cx| {
+            let display = manager
+                .pointer_display
+                .or_else(|| controller.displays.active_display())
+                .or_else(|| manager.windows.keys().next().copied())
+                .unwrap_or_default();
+            controller.event(display, IslandEvent::ToggleExpanded, cx);
+        });
+    });
 }
 
 pub(crate) fn has_workspace_windows(cx: &App) -> bool {

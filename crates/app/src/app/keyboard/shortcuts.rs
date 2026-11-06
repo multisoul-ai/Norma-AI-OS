@@ -95,6 +95,8 @@ impl MultisoulApp {
             ShortcutCommandId::ToggleRunOverview => self.toggle_run_overview(window, cx),
             ShortcutCommandId::ToggleIdeas => self.toggle_ideas(window, cx),
             ShortcutCommandId::ToggleBrainTrace => self.toggle_brain_trace(window, cx),
+            // 由 Carbon 全局热键在事件分发前处理，窗口内不会再收到。
+            ShortcutCommandId::ToggleIsland => {}
             ShortcutCommandId::AssignIdeaToCard(_) | ShortcutCommandId::AssignIdeaToNewAgent(_) => {
                 self.assign_idea_by_shortcut(command, window, cx)
             }

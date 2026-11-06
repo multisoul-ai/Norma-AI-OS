@@ -268,6 +268,13 @@ const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
         Some("cmd-shift-b"),
     ),
     entry(
+        ShortcutCommandId::ToggleIsland,
+        "common.workspace",
+        "shortcuts.toggle_island",
+        "shortcuts.expand_or_collapse_the_island_from_any_app",
+        Some("ctrl-alt-cmd-space"),
+    ),
+    entry(
         ShortcutCommandId::AssignIdeaToCard(1),
         "common.workspace",
         "shortcuts.assign_idea_to_card_1",

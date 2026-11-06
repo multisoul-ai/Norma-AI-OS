@@ -121,5 +121,8 @@
   "shortcuts.assign_idea_to_new_agent_hermes": "派发想法到新建 Hermes 智能体",
   "shortcuts.assign_idea_to_new_agent_hint": "新建一张智能体卡片，并把光标所在想法（没有则取首个待办）派给它",
   "shortcuts.toggle_brain_trace": "幕僚活动",
-  "shortcuts.show_what_the_background_brain_is_doing": "查看幕僚在做什么：输入、思考、工具调用和输出"
+  "shortcuts.show_what_the_background_brain_is_doing": "查看幕僚在做什么：输入、思考、工具调用和输出",
+  "shortcuts.toggle_island": "展开或收起灵动岛",
+  "shortcuts.expand_or_collapse_the_island_from_any_app": "系统级快捷键：任何 App 在前台时都可使用",
+  "shortcuts.global_shortcut_needs_modifier": "系统级快捷键需要修饰键和受支持的按键"
 }

@@ -55,6 +55,8 @@ fn restore_all_row(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
             .on_click(cx.listener(|app, _, _window, cx| {
                 app.shortcuts.restore_all_defaults();
                 app.sync_desktop_shortcuts(cx);
+                app.sync_island_hotkey(cx);
+                app.sync_island_hotkey(cx);
                 cx.notify();
             }))
             .child(ui::i18n::text("settings.restore_defaults")),
@@ -386,6 +388,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ToggleRunOverview => "settings-shortcut-toggle-run-overview",
         ShortcutCommandId::ToggleIdeas => "settings-shortcut-toggle-ideas",
         ShortcutCommandId::ToggleBrainTrace => "settings-shortcut-toggle-brain-trace",
+        ShortcutCommandId::ToggleIsland => "settings-shortcut-toggle-island",
         ShortcutCommandId::VoiceInteraction => "settings-shortcut-voice-interaction",
         ShortcutCommandId::AssignIdeaToCard(_) | ShortcutCommandId::AssignIdeaToNewAgent(_) => {
             "settings-shortcut-assign-idea-unknown"
@@ -444,6 +447,7 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ToggleRunOverview => "settings-shortcut-restore-toggle-run-overview",
         ShortcutCommandId::ToggleIdeas => "settings-shortcut-restore-toggle-ideas",
         ShortcutCommandId::ToggleBrainTrace => "settings-shortcut-restore-toggle-brain-trace",
+        ShortcutCommandId::ToggleIsland => "settings-shortcut-restore-toggle-island",
         ShortcutCommandId::VoiceInteraction => "settings-shortcut-restore-voice-interaction",
         ShortcutCommandId::AssignIdeaToCard(_) | ShortcutCommandId::AssignIdeaToNewAgent(_) => {
             "settings-shortcut-restore-assign-idea-unknown"

@@ -59,5 +59,6 @@
   "island.popup_questions": "Show question popups",
   "island.popup_completions": "Show completion popups",
   "island.settings_load_failed": "Could not load island settings: %{reason}",
-  "island.settings_save_failed": "Could not save island settings: %{reason}"
+  "island.settings_save_failed": "Could not save island settings: %{reason}",
+  "island.hotkey_unavailable": "The system-wide shortcut {shortcut} could not be registered (error {code}). It may be used by another app; choose a different one."
 }

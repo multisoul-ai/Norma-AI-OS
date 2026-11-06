@@ -59,5 +59,6 @@
   "island.popup_questions": "提问时主动弹出",
   "island.popup_completions": "完成时主动弹出",
   "island.settings_load_failed": "无法读取灵动岛设置：%{reason}",
-  "island.settings_save_failed": "无法保存灵动岛设置：%{reason}"
+  "island.settings_save_failed": "无法保存灵动岛设置：%{reason}",
+  "island.hotkey_unavailable": "无法注册系统级快捷键 {shortcut}（错误 {code}），可能已被其他 App 占用，请换一个。"
 }

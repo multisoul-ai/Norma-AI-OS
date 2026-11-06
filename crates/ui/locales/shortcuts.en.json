@@ -121,5 +121,8 @@
   "shortcuts.assign_idea_to_new_agent_hermes": "Assign idea to a new Hermes agent",
   "shortcuts.assign_idea_to_new_agent_hint": "Create a new agent card and send the cursor idea (or the first to-do) to it",
   "shortcuts.toggle_brain_trace": "Show Chief of Staff activity",
-  "shortcuts.show_what_the_background_brain_is_doing": "Show what the chief of staff is doing: input, thinking, tool calls and output"
+  "shortcuts.show_what_the_background_brain_is_doing": "Show what the chief of staff is doing: input, thinking, tool calls and output",
+  "shortcuts.toggle_island": "Expand or collapse the island",
+  "shortcuts.expand_or_collapse_the_island_from_any_app": "System-wide shortcut: works while any app is in front",
+  "shortcuts.global_shortcut_needs_modifier": "A system-wide shortcut needs a modifier key and a supported key"
 }

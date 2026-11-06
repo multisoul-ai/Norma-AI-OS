@@ -3,6 +3,7 @@ mod actions;
 mod artifacts;
 mod chrome;
 mod controller;
+pub(crate) mod hotkey;
 mod model;
 #[cfg(target_os = "macos")]
 mod native;

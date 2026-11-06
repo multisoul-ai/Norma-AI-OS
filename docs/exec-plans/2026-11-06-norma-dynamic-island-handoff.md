@@ -2,7 +2,7 @@
 
 - 整理时间：2026-11-06。
 - 用户最新指定接手人：Grace（已取代此前 lris；分派前须通过 Norma roster 确认 canonical name）。
-- 分派状态：此前因 `unauthorized` 未发送；用户恢复授权后已确认同工作空间源为 Henry、目标为 Grace（managed，空闲），现在正式分派。最终回执另记。
+- 分派状态：授权恢复后已成功提交给 Grace，回执为 `queued`、`tracking=managed`。任务 ID：`task-e71dd4e6-b01e-4791-91fc-7ba804300149`；operation ID：`2a2ac45c-f283-4328-a41f-f4050d161490`。原始回执：`artifacts/island/grace-handoff-receipt.json`。这是成功分派，不代表实现已完成。
 
 ## 1. 接手目标与用户最新约束
 
