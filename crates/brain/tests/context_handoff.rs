@@ -1,4 +1,4 @@
-use brain::{BrainEvent, Lane, Router, RouterConfig};
+use brain::{BrainEventKind, Lane, Router, RouterConfig};
 
 /// 场景：带来源的交接要求先补读，用户原话中的命令不能被拼成可执行命令。
 /// 构造：明确引用和含引号的交接请求。
@@ -20,7 +20,7 @@ fn handoff_preserves_reference_and_requires_read_before_acting() {
         revision: 7,
     };
     let actions = router.push(
-        BrainEvent::ContextRequest {
+        BrainEventKind::ContextRequest {
             text: "看看 '不是现在发布'".into(),
             reference: reference.clone(),
         },

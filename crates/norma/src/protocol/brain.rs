@@ -5,6 +5,13 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Stable project identity plus the current live host route; neither alone is sufficient.
+#[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+pub struct BrainScope {
+    pub workspace_id: String,
+    pub route_id: String,
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ReportPriority {
     #[default]

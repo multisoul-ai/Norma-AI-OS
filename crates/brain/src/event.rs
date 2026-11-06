@@ -2,6 +2,27 @@
 
 use crate::acp::trace::AcpTrace;
 use crate::risk::ApprovalSubject;
+use norma::protocol::BrainScope;
+
+/// Every service input carries the exact live workspace route.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BrainEvent {
+    pub scope: BrainScope,
+    pub kind: BrainEventKind,
+}
+
+impl BrainEventKind {
+    pub fn in_scope(self, scope: BrainScope) -> BrainEvent {
+        BrainEvent { scope, kind: self }
+    }
+}
+
+/// The scope survives worker queues, retries and all resulting status records.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BrainStatus {
+    pub scope: BrainScope,
+    pub kind: BrainStatusKind,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Outcome {
@@ -19,7 +40,7 @@ pub struct ApprovalRequest {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum BrainEvent {
+pub enum BrainEventKind {
     AgentProgress {
         agent: String,
         text: String,
@@ -67,7 +88,7 @@ pub enum BrainEvent {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum BrainStatus {
+pub enum BrainStatusKind {
     Ready,
     BackendDown {
         reason: String,

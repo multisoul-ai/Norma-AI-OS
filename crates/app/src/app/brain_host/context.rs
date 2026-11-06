@@ -52,7 +52,7 @@ impl MultisoulApp {
                 "context_scope_mismatch".into(),
             ));
         }
-        self.push_brain(BrainEvent::ContextRequest {
+        self.push_brain(BrainEventKind::ContextRequest {
             text: request,
             reference,
         });

@@ -16,6 +16,9 @@ const SUMMARY_CHARS: usize = 200;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Goal {
+    /// Empty only in legacy project-local files, assigned during global migration.
+    #[serde(default)]
+    pub workspace_id: String,
     pub agent: String,
     pub text: String,
 }
@@ -25,7 +28,7 @@ pub struct GoalStore {
     dir: PathBuf,
     goals: Mutex<Vec<Goal>>,
     /// 用户没采纳的提议，只放内存。
-    declined: Mutex<VecDeque<String>>,
+    declined: Mutex<VecDeque<(String, String)>>,
 }
 
 impl GoalStore {
@@ -47,6 +50,10 @@ impl GoalStore {
 
     /// 记录一条目标。太短、斜杠命令、同一 Agent 连续重复的不记，返回 `false`。
     pub fn record(&self, agent: &str, text: &str) -> bool {
+        self.record_for("", agent, text)
+    }
+
+    pub fn record_for(&self, workspace_id: &str, agent: &str, text: &str) -> bool {
         let text = text.trim();
         if text.chars().count() < MIN_CHARS || text.starts_with('/') {
             return false;
@@ -55,19 +62,29 @@ impl GoalStore {
         if goals
             .iter()
             .rev()
-            .find(|goal| goal.agent == agent)
+            .find(|goal| goal.workspace_id == workspace_id && goal.agent == agent)
             .is_some_and(|goal| goal.text == text)
         {
             return false;
         }
         goals.push(Goal {
+            workspace_id: workspace_id.to_owned(),
             agent: agent.to_string(),
             text: text.to_string(),
         });
-        if goals.len() > MAX_GOALS {
-            let extra = goals.len() - MAX_GOALS;
-            goals.drain(..extra);
-        }
+        let mut extra = goals
+            .iter()
+            .filter(|goal| goal.workspace_id == workspace_id)
+            .count()
+            .saturating_sub(MAX_GOALS);
+        goals.retain(|goal| {
+            if goal.workspace_id == workspace_id && extra > 0 {
+                extra -= 1;
+                false
+            } else {
+                true
+            }
+        });
         if fs::create_dir_all(&self.dir).is_ok() {
             if let Ok(json) = serde_json::to_string(&*goals) {
                 if let Err(error) =
@@ -83,6 +100,19 @@ impl GoalStore {
     /// 每条一行：`- Agent：目标`。换行压平，过长截断；没有目标时是 `None`。
     pub fn summary(&self) -> Option<String> {
         let goals = self.goals();
+        Self::summarize(goals)
+    }
+
+    pub fn summary_for(&self, workspace_id: &str) -> Option<String> {
+        Self::summarize(
+            self.goals()
+                .into_iter()
+                .filter(|goal| goal.workspace_id == workspace_id)
+                .collect(),
+        )
+    }
+
+    fn summarize(goals: Vec<Goal>) -> Option<String> {
         if goals.is_empty() {
             return None;
         }
@@ -96,7 +126,15 @@ impl GoalStore {
                 } else {
                     ""
                 };
-                format!("- {}：{shown}{more}", goal.agent)
+                let workspace = if goal.workspace_id.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        "[{}] ",
+                        serde_json::to_string(&goal.workspace_id).expect("workspace string")
+                    )
+                };
+                format!("- {workspace}{}：{shown}{more}", goal.agent)
             })
             .collect();
         Some(lines.join("\n"))
@@ -104,17 +142,32 @@ impl GoalStore {
 
     /// 记一条用户没采纳的提议，只留最近 5 条。
     pub fn decline(&self, agent: &str, title: &str) {
+        self.decline_for("", agent, title);
+    }
+
+    pub fn decline_for(&self, workspace_id: &str, agent: &str, title: &str) {
         let flat = title.split_whitespace().collect::<Vec<_>>().join(" ");
         let mut declined = self.declined.lock().expect("declined lock");
-        declined.push_back(format!("- {agent}：{flat}"));
-        while declined.len() > MAX_GOALS {
-            declined.pop_front();
+        declined.push_back((workspace_id.to_owned(), format!("- {agent}：{flat}")));
+        while declined.iter().filter(|(id, _)| id == workspace_id).count() > MAX_GOALS {
+            if let Some(index) = declined.iter().position(|(id, _)| id == workspace_id) {
+                declined.remove(index);
+            }
         }
     }
 
     pub fn declined_summary(&self) -> Option<String> {
+        self.declined_summary_for("")
+    }
+
+    pub fn declined_summary_for(&self, workspace_id: &str) -> Option<String> {
         let declined = self.declined.lock().expect("declined lock");
-        (!declined.is_empty()).then(|| declined.iter().cloned().collect::<Vec<_>>().join("\n"))
+        let lines: Vec<_> = declined
+            .iter()
+            .filter(|(id, _)| id == workspace_id)
+            .map(|(_, line)| line.clone())
+            .collect();
+        (!lines.is_empty()).then(|| lines.join("\n"))
     }
 
     /// 追加一条决策记录（一行 JSON）。写失败只记日志，不影响大脑。

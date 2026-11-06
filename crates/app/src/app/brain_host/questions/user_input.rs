@@ -81,7 +81,7 @@ impl MultisoulApp {
                 {
                     grant.cancellation = cancellation;
                 }
-                self.push_brain(brain::BrainEvent::QuestionRequested {
+                self.push_brain(brain::BrainEventKind::QuestionRequested {
                     agent: self
                         .agent_announcement_name(question.target.node_id)
                         .unwrap_or_else(|| format!("{:?}", question.target.provider)),

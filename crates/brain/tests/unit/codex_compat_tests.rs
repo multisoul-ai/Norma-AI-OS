@@ -157,10 +157,8 @@ fn pinned_bundle_permission_round_trip() {
         .map(str::to_owned)
         .collect();
     assert_eq!(lines.len(), 2, "启动前后的两类请求都要覆盖");
-    let gate = crate::acp::gate::Gate {
-        norma_bin: "/opt/norma/bin/norma".into(),
-        project_root: dir.path().into(),
-    };
+    let gate =
+        crate::acp::gate::Gate::for_project("/opt/norma/bin/norma".into(), dir.path().into());
     for line in lines {
         let call: serde_json::Value = serde_json::from_str(&line).unwrap();
         assert_eq!(

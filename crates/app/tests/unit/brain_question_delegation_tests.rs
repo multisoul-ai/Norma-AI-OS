@@ -149,7 +149,7 @@ fn question_delegation_survives_brain_restart_with_consistent_prompt() {
             app.poll_brain_questions();
             let events = app.brain.pending_events.borrow();
             assert_eq!(events.len(), 1, "同一服务不能每帧重复播报原问题");
-            assert!(matches!(events.front(), Some(brain::BrainEvent::QuestionRequested {delegated:true, question, ..}) if question.target == target), "服务重启后提示必须携带仍有效的真实委托");
+            assert!(matches!(events.front().map(|event| &event.kind), Some(brain::BrainEventKind::QuestionRequested {delegated:true, question, ..}) if question.target == target), "服务重启后提示必须携带仍有效的真实委托");
             assert!(app.question_overview_rows("a")[0].delegated, "提示与概览委托状态一致");
         }
     });
@@ -194,7 +194,7 @@ fn question_explicit_text_and_voice_delegate_before_model_dispatch() {
             assert_eq!(ticket.status(Instant::now()),QuestionHookStatus::Pending,"委托本身不编造答案");
             let events=app.brain.pending_events.borrow();
             assert_eq!(events.len(),1,"只发送一次原题委托");
-            assert!(matches!(events.front(),Some(brain::BrainEvent::QuestionRequested {question,delegated:true,..}) if question.target==target),"明确目标交给幕僚答题通路");
+            assert!(matches!(events.front().map(|event| &event.kind),Some(brain::BrainEventKind::QuestionRequested {question,delegated:true,..}) if question.target==target),"明确目标交给幕僚答题通路");
         });
     }
 }

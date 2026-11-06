@@ -8,6 +8,7 @@ mod away;
 mod config;
 mod context;
 mod decision_copy;
+mod events;
 mod history;
 mod lifecycle;
 mod log;
@@ -34,7 +35,7 @@ pub(crate) use settings::{adapter_package, BrainSettingsView};
 
 use crate::app::MultisoulApp;
 use brain::risk::ApprovalSubject;
-use brain::{ApprovalRequest, BrainEvent, BrainService, BrainStatus, Outcome};
+use brain::{ApprovalRequest, BrainEvent, BrainEventKind, BrainService, BrainStatus, Outcome};
 use gpui::Context;
 use norma::mobile::ApprovalTarget;
 use runtime::{AgentTaskState, RuntimeEvent};
@@ -234,7 +235,7 @@ impl MultisoulApp {
             self.refresh_brain_activity(false, cx);
         }
         if let Some(away) = self.brain.pending_return.take() {
-            let event = BrainEvent::UserReturned { away };
+            let event = BrainEventKind::UserReturned { away };
             for session in self.desktop_workspace.sessions.values() {
                 session.read(cx).push_brain(event.clone());
             }
@@ -288,28 +289,6 @@ impl MultisoulApp {
         self.brain.activity_retry = writer.submit(batch).unwrap_or_default();
     }
 
-    pub(super) fn push_brain(&self, event: BrainEvent) {
-        if let Some(service) = self
-            .brain
-            .host
-            .as_ref()
-            .and_then(|host| host.service.as_ref())
-        {
-            service.push(event);
-        } else if self
-            .brain
-            .settings
-            .as_ref()
-            .is_none_or(|settings| settings.enabled)
-        {
-            let mut pending = self.brain.pending_events.borrow_mut();
-            pending.push_back(event);
-            if pending.len() > 200 {
-                pending.pop_front();
-            }
-        }
-    }
-
     fn forward_runtime_event(&mut self, event: &RuntimeEvent, excerpts: &[(u64, Option<String>)]) {
         let RuntimeEvent::AgentTaskStateChanged { node_id, to, .. } = event else {
             return;
@@ -327,13 +306,13 @@ impl MultisoulApp {
                     .as_ref()
                     .filter(|t| !self.brain.own_prompts.contains(t))
                 {
-                    self.push_brain(BrainEvent::Goal {
+                    self.push_brain(BrainEventKind::Goal {
                         agent: agent.clone(),
                         text: text.clone(),
                     });
                 }
                 let text = prompt.unwrap_or_else(|| "开始处理".into());
-                self.push_brain(BrainEvent::AgentProgress { agent, text });
+                self.push_brain(BrainEventKind::AgentProgress { agent, text });
                 return;
             }
             _ => return,
@@ -347,33 +326,12 @@ impl MultisoulApp {
         let excerpt = excerpt
             .or_else(|| self.runtime.agent_latest_prompt(*node_id))
             .unwrap_or_default();
-        self.push_brain(BrainEvent::AgentFinished {
+        self.push_brain(BrainEventKind::AgentFinished {
             agent,
             outcome,
             excerpt,
             from_result,
         });
-    }
-
-    fn drain_brain_status(&mut self, cx: &mut Context<Self>) {
-        while let Some(Ok(status)) = self.brain.host.as_ref().map(|host| host.status.try_recv()) {
-            match status {
-                BrainStatus::Ready => tracing::info!("大脑会话就绪"),
-                BrainStatus::BackendDown { reason } => {
-                    tracing::warn!(%reason, "大脑后端不可用");
-                    let pending: Vec<String> = self.brain.tracked.keys().cloned().collect();
-                    for id in pending {
-                        self.escalate(&id, "幕僚暂时不可用", cx);
-                    }
-                }
-                BrainStatus::Trace(entry) => self.brain.record_trace(entry),
-                BrainStatus::ApprovalTurnEnded { id } => {
-                    if self.brain.tracked.get(&id).is_some_and(|t| !t.escalated) {
-                        self.escalate(&id, "我拿不准", cx);
-                    }
-                }
-            }
-        }
     }
 
     /// 把审批留给用户：它仍在“需要你处理”里，这里只负责开口提醒。
@@ -460,7 +418,7 @@ impl MultisoulApp {
                         reminded: false,
                     },
                 );
-                self.push_brain(BrainEvent::ApprovalRequested(ApprovalRequest {
+                self.push_brain(BrainEventKind::ApprovalRequested(ApprovalRequest {
                     id,
                     agent,
                     subject,
@@ -476,7 +434,7 @@ impl MultisoulApp {
             .collect();
         for id in closed {
             self.brain.tracked.remove(&id);
-            self.push_brain(BrainEvent::ApprovalClosed { id });
+            self.push_brain(BrainEventKind::ApprovalClosed { id });
         }
     }
 }

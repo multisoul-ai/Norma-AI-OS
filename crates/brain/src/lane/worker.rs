@@ -5,8 +5,9 @@ use crate::acp::client::{AcpError, AcpSession, SessionOptions};
 use crate::acp::gate::Gate;
 use crate::acp::trace::{AcpTrace, TraceItem, TraceKind};
 use crate::backend::{self, Backend};
-use crate::event::{BrainStatus, Trigger};
+use crate::event::{BrainStatus, BrainStatusKind, Trigger};
 use crate::goal::GoalStore;
+use norma::protocol::BrainScope;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
@@ -21,6 +22,7 @@ const MAX_BACKOFF: Duration = Duration::from_secs(60);
 const MAX_TRANSIENT_RETRIES: u32 = 3;
 
 pub struct Job {
+    pub scope: BrainScope,
     pub text: String,
     pub approval_id: Option<String>,
     pub trigger: Trigger,
@@ -34,7 +36,7 @@ pub struct LaneEnv {
     pub gate: Gate,
     pub goal: Arc<GoalStore>,
     pub status: Sender<BrainStatus>,
-    pub open: Arc<Mutex<HashSet<String>>>,
+    pub open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
     pub stop: Arc<AtomicBool>,
     pub env: Vec<(String, String)>,
     pub prompt_timeout: Duration,
@@ -64,8 +66,11 @@ impl LaneEnv {
         }
     }
 
-    fn is_open(&self, id: &str) -> bool {
-        self.open.lock().expect("open lock").contains(id)
+    fn is_open(&self, scope: &BrainScope, id: &str) -> bool {
+        self.open
+            .lock()
+            .expect("open lock")
+            .contains(&(scope.clone(), id.to_owned()))
     }
 
     fn sleep(&self, total: Duration) {
@@ -75,21 +80,32 @@ impl LaneEnv {
         }
     }
 
-    fn trace(&self, turn: u64, trigger: &Trigger, item: TraceItem) {
-        let _ = self.status.send(BrainStatus::Trace(AcpTrace {
-            at: SystemTime::now(),
-            lane: format!("{:?}", self.role),
-            turn,
-            trigger: trigger.clone(),
-            item,
-        }));
+    fn send(&self, scope: &BrainScope, kind: BrainStatusKind) {
+        let _ = self.status.send(BrainStatus {
+            scope: scope.clone(),
+            kind,
+        });
+    }
+
+    fn trace(&self, scope: &BrainScope, turn: u64, trigger: &Trigger, item: TraceItem) {
+        self.send(
+            scope,
+            BrainStatusKind::Trace(AcpTrace {
+                at: SystemTime::now(),
+                lane: format!("{:?}", self.role),
+                turn,
+                trigger: trigger.clone(),
+                item,
+            }),
+        );
     }
 
     fn finish(&self, job: &Job) {
         if let Some(id) = &job.approval_id {
-            let _ = self
-                .status
-                .send(BrainStatus::ApprovalTurnEnded { id: id.clone() });
+            self.send(
+                &job.scope,
+                BrainStatusKind::ApprovalTurnEnded { id: id.clone() },
+            );
         }
     }
 }
@@ -121,7 +137,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
         if job
             .approval_id
             .as_deref()
-            .is_some_and(|id| !env.is_open(id))
+            .is_some_and(|id| !env.is_open(&job.scope, id))
         {
             continue;
         }
@@ -134,21 +150,23 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                     session = Some(started);
                     turns = 0;
                     primed = false;
-                    let _ = env.status.send(BrainStatus::Ready);
+                    env.send(&job.scope, BrainStatusKind::Ready);
                 }
                 Err(error) => {
                     failures += 1;
                     env.trace(
+                        &job.scope,
                         turn_no,
                         &job.trigger,
                         TraceItem::new(TraceKind::Error, "会话创建失败", error.to_string()),
                     );
                     env.trace(
+                        &job.scope,
                         turn_no,
                         &job.trigger,
                         TraceItem::turn_end("error", connecting.elapsed().as_millis() as u64),
                     );
-                    down(&env, &error);
+                    down(&env, &job.scope, &error);
                     env.finish(&job);
                     env.sleep(
                         (env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF),
@@ -163,7 +181,11 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             let bin = env.gate.norma_bin.display().to_string();
             format!(
                 "{}\n\n{}",
-                primer(env.role, &bin, env.goal.summary().as_deref()),
+                primer(
+                    env.role,
+                    &bin,
+                    env.goal.summary_for(&job.scope.workspace_id).as_deref()
+                ),
                 job.text
             )
         };
@@ -176,11 +198,13 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
         tracing::info!(turn = turn_no, lane = ?env.role, backend = ?env.backend.kind,
             session_id = active.session_id(), "大脑轮次开始");
         env.trace(
+            &job.scope,
             turn_no,
             &job.trigger,
             TraceItem::new(TraceKind::Lifecycle, "会话关联", identity),
         );
         env.trace(
+            &job.scope,
             turn_no,
             &job.trigger,
             TraceItem::new(TraceKind::Prompt, "发给大脑", text.clone()),
@@ -191,7 +215,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             &env.gate,
             &env.stop,
             env.prompt_timeout,
-            &mut |item| env.trace(this_turn, &job.trigger, item),
+            &mut |item| env.trace(&job.scope, this_turn, &job.trigger, item),
         );
         match result {
             Ok(reply) => {
@@ -199,7 +223,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 primed = true;
                 failures = 0;
                 env.goal.append_decision(
-                    &serde_json::json!({"lane": format!("{:?}", env.role), "reply": reply})
+                    &serde_json::json!({"workspace_id": job.scope.workspace_id, "route_id": job.scope.route_id, "lane": format!("{:?}", env.role), "reply": reply})
                         .to_string(),
                 );
             }
@@ -207,12 +231,13 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 session = None;
                 failures += 1;
                 env.trace(
+                    &job.scope,
                     turn_no,
                     &job.trigger,
                     TraceItem::new(TraceKind::Error, "本轮失败", error.to_string()),
                 );
                 if !matches!(error, AcpError::Cancelled) {
-                    down(&env, &error);
+                    down(&env, &job.scope, &error);
                 }
                 if matches!(error, AcpError::Transient(_)) && attempts < MAX_TRANSIENT_RETRIES {
                     // 限流等临时故障：退避后用新会话重发同一条任务，不能把它丢掉。
@@ -228,9 +253,12 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
     }
 }
 
-fn down(env: &LaneEnv, error: &AcpError) {
+fn down(env: &LaneEnv, scope: &BrainScope, error: &AcpError) {
     tracing::warn!(%error, "大脑后端不可用");
-    let _ = env.status.send(BrainStatus::BackendDown {
-        reason: error.to_string(),
-    });
+    env.send(
+        scope,
+        BrainStatusKind::BackendDown {
+            reason: error.to_string(),
+        },
+    );
 }

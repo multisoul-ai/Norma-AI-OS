@@ -1,8 +1,8 @@
 use super::*;
 use crate::event::Outcome;
 
-fn finished(outcome: Outcome, excerpt: &str, from_result: bool) -> BrainEvent {
-    BrainEvent::AgentFinished {
+fn finished(outcome: Outcome, excerpt: &str, from_result: bool) -> BrainEventKind {
+    BrainEventKind::AgentFinished {
         agent: "Alan".into(),
         outcome,
         excerpt: excerpt.into(),
@@ -10,7 +10,7 @@ fn finished(outcome: Outcome, excerpt: &str, from_result: bool) -> BrainEvent {
     }
 }
 
-fn is_speak(event: &BrainEvent) -> bool {
+fn is_speak(event: &BrainEventKind) -> bool {
     matches!(triage(event), Verdict::Speak(_))
 }
 

@@ -1,6 +1,6 @@
 //! 服务重启后保留状态接收通道，避免迟到的拒绝、错误或结束事件消失。
 use super::{activity_sink::Pending, BrainHostState};
-use brain::BrainStatus;
+use brain::{BrainStatus, BrainStatusKind};
 use std::sync::mpsc::{self, TryRecvError};
 
 impl BrainHostState {
@@ -18,7 +18,10 @@ impl BrainHostState {
         let outbox = &self.activity_outbox;
         self.retiring.retain(|rx| loop {
             match rx.try_recv() {
-                Ok(BrainStatus::Trace(entry)) => outbox.push(Pending::Trace(entry)),
+                Ok(BrainStatus {
+                    kind: BrainStatusKind::Trace(entry),
+                    ..
+                }) => outbox.push(Pending::Trace(entry)),
                 // 旧服务的运行状态不能触发新服务的审批转人工，也不能覆盖动作来源。
                 Ok(_) => {}
                 Err(TryRecvError::Empty) => return true,

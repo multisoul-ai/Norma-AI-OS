@@ -1,12 +1,14 @@
 //! 对外入口：`push` 事件进来，从 `Receiver<BrainStatus>` 读状态。
 
-use crate::acp::gate::Gate;
+use crate::acp::gate::{Gate, ReadRoots};
 use crate::backend::{self, Backend, Strategy};
-use crate::event::{BrainEvent, BrainStatus};
+use crate::event::{BrainEvent, BrainEventKind, BrainStatus};
 use crate::goal::GoalStore;
 use crate::lane::prompt::{self, Role};
 use crate::lane::worker::{self, Job, LaneEnv};
-use crate::router::{Action, Lane, Router, RouterConfig};
+use crate::router::{Action, Lane, RouterConfig};
+use crate::scoped_router::{ScopedAction, ScopedRouter};
+use norma::protocol::BrainScope;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -26,6 +28,7 @@ pub struct BrainConfig {
     pub approval_workers: usize,
     pub norma_bin: PathBuf,
     pub project_root: PathBuf,
+    pub read_roots: ReadRoots,
     pub state_dir: PathBuf,
     pub router: RouterConfig,
     /// 传给适配器进程的环境变量，例如让 `norma` CLI 找到 App 的 socket。
@@ -49,6 +52,7 @@ impl BrainConfig {
             approval_model: None,
             approval_workers: 1,
             norma_bin,
+            read_roots: ReadRoots::new(vec![project_root.clone()]),
             project_root,
             state_dir,
             router: RouterConfig::default(),
@@ -64,6 +68,7 @@ pub struct BrainService {
     events: Sender<BrainEvent>,
     stop: Arc<AtomicBool>,
     threads: Vec<JoinHandle<()>>,
+    read_roots: ReadRoots,
 }
 
 impl BrainService {
@@ -76,10 +81,11 @@ impl BrainService {
         let mut models = backend::models_for(config.backend.kind, config.strategy);
         models.main = config.main_model.clone().or(models.main);
         models.approval = config.approval_model.clone().or(models.approval);
-        let gate = Gate {
-            norma_bin: config.norma_bin.clone(),
-            project_root: config.project_root.clone(),
-        };
+        let gate = Gate::new(
+            config.norma_bin.clone(),
+            config.project_root.clone(),
+            config.read_roots.clone(),
+        );
         let lane = |role: Role, model: Option<String>| LaneEnv {
             role,
             backend: config.backend.clone(),
@@ -108,13 +114,10 @@ impl BrainService {
             threads.push(std::thread::spawn(move || worker::run(approval_env, jobs)));
         }
         let dispatcher = Dispatcher {
-            router: Router::new(
-                RouterConfig {
-                    norma_bin: config.norma_bin.display().to_string(),
-                    ..config.router
-                },
-                Instant::now(),
-            ),
+            router: ScopedRouter::new(RouterConfig {
+                norma_bin: config.norma_bin.display().to_string(),
+                ..config.router
+            }),
             goal,
             open,
             main: main_tx,
@@ -127,6 +130,7 @@ impl BrainService {
                 events,
                 stop,
                 threads,
+                read_roots: config.read_roots,
             },
             status_rx,
         )
@@ -135,6 +139,11 @@ impl BrainService {
     /// 非阻塞。服务已关闭时事件被丢弃。
     pub fn push(&self, event: BrainEvent) {
         let _ = self.events.send(event);
+    }
+
+    /// Existing lanes observe added/removed projects without restarting the backend.
+    pub fn update_read_roots(&self, roots: Vec<PathBuf>) {
+        self.read_roots.replace(roots);
     }
 
     pub fn shutdown(self) {
@@ -147,9 +156,9 @@ impl BrainService {
 }
 
 struct Dispatcher {
-    router: Router,
+    router: ScopedRouter,
     goal: Arc<GoalStore>,
-    open: Arc<Mutex<HashSet<String>>>,
+    open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
     main: Sender<Job>,
     approval: Sender<Job>,
     stop: Arc<AtomicBool>,
@@ -177,36 +186,43 @@ impl Dispatcher {
     }
 
     fn handle(&mut self, event: BrainEvent) {
+        let BrainEvent { scope, kind: event } = event;
         let approval_id = match &event {
-            BrainEvent::ApprovalRequested(request) => Some(request.id.clone()),
-            BrainEvent::ApprovalClosed { id } => Some(id.clone()),
+            BrainEventKind::ApprovalRequested(request) => Some(request.id.clone()),
+            BrainEventKind::ApprovalClosed { id } => Some(id.clone()),
             _ => None,
         };
         match &event {
-            BrainEvent::Goal { agent, text } => {
-                self.goal.record(agent, text);
+            BrainEventKind::Goal { agent, text } => {
+                self.goal.record_for(&scope.workspace_id, agent, text);
             }
-            BrainEvent::ProposalDeclined { agent, title } => self.goal.decline(agent, title),
+            BrainEventKind::ProposalDeclined { agent, title } => {
+                self.goal.decline_for(&scope.workspace_id, agent, title)
+            }
             _ => {}
         }
-        let actions = self.router.push(event, Instant::now());
+        let actions = self.router.push(scope.clone(), event, Instant::now());
         if let Some(id) = approval_id {
             let mut open = self.open.lock().expect("open lock");
-            if self.router.is_open(&id) {
-                open.insert(id);
+            if self.router.is_open(&scope, &id) {
+                open.insert((scope.clone(), id));
             } else {
-                open.remove(&id);
+                open.remove(&(scope, id));
             }
         }
         self.dispatch(actions);
     }
 
-    fn dispatch(&self, actions: Vec<Action>) {
-        for Action {
-            lane,
-            text,
-            approval_id,
-            trigger,
+    fn dispatch(&self, actions: Vec<ScopedAction>) {
+        for ScopedAction {
+            scope,
+            action:
+                Action {
+                    lane,
+                    text,
+                    approval_id,
+                    trigger,
+                },
         } in actions
         {
             let tx = if lane == Lane::Main {
@@ -215,15 +231,16 @@ impl Dispatcher {
                 &self.approval
             };
             // 主会话的每条提示都带上当前目标，不只在首条说明里说一次。
-            let text = match (lane, self.goal.summary()) {
+            let text = match (lane, self.goal.summary_for(&scope.workspace_id)) {
                 (Lane::Main, Some(goals)) => prompt::with_goals(&text, &goals),
                 _ => text,
             };
-            let text = match (lane, self.goal.declined_summary()) {
+            let text = match (lane, self.goal.declined_summary_for(&scope.workspace_id)) {
                 (Lane::Main, Some(declined)) => prompt::with_declined(&text, &declined),
                 _ => text,
             };
             let _ = tx.send(Job {
+                scope,
                 text,
                 approval_id,
                 trigger,

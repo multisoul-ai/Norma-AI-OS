@@ -161,3 +161,38 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 - 最终成果GREEN：`artifacts/desktop-workspace-e2e/2026-11-06T11-17-52Z/`，`island-artifacts --visual`退出0，1/1。标记已看仅清目标回合；跨空间打开gamma冻结正文；重启英文空态、两条原始成果与三个源文件均验证。新App构建与storage全量测试退出0，日志 `m3-content-lock-build.log` / `m3-content-storage-tests.log`。runtime/norma/ui全量合计724通过、12既有忽略。
 - 已将审批、问答、运行、成果4张原始真实App截图归档至 `docs/exec-plans/evidence/2026-11-05-norma-dynamic-island/m3/`，便于PR逐图核对原型。M3业务实现已可提交，系统层缺证仍在M6清单，不宣称总Goal完成。
 - M3已提出PR #189，未合入dev。完整Clippy先指出重复加载测试夹具、observer多余借用和navigation枚举体积差异；改为crate级共享夹具、移除多余借用、Box成果变体后，`cargo clippy --workspace --all-targets -- -D warnings`通过。此增量不改变用户行为，复用上述E2E证据；正常提交hook继续执行。
+
+### M3 PR完成，进入M4
+
+- PR #189最新提交 `331a193916d279843f23f62077690c12c6917078`，CI run `42211172609`的rust checks于2026-11-06通过（6m9s）；两个外部路由/安全自动检查为NEUTRAL，全部已完成，无失败/待跑检查。PR仍OPEN，未合入dev。
+- M4使用叠加分支 `feat/island-global-brain-20261106`，base为M3分支。先验证多根Read权限动态增删，再接带workspace/route的事件与单一宿主，随后数据迁移和岛内对话/语音汇报。
+- 预先确认本机已有Claude ACP适配器和Matcha中英文TTS模型；仅检查存在性，没有读取凭据或改动用户配置。真实后端验收仍需实际执行，不能由存在性判定通过。
+
+### M4 第一片（域层，尚未接入全局App宿主）
+
+- ReadRoots由所有Gate克隆共享；BrainConfig/BrainService透传同一集合，并提供后台会话无需重建的根更新入口。相对路径只按原ACP cwd解析，cwd本身不隐含读取授权；关项目/清空集合撤销权限。公开Gate真实文件测试有RED/GREEN，`m4-read-roots-{red,green}.log`。
+- 独立审查发现原始`~`/`$`前缀检查被join隐藏，已用真实字面目录复现RED并修复；`m4-read-prefix-{red,green}.log`，brain全量112通过、2既有忽略。此证据证明Gate与服务接线，不冒充实启ACP多根验收；App尚未调用新增动态根入口。
+- 新增BrainScope与ScopedRouter纯调度层，workspace/route必须同时随Action保留。两个同名Agent进度不覆盖、同审批ID跨route关闭/释放互不影响；2条聚焦RED/GREEN通过，`m4-scoped-router-{red,green}.log`。ScopedRouter尚未替换BrainService现有dispatcher，事件全链路路由仍待接入。
+- 下一片：CLI显式workspace/route及report kind协议、BrainService的必带scope事件/状态和按scope目标存储，然后App单一BrainHost、原子幂等迁移及岛内幕僚页面。M4当前未提交，不宣称里程碑完成。
+
+
+### M4 CLI 作用域切片（全局宿主仍未接入）
+
+- `norma brain --workspace W --route R` 支持显式、成对、非空的身份参数。真实 CLI 进程经隔离 Unix socket 验证：两字段完整覆盖旧项目环境，原始身份字节保留，不携带环境里的 Agent Provider/节点身份；旧完整环境调用继续兼容。身份沿现有 WireRequest 来源字段传递，未增加第二份 wire 路由来源。
+- 真实进程测试先 RED（不识别 --workspace）后 GREEN，日志 `artifacts/island/m4-cli-scope-{red,green}.log`。独立审查复现 global 参数分别置于子命令两侧时 clap requires 误判；新增跨层 RED 后改为参数聚合完毕、构造请求之前验证配对。最终4/4通过，`artifacts/island/m4-cli-scope-order-{red,green}.log`；reviewer 复核四种仅传单字段的排列均退出2，不从环境补齐。
+- `cargo test -p norma -p brain --no-fail-fast`在跨层修复前452通过、3既有忽略，日志 `artifacts/island/m4-cli-domain-tests.log`。跨层修复后4条身份测试及既有CLI/上下文/决策文案测试通过，日志 `artifacts/island/m4-cli-parser-regression.log`；`cargo check -p app`通过，日志 `artifacts/island/m4-cli-app-check.log`。所有Cargo命令使用CARGO_INCREMENTAL=0；行数/no-allow/i18n 2226双语键与diff-check通过。
+- 这片只完成CLI到实际请求的身份传递。BrainService dispatcher/worker状态仍待作用域化，App仍未成为单一BrainHost；全局迁移、report kind/ReportRequested与幕僚页面未完成，不能据此宣称M4通过或真实ACP/桌面E2E通过。当前M4未提交；M3 PR #189仍OPEN，不合入dev。
+- 相关Clippy先报新增参数使TopCommand::Brain变体过大，改为Box<BrainArgs>，未加allow。`cargo clippy -p norma -p brain --all-targets -- -D warnings`通过，日志 `artifacts/island/m4-cli-clippy-green.log`；随后真实身份与既有brain CLI共10/10通过，`artifacts/island/m4-cli-box-regression.log`。独立审查的参数配对P2已复核关闭。
+
+
+### M4 事件、状态与目标的完整作用域
+
+- `BrainEvent`与`BrainStatus`改为必带workspace/route的结构体，事件种类与状态种类分别为`BrainEventKind`/`BrainStatusKind`。Dispatcher使用ScopedRouter，审批待处理集合按(scope,id)索引；Job、重试、Ready/BackendDown/ApprovalTurnEnded、全部Trace及决策JSON均保留来源身份。
+- GoalStore按workspace记录、去重、保留最近5条目标及忽略摘要；同名Agent不会跨项目覆盖，alpha的新目标不会淘汰beta。新增真实存储重开测试先RED后GREEN，`artifacts/island/m4-global-goals-{red,green}.log`，既有5条目标测试也通过。旧项目文件的workspace身份补写属于后续迁移，本片不宣称旧数据迁移完成。
+- 真实BrainService线程+脚本ACP子进程测试先RED后GREEN：alpha/beta同审批ID，关闭alpha不会吞beta，所有trace保持来源。最终用FAKE_HOLD与主lane回执建立确定性屏障，不靠sleep推断关闭顺序；`artifacts/island/m4-scoped-service-barrier-green.log`。brain全量116通过、2既有忽略，`artifacts/island/m4-scoped-service-regression.log`。假适配器不执行真实CLI，不能据此声明真实CLI动作/Claude后端验收。
+- App在入队时捕获scope，启动后重放不重绑旧route，active状态先校验完整scope再产生副作用。新增真实App实体/headless测试验证旧route较大turn迟到也不覆盖新route。首次App回归114通过、2失败：原提问fixture仅设Hook身份，未设App route；对齐生产注册中的同一对w/route后，App幕僚聚焦116通过、1既有真实Claude测试忽略，`artifacts/island/m4-event-app-tests-green.log`。这是headless接线证据，不冒充真实App/E2E。
+- CLI缺失/半套/空白环境身份现在在连接socket前拒绝，返回workspace_required；完整旧环境仍兼容，原身份字节保留。真实CLI先RED（误为app_unavailable，即已经尝试连接）后GREEN，全部5条身份测试通过，`artifacts/island/m4-cli-missing-scope-{red,green}.log`。
+- 独立审查域层与App接线未发现阻塞问题；确认问题fixture是补足生产前置条件，并未删除原委托/Hook响应/去重断言。`cargo check -p app`及`cargo clippy -p app -p brain -p norma --all-targets -- -D warnings`通过，日志`artifacts/island/m4-event-app-check-green.log`/`artifacts/island/m4-event-clippy.log`；performance/storage/行数/no-allow/Agent指南/i18n2226键/diff-check通过。
+- 下一步仍为App唯一BrainHost、项目释放/后台保留生命周期与Read根动态接入、全局幂等迁移、report kind/ReportRequested和幕僚UI/真实Claude+TTS E2E。当前只是完成M4事件链路，不是M4里程碑完成；M3 PR #189保持未合入。
+- 完整Norma回归触发两条既有OpenCode HTTP夹具竞态：非阻塞listener的accepted socket未恢复blocking，macOS上read_line在实际3秒超时前立即WouldBlock（该测试0.03秒失败），另一条因POST未发得到Unsent而非预设Unknown。仅对两处accepted socket补set_nonblocking(false)，保持200ms/3s读超时及原业务断言。失败日志`artifacts/island/m4-event-norma-tests.log`保留，定向7/7通过，`artifacts/island/m4-opencode-fixture-green.log`；完整Norma回归正在复验。
+- 修复后完整Norma测试退出0，340通过、1既有忽略，`artifacts/island/m4-event-norma-tests-green.log`。本轮作为M4实现检查点提交到隔离分支，尚不提称完整M4的PR、不合入dev；剩余范围不变。

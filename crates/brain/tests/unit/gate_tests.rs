@@ -2,10 +2,7 @@ use super::*;
 use serde_json::json;
 
 fn gate() -> Gate {
-    Gate {
-        norma_bin: "/opt/norma/bin/norma".into(),
-        project_root: "/work/proj".into(),
-    }
+    Gate::for_project("/opt/norma/bin/norma".into(), "/work/proj".into())
 }
 
 fn bash(command: &str) -> PermissionRequest {
@@ -97,10 +94,7 @@ fn reads_are_limited_to_the_project_and_never_secrets() {
     let dir = tempfile::tempdir().expect("应创建项目夹具");
     std::fs::create_dir_all(dir.path().join("src")).expect("应创建源码目录");
     std::fs::write(dir.path().join("src/a.rs"), "fixture").expect("应创建项目文件");
-    let g = Gate {
-        project_root: dir.path().to_path_buf(),
-        ..gate()
-    };
+    let g = Gate::for_project(gate().norma_bin, dir.path().to_path_buf());
     assert_eq!(
         g.judge(&read("src/a.rs")),
         Verdict::Allow,
@@ -139,10 +133,7 @@ fn symlinked_and_missing_reads_are_rejected() {
         .expect("应创建越界链接");
     std::os::unix::fs::symlink(root.join(".env"), root.join("innocent.txt"))
         .expect("应创建凭据链接");
-    let g = Gate {
-        project_root: root,
-        ..gate()
-    };
+    let g = Gate::for_project(gate().norma_bin, root);
     assert_eq!(g.judge(&read("safe.txt")), Verdict::Allow, "正常文件应放行");
     for path in ["outside-link", "innocent.txt", "missing.txt"] {
         assert!(
@@ -160,10 +151,7 @@ fn symlinked_and_missing_reads_are_rejected() {
 fn directory_and_recursive_reads_are_rejected() {
     let dir = tempfile::tempdir().expect("应创建项目");
     std::fs::write(dir.path().join("safe.txt"), "safe").expect("应写入正常文件");
-    let g = Gate {
-        project_root: dir.path().into(),
-        ..gate()
-    };
+    let g = Gate::for_project(gate().norma_bin, dir.path().into());
     assert_eq!(
         g.judge(&read("safe.txt")),
         Verdict::Allow,

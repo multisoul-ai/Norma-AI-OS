@@ -5,8 +5,8 @@ fn t0() -> Instant {
     Instant::now()
 }
 
-fn approval(id: &str, command: &str) -> BrainEvent {
-    BrainEvent::ApprovalRequested(ApprovalRequest {
+fn approval(id: &str, command: &str) -> BrainEventKind {
+    BrainEventKind::ApprovalRequested(ApprovalRequest {
         id: id.into(),
         agent: "Claude".into(),
         subject: ApprovalSubject {
@@ -18,8 +18,8 @@ fn approval(id: &str, command: &str) -> BrainEvent {
     })
 }
 
-fn finished(agent: &str) -> BrainEvent {
-    BrainEvent::AgentFinished {
+fn finished(agent: &str) -> BrainEventKind {
+    BrainEventKind::AgentFinished {
         agent: agent.into(),
         outcome: Outcome::Succeeded,
         excerpt: "12 个测试通过".into(),
@@ -27,8 +27,8 @@ fn finished(agent: &str) -> BrainEvent {
     }
 }
 
-fn needs_you(agent: &str) -> BrainEvent {
-    BrainEvent::AgentFinished {
+fn needs_you(agent: &str) -> BrainEventKind {
+    BrainEventKind::AgentFinished {
         agent: agent.into(),
         outcome: Outcome::Succeeded,
         excerpt: "做完了，需要你确认接口命名".into(),
@@ -103,7 +103,7 @@ fn closed_approval_is_no_longer_open() {
     let now = t0();
     let mut router = Router::new(RouterConfig::default(), now);
     router.push(approval("a3", "cargo test"), now);
-    let actions = router.push(BrainEvent::ApprovalClosed { id: "a3".into() }, now);
+    let actions = router.push(BrainEventKind::ApprovalClosed { id: "a3".into() }, now);
     assert!(actions.is_empty(), "关闭事件不应触发动作");
     assert!(!router.is_open("a3"), "关闭后不再未决");
 }
@@ -196,7 +196,7 @@ fn failures_are_flushed_immediately() {
     let now = t0();
     let mut router = Router::new(RouterConfig::default(), now);
     router.push(
-        BrainEvent::AgentFinished {
+        BrainEventKind::AgentFinished {
             agent: "Codex".into(),
             outcome: Outcome::Failed,
             excerpt: "编译错误".into(),
@@ -226,14 +226,14 @@ fn progress_only_appears_in_the_periodic_summary() {
     let mut router = Router::new(RouterConfig::default(), now);
     let at = now + Duration::from_secs(10);
     let a = router.push(
-        BrainEvent::AgentProgress {
+        BrainEventKind::AgentProgress {
             agent: "Claude".into(),
             text: "读取文件".into(),
         },
         at,
     );
     let b = router.push(
-        BrainEvent::AgentProgress {
+        BrainEventKind::AgentProgress {
             agent: "Claude".into(),
             text: "运行测试".into(),
         },
@@ -268,7 +268,7 @@ fn user_requests_go_to_the_main_lane_but_goals_do_not_wake_the_brain() {
     let now = t0();
     let mut router = Router::new(RouterConfig::default(), now);
     let actions = router.push(
-        BrainEvent::UserRequest {
+        BrainEventKind::UserRequest {
             text: "补文档".into(),
         },
         now,
@@ -278,7 +278,7 @@ fn user_requests_go_to_the_main_lane_but_goals_do_not_wake_the_brain() {
     assert_eq!(*lane, Lane::Main, "走主会话");
     assert!(text.contains("补文档"), "{text}");
     let goal = router.push(
-        BrainEvent::Goal {
+        BrainEventKind::Goal {
             agent: "Alan".into(),
             text: "今天发布 0.2".into(),
         },
@@ -345,7 +345,7 @@ fn returning_user_gets_a_digest_of_what_happened_while_away() {
     router.push(finished("Alan"), now);
     router.push(finished("Bella"), now + Duration::from_secs(100));
     router.push(
-        BrainEvent::AgentFinished {
+        BrainEventKind::AgentFinished {
             agent: "Cora".into(),
             outcome: Outcome::Failed,
             excerpt: "编译错误".into(),
@@ -354,7 +354,7 @@ fn returning_user_gets_a_digest_of_what_happened_while_away() {
         now + Duration::from_secs(200),
     );
     let actions = router.push(
-        BrainEvent::UserReturned {
+        BrainEventKind::UserReturned {
             away: Duration::from_secs(250),
         },
         now + Duration::from_secs(300),
@@ -374,7 +374,7 @@ fn returning_user_with_nothing_new_does_not_wake_the_brain() {
     let now = t0();
     let mut router = Router::new(RouterConfig::default(), now);
     let actions = router.push(
-        BrainEvent::UserReturned {
+        BrainEventKind::UserReturned {
             away: Duration::from_secs(900),
         },
         now + Duration::from_secs(1000),
@@ -394,7 +394,7 @@ fn the_activity_record_is_capped() {
         router.push(finished(&format!("A{n:02}")), now + Duration::from_secs(n));
     }
     let actions = router.push(
-        BrainEvent::UserReturned {
+        BrainEventKind::UserReturned {
             away: Duration::from_secs(600),
         },
         now + Duration::from_secs(100),
@@ -434,7 +434,7 @@ fn every_action_carries_its_trigger() {
         Trigger::new(TriggerKind::AgentFinished, "Bella")
     );
     let request = router.push(
-        BrainEvent::UserRequest {
+        BrainEventKind::UserRequest {
             text: "看看进度".into(),
         },
         now,
@@ -444,14 +444,14 @@ fn every_action_carries_its_trigger() {
         Trigger::new(TriggerKind::UserRequest, "")
     );
     let returned = router.push(
-        BrainEvent::UserReturned {
+        BrainEventKind::UserReturned {
             away: Duration::from_secs(0),
         },
         now + Duration::from_secs(31),
     );
     assert!(returned.is_empty(), "刚离开就回来没有新进展，不叫醒大脑");
     router.push(
-        BrainEvent::AgentProgress {
+        BrainEventKind::AgentProgress {
             agent: "Alan".into(),
             text: "跑测试".into(),
         },
@@ -470,7 +470,7 @@ fn return_digest_is_triggered_by_the_user_returning() {
     let mut router = Router::new(RouterConfig::default(), now);
     router.push(finished("Alan"), now);
     let actions = router.push(
-        BrainEvent::UserReturned {
+        BrainEventKind::UserReturned {
             away: Duration::from_secs(10),
         },
         now + Duration::from_secs(5),

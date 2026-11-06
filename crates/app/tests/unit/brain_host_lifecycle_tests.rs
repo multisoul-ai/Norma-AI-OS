@@ -1,6 +1,6 @@
 use super::super::{activity_sink, BrainHost, BrainHostState};
 use brain::acp::trace::{AcpTrace, TraceItem, TraceKind};
-use brain::{BrainStatus, Trigger};
+use brain::{BrainStatus, BrainStatusKind, Trigger};
 use std::sync::mpsc;
 use std::time::SystemTime;
 
@@ -63,12 +63,12 @@ fn retired_quota_error_survives_storage_reopen_without_crossing_turns() {
         TraceItem::turn_end("error", 2500),
         TraceItem::new(TraceKind::Error, "本轮失败", format!("rate_limit: {body}")),
     ] {
-        tx.send(BrainStatus::Trace(trace(43, item)))
+        tx.send(scoped(BrainStatusKind::Trace(trace(43, item))))
             .expect("退休通道仍接收已发出的事件");
     }
-    tx.send(BrainStatus::BackendDown {
+    tx.send(scoped(BrainStatusKind::BackendDown {
         reason: "old quota".into(),
-    })
+    }))
     .unwrap();
     drop(tx);
     state.drain_retired();
@@ -136,16 +136,16 @@ fn retired_host_keeps_late_permission_and_end_in_activity() {
     state.retire_host();
     assert!(!state.token_matches("old"), "旧令牌必须立刻失效");
     state.last_turn.insert("Main".into(), 18);
-    tx.send(BrainStatus::Trace(trace(TraceItem::new(
+    tx.send(scoped(BrainStatusKind::Trace(trace(TraceItem::new(
         TraceKind::Permission,
         "权限请求：拒绝",
         "非允许程序",
-    ))))
+    )))))
     .expect("旧接收通道要活到后台停止完成");
-    tx.send(BrainStatus::Trace(trace(TraceItem::turn_end(
+    tx.send(scoped(BrainStatusKind::Trace(trace(TraceItem::turn_end(
         "cancelled",
         2500,
-    ))))
+    )))))
     .unwrap();
     drop(tx);
     state.drain_retired();
@@ -173,4 +173,14 @@ fn retired_host_keeps_late_permission_and_end_in_activity() {
         "拒绝不能在接收或落库前消失"
     );
     assert!(state.retiring.is_empty(), "后台通道断开且排空后必须释放");
+}
+
+fn scoped(kind: BrainStatusKind) -> BrainStatus {
+    BrainStatus {
+        scope: norma::protocol::BrainScope {
+            workspace_id: "test".into(),
+            route_id: "route".into(),
+        },
+        kind,
+    }
 }

@@ -86,7 +86,7 @@ impl MultisoulApp {
                 self.brain.host = Some(host);
                 let pending: Vec<_> = self.brain.pending_events.borrow_mut().drain(..).collect();
                 for event in pending {
-                    self.push_brain(event);
+                    self.push_scoped_brain(event);
                 }
                 tracing::info!("Norma 大脑已启动");
             }

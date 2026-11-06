@@ -32,7 +32,7 @@ impl MultisoulApp {
                 "幕僚没有运行，无法交接".into(),
             ));
         }
-        self.push_brain(brain::BrainEvent::UserRequest { text: request });
+        self.push_brain(brain::BrainEventKind::UserRequest { text: request });
         Ok(agent::AdapterResult::accepted("已交给幕僚，结果会稍后播报"))
     }
 

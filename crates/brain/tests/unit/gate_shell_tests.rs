@@ -7,10 +7,7 @@ use serde_json::json;
 /// 负断言：write_stdin、任意工具以及不匹配的 kind 仍拒绝。
 #[test]
 fn codex_execute_alias_requires_the_explicit_envelope() {
-    let gate = Gate {
-        norma_bin: "/opt/norma/bin/norma".into(),
-        project_root: "/work/proj".into(),
-    };
+    let gate = Gate::for_project("/opt/norma/bin/norma".into(), "/work/proj".into());
     for (name, kind, allow) in [
         ("exec_command", "execute", true),
         ("write_stdin", "execute", false),
@@ -87,10 +84,7 @@ fn report_text_is_lossless_and_envelope_is_unambiguous() {
 /// 预期结果：合法单条 norma brain 汇报放行；不会把外层包装当成可执行文件名。
 #[test]
 fn explicit_shell_envelopes_preserve_quoted_report_arguments() {
-    let gate = Gate {
-        norma_bin: "/opt/norma/bin/norma".into(),
-        project_root: "/work/proj".into(),
-    };
+    let gate = Gate::for_project("/opt/norma/bin/norma".into(), "/work/proj".into());
     for command in [
         "/bin/zsh -lc '/opt/norma/bin/norma brain agents'",
         r#"/bin/zsh -lc "/opt/norma/bin/norma brain report --text 'Alan 还在处理中'""#,
@@ -116,10 +110,7 @@ fn explicit_shell_envelopes_preserve_quoted_report_arguments() {
 /// 预期结果：每个反例都拒绝，裸字符串的整条引号也保持拒绝。
 #[test]
 fn shell_envelopes_never_expand_the_command_allowlist() {
-    let gate = Gate {
-        norma_bin: "/opt/norma/bin/norma".into(),
-        project_root: "/work/proj".into(),
-    };
+    let gate = Gate::for_project("/opt/norma/bin/norma".into(), "/work/proj".into());
     for command in [
         "/bin/zsh -lc 'echo hello'",
         "/bin/zsh -lc '/tmp/norma brain agents'",

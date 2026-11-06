@@ -283,7 +283,7 @@ impl MultisoulApp {
             return false;
         };
         self.save_brain_proposals();
-        self.push_brain(brain::BrainEvent::ProposalDeclined {
+        self.push_brain(brain::BrainEventKind::ProposalDeclined {
             agent: proposal.agent,
             title: proposal.title,
         });

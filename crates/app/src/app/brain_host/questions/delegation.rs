@@ -104,7 +104,7 @@ impl MultisoulApp {
                         .ok_or("question_not_found")?
                         .question
                         .clone();
-                    app.push_brain(brain::BrainEvent::QuestionRequested {
+                    app.push_brain(brain::BrainEventKind::QuestionRequested {
                         agent: app
                             .agent_announcement_name(target.node_id)
                             .unwrap_or_else(|| format!("{:?}", target.provider)),
@@ -163,7 +163,7 @@ impl MultisoulApp {
             {
                 let delegated = self.question_delegated(&question.target);
                 self.brain.questions.announced.push(question.target.clone());
-                self.push_brain(brain::BrainEvent::QuestionRequested {
+                self.push_brain(brain::BrainEventKind::QuestionRequested {
                     agent: self
                         .agent_announcement_name(question.target.node_id)
                         .unwrap_or_else(|| format!("{:?}", question.target.provider)),
