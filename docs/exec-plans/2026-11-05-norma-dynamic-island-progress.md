@@ -160,3 +160,4 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 - 成果锁冲突修复：`DesktopContentTabStore::open_for_presentation`改用IMMEDIATE事务，在读标签前取得写锁，避免deferred事务升级立即Busy。公开API双连接并发测试RED→GREEN，另5条既有标签测试通过，日志 `artifacts/island/m3-content-lock-{red,green}.log`；App调用仍在background_executor，独立只读审查无阻塞发现。
 - 最终成果GREEN：`artifacts/desktop-workspace-e2e/2026-11-06T11-17-52Z/`，`island-artifacts --visual`退出0，1/1。标记已看仅清目标回合；跨空间打开gamma冻结正文；重启英文空态、两条原始成果与三个源文件均验证。新App构建与storage全量测试退出0，日志 `m3-content-lock-build.log` / `m3-content-storage-tests.log`。runtime/norma/ui全量合计724通过、12既有忽略。
 - 已将审批、问答、运行、成果4张原始真实App截图归档至 `docs/exec-plans/evidence/2026-11-05-norma-dynamic-island/m3/`，便于PR逐图核对原型。M3业务实现已可提交，系统层缺证仍在M6清单，不宣称总Goal完成。
+- M3已提出PR #189，未合入dev。完整Clippy先指出重复加载测试夹具、observer多余借用和navigation枚举体积差异；改为crate级共享夹具、移除多余借用、Box成果变体后，`cargo clippy --workspace --all-targets -- -D warnings`通过。此增量不改变用户行为，复用上述E2E证据；正常提交hook继续执行。

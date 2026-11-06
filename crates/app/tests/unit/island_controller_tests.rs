@@ -35,8 +35,7 @@ fn island_escape_interrupts_presentation_after_logical_collapse() {
     });
 }
 
-#[path = "../support/run_overview_rows.rs"]
-mod rows;
+use crate::test_run_overview_rows as rows;
 
 /// 场景：出错与需接管只出现在运行页，不能生成一个空的“需要你处理”徽标。
 /// 数据：同一空间依次只含Failed、Takeover、Review或File，且没有运行行/审批/问题。

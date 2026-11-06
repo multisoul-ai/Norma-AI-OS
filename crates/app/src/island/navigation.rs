@@ -6,7 +6,7 @@ use std::time::Duration;
 
 enum Destination {
     Agent(u64),
-    Artifact(norma::mobile::RunOverviewAttention),
+    Artifact(Box<norma::mobile::RunOverviewAttention>),
 }
 
 impl IslandController {
@@ -48,7 +48,7 @@ impl IslandController {
         row: norma::mobile::RunOverviewAttention,
         cx: &mut Context<Self>,
     ) {
-        self.navigate(target, Destination::Artifact(row), cx);
+        self.navigate(target, Destination::Artifact(Box::new(row)), cx);
     }
 
     fn navigate(&mut self, target: IslandTarget, destination: Destination, cx: &mut Context<Self>) {

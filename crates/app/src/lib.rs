@@ -55,6 +55,9 @@ mod test_drawer_locale;
 #[cfg(test)]
 #[path = "../tests/support/gpt_live_sse.rs"]
 mod test_gpt_live_sse;
+#[cfg(test)]
+#[path = "../tests/support/run_overview_rows.rs"]
+mod test_run_overview_rows;
 
 #[cfg(feature = "e2e-test-support")]
 pub use app::{

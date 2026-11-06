@@ -205,7 +205,7 @@ impl Drop for Watch {
     fn drop(&mut self) {
         // SAFETY: all tokens came from the matching registrations above.
         unsafe {
-            NSNotificationCenter::defaultCenter().removeObserver((&*self.observer).as_ref());
+            NSNotificationCenter::defaultCenter().removeObserver((*self.observer).as_ref());
             for monitor in [&self.global, &self.local].into_iter().flatten() {
                 NSEvent::removeMonitor(monitor);
             }
