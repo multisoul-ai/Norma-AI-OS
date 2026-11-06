@@ -1,7 +1,7 @@
 # Norma 灵动岛：取代左抽屉与状态胶囊，引入全局幕僚
 
 - 日期：2026-11-05
-- 状态：方案已确认，待实施
+- 状态：实施中；执行顺序调整见第 9 节
 - 交互原型：[`evidence/2026-11-05-norma-dynamic-island/prototype.html`](evidence/2026-11-05-norma-dynamic-island/prototype.html)（浏览器直接打开，以其交互为准；在线版 https://claude.ai/artifact/36GvXUcVMDiPMpee5KgMvQ 为私有链接）
 - 相关：[Norma 大脑设计](../design-docs/2026-10-23-norma-brain-acp.md)、[后台项目生命周期](2026-09-12-mobile-background-projects.md)
 
@@ -136,3 +136,13 @@ GPUI 0.2.2 无全局快捷键。使用 Carbon `RegisterEventHotKey`（FFI，无�
 | 旧幕僚数据迁移后不丢 | brain 迁移单测（旧目录 fixture）+ 真实 App 启动检查 |
 | 左抽屉与状态胶囊完全删除、无死入口 | 代码检索 + 设置页/快捷键页 E2E |
 | 刘海屏、外接屏、全屏 Space | 真机验收（desktop-e2e 无法覆盖时降级 Computer Use 并记录原因） |
+
+## 9. 用户确认的执行顺序调整（2026-11-05）
+
+用户最新指令：“优先把所有功能都完成，使用 E2E 验收和测试，调整计划”。此指令取代先前“M0 任一项不通过即停止”的执行门槛，完整范围和第 8 节验收要求保留。
+
+- M0 记录为技术验证证据和待完善项，不再阻断 M1–M6。非激活输入暂未通过，按 §4.1 既定退路，在点击输入框时激活 App；就地审批仍不得抢前台。
+- 按 M1 状态机 → M2 全工作空间汇总 → M3 窗口与交互 → M4 全局幕僚 → M5 删除与设置 → M6 全量验收推进。每一步先补聚焦失败测试，再实现；不以假数据或演示 UI 代替最终行为。
+- 每个里程碑形成可验证 PR，依次合入 dev；始终等待该 PR 最新提交的 CI（含 rust checks）通过。
+- E2E 优先覆盖真实 App 的岛窗口、输入、审批、提问、定位、设置与双语；原生系统焦点、Carbon 热键、全屏 Space 和真实刘海屏不能用进程内注入或几何单测冒充。
+- 详见 `2026-11-05-norma-dynamic-island-progress.md` 中的里程碑与证据映射。
