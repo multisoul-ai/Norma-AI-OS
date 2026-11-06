@@ -222,3 +222,13 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 - Clippy 首轮要求对服务控制消息的大变体使用 Box，已修复。`cargo clippy -p brain -p app --all-targets -- -D warnings` 通过，`artifacts/island/m4-scope-release-clippy-green.log`；performance/storage/i18n 2226 键与 diff-check 通过。独立增量复核无新增阻塞。
 - 迁移身份来源已核查：普通项目可从 WorkspaceIdentityStore::list 获得稳定身份；桌面项目遍历 DesktopWorkspaceStore 的工作空间/区域，并使用生产 `desktop:<workspace>:<area>` 身份。目录哈希不可逆，迁移不得猜成当前项目。迁移实现、report reply/汇报/TTS、幕僚 UI、M5/M6 仍待完成；仍只提 PR，不合入 dev。
 - 最终 App 幕僚回归 121 passed、1 既有 ignored，`artifacts/island/m4-scope-release-app-final.log`。新增真实服务客户端测试 GREEN，证明 alpha 释放后 beta 实际完成，最后客户端释放后后台服务线程 join/状态排空；该脚本 ACP 证据不冒充真实 Claude 或桌面 E2E。行数/no-allow/Agent指南护栏也通过。本片作为 M4 开发检查点保存，迁移和完整幕僚交互仍未完成。
+
+### M4 全局迁移域层检查点（App 尚未接线）
+
+- 新增 `brain::migration::migrate`，后台调用时先取得迁移文件锁，将 goals、proposals、decisions、config 完整写入并同步一代目录，再以一次原子符号链接替换发布 `global/current`。再次启动只校验、复用已发布状态，不重新导入旧备份；旧项目目录、根配置和更旧根路径提议均原样保留。
+- workspace 元数据能还原的目录使用精确身份；不能还原的目录使用 `archived:<hash>`。多个画布共用根路径时，更旧提议只归档一份，避免复制后重复派发。同工作空间跨文件编号冲突重编号并保留 legacy_id，跨工作空间同编号保持各自独立。
+- `AskRule` 区分 App 全局规则与项目规则；旧 App 级规则继续覆盖未来项目。项目 enabled/autonomy 按原默认补齐后取权限交集，已有 App/global 的显式字段仍优先，不能靠目录顺序扩大授权。
+- 4 条初始迁移测试先 RED 后 GREEN；更旧提议遗漏和损坏 autonomy 类型分别补 RED/GREEN，记录 `m4-migration-{red,green}.log`、`m4-migration-root-{red,green}.log`、`m4-migration-settings-{red,green}.log`。并发四调用恰好一次发布、当前数据损坏不重导入、根路径归属歧义归档均有公开接口测试。
+- 独立对抗审查复现：缺失 current/proposals 被当空集合、项目权限扩大、非法 workspace_id 被静默改写、单文件重复提议 ID。均已补失败测试并修复；记录 `m4-migration-review-{red,green}.log`、`m4-migration-identity-red.log`、`m4-migration-duplicate-red.log`，最终聚焦 12/12 通过于 `artifacts/island/m4-migration-identity-green.log`；独立增量复核无新增阻塞。
+- 最终 brain 全量 130 passed、2 既有 ignored，`artifacts/island/m4-migration-brain-final.log`；brain all-targets Clippy `-D warnings` 通过，`artifacts/island/m4-migration-clippy-final.log`。performance/storage/i18n 2226 键/行数/no-allow/Agent 指南和 diff-check 通过。
+- 本片只完成迁移域层，尚未接入 App 后台准备、settings/proposals 读写和 BrainConfig.state_dir，未做真实 App 迁移启动验收。M4 的 raw wire 身份兜底、report reply/ReportRequested、岛内幕僚对话/汇报/TTS 仍未完成；M5/M6 和原型还原仍待完成。PR #189 最新 rust checks SUCCESS，仍 OPEN；后续只提 PR，不合入 dev。
