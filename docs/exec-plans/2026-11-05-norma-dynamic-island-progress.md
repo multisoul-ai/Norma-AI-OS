@@ -10,7 +10,7 @@
 | M1 | runtime::island 纯状态机：形态、优先级、160/420/3000ms、固定、输入焦点、设置 | PR #186 已合入 dev，最新 rust checks 通过 |
 | M2 | 逐工作空间捕获与后台投影、App 级 IslandModel，含后台保留工作空间 | PR #187 已合入 dev，最新 rust checks 通过 |
 | M3 | 每屏岛、窗口尺寸、三页签、审批/提问/成果、跨工作空间定位/重开 | PR #189 OPEN，业务及原型看图 E2E 通过，最新 Rust CI 通过；系统级缺证留在 M6 |
-| M4 | 全局 BrainHost、带 route 的事件、多项目 Read 闸门、幂等迁移、reply/report/TTS | 实施中：作用域链路已提交，唯一 App 宿主接线在验证；迁移、report 与幕僚 UI 待完成 |
+| M4 | 全局 BrainHost、带 route 的事件、多项目 Read 闸门、幂等迁移、reply/report/TTS | 单一宿主、作用域/取消及迁移接线已实现，迁移真实 E2E 通过；wire 身份收口、report、全局对话与真实模型/TTS 待完成 |
 | M5 | 删除左抽屉/状态胶囊和死入口，新增开关/快捷键与双语 | 待实施 |
 | M6 | island --visual 模块、全检查、系统焦点/全屏/屏幕与真实模型汇报 | island 模块已登记并有 M3 业务证据；新增功能、系统与真实模型总验收待完成 |
 
@@ -232,3 +232,14 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 - 独立对抗审查复现：缺失 current/proposals 被当空集合、项目权限扩大、非法 workspace_id 被静默改写、单文件重复提议 ID。均已补失败测试并修复；记录 `m4-migration-review-{red,green}.log`、`m4-migration-identity-red.log`、`m4-migration-duplicate-red.log`，最终聚焦 12/12 通过于 `artifacts/island/m4-migration-identity-green.log`；独立增量复核无新增阻塞。
 - 最终 brain 全量 130 passed、2 既有 ignored，`artifacts/island/m4-migration-brain-final.log`；brain all-targets Clippy `-D warnings` 通过，`artifacts/island/m4-migration-clippy-final.log`。performance/storage/i18n 2226 键/行数/no-allow/Agent 指南和 diff-check 通过。
 - 本片只完成迁移域层，尚未接入 App 后台准备、settings/proposals 读写和 BrainConfig.state_dir，未做真实 App 迁移启动验收。M4 的 raw wire 身份兜底、report reply/ReportRequested、岛内幕僚对话/汇报/TTS 仍未完成；M5/M6 和原型还原仍待完成。PR #189 最新 rust checks SUCCESS，仍 OPEN；后续只提 PR，不合入 dev。
+
+### M4 迁移 App 接线与真实启动验收
+
+- App 启动先在后台等待共享写队列、读取普通/桌面工作空间身份并迁移；唯一 owner 保存已准备目录，完成前禁止启动 BrainHost 或写配置。窗口销毁不丢全局准备结果；失败有中英文本地化提示，后续可以重试。BrainConfig、设置、提议及审批日志均使用已发布的 global/current。
+- 提议完整保留 workspace_id，读取时校验来源并拒绝同文件重复 ID；AskRule 保留项目规则与 App 全局规则的区分。旧 approvals.jsonl 与模型 decisions.jsonl 合并迁移，新的审批审计必带 workspace_id/route_id。对应 App 准备、配置规则、审计路径及重复 ID 测试均保留 RED/GREEN 日志。
+- 独立审查复现两个模型 GoalStore 与 App Writer 并发追加会破坏 JSONL；生产路径统一在完整单行 write_all 前获取排他文件锁，保持 GoalStore 原有同步完成语义。三写入者各 500 条 1 KiB 记录的公开接口测试先 RED 后 GREEN，逐行验证正文和身份唯一性，记录在 artifacts/island/m4-global-log-{red,green}.log。
+- 完整回归发现旧 FIFO 暂停夹具在 macOS File::lock 下报 ENOTSUP；改为预持有普通日志文件锁，保留屏障未完成/最终快照断言，并新增完整日志追加断言。独立增量复核通过，未弱化或跳过生产锁。初轮失败记录 artifacts/island/m4-migration-domain-final.log；修正后 brain/ui 全量 154 passed、2 既有 ignored，artifacts/island/m4-migration-domain-final-green.log。
+- App 幕僚回归 127 passed、1 既有真实 Claude ignored，artifacts/island/m4-migration-app-regression-green.log。brain/app all-targets Clippy -D warnings 与最新 App 构建通过，分别见 m4-migration-final-clippy.log / m4-migration-final-build.log；performance/storage/行数/no-allow/Agent 指南护栏、2230 双语键、6 条 i18n 脚本测试通过。
+- 新增并登记 island-migration --visual。真实 App 验收于 artifacts/desktop-workspace-e2e/2026-11-06T14-16-14Z/ 完整通过，退出 0，1/1，568.64 秒（含模型看图等待）。两个工作空间的两个目标、两条完整提议、四条日志、三条确认偏好均保留，全部旧文件字节不变；中文设置读取旧值、修改语音开关只写全局配置，英文重启保持新值且复用同一代。隔离数据归档在该目录 brain-state；未结束用户正式 App。
+- 三张关键图均由当前 Agent 实际读图并按 requestID/SHA256 逐项反馈。此场景保持幕僚总开关关闭，不调用 LLM/TTS；证明迁移和配置读写，不证明真实模型对话、语音播放或岛原型完整还原。
+- 后续仍需适配旧 brain E2E 的新目录读盘断言和显式 workspace/route 协议，收口 raw wire 单目标兜底，完成 report reply/ReportRequested、岛内幕僚对话与汇报，再执行 M5/M6。M3 PR #189 仍 OPEN，最新 rust checks SUCCESS；M4 尚未提 PR，本轮仅保存开发检查点，不合入 dev。

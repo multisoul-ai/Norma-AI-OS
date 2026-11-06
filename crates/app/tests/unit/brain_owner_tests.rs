@@ -23,7 +23,7 @@ fn one_owner_routes_status_and_lives_until_last_project_is_released() {
         std::fs::create_dir(root).unwrap();
         std::fs::write(root.join("notes.md"), "project notes").unwrap();
     }
-    let owner = SharedBrain::default();
+    let owner = support::prepared_owner();
     owner.configure(
         config::BrainSettings {
             enabled: true,
@@ -115,7 +115,7 @@ fn one_owner_routes_status_and_lives_until_last_project_is_released() {
 /// 预期：旧任务收口前无第二个启动；旧令牌无效，新服务可正常启动。
 #[test]
 fn late_start_waits_for_shutdown_before_starting_a_new_owner_generation() {
-    let owner = SharedBrain::default();
+    let owner = support::prepared_owner();
     owner.configure(
         config::BrainSettings {
             enabled: true,
@@ -148,7 +148,7 @@ fn late_start_waits_for_shutdown_before_starting_a_new_owner_generation() {
 /// 预期：第一份host有效；需要重启时令牌失效，相同配置不撤销新的启动ticket。
 #[test]
 fn settings_changes_restart_once_and_speaking_preserves_pending_start() {
-    let owner = SharedBrain::default();
+    let owner = support::prepared_owner();
     let mut settings = config::BrainSettings {
         enabled: true,
         ..Default::default()
@@ -223,6 +223,7 @@ fn app_projects_use_the_global_owner_and_release_it_on_stop() {
         });
     }
     let owner = test.read(|cx| cx.global::<SharedBrain>().clone());
+    support::prepare_owner(&owner);
     let ticket = owner.begin_start(Instant::now()).expect("唯一启动");
     let (tx, status) = mpsc::channel();
     owner.complete_start(
@@ -281,7 +282,7 @@ fn app_projects_use_the_global_owner_and_release_it_on_stop() {
 #[test]
 fn releasing_a_client_cancels_its_real_service_work_and_keeps_other_clients_alive() {
     let dir = tempfile::tempdir().expect("隔离真实服务夹具");
-    let owner = SharedBrain::default();
+    let owner = support::prepared_owner();
     owner.configure(
         config::BrainSettings {
             enabled: true,

@@ -2,8 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -172,13 +171,7 @@ impl GoalStore {
 
     /// 追加一条决策记录（一行 JSON）。写失败只记日志，不影响大脑。
     pub fn append_decision(&self, line: &str) {
-        let result = fs::create_dir_all(&self.dir).and_then(|_| {
-            let mut file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(self.dir.join("decisions.jsonl"))?;
-            writeln!(file, "{}", line.replace('\n', " "))
-        });
+        let result = crate::persistence::append_line(&self.dir.join("decisions.jsonl"), line);
         if let Err(error) = result {
             tracing::warn!(%error, "写入决策日志失败");
         }

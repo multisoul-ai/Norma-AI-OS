@@ -231,6 +231,7 @@ fn speaking_changes_do_not_strand_a_starting_session() {
             cx,
         );
         let owner = owner::shared(cx);
+        owner::support::prepare_owner(&owner);
         let generation = owner.begin_start(Instant::now()).expect("第一次启动");
         let settings = config::BrainSettings {
             enabled: true,
@@ -283,6 +284,7 @@ fn stale_start_results_never_replace_a_new_generation() {
             cx,
         );
         let owner = owner::shared(cx);
+        owner::support::prepare_owner(&owner);
         let old = owner.begin_start(Instant::now()).expect("旧代启动");
         app.apply_brain_settings(
             config::BrainSettings {
@@ -339,6 +341,7 @@ fn failed_proposal_saves_are_visible_and_retried() {
         )
     });
     entity.update(cx, |app, _| {
+        app.workspace_id = Some("proposal-save-fixture".into());
         app.brain.settings = Some(config::BrainSettings::default());
         app.brain.proposals_path = Some(path.clone());
         for name in ["A", "B"] {

@@ -206,5 +206,9 @@
   "chrome.brain_approval_allowed": "Allowed",
   "chrome.brain_approval_denied": "Denied",
   "chrome.brain_approval_submitting": "Submitting…",
-  "chrome.brain_approval_unconfirmed": "Approval is not confirmed. Check the original card."
+  "chrome.brain_approval_unconfirmed": "Approval is not confirmed. Check the original card.",
+  "chrome.brain_data_failed": "Could not prepare Chief of Staff data. Original files were preserved: %{reason}",
+  "chrome.brain_data_not_ready": "Chief of Staff data is still being prepared. Please try again shortly.",
+  "chrome.brain_proposals_load_failed": "Could not load suggestions. Original files were preserved: %{reason}",
+  "chrome.brain_data_directory_missing": "Could not locate the Chief of Staff data directory."
 }

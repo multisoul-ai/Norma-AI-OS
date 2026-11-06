@@ -91,3 +91,5 @@
 | `island` | `island-artifacts` | 标记指定回合已读、跨空间打开冻结正文、重启保留已读，源文件和冻结成果不删除；中英界面均走`--visual`。 |
 
 `island-navigation`（`--visual`）：跨空间定位、真关窗后重开，原生窗口号改变而原Agent PID与唯一启动记录保持；使用 `e2e-test-support` 隔离回环手机服务。
+
+`island-migration`（`--visual`）：真实App启动迁移两工作空间的目标、提议、模型/审批日志和确认偏好；设置页读旧值、修改只写全局目录、英文重启保留新值并复用同一代，旧文件字节不变。不调用LLM、不播放TTS，不代替对话/汇报验收。

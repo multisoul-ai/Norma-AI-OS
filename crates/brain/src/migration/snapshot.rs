@@ -163,6 +163,10 @@ pub(super) fn collect(base: &Path, sources: &[WorkspaceSource]) -> io::Result<Sn
             &directory.join("decisions.jsonl"),
             Some(&scope),
         )?);
+        data.decisions.extend(records::decisions(
+            &directory.join("approvals.jsonl"),
+            Some(&scope),
+        )?);
         data.add_proposals(&directory.join("proposals.json"), Some(&scope))?;
         add_settings(
             &mut data.settings,
@@ -206,6 +210,8 @@ pub(super) fn collect(base: &Path, sources: &[WorkspaceSource]) -> io::Result<Sn
         .extend(records::goals(&global.join("goals.json"), None)?);
     data.decisions
         .extend(records::decisions(&global.join("decisions.jsonl"), None)?);
+    data.decisions
+        .extend(records::decisions(&global.join("approvals.jsonl"), None)?);
     data.add_proposals(&global.join("proposals.json"), None)?;
     for path in entries(&global.join("proposals"))? {
         if path.extension().is_some_and(|ext| ext == "json") {

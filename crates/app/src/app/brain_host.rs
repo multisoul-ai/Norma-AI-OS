@@ -8,6 +8,7 @@ mod away;
 mod clients;
 mod config;
 mod context;
+mod data;
 mod decision_copy;
 mod events;
 mod history;
@@ -50,6 +51,10 @@ use std::time::{Duration, Instant};
 #[cfg(test)]
 #[path = "../../tests/unit/brain_host_tests.rs"]
 mod brain_host_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/brain_data_tests.rs"]
+mod brain_data_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/brain_dispatch_tests.rs"]

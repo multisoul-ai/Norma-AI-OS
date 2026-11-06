@@ -1,9 +1,7 @@
 //! 大脑提议的下一步：放在“需要你处理”里，用户点“派发”后才派给 Agent。
-//! 写入 `<大脑目录>/projects/<工作空间哈希>/proposals.json`，重启后仍在。
+//! 全局目录按工作空间保存提议，重启后仍在。
 
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
-use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 pub(crate) const MAX_PROPOSALS: usize = 5;
@@ -73,6 +71,29 @@ pub(crate) struct Proposals {
 }
 
 impl Proposals {
+    pub(crate) fn to_scoped_json(&self, workspace_id: &str) -> String {
+        let mut value: Value = serde_json::from_str(&self.to_json()).expect("serialized proposals");
+        value["workspace_id"] = json!(workspace_id);
+        for item in value["items"].as_array_mut().expect("serialized items") {
+            item["workspace_id"] = json!(workspace_id);
+        }
+        value.to_string()
+    }
+
+    pub(crate) fn from_scoped_json(text: &str, workspace_id: &str) -> Result<Self, String> {
+        let value: Value = serde_json::from_str(text).map_err(|error| error.to_string())?;
+        if value["workspace_id"].as_str() != Some(workspace_id)
+            || value["items"].as_array().is_none_or(|items| {
+                items
+                    .iter()
+                    .any(|item| item["workspace_id"].as_str() != Some(workspace_id))
+            })
+        {
+            return Err("Proposal workspace identity does not match its owner".into());
+        }
+        Self::from_json(text)
+    }
+
     /// 同一个 Agent 只留最新一条；已满时拒绝。返回新提议的编号。
     pub(crate) fn add(&mut self, draft: Draft, at: SystemTime) -> Result<u64, String> {
         norma::protocol::validate_proposal_copy(&draft.title, &draft.why)
@@ -140,6 +161,10 @@ impl Proposals {
         }
         let saved: Saved =
             serde_json::from_str(text).map_err(|e| format!("提议文件格式错误：{e}"))?;
+        let ids: std::collections::BTreeSet<_> = saved.items.iter().map(|item| item.id).collect();
+        if ids.len() != saved.items.len() {
+            return Err("Duplicate proposal ID in one snapshot".into());
+        }
         let items: Vec<Proposal> = saved
             .items
             .into_iter()
@@ -199,13 +224,6 @@ pub(crate) fn check_target(roster: &[RosterLite], agent: &str) -> Result<(), Str
         }
     }
     Ok(())
-}
-
-/// 旧版按项目根目录哈希命名的文件，仅用于一次性迁移。
-pub(crate) fn file_for(state_dir: &Path, root: &Path) -> PathBuf {
-    let digest = Sha256::digest(root.to_string_lossy().as_bytes());
-    let name: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
-    state_dir.join("proposals").join(format!("{name}.json"))
 }
 
 pub(crate) use brain::persistence::Writer;

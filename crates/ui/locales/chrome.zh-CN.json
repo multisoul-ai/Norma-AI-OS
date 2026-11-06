@@ -206,5 +206,9 @@
   "chrome.brain_approval_allowed": "已允许",
   "chrome.brain_approval_denied": "已拒绝",
   "chrome.brain_approval_submitting": "提交中…",
-  "chrome.brain_approval_unconfirmed": "审批结果尚未确认，请查看原卡片。"
+  "chrome.brain_approval_unconfirmed": "审批结果尚未确认，请查看原卡片。",
+  "chrome.brain_data_failed": "幕僚数据准备失败，原文件已保留：%{reason}",
+  "chrome.brain_data_not_ready": "幕僚数据尚未准备好，请稍后重试。",
+  "chrome.brain_proposals_load_failed": "无法读取幕僚提议，原文件已保留：%{reason}",
+  "chrome.brain_data_directory_missing": "无法定位幕僚数据目录。"
 }

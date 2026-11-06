@@ -14,6 +14,9 @@ impl MultisoulApp {
             return;
         };
         let settings = owner.settings().expect("enabled owner has settings");
+        let directory = owner
+            .directory()
+            .expect("start requires prepared global data");
         let read_roots = owner.read_roots();
         let work = cx.background_executor().spawn(async move {
             let backend =
@@ -28,8 +31,8 @@ impl MultisoulApp {
             let mut config = BrainConfig::new(
                 backend,
                 config::shell_safe_bin(&state_dir, paths.bundled_cli),
-                global_dir.clone(),
                 global_dir,
+                directory,
             );
             config.read_roots = read_roots;
             config.strategy = settings.strategy;

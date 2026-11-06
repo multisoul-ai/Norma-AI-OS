@@ -46,6 +46,10 @@ struct Owner {
     starting: Option<u64>,
     retry_at: Option<Instant>,
     settings: Option<config::BrainSettings>,
+    directory: Option<PathBuf>,
+    preparing: bool,
+    prepare_retry_at: Option<Instant>,
+    prepare_error: Option<String>,
     read_roots: ReadRoots,
     retired: Vec<Retired>,
 }
@@ -58,6 +62,61 @@ pub(super) struct BrainClient {
 }
 
 impl SharedBrain {
+    pub(super) fn directory(&self) -> Option<PathBuf> {
+        self.0.borrow().directory.clone()
+    }
+
+    pub(super) fn preparation_error(&self) -> Option<String> {
+        self.0.borrow().prepare_error.clone()
+    }
+
+    pub(super) fn sources(&self) -> Vec<brain::migration::WorkspaceSource> {
+        self.0
+            .borrow()
+            .members
+            .iter()
+            .map(|(scope, member)| brain::migration::WorkspaceSource {
+                workspace_id: scope.workspace_id.clone(),
+                root: member.root.clone(),
+            })
+            .collect()
+    }
+
+    pub(super) fn begin_prepare(&self, now: Instant) -> bool {
+        let mut owner = self.0.borrow_mut();
+        if owner.directory.is_some()
+            || owner.preparing
+            || owner
+                .prepare_retry_at
+                .is_some_and(|deadline| now < deadline)
+        {
+            return false;
+        }
+        owner.preparing = true;
+        true
+    }
+
+    pub(super) fn finish_prepare(&self, result: Result<super::data::Prepared, String>) {
+        let mut owner = self.0.borrow_mut();
+        if !owner.preparing {
+            return;
+        }
+        owner.preparing = false;
+        match result {
+            Ok(prepared) => {
+                owner.directory = Some(prepared.directory);
+                owner.settings = Some(prepared.settings);
+                owner.prepare_error = None;
+                owner.prepare_retry_at = None;
+            }
+            Err(reason) => {
+                tracing::warn!(%reason, "Global brain data preparation failed; preserving original state");
+                owner.prepare_error = Some(reason);
+                owner.prepare_retry_at = Some(Instant::now() + START_RETRY);
+            }
+        }
+    }
+
     pub(super) fn settings(&self) -> Option<config::BrainSettings> {
         self.0.borrow().settings.clone()
     }
@@ -105,6 +164,7 @@ impl SharedBrain {
         let mut owner = self.0.borrow_mut();
         owner.poll();
         if owner.host.is_some()
+            || owner.directory.is_none()
             || owner.starting.is_some()
             || owner.members.is_empty()
             || owner.retired.iter().any(|retired| !retired.joined)
@@ -294,4 +354,4 @@ pub(super) fn shared(cx: &mut gpui::App) -> SharedBrain {
 
 #[cfg(test)]
 #[path = "../../../tests/support/brain_host.rs"]
-mod support;
+pub(super) mod support;

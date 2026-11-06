@@ -320,3 +320,49 @@ fn root_based_proposals_merge_without_losing_colliding_tasks() {
         "更旧提议文件也原样保留"
     );
 }
+
+/// App旧审批决策日志与后台LLM决策日志都是用户历史，必须一起迁移。
+/// 数据：alpha只有approvals.jsonl，beta只有decisions.jsonl。
+/// 执行：迁移两个项目并读取统一全局日志。
+/// 预期：两条原记录内容和来源均保留，旧审批日志字节不变。
+#[test]
+fn legacy_approval_audit_is_preserved_in_the_global_decision_log() {
+    let dir = tempfile::tempdir().unwrap();
+    let base = dir.path();
+    let alpha = project(base, "alpha");
+    let beta = project(base, "beta");
+    std::fs::create_dir_all(&alpha).unwrap();
+    std::fs::create_dir_all(&beta).unwrap();
+    let original =
+        "{\"approval\":\"request-a\",\"decision\":\"Deny\",\"reason\":\"keep original reason\"}\n";
+    std::fs::write(alpha.join("approvals.jsonl"), original).unwrap();
+    std::fs::write(
+        beta.join("decisions.jsonl"),
+        "{\"reply\":\"beta original reply\"}\n",
+    )
+    .unwrap();
+    let result = migrate(base, &[source("alpha", base), source("beta", base)]).unwrap();
+    let decisions: Vec<Value> = std::fs::read_to_string(result.directory.join("decisions.jsonl"))
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(decisions.len(), 2, "App审批与LLM日志都保留");
+    assert!(
+        decisions.iter().any(|item| item["workspace_id"] == "alpha"
+            && item["approval"] == "request-a"
+            && item["reason"] == "keep original reason"),
+        "审批日志完整且属于alpha"
+    );
+    assert!(
+        decisions
+            .iter()
+            .any(|item| item["workspace_id"] == "beta" && item["reply"] == "beta original reply"),
+        "后台日志仍属于beta"
+    );
+    assert_eq!(
+        std::fs::read_to_string(alpha.join("approvals.jsonl")).unwrap(),
+        original,
+        "原审批日志字节保持"
+    );
+}

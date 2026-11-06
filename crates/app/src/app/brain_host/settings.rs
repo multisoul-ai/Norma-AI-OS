@@ -88,28 +88,59 @@ impl MultisoulApp {
 
     /// 打开设置页时调用：读一次配置并刷新已安装的后端（后台线程，不阻塞前台）。
     pub(crate) fn refresh_brain_settings(&mut self, cx: &mut Context<Self>) {
+        let Some(directory) = config::state_dir() else {
+            self.desktop_workspace.error = Some(ui::i18n::message(
+                "chrome.brain_data_directory_missing",
+                &[],
+            ));
+            return;
+        };
+        self.refresh_brain_settings_from(directory, cx);
+    }
+
+    pub(super) fn refresh_brain_settings_from(
+        &mut self,
+        directory: std::path::PathBuf,
+        cx: &mut Context<Self>,
+    ) {
         if self.brain.settings_loading {
             return;
         }
+        let owner = super::owner::shared(cx);
+        let preparing = owner.begin_prepare(std::time::Instant::now());
+        if !preparing && owner.directory().is_none() {
+            if let Some(reason) = owner.preparation_error() {
+                self.desktop_workspace.error = Some(ui::i18n::message(
+                    "chrome.brain_data_failed",
+                    &[("reason", reason)],
+                ));
+            }
+            return;
+        }
         self.brain.settings_loading = true;
-        let revision = self.brain.settings_revision;
+        let database = self.database_paths.app_db_path().to_path_buf();
+        let sources = owner.sources();
         let work = cx.background_executor().spawn(async move {
-            let dir = config::state_dir();
-            let backends = dir
-                .map(|dir| brain::backend::detect(&dir.join("adapters"), &config::search_dirs()))
-                .unwrap_or_default();
-            (config::load_settings(), backends)
+            let prepared = preparing.then(|| super::data::prepare(&directory, database, sources));
+            let backends =
+                brain::backend::detect(&directory.join("adapters"), &config::search_dirs());
+            (prepared, backends)
         });
         cx.spawn(async move |this, cx| {
-            let (settings, backends) = work.await;
+            let (prepared, backends) = work.await;
+            // The initiating window can close; data readiness belongs to the App owner.
+            if let Some(result) = prepared {
+                owner.finish_prepare(result);
+            }
             let _ = this.update(cx, |app, cx| {
                 app.brain.settings_loading = false;
-                if app.brain.settings.is_none() && revision == app.brain.settings_revision {
-                    let owner = super::owner::shared(cx);
-                    if owner.settings().is_none() {
-                        owner.configure(settings, false);
-                    }
+                if owner.directory().is_some() {
                     app.brain.settings = owner.settings();
+                } else if let Some(reason) = owner.preparation_error() {
+                    app.desktop_workspace.error = Some(ui::i18n::message(
+                        "chrome.brain_data_failed",
+                        &[("reason", reason)],
+                    ));
                 }
                 app.brain.installed = backends.iter().map(|backend| backend.kind).collect();
                 app.discover_brain_models(backends, cx);
@@ -135,10 +166,13 @@ impl MultisoulApp {
         restart: bool,
         cx: &mut Context<Self>,
     ) {
-        let mut settings = super::owner::shared(cx)
-            .settings()
-            .or_else(|| self.brain.settings.clone())
-            .unwrap_or_default();
+        let owner = super::owner::shared(cx);
+        let Some((directory, mut settings)) = owner.directory().zip(owner.settings()) else {
+            self.desktop_workspace.error =
+                Some(ui::i18n::message("chrome.brain_data_not_ready", &[]));
+            cx.notify();
+            return;
+        };
         change(&mut settings);
         self.apply_brain_settings(settings.clone(), restart, cx);
         let sessions: Vec<_> = self.desktop_workspace.sessions.values().cloned().collect();
@@ -147,7 +181,7 @@ impl MultisoulApp {
             session.update(cx, |app, cx| app.apply_brain_settings(copy, restart, cx));
         }
         let revision = self.brain.settings_revision;
-        match config::save_settings(&settings) {
+        match config::save_settings(&directory, &settings) {
             Ok(done) => {
                 let work = cx.background_executor().spawn(async move {
                     done.recv().unwrap_or_else(|_| Err("保存线程已关闭".into()))

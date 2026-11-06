@@ -2,6 +2,21 @@
 use super::*;
 use crate::app::{brain_host::BrainHostState, MultisoulApp};
 
+pub(in crate::app::brain_host) fn prepare_owner(owner: &SharedBrain) {
+    if owner.begin_prepare(Instant::now()) {
+        owner.finish_prepare(Ok(super::super::data::Prepared {
+            directory: "/fixture/global/current".into(),
+            settings: owner.settings().unwrap_or_default(),
+        }));
+    }
+}
+
+pub(super) fn prepared_owner() -> SharedBrain {
+    let owner = SharedBrain::default();
+    prepare_owner(&owner);
+    owner
+}
+
 impl BrainHostState {
     pub(in crate::app::brain_host) fn install_brain_host_for_test(&mut self, host: BrainHost) {
         let owner = self
@@ -9,6 +24,7 @@ impl BrainHostState {
             .as_ref()
             .map(|client| client.owner.clone())
             .unwrap_or_default();
+        prepare_owner(&owner);
         owner.configure(
             config::BrainSettings {
                 enabled: true,

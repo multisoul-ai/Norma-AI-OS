@@ -1,7 +1,7 @@
 //! 大脑提议的落地：接收、保存、用户点“派发”或“忽略”。
 
-use super::proposals::{check_target, file_for, Draft, ProposalBlock, Proposals, RosterLite};
-use super::{config, AutoKind};
+use super::proposals::{check_target, Draft, ProposalBlock, Proposals, RosterLite};
+use super::AutoKind;
 use crate::app::MultisoulApp;
 use gpui::Context;
 use norma::protocol::{BrainOp, CardCommandResult, ReportPriority};
@@ -16,40 +16,32 @@ impl MultisoulApp {
         {
             return;
         }
-        let (Some(root), Some(dir), Some(identity)) = (
-            self.runtime.workspace_root(),
-            config::state_dir(),
+        let (Some(dir), Some(identity)) = (
+            super::owner::shared(cx).directory(),
             self.workspace_id.clone(),
         ) else {
             return;
         };
-        let legacy = file_for(&dir, root);
         let path = self
             .brain
             .proposals_path
             .clone()
-            .unwrap_or_else(|| config::session_dir(&dir, &identity).join("proposals.json"));
+            .unwrap_or_else(|| brain::migration::proposal_file(&dir, &identity));
         self.brain.proposals_path = Some(path.clone());
         self.brain.proposals_loading = true;
         self.brain.proposals_retry_at = std::time::Instant::now() + super::START_RETRY;
         let writer = self.brain.proposal_writer.clone();
+        let scope = identity.clone();
         let work = cx.background_executor().spawn(async move {
             writer
                 .flush()
                 .recv()
                 .map_err(std::io::Error::other)?
                 .map_err(std::io::Error::other)?;
-            // 旧版按根目录保存；原子移动只会被一个画布领取，避免复制后重复派发。
-            if !path.exists() && legacy.exists() {
-                std::fs::create_dir_all(path.parent().expect("状态目录应有父路径"))?;
-                match std::fs::rename(&legacy, &path) {
-                    Ok(()) => {}
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(error) => return Err(error),
-                }
-            }
             match std::fs::read_to_string(&path) {
-                Ok(text) => Proposals::from_json(&text).map_err(std::io::Error::other),
+                Ok(text) => {
+                    Proposals::from_scoped_json(&text, &scope).map_err(std::io::Error::other)
+                }
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                     Ok(Proposals::default())
                 }
@@ -70,8 +62,10 @@ impl MultisoulApp {
                     }
                     Err(error) => {
                         tracing::warn!(%error, "读取幕僚提议失败，保留原文件");
-                        app.desktop_workspace.error =
-                            Some(format!("读取幕僚提议失败：{error}").into());
+                        app.desktop_workspace.error = Some(ui::i18n::message(
+                            "chrome.brain_proposals_load_failed",
+                            &[("reason", error.to_string())],
+                        ));
                     }
                 }
                 cx.notify();
@@ -81,12 +75,17 @@ impl MultisoulApp {
     }
 
     fn save_brain_proposals(&mut self) {
-        if let Some(path) = &self.brain.proposals_path {
+        if let Some((path, identity)) = self
+            .brain
+            .proposals_path
+            .as_ref()
+            .zip(self.workspace_id.as_deref())
+        {
             self.brain.proposals_dirty = true;
             self.brain.proposals_save = Some(
                 self.brain
                     .proposal_writer
-                    .save(path.clone(), self.brain.proposals.to_json()),
+                    .save(path.clone(), self.brain.proposals.to_scoped_json(identity)),
             );
         }
     }
