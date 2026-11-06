@@ -161,6 +161,43 @@ Run it manually or in CI:
 python3 scripts/check-domain-contracts.py
 ```
 
+## R7 · Child Processes And Display Resources Have Owners
+
+`python3 scripts/check-resource-lifecycle.py` rejects `Command::new("open")`
+followed by `.spawn()` within its function, including builders stored in local
+variables, including type annotations and nested argument blocks. Local bindings
+are scoped so unrelated shadowing does not count as an `open` command.
+Use `.status()`/`.output()` on a background thread and handle both
+I/O errors and unsuccessful exit status. Thread/task spawns and source examples
+inside comments/strings do not count as processes. `--staged` reads the Git index
+so an unstaged fix cannot hide a staged regression.
+
+`cargo lint-resources` runs type-aware Clippy `zombie_processes` and `mem_forget`
+as errors over workspace production libraries/binaries. Existing test-only
+fixtures that deliberately retain resources are outside this production pass;
+the normal all-target Clippy step still checks tests. The source guard closes
+Clippy's gap around discarded `open` results and rejects `forget`/`leak` calls
+in the vendored DisplayLink implementation.
+
+`python3 scripts/test-check-resource-lifecycle.py` tests the lint itself.
+`python3 scripts/test-display-link-lifecycle.py` compiles the actual production
+DisplayLink module into an isolated, main-thread macOS probe. It checks two
+windows' independent callbacks, direct teardown while running, and real `heap` object counts before
+and after 64 create/close cycles plus a two-window recheck. CVDisplayLink,
+dispatch source and Mach port counts must remain unchanged. It requires an
+active macOS display and permission to inspect the probe; missing native
+inspection is a failure, not a skipped/pass result. CI runs both layers.
+
+CoreVideo cannot safely join its IO thread on teardown. A process-wide registry
+therefore owns one native link per **encountered display ID**, while each window
+unsubscribes and releases its dispatch source. This is bounded by display IDs,
+not window/paint counts. It is not zero retained native objects. See
+[`NORMA_PATCH.md`](../../vendor/gpui-0.2.2/NORMA_PATCH.md).
+
+These checks prevent the known regressions; they are not a proof of absence of
+all memory leaks, ownership cycles, unbounded caches or growth in third-party
+libraries. Such regressions still require targeted heap/footprint profiling.
+
 ## Local Pre-Commit Hook
 
 Install the tracked native Git hook:
@@ -169,9 +206,11 @@ Install the tracked native Git hook:
 bash scripts/install-git-hooks.sh
 ```
 
-The hook runs staged file-size, `#[allow(...)]`, agent-guide line, performance guardrail, and video wallpaper low-copy checks first. When staged Rust, Cargo, or toolchain files changed, it also runs:
+The hook runs staged file-size, `#[allow(...)]`, agent-guide line, performance,
+video and resource-lifecycle checks first. When staged Rust (including vendored
+GPUI), Cargo, or toolchain files change, it also runs:
 
 ```bash
-cargo check --workspace --quiet
+cargo clippy --workspace --lib --bins --quiet -- -D clippy::zombie_processes -D clippy::mem_forget
 cargo fmt --check
 ```

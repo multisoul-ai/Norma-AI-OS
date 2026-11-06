@@ -222,8 +222,14 @@ pub(crate) fn open_path_in_system_app(path: PathBuf) {
                 if probe_system_open(&path) == SystemOpen::RevealInFinder {
                     command.arg("-R");
                 }
-                if let Err(error) = command.arg(&path).spawn() {
-                    tracing::warn!(%error, "failed to open terminal path in system app");
+                match command.arg(&path).status() {
+                    Ok(status) if !status.success() => {
+                        tracing::warn!(%status, "failed to open terminal path in system app")
+                    }
+                    Err(error) => {
+                        tracing::warn!(%error, "failed to open terminal path in system app")
+                    }
+                    Ok(_) => {}
                 }
             });
     }

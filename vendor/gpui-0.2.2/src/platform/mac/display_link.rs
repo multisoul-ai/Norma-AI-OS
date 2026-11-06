@@ -1,18 +1,70 @@
+//! CoreVideo has no callback-join API: stopped native links remain owned by a
+//! process-wide registry, one per encountered display ID. Window subscriptions
+//! and dispatch sources are reclaimed. A late callback carries only a display
+//! ID and cannot dereference a destroyed window/source.
+//! Based on Zed's shared CVDisplayLink lifecycle; see NORMA_PATCH.md.
 use crate::{
     dispatch_get_main_queue,
     dispatch_sys::{
-        _dispatch_source_type_data_add, dispatch_resume, dispatch_set_context,
+        _dispatch_source_type_data_add, dispatch_release, dispatch_resume, dispatch_set_context,
         dispatch_source_cancel, dispatch_source_create, dispatch_source_merge_data,
         dispatch_source_set_event_handler_f, dispatch_source_t, dispatch_suspend,
     },
 };
 use anyhow::Result;
 use core_graphics::display::CGDirectDisplayID;
-use std::ffi::c_void;
+use foreign_types::{ForeignType, ForeignTypeRef};
+use std::{
+    collections::BTreeMap,
+    ffi::c_void,
+    sync::{Mutex, MutexGuard, PoisonError},
+};
 use util::ResultExt;
 
+static DISPLAYS: Mutex<BTreeMap<CGDirectDisplayID, DisplayEntry>> = Mutex::new(BTreeMap::new());
+
+struct DisplayEntry {
+    // Never removed: CVDisplayLinkStop does not join CoreVideo's IO thread.
+    link: sys::DisplayLink,
+    sources: Vec<dispatch_source_t>,
+}
+
+// SAFETY: native handles are thread-safe; the mutex serializes access to
+// sources. Only the main thread mutates subscriptions or starts/stops links.
+unsafe impl Send for DisplayEntry {}
+
+fn displays() -> MutexGuard<'static, BTreeMap<CGDirectDisplayID, DisplayEntry>> {
+    DISPLAYS.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+fn assert_main_thread() {
+    assert!(
+        unsafe { libc::pthread_main_np() } != 0,
+        "DisplayLink lifecycle must run on the macOS main thread"
+    );
+}
+
+unsafe extern "C" fn display_link_callback(
+    _link: *mut sys::CVDisplayLink,
+    _current_time: *const sys::CVTimeStamp,
+    _output_time: *const sys::CVTimeStamp,
+    _flags_in: i64,
+    _flags_out: *mut i64,
+    display_id: *mut c_void,
+) -> i32 {
+    let registry = displays();
+    if let Some(entry) = registry.get(&(display_id as usize as CGDirectDisplayID)) {
+        // Keep the lock through merge_data: stop/drop removes the source under
+        // this same lock before cancelling/releasing it.
+        for &source in &entry.sources {
+            unsafe { dispatch_source_merge_data(source, 1) };
+        }
+    }
+    0
+}
+
 pub struct DisplayLink {
-    display_link: Option<sys::DisplayLink>,
+    display_id: CGDirectDisplayID,
     frame_requests: dispatch_source_t,
     running: bool,
 }
@@ -23,51 +75,59 @@ impl DisplayLink {
         data: *mut c_void,
         callback: unsafe extern "C" fn(*mut c_void),
     ) -> Result<DisplayLink> {
-        unsafe extern "C" fn display_link_callback(
-            _display_link_out: *mut sys::CVDisplayLink,
-            _current_time: *const sys::CVTimeStamp,
-            _output_time: *const sys::CVTimeStamp,
-            _flags_in: i64,
-            _flags_out: *mut i64,
-            frame_requests: *mut c_void,
-        ) -> i32 {
-            unsafe {
-                let frame_requests = frame_requests as dispatch_source_t;
-                dispatch_source_merge_data(frame_requests, 1);
-                0
-            }
+        assert_main_thread();
+        let exists = displays().contains_key(&display_id);
+        if !exists {
+            // Never call CoreVideo with the registry locked: its IO thread may
+            // hold internal CoreVideo locks while entering our callback.
+            let link = unsafe {
+                sys::DisplayLink::new(
+                    display_id,
+                    display_link_callback,
+                    display_id as usize as *mut c_void,
+                )?
+            };
+            displays().insert(
+                display_id,
+                DisplayEntry {
+                    link,
+                    sources: Vec::new(),
+                },
+            );
         }
-
-        unsafe {
-            let frame_requests = dispatch_source_create(
+        // Create the window resource only after fallible native initialization.
+        let frame_requests = unsafe {
+            let source = dispatch_source_create(
                 &_dispatch_source_type_data_add,
                 0,
                 0,
                 dispatch_get_main_queue(),
             );
-            dispatch_set_context(
-                crate::dispatch_sys::dispatch_object_t {
-                    _ds: frame_requests,
-                },
-                data,
-            );
-            dispatch_source_set_event_handler_f(frame_requests, Some(callback));
+            anyhow::ensure!(!source.is_null(), "could not create frame dispatch source");
+            dispatch_set_context(crate::dispatch_sys::dispatch_object_t { _ds: source }, data);
+            dispatch_source_set_event_handler_f(source, Some(callback));
+            source
+        };
+        Ok(Self {
+            display_id,
+            frame_requests,
+            running: false,
+        })
+    }
 
-            let display_link = sys::DisplayLink::new(
-                display_id,
-                display_link_callback,
-                frame_requests as *mut c_void,
-            )?;
+    pub fn display_id(&self) -> CGDirectDisplayID {
+        self.display_id
+    }
 
-            Ok(Self {
-                display_link: Some(display_link),
-                frame_requests,
-                running: false,
-            })
-        }
+    /// Pause for synchronous painting; only a previously running link may resume.
+    pub fn pause(&mut self) -> Result<bool> {
+        let was_running = self.running;
+        self.stop()?;
+        Ok(was_running)
     }
 
     pub fn start(&mut self) -> Result<()> {
+        assert_main_thread();
         if self.running {
             return Ok(());
         }
@@ -75,10 +135,30 @@ impl DisplayLink {
             dispatch_resume(crate::dispatch_sys::dispatch_object_t {
                 _ds: self.frame_requests,
             });
-            if let Err(error) = self.display_link.as_mut().unwrap().start() {
-                dispatch_suspend(crate::dispatch_sys::dispatch_object_t {
-                    _ds: self.frame_requests,
-                });
+        }
+        let link_to_start = {
+            let mut registry = displays();
+            let entry = registry
+                .get_mut(&self.display_id)
+                .expect("registered display must exist");
+            let first = entry.sources.is_empty();
+            entry.sources.push(self.frame_requests);
+            first.then(|| entry.link.as_ptr())
+        };
+        if let Some(link) = link_to_start {
+            // The registry owns this pointer for the process lifetime. Calls
+            // are main-thread-only and occur outside the registry lock.
+            if let Err(error) = unsafe { sys::DisplayLinkRef::from_ptr_mut(link).start() } {
+                displays()
+                    .get_mut(&self.display_id)
+                    .expect("registered display must exist")
+                    .sources
+                    .retain(|&source| source != self.frame_requests);
+                unsafe {
+                    dispatch_suspend(crate::dispatch_sys::dispatch_object_t {
+                        _ds: self.frame_requests,
+                    });
+                }
                 return Err(error);
             }
         }
@@ -87,6 +167,7 @@ impl DisplayLink {
     }
 
     pub fn stop(&mut self) -> Result<()> {
+        assert_main_thread();
         if !self.running {
             return Ok(());
         }
@@ -94,9 +175,22 @@ impl DisplayLink {
             dispatch_suspend(crate::dispatch_sys::dispatch_object_t {
                 _ds: self.frame_requests,
             });
-            let result = self.display_link.as_mut().unwrap().stop();
-            self.running = false;
-            result?;
+        }
+        let link_to_stop = {
+            let mut registry = displays();
+            let entry = registry
+                .get_mut(&self.display_id)
+                .expect("registered display must exist");
+            entry
+                .sources
+                .retain(|&source| source != self.frame_requests);
+            entry.sources.is_empty().then(|| entry.link.as_ptr())
+        };
+        self.running = false;
+        if let Some(link) = link_to_stop {
+            unsafe {
+                sys::DisplayLinkRef::from_ptr_mut(link).stop()?;
+            }
         }
         Ok(())
     }
@@ -105,16 +199,17 @@ impl DisplayLink {
 impl Drop for DisplayLink {
     fn drop(&mut self) {
         self.stop().log_err();
-        // We see occasional segfaults on the CVDisplayLink thread.
-        //
-        // It seems possible that this happens because CVDisplayLinkRelease releases the CVDisplayLink
-        // on the main thread immediately, but the background thread that CVDisplayLink uses for timers
-        // is still accessing it.
-        //
-        // We might also want to upgrade to CADisplayLink, but that requires dropping old macOS support.
-        std::mem::forget(self.display_link.take());
+        // Unsubscribed under the callback lock above. Late CoreVideo callbacks
+        // now see no source. Cancel, balance its suspension, then release GCD's
+        // owning reference; a suspended dispatch source must never be released.
         unsafe {
             dispatch_source_cancel(self.frame_requests);
+            dispatch_resume(crate::dispatch_sys::dispatch_object_t {
+                _ds: self.frame_requests,
+            });
+            dispatch_release(crate::dispatch_sys::dispatch_object_t {
+                _ds: self.frame_requests,
+            });
         }
     }
 }

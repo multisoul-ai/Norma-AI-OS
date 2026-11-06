@@ -249,11 +249,17 @@ impl MultisoulApp {
         let url = microphone_privacy_settings_url().to_string();
         let _ = std::thread::Builder::new()
             .name("open_microphone_privacy_settings".to_string())
-            .spawn(move || {
-                if let Err(error) = std::process::Command::new("open").arg(url).spawn() {
-                    tracing::warn!(%error, "failed to open macOS microphone privacy settings");
-                }
-            });
+            .spawn(
+                move || match std::process::Command::new("open").arg(url).status() {
+                    Ok(status) if !status.success() => {
+                        tracing::warn!(%status, "failed to open macOS microphone privacy settings")
+                    }
+                    Err(error) => {
+                        tracing::warn!(%error, "failed to open macOS microphone privacy settings")
+                    }
+                    Ok(_) => {}
+                },
+            );
     }
 
     fn process_finished_voice_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {

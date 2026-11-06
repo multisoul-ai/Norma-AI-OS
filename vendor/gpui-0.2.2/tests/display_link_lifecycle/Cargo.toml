@@ -1,0 +1,17 @@
+[package]
+name = "display-link-lifecycle"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+anyhow = "1"
+core-graphics = "0.24"
+foreign-types = "0.5"
+libc = "0.2"
+
+[[bin]]
+name = "display-link-lifecycle"
+path = "main.rs"
