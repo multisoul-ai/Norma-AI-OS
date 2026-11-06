@@ -1,8 +1,8 @@
 use crate::island::preferences::{self, Setting};
-use crate::settings::typography::{SettingsText, TextRole};
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 use gpui::{div, prelude::*, px, rgba, Context, Div};
 use ui::{
-    component::{switch::Switch, Disableable, Sizable, Size},
+    component::{button::Button, switch::Switch, Disableable, Sizable, Size},
     i18n::text,
     Theme,
 };
@@ -11,7 +11,10 @@ pub(super) fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) 
     let state = preferences::state(cx);
     let ready = state.is_some();
     let preferences = preferences::current(cx);
-    let error = state.and_then(|state| state.read(cx).error.clone());
+    let error = state
+        .as_ref()
+        .and_then(|state| state.read(cx).error.clone());
+    let notice = state.and_then(|state| state.read(cx).notice.clone());
     let mut section = div()
         .flex()
         .flex_col()
@@ -72,12 +75,42 @@ pub(super) fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) 
                 ),
         );
     }
-    section.when_some(error, |view, error| {
-        view.child(
-            div()
-                .settings_font(TextRole::Helper)
-                .text_color(rgba(theme.destructive))
-                .child(error.to_string()),
-        )
-    })
+    section = section.child(
+        div()
+            .flex()
+            .items_center()
+            .justify_between()
+            .py(px(8.))
+            .child(
+                div()
+                    .settings_text(TextRole::Control, theme)
+                    .child(text("island.clear_remembered")),
+            )
+            .child(
+                Button::new("island-clear-remembered")
+                    .child(control_label(
+                        text("island.clear_remembered_action").to_string(),
+                    ))
+                    .outline()
+                    .disabled(!ready)
+                    .on_click(|_, _, cx| preferences::clear_remembered(cx)),
+            ),
+    );
+    section
+        .when_some(notice, |view, notice| {
+            view.child(
+                div()
+                    .settings_font(TextRole::Helper)
+                    .text_color(rgba(theme.text_secondary))
+                    .child(notice.to_string()),
+            )
+        })
+        .when_some(error, |view, error| {
+            view.child(
+                div()
+                    .settings_font(TextRole::Helper)
+                    .text_color(rgba(theme.destructive))
+                    .child(error.to_string()),
+            )
+        })
 }

@@ -44,6 +44,8 @@ impl Prepared {
 pub(crate) struct Settings {
     pub preferences: IslandPreferences,
     pub error: Option<LocalizedText>,
+    /// Outcome of the last "clear remembered approvals" action.
+    pub notice: Option<LocalizedText>,
     writer: Option<Persistence>,
     revision: Option<u64>,
 }
@@ -97,6 +99,7 @@ fn install_prepared(prepared: Prepared, cx: &mut App) {
     let entity = cx.new(|_| Settings {
         preferences: prepared.preferences,
         error: prepared.error,
+        notice: None,
         writer,
         revision: None,
     });
@@ -124,6 +127,39 @@ fn install_prepared(prepared: Prepared, cx: &mut App) {
         })
         .detach();
     }
+}
+
+/// Forget every remembered "always allow" grant in all retained workspace databases.
+pub(crate) fn clear_remembered(cx: &mut App) {
+    let Some(entity) = state(cx) else { return };
+    let databases: std::collections::BTreeSet<_> = super::model(cx)
+        .read(cx)
+        .workspaces
+        .iter()
+        .map(|workspace| workspace.database.clone())
+        .collect();
+    let work = cx.background_executor().spawn(async move {
+        databases
+            .into_iter()
+            .map(|database| SettingsStore::new(database).delete_prefix(super::remembered::PREFIX))
+            .try_fold(0usize, |total, removed| removed.map(|n| total + n))
+            .map_err(|error| error.to_string())
+    });
+    cx.spawn(async move |cx| {
+        let result = work.await;
+        let _ = entity.update(cx, |state, cx| {
+            state.notice = Some(match result {
+                Ok(count) => LocalizedText::new("island.remembered_cleared")
+                    .with_arg("count", count.to_string()),
+                Err(reason) => {
+                    LocalizedText::new("island.remembered_clear_failed").with_arg("reason", reason)
+                }
+            });
+            cx.notify();
+            cx.refresh_windows();
+        });
+    })
+    .detach();
 }
 
 #[derive(Clone, Copy)]
@@ -185,6 +221,18 @@ pub(crate) async fn flush(cx: &mut gpui::AsyncApp) -> anyhow::Result<()> {
             return Ok(());
         }
     }
+}
+
+#[cfg(test)]
+pub(crate) fn install_for_test(preferences: IslandPreferences, cx: &mut App) {
+    install_prepared(
+        Prepared {
+            preferences,
+            store: None,
+            error: None,
+        },
+        cx,
+    );
 }
 
 #[cfg(test)]

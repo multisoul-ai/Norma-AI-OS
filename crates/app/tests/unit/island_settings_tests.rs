@@ -145,3 +145,62 @@ fn island_controller_consumes_restored_and_changed_preferences() {
         );
     });
 }
+
+/// 场景：设置页“清除已记住的授权”只删各工作空间库里的授权，其他设置保留。
+/// 数据：一个工作空间库含两条授权键和一条岛偏好；模型发布该库；另一个不在模型中的库不受影响。
+/// 执行：调用生产入口 `clear_remembered` 并等待后台任务。
+/// 预期：授权键为空、偏好仍在；设置页收到“已清除 2 条”的本地化提示键。
+#[test]
+fn clear_remembered_removes_grants_from_every_island_database() {
+    let dir = tempfile::tempdir().expect("创建隔离目录");
+    let store = storage::SettingsStore::new(dir.path().join("a.sqlite"));
+    for key in [
+        "island.approval.allow.v1:one",
+        "island.approval.allow.v1:two",
+    ] {
+        store.set_string(key, "true").expect("构造已记住授权");
+    }
+    store.set_string(KEY, "{}").expect("构造偏好");
+    let mut cx = gpui::TestAppContext::single();
+    cx.update(|cx| {
+        install_prepared(
+            Prepared {
+                preferences: IslandPreferences::default(),
+                store: None,
+                error: None,
+            },
+            cx,
+        );
+        super::super::publish(
+            1,
+            1,
+            store.path().to_owned(),
+            vec![super::super::IslandWorkspace {
+                database: store.path().to_owned(),
+                id: "w".into(),
+                name: "W".into(),
+                projects: Vec::new(),
+            }],
+            cx,
+        );
+        clear_remembered(cx);
+    });
+    cx.run_until_parked();
+    for key in [
+        "island.approval.allow.v1:one",
+        "island.approval.allow.v1:two",
+    ] {
+        assert_eq!(store.get_string(key).unwrap(), None, "{key} 应被清除");
+    }
+    assert_eq!(
+        store.get_string(KEY).unwrap().as_deref(),
+        Some("{}"),
+        "清除授权不得删除岛偏好"
+    );
+    let notice = cx.update(|cx| state(cx).unwrap().read(cx).notice.clone());
+    assert_eq!(
+        notice.map(|notice| notice.to_string()),
+        Some(ui::i18n::message("island.remembered_cleared", &[("count", "2".into())]).to_string()),
+        "设置页应显示清除条数"
+    );
+}

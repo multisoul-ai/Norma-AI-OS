@@ -3,11 +3,14 @@ mod actions;
 mod artifacts;
 mod chrome;
 mod controller;
+mod fallback;
 pub(crate) mod hotkey;
 mod model;
 #[cfg(target_os = "macos")]
 mod native;
 mod navigation;
+#[cfg(target_os = "macos")]
+mod notify;
 mod pending;
 pub(crate) mod preferences;
 mod question;

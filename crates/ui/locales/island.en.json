@@ -60,5 +60,13 @@
   "island.popup_completions": "Show completion popups",
   "island.settings_load_failed": "Could not load island settings: %{reason}",
   "island.settings_save_failed": "Could not save island settings: %{reason}",
-  "island.hotkey_unavailable": "The system-wide shortcut {shortcut} could not be registered (error {code}). It may be used by another app; choose a different one."
+  "island.hotkey_unavailable": "The system-wide shortcut %{shortcut} could not be registered (error %{code}). It may be used by another app; choose a different one.",
+  "island.clear_remembered": "Remembered permissions",
+  "island.clear_remembered_action": "Clear all",
+  "island.remembered_cleared": "Cleared %{count} remembered permissions. Matching requests will ask again.",
+  "island.remembered_clear_failed": "Could not clear remembered permissions: %{reason}",
+  "island.notify_approval": "An agent needs your approval",
+  "island.notify_question": "An agent has a question for you",
+  "island.notify_completed": "Task finished",
+  "island.notify_body": "%{workspace} · Click to open the card"
 }
