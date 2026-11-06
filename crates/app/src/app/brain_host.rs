@@ -5,6 +5,7 @@ mod activity_sink;
 mod activity_view;
 mod approvals;
 mod away;
+mod clients;
 mod config;
 mod context;
 mod decision_copy;
@@ -16,6 +17,7 @@ mod model_lists;
 mod ops;
 mod overview;
 mod own_prompts;
+mod owner;
 pub(crate) use overview::{OverviewProposal, OverviewQuestion, OverviewSnapshot};
 mod panel;
 mod panel_parts;
@@ -90,13 +92,9 @@ pub(crate) struct BrainHostState {
     settings: Option<config::BrainSettings>,
     settings_loading: bool,
     settings_revision: u64,
-    start_generation: u64,
-    starting: Option<u64>,
+    active_generation: Option<u64>,
     pending_events: RefCell<VecDeque<BrainEvent>>,
-    host: Option<BrainHost>,
-    /// 已撤销令牌的服务仍在后台停止；排空其迟到记录后再释放通道。
-    retiring: Vec<Receiver<BrainStatus>>,
-    next_start: Instant,
+    client: Option<owner::BrainClient>,
     last_poll: Instant,
     tracked: HashMap<String, Tracked>,
     installed: Vec<brain::BackendKind>,
@@ -144,12 +142,9 @@ impl BrainHostState {
             settings: None,
             settings_loading: false,
             settings_revision: 0,
-            start_generation: 0,
-            starting: None,
+            active_generation: None,
             pending_events: RefCell::new(VecDeque::new()),
-            host: None,
-            retiring: Vec::new(),
-            next_start: now,
+            client: None,
             last_poll: now,
             tracked: HashMap::new(),
             installed: Vec::new(),
@@ -203,7 +198,7 @@ impl BrainHostState {
     }
 
     pub(crate) fn token_matches(&self, token: &str) -> bool {
-        !token.is_empty() && self.host.as_ref().is_some_and(|host| host.token == token)
+        !token.is_empty() && self.token().as_deref() == Some(token)
     }
 }
 
@@ -215,17 +210,13 @@ impl MultisoulApp {
         excerpts: &[(u64, Option<String>)],
         cx: &mut Context<Self>,
     ) {
+        self.sync_brain_client(cx);
         self.flush_question_receipts(cx);
         self.poll_brain_questions();
         self.poll_brain_proposal_save(cx);
-        self.brain.drain_retired();
+        self.drain_brain_status(cx);
         if self.brain.settings.is_none() {
-            if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
-                self.brain.settings = host.read(cx).brain.settings.clone();
-            }
-            if self.brain.settings.is_none() {
-                self.refresh_brain_settings(cx);
-            }
+            self.refresh_brain_settings(cx);
         }
         // 工作空间窗口没有大脑，但要汇总各项目的状态给概览。
         if self.brain.overview_at.elapsed() >= APPROVAL_POLL {
@@ -244,13 +235,13 @@ impl MultisoulApp {
         if self.brain.settings.as_ref().is_some_and(|s| s.enabled) {
             self.load_brain_proposals(cx);
         }
-        if self.brain.host.is_none() {
+        if !self.brain.is_running() {
             self.try_start_brain(cx);
         }
         for event in events {
             self.forward_runtime_event(event, excerpts);
         }
-        if self.brain.host.is_none() {
+        if !self.brain.is_running() {
             return;
         }
         self.drain_brain_status(cx);

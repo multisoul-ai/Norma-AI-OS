@@ -4,7 +4,6 @@ use super::config::{self, Autonomy, BrainSettings};
 use crate::app::MultisoulApp;
 use brain::BackendKind;
 use gpui::Context;
-use std::time::Instant;
 
 /// 设置页渲染所需的快照。后端检测结果有缓存，渲染时不做文件 IO。
 #[derive(Clone)]
@@ -78,7 +77,7 @@ impl MultisoulApp {
     pub(crate) fn brain_settings_view(&self) -> BrainSettingsView {
         BrainSettingsView {
             settings: self.brain.settings.clone().unwrap_or_default(),
-            running: self.brain.host.is_some() || self.brain.overview.running,
+            running: self.brain.is_running() || self.brain.overview.running,
             installed: self.brain.installed.clone(),
             installing: self.brain.installing,
             install_error: self.brain.install_error.clone(),
@@ -106,7 +105,11 @@ impl MultisoulApp {
             let _ = this.update(cx, |app, cx| {
                 app.brain.settings_loading = false;
                 if app.brain.settings.is_none() && revision == app.brain.settings_revision {
-                    app.brain.settings = Some(settings);
+                    let owner = super::owner::shared(cx);
+                    if owner.settings().is_none() {
+                        owner.configure(settings, false);
+                    }
+                    app.brain.settings = owner.settings();
                 }
                 app.brain.installed = backends.iter().map(|backend| backend.kind).collect();
                 app.discover_brain_models(backends, cx);
@@ -132,7 +135,10 @@ impl MultisoulApp {
         restart: bool,
         cx: &mut Context<Self>,
     ) {
-        let mut settings = self.brain.settings.clone().unwrap_or_default();
+        let mut settings = super::owner::shared(cx)
+            .settings()
+            .or_else(|| self.brain.settings.clone())
+            .unwrap_or_default();
         change(&mut settings);
         self.apply_brain_settings(settings.clone(), restart, cx);
         let sessions: Vec<_> = self.desktop_workspace.sessions.values().cloned().collect();
@@ -174,13 +180,8 @@ impl MultisoulApp {
     ) {
         let silenced = !settings.speak || !settings.enabled;
         self.brain.settings_revision += 1;
+        super::owner::shared(cx).configure(settings.clone(), restart);
         self.brain.settings = Some(settings);
-        if restart {
-            self.brain.start_generation += 1;
-            self.brain.retire_host();
-            self.brain.starting = None;
-            self.brain.next_start = Instant::now();
-        }
         if silenced {
             self.gpt_live.cancel_brain_reports();
             self.cancel_agent_announcements();
@@ -196,7 +197,7 @@ impl MultisoulApp {
     pub(crate) fn refresh_brain_overview(&mut self, cx: &mut Context<Self>) {
         let mut snapshot = super::OverviewSnapshot::default();
         for ((workspace_id, area_id), session) in &self.desktop_workspace.sessions {
-            snapshot.running |= session.read(cx).brain.host.is_some();
+            snapshot.running |= session.read(cx).brain.is_running();
             if self.desktop_workspace.active_id.as_ref() != Some(workspace_id) {
                 continue;
             }

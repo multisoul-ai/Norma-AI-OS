@@ -40,7 +40,7 @@ fn fixture() -> Fixture {
     let service = entity.update(cx, |app, cx| {
         app.enter_canvas_for_test(dir.path(), cx);
         let (_, status) = std::sync::mpsc::channel();
-        app.brain.host = Some(super::super::BrainHost {
+        app.install_brain_host_for_test(super::super::BrainHost {
             service: None,
             status,
             token: "handoff-token".into(),
@@ -343,7 +343,7 @@ fn dock_plain_message_hands_off_only_when_brain_runs() {
             app.handoff_to_brain("今天进展如何".into()).is_ok(),
             "幕僚运行时必须接收"
         );
-        app.brain.host = None;
+        app.release_brain_client();
         assert!(
             app.handoff_to_brain("今天进展如何".into()).is_err(),
             "幕僚未运行必须回退"

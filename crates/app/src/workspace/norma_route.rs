@@ -46,6 +46,7 @@ impl MultisoulApp {
         window: Option<gpui::AnyWindowHandle>,
         cx: &mut Context<Self>,
     ) {
+        self.release_brain_client();
         self.project_window = window;
         let Some(workspace_id) = self.workspace_id.clone() else {
             return;
@@ -89,6 +90,7 @@ impl MultisoulApp {
 
         self.workspace_id = Some(workspace_id.clone());
         self.workspace_route_id = Some(route_id.clone());
+        self.ensure_brain_client(cx);
         self.agent_hook_server.rotate(cx);
         let runtime_config = self.agent_hook_server.runtime_config().map(|mut config| {
             config.workspace_id = workspace_id;

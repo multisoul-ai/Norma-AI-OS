@@ -94,7 +94,7 @@ impl MultisoulApp {
     ) {
         let result = self
             .with_overview_session(area, cx, |app, cx| {
-                if app.brain.host.is_none() {
+                if !app.brain.is_running() {
                     return Err("question_brain_unavailable".to_owned());
                 }
                 if app.authorize_question_delegation(target)? {
@@ -143,11 +143,11 @@ impl MultisoulApp {
                 .question(&suggestion.target)
                 .is_some_and(|q| q.state.blocks_input())
         });
-        let Some(host) = &self.brain.host else {
+        let Some(token) = self.brain.token() else {
             return;
         };
-        if self.brain.questions.announced_token != host.token {
-            self.brain.questions.announced_token = host.token.clone();
+        if self.brain.questions.announced_token != token {
+            self.brain.questions.announced_token = token;
             self.brain.questions.announced.clear();
         }
         self.brain.questions.announced.retain(|target| {

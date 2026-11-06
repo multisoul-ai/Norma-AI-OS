@@ -219,8 +219,19 @@ fn speaking_changes_do_not_strand_a_starting_session() {
     });
     entity.update(cx, |app, cx| {
         app.workspace_id = Some("fixture".into());
-        let generation = app.brain.start_generation;
-        app.brain.starting = Some(generation);
+        app.workspace_route_id = Some("fixture-route".into());
+        app.runtime.set_workspace_root("/fixture".into());
+        app.ensure_brain_client(cx);
+        app.apply_brain_settings(
+            config::BrainSettings {
+                enabled: true,
+                ..Default::default()
+            },
+            true,
+            cx,
+        );
+        let owner = owner::shared(cx);
+        let generation = owner.begin_start(Instant::now()).expect("第一次启动");
         let settings = config::BrainSettings {
             enabled: true,
             speak: false,
@@ -228,25 +239,27 @@ fn speaking_changes_do_not_strand_a_starting_session() {
         };
         app.apply_brain_settings(settings, false, cx);
         let (_, status) = std::sync::mpsc::channel();
-        app.complete_brain_start(
+        owner.complete_start(
             generation,
-            "fixture",
             Ok(BrainHost {
                 service: None,
                 status,
                 token: "fixture".into(),
             }),
-            cx,
         );
-        assert!(app.brain.host.is_some(), "语音开关变化不能丢弃有效启动结果");
-        assert!(app.brain.starting.is_none(), "启动标记必须清除");
+        assert!(app.brain.is_running(), "语音开关变化不能丢弃有效启动结果");
+        assert!(app.brain.token_matches("fixture"), "启动结果必须可用");
+        assert!(
+            owner.begin_start(Instant::now()).is_none(),
+            "不能重复启动第二宿主"
+        );
     });
 }
 
 /// 旧启动结果不能清除新一轮启动，也不能在用户关闭幕僚后复活服务。
-/// 数据构造：第0代启动后应用一次需要重启的设置，再开始第1代。
+/// 数据构造：旧代启动中修改设置；旧任务收口后才允许新代启动。
 /// 执行过程：交付旧结果，再关闭幕僚并交付新结果。
-/// 预期结果：旧结果不改新 starting，关闭后两个结果都不能安装 host。
+/// 预期结果：重复旧结果不改新启动；关闭后两个结果都不能安装 host。
 #[test]
 fn stale_start_results_never_replace_a_new_generation() {
     let mut test = TestAppContext::single();
@@ -258,25 +271,53 @@ fn stale_start_results_never_replace_a_new_generation() {
     });
     entity.update(cx, |app, cx| {
         app.workspace_id = Some("fixture".into());
-        app.brain.starting = Some(0);
-        app.apply_brain_settings(config::BrainSettings::default(), true, cx);
-        let generation = app.brain.start_generation;
-        app.brain.starting = Some(generation);
+        app.workspace_route_id = Some("fixture-route".into());
+        app.runtime.set_workspace_root("/fixture".into());
+        app.ensure_brain_client(cx);
+        app.apply_brain_settings(
+            config::BrainSettings {
+                enabled: true,
+                ..Default::default()
+            },
+            true,
+            cx,
+        );
+        let owner = owner::shared(cx);
+        let old = owner.begin_start(Instant::now()).expect("旧代启动");
+        app.apply_brain_settings(
+            config::BrainSettings {
+                enabled: true,
+                speak: false,
+                ..Default::default()
+            },
+            true,
+            cx,
+        );
+        assert!(
+            owner.begin_start(Instant::now()).is_none(),
+            "旧启动未收口不得并发启动"
+        );
         let host = || {
-            let (_, status) = std::sync::mpsc::channel();
             Ok(BrainHost {
                 service: None,
-                status,
+                status: std::sync::mpsc::channel().1,
                 token: "fixture".into(),
             })
         };
-        app.complete_brain_start(0, "fixture", host(), cx);
-        assert_eq!(app.brain.starting, Some(generation), "旧结果不能清除新启动");
-        assert!(app.brain.host.is_none(), "旧结果不能安装 host");
+        owner.complete_start(old, host());
+        assert!(!app.brain.is_running(), "过期结果不能安装host");
+        let generation = owner
+            .begin_start(Instant::now())
+            .expect("旧启动收口后启动新代");
+        owner.complete_start(old, host());
+        assert!(!app.brain.is_running(), "重复旧结果不能安装host");
         app.apply_brain_settings(config::BrainSettings::default(), true, cx);
-        app.complete_brain_start(generation, "fixture", host(), cx);
-        assert!(app.brain.host.is_none(), "关闭后不得安装迟到服务");
-        assert!(app.brain.starting.is_none(), "关闭后不得遗留启动状态");
+        owner.complete_start(generation, host());
+        assert!(!app.brain.is_running(), "关闭后不得安装迟到服务");
+        assert!(
+            owner.begin_start(Instant::now()).is_none(),
+            "关闭后不能再次启动"
+        );
     });
 }
 

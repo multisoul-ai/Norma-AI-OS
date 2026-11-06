@@ -49,7 +49,7 @@ fn queued_event_and_status_cannot_be_rebound_to_a_new_route() {
             .expect("新事件可排队");
         assert_eq!(new.scope.route_id, "new", "新事件使用当前route");
         let (tx, status) = std::sync::mpsc::channel();
-        app.brain.host = Some(super::super::BrainHost {
+        app.install_brain_host_for_test(super::super::BrainHost {
             service: None,
             status,
             token: "test".into(),

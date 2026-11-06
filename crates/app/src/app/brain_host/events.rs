@@ -23,14 +23,14 @@ impl MultisoulApp {
         if self.brain_scope().as_ref() != Some(&event.scope) {
             return;
         }
-        if let Some(service) = self
-            .brain
-            .host
-            .as_ref()
-            .and_then(|host| host.service.as_ref())
-        {
-            service.push(event);
-        } else if self
+        let event = match self.brain.client.as_ref() {
+            Some(client) => match client.push(event) {
+                None => return,
+                Some(event) => event,
+            },
+            None => event,
+        };
+        if self
             .brain
             .settings
             .as_ref()
@@ -45,7 +45,7 @@ impl MultisoulApp {
     }
 
     pub(super) fn drain_brain_status(&mut self, cx: &mut Context<Self>) {
-        while let Some(Ok(status)) = self.brain.host.as_ref().map(|host| host.status.try_recv()) {
+        for status in self.brain.take_statuses() {
             if self.brain_scope().as_ref() != Some(&status.scope) {
                 continue;
             }

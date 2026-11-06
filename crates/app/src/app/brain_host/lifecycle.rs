@@ -1,33 +1,20 @@
-//! 服务重启后保留状态接收通道，避免迟到的拒绝、错误或结束事件消失。
+//! Late traces remain historical; retired service status cannot affect live approvals.
 use super::{activity_sink::Pending, BrainHostState};
 use brain::{BrainStatus, BrainStatusKind};
-use std::sync::mpsc::{self, TryRecvError};
 
 impl BrainHostState {
-    pub(super) fn retire_host(&mut self) {
-        if let Some(mut host) = self.host.take() {
-            let (_, empty) = mpsc::channel();
-            self.retiring
-                .push(std::mem::replace(&mut host.status, empty));
-            // host Drop 只负责后台 shutdown；旧 token 已立即失效。
-            self.last_turn.clear();
-        }
-    }
-
-    pub(super) fn drain_retired(&mut self) {
-        let outbox = &self.activity_outbox;
-        self.retiring.retain(|rx| loop {
-            match rx.try_recv() {
-                Ok(BrainStatus {
-                    kind: BrainStatusKind::Trace(entry),
-                    ..
-                }) => outbox.push(Pending::Trace(entry)),
-                // 旧服务的运行状态不能触发新服务的审批转人工，也不能覆盖动作来源。
-                Ok(_) => {}
-                Err(TryRecvError::Empty) => return true,
-                Err(TryRecvError::Disconnected) => return false,
+    pub(super) fn take_statuses(&mut self) -> Vec<BrainStatus> {
+        let mut active = Vec::new();
+        while let Some(entry) = self.client.as_ref().and_then(|client| client.try_recv()) {
+            if entry.retired {
+                if let BrainStatusKind::Trace(trace) = entry.status.kind {
+                    self.activity_outbox.push(Pending::Trace(trace));
+                }
+            } else {
+                active.push(entry.status);
             }
-        });
+        }
+        active
     }
 }
 

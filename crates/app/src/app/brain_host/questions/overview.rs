@@ -122,7 +122,7 @@ impl MultisoulApp {
                         .unwrap_or_else(|| format!("{:?}", target.provider)),
                     available: self.runtime.native_question_available(target),
                     delegated: self.question_delegated(target),
-                    can_delegate: self.brain.host.is_some()
+                    can_delegate: self.brain.is_running()
                         && !snapshot.question.items.iter().any(|item| item.secret),
                     suggestion: self
                         .brain

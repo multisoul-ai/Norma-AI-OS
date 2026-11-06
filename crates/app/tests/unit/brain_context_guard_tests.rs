@@ -92,7 +92,7 @@ fn brain_context_guard_checks_assign_and_allow_without_blocking_deny_or_escalate
             app.database_paths = storage::DatabasePaths::isolated_test(dir.path());
             app.enter_canvas_for_test(dir.path(), cx);
             let (_, status) = std::sync::mpsc::channel();
-            app.brain.host = Some(super::super::BrainHost {
+            app.install_brain_host_for_test(super::super::BrainHost {
                 service: None,
                 status,
                 token: "test-token".into(),

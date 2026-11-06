@@ -46,7 +46,7 @@ fn question_user_intent_never_substitutes_another_selected_card() {
     });
     source.update(cx, |app, cx| {
         let (target, _, _) = super::super::tests::make_question(app, cx, dir.path());
-        app.brain.host = Some(crate::app::brain_host::BrainHost {
+        app.install_brain_host_for_test(crate::app::brain_host::BrainHost {
             service: None,
             status: std::sync::mpsc::channel().1,
             token: "user-input".into(),
@@ -146,7 +146,7 @@ fn question_user_intent_ignores_retired_session_unknown_receipts() {
         );
         app.runtime.focus.exit_to_canvas();
         app.runtime.selection.select_only(old.node_id);
-        app.brain.host = Some(crate::app::brain_host::BrainHost {
+        app.install_brain_host_for_test(crate::app::brain_host::BrainHost {
             service: None,
             status: std::sync::mpsc::channel().1,
             token: "session-current".into(),
@@ -164,7 +164,7 @@ fn question_user_intent_ignores_retired_session_unknown_receipts() {
 
 impl MultisoulApp {
     pub(crate) fn install_question_brain_for_test(&mut self) {
-        self.brain.host = Some(crate::app::brain_host::BrainHost {
+        self.install_brain_host_for_test(crate::app::brain_host::BrainHost {
             service: None,
             status: std::sync::mpsc::channel().1,
             token: "voice-question".into(),

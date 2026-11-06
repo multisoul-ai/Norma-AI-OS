@@ -9,10 +9,10 @@
 | M0 | GPUI PopUp、AppKit 屏幕与 Spaces、Carbon；原生 E2E 焦点证据 | API/几何已验证；非激活输入未通过；继续功能实施 |
 | M1 | runtime::island 纯状态机：形态、优先级、160/420/3000ms、固定、输入焦点、设置 | PR #186 已合入 dev，最新 rust checks 通过 |
 | M2 | 逐工作空间捕获与后台投影、App 级 IslandModel，含后台保留工作空间 | PR #187 已合入 dev，最新 rust checks 通过 |
-| M3 | 每屏岛、窗口尺寸、三页签、审批/提问/成果、跨工作空间定位/重开 | 实现中；独立窗口 smoke E2E 已通过，业务 E2E 待完成 |
-| M4 | 全局 BrainHost、带 route 的事件、多项目 Read 闸门、幂等迁移、reply/report/TTS | 待实施 |
+| M3 | 每屏岛、窗口尺寸、三页签、审批/提问/成果、跨工作空间定位/重开 | PR #189 OPEN，业务及原型看图 E2E 通过，最新 Rust CI 通过；系统级缺证留在 M6 |
+| M4 | 全局 BrainHost、带 route 的事件、多项目 Read 闸门、幂等迁移、reply/report/TTS | 实施中：作用域链路已提交，唯一 App 宿主接线在验证；迁移、report 与幕僚 UI 待完成 |
 | M5 | 删除左抽屉/状态胶囊和死入口，新增开关/快捷键与双语 | 待实施 |
-| M6 | island --visual 模块、全检查、系统焦点/全屏/屏幕与真实模型汇报 | 待验收 |
+| M6 | island --visual 模块、全检查、系统焦点/全屏/屏幕与真实模型汇报 | island 模块已登记并有 M3 业务证据；新增功能、系统与真实模型总验收待完成 |
 
 ## M0 证据摘要
 
@@ -196,3 +196,17 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 - 下一步仍为App唯一BrainHost、项目释放/后台保留生命周期与Read根动态接入、全局幂等迁移、report kind/ReportRequested和幕僚UI/真实Claude+TTS E2E。当前只是完成M4事件链路，不是M4里程碑完成；M3 PR #189保持未合入。
 - 完整Norma回归触发两条既有OpenCode HTTP夹具竞态：非阻塞listener的accepted socket未恢复blocking，macOS上read_line在实际3秒超时前立即WouldBlock（该测试0.03秒失败），另一条因POST未发得到Unsent而非预设Unknown。仅对两处accepted socket补set_nonblocking(false)，保持200ms/3s读超时及原业务断言。失败日志`artifacts/island/m4-event-norma-tests.log`保留，定向7/7通过，`artifacts/island/m4-opencode-fixture-green.log`；完整Norma回归正在复验。
 - 修复后完整Norma测试退出0，340通过、1既有忽略，`artifacts/island/m4-event-norma-tests-green.log`。本轮作为M4实现检查点提交到隔离分支，尚不提称完整M4的PR、不合入dev；剩余范围不变。
+
+
+### M4 App 唯一宿主接线（里程碑仍未完成）
+
+- 新增 App Global `SharedBrain`，唯一 `BrainHost` 由它持有；各项目只保存 `BrainClient`。生产项目 route 注册时订阅，`stop_project` 释放订阅，普通窗口解除不释放保留项目。全部成员根通过同一 ReadRoots handle 传入真实 BrainConfig；最后项目释放同步撤销令牌及读取权限，服务 shutdown/join 在后台。
+- 全局配置只改变一次服务代次，重复项目广播不重复重启。语音开关不撤销进行中的启动；配置加载结果不能覆盖已经存在的全局配置。启动工作使用全局目录作为 cwd，不绑定首个项目；回调由捕获的 owner 接收，不依赖发起项目 Entity 仍存活。适配器环境清空固定 workspace/route，动作沿用已完成的显式来源协议。
+- 新增启动竞态 RED：最后项目在启动途中释放后，旧实现允许第二个后台启动。修复为保留旧 ticket，直到迟到结果回收并完成后台关闭才准许新代启动。日志 `artifacts/island/m4-owner-late-red.log`。
+- App 接线 RED 记录缺失生产 `ensure_brain_client` 入口，日志 `artifacts/island/m4-owner-app-red.log`。正确过滤器 `brain_host::owner::tests` 的 4 条测试通过，日志 `artifacts/island/m4-owner-app-green2.log`：双项目共享、状态来源隔离、根撤销、最后释放、迟到启动、配置重启与生产 stop_project。此前 `m4-owner-app-green.log` 误用了文件名过滤器，实际 0 条测试，不计证据。
+- 扩展回归初轮 119 通过、1 失败、1 既有 ignored；失败为提议来源保存错误的中文 contains 断言，单独复跑通过。该消息是 LocalizedText，其他测试构造 App 或释放语言守卫会改变进程全局语言，存在语言竞争（原失败未输出消息，不能确证这是唯一原因）；改为断言完整 LocalizedText 精确相等，并用 resolve_for(ZhCn) 保留原中文语义断言。真实任务、来源保存失败及防重复派发断言均保留，新增准确双语提示键检查。日志 `artifacts/island/m4-owner-app-regression.log` / `artifacts/island/m4-owner-proposal-recheck.log`；修复后完整聚焦回归另记。
+- 独立只读审查核验 owner、生产接线与测试迁移，无新增阻塞发现。该片主要采用 `service=None` 夹具证明状态机和 App 接线，不宣称真实 ACP 进程数量或退出、后台保留窗口、Claude/TTS E2E 已通过。
+- 仍需完成：项目释放时取消 BrainService 的 scope/排队及在途任务、全局原子幂等数据迁移、report reply/ReportRequested、幕僚 UI 与真实模型/TTS 验收。当前全局目录启动已经接入，旧项目数据尚未迁移；本片仅开发检查点，不能作为完整 M4 交付或用户升级版本。只提后续 PR，不合入 dev。
+- 修复后 App 幕僚完整聚焦回归 120 通过、1 既有真实 Claude 测试 ignored，日志 `artifacts/island/m4-owner-app-regression-green.log`；补充保留中文语义断言后的最终提议模块 4/4 通过，`artifacts/island/m4-owner-proposal-final.log`。performance/storage/行数/no-allow/Agent指南、2226 双语键、6 条 i18n 脚本测试与 diff-check 通过。最后 Clippy 与正常提交 hook 结果另记。
+- Clippy 首轮指出未投递 BrainEvent 作为 Result 大 Err 变体（296 bytes）；改为返回可选未投递事件，调用者保持原有排队行为，无分配、无 allow。`cargo clippy -p app --all-targets -- -D warnings` 通过，`artifacts/island/m4-owner-clippy-green.log`。此增量后再次运行完整幕僚聚焦测试，最终结果以 `artifacts/island/m4-owner-final-tests.log` 为准。
+- 最新代码完整幕僚聚焦回归再次通过：120 passed、1 既有 ignored，`artifacts/island/m4-owner-final-tests.log`。本轮保存为 M4 本地开发检查点；不提交完整里程碑声明，不合入 dev，M4 后续 PR 仍待迁移、汇报与端到端证据齐备。

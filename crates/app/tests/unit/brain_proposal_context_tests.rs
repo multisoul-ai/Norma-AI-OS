@@ -177,14 +177,19 @@ fn proposal_acceptance_fixture(fail_receipt: bool) {
                 .any(|r| matches!(r.event.payload, ContextPayload::Receipt { .. })),
             "失败写入不能冒充已保存回执"
         );
+        // Other async tests may change the process locale while this save is pending.
+        let error = host.read_with(cx, |app, _| app.desktop_workspace.error.clone());
+        assert_eq!(
+            error,
+            Some(ui::i18n::LocalizedText::new(
+                "drawers.assignment_unconfirmed"
+            )),
+            "界面必须使用准确的双语提示键"
+        );
+        let chinese = error.unwrap().resolve_for(ui::i18n::Locale::ZhCn);
         assert!(
-            host.read_with(cx, |app, _| {
-                app.desktop_workspace
-                    .error
-                    .as_ref()
-                    .is_some_and(|e| e.contains("任务已接收") && e.contains("请勿重复派发"))
-            }),
-            "界面应区别真实任务结果与来源保存失败"
+            chinese.contains("任务已接收") && chinese.contains("请勿重复派发"),
+            "界面应区别真实任务结果与来源保存失败：{chinese}"
         );
         return;
     }

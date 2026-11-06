@@ -97,7 +97,7 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
         app.enter_canvas_for_test(dir.path(), cx);
         app.register_loaded_project_route(None, cx);
         let (_, status) = std::sync::mpsc::channel();
-        app.brain.host = Some(super::super::BrainHost {
+        app.install_brain_host_for_test(super::super::BrainHost {
             service: None,
             status,
             token: "report-token".into(),
