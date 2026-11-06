@@ -1,31 +1,41 @@
 # Norma OS GPUI 0.2.2 patch
 
-Norma OS pins `gpui = 0.2.2`. On macOS, that version intentionally calls
-`mem::forget` for a stopped `CVDisplayLink` because releasing it immediately can
-race its CoreVideo callback thread.
+## Shared display clock lifecycle (2026-11-06)
 
-The upstream window implementation also dropped and recreated that DisplayLink
-around every synchronous `displayLayer:` paint. The combination retained one
-native DisplayLink, Mach port, and run-loop source per repaint cycle.
+`CVDisplayLinkStop` does not join CoreVideo's IO thread. Releasing the native
+link or its callback context immediately can race a final callback. The old
+`mem::forget` workaround also retained native objects and unreleased GCD sources
+on each window occlusion/screen change.
 
-This vendored patch preserves the upstream Drop behavior and its crash-safety
-trade-off. It changes only the two per-paint paths to pause and resume the same
-DisplayLink. Real lifecycle transitions such as window occlusion, screen changes,
-and window destruction retain the upstream stop/recreate behavior.
+The compatibility patch follows [Zed's shared display registry](https://github.com/zed-industries/zed/blob/main/crates/gpui_macos/src/display_link.rs):
 
-`DisplayLink::start` and `stop` track their running state so nested AppKit paints
-cannot unbalance `dispatch_resume`/`dispatch_suspend`. The window also records a
-DisplayLink generation: after the paint callback releases the window lock, it
-resumes only the same instance it paused. A callback that replaced or removed the
-link therefore cannot accidentally resume a different native object.
+- One process-owned native link per encountered display ID; never release a
+  started link without a CoreVideo join guarantee. Window count does not grow
+  this registry. This does retain a clock for a disconnected display ID.
+- Window sources subscribe under a mutex. The native callback receives only
+  the integer display ID and merges into current subscribers under that lock.
+- Lifecycle operations assert the macOS main thread. All CoreVideo calls occur
+  outside the registry lock to avoid a callback lock-order deadlock.
+- Start/stop are idempotent; failed starts remove their subscription. Last
+  subscriber stops the clock. Other windows on that display keep receiving frames.
+- Drop removes the subscriber before cancelling, balancing the GCD suspension,
+  and releasing the window's dispatch source. A late callback cannot reach it.
+- Occlusion and synchronous paints pause/resume the same window source. Screen
+  changes move it to the new display. Generation checks prevent a nested paint
+  from undoing a newer visibility/screen transition.
 
-Patched call sites:
+No GPUI version or minimum macOS version changes. Native-object retention is
+bounded by encountered display IDs, not by window operations. This does not
+claim that all application heap/GPU allocations are leak-free.
 
-- Immediate frame when a window becomes key.
-- AppKit `displayLayer:` synchronous paint.
-
-Verification belongs in the Norma OS L3 memory regression run: continuous
-foreground repaint must not cause the `CVDisplayLink` object count to grow.
+Validation: `python3 scripts/test-display-link-lifecycle.py` compiles this exact
+production module into a native main-thread probe, checks two simultaneous
+subscriptions (including dropping running windows), then uses `heap` before/after 64 lifecycle cycles plus a final
+pair of windows. The original implementation grows CVDisplayLink 2→68,
+GCD sources 11→143 and Mach ports 2→68. The patched implementation remains at
+1 native link, 8 GCD sources (including system sources) and 1 Mach port.
+Source rules and type-aware lint: `python3 scripts/check-resource-lifecycle.py`
+and `cargo lint-resources`.
 
 ## Fixed-layout scene presentation (2026-09-30, feasibility work)
 
