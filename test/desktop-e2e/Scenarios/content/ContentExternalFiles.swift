@@ -3,88 +3,97 @@ import E2EKit
 import Fixtures
 import Foundation
 
-/// 普通文件标签绑定项目 A，但资源位于独立目录 B；覆盖恢复、媒体播放与双语主题。
+/// 从真实终端点击外部路径打开，不预置文件标签；覆盖双语主题与 OS 打开边界。
 @MainActor
 public enum ContentExternalFiles {
     public nonisolated static let name = "content-external-files"
+    public nonisolated static let videoName = "content-external-video"
 
-    public static func run(_ session: Session) async throws {
+    public static func run(_ session: Session, videoOnly: Bool = false) async throws {
         guard session.visualReview else { throw E2EError.env("此场景使用 --visual 模型看图") }
-        let workspace = "ExternalFiles"
-        var fixture: URL?
-        defer { session.stop(); if let fixture { try? FileManager.default.removeItem(at: fixture) } }
+        let fixture = try ExternalFilesFixture.install()
+        let oldPath = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
+        let oldZdot = ProcessInfo.processInfo.environment["ZDOTDIR"]
+        setenv("ZDOTDIR", fixture.home.path, 1)
+        let oldLog = ProcessInfo.processInfo.environment["NORMA_EXTERNAL_OPEN_LOG"]
+        setenv("PATH", "\(fixture.root.appendingPathComponent("bin").path):\(oldPath)", 1)
+        setenv("NORMA_EXTERNAL_OPEN_LOG", fixture.receipts.path, 1)
+        defer {
+            session.stop()
+            setenv("PATH", oldPath, 1)
+            if let oldZdot { setenv("ZDOTDIR", oldZdot, 1) } else { unsetenv("ZDOTDIR") }
+            if let oldLog { setenv("NORMA_EXTERNAL_OPEN_LOG", oldLog, 1) } else { unsetenv("NORMA_EXTERNAL_OPEN_LOG") }
+            try? FileManager.default.removeItem(at: fixture.root)
+        }
         var database: URL?
-        try await session.step("建立项目外文件与普通文件标签") {
-            try session.launch(language: "zh-Hans")
+        try await session.step("建立真实文件与空内容标签的两个工作空间") {
+            try session.launch(language: "zh-Hans", homeDirectory: fixture.home)
             let db = try session.databaseURL()
             database = db
             _ = try await session.waitCatalog(timeout: 20) { _ in FileManager.default.fileExists(atPath: db.path) }
             session.stop()
-            let root = URL(fileURLWithPath: "/private/tmp/norma-external-files-\(UUID().uuidString)")
-            fixture = root
-            let project = root.appendingPathComponent("project")
-            let external = root.appendingPathComponent("external files")
-            for directory in [project, external] {
-                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            }
-            try Data("EXTERNAL TEXT DOCUMENT\n项目外文档正文".utf8).write(to: external.appendingPathComponent("note.txt"))
-            try Data("# EXTERNAL MARKDOWN\n\nExternal document body.".utf8).write(to: external.appendingPathComponent("note.md"))
-            try Data("<h1>EXTERNAL HTML</h1>".utf8).write(to: external.appendingPathComponent("page.html"))
-            try ContentMediaFixture.install(external)
-            try Catalog.seedWorkspace(database: db, name: workspace)
-            try Catalog.seedArea(database: db, workspaceName: workspace, root: project, displayName: "Source Project")
-            try Catalog.suppressFeatureGuide(database: db)
-            for (index, file) in ["note.txt", "note.md", "page.html", "PatternE2E.png", "ClipE2E.mp4"].enumerated() {
-                try Catalog.seedContentTab(database: db, workspaceName: workspace, sourceAreaName: "Source Project", kind: "file",
-                    resource: external.appendingPathComponent(file).path, title: file, position: index, selected: index == 0)
-            }
-            return "项目与外部目录互不包含；标签无显式 Present 类型"
+            for name in ["ExternalFiles-ZH", "ExternalFiles-EN"] { try fixture.seed(database: db, workspace: name) }
+            return "项目外路径含中文和空格；没有预置 file 标签；PDF/Word 使用真实文档"
         }
         guard let database else { throw E2EError.env("隔离数据库缺失") }
-        for (language, theme) in [("zh-Hans", "sapphire-night"), ("en", "paper-blue")] {
-            try await session.step("\(language)：恢复外部文本标签") {
+        let variants = [("zh-Hans", "sapphire-night", "ExternalFiles-ZH"), ("en", "ink-black", "ExternalFiles-EN")]
+        for (language, theme, workspace) in variants {
+            try await session.step("\(language)：进入项目并让终端输出外部文件路径") {
                 session.stop()
                 try VoiceConfigurationFixture.theme(database: database, id: theme)
-                try session.launch(language: language)
+                try session.launch(language: language, homeDirectory: fixture.home)
                 try await session.resize(width: 1440, height: 800)
-                try await session.visualClick("点击工作空间 ExternalFiles 的卡片名称，进入工作空间")
-                try await session.visualClick("如果右侧内容抽屉未展开，点击窗口右上角的内容抽屉开关；如果已展开，点击 note.txt 文件标签")
-                let divider = try await session.visualLocate("定位右侧内容抽屉左边缘可拖动的分隔线，用于扩大预览区")
-                try await session.drag(local: divider.point, to: CGPoint(x: 440, y: divider.point.y), on: divider.frame)
-                try await session.visualClick("点击右侧内容抽屉的 note.txt 标签，不点击关闭按钮")
-                let frame = try await session.visualCheck([
-                    VisualCriterion(id: "text", text: "右侧显示 EXTERNAL TEXT DOCUMENT 与项目外文档正文，没有文件位于项目外部、outside the source project 或持续加载错误")
-                ])
-                try session.save(frame, "\(language)-text.png")
-                return "外部文本恢复并展示"
+                try await session.visualClick("点击工作空间 \(workspace) 的卡片名称进入，不要点击另一工作空间")
+                try await session.visualClick("点击 Source Project 项目标题进入项目画布")
+                try await session.shortcut(key: 18, modifiers: [0x37])
+                try await Task.sleep(nanoseconds: 1_500_000_000)
+                try await session.type("/bin/sh \(fixture.script.path)")
+                try await session.shortcut(key: 36, modifiers: [])
+                _ = try await session.visualCheck([VisualCriterion(id: "terminal", text: "真实终端显示 EXTERNAL PATH LINKS，以及项目外含中文和空格的 note.txt、note.md、page.html、PatternE2E.png、ClipE2E.mp4、ReportE2E.pdf、OfficeE2E.docx 路径；没有命令执行错误")])
+                guard try session.contentTabs(workspaceName: workspace).isEmpty else { throw E2EError.product("路径点击前不应已有内容标签") }
+                return "实际 PTY 执行脚本，文件路径已输出，内容标签为空"
             }
-            for (file, criterion) in [
-                ("note.md", "右侧文档以标题格式显示 EXTERNAL MARKDOWN，下方显示 External document body.，没有原始 # 前缀或项目外错误"),
-                ("page.html", "右侧网页显示大标题 EXTERNAL HTML，而不是 HTML 源代码或项目外错误"),
-                ("PatternE2E.png", "右侧预览显示蓝紫底色和黄色方块的图片，没有破图或项目外错误"),
-                ("ClipE2E.mp4", "右侧显示可播放的视频预览和播放控件，没有项目外错误或不支持错误")
-            ] {
-                try await session.step("\(language)：\(file) 外部预览") {
-                    try await session.visualClick("点击右侧内容抽屉的 \(file) 标签，避免点击关闭按钮")
-                    let frame = try await session.visualCheck([VisualCriterion(id: "content", text: criterion)])
+            let files = videoOnly ? ["ClipE2E.mp4"] : ExternalFilesFixture.inlineFiles
+            for (index, file) in files.enumerated() {
+                try await session.step("\(language)：点击外部 \(file) 路径并验证预览") {
+                    try await session.visualClick("点击左侧真实终端输出中的 \(file) 文件路径；不要点击右侧文件标签或终端标题，路径可能换行")
+                    let frame = try await session.visualCheck([VisualCriterion(id: "content", text: criterion(file))])
                     try session.save(frame, "\(language)-\(file).png")
                     let tabs = try session.contentTabs(workspaceName: workspace)
-                    guard tabs.contains(where: { $0.title == file && $0.selected && $0.kind == "file" }) else {
-                        throw E2EError.product("实际选中标签未持久化：\(file)")
+                    let path = fixture.external.appendingPathComponent(file).path
+                    guard tabs.count == index + 1, tabs.contains(where: { $0.resource == path && $0.selected && $0.kind == "file" }) else {
+                        throw E2EError.product("点击真实终端路径后未创建并选中准确文件标签：\(file)，实际 \(tabs)")
                     }
-                    return "外部文件预览可见，标签状态已保存"
+                    guard fixture.receiptRows().isEmpty else { throw E2EError.product("内置预览格式不应启动系统应用") }
+                    return "路径点击 → 新文件标签 → 实际预览；SQLite 资源绝对路径和 selected 精确匹配"
                 }
             }
-            try await session.step("\(language)：视频实际播放") {
-                try await session.visualClick("点击右侧视频播放器的播放按钮")
-                try await Task.sleep(nanoseconds: 1_200_000_000)
-                let first = try await session.visualCheck([VisualCriterion(id: "playing", text: "视频处于播放状态，画面为蓝紫背景与黄色块，控件显示非零已播放时间")])
-                try session.save(first, "\(language)-playing-a.png")
-                try await Task.sleep(nanoseconds: 1_500_000_000)
-                let second = try await session.visualCheck([VisualCriterion(id: "advanced", text: "对比上一张 playing-a，视频时间已推进或已正常播完 12 秒，画面没有解码错误")])
-                try session.save(second, "\(language)-playing-b.png")
-                return "真实播放器时间推进"
+            try await ContentExternalPlayback.verify(session, language: language)
+            // 系统应用行为与语言无关；在第二种语言完成后验证，避免打开回执污染下一轮负断言。
+            if language == "en" && !videoOnly {
+                for file in ExternalFilesFixture.systemFiles {
+                    try await session.step("点击外部 \(file) 路径交给真实系统应用") {
+                        let before = fixture.receiptRows().count
+                        let tabsBefore = try session.contentTabs(workspaceName: workspace)
+                        try await session.visualClick("点击左侧真实终端输出中的 \(file) 路径，不点击其他内容")
+                        let evidence = try await fixture.waitForSystemOpen(file, after: before)
+                        guard try session.contentTabs(workspaceName: workspace) == tabsBefore else { throw E2EError.product("系统打开格式不得创建错误的预览标签") }
+                        return evidence
+                    }
+                }
+                if let output = session.output { try FileManager.default.copyItem(at: fixture.receipts, to: output.appendingPathComponent("system-open.jsonl")) }
             }
+        }
+    }
+
+    private static func criterion(_ file: String) -> String {
+        let common = "右侧内容抽屉选中文件 \(file)，没有项目外错误、持续加载或破图；"
+        switch file {
+        case "note.txt": return common + "正文清楚显示 EXTERNAL TEXT DOCUMENT 与项目外文档正文"
+        case "note.md": return common + "EXTERNAL MARKDOWN 是渲染后的标题，没有原始 #，下面有 External document body."
+        case "page.html": return common + "网页大标题 EXTERNAL HTML 可见，未显示 HTML 源码"
+        case "PatternE2E.png": return common + "图片为蓝紫色底、左侧黄色方块，适应窗口显示"
+        default: return common + "视频播放器及播放按钮可见，尚未播放，不是错误页"
         }
     }
 }

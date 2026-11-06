@@ -43,6 +43,13 @@ impl NativeSceneClip {
         if let Some(layer) = container.layer() {
             layer.setMasksToBounds(true);
         }
+        // Wry may resize before the first scene presentation. Keep the clipping
+        // host in the original window so reparenting cannot leave WKWebView
+        // without the NSWindow required by set_bounds and media rendering.
+        // SAFETY: both views are live AppKit objects on the main thread.
+        if let Some(parent) = unsafe { content.superview() } {
+            parent.addSubview(&container);
+        }
         container.addSubview(content);
         Self {
             container,

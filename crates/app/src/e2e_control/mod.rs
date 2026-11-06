@@ -6,6 +6,7 @@
 //! `NORMA_E2E_CONTROL_SOCKET` and a per-run `NORMA_E2E_CONTROL_TOKEN` are set,
 //! and is not compiled into release builds.
 mod capture;
+mod capture_sck;
 mod ns_input;
 mod placement;
 
