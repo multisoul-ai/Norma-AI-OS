@@ -243,3 +243,16 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 - 新增并登记 island-migration --visual。真实 App 验收于 artifacts/desktop-workspace-e2e/2026-11-06T14-16-14Z/ 完整通过，退出 0，1/1，568.64 秒（含模型看图等待）。两个工作空间的两个目标、两条完整提议、四条日志、三条确认偏好均保留，全部旧文件字节不变；中文设置读取旧值、修改语音开关只写全局配置，英文重启保持新值且复用同一代。隔离数据归档在该目录 brain-state；未结束用户正式 App。
 - 三张关键图均由当前 Agent 实际读图并按 requestID/SHA256 逐项反馈。此场景保持幕僚总开关关闭，不调用 LLM/TTS；证明迁移和配置读写，不证明真实模型对话、语音播放或岛原型完整还原。
 - 后续仍需适配旧 brain E2E 的新目录读盘断言和显式 workspace/route 协议，收口 raw wire 单目标兜底，完成 report reply/ReportRequested、岛内幕僚对话与汇报，再执行 M5/M6。M3 PR #189 仍 OPEN，最新 rust checks SUCCESS；M4 尚未提 PR，本轮仅保存开发检查点，不合入 dev。
+
+### 执行顺序更新：先完成 M5（用户 2026-11-06 新指令）
+
+- 用户明确要求“可以先做M5”，优先级改为 M5 → M4 剩余功能 → M6 总验收。保留全部范围；M4 全局对话、report/LLM/TTS 不因调整而删减。
+- M4 迁移接线检查点 f1fabfe9 已正常通过 pre-commit 后提交。M5 在隔离 worktree 的新分支 feat/island-cleanup-20261106 开发，叠加在此检查点；仍只提 PR，不合入 dev。
+- M5 验收映射：独立弹出/隐藏偏好由纯状态测试与后台持久化测试守住；全局快捷键由注册/录制恢复测试与真实 App 操作验证；旧入口删除由源码检索、画布布局/右侧内容区回归及 island-settings --visual 验证。隐藏后的系统通知兜底必须另有证据。
+- Settings 沿用 apple-design/emil-design-eng 的清晰分组、组件库 Switch 和即时状态反馈，不新增装饰动效。新的设置存取必须后台化，退出先等待串行保存；实际页面与中英双语仍待本轮 E2E 看图。
+
+### M5 设置检查点与交接（2026-11-06）
+
+- 隐藏、审批/提问/完成四开关已接入 App 全局缓存、后台读取与串行保存；隐藏恢复不创建原生岛窗口，显示切换不抢前台。退出共同等待语言与岛设置版本，新增保存竞态测试先 RED 后 GREEN。App island 聚焦 28/28，settings 7/7，App build、app/runtime all-targets Clippy -D warnings 通过；详见 `artifacts/island/m5-settings-*.log`。
+- `island-settings --visual` 于 `artifacts/desktop-workspace-e2e/2026-11-06T15-11-29Z/` 完整通过：退出 0，1/1 场景、5/5 步骤，927.75 秒（含看图等待），verification=model-assisted。中英四开关、精确持久化、原生合成器隐藏、重启不创建岛、恢复后悬停展开均实际验收。此证据不证明三类真实事件投递、Carbon、通知兜底或 M5 完成。
+- 用户要求把剩余工作交给 Grace，交接任务书为 `docs/exec-plans/2026-11-06-norma-dynamic-island-handoff.md`。M5 变更尚未提交，交接须保留完整 diff；后续顺序 M5 → M4 剩余 → M6，所有后续只提 PR，不合入 dev。

@@ -280,3 +280,56 @@ async fn language_quit_barrier_waits_for_latest_choice_without_stopping_writer()
     );
     writer.shutdown().await;
 }
+
+/// 场景：退出等待岛设置保存时，用户又改语言，不能越过已经结束的第一道保存屏障。
+/// 数据：分别暂停岛和语言的真实后台写入队列；两者共用隔离SQLite，初始语言English。
+/// 执行：等退出流程进入岛屏障后提交Chinese；释放岛，保持语言队列暂停并再次poll退出future。
+/// 预期：语言尚未保存时退出仍未完成；释放语言后退出完成，最终读到Chinese，不能是English。
+#[tokio::test]
+async fn quit_waits_for_language_changed_during_island_save() {
+    use futures::FutureExt;
+    use std::sync::atomic::Ordering;
+    let test = gpui::TestAppContext::single();
+    let dir = tempfile::tempdir().expect("创建隔离设置目录");
+    let store = storage::SettingsStore::new(dir.path().join("settings.sqlite"));
+    let (island_writer, resume_island) = test.update(|cx| {
+        install(
+            PreparedLanguageSettings::load_from_store(store.clone(), &["en".into()]),
+            cx,
+        );
+        select_language(LanguagePreference::English, cx);
+        crate::island::preferences::install_paused_for_test(store.clone(), cx)
+    });
+    let language_writer =
+        test.read_global::<AppLanguage, _>(|state, _| state.writer.clone().unwrap());
+    language_writer.flush().await.expect("初始语言写入完成");
+    let mut async_cx = test.to_async();
+    let barrier = wait_for_all_settings(&mut async_cx);
+    futures::pin_mut!(barrier);
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while island_writer.flushes.load(Ordering::SeqCst) == 0 {
+            assert!(
+                barrier.as_mut().now_or_never().is_none(),
+                "岛保存被暂停，退出不能提前完成"
+            );
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("退出流程必须到达岛保存屏障");
+    let resume_language = language_writer.pause();
+    test.update(|cx| select_language(LanguagePreference::SimplifiedChinese, cx));
+    resume_island.send(()).expect("释放岛保存");
+    island_writer.flush().await.expect("确认岛队列已保存完成");
+    let completed_early = barrier.as_mut().now_or_never().is_some();
+    resume_language
+        .send(())
+        .expect("释放语言队列，失败时也不能遗留阻塞");
+    assert!(!completed_early, "退出不能越过等待岛期间新增的语言保存");
+    barrier.await.expect("两个设置都保存后才能完成退出屏障");
+    assert_eq!(
+        store.get_string(LANGUAGE_KEY).unwrap().as_deref(),
+        Some("zh-CN"),
+        "最新中文选择必须持久化"
+    );
+}

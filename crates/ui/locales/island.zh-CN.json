@@ -52,5 +52,12 @@
   "island.running_count": "%{count} 运行中",
   "island.done_count": "%{count} 刚完成",
   "island.waiting_count": "%{count} 待开始",
-  "island.waiting_names": "待开始 · %{names}"
+  "island.waiting_names": "待开始 · %{names}",
+  "island.settings_hint": "控制灵动岛的显示与主动提醒。关闭主动弹出后，待办仍可手动查看。",
+  "island.hide": "隐藏灵动岛",
+  "island.popup_approvals": "审批时主动弹出",
+  "island.popup_questions": "提问时主动弹出",
+  "island.popup_completions": "完成时主动弹出",
+  "island.settings_load_failed": "无法读取灵动岛设置：%{reason}",
+  "island.settings_save_failed": "无法保存灵动岛设置：%{reason}"
 }

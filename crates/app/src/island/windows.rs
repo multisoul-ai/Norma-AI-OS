@@ -24,6 +24,8 @@ struct WindowManager {
     windows: BTreeMap<u32, (AnyWindowHandle, Entity<IslandView>)>,
     watch: Watch,
     pointer_display: Option<u32>,
+    hidden: bool,
+    _settings_subscription: Option<gpui::Subscription>,
 }
 
 pub(crate) fn install(cx: &mut App) {
@@ -35,11 +37,25 @@ pub(crate) fn install(cx: &mut App) {
     let controller = cx.new(|cx| IslandController::new(model, cx));
     let (tx, rx) = async_channel::unbounded();
     let manager = cx.new(|cx| {
+        let subscription = super::preferences::state(cx).map(|settings| {
+            cx.observe(&settings, |this: &mut WindowManager, settings, cx| {
+                let hidden = settings.read(cx).preferences.hidden;
+                if this.hidden != hidden {
+                    this.hidden = hidden;
+                    this.refresh(cx);
+                    for panel in this.watch.panels.borrow().iter() {
+                        native::set_visible(panel.panel.clone(), !hidden, cx);
+                    }
+                }
+            })
+        });
         let mut manager = WindowManager {
             controller,
             windows: BTreeMap::new(),
             watch: Watch::new(tx),
             pointer_display: None,
+            hidden: super::preferences::current(cx).hidden,
+            _settings_subscription: subscription,
         };
         manager.refresh(cx);
         cx.spawn(async move |this, cx| {
@@ -112,8 +128,10 @@ impl WindowManager {
                         view.sync(window, cx);
                     });
                 });
-            } else if let Err(error) = self.open(id, screen, cx) {
-                tracing::warn!(%error, display = id, "could not open island window");
+            } else if !self.hidden {
+                if let Err(error) = self.open(id, screen, cx) {
+                    tracing::warn!(%error, display = id, "could not open island window");
+                }
             }
         }
         self.pointer(cx);
@@ -179,7 +197,9 @@ impl WindowManager {
     }
 
     fn pointer(&mut self, cx: &mut Context<Self>) {
-        let next = self.watch.pointer_display();
+        let next = (!self.hidden)
+            .then(|| self.watch.pointer_display())
+            .flatten();
         if next == self.pointer_display {
             return;
         }

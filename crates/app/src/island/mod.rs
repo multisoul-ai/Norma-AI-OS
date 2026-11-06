@@ -8,6 +8,7 @@ mod model;
 mod native;
 mod navigation;
 mod pending;
+pub(crate) mod preferences;
 mod question;
 mod question_editor;
 mod remembered;
@@ -16,7 +17,8 @@ mod style;
 mod view;
 mod windows;
 pub(crate) use actions::register_source;
-pub(crate) use windows::{has_workspace_windows, install};
+pub(crate) use preferences::install;
+pub(crate) use windows::has_workspace_windows;
 
 use gpui::{App, AppContext, Entity, Global};
 pub(crate) use model::{IslandModel, IslandProject, IslandWorkspace};

@@ -35,7 +35,8 @@ pub enum IslandTab {
     Running,
     Staff,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct IslandPreferences {
     pub hidden: bool,
     pub approvals: bool,

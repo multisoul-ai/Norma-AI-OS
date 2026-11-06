@@ -22,6 +22,7 @@ pub(super) struct IslandController {
     timer: Option<Task<()>>,
     _subscription: Subscription,
     _completion_subscription: Subscription,
+    _settings_subscription: Option<Subscription>,
 }
 
 impl IslandController {
@@ -39,6 +40,16 @@ impl IslandController {
                     cx,
                 );
             });
+        let settings_subscription = super::preferences::state(cx).map(|settings| {
+            cx.observe(&settings, |this, settings, cx| {
+                let preferences = settings.read(cx).preferences;
+                this.event(
+                    this.displays.active_display().unwrap_or_default(),
+                    IslandEvent::PreferencesChanged(preferences),
+                    cx,
+                );
+            })
+        });
         let mut this = Self {
             displays: IslandDisplays::default(),
             model,
@@ -56,7 +67,13 @@ impl IslandController {
             timer: None,
             _subscription: subscription,
             _completion_subscription: completion_subscription,
+            _settings_subscription: settings_subscription,
         };
+        this.displays.apply(
+            0,
+            IslandEvent::PreferencesChanged(super::preferences::current(cx)),
+            0,
+        );
         this.refresh(cx);
         this
     }

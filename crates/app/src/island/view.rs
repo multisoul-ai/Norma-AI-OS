@@ -102,9 +102,10 @@ impl IslandView {
         {
             panel.layout = presentation.surface;
             let (x, y) = native::pointer();
-            panel
-                .panel
-                .setIgnoresMouseEvents(!panel.layout.contains(x, y));
+            panel.panel.setIgnoresMouseEvents(
+                self.controller.read(cx).displays.state.preferences().hidden
+                    || !panel.layout.contains(x, y),
+            );
         }
         presentation
     }
