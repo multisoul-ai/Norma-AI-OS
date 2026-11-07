@@ -94,6 +94,8 @@ impl From<&str> for LoopError {
     }
 }
 
+const UPLOAD_OBSERVATION_ENDED: &str = "Live upload observation ended";
+
 fn local_call_error(
     result: Result<(), LoopError>,
     requested_close: bool,
@@ -108,6 +110,11 @@ fn local_call_error(
         )
     {
         // A ready control branch can race the transport entering Closing on another thread.
+        None
+    } else if outcome.error.is_some()
+        && matches!(&result, Err(LoopError::Other(m)) if m == UPLOAD_OBSERVATION_ENDED)
+    {
+        // The upload channel only closes because the transport task ended; report its real error.
         None
     } else {
         result.err().map(LoopError::message)
@@ -243,7 +250,7 @@ pub(super) async fn run_audio_loop(
                     }
                 },
                 observation = uploaded.recv() => {
-                    let observation = observation.ok_or("Live upload observation ended")?;
+                    let observation = observation.ok_or(UPLOAD_OBSERVATION_ENDED)?;
                     if observation.input_generation == mute_sequence {
                         uploaded_samples += observation.pcm.bytes.len() as u64 / 2;
                     }
@@ -323,6 +330,9 @@ pub(super) async fn run_audio_loop(
     playback.end();
     control.close();
     let outcome = connection.finish().await;
+    if let Some(error) = &outcome.error {
+        tracing::warn!(target: "norma_voice", %error, reason = ?outcome.reason, "GPT-Live transport ended with error");
+    }
     playback.wait_stopped().await;
     let local_error = local_call_error(result, requested_close, &outcome);
     CallEnd {
