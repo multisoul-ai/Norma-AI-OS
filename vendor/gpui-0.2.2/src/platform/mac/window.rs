@@ -475,17 +475,25 @@ impl MacWindowState {
     }
 
     fn start_display_link(&mut self) {
-        self.stop_display_link();
         unsafe {
             if !self
                 .native_window
                 .occlusionState()
                 .contains(NSWindowOcclusionState::NSWindowOcclusionStateVisible)
             {
+                self.stop_display_link();
                 return;
             }
         }
         let display_id = unsafe { display_id_for_screen(self.native_window.screen()) };
+        if let Some(link) = self.display_link.as_mut() {
+            if link.display_id() == display_id {
+                link.start().log_err();
+                return;
+            }
+        }
+        self.display_link.take();
+        self.display_link_generation = self.display_link_generation.wrapping_add(1);
         if let Some(mut display_link) =
             DisplayLink::new(display_id, self.native_view.as_ptr() as *mut c_void, step).log_err()
         {
@@ -496,23 +504,24 @@ impl MacWindowState {
     }
 
     fn stop_display_link(&mut self) {
-        if self.display_link.take().is_some() {
+        if let Some(link) = self.display_link.as_mut() {
+            link.stop().log_err();
             self.display_link_generation = self.display_link_generation.wrapping_add(1);
         }
     }
 
     /// Pause frame callbacks without discarding the native CVDisplayLink.
     ///
-    /// `DisplayLink::drop` intentionally leaks its CoreVideo object to avoid a
-    /// callback-thread race. Synchronous AppKit paints happen every repaint, so
-    /// dropping here would turn that safety trade-off into an unbounded leak.
+    /// Keep the window subscription across synchronous AppKit paints. The
+    /// generation guard prevents a nested occlusion/screen change from being
+    /// undone when the paint callback returns.
     fn pause_display_link(&mut self) -> Option<u64> {
         if let Some(display_link) = self.display_link.as_mut() {
-            display_link.stop().log_err();
-            Some(self.display_link_generation)
-        } else {
-            None
+            if display_link.pause().log_err() == Some(true) {
+                return Some(self.display_link_generation);
+            }
         }
+        None
     }
 
     fn resume_display_link(&mut self, paused_generation: Option<u64>) {

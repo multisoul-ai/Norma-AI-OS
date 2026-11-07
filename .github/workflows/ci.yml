@@ -38,6 +38,14 @@ jobs:
       - name: Video wallpaper performance guardrail
         run: python3 scripts/check-video-wallpaper-performance.py
 
+      - name: Resource lifecycle guardrails
+        run: |
+          python3 scripts/test-check-resource-lifecycle.py
+          python3 scripts/check-resource-lifecycle.py
+
+      - name: Native DisplayLink lifecycle regression
+        run: python3 scripts/test-display-link-lifecycle.py
+
       - name: SOCKS proxy support
         run: |
           bash scripts/test-socks-proxy-support-portability.sh
@@ -55,4 +63,6 @@ jobs:
         run: cargo fmt --check
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: |
+          cargo lint-resources
+          cargo clippy --workspace --all-targets -- -D warnings

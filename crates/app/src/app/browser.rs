@@ -169,8 +169,14 @@ impl MultisoulApp {
             let _ = std::thread::Builder::new()
                 .name("open_terminal_link_in_default_browser".to_string())
                 .spawn(move || {
-                    if let Err(error) = std::process::Command::new("open").arg(url).spawn() {
-                        tracing::warn!(%error, "failed to open terminal link in default browser");
+                    match std::process::Command::new("open").arg(url).status() {
+                        Ok(status) if !status.success() => {
+                            tracing::warn!(%status, "failed to open terminal link in default browser")
+                        }
+                        Err(error) => {
+                            tracing::warn!(%error, "failed to open terminal link in default browser")
+                        }
+                        Ok(_) => {}
                     }
                 });
         }
