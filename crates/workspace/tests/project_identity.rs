@@ -287,3 +287,22 @@ fn agent_worktree_choices_cover_repository_and_plain_directory() {
         "普通目录不得混入 Git 工作树"
     );
 }
+
+/// 主检出被误设 core.bare=true 时，项目身份不得退化为普通目录（否则已保存项目创建 Agent 会报“标识已更改”）。
+///
+/// 数据构造：一个真实仓库，保存其正常身份后把 core.bare 置为 true。
+/// 执行过程：再次对同一路径调用正式 identify_project。
+/// 预期结果：项目键仍为原 .git，执行目录仍为所选目录。
+#[test]
+fn bare_flag_on_main_checkout_keeps_repository_identity() {
+    let temp = tempfile::tempdir().expect("测试应创建隔离目录");
+    let root = temp.path().join("project");
+    std::fs::create_dir(&root).expect("应创建项目目录");
+    git(&root, &["init", "--initial-branch=main"]);
+    let saved = identify_project(&root).expect("应保存原仓库身份");
+    git(&root, &["config", "core.bare", "true"]);
+
+    let current = identify_project(&root).expect("bare 标记下仍应识别仓库");
+    assert_eq!(current.key, saved.key, "core.bare 误设不得改变项目键");
+    assert_eq!(current.root, saved.root, "core.bare 误设不得改变执行目录");
+}

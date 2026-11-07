@@ -34,15 +34,15 @@ pub fn identify_project(path: &Path) -> io::Result<ProjectIdentity> {
             });
         }
     };
-    let Some(root) = repository.workdir() else {
-        return Ok(ProjectIdentity {
-            key: selected.clone(),
-            root: selected,
-        });
+    // A bare (or mis-flagged core.bare=true) repository has no workdir; keep the
+    // repository key and use the selected directory so saved projects stay valid.
+    let root = match repository.workdir() {
+        Some(workdir) => workdir.canonicalize()?,
+        None => selected,
     };
     Ok(ProjectIdentity {
         key: repository.commondir().canonicalize()?,
-        root: root.canonicalize()?,
+        root,
     })
 }
 

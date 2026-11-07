@@ -8,13 +8,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
+# Under a git hook GIT_INDEX_FILE points at the real index; the temp-repo `git add` below would overwrite it.
+for _name in [name for name in os.environ if name.startswith("GIT_")]:
+    del os.environ[_name]
+
 SPEC = importlib.util.spec_from_file_location(
     "resource_lifecycle", Path(__file__).with_name("check-resource-lifecycle.py")
 )
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
-# Under a pre-commit hook GIT_INDEX_FILE points at the real index; a temp repo must not inherit it.
-TEMP_REPO_ENV = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 
 class ResourceLifecycleTests(unittest.TestCase):
@@ -100,16 +102,21 @@ class ResourceLifecycleTests(unittest.TestCase):
         预期结果：--staged 拒绝旧代码；工作树模式通过修复。
         """
         script = Path(__file__).with_name("check-resource-lifecycle.py").resolve()
+        # pre-commit 会带上外层 GIT_DIR / GIT_INDEX_FILE。不剥掉的话，临时仓库的 git add
+        # 会改写正在提交的 index。
+        env = os.environ.copy()
+        for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_PREFIX", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY"):
+            env.pop(key, None)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", directory], check=True, env=TEMP_REPO_ENV)
+            subprocess.run(["git", "init", "-q", directory], check=True, env=env)
             source = root / "crates/app/src/example.rs"
             source.parent.mkdir(parents=True)
             source.write_text('fn open() { Command::new("open").spawn(); }')
-            subprocess.run(["git", "add", "."], cwd=root, check=True, env=TEMP_REPO_ENV)
+            subprocess.run(["git", "add", "."], cwd=root, check=True, env=env)
             source.write_text('fn open() { Command::new("open").status(); }')
-            staged = subprocess.run(["python3", str(script), "--staged"], cwd=root, capture_output=True, text=True, env=TEMP_REPO_ENV)
-            working = subprocess.run(["python3", str(script)], cwd=root, capture_output=True, text=True, env=TEMP_REPO_ENV)
+            staged = subprocess.run(["python3", str(script), "--staged"], cwd=root, capture_output=True, text=True, env=env)
+            working = subprocess.run(["python3", str(script)], cwd=root, capture_output=True, text=True, env=env)
         self.assertEqual(staged.returncode, 1, "未暂存修复不能让危险 index 通过")
         self.assertIn("open-child", staged.stdout, "拒绝原因必须是未回收 open")
         self.assertEqual(working.returncode, 0, "工作树中已等待的命令必须通过")
