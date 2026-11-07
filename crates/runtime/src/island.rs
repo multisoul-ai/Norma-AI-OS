@@ -1,6 +1,7 @@
 //! GPUI-free dynamic island decisions. Callers provide monotonic milliseconds
 //! and schedule only `deadline_ms()`; an idle island needs no polling timer.
 pub mod approval_rules;
+pub mod bloub;
 pub mod displays;
 pub mod geometry;
 pub mod notification;

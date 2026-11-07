@@ -2,6 +2,7 @@
 """Regression fixtures for the resource-lifecycle source guard."""
 
 import importlib.util
+import os
 import subprocess
 import tempfile
 import unittest
@@ -12,6 +13,8 @@ SPEC = importlib.util.spec_from_file_location(
 )
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
+# Under a pre-commit hook GIT_INDEX_FILE points at the real index; a temp repo must not inherit it.
+TEMP_REPO_ENV = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 
 class ResourceLifecycleTests(unittest.TestCase):
@@ -99,14 +102,14 @@ class ResourceLifecycleTests(unittest.TestCase):
         script = Path(__file__).with_name("check-resource-lifecycle.py").resolve()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", directory], check=True)
+            subprocess.run(["git", "init", "-q", directory], check=True, env=TEMP_REPO_ENV)
             source = root / "crates/app/src/example.rs"
             source.parent.mkdir(parents=True)
             source.write_text('fn open() { Command::new("open").spawn(); }')
-            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            subprocess.run(["git", "add", "."], cwd=root, check=True, env=TEMP_REPO_ENV)
             source.write_text('fn open() { Command::new("open").status(); }')
-            staged = subprocess.run(["python3", str(script), "--staged"], cwd=root, capture_output=True, text=True)
-            working = subprocess.run(["python3", str(script)], cwd=root, capture_output=True, text=True)
+            staged = subprocess.run(["python3", str(script), "--staged"], cwd=root, capture_output=True, text=True, env=TEMP_REPO_ENV)
+            working = subprocess.run(["python3", str(script)], cwd=root, capture_output=True, text=True, env=TEMP_REPO_ENV)
         self.assertEqual(staged.returncode, 1, "未暂存修复不能让危险 index 通过")
         self.assertIn("open-child", staged.stdout, "拒绝原因必须是未回收 open")
         self.assertEqual(working.returncode, 0, "工作树中已等待的命令必须通过")

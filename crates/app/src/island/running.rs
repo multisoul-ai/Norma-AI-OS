@@ -6,6 +6,7 @@ use super::{
 };
 use gpui::{div, prelude::*, px, rgb, AnyElement, Context};
 use norma::mobile::{RunOverviewAgent, RunOverviewAttentionKind};
+use runtime::island::bloub::Mood;
 use ui::{
     component::{
         button::{Button, ButtonCustomVariant, ButtonVariants},
@@ -105,14 +106,9 @@ impl IslandView {
                             .flex()
                             .items_center()
                             .gap(px(8.))
-                            .child(
-                                div().flex().children(
-                                    waiting
-                                        .iter()
-                                        .take(4)
-                                        .map(|row| style::avatar(&row.name, &row.profile, 16.)),
-                                ),
-                            )
+                            .child(div().flex().children(waiting.iter().take(4).map(|row| {
+                                style::avatar_mood(&row.name, &row.profile, 16., Mood::Waiting)
+                            })))
                             .child(
                                 div()
                                     .flex_1()
@@ -283,7 +279,18 @@ impl IslandView {
             .flex()
             .items_start()
             .gap(px(10.))
-            .child(style::avatar(&row.name, &row.profile, 22.))
+            .child(style::avatar_mood(
+                &row.name,
+                &row.profile,
+                22.,
+                if done {
+                    Mood::Responded
+                } else if running {
+                    Mood::Working
+                } else {
+                    Mood::Waiting
+                },
+            ))
             .child(main)
             .child(style::chip(
                 text(if done {

@@ -4,6 +4,7 @@ use super::{
     IslandWorkspace,
 };
 use gpui::{div, prelude::*, px, rgb, rgba, svg, Context, Div, FontWeight};
+use runtime::island::bloub::Mood;
 use runtime::island::{geometry::IslandLayout, IslandEvent, IslandMode, IslandTab};
 use ui::{
     component::button::{Button, ButtonCustomVariant, ButtonVariants},
@@ -161,7 +162,7 @@ impl IslandView {
                     .enumerate()
                 {
                     stack = stack.child(
-                        style::avatar(&row.name, &row.profile, 16.)
+                        style::avatar_mood(&row.name, &row.profile, 16., Mood::Working)
                             .border_2()
                             .border_color(rgb(0))
                             .when(index > 0, |s| s.ml(px(-6.))),

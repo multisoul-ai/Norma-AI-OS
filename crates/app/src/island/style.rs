@@ -2,6 +2,7 @@
 use gpui::{
     div, prelude::*, px, rgb, rgba, AnyView, App, Context, Div, FontWeight, SharedString, Window,
 };
+use runtime::island::bloub::Mood;
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
     Sizable,
@@ -73,7 +74,7 @@ pub(super) fn card() -> Div {
         .gap(px(10.))
 }
 
-pub(super) fn avatar(name: &str, provider: &str, size: f32) -> Div {
+pub(super) fn avatar_mood(name: &str, provider: &str, size: f32, mood: Mood) -> Div {
     let color = match provider.to_ascii_lowercase().as_str() {
         "claude" => 0xe08a66,
         "codex" => 0x6cc4b4,
@@ -85,29 +86,7 @@ pub(super) fn avatar(name: &str, provider: &str, size: f32) -> Div {
             .fold(0usize, |sum, b| sum.wrapping_add(b as usize))
             % 5],
     };
-    div()
-        .size(px(size))
-        .flex_none()
-        .rounded(px(size / 2.))
-        .bg(rgb(color))
-        .text_color(rgb(0x0b0d10))
-        .text_size(px(if size <= 16. {
-            9.
-        } else if size <= 22. {
-            11.
-        } else {
-            13.
-        }))
-        .font_weight(FontWeight::SEMIBOLD)
-        .flex()
-        .items_center()
-        .justify_center()
-        .child(
-            name.chars()
-                .next()
-                .map(|c| c.to_string())
-                .unwrap_or_default(),
-        )
+    super::bloub_view::bloub(name, color, size, mood)
 }
 
 pub(super) fn chip(label: impl Into<SharedString>, color: u32) -> Div {
@@ -137,7 +116,7 @@ pub(super) fn card_heading(
         .flex()
         .items_center()
         .gap(px(9.))
-        .child(avatar(name, provider, 30.))
+        .child(avatar_mood(name, provider, 30., Mood::Waiting))
         .child(
             div()
                 .flex_1()

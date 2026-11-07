@@ -1,6 +1,7 @@
 //! App-wide activity cache shared by every island window.
 mod actions;
 mod artifacts;
+mod bloub_view;
 mod chrome;
 mod controller;
 mod fallback;
