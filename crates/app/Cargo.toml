@@ -119,7 +119,7 @@ objc2-web-kit = { version = "0.3", default-features = false, features = [
     "WKWebViewConfiguration",
     "WKWebsiteDataStore",
 ] }
-objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView", "NSWindow", "NSEvent", "NSGraphicsContext", "NSResponder", "NSWorkspace", "NSAccessibility"] }
+objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView", "NSWindow", "NSEvent", "NSGraphicsContext", "NSResponder", "NSWorkspace", "NSAccessibility", "NSColor", "objc2-core-graphics"] }
 objc2-avf-audio = { version = "0.3.2", features = [
     "AVAudioBuffer",
     "AVAudioEngine",
@@ -131,7 +131,7 @@ objc2-avf-audio = { version = "0.3.2", features = [
     "AVAudioTypes",
     "block2",
 ] }
-objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
+objc2-quartz-core = { version = "0.3", features = ["CALayer", "CAAnimation", "CAMediaTiming", "CAMediaTimingFunction", "CATransaction", "objc2-core-graphics"] }
 screencapturekit = "0.2.8"
 objc2-av-foundation = { version = "0.3", features = [
     "AVAsset",

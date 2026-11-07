@@ -12,6 +12,17 @@ pub struct IslandTransition {
     immediate: bool,
 }
 
+/// One-shot shape animation for the native compositor: it runs without any per-frame callback.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Morph {
+    /// The visible black shape when the animation starts (continues from an interrupted one).
+    pub from: IslandLayout,
+    pub to: IslandLayout,
+    pub duration_ms: u64,
+    pub fade_only: bool,
+    pub opacity_from: f32,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct IslandPresentation {
     pub surface: IslandLayout,
@@ -45,9 +56,16 @@ impl IslandTransition {
         }
     }
 
-    pub fn retarget(&mut self, target: IslandLayout, now: u64, reduce: bool, immediate: bool) {
+    /// Returns the animation plan for the native layer, `None` when nothing needs to animate.
+    pub fn retarget(
+        &mut self,
+        target: IslandLayout,
+        now: u64,
+        reduce: bool,
+        immediate: bool,
+    ) -> Option<Morph> {
         if target == self.target && !immediate {
-            return;
+            return None;
         }
         let current = self.sample(now);
         // Screen changes are placement, not interaction: never fly across displays.
@@ -77,10 +95,39 @@ impl IslandTransition {
         } else {
             union(current.window, target.frame)
         };
+        (self.duration > 0).then_some(Morph {
+            from: current.surface,
+            to: target,
+            duration_ms: self.duration,
+            fade_only: reduce,
+            opacity_from: self.opacity_from,
+        })
     }
 
-    pub fn retarget_content(&mut self, target: IslandLayout, now: u64, reduce: bool) {
-        self.retarget(target, now, reduce, self.immediate);
+    pub fn retarget_content(
+        &mut self,
+        target: IslandLayout,
+        now: u64,
+        reduce: bool,
+    ) -> Option<Morph> {
+        self.retarget(target, now, reduce, self.immediate)
+    }
+
+    /// Native window frame reserved while a morph plays (both ends fit).
+    pub fn envelope(&self) -> IslandFrame {
+        self.envelope
+    }
+
+    /// Layout the content is rendered in. While a morph is held the larger end is used, so the
+    /// compositor only has to reveal or hide it; afterwards it is the target.
+    pub fn content(&self, held: bool) -> IslandLayout {
+        let larger = self.from.frame.height > self.target.frame.height
+            || self.from.frame.width > self.target.frame.width;
+        if held && self.duration > 0 && larger && !self.fade_only {
+            self.from
+        } else {
+            self.target
+        }
     }
 
     pub fn sample(&self, now: u64) -> IslandPresentation {

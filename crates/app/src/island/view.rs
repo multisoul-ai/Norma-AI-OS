@@ -6,9 +6,13 @@ use super::{
 use gpui::{
     div, prelude::*, px, rgb, Context, Entity, FocusHandle, SharedString, Subscription, Window,
 };
-use runtime::island::transition::{IslandPresentation, IslandTransition};
+use runtime::island::transition::{IslandTransition, Morph};
 use runtime::island::{geometry::IslandScreen, IslandEvent, IslandMode, IslandTab};
-use std::{cell::RefCell, rc::Rc, time::Instant};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    time::{Duration, Instant},
+};
 use ui::component::button::Button;
 use ui::i18n::text;
 
@@ -22,6 +26,11 @@ pub(super) struct IslandView {
     epoch: Instant,
     instant_revision: u64,
     body_height: f64,
+    /// While the compositor shrinks the shape, the previous (larger) content stays rendered.
+    shown_mode: Option<IslandMode>,
+    last_mode: IslandMode,
+    /// Pending end-of-morph work (release the transparent window area, show the final content).
+    settle: Option<gpui::Task<()>>,
     pub(super) staff_input: Option<Entity<ui::component::input::InputState>>,
     pub(super) caption_tick: Option<gpui::Task<()>>,
     pub(super) _staff_subscription: Option<Subscription>,
@@ -49,6 +58,9 @@ impl IslandView {
             epoch: Instant::now(),
             instant_revision: 0,
             body_height: 180.,
+            shown_mode: None,
+            last_mode: IslandMode::Compact,
+            settle: None,
             staff_input: None,
             caption_tick: None,
             _staff_subscription: None,
@@ -78,42 +90,101 @@ impl IslandView {
             || crate::motion::util::reduce_motion_from_env_value(std::env::var_os(
                 "MULTISOUL_REDUCE_MOTION",
             ));
-        if measured && instant_revision == self.instant_revision {
-            self.transition.retarget_content(layout, now, reduce);
+        let morph = if measured && instant_revision == self.instant_revision {
+            self.transition.retarget_content(layout, now, reduce)
         } else {
             self.transition.retarget(
                 layout,
                 now,
                 reduce,
                 instant_revision != self.instant_revision,
-            );
-        }
+            )
+        };
         self.instant_revision = instant_revision;
-        self.presentation(window, cx);
+        let mode = self.controller.read(cx).displays.mode_on(self.display);
+        self.hold_content(morph, window, cx);
+        self.push_shape(morph, now, window, cx);
+        self.last_mode = mode;
+        self.update_hit_region(cx);
         cx.notify();
     }
 
-    fn presentation(&self, window: &mut Window, cx: &gpui::App) -> IslandPresentation {
-        let presentation = self
-            .transition
-            .sample(self.epoch.elapsed().as_millis() as u64);
-        let mut native_layout = presentation.surface;
-        native_layout.frame = presentation.window;
-        native::resize(window, native_layout, cx);
+    /// A shrinking shape keeps the larger content until it has finished; growing, immediate and
+    /// unchanged targets never hold. `settle` runs once the compositor is done.
+    fn hold_content(&mut self, morph: Option<Morph>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(morph) = morph else {
+            // Same target while a morph is running keeps the hold; anything else clears it.
+            if self.settle.is_some() && self.transition.sample(self.now_ms()).animating {
+                return;
+            }
+            self.settle = None;
+            self.shown_mode = None;
+            return;
+        };
+        let shrinking = !morph.fade_only
+            && (morph.to.frame.height < morph.from.frame.height
+                || morph.to.frame.width < morph.from.frame.width);
+        self.shown_mode = shrinking.then(|| self.shown_mode.unwrap_or(self.last_mode));
+        let wait = Duration::from_millis(morph.duration_ms + 24);
+        self.settle = Some(cx.spawn_in(window, async move |view, cx| {
+            cx.background_executor().timer(wait).await;
+            let _ = view.update_in(cx, |view, window, cx| view.settle(window, cx));
+        }));
+    }
+
+    fn settle(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.settle = None;
+        self.shown_mode = None;
+        self.sync_layout(false, window, cx);
+    }
+
+    /// Hands the compositor the window frame and shape. During a morph the window keeps room for
+    /// both ends; the animation itself is a one-shot layer animation, not a per-frame callback.
+    fn push_shape(
+        &self,
+        morph: Option<Morph>,
+        now: u64,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if morph.is_none() && self.settle.is_some() {
+            return;
+        }
+        let held = self.settle.is_some();
+        native::apply_shape(
+            window,
+            native::Shape {
+                window: if held {
+                    self.transition.envelope()
+                } else {
+                    self.transition.sample(now).window
+                },
+                surface: self.transition.sample(now).surface,
+                morph,
+            },
+            cx,
+        );
+    }
+
+    fn now_ms(&self) -> u64 {
+        self.epoch.elapsed().as_millis() as u64
+    }
+
+    fn update_hit_region(&self, cx: &gpui::App) {
+        let layout = self.transition.content(self.settle.is_some());
         if let Some(panel) = self
             .panels
             .borrow_mut()
             .iter_mut()
             .find(|p| p.display == self.display)
         {
-            panel.layout = presentation.surface;
+            panel.layout = layout;
             let (x, y) = native::pointer();
             panel.panel.setIgnoresMouseEvents(
                 self.controller.read(cx).displays.state.preferences().hidden
                     || !panel.layout.contains(x, y),
             );
         }
-        presentation
     }
 
     pub fn focus_header(&self, window: &mut Window) {
@@ -130,18 +201,22 @@ impl IslandView {
 impl Render for IslandView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.mount_questions(window, cx);
-        let presentation = self.presentation(window, cx);
-        if presentation.animating {
-            window.request_animation_frame();
-        }
+        let held = self.settle.is_some();
         let controller = self.controller.read(cx);
-        let mode = controller.displays.mode_on(self.display);
+        let mode = self
+            .shown_mode
+            .unwrap_or_else(|| controller.displays.mode_on(self.display));
         let confirmation =
             mode == IslandMode::Activity && controller.displays.state.activity_id().is_none();
         let tab = controller.displays.state.tab();
         let workspaces = controller.visible_workspaces(cx);
         let (running, pending) = counts(&workspaces);
-        let layout = presentation.surface;
+        let layout = self.transition.content(held);
+        let inset = if held {
+            layout.radius.ceil().max(16.)
+        } else {
+            16.
+        };
         let message = controller.message.clone();
         let completion_label = controller.completion_label.clone().unwrap_or_default();
         let wrap = div().size_full().flex().justify_center();
@@ -152,7 +227,6 @@ impl Render for IslandView {
             .h(px(layout.frame.height as f32))
             .flex_none()
             .overflow_hidden()
-            .opacity(presentation.opacity)
             .flex()
             .flex_col()
             .bg(rgb(0x000000))
@@ -183,7 +257,7 @@ impl Render for IslandView {
             return wrap.child(root);
         }
         if mode == IslandMode::Expanded {
-            root = root.child(self.tabs(running, pending, presentation.content_inset(), cx));
+            root = root.child(self.tabs(running, pending, inset, cx));
         }
         let mut body = div()
             .w(px(self.screen.layout(mode).frame.width as f32))
@@ -316,7 +390,7 @@ impl Render for IslandView {
             .flex_1()
             .min_h(px(0.))
             // The bottom inset keeps opaque scrolling children inside the curved silhouette.
-            .mb(px(presentation.content_inset() as f32))
+            .mb(px(inset as f32))
             .child(body)
             .on_children_prepainted(move |bounds, window, cx| {
                 let Some(bounds) = bounds.first() else { return };
