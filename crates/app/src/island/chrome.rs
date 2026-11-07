@@ -162,10 +162,10 @@ impl IslandView {
                     .enumerate()
                 {
                     stack = stack.child(
-                        style::avatar_mood(&row.name, &row.profile, 16., Mood::Working)
+                        style::avatar_mood(&row.name, &row.profile, 26., Mood::Working)
                             .border_2()
                             .border_color(rgb(0))
-                            .when(index > 0, |s| s.ml(px(-6.))),
+                            .when(index > 0, |s| s.ml(px(-8.))),
                     );
                 }
                 left = left.child(stack);

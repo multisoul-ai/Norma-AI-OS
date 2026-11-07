@@ -116,7 +116,7 @@ pub(super) fn card_heading(
         .flex()
         .items_center()
         .gap(px(9.))
-        .child(avatar_mood(name, provider, 30., Mood::Waiting))
+        .child(avatar_mood(name, provider, 40., Mood::Waiting))
         .child(
             div()
                 .flex_1()
