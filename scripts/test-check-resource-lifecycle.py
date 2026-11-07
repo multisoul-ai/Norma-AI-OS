@@ -2,6 +2,7 @@
 """Regression fixtures for the resource-lifecycle source guard."""
 
 import importlib.util
+import os
 import subprocess
 import tempfile
 import unittest
@@ -12,6 +13,40 @@ SPEC = importlib.util.spec_from_file_location(
 )
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
+
+
+def git_subprocess_env():
+    """丢掉 hook 注入的 GIT_*，避免临时仓库的 git add 改写父索引。"""
+    return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+
+
+def run_open_index_fixture():
+    """临时仓库：index 里是未等待的 open，工作树已改成 status。"""
+    script = Path(__file__).with_name("check-resource-lifecycle.py").resolve()
+    env = git_subprocess_env()
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        subprocess.run(["git", "init", "-q", directory], check=True, env=env)
+        source = root / "crates/app/src/example.rs"
+        source.parent.mkdir(parents=True)
+        source.write_text('fn open() { Command::new("open").spawn(); }')
+        subprocess.run(["git", "add", "."], cwd=root, check=True, env=env)
+        source.write_text('fn open() { Command::new("open").status(); }')
+        staged = subprocess.run(
+            ["python3", str(script), "--staged"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        working = subprocess.run(
+            ["python3", str(script)],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+    return staged, working
 
 
 class ResourceLifecycleTests(unittest.TestCase):
@@ -96,21 +131,45 @@ class ResourceLifecycleTests(unittest.TestCase):
         执行过程：临时 git 仓库暂存旧代码 → 修改工作树 → 分别运行两种模式。
         预期结果：--staged 拒绝旧代码；工作树模式通过修复。
         """
-        script = Path(__file__).with_name("check-resource-lifecycle.py").resolve()
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            subprocess.run(["git", "init", "-q", directory], check=True)
-            source = root / "crates/app/src/example.rs"
-            source.parent.mkdir(parents=True)
-            source.write_text('fn open() { Command::new("open").spawn(); }')
-            subprocess.run(["git", "add", "."], cwd=root, check=True)
-            source.write_text('fn open() { Command::new("open").status(); }')
-            staged = subprocess.run(["python3", str(script), "--staged"], cwd=root, capture_output=True, text=True)
-            working = subprocess.run(["python3", str(script)], cwd=root, capture_output=True, text=True)
+        staged, working = run_open_index_fixture()
         self.assertEqual(staged.returncode, 1, "未暂存修复不能让危险 index 通过")
         self.assertIn("open-child", staged.stdout, "拒绝原因必须是未回收 open")
         self.assertEqual(working.returncode, 0, "工作树中已等待的命令必须通过")
         self.assertNotIn("open-child", working.stdout, "已修复工作树不能保留旧告警")
+
+    def test_hook_environment_cannot_replace_parent_index(self):
+        """pre-commit 注入的 GIT_DIR 不能让临时夹具改写父索引。
+
+        数据构造：父仓库已暂存 a.txt 与 b.txt，环境把 GIT_DIR / GIT_INDEX_FILE 指过去。
+        执行过程：在该环境污染下跑「临时仓库暂存 example.rs」夹具。
+        预期结果：父索引仍只有 a.txt 与 b.txt，不出现 example.rs。
+        """
+        clean = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        with tempfile.TemporaryDirectory() as parent_dir:
+            parent = Path(parent_dir)
+            subprocess.run(["git", "init", "-q", parent_dir], check=True, env=clean)
+            (parent / "a.txt").write_text("a\n")
+            (parent / "b.txt").write_text("b\n")
+            subprocess.run(["git", "add", "."], cwd=parent, check=True, env=clean)
+            poisoned = os.environ.copy()
+            poisoned["GIT_DIR"] = str(parent / ".git")
+            poisoned["GIT_INDEX_FILE"] = str(parent / ".git" / "index")
+            previous = os.environ.copy()
+            os.environ.clear()
+            os.environ.update(poisoned)
+            try:
+                run_open_index_fixture()
+            finally:
+                os.environ.clear()
+                os.environ.update(previous)
+            listed = subprocess.check_output(
+                ["git", "ls-files"], cwd=parent, env=clean, text=True
+            )
+        self.assertEqual(
+            listed.splitlines(),
+            ["a.txt", "b.txt"],
+            "夹具必须留下父索引里的 a.txt 与 b.txt，不能收成 example.rs",
+        )
 
     def test_open_children_must_be_waited(self):
         """系统打开命令不得丢弃 Child。
