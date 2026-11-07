@@ -16,6 +16,7 @@ fn report_requests_ask_the_brain_for_a_reply_report() {
     let mut router = Router::new(RouterConfig::default(), now);
     let actions = router.push(
         BrainEventKind::ReportRequested {
+            request_id: 7,
             overview: "Alan 完成了登录".into(),
         },
         now,

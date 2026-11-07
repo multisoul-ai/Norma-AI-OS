@@ -204,3 +204,25 @@ fn clear_remembered_removes_grants_from_every_island_database() {
         "设置页应显示清除条数"
     );
 }
+
+/// 场景：系统通知授权被拒时，隐藏岛的用户在设置页要看到说明；授权通过时不打扰。
+/// 数据：授权结果 granted=false / true；以及授权请求本身出错。
+/// 预期：被拒与出错各返回一条本地化提示（被拒指向系统设置），通过返回 None。
+#[test]
+fn denied_notification_permission_is_reported_in_settings() {
+    assert_eq!(
+        notification_permission_notice(true, false),
+        None,
+        "授权通过不显示提示"
+    );
+    assert_eq!(
+        notification_permission_notice(false, false),
+        Some(LocalizedText::new("island.notify_permission_denied")),
+        "被拒必须提示去系统设置开启，否则隐藏岛会让审批和提问完全不可见"
+    );
+    assert_eq!(
+        notification_permission_notice(false, true),
+        Some(LocalizedText::new("island.notify_permission_denied")),
+        "授权请求出错与被拒一样不能静默"
+    );
+}

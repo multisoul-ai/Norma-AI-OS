@@ -102,13 +102,13 @@ fn empty_workspaces_produce_no_overview_entries() {
 #[test]
 fn replies_land_in_the_chat_and_only_requested_reports_get_captions() {
     let mut state = StaffState::default();
-    assert!(state.begin_report(), "首次汇报请求应被接受");
+    let request = state.begin_report().expect("首次汇报请求应被接受");
     let first = state
-        .deliver_reply("Alan 完成了登录。Bella 在测试。")
+        .deliver_reply("Alan 完成了登录。Bella 在测试。", Some(request))
         .expect("回复入对话");
     assert!(first.speak, "汇报请求后的回复必须朗读");
     assert_eq!(state.caption_sentences().len(), 2, "应按句生成字幕");
-    let second = state.deliver_reply("另一件事").expect("回复入对话");
+    let second = state.deliver_reply("另一件事", None).expect("回复入对话");
     assert!(!second.speak);
     assert!(
         state.caption_sentences().is_empty(),
@@ -123,9 +123,9 @@ fn replies_land_in_the_chat_and_only_requested_reports_get_captions() {
 #[test]
 fn captions_only_stay_when_speech_was_actually_queued() {
     let mut state = StaffState::default();
-    state.begin_report();
+    let request = state.begin_report().expect("请求");
     state
-        .deliver_reply("Alan 完成了登录。")
+        .deliver_reply("Alan 完成了登录。", Some(request))
         .expect("回复入对话");
     state.end_speech(true);
     assert!(
@@ -133,8 +133,10 @@ fn captions_only_stay_when_speech_was_actually_queued() {
         "已排队朗读应保留字幕"
     );
     assert!(state.notice.is_none());
-    state.begin_report();
-    state.deliver_reply("Bella 在测试。").expect("回复入对话");
+    let request = state.begin_report().expect("请求");
+    state
+        .deliver_reply("Bella 在测试。", Some(request))
+        .expect("回复入对话");
     state.end_speech(false);
     assert!(state.caption_sentences().is_empty(), "未能朗读不得显示字幕");
     assert_eq!(state.chat.lines().count(), 2, "文字回复仍保留");

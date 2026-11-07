@@ -86,8 +86,8 @@ public enum IslandStaff {
             guard log.contains("【用户】你好幕僚"), log.contains("--kind reply") else {
                 throw E2EError.product("用户请求提示缺少原文或 --kind reply：\(log)")
             }
-            guard log.contains("【用户要求汇报】"), log.contains("Island staff/E2E Project") else {
-                throw E2EError.product("汇报提示缺少有界概览的来源标注：\(log)")
+            guard log.contains("【用户要求汇报】"), log.contains("Island staff/E2E Project"), log.contains("--reply-to ") else {
+                throw E2EError.product("汇报提示缺少有界概览的来源标注或请求编号 --reply-to：\(log)")
             }
             return "提示含原文、reply 指令与带来源的有界概览"
         }

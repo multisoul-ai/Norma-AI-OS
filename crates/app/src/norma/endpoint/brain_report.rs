@@ -19,6 +19,7 @@ pub(super) fn dispatch(
         text,
         priority,
         kind,
+        reply_to,
         sources,
     } = *op
     else {
@@ -79,7 +80,9 @@ pub(super) fn dispatch(
                 .update(|cx| {
                     crate::island::staff::state(cx).update(cx, |staff, cx| {
                         cx.notify();
-                        staff.deliver_reply(&text).is_some_and(|reply| reply.speak)
+                        staff
+                            .deliver_reply(&text, reply_to)
+                            .is_some_and(|reply| reply.speak)
                     })
                 })
                 .unwrap_or(false);

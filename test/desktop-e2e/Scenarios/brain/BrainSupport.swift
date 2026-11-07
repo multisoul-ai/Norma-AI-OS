@@ -95,16 +95,6 @@ enum BrainSupport {
         }
     }
 
-    /// ⌘⇧E 打开运行概览；快捷键偶尔被刚结束的输入吞掉，没看到“运行概览”就再按，最多三次。
-    static func openOverview(_ session: Session) async throws {
-        for _ in 0..<3 {
-            try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
-            try await Task.sleep(nanoseconds: 1_200_000_000)
-            let frame = try await session.capture()
-            if frame.contains("运行概览") || frame.contains("Run Overview") { return }
-        }
-    }
-
     /// 功能引导会盖住画面：点“跳过引导”；识别不到按钮时退回 Esc。
     static func dismissGuide(_ session: Session) async throws {
         for _ in 0..<4 {

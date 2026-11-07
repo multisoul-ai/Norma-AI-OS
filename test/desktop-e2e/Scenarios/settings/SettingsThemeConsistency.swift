@@ -58,43 +58,24 @@ public enum SettingsThemeConsistency {
                 try session.save(home, "\(id)-home.png")
                 return "同一进程切换主题，首页与保存值一致"
             }
-            try await session.step("\(id)：双抽屉及画布外框") {
+            try await session.step("\(id)：右抽屉及画布外框") {
                 try await session.click(matching: ["打开", "Open"], pick: .bottom)
                 _ = try await session.wait(Expectation(allOf: ["E2E Project"]))
                 var frame = try await settled(session)
-                if !frame.contains("运行概览") {
-                    try await session.click(local: CGPoint(x: 98, y: 26), on: frame)
-                }
-                frame = try await settled(session)
                 if !frame.contains("更多工具") {
                     try await session.click(local: CGPoint(x: frame.windowFrame.width - 28, y: 26), on: frame)
                 }
-                _ = try await session.wait(Expectation(allOf: ["运行概览", "更多工具", "E2E Project"]))
+                _ = try await session.wait(Expectation(allOf: ["更多工具", "E2E Project"]))
                 frame = try await settled(session)
                 try assertSurfacePolarity(frame, light: light)
                 try session.save(frame, "\(id)-drawers.png")
                 try await session.click(matching: ["E2E Project"], pick: .bottom)
                 frame = try await settled(session)
                 try session.save(frame, "\(id)-project.png")
-                return "左右抽屉保持展开，项目外框仍可见；两侧背景明暗符合所选主题"
+                return "右抽屉保持展开，项目外框仍可见；抽屉背景明暗符合所选主题"
             }
-            try await session.step("\(id)：选中、焦点、悬停、按下与禁用状态") {
-                try await session.click(matching: ["待办"], pick: .left)
+            try await session.step("\(id)：右栏输入焦点") {
                 var frame = try await settled(session)
-                try session.save(frame, "\(id)-overview-selected.png")
-                guard let tab = frame.pick(["已指派"], .left) else {
-                    throw E2EError.product("缺少已指派分段：\(frame.summary)")
-                }
-                try await session.hover(local: tab.center, on: frame, dwell: 120_000_000)
-                try session.save(try await session.capture(), "\(id)-tab-hover.png")
-                frame = try await session.capture()
-                guard let target = frame.pick(["已指派"], .left) else { throw E2EError.product("已指派分段消失") }
-                try await session.press(local: target.center, on: frame) {
-                    try session.save(try await session.capture(), "\(id)-tab-pressed.png")
-                }
-                _ = try await session.wait(Expectation(allOf: ["已指派"]))
-                // 空输入的发送按钮保持禁用；点击地址栏验证组件前景和焦点随主题更新。
-                frame = try await session.capture()
                 guard let address = frame.pick(["搜索或输入网址"], .right) else { throw E2EError.product("右栏缺少地址输入") }
                 try await session.click(local: address.center, on: frame)
                 try await session.type("theme-check")
@@ -102,7 +83,7 @@ public enum SettingsThemeConsistency {
                 try session.save(frame, "\(id)-input-focus.png")
                 try await session.selectAll()
                 try await session.shortcut(key: 51, modifiers: [])
-                return "已指派分段选中，悬停/按下均有截图；输入未提交外部请求"
+                return "地址输入获得焦点并随主题着色；输入未提交外部请求"
             }
         }
         try await session.step("文件工作台：深色主题切换后编辑并保存") {
@@ -170,8 +151,8 @@ public enum SettingsThemeConsistency {
 
     private static func assertSurfacePolarity(_ frame: Frame, light: Bool) throws {
         let bitmap = NSBitmapImageRep(cgImage: frame.image)
-        // 面板下部靠边的空白取样，避开文字、滚动条、输入框及画布内容；截图可能是 2×。
-        for x in [0.012, 0.986] {
+        // 左抽屉已由岛取代，只取右抽屉靠边的空白；面板下部靠边的空白取样，避开文字、滚动条、输入框及画布内容；截图可能是 2×。
+        for x in [0.986] {
             let px = Int(Double(bitmap.pixelsWide) * x)
             let py = Int(Double(bitmap.pixelsHigh) * 0.65)
             guard let color = bitmap.colorAt(x: px, y: py)?.usingColorSpace(.deviceRGB) else {

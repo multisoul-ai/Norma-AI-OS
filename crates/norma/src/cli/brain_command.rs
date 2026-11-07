@@ -54,6 +54,9 @@ enum BrainCliCommand {
         /// reply：对用户请求的回复，岛内对话必显；status（默认）：主动进展播报。
         #[arg(long, value_enum, default_value_t = KindValue::Status)]
         kind: KindValue,
+        /// 汇报请求里给出的请求编号；带上它，这条回复才会被朗读。
+        #[arg(long)]
+        reply_to: Option<u64>,
         /// 宿主返回的来源 JSON 引用，可重复指定；不填表示来源关联不可用。
         #[arg(long = "context-ref", value_parser = parse_context_ref)]
         sources: Vec<ContextRef>,
@@ -164,8 +167,10 @@ impl BrainArgs {
                 text,
                 priority,
                 kind,
+                reply_to,
                 sources,
             } => BrainOp::Report {
+                reply_to,
                 text,
                 sources,
                 kind: match kind {

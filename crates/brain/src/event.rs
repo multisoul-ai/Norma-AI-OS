@@ -77,6 +77,8 @@ pub enum BrainEventKind {
     },
     /// 岛上的“汇报”按钮：宿主已捕获有界的跨工作空间概览（数据，不是指令），要求大脑总结后以 reply 回传。
     ReportRequested {
+        /// 岛上这次汇报请求的编号；回复要用 `--reply-to` 带回，才会被朗读。
+        request_id: u64,
         overview: String,
     },
     ContextRequest {

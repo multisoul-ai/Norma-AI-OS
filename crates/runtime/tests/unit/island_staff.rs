@@ -13,15 +13,17 @@ fn replies_are_ordered_and_a_report_request_forces_speech_exactly_once() {
     let mut chat = StaffChat::default();
     assert!(chat.push_user("   ").is_none(), "空白不应入对话");
     chat.push_user(" 补文档 ").expect("有效输入应入对话");
-    assert!(chat.request_report(0), "第一次汇报请求应被接受");
-    assert!(!chat.request_report(0), "等待回复期间不得叠加请求");
+    let first = chat.request_report(0).expect("第一次汇报请求应被接受");
+    assert!(chat.request_report(0).is_none(), "等待回复期间不得叠加请求");
     let first = chat
-        .push_reply("Alan 完成了登录。", 0)
+        .push_reply("Alan 完成了登录。", Some(first), 0)
         .expect("非空回复应入对话");
     assert!(first.speak, "汇报请求后的回复必须朗读");
-    let second = chat.push_reply("还有一件事", 0).expect("非空回复应入对话");
+    let second = chat
+        .push_reply("还有一件事", None, 0)
+        .expect("非空回复应入对话");
     assert!(!second.speak, "请求已消耗，后续回复不强制朗读");
-    assert!(chat.push_reply("  ", 0).is_none(), "空回复不入对话");
+    assert!(chat.push_reply("  ", None, 0).is_none(), "空回复不入对话");
     let roles: Vec<_> = chat.lines().map(|line| line.role).collect();
     assert_eq!(roles, [StaffRole::User, StaffRole::Staff, StaffRole::Staff]);
     assert_eq!(
@@ -126,11 +128,41 @@ fn elapsed_time_is_bucketed_into_now_minutes_and_hours() {
 #[test]
 fn an_unanswered_report_request_expires() {
     let mut chat = StaffChat::default();
-    assert!(chat.request_report(0));
+    assert!(chat.request_report(0).is_some());
     assert!(chat.report_pending(REPORT_TTL_MS - 1));
-    assert!(!chat.request_report(REPORT_TTL_MS - 1), "未过期不得叠加");
+    assert!(
+        chat.request_report(REPORT_TTL_MS - 1).is_none(),
+        "未过期不得叠加"
+    );
     assert!(!chat.report_pending(REPORT_TTL_MS), "到期后不再等待");
-    assert!(chat.request_report(REPORT_TTL_MS), "到期后可以重新请求");
-    let reply = chat.push_reply("迟到的回复", 0).expect("回复入对话");
+    let renewed = chat
+        .request_report(REPORT_TTL_MS)
+        .expect("到期后可以重新请求");
+    let reply = chat
+        .push_reply("迟到的回复", Some(renewed), REPORT_TTL_MS)
+        .expect("回复入对话");
     assert!(reply.speak, "新请求下的回复应朗读");
+}
+
+/// 场景：汇报等待期间插入的无关回复，不能抢走朗读标记；只有答这次请求的回复才朗读。
+/// 数据：t=0 发起汇报（得到请求 id）；先到一条不带 id 的普通回复，再到带该 id 的汇报回复；
+/// 另有一条带过期 id 的回复。
+/// 预期：普通回复 speak=false 且请求仍在等待；带正确 id 的回复 speak=true 并消耗请求；
+/// 带错误 id 的回复不朗读。
+#[test]
+fn only_the_reply_to_a_report_request_gets_spoken() {
+    let mut chat = StaffChat::default();
+    let id = chat.request_report(0).expect("首次请求应返回请求 id");
+    let chatter = chat.push_reply("顺便说一句", None, 10).expect("回复入对话");
+    assert!(!chatter.speak, "无关回复不得抢走朗读标记");
+    assert!(chat.report_pending(10), "无关回复不能消耗请求");
+    let wrong = chat
+        .push_reply("别的请求的回复", Some(id + 1), 20)
+        .expect("回复入对话");
+    assert!(!wrong.speak, "错误 id 不朗读");
+    let answer = chat
+        .push_reply("汇报结果", Some(id), 30)
+        .expect("回复入对话");
+    assert!(answer.speak, "带正确 id 的回复才朗读");
+    assert!(!chat.report_pending(30), "请求已被消耗");
 }

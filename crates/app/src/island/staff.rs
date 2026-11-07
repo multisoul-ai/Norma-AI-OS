@@ -41,7 +41,8 @@ pub(crate) fn state(cx: &mut App) -> Entity<StaffState> {
 }
 
 impl StaffState {
-    pub fn begin_report(&mut self) -> bool {
+    /// Opens a report request and returns its id (`None` while one is pending).
+    pub fn begin_report(&mut self) -> Option<u64> {
         self.chat.request_report(now_ms())
     }
 
@@ -50,8 +51,8 @@ impl StaffState {
     }
 
     /// Records a brain reply; an explicit report also starts per-sentence captions.
-    pub fn deliver_reply(&mut self, text: &str) -> Option<StaffReply> {
-        let reply = self.chat.push_reply(text, now_ms())?;
+    pub fn deliver_reply(&mut self, text: &str, reply_to: Option<u64>) -> Option<StaffReply> {
+        let reply = self.chat.push_reply(text, reply_to, now_ms())?;
         if reply.speak {
             self.last_report = Some(Instant::now());
         }
@@ -152,10 +153,16 @@ pub(super) fn request_report(workspaces: &[IslandWorkspace], cx: &mut App) {
         record(Err("island.staff_nothing_to_report"), cx, |_| {});
         return;
     };
-    if !state(cx).update(cx, |staff, _| staff.begin_report()) {
+    let Some(request_id) = state(cx).update(cx, |staff, _| staff.begin_report()) else {
         return;
-    }
-    let result = anchor_push(brain::BrainEventKind::ReportRequested { overview }, cx);
+    };
+    let result = anchor_push(
+        brain::BrainEventKind::ReportRequested {
+            request_id,
+            overview,
+        },
+        cx,
+    );
     if result.is_err() {
         state(cx).update(cx, |staff, _| staff.chat.cancel_report());
     }

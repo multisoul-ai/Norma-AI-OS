@@ -60,6 +60,9 @@ pub enum BrainOp {
         /// 旧客户端不带该字段，视为 `Status`。
         #[serde(default)]
         kind: ReportKind,
+        /// The island report request this reply answers; only a matching reply is spoken.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reply_to: Option<u64>,
         /// Empty means unavailable linkage for legacy reports; never infer a decision.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         sources: Vec<super::ContextRef>,

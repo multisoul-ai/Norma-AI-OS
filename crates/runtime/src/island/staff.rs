@@ -37,7 +37,9 @@ pub struct StaffReply {
 pub struct StaffChat {
     lines: VecDeque<StaffLine>,
     next_id: u64,
-    report_since_ms: Option<u64>,
+    /// Open report request: `(id, since_ms)`. Only a reply naming `id` may consume it.
+    report: Option<(u64, u64)>,
+    next_request: u64,
 }
 
 impl StaffChat {
@@ -49,30 +51,43 @@ impl StaffChat {
         self.push(StaffRole::User, text)
     }
 
-    /// Marks that the next reply answers an explicit report request; `false` while a live one is
-    /// open. A request older than `REPORT_TTL_MS` is treated as abandoned.
-    pub fn request_report(&mut self, now_ms: u64) -> bool {
+    /// Opens a report request and returns its id; `None` while a live one is open. A request older
+    /// than `REPORT_TTL_MS` is treated as abandoned.
+    pub fn request_report(&mut self, now_ms: u64) -> Option<u64> {
         if self.report_pending(now_ms) {
-            return false;
+            return None;
         }
-        self.report_since_ms = Some(now_ms);
-        true
+        self.next_request += 1;
+        self.report = Some((self.next_request, now_ms));
+        Some(self.next_request)
     }
 
     pub fn report_pending(&self, now_ms: u64) -> bool {
-        self.report_since_ms
-            .is_some_and(|since| now_ms.saturating_sub(since) < REPORT_TTL_MS)
+        self.report
+            .is_some_and(|(_, since)| now_ms.saturating_sub(since) < REPORT_TTL_MS)
     }
 
     /// Gives up an open request (the brain could not be reached) so the button works again.
     pub fn cancel_report(&mut self) {
-        self.report_since_ms = None;
+        self.report = None;
     }
 
-    pub fn push_reply(&mut self, text: &str, now_ms: u64) -> Option<StaffReply> {
+    /// Records a staff reply. It is spoken only when it answers the open report request: an
+    /// unrelated reply (no id, or another id) neither speaks nor consumes the request.
+    pub fn push_reply(
+        &mut self,
+        text: &str,
+        reply_to: Option<u64>,
+        now_ms: u64,
+    ) -> Option<StaffReply> {
         let id = self.push(StaffRole::Staff, text)?;
-        let speak = self.report_pending(now_ms);
-        self.report_since_ms = None;
+        let speak = match (self.report, reply_to) {
+            (Some((open, _)), Some(wanted)) if open == wanted && self.report_pending(now_ms) => {
+                self.report = None;
+                true
+            }
+            _ => false,
+        };
         Some(StaffReply { id, speak })
     }
 

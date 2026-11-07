@@ -55,11 +55,13 @@ define_class!(
 pub(super) struct Notifier {
     center: Retained<UNUserNotificationCenter>,
     _delegate: Retained<Delegate>,
+    /// Authorization outcomes `(granted, failed)`, delivered to the foreground for the settings note.
+    permission: Sender<(bool, bool)>,
 }
 
 impl Notifier {
     /// `None` outside an app bundle (e.g. `cargo run`), where UserNotifications would abort.
-    pub fn new(clicks: Sender<String>) -> Option<Self> {
+    pub fn new(clicks: Sender<String>, permission: Sender<(bool, bool)>) -> Option<Self> {
         let mtm = MainThreadMarker::new()?;
         NSBundle::mainBundle().bundleIdentifier()?;
         let allocated = Delegate::alloc(mtm).set_ivars(clicks);
@@ -70,11 +72,15 @@ impl Notifier {
         Some(Self {
             center,
             _delegate: delegate,
+            permission,
         })
     }
 
     pub fn post(&self, id: &str, title: &str, body: &str) {
-        let authorized = RcBlock::new(|_granted: objc2::runtime::Bool, _error: *mut NSError| {});
+        let permission = self.permission.clone();
+        let authorized = RcBlock::new(move |granted: objc2::runtime::Bool, error: *mut NSError| {
+            let _ = permission.try_send((granted.as_bool(), !error.is_null()));
+        });
         self.center
             .requestAuthorizationWithOptions_completionHandler(
                 UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound,

@@ -57,6 +57,20 @@ pub(crate) fn state(cx: &App) -> Option<Entity<Settings>> {
         .map(|global| global.0.clone())
 }
 
+/// Settings note for a finished system-notification authorization request; `None` when granted.
+pub(super) fn notification_permission_notice(granted: bool, failed: bool) -> Option<LocalizedText> {
+    (!granted || failed).then(|| LocalizedText::new("island.notify_permission_denied"))
+}
+
+/// Shows the permission note in the island settings (a hidden island depends on notifications).
+pub(super) fn report_notification_permission(granted: bool, failed: bool, cx: &mut App) {
+    let Some(entity) = state(cx) else { return };
+    entity.update(cx, |state, cx| {
+        state.notice = notification_permission_notice(granted, failed);
+        cx.notify();
+    });
+}
+
 pub(crate) fn current(cx: &App) -> IslandPreferences {
     state(cx)
         .map(|state| state.read(cx).preferences)

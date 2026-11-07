@@ -146,6 +146,7 @@ fn send_report(f: &mut Fixture) {
                 text: "部署已完成".into(),
                 priority: ReportPriority::Normal,
                 kind: norma::protocol::ReportKind::Status,
+                reply_to: None,
                 sources: vec![],
             }),
         },

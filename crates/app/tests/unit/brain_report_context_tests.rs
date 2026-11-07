@@ -166,6 +166,7 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
                 text: "因为当前任务尚未获得批准".into(),
                 priority: ReportPriority::Normal,
                 kind: norma::protocol::ReportKind::Status,
+                reply_to: None,
                 sources: vec![source.clone()],
             }),
         },

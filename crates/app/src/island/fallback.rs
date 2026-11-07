@@ -24,9 +24,18 @@ impl IslandController {
     #[cfg(target_os = "macos")]
     pub(super) fn install_notifier(&mut self, cx: &mut Context<Self>) {
         let (clicks, requests) = async_channel::unbounded();
-        let Some(notifier) = super::notify::Notifier::new(clicks) else {
+        let (permission, outcomes) = async_channel::unbounded();
+        let Some(notifier) = super::notify::Notifier::new(clicks, permission) else {
             return;
         };
+        cx.spawn(async move |_, cx| {
+            while let Ok((granted, failed)) = outcomes.recv().await {
+                let _ = cx.update(|cx| {
+                    super::preferences::report_notification_permission(granted, failed, cx)
+                });
+            }
+        })
+        .detach();
         self.post = Some(Box::new(move |id, title, body| {
             notifier.post(id, title, body)
         }));

@@ -289,7 +289,7 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 5. 低：系统通知授权被拒时无反馈（授权回调为空）→ **未修，已知缺口**；隐藏岛 + 授权被拒时用户收不到通知。
 6. 低：发送失败时输入被清空 → 已修（成功才清空）。
 7. 低：活动记录每 3 秒初始化数据库 → 已修（只取路径，不再 `AppStore::initialize`）。
-- 审查提到 `opencode_foreground` 测试失败：本机并行时偶发（`question_transport_closed`），单独与整体重跑均通过，与本分支改动无关。
+- 审查提到的 `opencode_question_host` 偶发失败：该测试用本机 HTTP 服务 + 200ms 读超时 + 真实 PTY，时序敏感；本机连跑 5 次出现 2 次失败，3 次通过。本分支未改动 opencode 相关代码，**未在 dev 基线上重跑对照，只能判为偶发**。
 - 系统级热键 E2E `island-hotkey` 已写好（System Events 发 ⌃⌥⌘Space、前台为他 App），**本机 `AXIsProcessTrusted=false`，osascript 被拒绝发送按键 → ENV，未取得证据**；授权辅助功能后可运行 `scripts/desktop-e2e.sh island-hotkey --visual`。
 
 ### 方案第 8 节逐行证据（2026-11-07，分支 `feat/island-cleanup-20261106`）
@@ -307,3 +307,9 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 | 样式还原原型 | `island-window` 与 `island-staff` 看图（页签、胶囊、幕僚页对照 `artifacts/island/prototype-*.png`） | 幕僚页/页签通过；审批、问题卡片的逐像素对照未重做 |
 
 其他：`app --lib` 并行全量因 GPUI 窗口类测试争用会挂起，单独重跑均通过；单线程全量见 `artifacts/island/final-app-lib.log`。仍引用已删除左栏“运行概览”的旧场景（`WorkspaceAttentionRead`、`SettingsTheme*`、`BrainApprovals/Autonomy/Questions` 等）**尚未迁移，不得视为通过**。
+
+### 收尾补充（2026-11-07）
+
+- 已迁移/退役旧场景：`WorkspaceAttentionRead`（契约已由 `island-artifacts` 覆盖）、`BrainApprovals`、`BrainQuestions`（契约由 `island-approvals`、`island-questions` 覆盖；“采用/委托幕僚回答”UI 随左抽屉删除，无迁移对象）已删除；`BrainAutonomy` 改用 ⌘⇧B 打开幕僚活动；`SettingsThemeConsistency/Visual` 改为只验右抽屉（**改写后未在真实 App 重跑**）；`canvas-drawers`、`canvas-project-drawers` 在真实 App 通过（OCR 模式）。
+- 通知授权被拒现在会在设置页显示本地化提示（`notification_permission_notice` 单测；真实授权弹窗路径未在本机验证）。
+- 汇报请求有编号：`report --reply-to <id>`，只有带正确编号的回复才朗读，无关回复不再抢走标记（`only_the_reply_to_a_report_request_gets_spoken`、`report_reply_to_is_optional_and_numeric`）；已更新脚本化夹具与提示词的需要见下。

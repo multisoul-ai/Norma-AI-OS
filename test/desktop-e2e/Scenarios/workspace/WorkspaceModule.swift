@@ -8,13 +8,12 @@ public enum WorkspaceModule {
             WorkspaceLifecycle.name,
             WorkspaceHomeDesign.name,
             WorkspaceHomePreview.name,
-            WorkspaceAttentionRead.name,
             WorkspaceTitlebarBrand.name,
             WorkspaceFeatureGuide.name,
             WorkspaceHandoffEffects.name,
             WorkspaceSwitchShortcuts.name,
         ],
-        visualScenarioNames: [WorkspaceAttentionRead.name],
+        visualScenarioNames: [],
         run: { scenario, session in
             switch scenario {
             case WorkspaceHomePreview.name:
@@ -25,9 +24,6 @@ public enum WorkspaceModule {
                 return true
             case WorkspaceLifecycle.name:
                 try await WorkspaceLifecycle.run(session)
-                return true
-            case WorkspaceAttentionRead.name:
-                try await WorkspaceAttentionRead.run(session)
                 return true
             case WorkspaceTitlebarBrand.name:
                 try await WorkspaceTitlebarBrand.run(session)

@@ -257,6 +257,7 @@ fn assign_fixture(address: String, fail_receipt: bool) {
             text: "已交给 Alan 检查边界条件，等待执行结果".into(),
             priority: norma::protocol::ReportPriority::Normal,
             kind: norma::protocol::ReportKind::Status,
+            reply_to: None,
             sources: sources.clone(),
         }),
     );

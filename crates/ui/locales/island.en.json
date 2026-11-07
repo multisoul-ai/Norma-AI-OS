@@ -90,5 +90,6 @@
   "island.staff_chip_stuck": "Who is stuck?",
   "island.staff_chip_needs": "What needs me?",
   "island.staff_chip_done": "What finished?",
-  "island.staff_no_summary": "No report yet. Press Speak progress or ask below."
+  "island.staff_no_summary": "No report yet. Press Speak progress or ask below.",
+  "island.notify_permission_denied": "System notifications are off for Norma, so a hidden island cannot alert you. Allow them in System Settings → Notifications."
 }

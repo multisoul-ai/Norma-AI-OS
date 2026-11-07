@@ -61,13 +61,17 @@ public enum IslandStaffFixture {
             found = re.search(r"`([^`\\s]+) brain agents`", text)
             if found: exe[0] = found.group(1)
             reply = None
+            reply_to = None
             ident = re.search(r"【事件来源】(\\{.*?\\})", text)
             scope = json.loads(ident.group(1)) if ident else {}
             asked = re.search(r"【用户】(.*?)\\n", text)
             if asked: reply = "幕僚收到：" + asked.group(1)
-            elif "【用户要求汇报】" in text: reply = "目前有一个智能体在运行。没有失败，也没有需要你处理的事。"
+            elif "【用户要求汇报】" in text:
+                reply = "目前有一个智能体在运行。没有失败，也没有需要你处理的事。"
+                found_id = re.search(r"--reply-to (\\d+)", text)
+                reply_to = found_id.group(1) if found_id else None
             if reply and exe[0]:
-                argv = [exe[0], "brain", "--workspace", scope.get("workspace_id", ""), "--route", scope.get("route_id", ""), "report", "--kind", "reply", "--text", reply, "--priority", "now"]
+                argv = [exe[0], "brain", "--workspace", scope.get("workspace_id", ""), "--route", scope.get("route_id", ""), "report", "--kind", "reply"] + (["--reply-to", reply_to] if reply_to else []) + ["--text", reply, "--priority", "now"]
                 if permission("island-staff", " ".join(argv)):
                     subprocess.run(argv, env=os.environ, timeout=30)
             send({"jsonrpc": "2.0", "id": mid, "result": {"stopReason": "end_turn"}})

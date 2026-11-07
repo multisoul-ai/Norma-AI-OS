@@ -33,6 +33,7 @@ fn report_parses_text_and_priority() {
                 sources: Vec::new(),
                 priority: ReportPriority::Normal,
                 kind: ReportKind::Status,
+                reply_to: None,
             }),
         },
         "默认优先级应是 Normal"
@@ -289,4 +290,48 @@ fn report_kind_defaults_to_status_and_accepts_reply() {
         panic!("应是 Report");
     };
     assert_eq!(kind, ReportKind::Status, "旧 wire 缺 kind 视为 Status");
+}
+
+/// `--reply-to` 把汇报请求编号带进 report，缺省为 None（旧调用方不变）。
+/// 预期：缺省 None；`--reply-to 7` 为 Some(7)；非数字报错；旧 JSON 缺字段仍可读。
+#[test]
+fn report_reply_to_is_optional_and_numeric() {
+    let reply_to = |extra: &[&str]| {
+        let mut args = vec!["norma", "brain", "--token", "t0", "report", "--text", "hi"];
+        args.extend_from_slice(extra);
+        match parse(&args) {
+            CardCommand::Brain { op, .. } => match *op {
+                BrainOp::Report { reply_to, .. } => reply_to,
+                other => panic!("应是 Report：{other:?}"),
+            },
+            other => panic!("应是 Brain 命令：{other:?}"),
+        }
+    };
+    assert_eq!(reply_to(&[]), None);
+    assert_eq!(reply_to(&["--reply-to", "7"]), Some(7));
+    assert!(
+        parse_invocation_from(
+            [
+                "norma",
+                "brain",
+                "--token",
+                "t0",
+                "report",
+                "--text",
+                "hi",
+                "--reply-to",
+                "x"
+            ]
+            .iter()
+            .copied()
+        )
+        .is_err(),
+        "非数字编号必须报错"
+    );
+    let legacy = r#"{"Report":{"text":"x","priority":"Normal"}}"#;
+    let BrainOp::Report { reply_to, .. } = serde_json::from_str(legacy).expect("旧 JSON 应兼容")
+    else {
+        panic!("应是 Report");
+    };
+    assert_eq!(reply_to, None);
 }
