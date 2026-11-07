@@ -216,6 +216,25 @@ impl MultisoulApp {
         events: &[RuntimeEvent],
         cx: &mut Context<Self>,
     ) {
+        for node in events.iter().filter_map(runtime::island::completion_node) {
+            let label = self
+                .runtime
+                .document
+                .node(node)
+                .and_then(|node| {
+                    if let canvas::CanvasNodeKind::Agent(spec) = &node.kind {
+                        Some(
+                            spec.alias
+                                .clone()
+                                .unwrap_or_else(|| spec.profile.display_title().to_owned()),
+                        )
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default();
+            crate::island::task_completed(cx.entity().entity_id().as_u64(), node, label, cx);
+        }
         if hook_changed || events.iter().any(workspace_activity_event) {
             self.note_workspace_activity_changed(cx);
         }
@@ -229,6 +248,7 @@ impl MultisoulApp {
         if !self.desktop_workspace.activity_monitor.registered {
             self.desktop_workspace.activity_monitor.registered = true;
             let source = cx.entity().entity_id().as_u64();
+            crate::island::register_source(&cx.entity(), cx);
             cx.on_release(move |_, cx| crate::island::remove_source(source, cx))
                 .detach();
             self.start_island_activity_monitor(cx);

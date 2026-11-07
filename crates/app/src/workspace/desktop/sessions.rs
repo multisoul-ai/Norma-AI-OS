@@ -12,6 +12,24 @@ struct DesktopHost {
 struct DesktopHosts(Vec<DesktopHost>);
 impl Global for DesktopHosts {}
 
+pub(crate) fn window_for_source(source: u64, cx: &App) -> Option<AnyWindowHandle> {
+    cx.try_global::<DesktopHosts>()?
+        .0
+        .iter()
+        .find(|host| host.app.entity_id().as_u64() == source)?
+        .window
+}
+
+pub(crate) fn primary_host(cx: &App) -> Option<Entity<MultisoulApp>> {
+    let hosts = &cx.try_global::<DesktopHosts>()?.0;
+    hosts
+        .iter()
+        .find(|h| h.window == cx.active_window())
+        .or_else(|| hosts.iter().find(|h| h.window.is_some()))
+        .or_else(|| hosts.first())
+        .map(|h| h.app.clone())
+}
+
 pub(crate) fn hosts(database: &Path, cx: &App) -> Vec<Entity<MultisoulApp>> {
     cx.try_global::<DesktopHosts>()
         .map(|hosts| {

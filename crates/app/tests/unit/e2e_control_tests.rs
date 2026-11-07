@@ -6,6 +6,30 @@ use gpui::{px, MouseButton, PlatformInput, ScrollDelta};
 
 const TOKEN: &str = "0123456789abcdef0123456789abcdef";
 
+/// 场景：真实岛比主窗口小，驱动必须显式选择原生窗口，而不能总选最大窗口。
+/// 数据：原生窗口号42，以及null恢复默认；两者沿用本次运行的认证token。
+/// 执行：分别解析选择、复位、列窗口请求，再用错误token请求选择。
+/// 预期：只接受经过认证的窗口控制；它不提供岛内部数据或业务动作。
+#[test]
+fn control_selects_a_native_window_without_product_state() {
+    for number in ["42", "null"] {
+        let line = format!(r#"{{"token":"{TOKEN}","op":"select_window","number":{number}}}"#);
+        assert!(
+            parse_request(&line, TOKEN).is_ok(),
+            "显式窗口选择与复位必须可解析"
+        );
+        assert!(
+            parse_request(&line, "wrong").is_err(),
+            "窗口选择同样需要认证"
+        );
+    }
+    let line = format!(r#"{{"token":"{TOKEN}","op":"windows"}}"#);
+    assert!(
+        parse_request(&line, TOKEN).is_ok(),
+        "驱动必须能列举原生窗口号"
+    );
+}
+
 /// 场景：控制通道只接受携带本次运行 token 的请求。
 ///
 /// 数据构造：期望 token 为 32 个十六进制字符；一条带正确 token 的 mouse 请求，

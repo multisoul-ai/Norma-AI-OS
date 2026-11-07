@@ -137,7 +137,7 @@ impl MultisoulApp {
         })
         .detach();
     }
-    pub(super) fn open_desktop_workspace(
+    pub(crate) fn open_desktop_workspace(
         &mut self,
         id: String,
         window: &mut Window,

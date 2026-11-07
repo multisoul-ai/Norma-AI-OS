@@ -392,6 +392,7 @@ fn group(
             .iter()
             .map(
                 |(node_id, name, raw_state, status)| WorkspaceActivityAgentEntry {
+                    profile: "Codex".into(),
                     area_id: area_id.into(),
                     node_id: *node_id,
                     name: (*name).into(),

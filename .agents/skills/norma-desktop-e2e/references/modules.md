@@ -16,6 +16,8 @@
 
 ## 现有模块
 
+`island`：`island-window`（`--visual`）验收独立灵动岛窗口、悬停展开、三页签、固定和 Esc 后的真实缩窗。
+
 | 模块 | 场景 | 验收范围 |
 | --- | --- | --- |
 | `workspace` | `workspace-lifecycle` | 工作空间目录：创建、列出、按名称搜索、重命名、取消删除、确认删除、项目目录保留、重启后不恢复。核对 `desktop_workspaces` 与 `desktop_project_areas`。 |
@@ -83,3 +85,9 @@
 | `settings` | `settings-global-appearance` | 旧空间/展开项目壁纸与特效迁移、双真实窗口全局偏好同步、重启不复活旧值、范围与跟随开关移除。英文 Ink Black；双语与 Graphite 由两个设置场景覆盖。 |
 
 | `settings` | `settings-a1-runtime-download` | A1按需下载说明：中文Sapphire Night、英文Graphite；运行环境和模型自动下载校验、无需Python配置、离线使用提示、操作可用且浏览不下载或切换provider。 |
+
+| `island` | `island-approvals`、`island-remembered-approval`、`island-questions` | 独立岛的允许一次/拒绝、精确记忆授权、单选与自由回复；生产Hook/原生PTY消费记录断言，全部登记`--visual`。脚本Agent不计真实LLM；前台PID检查不替代物理系统输入。 |
+| `island` | `island-native-approval-fallback` | 原生权限菜单无法完整识别时，岛仍提醒并提供定位；不能出现猜测放行按钮或消费记录。全部使用`--visual`。 |
+| `island` | `island-artifacts` | 标记指定回合已读、跨空间打开冻结正文、重启保留已读，源文件和冻结成果不删除；中英界面均走`--visual`。 |
+
+`island-navigation`（`--visual`）：跨空间定位、真关窗后重开，原生窗口号改变而原Agent PID与唯一启动记录保持；使用 `e2e-test-support` 隔离回环手机服务。

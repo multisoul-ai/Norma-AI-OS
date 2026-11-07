@@ -1,5 +1,9 @@
 //! GPUI-free dynamic island decisions. Callers provide monotonic milliseconds
 //! and schedule only `deadline_ms()`; an idle island needs no polling timer.
+pub mod approval_rules;
+pub mod displays;
+pub mod geometry;
+pub mod transition;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum IslandMode {
     #[default]
@@ -54,6 +58,8 @@ pub enum IslandEvent {
     PointerLeft,
     Tick,
     Completed(String),
+    /// A user action was acknowledged by the original request's transport.
+    ActionConfirmed(String),
     OverviewUpdated(IslandOverview),
     ToggleExpanded,
     Expand,
@@ -73,6 +79,7 @@ pub struct IslandState {
     activity_id: Option<String>,
     alert_id: Option<String>,
     overview: IslandOverview,
+    confirmed_alerts: std::collections::BTreeSet<String>,
     pinned: bool,
     input_focused: bool,
     speaking: bool,
@@ -101,6 +108,10 @@ impl IslandState {
     pub fn activity_id(&self) -> Option<&str> {
         self.activity_id.as_deref()
     }
+    /// A receipt hides the old projection until the producer removes that exact identity.
+    pub fn is_confirmed(&self, id: &str) -> bool {
+        self.confirmed_alerts.contains(id)
+    }
     pub fn deadline_ms(&self) -> Option<u64> {
         self.deadline
     }
@@ -113,7 +124,10 @@ impl IslandState {
                 if preferences.hidden {
                     self.collapse();
                     self.pointer_inside = false;
-                } else if self.mode == IslandMode::Activity && !preferences.completions {
+                } else if self.mode == IslandMode::Activity
+                    && self.activity_id.is_some()
+                    && !preferences.completions
+                {
                     self.collapse();
                 } else if self.mode == IslandMode::Alert {
                     let id = self
@@ -166,7 +180,28 @@ impl IslandState {
                 self.activity_id = Some(id);
                 self.deadline = Some(now_ms.saturating_add(3000));
             }
+            IslandEvent::ActionConfirmed(id) => {
+                self.confirmed_alerts.insert(id);
+                if self.mode != IslandMode::Expanded {
+                    self.alert_id = self
+                        .overview
+                        .alerts
+                        .iter()
+                        .find(|a| self.alert_enabled(a))
+                        .map(|a| a.id.clone());
+                    self.activity_id = None;
+                    if self.alert_id.is_some() {
+                        self.mode = IslandMode::Alert;
+                        self.deadline = None;
+                    } else {
+                        self.mode = IslandMode::Activity;
+                        self.deadline = Some(now_ms.saturating_add(2200));
+                    }
+                }
+            }
             IslandEvent::OverviewUpdated(overview) => {
+                self.confirmed_alerts
+                    .retain(|id| overview.alerts.iter().any(|a| &a.id == id));
                 let next = if self.mode == IslandMode::Alert {
                     overview
                         .alerts
@@ -201,10 +236,14 @@ impl IslandState {
                 self.pinned = !self.pinned;
                 self.arm_collapse(now_ms);
             }
-            IslandEvent::InputFocusChanged(focused) if self.mode == IslandMode::Expanded => {
+            IslandEvent::InputFocusChanged(focused)
+                if matches!(self.mode, IslandMode::Expanded | IslandMode::Alert) =>
+            {
                 if self.input_focused != focused {
                     self.input_focused = focused;
-                    self.arm_collapse(now_ms);
+                    if self.mode == IslandMode::Expanded {
+                        self.arm_collapse(now_ms);
+                    }
                 }
             }
             IslandEvent::SelectTab(tab) if self.mode == IslandMode::Expanded => self.tab = tab,
@@ -214,6 +253,9 @@ impl IslandState {
         *self != before
     }
     fn alert_enabled(&self, alert: &IslandAlert) -> bool {
+        if self.confirmed_alerts.contains(&alert.id) {
+            return false;
+        }
         match alert.kind {
             IslandAlertKind::Approval => self.preferences.approvals,
             IslandAlertKind::Question => self.preferences.questions,
@@ -230,7 +272,13 @@ impl IslandState {
         self.mode = IslandMode::Expanded;
         self.tab = if self.speaking {
             IslandTab::Staff
-        } else if !self.overview.alerts.is_empty() || self.overview.review_count > 0 {
+        } else if self
+            .overview
+            .alerts
+            .iter()
+            .any(|a| !self.is_confirmed(&a.id))
+            || self.overview.review_count > 0
+        {
             IslandTab::Pending
         } else {
             IslandTab::Running
@@ -263,3 +311,16 @@ mod interaction_tests;
 #[cfg(test)]
 #[path = "../tests/unit/island_preferences.rs"]
 mod preferences_tests;
+
+/// Completion popups originate only from a new successful task transition.
+pub fn completion_node(event: &crate::RuntimeEvent) -> Option<u64> {
+    match event {
+        crate::RuntimeEvent::AgentTaskStateChanged {
+            node_id,
+            from,
+            to: crate::AgentTaskState::Done,
+            ..
+        } if *from != crate::AgentTaskState::Done => Some(*node_id),
+        _ => None,
+    }
+}

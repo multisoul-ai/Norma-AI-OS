@@ -118,4 +118,22 @@ final class VisualReviewTests: XCTestCase {
         catch { XCTAssertTrue(String(describing: error).contains("OCR"), "先拦截OCR入口") }
         XCTAssertThrowsError(try session.finishSuccess(), "无检查不能通过")
     }
+    /// 场景：2200ms的操作确认在模型看图期间已经收回。
+    /// 构造：明确snapshot请求及对应PNG指纹，实时窗口已改变。
+    /// 执行：校验截图观察、坐标拒绝和窗口校验。
+    /// 预期：仅历史截图观察可完成；check/locate仍必须是实时窗口，snapshot不允许输入坐标。
+    func testTransientSnapshotIsObservationOnly() throws {
+        let snapshot = request(kind: "snapshot")
+        XCTAssertTrue(try validateVisualResponse(reply(), for: snapshot), "仍须完整的多模态逐项结论")
+        XCTAssertNoThrow(try validateVisualWindow(id: 8, size: CGSize(width: 380, height: 34),
+            expectedID: 7, request: snapshot), "短暂状态可在消失后核对所捕获PNG")
+        var response = reply()
+        response.point = CGPoint(x: 12, y: 12)
+        XCTAssertThrowsError(try validateVisualResponse(response, for: snapshot), "历史截图不能授权坐标输入")
+        response = reply(); response.screenshotSHA256 = "stale"
+        XCTAssertThrowsError(try validateVisualResponse(response, for: snapshot), "历史观察也必须绑定实际PNG")
+        XCTAssertThrowsError(try validateVisualWindow(id: 8, size: CGSize(width: 380, height: 34),
+            expectedID: 7, request: request(kind: "locate")), "当前输入仍拒绝旧窗口坐标")
+    }
+
 }

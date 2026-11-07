@@ -6,6 +6,10 @@ use gpui::{App, Context};
 use norma::mobile::{ApprovalSnapshot, CardSnapshot};
 use std::{collections::BTreeMap, path::PathBuf};
 
+#[cfg(test)]
+#[path = "../../../../tests/unit/island_native_approval_tests.rs"]
+mod native_approval_tests;
+
 #[derive(Clone, Debug)]
 pub(super) struct LiveAgent {
     pub name: String,
@@ -136,7 +140,6 @@ impl MultisoulApp {
                                 .cached_mobile_approval_snapshots(card.node_id)
                                 .unwrap_or_default()
                         })
-                        .filter(|approval| !approval.decisions.is_empty())
                         .collect();
                     LiveProject {
                         agents,

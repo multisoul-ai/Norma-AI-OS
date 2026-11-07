@@ -27,6 +27,15 @@ extension Session {
         return frame
     }
 
+    /// 核对自动消失的短暂状态，只证明捕获帧，不用于定位或后续输入。
+    /// PNG仍绑定requestID/SHA256并须逐项实际看图；产品的最终状态须另外断言。
+    @discardableResult
+    public func visualSnapshotCheck(_ criteria: [VisualCriterion]) async throws -> Frame {
+        let (frame, _) = try await reviewImage(kind: "snapshot", criteria: criteria)
+        visualCheckCount += 1
+        return frame
+    }
+
     /// 定位成功不是产品验收；场景随后必须检查动作后置状态。
     public func visualClick(_ instruction: String) async throws {
         let (frame, response) = try await reviewImage(kind: "locate", criteria: [VisualCriterion(id: "target", text: instruction)])

@@ -9,6 +9,8 @@ mod capture;
 mod capture_sck;
 mod ns_input;
 mod placement;
+mod selection;
+use selection::target_window;
 
 pub(crate) use placement::target_display;
 use placement::{park_window, stay_in_background};
@@ -22,9 +24,7 @@ mod tests;
 #[path = "../../tests/unit/e2e_text_input_tests.rs"]
 mod text_input_tests;
 
-use gpui::{
-    px, size, AnyWindowHandle, App, AsyncApp, KeyUpEvent, Keystroke, PlatformInput, Window,
-};
+use gpui::{px, size, App, AsyncApp, KeyUpEvent, Keystroke, PlatformInput, Window};
 use protocol::{
     control_config, modifiers_input, mouse_input, parse_request, scroll_input, text_keystrokes,
     Command, Response, WindowInfo,
@@ -219,22 +219,6 @@ fn capture_to(window: WindowInfo, path: &Path) -> Response {
     }
 }
 
-fn target_window(cx: &mut App) -> Option<AnyWindowHandle> {
-    let mut best: Option<(AnyWindowHandle, f32)> = None;
-    for handle in cx.windows() {
-        let Ok(area) = handle.update(cx, |_, window, _| {
-            let size = window.bounds().size;
-            f32::from(size.width) * f32::from(size.height)
-        }) else {
-            continue;
-        };
-        if best.is_none_or(|(_, largest)| area > largest) {
-            best = Some((handle, area));
-        }
-    }
-    best.map(|(handle, _)| handle)
-}
-
 /// AppKit input is delivered after `update` returns so GPUI can re-enter the app.
 fn execute_native(command: Command, cx: &mut AsyncApp) -> Outcome {
     let native = cx
@@ -268,6 +252,9 @@ fn execute_native(command: Command, cx: &mut AsyncApp) -> Outcome {
 }
 
 fn execute(command: Command, cx: &mut App) -> Outcome {
+    if matches!(command, Command::Windows | Command::SelectWindow { .. }) {
+        return Outcome::Done(selection::execute(command, cx));
+    }
     let Some(handle) = target_window(cx) else {
         return Outcome::Done(Response::error("no window"));
     };
@@ -279,6 +266,9 @@ fn execute(command: Command, cx: &mut App) -> Outcome {
 fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
     let done = |response| Outcome::Done(response);
     match command {
+        Command::Windows | Command::SelectWindow { .. } => {
+            done(Response::error("window selection requires App scope"))
+        }
         Command::Window => done(window_info(window).map_or_else(Response::error, Response::window)),
         Command::Activate => {
             if foreground_requested() {

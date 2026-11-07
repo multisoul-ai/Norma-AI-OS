@@ -87,3 +87,36 @@ fn hiding_cancels_deadlines_without_replaying_attention() {
         "隐藏时仍保存待办状态"
     );
 }
+
+/// 场景：操作确认展示中重新应用关闭完成通知的设置。
+/// 数据：100ms收到真实操作回执；200ms重放completions=false。
+/// 执行：检查设置重放后、2200ms期限前后，再隐藏岛。
+/// 预期：确认不被完成通知开关截断；hidden仍立即关闭并清除期限。
+#[test]
+fn island_confirmation_survives_preferences_replay_but_not_hidden() {
+    let mut island = IslandState::default();
+    island.apply(E::ActionConfirmed("answered".into()), 100);
+    island.apply(
+        E::PreferencesChanged(IslandPreferences {
+            completions: false,
+            ..Default::default()
+        }),
+        200,
+    );
+    assert_eq!(island.mode(), M::Activity, "完成开关不能关闭操作确认");
+    assert_eq!(island.deadline_ms(), Some(2300), "不能重置2200ms确认期限");
+    island.apply(E::Tick, 2299);
+    assert_eq!(island.mode(), M::Activity, "期限前保留确认");
+    island.apply(E::Tick, 2300);
+    assert_eq!(island.mode(), M::Compact, "期限后自动收回");
+    island.apply(E::ActionConfirmed("another".into()), 2400);
+    island.apply(
+        E::PreferencesChanged(IslandPreferences {
+            hidden: true,
+            ..Default::default()
+        }),
+        2500,
+    );
+    assert_eq!(island.mode(), M::Compact, "隐藏开关仍应关闭所有展示");
+    assert_eq!(island.deadline_ms(), None, "隐藏取消残留计时");
+}

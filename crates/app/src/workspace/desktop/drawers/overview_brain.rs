@@ -85,12 +85,50 @@ impl MultisoulApp {
         run: impl FnOnce(&mut MultisoulApp, &mut Context<MultisoulApp>) -> R,
     ) -> Option<R> {
         let workspace_id = self.desktop_workspace.active_id.clone()?;
+        self.with_overview_session_at(&workspace_id, area_id, cx, run)
+    }
+
+    pub(crate) fn with_overview_session_at<R>(
+        &mut self,
+        workspace_id: &str,
+        area_id: &str,
+        cx: &mut Context<Self>,
+        run: impl FnOnce(&mut MultisoulApp, &mut Context<MultisoulApp>) -> R,
+    ) -> Option<R> {
         let session = self
             .desktop_workspace
             .sessions
-            .get(&(workspace_id, area_id.to_owned()))?
+            .get(&(workspace_id.to_owned(), area_id.to_owned()))?
             .clone();
         Some(session.update(cx, run))
+    }
+
+    pub(crate) fn decide_overview_approval_at(
+        &mut self,
+        workspace_id: &str,
+        area_id: &str,
+        target: &norma::mobile::ApprovalTarget,
+        allow: bool,
+        cx: &mut Context<Self>,
+    ) -> Result<async_channel::Receiver<Result<serde_json::Value, String>>, &'static str> {
+        self.with_overview_session_at(workspace_id, area_id, cx, |app, cx| {
+            if !app
+                .runtime
+                .mobile_approval_snapshots(target.node_id)?
+                .iter()
+                .any(|a| &a.target == target)
+            {
+                return Err("approval_changed");
+            }
+            app.decide_approval_by_user(
+                target.node_id,
+                &target.run_id,
+                &target.request_id,
+                allow,
+                cx,
+            )
+        })
+        .ok_or("approval_unavailable")?
     }
 
     /// 左抽屉里的“幕僚活动”入口：点开面板；数字是上次打开之后的新自主动作。

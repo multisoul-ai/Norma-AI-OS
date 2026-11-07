@@ -3,8 +3,6 @@ use canvas::AgentProfile as CanvasAgentProfile;
 use canvas::CanvasNodeKind;
 #[cfg(test)]
 use crossbeam_channel::unbounded;
-#[cfg(feature = "e2e-test-support")]
-use crossbeam_channel::Sender;
 use crossbeam_channel::{Receiver, Sender};
 use gpui::App;
 use norma::agent_hook::{

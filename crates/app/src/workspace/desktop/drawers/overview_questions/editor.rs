@@ -15,10 +15,10 @@ pub(crate) struct QuestionEditor {
 }
 
 impl QuestionEditor {
-    pub(super) fn new(
+    pub(crate) fn new<T: 'static>(
         row: &OverviewQuestion,
         window: &mut Window,
-        cx: &mut Context<MultisoulApp>,
+        cx: &mut Context<T>,
     ) -> Self {
         let question = &row.snapshot.question;
         let initial = row
@@ -27,15 +27,43 @@ impl QuestionEditor {
             .map(|s| s.answers.as_slice())
             .unwrap_or_default();
         let draft = AnswerDraft::new(question, initial);
-        let inputs: Vec<_> = question
+        let texts = question
             .items
             .iter()
             .map(|item| {
-                let text = initial
+                initial
                     .iter()
                     .find(|a| a.key == item.key)
                     .and_then(|a| a.text.clone())
-                    .unwrap_or_default();
+                    .unwrap_or_default()
+            })
+            .collect();
+        Self::mount(draft, texts, window, cx)
+    }
+
+    /// A FocusHandle and InputState's listeners belong to their original Window.
+    /// Preserve the incomplete draft while recreating only those window-bound controls.
+    pub(crate) fn remount<T: 'static>(self, window: &mut Window, cx: &mut Context<T>) -> Self {
+        let texts = self
+            .inputs
+            .iter()
+            .map(|input| input.read(cx).value().to_string())
+            .collect();
+        Self::mount(self.draft, texts, window, cx)
+    }
+
+    fn mount<T: 'static>(
+        draft: AnswerDraft,
+        texts: Vec<String>,
+        window: &mut Window,
+        cx: &mut Context<T>,
+    ) -> Self {
+        let inputs: Vec<_> = draft
+            .question
+            .items
+            .iter()
+            .zip(texts)
+            .map(|(item, text)| {
                 cx.new(|cx| {
                     InputState::new(window, cx)
                         .default_value(text)
@@ -65,11 +93,15 @@ impl QuestionEditor {
         }
     }
 
-    pub(super) fn target(&self) -> &QuestionRef {
+    pub(crate) fn item_count(&self) -> usize {
+        self.inputs.len()
+    }
+
+    pub(crate) fn target(&self) -> &QuestionRef {
         &self.draft.question.target
     }
 
-    pub(super) fn answers(&self, cx: &App) -> Vec<QuestionAnswer> {
+    pub(crate) fn answers(&self, cx: &App) -> Vec<QuestionAnswer> {
         self.draft.answers(
             &self
                 .inputs
@@ -77,6 +109,22 @@ impl QuestionEditor {
                 .map(|input| input.read(cx).value().to_string())
                 .collect::<Vec<_>>(),
         )
+    }
+
+    pub(crate) fn selected(&self, index: usize, key: &str) -> bool {
+        self.draft.selected[index].iter().any(|value| value == key)
+    }
+    pub(crate) fn custom_selected(&self, index: usize) -> bool {
+        self.draft.custom[index]
+    }
+    pub(crate) fn choose(&mut self, index: usize, key: &str) {
+        self.draft.choose(index, key);
+    }
+    pub(crate) fn toggle_custom(&mut self, index: usize) {
+        self.draft.custom(index, !self.draft.custom[index]);
+    }
+    pub(crate) fn input(&self, index: usize) -> &Entity<InputState> {
+        &self.inputs[index]
     }
 }
 
@@ -217,3 +265,7 @@ impl MultisoulApp {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../../tests/unit/island_question_mount_tests.rs"]
+mod island_mount_tests;

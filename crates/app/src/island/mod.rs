@@ -1,5 +1,22 @@
 //! App-wide activity cache shared by every island window.
+mod actions;
+mod artifacts;
+mod chrome;
+mod controller;
 mod model;
+#[cfg(target_os = "macos")]
+mod native;
+mod navigation;
+mod pending;
+mod question;
+mod question_editor;
+mod remembered;
+mod running;
+mod style;
+mod view;
+mod windows;
+pub(crate) use actions::register_source;
+pub(crate) use windows::{has_workspace_windows, install};
 
 use gpui::{App, AppContext, Entity, Global};
 pub(crate) use model::{IslandModel, IslandProject, IslandWorkspace};
@@ -35,6 +52,7 @@ pub(crate) fn publish(
 }
 
 pub(crate) fn remove_source(source: u64, cx: &mut App) {
+    actions::unregister_source(source, cx);
     let Some(model) = cx
         .try_global::<IslandGlobal>()
         .map(|global| global.0.clone())
@@ -45,5 +63,21 @@ pub(crate) fn remove_source(source: u64, cx: &mut App) {
         if model.remove_source(source) {
             cx.notify();
         }
+    });
+}
+
+#[derive(Clone)]
+pub(super) struct CompletionNotice {
+    pub id: String,
+    pub label: String,
+}
+impl gpui::EventEmitter<CompletionNotice> for IslandModel {}
+
+pub(crate) fn task_completed(source: u64, node: u64, label: String, cx: &mut App) {
+    model(cx).update(cx, |_, cx| {
+        cx.emit(CompletionNotice {
+            id: format!("{source}:{node}"),
+            label,
+        })
     });
 }

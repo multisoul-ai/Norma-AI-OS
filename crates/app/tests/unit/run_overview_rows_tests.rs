@@ -1,6 +1,4 @@
-#[path = "../support/run_overview_rows.rs"]
-mod fixtures;
-use fixtures::sample;
+use crate::test_run_overview_rows::sample;
 
 use crate::test_drawer_locale as drawer_locale;
 use drawer_locale::expected_copy;
