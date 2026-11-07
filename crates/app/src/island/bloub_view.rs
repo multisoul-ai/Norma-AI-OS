@@ -14,7 +14,7 @@ const BUSY_TICK: Duration = Duration::from_millis(33);
 const CALM_TICK: Duration = Duration::from_millis(66);
 
 /// Body radius as a share of the box; leaves room for the egg and triangle silhouettes.
-const BODY_SHARE: f32 = 0.43;
+const BODY_SHARE: f32 = 0.47;
 const EYE_COLOR: u32 = 0x0b0d10;
 
 fn clock() -> f32 {

@@ -107,7 +107,7 @@ impl IslandView {
                             .items_center()
                             .gap(px(8.))
                             .child(div().flex().children(waiting.iter().take(4).map(|row| {
-                                style::avatar_mood(&row.name, &row.profile, 16., Mood::Waiting)
+                                style::avatar_mood(&row.name, &row.profile, 24., Mood::Waiting)
                             })))
                             .child(
                                 div()
@@ -282,7 +282,7 @@ impl IslandView {
             .child(style::avatar_mood(
                 &row.name,
                 &row.profile,
-                22.,
+                34.,
                 if done {
                     Mood::Responded
                 } else if running {
