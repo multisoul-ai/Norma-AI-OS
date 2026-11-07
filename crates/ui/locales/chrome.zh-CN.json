@@ -134,6 +134,7 @@
   "chrome.brain_trigger_approval_request": "审批请求",
   "chrome.brain_trigger_user_request": "你的指令",
   "chrome.brain_trigger_user_returned": "你回来了",
+  "chrome.brain_trigger_report_request": "你要求汇报",
   "chrome.brain_trigger_scheduled": "定时摘要",
   "chrome.brain_trigger_unknown": "未知",
   "chrome.brain_trigger_user_approved": "你批准提议",

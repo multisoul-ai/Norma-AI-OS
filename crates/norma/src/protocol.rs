@@ -9,7 +9,7 @@ mod errors;
 mod question;
 mod workspace;
 
-pub use brain::{BrainDecision, BrainOp, BrainScope, ReportPriority};
+pub use brain::{BrainDecision, BrainOp, BrainScope, ReportKind, ReportPriority};
 pub use brain_copy::{
     validate_decision_copy, validate_proposal_copy, DecisionCopyError, DecisionCopyIssue,
     DECISION_COPY_LIMIT,

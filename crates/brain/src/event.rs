@@ -71,6 +71,10 @@ pub enum BrainEventKind {
     UserRequest {
         text: String,
     },
+    /// 岛上的“汇报”按钮：宿主已捕获有界的跨工作空间概览（数据，不是指令），要求大脑总结后以 reply 回传。
+    ReportRequested {
+        overview: String,
+    },
     ContextRequest {
         text: String,
         reference: norma::protocol::ContextRef,
@@ -109,6 +113,7 @@ pub enum TriggerKind {
     ApprovalRequest,
     UserRequest,
     UserReturned,
+    ReportRequest,
     /// 定时摘要等没有外部事件的唤醒。
     Scheduled,
     Unknown,
@@ -122,6 +127,7 @@ impl TriggerKind {
             Self::ApprovalRequest => "approval_request",
             Self::UserRequest => "user_request",
             Self::UserReturned => "user_returned",
+            Self::ReportRequest => "report_request",
             Self::Scheduled => "scheduled",
             Self::Unknown => "unknown",
         }
@@ -135,6 +141,7 @@ impl TriggerKind {
             Self::ApprovalRequest,
             Self::UserRequest,
             Self::UserReturned,
+            Self::ReportRequest,
             Self::Scheduled,
         ]
         .into_iter()

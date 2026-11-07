@@ -78,3 +78,58 @@ fn queued_event_and_status_cannot_be_rebound_to_a_new_route() {
         );
     });
 }
+
+/// 场景：岛内全局对话经锚点宿主进入唯一大脑，未启用或没有身份时给出本地化原因而不是静默丢弃。
+/// 数据：宿主有 alpha/route 身份；先无设置、再设置为未启用、最后启用。
+/// 预期：依次 Err(island.staff_loading)、Err(island.staff_disabled)；启用后 Ok 且排入的事件带 alpha/route 身份；
+/// 没有 workspace 身份的宿主返回 Err(island.staff_no_workspace)，队列保持为空。
+#[test]
+fn staff_requests_report_why_the_brain_is_unavailable() {
+    let dir = tempfile::tempdir().expect("隔离App数据");
+    let paths = storage::DatabasePaths::isolated_test(dir.path());
+    let mut test = TestAppContext::single();
+    let (source, cx) = test.add_window_view(|_, cx| {
+        MultisoulApp::new_with_pty_factory_and_database_paths(
+            cx,
+            Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+            paths,
+        )
+    });
+    source.update(cx, |app, _| {
+        let request = || BrainEventKind::UserRequest {
+            text: "汇总".into(),
+        };
+        assert_eq!(
+            app.push_staff_event(request()),
+            Err("island.staff_no_workspace")
+        );
+        app.workspace_id = Some("alpha".into());
+        app.workspace_route_id = Some("route".into());
+        assert_eq!(app.push_staff_event(request()), Err("island.staff_loading"));
+        app.brain.settings = Some(Default::default());
+        assert_eq!(
+            app.push_staff_event(request()),
+            Err("island.staff_disabled")
+        );
+        assert!(
+            app.brain.pending_events.borrow().is_empty(),
+            "不可用时不得排队"
+        );
+        app.brain.settings = Some(super::super::config::BrainSettings {
+            enabled: true,
+            ..Default::default()
+        });
+        assert_eq!(app.push_staff_event(request()), Ok(()));
+        let event = app
+            .brain
+            .pending_events
+            .borrow_mut()
+            .pop_front()
+            .expect("已排队");
+        assert_eq!(
+            event.scope.workspace_id, "alpha",
+            "身份来自锚点宿主的精确 workspace/route"
+        );
+        assert_eq!(event.scope.route_id, "route");
+    });
+}

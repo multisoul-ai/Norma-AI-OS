@@ -3,6 +3,7 @@
 mod activity_feed;
 mod activity_sink;
 mod activity_view;
+pub(crate) use activity_view::{recent_activity_lines, ActivityLine};
 mod approvals;
 mod away;
 mod clients;

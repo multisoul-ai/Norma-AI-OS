@@ -68,5 +68,16 @@
   "island.notify_approval": "智能体需要你的批准",
   "island.notify_question": "智能体有问题问你",
   "island.notify_completed": "任务已完成",
-  "island.notify_body": "%{workspace} · 点击打开对应卡片"
+  "island.notify_body": "%{workspace} · 点击打开对应卡片",
+  "island.staff_loading": "幕僚设置仍在加载，请稍后再试。",
+  "island.staff_disabled": "幕僚尚未开启，请到设置中启用后再对话。",
+  "island.staff_no_workspace": "请先打开一个工作空间；幕僚需要借它来工作。",
+  "island.staff_nothing_to_report": "当前没有运行中或失败的事项可汇报。",
+  "island.staff_placeholder": "问问幕僚…",
+  "island.staff_send": "发送",
+  "island.staff_report": "汇报",
+  "island.staff_empty": "让幕僚跨所有工作空间查看，或点“汇报”听一段口语总结。",
+  "island.staff_you": "你",
+  "island.staff_staff": "幕僚",
+  "island.staff_activity": "幕僚最近活动"
 }

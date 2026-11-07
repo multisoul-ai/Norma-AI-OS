@@ -52,7 +52,8 @@ mod brain_host;
 pub(crate) mod doubao_adapter_fixture;
 pub(crate) use brain_host::adapter_package as brain_adapter_package;
 pub(crate) use brain_host::{
-    BrainSettings, BrainSettingsView, ModelList, OverviewQuestion, SlowReminder, SummaryEvery,
+    recent_activity_lines, ActivityLine, BrainSettings, BrainSettingsView, ModelList,
+    OverviewQuestion, SlowReminder, SummaryEvery,
 };
 mod memory;
 pub(crate) mod native_input;

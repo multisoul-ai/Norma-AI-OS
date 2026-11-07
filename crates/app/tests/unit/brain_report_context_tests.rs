@@ -165,6 +165,7 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
             op: Box::new(BrainOp::Report {
                 text: "因为当前任务尚未获得批准".into(),
                 priority: ReportPriority::Normal,
+                kind: norma::protocol::ReportKind::Status,
                 sources: vec![source.clone()],
             }),
         },

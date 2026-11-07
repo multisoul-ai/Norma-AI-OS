@@ -134,6 +134,7 @@
   "chrome.brain_trigger_approval_request": "Approval request",
   "chrome.brain_trigger_user_request": "Your request",
   "chrome.brain_trigger_user_returned": "You returned",
+  "chrome.brain_trigger_report_request": "You asked for a report",
   "chrome.brain_trigger_scheduled": "Scheduled digest",
   "chrome.brain_trigger_unknown": "Unknown",
   "chrome.brain_trigger_user_approved": "You approved a proposal",

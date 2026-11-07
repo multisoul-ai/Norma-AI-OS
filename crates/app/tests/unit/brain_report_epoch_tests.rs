@@ -145,6 +145,7 @@ fn send_report(f: &mut Fixture) {
             op: Box::new(BrainOp::Report {
                 text: "部署已完成".into(),
                 priority: ReportPriority::Normal,
+                kind: norma::protocol::ReportKind::Status,
                 sources: vec![],
             }),
         },

@@ -1,6 +1,6 @@
 use super::operation::non_blank_task;
 use crate::protocol::{
-    BrainDecision, BrainOp, BrainScope, CardCommand, ContextRef, ReportPriority,
+    BrainDecision, BrainOp, BrainScope, CardCommand, ContextRef, ReportKind, ReportPriority,
 };
 use crate::protocol::{QuestionAnswer, QuestionRef};
 use clap::{Args, Subcommand, ValueEnum};
@@ -51,6 +51,9 @@ enum BrainCliCommand {
         text: String,
         #[arg(long, value_enum, default_value_t = PriorityValue::Normal)]
         priority: PriorityValue,
+        /// reply：对用户请求的回复，岛内对话必显；status（默认）：主动进展播报。
+        #[arg(long, value_enum, default_value_t = KindValue::Status)]
+        kind: KindValue,
         /// 宿主返回的来源 JSON 引用，可重复指定；不填表示来源关联不可用。
         #[arg(long = "context-ref", value_parser = parse_context_ref)]
         sources: Vec<ContextRef>,
@@ -105,6 +108,12 @@ enum PriorityValue {
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
+enum KindValue {
+    Status,
+    Reply,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
 enum DecisionValue {
     Allow,
     Deny,
@@ -154,10 +163,15 @@ impl BrainArgs {
             BrainCliCommand::Report {
                 text,
                 priority,
+                kind,
                 sources,
             } => BrainOp::Report {
                 text,
                 sources,
+                kind: match kind {
+                    KindValue::Status => ReportKind::Status,
+                    KindValue::Reply => ReportKind::Reply,
+                },
                 priority: match priority {
                     PriorityValue::Normal => ReportPriority::Normal,
                     PriorityValue::Now => ReportPriority::Now,

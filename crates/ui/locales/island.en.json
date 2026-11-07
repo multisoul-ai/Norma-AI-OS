@@ -68,5 +68,16 @@
   "island.notify_approval": "An agent needs your approval",
   "island.notify_question": "An agent has a question for you",
   "island.notify_completed": "Task finished",
-  "island.notify_body": "%{workspace} · Click to open the card"
+  "island.notify_body": "%{workspace} · Click to open the card",
+  "island.staff_loading": "Staff settings are still loading. Try again in a moment.",
+  "island.staff_disabled": "Norma Staff is turned off. Enable it in Settings to chat.",
+  "island.staff_no_workspace": "Open a workspace first; Staff needs one to work from.",
+  "island.staff_nothing_to_report": "Nothing running or failing to report right now.",
+  "island.staff_placeholder": "Ask Staff anything…",
+  "island.staff_send": "Send",
+  "island.staff_report": "Report",
+  "island.staff_empty": "Ask Staff to look across all your workspaces, or press Report for a spoken summary.",
+  "island.staff_you": "You",
+  "island.staff_staff": "Staff",
+  "island.staff_activity": "Recent Staff activity"
 }

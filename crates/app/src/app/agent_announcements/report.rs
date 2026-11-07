@@ -175,7 +175,7 @@ impl MultisoulApp {
                     {
                         return false;
                     }
-                    app.speak_saved_brain_report(text, priority, delivery.clone(), cx);
+                    app.speak_saved_brain_report(text, priority, delivery.clone(), false, cx);
                     true
                 })
                 .unwrap_or(false);
@@ -191,9 +191,10 @@ impl MultisoulApp {
         text: String,
         priority: ReportPriority,
         delivery: super::super::shared_context::report::ReportDeliveryHandle,
+        forced: bool,
         cx: &mut Context<Self>,
     ) -> bool {
-        self.enqueue_brain_report(text, priority, Some(delivery), cx)
+        self.enqueue_brain_report(text, priority, Some(delivery), forced, cx)
     }
 
     fn enqueue_brain_report(
@@ -201,11 +202,13 @@ impl MultisoulApp {
         text: String,
         priority: ReportPriority,
         delivery: Option<super::super::shared_context::report::ReportDeliveryHandle>,
+        forced: bool,
         cx: &mut Context<Self>,
     ) -> bool {
         let text = text.trim().to_string();
         let preview: String = text.chars().take(80).collect();
-        if text.is_empty() || !self.brain_speaking() {
+        // `forced`: the user pressed the island's report button, which is explicit consent to speak.
+        if text.is_empty() || !(forced || self.brain_speaking()) {
             tracing::info!(%preview, "大脑播报被跳过：文字为空或语音汇报未开启");
             if let Some(delivery) = &delivery {
                 delivery.cancel();

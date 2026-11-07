@@ -59,6 +59,7 @@ pub(super) fn trigger_label(trigger: FeedTrigger, who: &str) -> String {
         FeedTrigger::Brain(TriggerKind::ApprovalRequest) => "chrome.brain_trigger_approval_request",
         FeedTrigger::Brain(TriggerKind::UserRequest) => "chrome.brain_trigger_user_request",
         FeedTrigger::Brain(TriggerKind::UserReturned) => "chrome.brain_trigger_user_returned",
+        FeedTrigger::Brain(TriggerKind::ReportRequest) => "chrome.brain_trigger_report_request",
         FeedTrigger::Brain(TriggerKind::Scheduled) => "chrome.brain_trigger_scheduled",
         FeedTrigger::Brain(TriggerKind::Unknown) => "chrome.brain_trigger_unknown",
     };

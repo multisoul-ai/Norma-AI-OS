@@ -19,6 +19,26 @@ impl MultisoulApp {
         self.push_scoped_brain(BrainEvent { scope, kind });
     }
 
+    /// Island chat entry point: the exact identity of this live host carries the request to the
+    /// single shared brain. Unavailability is reported as a localized key, never dropped silently.
+    pub(crate) fn push_staff_event(&self, kind: BrainEventKind) -> Result<(), &'static str> {
+        self.staff_ready()?;
+        self.push_brain(kind);
+        Ok(())
+    }
+
+    /// Why this host cannot carry island chat to the brain right now, if it cannot.
+    pub(crate) fn staff_ready(&self) -> Result<(), &'static str> {
+        if self.brain_scope().is_none() {
+            return Err("island.staff_no_workspace");
+        }
+        match self.brain.settings.as_ref() {
+            None => Err("island.staff_loading"),
+            Some(settings) if !settings.enabled => Err("island.staff_disabled"),
+            Some(_) => Ok(()),
+        }
+    }
+
     pub(super) fn push_scoped_brain(&self, event: BrainEvent) {
         if self.brain_scope().as_ref() != Some(&event.scope) {
             return;

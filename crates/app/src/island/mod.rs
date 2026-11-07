@@ -17,6 +17,8 @@ mod question;
 mod question_editor;
 mod remembered;
 mod running;
+pub(crate) mod staff;
+mod staff_view;
 mod style;
 mod view;
 mod windows;

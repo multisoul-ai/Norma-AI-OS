@@ -4,6 +4,7 @@ pub mod approval_rules;
 pub mod displays;
 pub mod geometry;
 pub mod notification;
+pub mod staff;
 pub mod transition;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum IslandMode {

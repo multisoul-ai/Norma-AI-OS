@@ -179,6 +179,12 @@ impl Router {
                 approval_id: None,
                 trigger: Trigger::new(TriggerKind::UserRequest, ""),
             }],
+            BrainEventKind::ReportRequested { overview } => vec![Action {
+                lane: Lane::Main,
+                text: prompt::report_request(&overview),
+                approval_id: None,
+                trigger: Trigger::new(TriggerKind::ReportRequest, ""),
+            }],
             BrainEventKind::ContextRequest { text, reference } => vec![Action {
                 lane: Lane::Main,
                 text: prompt::context_request(&text, &reference),
@@ -264,3 +270,7 @@ impl Router {
 #[cfg(test)]
 #[path = "../tests/unit/router_tests.rs"]
 mod router_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/router_report_tests.rs"]
+mod router_report_tests;

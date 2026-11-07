@@ -256,3 +256,30 @@ fn the_jump_scroll_waits_for_the_turn_body() {
         "动作行不依赖正文"
     );
 }
+
+/// 场景：岛内幕僚页只要最近几轮活动：新的在前，数量受限，每行带触发来源。
+/// 数据：写入 4 轮（时刻 1000…4000），触发者都是 Alan。
+/// 预期：limit=3 时返回最近 3 轮且按新→旧排列；每行标签含 Alan；空库返回空。
+#[test]
+fn island_activity_lines_are_newest_first_and_bounded() {
+    let dir = tempfile::tempdir().expect("临时目录");
+    let path = dir.path().join("app.sqlite");
+    assert!(recent_activity_lines(path.clone(), 3)
+        .expect("空库")
+        .is_empty());
+    BrainActivityStore::new(path.clone())
+        .save_batch(&BrainActivityBatch {
+            turns: (1..=4)
+                .map(|n| turn(n, "Main", n * 1000, "agent_finished"))
+                .collect(),
+            ..Default::default()
+        })
+        .expect("写入");
+    let lines = recent_activity_lines(path, 3).expect("读取");
+    let times: Vec<_> = lines.iter().map(|line| line.at_ms).collect();
+    assert_eq!(times, [4000, 3000, 2000], "应是最近 3 轮且新的在前");
+    assert!(
+        lines.iter().all(|line| line.label.contains("Alan")),
+        "{lines:?}"
+    );
+}

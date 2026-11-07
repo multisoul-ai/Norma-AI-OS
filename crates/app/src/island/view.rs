@@ -22,6 +22,9 @@ pub(super) struct IslandView {
     epoch: Instant,
     instant_revision: u64,
     body_height: f64,
+    pub(super) staff_input: Option<Entity<ui::component::input::InputState>>,
+    pub(super) caption_tick: Option<gpui::Task<()>>,
+    pub(super) _staff_subscription: Option<Subscription>,
     _subscription: Subscription,
 }
 
@@ -46,6 +49,9 @@ impl IslandView {
             epoch: Instant::now(),
             instant_revision: 0,
             body_height: 180.,
+            staff_input: None,
+            caption_tick: None,
+            _staff_subscription: None,
             focus: cx.focus_handle(),
             _subscription: subscription,
         }
@@ -230,7 +236,7 @@ impl Render for IslandView {
                 );
             }
         } else if tab == IslandTab::Staff && mode == IslandMode::Expanded {
-            body = body.child(self.staff_guide(cx));
+            body = body.child(self.staff_tab(window, cx));
         } else {
             if mode == IslandMode::Expanded
                 && ((tab == IslandTab::Running

@@ -115,6 +115,7 @@ fn direct_protocol_and_cli_apply_the_same_limit() {
     let report = BrainOp::Report {
         text: reason,
         priority: norma::protocol::ReportPriority::Normal,
+        kind: norma::protocol::ReportKind::Status,
         sources: vec![],
     };
     assert!(

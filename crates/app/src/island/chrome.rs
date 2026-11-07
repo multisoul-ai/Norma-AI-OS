@@ -265,7 +265,7 @@ impl IslandView {
         tabs
     }
 
-    pub fn staff_guide(&self, cx: &Context<Self>) -> Div {
+    pub fn staff_guide(&self, reason: Option<&'static str>, cx: &Context<Self>) -> Div {
         div()
             .flex()
             .flex_col()
@@ -298,7 +298,7 @@ impl IslandView {
                                 div()
                                     .text_size(px(12.))
                                     .text_color(rgb(style::MUTED))
-                                    .child(text("island.staff_guide")),
+                                    .child(text(reason.unwrap_or("island.staff_guide"))),
                             ),
                     ),
             )

@@ -53,6 +53,7 @@ fn gpt_live_brain_report_uses_native_queue_without_legacy_tts() {
             "任务需要先确认范围".into(),
             norma::protocol::ReportPriority::Normal,
             delivery.clone(),
+            false,
             cx,
         );
         assert!(queued, "已连接 Live 必须能接收幕僚报告");
