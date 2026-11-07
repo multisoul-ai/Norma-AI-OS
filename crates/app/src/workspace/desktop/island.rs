@@ -17,7 +17,6 @@ impl MultisoulApp {
         &mut self,
         workspace: &str,
         row: &norma::mobile::RunOverviewAttention,
-        window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> bool {
         if self.desktop_workspace.active_id.as_deref() != Some(workspace)
@@ -39,7 +38,7 @@ impl MultisoulApp {
         {
             return false;
         }
-        self.activate_overview_action(super::overview_rows::attention_row(row).action, window, cx);
+        self.open_attention_result(row, cx);
         true
     }
 }

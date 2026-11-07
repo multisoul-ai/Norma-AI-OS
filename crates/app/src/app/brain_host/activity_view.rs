@@ -85,6 +85,38 @@ pub(crate) fn read_snapshot(
     })
 }
 
+/// 岛内幕僚页的一行最近活动。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ActivityLine {
+    pub at_ms: i64,
+    pub label: String,
+}
+
+/// 最近 `limit` 轮活动，新的在前；文件读取，须在后台线程调用。
+pub(crate) fn recent_activity_lines(
+    path: PathBuf,
+    limit: usize,
+) -> StorageResult<Vec<ActivityLine>> {
+    Ok(read_snapshot(path, 1, vec![])?
+        .rows
+        .into_iter()
+        .filter_map(|row| match row {
+            // The bootstrap turn (unknown trigger) carries the brain's own instructions, not activity.
+            FeedRow::Turn(turn)
+                if turn.trigger
+                    != super::activity_feed::FeedTrigger::Brain(brain::TriggerKind::Unknown) =>
+            {
+                Some(ActivityLine {
+                    at_ms: turn.started_ms,
+                    label: super::panel_parts::trigger_label(turn.trigger, &turn.trigger_who),
+                })
+            }
+            FeedRow::Turn(_) | FeedRow::Action(_) => None,
+        })
+        .take(limit)
+        .collect())
+}
+
 #[derive(Default)]
 pub(crate) struct ActivityView {
     pub rows: Vec<FeedRow>,
@@ -224,11 +256,6 @@ impl MultisoulApp {
 
     pub(crate) fn activity_mut(&mut self) -> &mut ActivityView {
         &mut self.brain.activity
-    }
-
-    /// 抽屉入口上的数字：上次打开面板之后的新动作数。
-    pub(crate) fn brain_unseen_actions(&self) -> usize {
-        self.brain.activity.unseen
     }
 
     /// 在后台读一次库。面板打开时读整页并把动作标为已读，关着时只读未读数。

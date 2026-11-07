@@ -61,6 +61,15 @@ impl SettingsStore {
         Ok(())
     }
 
+    /// Deletes every key that starts with `prefix` (compared literally, no LIKE wildcards).
+    pub fn delete_prefix(&self, prefix: &str) -> StorageResult<usize> {
+        let connection = open_app_connection(&self.path)?;
+        Ok(connection.execute(
+            "DELETE FROM settings WHERE substr(key, 1, length(?1)) = ?1",
+            params![prefix],
+        )?)
+    }
+
     pub fn apply_string_changes(&self, changes: &[(String, Option<String>)]) -> StorageResult<()> {
         let mut connection = open_app_connection(&self.path)?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;

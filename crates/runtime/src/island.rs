@@ -3,6 +3,8 @@
 pub mod approval_rules;
 pub mod displays;
 pub mod geometry;
+pub mod notification;
+pub mod staff;
 pub mod transition;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum IslandMode {
@@ -35,7 +37,8 @@ pub enum IslandTab {
     Running,
     Staff,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct IslandPreferences {
     pub hidden: bool,
     pub approvals: bool,

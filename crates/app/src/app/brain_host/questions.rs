@@ -392,10 +392,6 @@ fn terminal_answer_guard(
 mod tests;
 
 #[cfg(test)]
-#[path = "../../../tests/unit/brain_question_overview_tests.rs"]
-mod overview_tests;
-
-#[cfg(test)]
 #[path = "../../../tests/unit/brain_question_delegation_tests.rs"]
 mod delegation_tests;
 

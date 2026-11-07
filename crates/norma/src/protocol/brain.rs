@@ -5,6 +5,22 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Stable project identity plus the current live host route; neither alone is sufficient.
+#[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+pub struct BrainScope {
+    pub workspace_id: String,
+    pub route_id: String,
+}
+
+/// 汇报的用途：`Reply` 是对用户请求的文字回复，必须在岛内对话里显示；
+/// `Status` 是幕僚主动播报的进展，是否朗读由播报设置决定。
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum ReportKind {
+    #[default]
+    Status,
+    Reply,
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ReportPriority {
     #[default]
@@ -41,6 +57,12 @@ pub enum BrainOp {
     Report {
         text: String,
         priority: ReportPriority,
+        /// 旧客户端不带该字段，视为 `Status`。
+        #[serde(default)]
+        kind: ReportKind,
+        /// The island report request this reply answers; only a matching reply is spoken.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reply_to: Option<u64>,
         /// Empty means unavailable linkage for legacy reports; never infer a decision.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         sources: Vec<super::ContextRef>,

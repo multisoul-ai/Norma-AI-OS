@@ -53,6 +53,12 @@ def request_permission(session_id, command):
 
 
 def main():
+    if os.environ.get("FAKE_PID_LOG"):
+        with open(os.environ["FAKE_PID_LOG"], "a", encoding="utf-8") as f:
+            f.write(str(os.getpid()) + "\n")
+    if os.environ.get("FAKE_HANDSHAKE_RELEASE"):
+        while not os.path.exists(os.environ["FAKE_HANDSHAKE_RELEASE"]):
+            time.sleep(0.01)
     session_id = "fake-session"
     while True:
         msg = read()
@@ -71,6 +77,9 @@ def main():
         elif method == "session/prompt":
             text = "".join(p.get("text", "") for p in msg["params"]["prompt"])
             log("prompt: " + text)
+            if "FAKE_HOLD" in text:
+                while not os.path.exists(os.environ["FAKE_RELEASE"]):
+                    time.sleep(0.01)
             if "FAKE_QUOTA" in text:
                 # Captured from installed Claude ACP 0.94.0 consumer replay; no provider call.
                 body = "You've hit your session limit · resets 6:30am (America/Los_Angeles)"

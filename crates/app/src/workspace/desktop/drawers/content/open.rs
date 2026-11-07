@@ -133,10 +133,9 @@ impl MultisoulApp {
                         app.desktop_workspace.drawers,
                         DesktopDrawerEvent::OpenArtifact,
                     );
-                    app.desktop_workspace.drawer_motion.retarget(
-                        app.desktop_workspace.drawers.left_open,
-                        app.desktop_workspace.drawers.right_open,
-                    );
+                    app.desktop_workspace
+                        .drawer_motion
+                        .retarget(app.desktop_workspace.drawers.right_open);
                     app.load_selected_desktop_content(cx);
                     if let Some(receipt) = receipt.as_ref() {
                         receipt.focus(cx)?;

@@ -45,12 +45,32 @@ impl IslandView {
             }
             rows.push(
                 style::card()
+                    .flex_row()
+                    .items_center()
+                    .gap(px(12.))
                     .child(
                         div()
-                            .text_color(rgb(0xff9678))
-                            .child(format!("{} · {}", row.agent, row.project)),
+                            .flex_1()
+                            .min_w(px(0.))
+                            .flex()
+                            .flex_col()
+                            .gap(px(2.))
+                            .child(
+                                div()
+                                    .text_size(px(13.))
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .text_color(rgb(0xff9678))
+                                    .truncate()
+                                    .child(format!("{} · {}", row.agent, row.project)),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(12.))
+                                    .text_color(rgb(style::MUTED))
+                                    .truncate()
+                                    .child(row.title.clone()),
+                            ),
                     )
-                    .child(row.title.clone())
                     .child(self.locate_button(&route, row.node_id, cx))
                     .into_any_element(),
             );

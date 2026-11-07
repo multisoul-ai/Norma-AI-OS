@@ -1,5 +1,6 @@
 //! 大脑的权限闸门：只放行 `norma` 命令和工作空间内的只读访问。
 
+pub use super::read_roots::ReadRoots;
 use crate::risk::{is_secret_path, single_command};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -86,10 +87,25 @@ pub enum Verdict {
 #[derive(Clone, Debug)]
 pub struct Gate {
     pub norma_bin: PathBuf,
+    /// ACP cwd, used only to resolve relative paths; it is not an implicit grant.
     pub project_root: PathBuf,
+    read_roots: ReadRoots,
 }
 
 impl Gate {
+    pub fn new(norma_bin: PathBuf, project_root: PathBuf, read_roots: ReadRoots) -> Self {
+        Self {
+            norma_bin,
+            project_root,
+            read_roots,
+        }
+    }
+
+    pub fn for_project(norma_bin: PathBuf, project_root: PathBuf) -> Self {
+        let roots = ReadRoots::new(vec![project_root.clone()]);
+        Self::new(norma_bin, project_root, roots)
+    }
+
     pub fn judge(&self, request: &PermissionRequest) -> Verdict {
         match request.tool.as_str() {
             "Bash" => self.judge_command(request.command.as_deref()),
@@ -119,16 +135,23 @@ impl Gate {
         if is_secret_path(path) {
             return Verdict::Reject("不允许读取密钥或凭据文件".into());
         }
-        let root = self.project_root.canonicalize();
-        let candidate = self.project_root.join(path).canonicalize();
-        if let (Ok(root), Ok(candidate)) = (root, candidate) {
-            if candidate.is_file()
-                && candidate.starts_with(root)
-                && !is_secret_path(&candidate.to_string_lossy())
-                && crate::risk::is_inside_project(&self.project_root, path)
-            {
-                return Verdict::Allow;
-            }
+        if path.starts_with('~') || path.starts_with('$') {
+            return Verdict::Reject("只允许读取工作空间内实际存在的非凭据文件".into());
+        }
+        let requested = self.project_root.join(path);
+        let Ok(candidate) = requested.canonicalize() else {
+            return Verdict::Reject("只允许读取工作空间内实际存在的非凭据文件".into());
+        };
+        if candidate.is_file()
+            && !is_secret_path(&candidate.to_string_lossy())
+            && self.read_roots.snapshot().iter().any(|root| {
+                crate::risk::is_inside_project(root, &requested.to_string_lossy())
+                    && root
+                        .canonicalize()
+                        .is_ok_and(|root| candidate.starts_with(root))
+            })
+        {
+            return Verdict::Allow;
         }
         Verdict::Reject("只允许读取工作空间内实际存在的非凭据文件".into())
     }

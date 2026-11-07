@@ -8,6 +8,14 @@ public struct NativeWindowInfo {
 }
 
 extension Session {
+    /// Query the macOS compositor, not a product preference or GPUI visibility flag.
+    public func nativeWindowIsOnScreen(_ number: Int) throws -> Bool {
+        guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            throw E2EError.env("无法读取系统可见窗口列表")
+        }
+        return windows.contains { ($0[kCGWindowNumber as String] as? NSNumber)?.intValue == number }
+    }
+
     /// 原生窗口元数据，用于选择独立的面板；不读取产品内部状态。
     public func nativeWindows() async throws -> [NativeWindowInfo] {
         let response = try await control(["op": "windows"])

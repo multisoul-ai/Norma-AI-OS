@@ -46,8 +46,6 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
     host.update_in(cx, |app, window, cx| {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace.id.clone(), window, cx);
-        app.desktop_workspace.drawers.left_open = true;
-        app.desktop_workspace.drawer_motion.settle_left(true);
     });
     cx.run_until_parked();
     host.update_in(cx, |app, window, cx| app.finish_desktop_zoom(window, cx));
@@ -57,27 +55,13 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
         .expect("总览必须有顶部栏");
     assert_eq!(
         bar.size,
-        size(px(1033.0), px(52.0)),
-        "顶部栏必须铺满抽屉之间的画布，并与画布顶部占用空间一致"
+        size(px(1280.0), px(52.0)),
+        "顶部栏必须铺满窗口画布，并与画布顶部占用空间一致"
     );
     assert_eq!(
         bar.origin,
-        point(px(247.0), px(0.0)),
-        "顶部栏必须贴合窗口顶边和左抽屉的右边"
-    );
-    let brand = cx
-        .debug_bounds("desktop-assistant-brand")
-        .expect("展开的左抽屉必须显示 Norma 标识");
-    assert!(
-        (brand.center().y - bar.center().y).abs() <= px(1.0),
-        "左抽屉的产品标识应与中央顶部栏共用同一条 52px 垂直中心线"
-    );
-    let left_header = cx
-        .debug_bounds("desktop-assistant-left-header")
-        .expect("应找到左抽屉标题栏");
-    assert!(
-        (left_header.bottom() - bar.bottom()).abs() <= px(1.0),
-        "左抽屉的底部分隔线应与中央顶部栏对齐"
+        point(px(0.0), px(0.0)),
+        "顶部栏必须贴合窗口顶边和左边"
     );
     assert_ne!(
         bar.origin,
@@ -95,8 +79,8 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
         .debug_bounds("workspace-topbar-title")
         .expect("应显示居中名称");
     assert!(
-        (title.left() - bar.left() - px(14.0)).abs() <= px(1.0),
-        "左抽屉展开时，总览标题应与原型一样贴近中央画布左侧"
+        (title.left() - px(158.0)).abs() <= px(1.0),
+        "总览标题应紧贴 logo 右侧左对齐"
     );
     assert!(
         (title.center().y - px(26.0)).abs() <= px(1.0),
@@ -283,12 +267,6 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
             .is_none(),
         "切换后不能残留 alpha 名称"
     );
-    // 进入项目不再自动收起左栏，窄窗收起态须由用户显式关闭左栏得到。
-    host.update_in(cx, |app, _, cx| {
-        app.desktop_workspace.drawers.left_open = false;
-        app.desktop_workspace.drawer_motion.settle_left(false);
-        cx.notify();
-    });
     cx.simulate_resize(size(px(640.0), px(800.0)));
     cx.update(|window, cx| window.draw(cx).clear());
     let title = cx
@@ -302,10 +280,10 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
         size(px(640.0), px(52.0)),
         "窄窗顶部栏仍须铺满 640px 窗口，控件不能溢出窗口"
     );
-    // 左抽屉收起时 logo 固定在 82+32+10=124..146，面包屑从 146+12=158 起左对齐。
+    // logo 固定在 82+32+10=124..146，面包屑从 146+12=158 起左对齐。
     assert!(
         (title.left() - px(158.0)).abs() <= px(1.0),
-        "窄窗收起态标题应紧贴 logo 左对齐：{title:?}"
+        "窄窗标题应紧贴 logo 左对齐：{title:?}"
     );
     assert!(
         title.right() <= px(552.0),

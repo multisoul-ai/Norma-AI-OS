@@ -5,7 +5,8 @@
 
 use brain::risk::ApprovalSubject;
 use brain::{
-    ApprovalRequest, Backend, BackendKind, BrainConfig, BrainEvent, BrainService, BrainStatus,
+    ApprovalRequest, Backend, BackendKind, BrainConfig, BrainEventKind, BrainService,
+    BrainStatusKind,
 };
 use std::time::Duration;
 
@@ -27,18 +28,25 @@ fn main() {
     let mut config = BrainConfig::new(backend, norma.into(), project.clone().into(), state);
     config.prompt_timeout = Duration::from_secs(120);
     let (service, status) = BrainService::start(config);
+    let scope = norma::protocol::BrainScope {
+        workspace_id: "smoke".into(),
+        route_id: "smoke-route".into(),
+    };
     if std::env::var("SMOKE_EVENT").as_deref() == Ok("finished") {
-        service.push(BrainEvent::AgentFinished {
-            agent: "Alan".into(),
-            outcome: brain::Outcome::Succeeded,
-            excerpt: "登录页已经做完，12 个测试全部通过。".into(),
-            from_result: true,
-        });
+        service.push(
+            BrainEventKind::AgentFinished {
+                agent: "Alan".into(),
+                outcome: brain::Outcome::Succeeded,
+                excerpt: "登录页已经做完，12 个测试全部通过。".into(),
+                from_result: true,
+            }
+            .in_scope(scope.clone()),
+        );
         let started = std::time::Instant::now();
         // 打印全部状态，包括 ACP 过程记录，用来确认真实适配器实际会发哪些更新。
         while let Ok(event) = status.recv_timeout(Duration::from_secs(90)) {
             println!("[{:>5.1}s] {event:?}", started.elapsed().as_secs_f32());
-            let ended = matches!(&event, BrainStatus::Trace(t) if t.item.kind == brain::acp::trace::TraceKind::Turn && t.turn > 1);
+            let ended = matches!(&event.kind, BrainStatusKind::Trace(t) if t.item.kind == brain::acp::trace::TraceKind::Turn && t.turn > 1);
             if ended || started.elapsed() > Duration::from_secs(120) {
                 break;
             }
@@ -46,22 +54,25 @@ fn main() {
         service.shutdown();
         return;
     }
-    service.push(BrainEvent::ApprovalRequested(ApprovalRequest {
-        id: "smoke-1".into(),
-        agent: "Claude".into(),
-        subject: ApprovalSubject {
-            tool_name: "Bash".into(),
-            command: Some("cargo test -p app".into()),
-            file_path: None,
-            project_root: project.into(),
-        },
-    }));
+    service.push(
+        BrainEventKind::ApprovalRequested(ApprovalRequest {
+            id: "smoke-1".into(),
+            agent: "Claude".into(),
+            subject: ApprovalSubject {
+                tool_name: "Bash".into(),
+                command: Some("cargo test -p app".into()),
+                file_path: None,
+                project_root: project.into(),
+            },
+        })
+        .in_scope(scope),
+    );
     let started = std::time::Instant::now();
     while let Ok(event) = status.recv_timeout(Duration::from_secs(150)) {
         println!("[{:>5.1}s] {event:?}", started.elapsed().as_secs_f32());
         if matches!(
-            event,
-            BrainStatus::ApprovalTurnEnded { .. } | BrainStatus::BackendDown { .. }
+            event.kind,
+            BrainStatusKind::ApprovalTurnEnded { .. } | BrainStatusKind::BackendDown { .. }
         ) {
             break;
         }

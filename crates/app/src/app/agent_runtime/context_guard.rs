@@ -66,7 +66,7 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                         super::idea_commands::IdeaDelivery {
                             target,
                             flight: super::idea_commands::IdeaFlight {
-                                origin: super::idea_commands::drawer_origin(app, cx),
+                                origin: super::idea_commands::drawer_origin(),
                                 user_initiated: false,
                             },
                             states,

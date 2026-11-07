@@ -1,6 +1,6 @@
 //! 事件分流：去抖、静默池、定时摘要、审批分发。纯逻辑，时间由调用方传入。
 
-use crate::event::{ApprovalRequest, BrainEvent, Outcome, Trigger, TriggerKind};
+use crate::event::{ApprovalRequest, BrainEventKind, Outcome, Trigger, TriggerKind};
 use crate::lane::prompt;
 use crate::triage::{triage, Verdict};
 use std::collections::{BTreeMap, HashSet};
@@ -92,17 +92,17 @@ impl Router {
         self.open_approvals.contains(approval_id)
     }
 
-    pub fn push(&mut self, event: BrainEvent, now: Instant) -> Vec<Action> {
+    pub fn push(&mut self, event: BrainEventKind, now: Instant) -> Vec<Action> {
         let verdict = triage(&event);
         match event {
-            BrainEvent::AgentProgress { agent, text } => {
+            BrainEventKind::AgentProgress { agent, text } => {
                 self.digest.insert(agent, text);
                 if self.digest.len() > MAX_DIGEST_LINES {
                     self.digest.pop_first();
                 }
                 vec![]
             }
-            BrainEvent::AgentFinished {
+            BrainEventKind::AgentFinished {
                 agent,
                 outcome,
                 excerpt,
@@ -135,7 +135,7 @@ impl Router {
                 }
                 vec![]
             }
-            BrainEvent::UserReturned { away } => {
+            BrainEventKind::UserReturned { away } => {
                 let since = now.checked_sub(away).unwrap_or(now);
                 let lines: Vec<String> = self
                     .activity
@@ -153,8 +153,8 @@ impl Router {
                     trigger: Trigger::new(TriggerKind::UserReturned, ""),
                 }]
             }
-            BrainEvent::ApprovalRequested(request) => self.route_approval(request),
-            BrainEvent::QuestionRequested {
+            BrainEventKind::ApprovalRequested(request) => self.route_approval(request),
+            BrainEventKind::QuestionRequested {
                 agent,
                 question,
                 delegated,
@@ -169,24 +169,39 @@ impl Router {
                     trigger: Trigger::new(TriggerKind::QuestionRequest, agent),
                 }]
             }
-            BrainEvent::ApprovalClosed { id } => {
+            BrainEventKind::ApprovalClosed { id } => {
                 self.open_approvals.remove(&id);
                 vec![]
             }
-            BrainEvent::UserRequest { text } => vec![Action {
+            BrainEventKind::UserRequest { text } => vec![Action {
                 lane: Lane::Main,
                 text: prompt::user_request(&text),
                 approval_id: None,
                 trigger: Trigger::new(TriggerKind::UserRequest, ""),
             }],
-            BrainEvent::ContextRequest { text, reference } => vec![Action {
+            BrainEventKind::StaffRequest { text } => vec![Action {
+                lane: Lane::Main,
+                text: prompt::staff_request(&text),
+                approval_id: None,
+                trigger: Trigger::new(TriggerKind::UserRequest, ""),
+            }],
+            BrainEventKind::ReportRequested {
+                request_id,
+                overview,
+            } => vec![Action {
+                lane: Lane::Main,
+                text: prompt::report_request(request_id, &overview),
+                approval_id: None,
+                trigger: Trigger::new(TriggerKind::ReportRequest, ""),
+            }],
+            BrainEventKind::ContextRequest { text, reference } => vec![Action {
                 lane: Lane::Main,
                 text: prompt::context_request(&text, &reference),
                 approval_id: None,
                 trigger: Trigger::new(TriggerKind::UserRequest, ""),
             }],
             // 目标由 Dispatcher 记录，随后续提示一起发给大脑，这里不触发一轮。
-            BrainEvent::Goal { .. } | BrainEvent::ProposalDeclined { .. } => vec![],
+            BrainEventKind::Goal { .. } | BrainEventKind::ProposalDeclined { .. } => vec![],
         }
     }
 
@@ -264,3 +279,7 @@ impl Router {
 #[cfg(test)]
 #[path = "../tests/unit/router_tests.rs"]
 mod router_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/router_report_tests.rs"]
+mod router_report_tests;

@@ -37,11 +37,8 @@ pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str 
         ShortcutCommandId::ToggleMasterLayout => "toggle_master_layout",
         ShortcutCommandId::ExitFocus => "exit_focus",
         ShortcutCommandId::ToggleSettings => "toggle_settings",
-        ShortcutCommandId::ToggleRunOverview => "toggle_run_overview",
-        ShortcutCommandId::ToggleIdeas => "toggle_ideas",
         ShortcutCommandId::ToggleBrainTrace => "toggle_brain_trace",
-        ShortcutCommandId::AssignIdeaToCard(_) => "assign_idea_to_card",
-        ShortcutCommandId::AssignIdeaToNewAgent(_) => "assign_idea_to_new_agent",
+        ShortcutCommandId::ToggleIsland => "toggle_island",
         ShortcutCommandId::VoiceInteraction => "voice_interaction",
     }
 }

@@ -1,5 +1,5 @@
 use norma::cli::{parse_invocation_from, OutputFormat};
-use norma::protocol::{BrainDecision, BrainOp, CardCommand, ReportPriority};
+use norma::protocol::{BrainDecision, BrainOp, CardCommand, ReportKind, ReportPriority};
 
 fn parse(args: &[&str]) -> CardCommand {
     parse_invocation_from(args.iter().copied())
@@ -31,7 +31,9 @@ fn report_parses_text_and_priority() {
             op: Box::new(BrainOp::Report {
                 text: "Codex 完成了".into(),
                 sources: Vec::new(),
-                priority: ReportPriority::Normal
+                priority: ReportPriority::Normal,
+                kind: ReportKind::Status,
+                reply_to: None,
             }),
         },
         "默认优先级应是 Normal"
@@ -249,4 +251,87 @@ fn propose_parses_title_task_and_why() {
         "norma", "brain", "propose", "Alan", "--title", "t", "--task", "  ", "--why", "w",
     ]);
     assert!(blank_task.is_err(), "空白指令应解析失败");
+}
+
+/// `norma brain report --kind reply` 把汇报标成对用户请求的回复。
+///
+/// 数据构造：同一段文本，分别不带 `--kind`、`--kind reply`、`--kind status`、`--kind bogus`。
+/// 预期结果：
+///   - 正断言：缺省与 status 为 Status（旧调用方不变），reply 为 Reply；旧 JSON 缺 kind 仍可反序列化
+///   - 负断言：未知 kind 解析失败，不静默当成 Status
+#[test]
+fn report_kind_defaults_to_status_and_accepts_reply() {
+    let kind_of = |extra: &[&str]| {
+        let mut args = vec!["norma", "brain", "--token", "t0", "report", "--text", "hi"];
+        args.extend_from_slice(extra);
+        match parse(&args) {
+            CardCommand::Brain { op, .. } => match *op {
+                BrainOp::Report { kind, .. } => kind,
+                other => panic!("应是 Report：{other:?}"),
+            },
+            other => panic!("应是 Brain 命令：{other:?}"),
+        }
+    };
+    assert_eq!(kind_of(&[]), ReportKind::Status, "缺省应是 Status");
+    assert_eq!(kind_of(&["--kind", "status"]), ReportKind::Status);
+    assert_eq!(kind_of(&["--kind", "reply"]), ReportKind::Reply);
+    assert!(
+        parse_invocation_from(
+            ["norma", "brain", "--token", "t0", "report", "--text", "hi", "--kind", "bogus"]
+                .iter()
+                .copied()
+        )
+        .is_err(),
+        "未知 kind 必须报错"
+    );
+    let legacy = r#"{"Report":{"text":"x","priority":"Normal"}}"#;
+    let BrainOp::Report { kind, .. } = serde_json::from_str(legacy).expect("旧 JSON 应兼容")
+    else {
+        panic!("应是 Report");
+    };
+    assert_eq!(kind, ReportKind::Status, "旧 wire 缺 kind 视为 Status");
+}
+
+/// `--reply-to` 把汇报请求编号带进 report，缺省为 None（旧调用方不变）。
+/// 预期：缺省 None；`--reply-to 7` 为 Some(7)；非数字报错；旧 JSON 缺字段仍可读。
+#[test]
+fn report_reply_to_is_optional_and_numeric() {
+    let reply_to = |extra: &[&str]| {
+        let mut args = vec!["norma", "brain", "--token", "t0", "report", "--text", "hi"];
+        args.extend_from_slice(extra);
+        match parse(&args) {
+            CardCommand::Brain { op, .. } => match *op {
+                BrainOp::Report { reply_to, .. } => reply_to,
+                other => panic!("应是 Report：{other:?}"),
+            },
+            other => panic!("应是 Brain 命令：{other:?}"),
+        }
+    };
+    assert_eq!(reply_to(&[]), None);
+    assert_eq!(reply_to(&["--reply-to", "7"]), Some(7));
+    assert!(
+        parse_invocation_from(
+            [
+                "norma",
+                "brain",
+                "--token",
+                "t0",
+                "report",
+                "--text",
+                "hi",
+                "--reply-to",
+                "x"
+            ]
+            .iter()
+            .copied()
+        )
+        .is_err(),
+        "非数字编号必须报错"
+    );
+    let legacy = r#"{"Report":{"text":"x","priority":"Normal"}}"#;
+    let BrainOp::Report { reply_to, .. } = serde_json::from_str(legacy).expect("旧 JSON 应兼容")
+    else {
+        panic!("应是 Report");
+    };
+    assert_eq!(reply_to, None);
 }

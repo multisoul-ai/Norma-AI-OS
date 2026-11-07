@@ -211,7 +211,7 @@ fn only_the_issued_token_authorizes_brain_commands() {
     let mut state = super::BrainHostState::new();
     assert!(!state.token_matches("abc"), "没有大脑时不应放行任何令牌");
     let (_tx, status) = std::sync::mpsc::channel();
-    state.host = Some(super::BrainHost {
+    state.install_brain_host_for_test(super::BrainHost {
         service: None,
         status,
         token: "abc".into(),

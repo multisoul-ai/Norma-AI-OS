@@ -19,19 +19,6 @@ impl MultisoulApp {
         });
     }
 
-    /// An enabled button can belong to an old frame. Decide in the original owning session.
-    pub(crate) fn prepare_overview_question_edit(
-        &mut self,
-        area: &str,
-        target: &QuestionRef,
-        cx: &mut Context<Self>,
-    ) -> bool {
-        let Some(workspace) = self.desktop_workspace.active_id.clone() else {
-            return false;
-        };
-        self.prepare_overview_question_edit_at(&workspace, area, target, cx)
-    }
-
     pub(crate) fn prepare_overview_question_edit_at(
         &mut self,
         workspace: &str,
@@ -66,42 +53,6 @@ impl MultisoulApp {
         available
     }
 
-    pub(crate) fn release_overview_question(
-        &mut self,
-        area: &str,
-        target: &QuestionRef,
-        cx: &mut Context<Self>,
-    ) -> bool {
-        let result = self
-            .with_overview_session(area, cx, |app, cx| {
-                app.runtime.release_question_to_native(target)?;
-                app.brain
-                    .questions
-                    .prepared
-                    .retain(|(submission, _)| submission.target() != target);
-                app.brain
-                    .questions
-                    .delegated
-                    .retain(|permit| permit.question.target != *target);
-                cx.notify();
-                Ok::<(), &'static str>(())
-            })
-            .unwrap_or(Err("question_project_closed"));
-        self.brain
-            .questions
-            .ui_errors
-            .retain(|(key, _)| key != target);
-        if let Err(error) = result {
-            self.brain
-                .questions
-                .ui_errors
-                .push((target.clone(), error.into()));
-        }
-        self.refresh_brain_overview(cx);
-        cx.notify();
-        result.is_ok()
-    }
-
     pub(crate) fn question_overview_rows(&self, area: &str) -> Vec<OverviewQuestion> {
         self.runtime
             .questions()
@@ -122,7 +73,7 @@ impl MultisoulApp {
                         .unwrap_or_else(|| format!("{:?}", target.provider)),
                     available: self.runtime.native_question_available(target),
                     delegated: self.question_delegated(target),
-                    can_delegate: self.brain.host.is_some()
+                    can_delegate: self.brain.is_running()
                         && !snapshot.question.items.iter().any(|item| item.secret),
                     suggestion: self
                         .brain
@@ -147,19 +98,6 @@ impl MultisoulApp {
             .iter()
             .find(|(key, _)| key == target)
             .map(|(_, error)| error.as_str())
-    }
-
-    pub(crate) fn submit_overview_question(
-        &mut self,
-        area: &str,
-        target: QuestionRef,
-        answers: Vec<QuestionAnswer>,
-        cx: &mut Context<Self>,
-    ) -> Task<()> {
-        let Some(workspace) = self.desktop_workspace.active_id.clone() else {
-            return Task::ready(());
-        };
-        self.submit_overview_question_at(&workspace, area, target, answers, cx)
     }
 
     pub(crate) fn submit_overview_question_at(

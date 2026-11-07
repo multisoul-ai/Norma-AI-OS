@@ -18,7 +18,7 @@ fn layout(mode: IslandMode) -> IslandLayout {
 }
 
 /// 场景：从胶囊展开后中途反向收起，黑色表面不跳帧，原生窗只在结束后缩小。
-/// 数据：1440×900无刘海屏，330×34胶囊与660×544面板，180ms进入、120ms退出。
+/// 数据：1440×900无刘海屏，330×34胶囊与660×562面板（52点标题行加510点正文），180ms进入、120ms退出。
 /// 执行：展开90ms时采样并反向，在最后一帧前后采样。
 /// 预期：先预留大窗、命中只覆盖当前黑色形状；反向起点连续，结束后窗口释放透明区域且无动画。
 #[test]
@@ -142,5 +142,76 @@ fn island_transition_content_stays_inside_rounded_intermediate_frames() {
         motion.sample(180).content_inset(),
         16.,
         "稳定后恢复原型边距"
+    );
+}
+
+/// 场景：形变交给原生合成器，纯逻辑只给出“一次性动画计划”，不再逐帧采样。
+/// 数据：胶囊→展开（180ms）、展开→胶囊（120ms）、键盘即时、减少动态效果。
+/// 执行：每次 retarget 读取返回的计划；再取内容布局（动画期间排版用较大一端）。
+/// 预期：展开/收起各返回一次计划且起点为当前形状；即时与重复目标没有计划；
+/// 减少动态效果计划为 fade_only；动画期间内容按较大一端排版，结束后按目标排版。
+#[test]
+fn island_transition_hands_native_a_one_shot_morph_plan() {
+    let compact = layout(IslandMode::Compact);
+    let expanded = layout(IslandMode::Expanded);
+    let mut motion = IslandTransition::new(compact);
+    let open = motion
+        .retarget(expanded, 0, false, false)
+        .expect("展开应给出形变计划");
+    assert_eq!(
+        (open.from, open.to, open.duration_ms),
+        (compact, expanded, 180)
+    );
+    assert!(!open.fade_only);
+    assert_eq!(motion.content(true), expanded, "展开期间按目标大小排版");
+    assert!(
+        motion.retarget(expanded, 10, false, false).is_none(),
+        "同一目标不得重复计划"
+    );
+    let close = motion
+        .retarget(compact, 90, false, false)
+        .expect("收起应给出形变计划");
+    assert_eq!(close.to, compact);
+    assert_eq!(close.duration_ms, 120, "收起 120ms");
+    assert!(
+        close.from.frame.height > compact.frame.height,
+        "起点是当前中途形状"
+    );
+    assert_eq!(
+        motion.content(true).frame.height,
+        close.from.frame.height,
+        "收起期间按较大一端（当前形状）排版，直到结束"
+    );
+    assert_eq!(motion.content(false), compact, "结束后按目标排版");
+    assert!(
+        motion.envelope().height >= close.from.frame.height,
+        "原生窗预留较大一端"
+    );
+    assert!(
+        motion.retarget(expanded, 300, false, true).is_none(),
+        "键盘即时没有形变计划"
+    );
+    let reduced = motion
+        .retarget(compact, 400, true, false)
+        .expect("减少动态效果仍要淡入");
+    assert!(reduced.fade_only);
+    assert_eq!(reduced.duration_ms, 100);
+}
+
+/// 场景：展开动画还在播时，正文高度测量到了新值。
+/// 数据：胶囊在 t=0 展开，180ms；测量发生在 t=40。
+/// 执行：询问这一刻是否还挡住测量。
+/// 预期：播放中挡住，避免再开一段形变；180ms 结束后不再挡。
+#[test]
+fn island_transition_blocks_remeasure_until_the_morph_ends() {
+    let mut motion = IslandTransition::new(layout(IslandMode::Compact));
+    motion.retarget(layout(IslandMode::Expanded), 0, false, false);
+    assert!(
+        motion.blocks_content_measurement(40),
+        "40ms 仍在 180ms 形变内，测量不能再触发一段动画"
+    );
+    assert!(
+        !motion.blocks_content_measurement(180),
+        "形变结束后测量可以落成最终尺寸"
     );
 }

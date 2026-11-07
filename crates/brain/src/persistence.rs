@@ -95,7 +95,8 @@ pub fn shared_writer() -> &'static Writer {
     WRITER.get_or_init(Writer::default)
 }
 
-fn append_line(path: &Path, text: &str) -> io::Result<()> {
+/// Both the model lanes and the App writer append here, always off the UI thread.
+pub(crate) fn append_line(path: &Path, text: &str) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -103,7 +104,10 @@ fn append_line(path: &Path, text: &str) -> io::Result<()> {
         .create(true)
         .append(true)
         .open(path)?;
-    writeln!(file, "{}", text.replace('\n', " "))
+    file.lock()?;
+    let mut line = text.replace('\n', " ");
+    line.push('\n');
+    file.write_all(line.as_bytes())
 }
 
 #[cfg(test)]

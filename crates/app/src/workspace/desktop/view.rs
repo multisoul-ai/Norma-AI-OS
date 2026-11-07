@@ -70,11 +70,9 @@ impl MultisoulApp {
             });
         if let Some(session) = focus_session.as_ref() {
             let window_size = window.viewport_size();
-            let target = super::drawers::motion::DesktopDrawerLayout::with_widths(
+            let target = super::drawers::motion::DesktopDrawerLayout::with_width(
                 f32::from(window_size.width),
-                f32::from(self.desktop_workspace.drawers.left_open as u8),
                 f32::from(self.desktop_workspace.drawers.right_open as u8),
-                self.desktop_workspace.drawer_widths.left,
                 self.desktop_workspace.drawer_widths.right,
             );
             let logical =
@@ -130,8 +128,7 @@ impl MultisoulApp {
             if self.desktop_workspace.home_directory {
                 return frame;
             }
-            let layout = self.desktop_assistant_layout(window);
-            let full = canvas::CanvasRect::new(layout.left_space, 0.0, width, height);
+            let full = canvas::CanvasRect::new(0.0, 0.0, width, height);
             let source = self
                 .desktop_workspace
                 .workspace_motion_rects

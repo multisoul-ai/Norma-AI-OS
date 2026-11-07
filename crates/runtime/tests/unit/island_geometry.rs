@@ -2,9 +2,10 @@ use super::*;
 use crate::island::IslandMode;
 
 /// 场景：原型展开高度随内容变化，空态不留整屏黑色空白，长列表才滚动。
-/// 数据：无刘海屏顶部900，菜单栏34；展开正文及页签总高160点，头部34点。
+/// 数据：无刘海屏顶部900；展开正文及页签总高160点。收起头部仍是34点，
+/// 展开标题行在此基础上再留18点，头部为52点。
 /// 执行：分别给出短内容、超长内容和收起模式，比较尺寸与顶部锚点。
-/// 预期：短内容总高194点；长内容受原最大高度限制；收起始终34点。
+/// 预期：短内容总高212点（52+160）；长内容停在562点（52+510）；收起始终34点。
 #[test]
 fn island_geometry_content_height_keeps_top_anchor_and_caps_long_lists() {
     let screen = IslandScreen {
@@ -20,19 +21,25 @@ fn island_geometry_content_height_keeps_top_anchor_and_caps_long_lists() {
         right_min_x: 0.,
     };
     let short = screen.layout_for_content(IslandMode::Expanded, 160.);
-    assert_eq!(short.frame.height, 194., "34点头部加160点实际内容");
+    assert_eq!(short.header_height, 52., "展开标题行是34点胶囊再加18点空隙");
+    assert_eq!(short.frame.height, 212., "52点头部加160点实际内容");
     assert_eq!(
         short.frame.y + short.frame.height,
-        860.,
-        "缩短保持菜单栏下6点顶部锚定"
+        896.,
+        "缩短保持距屏幕顶边4点的顶部锚定"
     );
     assert_eq!(
         screen
             .layout_for_content(IslandMode::Expanded, 2000.)
             .frame
             .height,
-        544.,
-        "长列表只增长到原型最大高度"
+        562.,
+        "长列表只增长到52点头部加510点正文"
+    );
+    assert_eq!(
+        screen.layout(IslandMode::Compact).header_height,
+        34.,
+        "收起胶囊不能跟着展开标题行变高"
     );
     assert_eq!(
         screen
@@ -47,7 +54,7 @@ fn island_geometry_content_height_keeps_top_anchor_and_caps_long_lists() {
 /// 场景：副屏位于主屏左侧且没有刘海，菜单栏占顶部 24 点。
 /// 数据：屏幕 (-1920, 80, 1920, 1080)，可见顶部 1136 = 80+1080-24。
 /// 执行：计算收起/展开窗口，再检查透明圆角和内部点命中。
-/// 预期：胶囊在菜单栏下留 6 点，保持同一中心；收起尺寸不保留展开的透明区域。
+/// 预期：胶囊悬浮在屏幕顶边下 4 点（盖住菜单栏中部），保持同一中心；收起尺寸不保留展开的透明区域。
 #[test]
 fn island_geometry_external_display_uses_menu_bar_and_exact_hit_region() {
     let screen = IslandScreen {
@@ -68,11 +75,11 @@ fn island_geometry_external_display_uses_menu_bar_and_exact_hit_region() {
         compact.frame,
         IslandFrame {
             x: -1125.,
-            y: 1096.,
+            y: 1122.,
             width: 330.,
             height: 34.
         },
-        "无刘海胶囊应位于菜单栏下方"
+        "无刘海胶囊悬浮在屏幕顶边下4点"
     );
     assert_eq!(
         expanded.frame.x + expanded.frame.width / 2.,
@@ -83,9 +90,9 @@ fn island_geometry_external_display_uses_menu_bar_and_exact_hit_region() {
         expanded.frame.height > compact.frame.height,
         "收起必须真正缩窗"
     );
-    assert!(!compact.contains(-1125., 1096.), "透明圆角不得阻挡下层窗口");
-    assert!(compact.contains(-960., 1113.), "胶囊中心必须可点");
-    assert!(!compact.contains(-960., 1095.), "窗口外不能命中");
+    assert!(!compact.contains(-1125., 1122.), "透明圆角不得阻挡下层窗口");
+    assert!(compact.contains(-960., 1139.), "胶囊中心必须可点");
+    assert!(!compact.contains(-960., 1121.), "窗口外不能命中");
 }
 
 /// 场景：刘海屏的辅助区域给出真实缺口，分辨率变化后面板仍不越出屏幕。

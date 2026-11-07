@@ -17,7 +17,7 @@ fn invalid_decision_copy_is_rejected_before_host_actions() {
     });
     source.update(cx, |app, cx| {
         let (_tx, status) = std::sync::mpsc::channel();
-        app.brain.host = Some(BrainHost {
+        app.install_brain_host_for_test(BrainHost {
             service: None,
             status,
             token: "copy-test".into(),

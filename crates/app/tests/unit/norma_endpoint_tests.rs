@@ -1,7 +1,7 @@
-use super::endpoint::protocol_compatibility_error;
+use super::endpoint::{allows_sole_target_fallback, protocol_compatibility_error};
 use super::route::{WorkspaceRouteError, WorkspaceRouteIndex};
 use super::transport::NormaSocketListener;
-use norma::protocol::{AgentErrorCode, CURRENT_PROTOCOL_VERSION};
+use norma::protocol::{AgentErrorCode, BrainOp, CardCommand, CURRENT_PROTOCOL_VERSION};
 use std::io::ErrorKind;
 use std::os::unix::net::UnixStream;
 
@@ -198,5 +198,33 @@ fn managed_protocol_versions_fail_before_side_effects() {
     assert!(
         old.is_some() && future.is_some(),
         "不兼容受管版本不得落入可执行路径"
+    );
+}
+
+/// 场景：raw wire 缺少 workspace/route 时，只有无状态的非编排命令可退回唯一活跃窗口。
+///
+/// 数据构造：同一份无身份请求命令集合：Brain(Report/Agents/Approvals)、ListWorkspaces、Doctor。
+/// 执行过程：逐个询问身份兜底策略。
+/// 预期结果：所有大脑命令与受管编排命令都不得退回唯一窗口（否则 raw wire 会把请求错绑到
+/// 当前唯一项目）；Doctor 这类无项目副作用的命令保持兼容。
+#[test]
+fn raw_wire_identity_fallback_never_applies_to_brain_or_managed_commands() {
+    let brain = |op| CardCommand::Brain {
+        token: "t".into(),
+        op: Box::new(op),
+    };
+    for op in [BrainOp::Agents, BrainOp::Approvals, BrainOp::Questions] {
+        assert!(
+            !allows_sole_target_fallback(&brain(op)),
+            "大脑命令必须显式携带 workspace/route，不得猜测唯一窗口"
+        );
+    }
+    assert!(
+        !allows_sole_target_fallback(&CardCommand::ListWorkspaces),
+        "受管编排命令不得退回唯一窗口"
+    );
+    assert!(
+        allows_sole_target_fallback(&CardCommand::Doctor),
+        "无项目副作用的命令保持兼容"
     );
 }

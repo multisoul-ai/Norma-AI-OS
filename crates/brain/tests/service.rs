@@ -3,8 +3,8 @@
 use brain::acp::trace::{AcpTrace, TraceKind};
 use brain::risk::ApprovalSubject;
 use brain::{
-    ApprovalRequest, Backend, BackendKind, BrainConfig, BrainEvent, BrainService, BrainStatus,
-    RouterConfig, Trigger, TriggerKind,
+    ApprovalRequest, Backend, BackendKind, BrainConfig, BrainEventKind, BrainService,
+    BrainStatusKind, RouterConfig, Trigger, TriggerKind,
 };
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
@@ -20,7 +20,7 @@ mod quota;
 
 struct Harness {
     service: BrainService,
-    status: Receiver<BrainStatus>,
+    status: Receiver<brain::BrainStatus>,
     log: PathBuf,
     _dir: tempfile::TempDir,
 }
@@ -60,16 +60,27 @@ fn start() -> Harness {
     }
 }
 
+fn test_scope() -> norma::protocol::BrainScope {
+    norma::protocol::BrainScope {
+        workspace_id: "test-workspace".into(),
+        route_id: "test-route".into(),
+    }
+}
+
 impl Harness {
+    fn push(&self, event: BrainEventKind) {
+        self.service.push(event.in_scope(test_scope()));
+    }
+
     fn log(&self) -> String {
         std::fs::read_to_string(&self.log).unwrap_or_default()
     }
 
-    fn wait_status(&self, want: impl Fn(&BrainStatus) -> bool) -> BrainStatus {
+    fn wait_status(&self, want: impl Fn(&BrainStatusKind) -> bool) -> BrainStatusKind {
         let deadline = Instant::now() + Duration::from_secs(15);
         loop {
             let left = deadline.saturating_duration_since(Instant::now());
-            match self.status.recv_timeout(left) {
+            match self.status.recv_timeout(left).map(|status| status.kind) {
                 Ok(status) if want(&status) => return status,
                 Ok(_) => {}
                 Err(_) => panic!("等待状态超时，假适配器日志：\n{}", self.log()),
@@ -90,8 +101,8 @@ impl Harness {
     }
 }
 
-fn approval(id: &str, command: &str) -> BrainEvent {
-    BrainEvent::ApprovalRequested(ApprovalRequest {
+fn approval(id: &str, command: &str) -> BrainEventKind {
+    BrainEventKind::ApprovalRequested(ApprovalRequest {
         id: id.into(),
         agent: "Claude".into(),
         subject: ApprovalSubject {
@@ -113,8 +124,8 @@ fn approval(id: &str, command: &str) -> BrainEvent {
 #[test]
 fn approval_lane_runs_the_decide_command_through_the_gate() {
     let h = start();
-    h.service.push(approval("a1", "cargo test"));
-    h.wait_status(|s| matches!(s, BrainStatus::ApprovalTurnEnded { id } if id == "a1"));
+    h.push(approval("a1", "cargo test"));
+    h.wait_status(|s| matches!(s, BrainStatusKind::ApprovalTurnEnded { id } if id == "a1"));
     let log = h.log();
     assert!(
         log.contains(&format!("allowed: {NORMA} brain decide a1 allow")),
@@ -146,8 +157,8 @@ fn approval_lane_runs_the_decide_command_through_the_gate() {
 #[test]
 fn git_push_approval_is_judged_by_the_brain() {
     let h = start();
-    h.service.push(approval("a2", "git push origin main"));
-    h.wait_status(|s| matches!(s, BrainStatus::ApprovalTurnEnded { id } if id == "a2"));
+    h.push(approval("a2", "git push origin main"));
+    h.wait_status(|s| matches!(s, BrainStatusKind::ApprovalTurnEnded { id } if id == "a2"));
     let log = h.log();
     assert!(
         log.contains("审批 a2") && log.contains("git push origin main"),
@@ -166,7 +177,7 @@ fn git_push_approval_is_judged_by_the_brain() {
 #[test]
 fn the_gate_rejects_non_norma_commands_from_the_main_lane() {
     let h = start();
-    h.service.push(BrainEvent::UserRequest {
+    h.push(BrainEventKind::UserRequest {
         text: format!("FAKE_RUN: rm -rf x\nFAKE_RUN: {NORMA} brain agents"),
     });
     h.wait_log(&format!("allowed: {NORMA} brain agents"));
@@ -185,11 +196,11 @@ fn the_gate_rejects_non_norma_commands_from_the_main_lane() {
 #[test]
 fn a_crashed_adapter_is_reported_and_replaced() {
     let h = start();
-    h.service.push(BrainEvent::UserRequest {
+    h.push(BrainEventKind::UserRequest {
         text: "FAKE_CRASH".into(),
     });
-    h.wait_status(|s| matches!(s, BrainStatus::BackendDown { .. }));
-    h.service.push(BrainEvent::UserRequest {
+    h.wait_status(|s| matches!(s, BrainStatusKind::BackendDown { .. }));
+    h.push(BrainEventKind::UserRequest {
         text: "第二条请求".into(),
     });
     h.wait_log("第二条请求");
@@ -211,12 +222,11 @@ fn a_crashed_adapter_is_reported_and_replaced() {
 #[test]
 fn approvals_closed_while_queued_are_skipped() {
     let h = start();
-    h.service.push(approval("a3", "cargo test FAKE_SLEEP"));
+    h.push(approval("a3", "cargo test FAKE_SLEEP"));
     h.wait_log("a3");
-    h.service.push(approval("a4", "cargo build"));
-    h.service
-        .push(BrainEvent::ApprovalClosed { id: "a4".into() });
-    h.wait_status(|s| matches!(s, BrainStatus::ApprovalTurnEnded { id } if id == "a3"));
+    h.push(approval("a4", "cargo build"));
+    h.push(BrainEventKind::ApprovalClosed { id: "a4".into() });
+    h.wait_status(|s| matches!(s, BrainStatusKind::ApprovalTurnEnded { id } if id == "a3"));
     std::thread::sleep(Duration::from_millis(400));
     assert!(
         !h.log().contains("审批 a4"),
@@ -235,12 +245,12 @@ fn approvals_closed_while_queued_are_skipped() {
 #[test]
 fn finished_agents_are_batched_and_goal_is_included() {
     let h = start();
-    h.service.push(BrainEvent::Goal {
+    h.push(BrainEventKind::Goal {
         agent: "Alan".into(),
         text: "今天发布 0.2，之后补测试".into(),
     });
     for agent in ["Codex", "Cursor"] {
-        h.service.push(BrainEvent::AgentFinished {
+        h.push(BrainEventKind::AgentFinished {
             agent: agent.into(),
             outcome: brain::Outcome::Succeeded,
             excerpt: "完成".into(),
@@ -314,21 +324,23 @@ fn start_with(workers: usize) -> Harness {
 fn approval_workers_decide_how_many_approvals_run_in_parallel() {
     for (workers, parallel) in [(2usize, true), (1usize, false)] {
         let h = start_with(workers);
-        h.service.push(approval("warm", "cargo check"));
-        h.wait_status(|s| matches!(s, BrainStatus::ApprovalTurnEnded { id } if id == "warm"));
+        h.push(approval("warm", "cargo check"));
+        h.wait_status(|s| matches!(s, BrainStatusKind::ApprovalTurnEnded { id } if id == "warm"));
         if workers > 1 {
             // 第二个 worker 的会话要等它自己拿到一条活才会启动，先喂一条让它热起来。
-            h.service.push(approval("warm2", "cargo check"));
-            h.service.push(approval("warm3", "cargo check"));
-            h.wait_status(|s| matches!(s, BrainStatus::ApprovalTurnEnded { id } if id == "warm3"));
+            h.push(approval("warm2", "cargo check"));
+            h.push(approval("warm3", "cargo check"));
+            h.wait_status(
+                |s| matches!(s, BrainStatusKind::ApprovalTurnEnded { id } if id == "warm3"),
+            );
         }
         let started = Instant::now();
-        h.service.push(approval("a5", "cargo test FAKE_SLEEP"));
-        h.service.push(approval("a6", "cargo test FAKE_SLEEP"));
+        h.push(approval("a5", "cargo test FAKE_SLEEP"));
+        h.push(approval("a6", "cargo test FAKE_SLEEP"));
         let mut ended = 0;
         while ended < 2 {
-            if let BrainStatus::ApprovalTurnEnded { id } =
-                h.wait_status(|s| matches!(s, BrainStatus::ApprovalTurnEnded { .. }))
+            if let BrainStatusKind::ApprovalTurnEnded { id } =
+                h.wait_status(|s| matches!(s, BrainStatusKind::ApprovalTurnEnded { .. }))
             {
                 if id == "a5" || id == "a6" {
                     ended += 1;
@@ -361,15 +373,15 @@ fn approval_workers_decide_how_many_approvals_run_in_parallel() {
 #[test]
 fn acp_process_is_traced_in_order() {
     let h = start();
-    h.service.push(BrainEvent::UserRequest {
+    h.push(BrainEventKind::UserRequest {
         text: "FAKE_TRACE 请回答".into(),
     });
     let mut traces: Vec<AcpTrace> = Vec::new();
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {
         let left = deadline.saturating_duration_since(Instant::now());
-        match h.status.recv_timeout(left) {
-            Ok(BrainStatus::Trace(trace)) => {
+        match h.status.recv_timeout(left).map(|status| status.kind) {
+            Ok(BrainStatusKind::Trace(trace)) => {
                 let done = trace.item.kind == TraceKind::Turn;
                 traces.push(trace);
                 if done {

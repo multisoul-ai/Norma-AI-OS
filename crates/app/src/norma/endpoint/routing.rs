@@ -101,6 +101,11 @@ pub(super) fn execute_validated_in_workspace(
         .unwrap_or_else(|| closed_workspace_response(request_id))
 }
 
+/// 缺少身份时只有无项目副作用的旧命令可退回唯一活跃窗口；编排与大脑命令必须带 workspace/route。
+pub(crate) fn allows_sole_target_fallback(command: &CardCommand) -> bool {
+    !is_managed_agent_command(command) && command.brain_op().is_none()
+}
+
 pub(super) fn resolve_targets(
     request: &WireRequest,
     cx: &App,
@@ -115,7 +120,7 @@ pub(super) fn resolve_targets(
         (Some(workspace_id), Some(route_id)) => {
             host.routes.resolve(workspace_id, route_id).cloned()
         }
-        _ if is_managed_agent_command(&request.command) => {
+        _ if !allows_sole_target_fallback(&request.command) => {
             Err(WorkspaceRouteError::WorkspaceRequired)
         }
         _ => host

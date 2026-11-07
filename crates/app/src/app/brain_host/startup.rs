@@ -1,53 +1,48 @@
-//! 适配器检测、目标加载和服务创建都在后台，过期启动结果不能重启已关闭的幕僚。
-
-use super::{config, BrainHost, MultisoulApp, START_RETRY};
+//! One launch for the App. The initiating project may disappear while launch runs.
+use super::{config, owner, BrainHost, MultisoulApp};
 use brain::{BrainConfig, BrainService};
 use gpui::Context;
 use std::time::Instant;
 
 impl MultisoulApp {
     pub(super) fn try_start_brain(&mut self, cx: &mut Context<Self>) {
-        if self.brain.starting.is_some()
-            || self.brain.proposals_path.is_none()
-            || self.brain.proposals_loading
-            || Instant::now() < self.brain.next_start
-            || !self.brain.settings.as_ref().is_some_and(|s| s.enabled)
-        {
+        let owner = owner::shared(cx);
+        if owner.is_running() {
             return;
         }
-        let (Some(root), Some(workspace_id), Some(route_id)) = (
-            self.runtime.workspace_root().map(|root| root.to_path_buf()),
-            self.workspace_id.clone(),
-            self.workspace_route_id.clone(),
-        ) else {
+        let Some(ticket) = owner.begin_start(Instant::now()) else {
             return;
         };
-        self.brain.next_start = Instant::now() + START_RETRY;
-        let revision = self.brain.start_generation;
-        self.brain.starting = Some(revision);
-        let settings = self.brain.settings.clone().expect("设置已加载");
-        let identity = workspace_id.clone();
+        let settings = owner.settings().expect("enabled owner has settings");
+        let directory = owner
+            .directory()
+            .expect("start requires prepared global data");
+        let read_roots = owner.read_roots();
         let work = cx.background_executor().spawn(async move {
             let backend =
                 config::pick_backend(&settings).ok_or_else(|| "没有可用的 ACP 后端".to_string())?;
             let state_dir = config::state_dir().ok_or_else(|| "找不到幕僚状态目录".to_string())?;
+            let global_dir = state_dir.join("global");
+            std::fs::create_dir_all(&global_dir).map_err(|error| error.to_string())?;
             let paths = norma::orchestration::InstallPaths::for_current_process()
-                .map_err(|e| e.to_string())?;
+                .map_err(|error| error.to_string())?;
             let token = uuid::Uuid::new_v4().simple().to_string();
             let models = settings.models_for(backend.kind);
             let mut config = BrainConfig::new(
                 backend,
                 config::shell_safe_bin(&state_dir, paths.bundled_cli),
-                root,
-                config::session_dir(&state_dir, &workspace_id),
+                global_dir,
+                directory,
             );
+            config.read_roots = read_roots;
             config.strategy = settings.strategy;
             config.main_model = models.main;
             config.approval_model = models.approval;
             config.approval_workers = if settings.parallel_approvals { 3 } else { 1 };
             config.router.summary_every = settings.summary.duration();
             config.router.quiet_window = config::quiet_window();
-            config.env = config::adapter_env(&token, &workspace_id, &route_id);
+            // Global adapters must name each event's exact source on every CLI action.
+            config.env = config::adapter_env(&token, "", "");
             let (service, status) = BrainService::start(config);
             Ok::<_, String>(BrainHost {
                 service: Some(service),
@@ -55,43 +50,9 @@ impl MultisoulApp {
                 token,
             })
         });
-        cx.spawn(async move |this, cx| {
-            let result = work.await;
-            let _ = this.update(cx, |app, cx| {
-                app.complete_brain_start(revision, &identity, result, cx);
-            });
+        cx.spawn(async move |_, _| {
+            owner.complete_start(ticket, work.await);
         })
         .detach();
-    }
-
-    pub(super) fn complete_brain_start(
-        &mut self,
-        generation: u64,
-        identity: &str,
-        result: Result<BrainHost, String>,
-        cx: &mut Context<Self>,
-    ) {
-        if self.brain.starting != Some(generation) {
-            return;
-        }
-        self.brain.starting = None;
-        if self.brain.start_generation != generation
-            || self.workspace_id.as_deref() != Some(identity)
-        {
-            return;
-        }
-        match result {
-            Ok(host) => {
-                self.brain.tracked.clear();
-                self.brain.host = Some(host);
-                let pending: Vec<_> = self.brain.pending_events.borrow_mut().drain(..).collect();
-                for event in pending {
-                    self.push_brain(event);
-                }
-                tracing::info!("Norma 大脑已启动");
-            }
-            Err(reason) => tracing::warn!(%reason, "幕僚未启动"),
-        }
-        cx.notify();
     }
 }

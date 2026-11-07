@@ -51,15 +51,13 @@ mod brain_host;
 #[path = "../../tests/support/doubao_adapter.rs"]
 pub(crate) mod doubao_adapter_fixture;
 pub(crate) use brain_host::adapter_package as brain_adapter_package;
-pub(crate) use brain_host::proposals::ProposalFeedback;
 pub(crate) use brain_host::{
-    BrainSettings, BrainSettingsView, ModelList, OverviewProposal, OverviewQuestion, SlowReminder,
-    SummaryEvery,
+    recent_activity_lines, ActivityLine, BrainSettings, BrainSettingsView, ModelList,
+    OverviewQuestion, SlowReminder, SummaryEvery,
 };
 mod memory;
 pub(crate) mod native_input;
 mod shared_context;
-pub(crate) use agent_runtime::assign_idea_for_ui;
 pub(crate) use agent_runtime::execute_norma_adapter_command_with_source;
 pub(crate) use agent_runtime::prepare_context_services;
 pub(crate) use agent_runtime::shared_tokio_runtime;
@@ -82,7 +80,7 @@ pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 mod canvas_surface;
 pub(crate) mod cef_process;
 mod chrome;
-pub(crate) use chrome::{brand_logo, top_bar_theme, BRAND_TOGGLE_LEFT, TOP_BAR_HEIGHT};
+pub(crate) use chrome::{top_bar_theme, TOP_BAR_HEIGHT};
 pub(crate) mod assistant_conversation;
 pub(crate) mod clipboard_image;
 pub(crate) mod command_dock;
@@ -128,7 +126,6 @@ pub(crate) mod video_decoder;
 #[cfg(target_os = "macos")]
 pub(crate) mod video_wallpaper;
 mod voice;
-pub(crate) use voice::caption::VoiceWaveformState;
 #[cfg(not(feature = "e2e-test-support"))]
 pub(crate) use voice::recognition::AsrRecordingSession;
 pub(crate) mod effects_actions;
@@ -279,13 +276,9 @@ pub struct MultisoulApp {
     pub(crate) voice_runtime_checked: bool,
     pub(crate) desktop_host: Option<gpui::WeakEntity<MultisoulApp>>,
     pub(crate) desktop_switcher_subscription: Option<gpui::Subscription>,
-    pub(crate) desktop_ideas_input_subscription: Option<gpui::Subscription>,
-    pub(crate) desktop_question_editor: Option<crate::workspace::desktop::QuestionEditor>,
-    pub(crate) desktop_question_drafts: Vec<crate::workspace::desktop::QuestionEditor>,
     pub(crate) background_restore: Option<crate::workspace::flow::PendingLiveSessionRestore>,
     pub(crate) desktop_overview_scroll: HashMap<String, gpui::ScrollHandle>,
     /// 想法栏的滚动位置（ScrollHandle 非 Send，不能放进跨线程的桌面状态）；新增想法时滚到末尾。
-    pub(crate) ideas_scroll: gpui::ScrollHandle,
     pub(crate) desktop_directory_scroll: gpui::ScrollHandle,
     canvas_surface: gpui::Entity<canvas_surface::CanvasSurfaceView>,
     pub(crate) working_snake_views: HashMap<NodeId, gpui::Entity<WorkingSnakeView>>,

@@ -64,7 +64,7 @@ fn assign_fixture(address: String, fail_receipt: bool) {
         app.enter_canvas_for_test(dir.path(), cx);
         app.register_loaded_project_route(None, cx);
         let (_, status) = std::sync::mpsc::channel();
-        app.brain.host = Some(super::super::BrainHost {
+        app.install_brain_host_for_test(super::super::BrainHost {
             service: None,
             status,
             token: "action-token".into(),
@@ -256,6 +256,8 @@ fn assign_fixture(address: String, fail_receipt: bool) {
         send(BrainOp::Report {
             text: "已交给 Alan 检查边界条件，等待执行结果".into(),
             priority: norma::protocol::ReportPriority::Normal,
+            kind: norma::protocol::ReportKind::Status,
+            reply_to: None,
             sources: sources.clone(),
         }),
     );

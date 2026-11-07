@@ -6,6 +6,7 @@ impl MultisoulApp {
         self.stop_gpt_live_voice(cx);
         crate::workspace::sessions::remove(cx.entity_id(), cx);
         self.unregister_workspace_window_if_needed(cx);
+        self.release_brain_client();
         self.workspace_id = None;
         self.workspace_route_id = None;
         self.workspace_state.current_root = None;

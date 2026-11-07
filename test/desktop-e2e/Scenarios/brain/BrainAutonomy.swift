@@ -4,7 +4,7 @@ import Fixtures
 import Foundation
 
 /// 自主动作：脚本化的大脑在第一个智能体完成后给第二个智能体派后续任务，
-/// 幕僚活动面板里出现这条记录（左抽屉只有入口），展开后“以后这类先问我”和“来自第 N 轮”可用。
+/// 幕僚活动面板里出现这条记录（⌘⇧B 打开），展开后“以后这类先问我”和“来自第 N 轮”可用。
 @MainActor
 public enum BrainAutonomy {
     public nonisolated static let name = "brain-autonomy"
@@ -63,24 +63,14 @@ public enum BrainAutonomy {
             return try await session.capture().summary
         }
 
-        try await session.step("⌘⇧E 打开概览：左抽屉没有“Norma 自主处理”栏，只有“幕僚活动”入口") {
-            try await BrainSupport.openOverview(session)
-            let frame = try await session.wait(Expectation(allOf: ["运行概览", "幕僚活动"], timeout: 15))
-            try session.save(frame, "01-drawer-entry.png")
-            guard !frame.contains("Norma 自主处理") else {
-                throw E2EError.product("概览里不该再有“Norma 自主处理”栏：\(frame.summary)")
-            }
-            return "入口在，旧栏已移除"
-        }
-
-        try await session.step("点抽屉入口打开幕僚活动，等派发记录出现，并且动作被标为已读") {
+        try await session.step("⌘⇧B 打开幕僚活动，等派发记录出现，并且动作被标为已读") {
             var frame = try await session.capture()
             var presses = 0
             let deadline = Date().addingTimeInterval(150)
             while Date() < deadline {
-                // 点左抽屉里的“幕僚活动”入口；点击偶尔没反应，面板没出现就再点，最多四次。
+                // 左抽屉入口已随岛取代；用 ⌘⇧B 打开。快捷键偶尔被刚结束的输入吞掉，没出现就再按，最多四次。
                 if !frame.contains("保留最近"), presses < 4 {
-                    try await session.click(matching: ["每一轮与自主处理"], pick: .bottom)
+                    try await session.shortcut(key: 11, modifiers: [0x37, 0x38])
                     presses += 1
                 }
                 try await Task.sleep(nanoseconds: 2_000_000_000)
@@ -168,7 +158,7 @@ public enum BrainAutonomy {
             throw E2EError.product("大脑没有执行 history 命令（history.out 为空）")
         }
 
-        try await session.step("Esc 关闭后，⌘⇧B 快捷键同样能打开面板，再 Esc 关闭") {
+        try await session.step("Esc 关闭后，⌘⇧B 可再次打开面板") {
             try await session.shortcut(key: 53, modifiers: [])
             _ = try await session.wait(Expectation(absent: ["保留最近"], timeout: 6))
             var shown = false

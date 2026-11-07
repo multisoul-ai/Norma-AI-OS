@@ -75,6 +75,7 @@ fn run_once(invocation: CliInvocation) -> CliOutput {
         invocation.command,
         invocation.target_workspace_id,
         invocation.operation_id,
+        invocation.brain_scope,
     ) {
         Ok(response) => {
             if invocation.project_self {
@@ -106,6 +107,7 @@ fn run_wait(invocation: CliInvocation, timeout: Duration) -> CliOutput {
             invocation.command.clone(),
             invocation.target_workspace_id.clone(),
             invocation.operation_id.clone(),
+            invocation.brain_scope.clone(),
         ) {
             Ok(response) => response,
             Err(error) => {

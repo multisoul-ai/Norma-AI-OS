@@ -7,6 +7,7 @@ use super::{
 use gpui::Context;
 use norma::mobile::ApprovalSnapshot;
 use runtime::island::approval_rules::approval_rule_key;
+pub(super) use runtime::island::approval_rules::APPROVAL_RULE_PREFIX as PREFIX;
 use std::path::PathBuf;
 
 #[derive(Clone)]

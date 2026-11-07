@@ -15,10 +15,6 @@ mod report_tests;
 mod confirmation_tests;
 
 #[cfg(test)]
-#[path = "../../../tests/unit/brain_proposal_context_tests.rs"]
-mod proposal_tests;
-
-#[cfg(test)]
 #[path = "../../../tests/unit/brain_action_context_tests.rs"]
 mod action_tests;
 
@@ -41,7 +37,7 @@ impl MultisoulApp {
         request: String,
         reference: ContextRef,
     ) -> Result<agent::AdapterResult, agent::AdapterError> {
-        if self.brain.host.is_none() {
+        if !self.brain.is_running() {
             return Err(agent::AdapterError::Rejected(
                 "幕僚没有运行，无法交接".into(),
             ));
@@ -52,7 +48,7 @@ impl MultisoulApp {
                 "context_scope_mismatch".into(),
             ));
         }
-        self.push_brain(BrainEvent::ContextRequest {
+        self.push_brain(BrainEventKind::ContextRequest {
             text: request,
             reference,
         });

@@ -1,5 +1,6 @@
 use super::*;
 use gpui::{AppContext, TestAppContext};
+use runtime::island::{IslandAlert, IslandAlertKind};
 
 /// 场景：离开悬停区域已触发逻辑收起，但120ms视觉收回尚未结束时用户按Esc。
 /// 数据：空概览控制器，指针进入后展开、离开；单调时钟推进500ms，越过420ms截止时间。

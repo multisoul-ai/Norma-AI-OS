@@ -34,43 +34,6 @@ fn install_restriction(service: &crate::app::shared_context::SharedContext, appr
         .unwrap();
 }
 
-/// 场景：用户点击旧提议的派发按钮时，语音已将当前任务暂停。
-/// 构造：隔离库、已保存派发限制、一条尚未派发的提议。
-/// 执行：调用生产 dispatch_brain_proposal 入口。
-/// 预期：以共享限制拒绝，提议保留；用户确认旧提议不能隐式撤销后续限制。
-#[test]
-fn brain_context_guard_applies_to_user_confirmed_proposals() {
-    let dir = tempfile::tempdir().unwrap();
-    let paths = storage::DatabasePaths::isolated_test(dir.path());
-    let store = storage::AppStore::initialize(&paths).unwrap();
-    let mut test = TestAppContext::single();
-    let (entity, cx) =
-        test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
-    let service = entity.update(cx, |app, _| app.shared_context_service().unwrap());
-    install_restriction(&service, false);
-    entity.update(cx, |app, _| {
-        let id = app
-            .brain
-            .proposals
-            .add(
-                super::super::proposals::Draft {
-                    agent: "Alan".into(),
-                    title: "待执行".into(),
-                    task: "修复问题".into(),
-                    why: "用户目标".into(),
-                },
-                std::time::SystemTime::now(),
-            )
-            .unwrap();
-        let error = app.dispatch_brain_proposal(id).unwrap_err();
-        assert!(
-            error.contains("context_operation_restricted"),
-            "手动提议入口也须守住限制，实际为 {error}"
-        );
-        assert_eq!(app.brain.proposals.items().len(), 1, "被拒绝的提议仍应保留");
-    });
-}
-
 /// 场景：语音明确暂停派发或批准后，后台幕僚不能绕过共享限制。
 /// 构造：独立临时库、有效幕僚令牌及自主权；审批目标仍在 tracked 中。
 /// 执行：先调用无限制入口，再保存语音限制并通过同一正式命令入口重试。
@@ -92,7 +55,7 @@ fn brain_context_guard_checks_assign_and_allow_without_blocking_deny_or_escalate
             app.database_paths = storage::DatabasePaths::isolated_test(dir.path());
             app.enter_canvas_for_test(dir.path(), cx);
             let (_, status) = std::sync::mpsc::channel();
-            app.brain.host = Some(super::super::BrainHost {
+            app.install_brain_host_for_test(super::super::BrainHost {
                 service: None,
                 status,
                 token: "test-token".into(),

@@ -83,8 +83,8 @@ fn command_dock_bounds(
     cx.update(|window, cx| window.draw(cx).clear());
     let default_overview = assert_command_dock_controls_fit(cx, project_count, false);
     host.update_in(cx, |app, _, cx| {
-        app.desktop_workspace.drawers.left_open = true;
-        app.desktop_workspace.drawer_motion.settle_left(true);
+        app.desktop_workspace.drawers.right_open = true;
+        app.desktop_workspace.drawer_motion.retarget(true);
         cx.notify();
     });
     cx.update(|window, cx| window.draw(cx).clear());

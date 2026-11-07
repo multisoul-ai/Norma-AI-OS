@@ -9,10 +9,10 @@
 | M0 | GPUI PopUp、AppKit 屏幕与 Spaces、Carbon；原生 E2E 焦点证据 | API/几何已验证；非激活输入未通过；继续功能实施 |
 | M1 | runtime::island 纯状态机：形态、优先级、160/420/3000ms、固定、输入焦点、设置 | PR #186 已合入 dev，最新 rust checks 通过 |
 | M2 | 逐工作空间捕获与后台投影、App 级 IslandModel，含后台保留工作空间 | PR #187 已合入 dev，最新 rust checks 通过 |
-| M3 | 每屏岛、窗口尺寸、三页签、审批/提问/成果、跨工作空间定位/重开 | 实现中；独立窗口 smoke E2E 已通过，业务 E2E 待完成 |
-| M4 | 全局 BrainHost、带 route 的事件、多项目 Read 闸门、幂等迁移、reply/report/TTS | 待实施 |
+| M3 | 每屏岛、窗口尺寸、三页签、审批/提问/成果、跨工作空间定位/重开 | PR #189 OPEN，业务及原型看图 E2E 通过，最新 Rust CI 通过；系统级缺证留在 M6 |
+| M4 | 全局 BrainHost、带 route 的事件、多项目 Read 闸门、幂等迁移、reply/report/TTS | 单一宿主、作用域/取消及迁移接线已实现，迁移真实 E2E 通过；wire 身份收口、report、全局对话与真实模型/TTS 待完成 |
 | M5 | 删除左抽屉/状态胶囊和死入口，新增开关/快捷键与双语 | 待实施 |
-| M6 | island --visual 模块、全检查、系统焦点/全屏/屏幕与真实模型汇报 | 待验收 |
+| M6 | island --visual 模块、全检查、系统焦点/全屏/屏幕与真实模型汇报 | island 模块已登记并有 M3 业务证据；新增功能、系统与真实模型总验收待完成 |
 
 ## M0 证据摘要
 
@@ -161,3 +161,161 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 - 最终成果GREEN：`artifacts/desktop-workspace-e2e/2026-11-06T11-17-52Z/`，`island-artifacts --visual`退出0，1/1。标记已看仅清目标回合；跨空间打开gamma冻结正文；重启英文空态、两条原始成果与三个源文件均验证。新App构建与storage全量测试退出0，日志 `m3-content-lock-build.log` / `m3-content-storage-tests.log`。runtime/norma/ui全量合计724通过、12既有忽略。
 - 已将审批、问答、运行、成果4张原始真实App截图归档至 `docs/exec-plans/evidence/2026-11-05-norma-dynamic-island/m3/`，便于PR逐图核对原型。M3业务实现已可提交，系统层缺证仍在M6清单，不宣称总Goal完成。
 - M3已提出PR #189，未合入dev。完整Clippy先指出重复加载测试夹具、observer多余借用和navigation枚举体积差异；改为crate级共享夹具、移除多余借用、Box成果变体后，`cargo clippy --workspace --all-targets -- -D warnings`通过。此增量不改变用户行为，复用上述E2E证据；正常提交hook继续执行。
+
+### M3 PR完成，进入M4
+
+- PR #189最新提交 `331a193916d279843f23f62077690c12c6917078`，CI run `42211172609`的rust checks于2026-11-06通过（6m9s）；两个外部路由/安全自动检查为NEUTRAL，全部已完成，无失败/待跑检查。PR仍OPEN，未合入dev。
+- M4使用叠加分支 `feat/island-global-brain-20261106`，base为M3分支。先验证多根Read权限动态增删，再接带workspace/route的事件与单一宿主，随后数据迁移和岛内对话/语音汇报。
+- 预先确认本机已有Claude ACP适配器和Matcha中英文TTS模型；仅检查存在性，没有读取凭据或改动用户配置。真实后端验收仍需实际执行，不能由存在性判定通过。
+
+### M4 第一片（域层，尚未接入全局App宿主）
+
+- ReadRoots由所有Gate克隆共享；BrainConfig/BrainService透传同一集合，并提供后台会话无需重建的根更新入口。相对路径只按原ACP cwd解析，cwd本身不隐含读取授权；关项目/清空集合撤销权限。公开Gate真实文件测试有RED/GREEN，`m4-read-roots-{red,green}.log`。
+- 独立审查发现原始`~`/`$`前缀检查被join隐藏，已用真实字面目录复现RED并修复；`m4-read-prefix-{red,green}.log`，brain全量112通过、2既有忽略。此证据证明Gate与服务接线，不冒充实启ACP多根验收；App尚未调用新增动态根入口。
+- 新增BrainScope与ScopedRouter纯调度层，workspace/route必须同时随Action保留。两个同名Agent进度不覆盖、同审批ID跨route关闭/释放互不影响；2条聚焦RED/GREEN通过，`m4-scoped-router-{red,green}.log`。ScopedRouter尚未替换BrainService现有dispatcher，事件全链路路由仍待接入。
+- 下一片：CLI显式workspace/route及report kind协议、BrainService的必带scope事件/状态和按scope目标存储，然后App单一BrainHost、原子幂等迁移及岛内幕僚页面。M4当前未提交，不宣称里程碑完成。
+
+
+### M4 CLI 作用域切片（全局宿主仍未接入）
+
+- `norma brain --workspace W --route R` 支持显式、成对、非空的身份参数。真实 CLI 进程经隔离 Unix socket 验证：两字段完整覆盖旧项目环境，原始身份字节保留，不携带环境里的 Agent Provider/节点身份；旧完整环境调用继续兼容。身份沿现有 WireRequest 来源字段传递，未增加第二份 wire 路由来源。
+- 真实进程测试先 RED（不识别 --workspace）后 GREEN，日志 `artifacts/island/m4-cli-scope-{red,green}.log`。独立审查复现 global 参数分别置于子命令两侧时 clap requires 误判；新增跨层 RED 后改为参数聚合完毕、构造请求之前验证配对。最终4/4通过，`artifacts/island/m4-cli-scope-order-{red,green}.log`；reviewer 复核四种仅传单字段的排列均退出2，不从环境补齐。
+- `cargo test -p norma -p brain --no-fail-fast`在跨层修复前452通过、3既有忽略，日志 `artifacts/island/m4-cli-domain-tests.log`。跨层修复后4条身份测试及既有CLI/上下文/决策文案测试通过，日志 `artifacts/island/m4-cli-parser-regression.log`；`cargo check -p app`通过，日志 `artifacts/island/m4-cli-app-check.log`。所有Cargo命令使用CARGO_INCREMENTAL=0；行数/no-allow/i18n 2226双语键与diff-check通过。
+- 这片只完成CLI到实际请求的身份传递。BrainService dispatcher/worker状态仍待作用域化，App仍未成为单一BrainHost；全局迁移、report kind/ReportRequested与幕僚页面未完成，不能据此宣称M4通过或真实ACP/桌面E2E通过。当前M4未提交；M3 PR #189仍OPEN，不合入dev。
+- 相关Clippy先报新增参数使TopCommand::Brain变体过大，改为Box<BrainArgs>，未加allow。`cargo clippy -p norma -p brain --all-targets -- -D warnings`通过，日志 `artifacts/island/m4-cli-clippy-green.log`；随后真实身份与既有brain CLI共10/10通过，`artifacts/island/m4-cli-box-regression.log`。独立审查的参数配对P2已复核关闭。
+
+
+### M4 事件、状态与目标的完整作用域
+
+- `BrainEvent`与`BrainStatus`改为必带workspace/route的结构体，事件种类与状态种类分别为`BrainEventKind`/`BrainStatusKind`。Dispatcher使用ScopedRouter，审批待处理集合按(scope,id)索引；Job、重试、Ready/BackendDown/ApprovalTurnEnded、全部Trace及决策JSON均保留来源身份。
+- GoalStore按workspace记录、去重、保留最近5条目标及忽略摘要；同名Agent不会跨项目覆盖，alpha的新目标不会淘汰beta。新增真实存储重开测试先RED后GREEN，`artifacts/island/m4-global-goals-{red,green}.log`，既有5条目标测试也通过。旧项目文件的workspace身份补写属于后续迁移，本片不宣称旧数据迁移完成。
+- 真实BrainService线程+脚本ACP子进程测试先RED后GREEN：alpha/beta同审批ID，关闭alpha不会吞beta，所有trace保持来源。最终用FAKE_HOLD与主lane回执建立确定性屏障，不靠sleep推断关闭顺序；`artifacts/island/m4-scoped-service-barrier-green.log`。brain全量116通过、2既有忽略，`artifacts/island/m4-scoped-service-regression.log`。假适配器不执行真实CLI，不能据此声明真实CLI动作/Claude后端验收。
+- App在入队时捕获scope，启动后重放不重绑旧route，active状态先校验完整scope再产生副作用。新增真实App实体/headless测试验证旧route较大turn迟到也不覆盖新route。首次App回归114通过、2失败：原提问fixture仅设Hook身份，未设App route；对齐生产注册中的同一对w/route后，App幕僚聚焦116通过、1既有真实Claude测试忽略，`artifacts/island/m4-event-app-tests-green.log`。这是headless接线证据，不冒充真实App/E2E。
+- CLI缺失/半套/空白环境身份现在在连接socket前拒绝，返回workspace_required；完整旧环境仍兼容，原身份字节保留。真实CLI先RED（误为app_unavailable，即已经尝试连接）后GREEN，全部5条身份测试通过，`artifacts/island/m4-cli-missing-scope-{red,green}.log`。
+- 独立审查域层与App接线未发现阻塞问题；确认问题fixture是补足生产前置条件，并未删除原委托/Hook响应/去重断言。`cargo check -p app`及`cargo clippy -p app -p brain -p norma --all-targets -- -D warnings`通过，日志`artifacts/island/m4-event-app-check-green.log`/`artifacts/island/m4-event-clippy.log`；performance/storage/行数/no-allow/Agent指南/i18n2226键/diff-check通过。
+- 下一步仍为App唯一BrainHost、项目释放/后台保留生命周期与Read根动态接入、全局幂等迁移、report kind/ReportRequested和幕僚UI/真实Claude+TTS E2E。当前只是完成M4事件链路，不是M4里程碑完成；M3 PR #189保持未合入。
+- 完整Norma回归触发两条既有OpenCode HTTP夹具竞态：非阻塞listener的accepted socket未恢复blocking，macOS上read_line在实际3秒超时前立即WouldBlock（该测试0.03秒失败），另一条因POST未发得到Unsent而非预设Unknown。仅对两处accepted socket补set_nonblocking(false)，保持200ms/3s读超时及原业务断言。失败日志`artifacts/island/m4-event-norma-tests.log`保留，定向7/7通过，`artifacts/island/m4-opencode-fixture-green.log`；完整Norma回归正在复验。
+- 修复后完整Norma测试退出0，340通过、1既有忽略，`artifacts/island/m4-event-norma-tests-green.log`。本轮作为M4实现检查点提交到隔离分支，尚不提称完整M4的PR、不合入dev；剩余范围不变。
+
+
+### M4 App 唯一宿主接线（里程碑仍未完成）
+
+- 新增 App Global `SharedBrain`，唯一 `BrainHost` 由它持有；各项目只保存 `BrainClient`。生产项目 route 注册时订阅，`stop_project` 释放订阅，普通窗口解除不释放保留项目。全部成员根通过同一 ReadRoots handle 传入真实 BrainConfig；最后项目释放同步撤销令牌及读取权限，服务 shutdown/join 在后台。
+- 全局配置只改变一次服务代次，重复项目广播不重复重启。语音开关不撤销进行中的启动；配置加载结果不能覆盖已经存在的全局配置。启动工作使用全局目录作为 cwd，不绑定首个项目；回调由捕获的 owner 接收，不依赖发起项目 Entity 仍存活。适配器环境清空固定 workspace/route，动作沿用已完成的显式来源协议。
+- 新增启动竞态 RED：最后项目在启动途中释放后，旧实现允许第二个后台启动。修复为保留旧 ticket，直到迟到结果回收并完成后台关闭才准许新代启动。日志 `artifacts/island/m4-owner-late-red.log`。
+- App 接线 RED 记录缺失生产 `ensure_brain_client` 入口，日志 `artifacts/island/m4-owner-app-red.log`。正确过滤器 `brain_host::owner::tests` 的 4 条测试通过，日志 `artifacts/island/m4-owner-app-green2.log`：双项目共享、状态来源隔离、根撤销、最后释放、迟到启动、配置重启与生产 stop_project。此前 `m4-owner-app-green.log` 误用了文件名过滤器，实际 0 条测试，不计证据。
+- 扩展回归初轮 119 通过、1 失败、1 既有 ignored；失败为提议来源保存错误的中文 contains 断言，单独复跑通过。该消息是 LocalizedText，其他测试构造 App 或释放语言守卫会改变进程全局语言，存在语言竞争（原失败未输出消息，不能确证这是唯一原因）；改为断言完整 LocalizedText 精确相等，并用 resolve_for(ZhCn) 保留原中文语义断言。真实任务、来源保存失败及防重复派发断言均保留，新增准确双语提示键检查。日志 `artifacts/island/m4-owner-app-regression.log` / `artifacts/island/m4-owner-proposal-recheck.log`；修复后完整聚焦回归另记。
+- 独立只读审查核验 owner、生产接线与测试迁移，无新增阻塞发现。该片主要采用 `service=None` 夹具证明状态机和 App 接线，不宣称真实 ACP 进程数量或退出、后台保留窗口、Claude/TTS E2E 已通过。
+- 仍需完成：项目释放时取消 BrainService 的 scope/排队及在途任务、全局原子幂等数据迁移、report reply/ReportRequested、幕僚 UI 与真实模型/TTS 验收。当前全局目录启动已经接入，旧项目数据尚未迁移；本片仅开发检查点，不能作为完整 M4 交付或用户升级版本。只提后续 PR，不合入 dev。
+- 修复后 App 幕僚完整聚焦回归 120 通过、1 既有真实 Claude 测试 ignored，日志 `artifacts/island/m4-owner-app-regression-green.log`；补充保留中文语义断言后的最终提议模块 4/4 通过，`artifacts/island/m4-owner-proposal-final.log`。performance/storage/行数/no-allow/Agent指南、2226 双语键、6 条 i18n 脚本测试与 diff-check 通过。最后 Clippy 与正常提交 hook 结果另记。
+- Clippy 首轮指出未投递 BrainEvent 作为 Result 大 Err 变体（296 bytes）；改为返回可选未投递事件，调用者保持原有排队行为，无分配、无 allow。`cargo clippy -p app --all-targets -- -D warnings` 通过，`artifacts/island/m4-owner-clippy-green.log`。此增量后再次运行完整幕僚聚焦测试，最终结果以 `artifacts/island/m4-owner-final-tests.log` 为准。
+- 最新代码完整幕僚聚焦回归再次通过：120 passed、1 既有 ignored，`artifacts/island/m4-owner-final-tests.log`。本轮保存为 M4 本地开发检查点；不提交完整里程碑声明，不合入 dev，M4 后续 PR 仍待迁移、汇报与端到端证据齐备。
+
+
+### M4 项目退出取消（仍未完成迁移和幕僚交互）
+
+- `BrainService::release_scope` 同步取消精确 workspace/route 的 token，dispatcher 清除该 scope 的 router/审批集合；所有排队、重试和迟到生产者共用已取消 token，不能复活该 route。重新打开项目使用新的 route。取消不修改其他项目的 token；全局 shutdown 取消全部 scope。
+- 主任务和审批 worker 使用任务 scope 的取消信号；ACP 握手与 prompt 均可取消，握手返回后再次复查，取消期间不发出新的 Prompt 或放行迟到权限请求。`BrainClient::drop` 在撤销成员及 ReadRoots 后调用 release_scope；最后成员再关闭共享服务。线程 join 与子进程清理仍在后台。
+- 域层 RED：缺少 release_scope 接口，`artifacts/island/m4-scope-release-red.log`。真实脚本 ACP 验收包含同 ID 审批隔离、双 lane 在途/排队/迟到取消、握手期间 PID 存活→退出。最终 brain 全量 118 passed、2 既有 ignored，`artifacts/island/m4-scope-release-brain-final.log`。
+- 独立审查指出原测试的 beta 任意 Turn 会假通过，且发送前 Prompt trace 不能证明子进程收到请求。已改为等待 FAKE_LOG 两条真实 HOLD 输入；beta 两条 lane 必须分别恰好一个 end_turn 且无 BackendDown，alpha 两条必须 cancelled。没有释放 HOLD 文件来帮助被关闭项目完成。
+- App 真实服务 RED：已有两个客户端时，drop alpha 不会取消主 lane，beta 被阻塞。清理服务后确定性失败在 beta 完成断言，`artifacts/island/m4-client-release-red.log`。App 接入取消后，新增测试同时核对脚本实际收到 alpha、beta 完成，以及最后项目释放后后台 shutdown/join 和状态通道排空；最终结果记录在 `artifacts/island/m4-scope-release-app-final.log`。
+- Clippy 首轮要求对服务控制消息的大变体使用 Box，已修复。`cargo clippy -p brain -p app --all-targets -- -D warnings` 通过，`artifacts/island/m4-scope-release-clippy-green.log`；performance/storage/i18n 2226 键与 diff-check 通过。独立增量复核无新增阻塞。
+- 迁移身份来源已核查：普通项目可从 WorkspaceIdentityStore::list 获得稳定身份；桌面项目遍历 DesktopWorkspaceStore 的工作空间/区域，并使用生产 `desktop:<workspace>:<area>` 身份。目录哈希不可逆，迁移不得猜成当前项目。迁移实现、report reply/汇报/TTS、幕僚 UI、M5/M6 仍待完成；仍只提 PR，不合入 dev。
+- 最终 App 幕僚回归 121 passed、1 既有 ignored，`artifacts/island/m4-scope-release-app-final.log`。新增真实服务客户端测试 GREEN，证明 alpha 释放后 beta 实际完成，最后客户端释放后后台服务线程 join/状态排空；该脚本 ACP 证据不冒充真实 Claude 或桌面 E2E。行数/no-allow/Agent指南护栏也通过。本片作为 M4 开发检查点保存，迁移和完整幕僚交互仍未完成。
+
+### M4 全局迁移域层检查点（App 尚未接线）
+
+- 新增 `brain::migration::migrate`，后台调用时先取得迁移文件锁，将 goals、proposals、decisions、config 完整写入并同步一代目录，再以一次原子符号链接替换发布 `global/current`。再次启动只校验、复用已发布状态，不重新导入旧备份；旧项目目录、根配置和更旧根路径提议均原样保留。
+- workspace 元数据能还原的目录使用精确身份；不能还原的目录使用 `archived:<hash>`。多个画布共用根路径时，更旧提议只归档一份，避免复制后重复派发。同工作空间跨文件编号冲突重编号并保留 legacy_id，跨工作空间同编号保持各自独立。
+- `AskRule` 区分 App 全局规则与项目规则；旧 App 级规则继续覆盖未来项目。项目 enabled/autonomy 按原默认补齐后取权限交集，已有 App/global 的显式字段仍优先，不能靠目录顺序扩大授权。
+- 4 条初始迁移测试先 RED 后 GREEN；更旧提议遗漏和损坏 autonomy 类型分别补 RED/GREEN，记录 `m4-migration-{red,green}.log`、`m4-migration-root-{red,green}.log`、`m4-migration-settings-{red,green}.log`。并发四调用恰好一次发布、当前数据损坏不重导入、根路径归属歧义归档均有公开接口测试。
+- 独立对抗审查复现：缺失 current/proposals 被当空集合、项目权限扩大、非法 workspace_id 被静默改写、单文件重复提议 ID。均已补失败测试并修复；记录 `m4-migration-review-{red,green}.log`、`m4-migration-identity-red.log`、`m4-migration-duplicate-red.log`，最终聚焦 12/12 通过于 `artifacts/island/m4-migration-identity-green.log`；独立增量复核无新增阻塞。
+- 最终 brain 全量 130 passed、2 既有 ignored，`artifacts/island/m4-migration-brain-final.log`；brain all-targets Clippy `-D warnings` 通过，`artifacts/island/m4-migration-clippy-final.log`。performance/storage/i18n 2226 键/行数/no-allow/Agent 指南和 diff-check 通过。
+- 本片只完成迁移域层，尚未接入 App 后台准备、settings/proposals 读写和 BrainConfig.state_dir，未做真实 App 迁移启动验收。M4 的 raw wire 身份兜底、report reply/ReportRequested、岛内幕僚对话/汇报/TTS 仍未完成；M5/M6 和原型还原仍待完成。PR #189 最新 rust checks SUCCESS，仍 OPEN；后续只提 PR，不合入 dev。
+
+### M4 迁移 App 接线与真实启动验收
+
+- App 启动先在后台等待共享写队列、读取普通/桌面工作空间身份并迁移；唯一 owner 保存已准备目录，完成前禁止启动 BrainHost 或写配置。窗口销毁不丢全局准备结果；失败有中英文本地化提示，后续可以重试。BrainConfig、设置、提议及审批日志均使用已发布的 global/current。
+- 提议完整保留 workspace_id，读取时校验来源并拒绝同文件重复 ID；AskRule 保留项目规则与 App 全局规则的区分。旧 approvals.jsonl 与模型 decisions.jsonl 合并迁移，新的审批审计必带 workspace_id/route_id。对应 App 准备、配置规则、审计路径及重复 ID 测试均保留 RED/GREEN 日志。
+- 独立审查复现两个模型 GoalStore 与 App Writer 并发追加会破坏 JSONL；生产路径统一在完整单行 write_all 前获取排他文件锁，保持 GoalStore 原有同步完成语义。三写入者各 500 条 1 KiB 记录的公开接口测试先 RED 后 GREEN，逐行验证正文和身份唯一性，记录在 artifacts/island/m4-global-log-{red,green}.log。
+- 完整回归发现旧 FIFO 暂停夹具在 macOS File::lock 下报 ENOTSUP；改为预持有普通日志文件锁，保留屏障未完成/最终快照断言，并新增完整日志追加断言。独立增量复核通过，未弱化或跳过生产锁。初轮失败记录 artifacts/island/m4-migration-domain-final.log；修正后 brain/ui 全量 154 passed、2 既有 ignored，artifacts/island/m4-migration-domain-final-green.log。
+- App 幕僚回归 127 passed、1 既有真实 Claude ignored，artifacts/island/m4-migration-app-regression-green.log。brain/app all-targets Clippy -D warnings 与最新 App 构建通过，分别见 m4-migration-final-clippy.log / m4-migration-final-build.log；performance/storage/行数/no-allow/Agent 指南护栏、2230 双语键、6 条 i18n 脚本测试通过。
+- 新增并登记 island-migration --visual。真实 App 验收于 artifacts/desktop-workspace-e2e/2026-11-06T14-16-14Z/ 完整通过，退出 0，1/1，568.64 秒（含模型看图等待）。两个工作空间的两个目标、两条完整提议、四条日志、三条确认偏好均保留，全部旧文件字节不变；中文设置读取旧值、修改语音开关只写全局配置，英文重启保持新值且复用同一代。隔离数据归档在该目录 brain-state；未结束用户正式 App。
+- 三张关键图均由当前 Agent 实际读图并按 requestID/SHA256 逐项反馈。此场景保持幕僚总开关关闭，不调用 LLM/TTS；证明迁移和配置读写，不证明真实模型对话、语音播放或岛原型完整还原。
+- 后续仍需适配旧 brain E2E 的新目录读盘断言和显式 workspace/route 协议，收口 raw wire 单目标兜底，完成 report reply/ReportRequested、岛内幕僚对话与汇报，再执行 M5/M6。M3 PR #189 仍 OPEN，最新 rust checks SUCCESS；M4 尚未提 PR，本轮仅保存开发检查点，不合入 dev。
+
+### 执行顺序更新：先完成 M5（用户 2026-11-06 新指令）
+
+- 用户明确要求“可以先做M5”，优先级改为 M5 → M4 剩余功能 → M6 总验收。保留全部范围；M4 全局对话、report/LLM/TTS 不因调整而删减。
+- M4 迁移接线检查点 f1fabfe9 已正常通过 pre-commit 后提交。M5 在隔离 worktree 的新分支 feat/island-cleanup-20261106 开发，叠加在此检查点；仍只提 PR，不合入 dev。
+- M5 验收映射：独立弹出/隐藏偏好由纯状态测试与后台持久化测试守住；全局快捷键由注册/录制恢复测试与真实 App 操作验证；旧入口删除由源码检索、画布布局/右侧内容区回归及 island-settings --visual 验证。隐藏后的系统通知兜底必须另有证据。
+- Settings 沿用 apple-design/emil-design-eng 的清晰分组、组件库 Switch 和即时状态反馈，不新增装饰动效。新的设置存取必须后台化，退出先等待串行保存；实际页面与中英双语仍待本轮 E2E 看图。
+
+### M5 设置检查点与交接（2026-11-06）
+
+- 隐藏、审批/提问/完成四开关已接入 App 全局缓存、后台读取与串行保存；隐藏恢复不创建原生岛窗口，显示切换不抢前台。退出共同等待语言与岛设置版本，新增保存竞态测试先 RED 后 GREEN。App island 聚焦 28/28，settings 7/7，App build、app/runtime all-targets Clippy -D warnings 通过；详见 `artifacts/island/m5-settings-*.log`。
+- `island-settings --visual` 于 `artifacts/desktop-workspace-e2e/2026-11-06T15-11-29Z/` 完整通过：退出 0，1/1 场景、5/5 步骤，927.75 秒（含看图等待），verification=model-assisted。中英四开关、精确持久化、原生合成器隐藏、重启不创建岛、恢复后悬停展开均实际验收。此证据不证明三类真实事件投递、Carbon、通知兜底或 M5 完成。
+- 用户要求把剩余工作交给 Grace，交接任务书为 `docs/exec-plans/2026-11-06-norma-dynamic-island-handoff.md`。M5 变更尚未提交，交接须保留完整 diff；后续顺序 M5 → M4 剩余 → M6，所有后续只提 PR，不合入 dev。
+
+### M5-C 旧入口删除（2026-11-06）
+
+- 已删除：左抽屉（对话/运行概览/想法）、orb、`DesktopLeftView` 及左侧状态/拖拽/动画、状态胶囊与顶栏入口、`⌘⇧E`/`⌘⇧I`/`⌃1–9`/`⌃0`/`⌃⇧*` 快捷键、对应 i18n（drawers 102、shortcuts 26、workspace 5 个键）和文档。保留右抽屉与右侧内容区、岛复用的 overview 数据/投影/审批/问答链路；旧 `keyboard.shortcuts.v1` 中已失效的命令由 `lenient_overrides` 忽略，旧布局字段可读不报错。
+- **取舍（须告知用户）**：想法清单与「提议」的派发/忽略 UI 随左抽屉一并删除，没有迁入岛。需要时应在岛内重做；`brain_host` 的提议数据与 CLI 链路未动。
+- E2E：删除 WorkspaceDrawerTabs / RunOverview(+Agents/Titles) / StatusCapsule / OverviewFloat / Ideas* / DispatchEffects 场景与看图清单；CanvasDrawers、CanvasProjectDrawers 改为只验收右抽屉与画布占位（Swift 编译通过，**尚未在真实 App 运行**）。
+- **未完成的 E2E 迁移**：WorkspaceAttentionRead、SettingsThemeConsistency/Visual 仍引用左栏「运行概览」，Brain* 场景仍通过 `⌘⇧E` 打开概览读盘，须在 M4（brain 迁移到 `global/current` 与岛内入口）和 M6 中改为经岛验收；此前不得宣称这些场景通过。
+- 验证：runtime/storage/ui 全部通过；app/runtime/storage/ui all-targets Clippy `-D warnings` 通过；行数、no-allow、指南行数、storage、performance guardrail、check-i18n（2116 键）、test-i18n 通过。`app --lib` 并行全量测试因 GPUI 窗口类测试争用出现挂起/偶发失败，单独重跑相关测试均通过；`shortcuts::` 16/16。单线程全量重跑与真实 App 验收（画布布局、右抽屉、设置页、他 App 前台热键、通知兜底）仍待完成。
+
+### M4 收尾：全局幕僚对话与汇报（2026-11-07）
+
+- **raw wire 收口**：`allows_sole_target_fallback` 让缺 workspace/route 的大脑与编排命令不再退回唯一窗口（`norma_endpoint_tests::raw_wire_identity_fallback_never_applies_to_brain_or_managed_commands`）。E2E 中旧夹具因没带身份被拒，反过来证明收口生效；脚本化适配器已按 `【事件来源】` 带 `--workspace/--route`。
+- **协议**：`BrainOp::Report.kind`（`ReportKind::{Status,Reply}`，旧 wire 缺字段视为 Status）、`norma brain report --kind reply`、`BrainEventKind::ReportRequested{overview}` + `TriggerKind::ReportRequest`；基础提示词与用户请求提示都说明 `--kind reply`。
+- **岛内幕僚页**（`island/staff.rs`、`staff_view.rs`，纯逻辑在 `runtime::island::staff`）：全局对话（有界 40 条）、发送、汇报按钮（`bounded_overview` 最多 3000 字符并标注省略）、回复始终进对话；汇报请求的回复强制朗读（即使语音汇报关闭），其余遵循设置；未真正入朗读队列时清除字幕并提示“语音不可用，这条回复仅显示文字”；最近活动固定高度、只显示来源标签（跳过启动提示轮次）。锚点取带身份的项目会话（E2E 暴露：workspace 身份在会话上，不在桌面宿主上）。
+- **desktop-e2e `--visual`**：
+  - `island-staff`（脚本化大脑）通过：`artifacts/desktop-workspace-e2e/2026-11-07T02-47-25Z/`，对话、reply、汇报、提示核对（`prompts.log`：用户请求含原文+精确身份+`--kind reply`，汇报提示含带来源的有界概览）。
+  - `island-staff-real`（真实 Claude Code 后端、用户本机登录）通过：`artifacts/desktop-workspace-e2e/2026-11-07T02-51-24Z/`，真实模型回复引用了运行中的 Alan，汇报时主动用 `history` 读取对话并如实说明“没有内容”。
+  - `island-window` 通过：`artifacts/desktop-workspace-e2e/2026-11-07T02-07-25Z/`（含两处 UI 修复：悬停提示固定字号、无工作空间时保留启用引导）。
+- **未验证 / 缺口（如实）**：
+  - 真实 TTS 播放：测试环境语音不可用，只验证了“语音不可用”降级路径；逐句字幕仅有单测（`caption_index`），因没有语音入队而未在真实 App 里出现。字幕时长为字数估算（TTS 供应商不提供句边界）。
+  - 全局对话借用一个带身份的项目会话作为锚点（身份是该会话的精确 workspace/route，不是前台项目）；无任何工作空间时显示启用引导。
+  - 旧 brain E2E：已删除提议类场景（UI 随左抽屉移除），夹具改为带身份；`BrainApprovals/Autonomy/Questions` 等仍用 ⌘⇧E 打开已删除的概览，须改为经岛验收，**尚未迁移、不得视为通过**。
+
+### 对抗式审查（独立 subagent）与处理（2026-11-07）
+
+审查范围 `f1fabfe9..HEAD`，只读。发现与处理：
+1. **中**：汇报请求无超时、且 pending 标记会被无关回复抢走 → 已修：`StaffChat` 请求带 120s TTL（`an_unanswered_report_request_expires`），到期后按钮恢复；仍存在“汇报等待期间恰好插入一条普通 reply 会抢走朗读标记”的窄窗口（无相关 ID），**已知限制**。
+2. **中**：项目 Dock 的回复串进全局岛对话 → 已修：新增 `BrainEventKind::StaffRequest`，只有岛内请求提示 `--kind reply`；Dock 请求提示不变（`only_staff_requests_ask_for_reply_kind_reports`）。
+3. 低：单项“恢复默认”未同步 Carbon 热键 → 已修（并去掉重复调用）。
+4. 低：热键处理器未装上时仍会注册系统热键 → 已修（`handler` 标志）；启动时注册失败仍只有日志，设置页保存后会显示本地化错误。
+5. 低：系统通知授权被拒时无反馈（授权回调为空）→ **未修，已知缺口**；隐藏岛 + 授权被拒时用户收不到通知。
+6. 低：发送失败时输入被清空 → 已修（成功才清空）。
+7. 低：活动记录每 3 秒初始化数据库 → 已修（只取路径，不再 `AppStore::initialize`）。
+- 审查提到的 `opencode_question_host` 偶发失败：该测试用本机 HTTP 服务 + 200ms 读超时 + 真实 PTY，时序敏感；本机连跑 5 次出现 2 次失败，3 次通过。本分支未改动 opencode 相关代码，**未在 dev 基线上重跑对照，只能判为偶发**。
+- 系统级热键 E2E `island-hotkey` 已写好（System Events 发 ⌃⌥⌘Space、前台为他 App），**本机 `AXIsProcessTrusted=false`，osascript 被拒绝发送按键 → ENV，未取得证据**；授权辅助功能后可运行 `scripts/desktop-e2e.sh island-hotkey --visual`。
+
+### 方案第 8 节逐行证据（2026-11-07，分支 `feat/island-cleanup-20261106`）
+
+| 标准 | 证据 | 结果 |
+| --- | --- | --- |
+| 形态切换、优先级、自动收回 | `runtime::island` 单测（runtime 全量通过） | 通过 |
+| 别的 App 在前台时审批弹出，可就地允许，Norma 不抢前台 | `island-approvals` 等 `--visual`（M3 证据）；**系统级热键 `island-hotkey` 未取得证据**：本机 `AXIsProcessTrusted=false`，osascript 无法发按键，记 ENV | 审批通过；热键/前台不变 **未验证** |
+| 「定位」跳到另一工作空间卡片（含窗口已关） | `island-navigation`（M3） | 通过 |
+| 幕僚对话与跨工作空间语音汇报 | `island-staff`（脚本化）与 `island-staff-real`（真实 Claude Code）`--visual` 通过；`brain-dock-chat` 回归通过 | 对话/汇报文字通过；**语音朗读与逐句字幕未在真实 App 出现**（测试机无可用 TTS，仅验证“语音不可用”降级；字幕有 `caption_index` 单测） |
+| 旧幕僚数据迁移后不丢 | brain 迁移单测与 M4 迁移接线检查点 | 单测通过；真实 App 启动检查沿用 M4 检查点证据 |
+| 左抽屉与状态胶囊完全删除、无死入口 | 代码检索、i18n/快捷键文档清理、`canvas-drawers` 与 `canvas-project-drawers`（改为只验右抽屉）通过 | 通过；设置页“快捷键”页的真实 App 看图 **未单独做** |
+| 刘海屏、外接屏、全屏 Space、点击穿透、动画中间帧 | 无 | **未验证**（无对应硬件/场景） |
+| 系统通知兜底（隐藏岛时） | `NotificationGate` 单测 | 真实通知投递 **未验证**；授权被拒时无反馈（已知缺口） |
+| 样式还原原型 | `island-window` 与 `island-staff` 看图（页签、胶囊、幕僚页对照 `artifacts/island/prototype-*.png`） | 幕僚页/页签通过；审批、问题卡片的逐像素对照未重做 |
+
+其他：`app --lib` 并行全量因 GPUI 窗口类测试争用会挂起，单独重跑均通过；单线程全量见 `artifacts/island/final-app-lib.log`。仍引用已删除左栏“运行概览”的旧场景（`WorkspaceAttentionRead`、`SettingsTheme*`、`BrainApprovals/Autonomy/Questions` 等）**尚未迁移，不得视为通过**。
+
+### 收尾补充（2026-11-07）
+
+- 已迁移/退役旧场景：`WorkspaceAttentionRead`（契约已由 `island-artifacts` 覆盖）、`BrainApprovals`、`BrainQuestions`（契约由 `island-approvals`、`island-questions` 覆盖；“采用/委托幕僚回答”UI 随左抽屉删除，无迁移对象）已删除；`BrainAutonomy` 改用 ⌘⇧B 打开幕僚活动；`SettingsThemeConsistency/Visual` 改为只验右抽屉（**改写后未在真实 App 重跑**）；`canvas-drawers`、`canvas-project-drawers` 在真实 App 通过（OCR 模式）。
+- 通知授权被拒现在会在设置页显示本地化提示（`notification_permission_notice` 单测；真实授权弹窗路径未在本机验证）。
+- 汇报请求有编号：`report --reply-to <id>`，只有带正确编号的回复才朗读，无关回复不再抢走标记（`only_the_reply_to_a_report_request_gets_spoken`、`report_reply_to_is_optional_and_numeric`）；已更新脚本化夹具与提示词的需要见下。
+
+### 旧 OCR 场景现状（如实，2026-11-07）
+
+- `settings-theme-consistency`、`brain-autonomy` 已按“无左抽屉”改写，但**在本机无法跑通**：首页在 `3c392f34`（2026-10-28，已在 dev）重构为工作空间卡片目录，搜索框文案变为“搜索 N 个工作空间”，这些场景仍按旧占位符/“打开”按钮进入，OCR 又常识别不到卡片名。同一问题也存在于 `SettingsAgentsLibrary`、`WorkspaceFeatureGuide`、`WorkspaceLifecycle` 等未改动的场景，**属于首页改版遗留，不是本分支引入**（本分支未改 `home*`）。我只在 dev 的代码历史上确认了这一点，**没有在 dev 基线上实际跑过对照**。
+- 这批场景没有看图版；按规则，进入首页的稳定做法是看图版（`--visual`，如 `island-*` 场景）。后续应为它们补看图入口，或统一抽一个“从首页进入项目”的看图夹具。**不得把这批场景当作已通过。**
+- 已通过的真实 App 证据：`island-window`、`island-staff`、`island-staff-real`、`brain-dock-chat`、`canvas-drawers`、`canvas-project-drawers`、`island-approvals/questions/artifacts/navigation/settings`（M3/M5 阶段）。

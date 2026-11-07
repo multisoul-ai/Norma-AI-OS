@@ -89,25 +89,18 @@ public enum BrainFixture {
             if ("【事件】" in text or "【静默记录】" in text) and found and not done[0]:
                 done[0] = True
                 exe = found.group(1)
+                ident = re.search(r"【事件来源】(\\{.*?\\})", text)
+                scope = json.loads(ident.group(1)) if ident else {}
+                def scoped(*args): return [exe, "brain", "--workspace", scope.get("workspace_id", ""), "--route", scope.get("route_id", "")] + list(args)
                 mode = open(os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "mode")).read().strip()
-                marker = os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "proposed.once")
-                if mode == "propose" and not os.path.exists(marker):
-                    for args in (["Bella", "--title", "补登录页测试", "--task", "补上登录页的测试，cargo test 通过即完成", "--why", "登录页还没有测试"],
-                                 ["Alan", "--title", "写登录接口文档", "--task", "目标：为登录接口写使用文档\\n1. **核对协议**：确认参数和错误码。\\n2) **整理示例**：补充成功和失败请求。\\n3. **补充说明**：保留兼容限制，不得推送。\\n验收：文档包含可运行示例和兼容说明。", "--why", "接口刚改过"]):
-                        argv = [exe, "brain", "propose"] + args
-                        if permission("scripted", shlex.join(argv)):
-                            result = subprocess.run(argv, env=os.environ, timeout=30, capture_output=True, text=True)
-                            with open(os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "propose.out"), "a") as f:
-                                f.write(result.stdout + result.stderr + "\\n")
-                    open(marker, "w").write("done")
-                elif mode != "propose":
-                    command = exe + " brain assign Bella --task '补上登录页的测试'"
+                if mode != "propose":  # propose 模式只观察，不派活（提议界面已随左抽屉移除）
+                    command = shlex.join(scoped("assign", "Bella", "--task", "补上登录页的测试"))
                     if permission("scripted", command):
-                        subprocess.run([exe, "brain", "assign", "Bella", "--task", "补上登录页的测试"], env=os.environ, timeout=30)
+                        subprocess.run(scoped("assign", "Bella", "--task", "补上登录页的测试"), env=os.environ, timeout=30)
                 # 再读一次 Alan 的对话：e2e 里的假 Agent 没有手机控制，应当得到如实的“读不了”。
-                read_command = exe + " brain history Alan --last 2"
-                if permission("scripted", read_command):
-                    result = subprocess.run([exe, "brain", "history", "Alan", "--last", "2"], env=os.environ,
+                read_argv = scoped("history", "Alan", "--last", "2")
+                if permission("scripted", shlex.join(read_argv)):
+                    result = subprocess.run(read_argv, env=os.environ,
                                             timeout=30, capture_output=True, text=True)
                     with open(os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "history.out"), "w") as f:
                         f.write(result.stdout + result.stderr)

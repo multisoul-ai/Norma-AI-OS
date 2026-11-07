@@ -73,20 +73,6 @@ pub(crate) fn on_color(color: u32) -> u32 {
     }
 }
 
-pub(super) fn on_accent(theme: ui::Theme) -> u32 {
-    on_color(theme.accent)
-}
-
-/// Move the fill away from its foreground so hover/pressed retain contrast.
-pub(super) fn accent_fill(theme: ui::Theme, amount: u32) -> u32 {
-    let target = if on_accent(theme) == 0xffffffff {
-        0x000000ff
-    } else {
-        0xffffffff
-    };
-    mix(theme.accent, target, amount)
-}
-
 impl MultisoulApp {
     pub(super) fn desktop_theme(&self) -> ui::Theme {
         surface_theme(self.theme)
