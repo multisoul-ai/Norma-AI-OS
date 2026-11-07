@@ -24,6 +24,8 @@ pub(crate) struct StaffState {
     activity_loading: bool,
     activity_at: Option<Instant>,
     pub notice: Option<ui::i18n::LocalizedText>,
+    /// When the last user-requested report arrived; shown as "last report … ago".
+    pub last_report: Option<Instant>,
 }
 
 struct SharedStaff(Entity<StaffState>);
@@ -46,6 +48,9 @@ impl StaffState {
     /// Records a brain reply; an explicit report also starts per-sentence captions.
     pub fn deliver_reply(&mut self, text: &str) -> Option<StaffReply> {
         let reply = self.chat.push_reply(text)?;
+        if reply.speak {
+            self.last_report = Some(Instant::now());
+        }
         self.speech = reply.speak.then(|| (split_sentences(text), Instant::now()));
         self.notice = None;
         Some(reply)

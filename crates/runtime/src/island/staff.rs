@@ -134,6 +134,22 @@ pub fn caption_index(sentences: &[String], elapsed_ms: u64) -> Option<usize> {
     None
 }
 
+/// Coarse "how long ago" bucket shown next to activity and the last report.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Ago {
+    Now,
+    Minutes(u64),
+    Hours(u64),
+}
+
+pub fn ago(elapsed_ms: u64) -> Ago {
+    match elapsed_ms / 60_000 {
+        0 => Ago::Now,
+        minutes @ 1..=59 => Ago::Minutes(minutes),
+        minutes => Ago::Hours(minutes / 60),
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OverviewEntry {
     pub workspace: String,

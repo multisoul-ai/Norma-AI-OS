@@ -1,5 +1,5 @@
 use super::{
-    bounded_overview, caption_index, split_sentences, OverviewEntry, StaffChat, StaffRole,
+    ago, bounded_overview, caption_index, split_sentences, Ago, OverviewEntry, StaffChat, StaffRole,
 };
 
 /// 场景：用户发话与幕僚回复进入同一份有界对话，汇报请求只放行一次强制朗读。
@@ -105,4 +105,16 @@ fn overview_is_bounded_and_reports_omissions() {
     let all = bounded_overview(&entries[..2], 400);
     assert!(!all.contains("还有"), "预算足够不应提示省略：{all}");
     assert_eq!(all.lines().count(), 2);
+}
+
+/// 场景：活动与上次汇报按“多久以前”显示，不依赖时区。
+/// 预期：<1 分钟为刚刚；1–59 分钟按分钟；≥1 小时按小时（向下取整）；未来时间按刚刚处理。
+#[test]
+fn elapsed_time_is_bucketed_into_now_minutes_and_hours() {
+    assert_eq!(ago(0), Ago::Now);
+    assert_eq!(ago(59_999), Ago::Now);
+    assert_eq!(ago(60_000), Ago::Minutes(1));
+    assert_eq!(ago(59 * 60_000 + 59_999), Ago::Minutes(59));
+    assert_eq!(ago(3_600_000), Ago::Hours(1));
+    assert_eq!(ago(5 * 3_600_000 + 1), Ago::Hours(5));
 }

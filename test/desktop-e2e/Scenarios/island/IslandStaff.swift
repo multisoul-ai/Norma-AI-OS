@@ -56,27 +56,27 @@ public enum IslandStaff {
             try await session.hover(local: CGPoint(x: compact.windowFrame.width / 2, y: 17), on: compact, dwell: 250_000_000)
             try await session.visualClick("点击幕僚页签")
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "staff", text: "幕僚页签选中；面板有一条空对话提示、一个输入框（占位“问问幕僚…”）、实心的“发送”按钮和灰色的“汇报”按钮同一行；没有启用引导；文字不重叠、不被裁切")
+                VisualCriterion(id: "staff", text: "与原型一致：幕僚页签选中；头部有紫色渐变圆形头像、粗体“幕僚”与灰色“盯着 1 个工作空间”，右侧是紫色胶囊“▶ 语音汇报进度”；其下是深灰圆角摘要卡片（暂无汇报提示）；下方有“和幕僚说”灰标题与三枚描边圆角气泡；底部是深色胶囊输入框（占位“给幕僚发消息…”）和右侧圆形向上箭头发送钮；没有启用引导；文字不重叠、不被裁切")
             ]), "01-staff-chat.png")
             return "对话输入、发送、汇报均可见"
         }
         try await session.step("发送消息并收到回传的文字回复") {
-            try await session.visualClick("点击幕僚输入框")
+            try await session.visualClick("点击底部“给幕僚发消息…”输入框")
             try await session.type("你好幕僚")
             try await session.shortcut(key: 36, modifiers: [])
             try session.save(try await session.visualCheck([
                 VisualCriterion(id: "reply", text: real
-                    ? "对话里先有“你：你好幕僚”，随后出现一条标为“幕僚”的真实模型回复文字；回复不是空白或错误"
-                    : "对话里有“你：你好幕僚”，下方出现标为“幕僚”的回复“幕僚收到：你好幕僚”")
+                    ? "摘要卡片里先有灰色“你：你好幕僚”，随后出现一条白色的真实模型回复文字；回复不是空白或错误"
+                    : "摘要卡片里有灰色“你：你好幕僚”，下一行出现白色回复“幕僚收到：你好幕僚”；卡片文字清晰不被裁切")
             ]), "02-reply.png")
             return "用户消息进入唯一大脑，reply 回到岛内对话"
         }
         try await session.step("汇报按钮捕获跨空间概览并得到回复") {
-            try await session.visualClick("点击汇报按钮")
+            try await session.visualClick("点击紫色“语音汇报进度”按钮")
             try session.save(try await session.visualCheck([
                 VisualCriterion(id: "report", text: real
-                    ? "对话中出现新的幕僚回复，内容是对当前工作状态的口语总结；语音不可用时显示“语音不可用，这条回复仅显示文字。”而不是假字幕"
-                    : "对话中新增幕僚回复“目前有一个智能体在运行…”；语音不可用时显示“语音不可用，这条回复仅显示文字。”而不是假字幕；汇报按钮恢复可点击")
+                    ? "摘要卡片出现新的幕僚回复，内容是对当前工作状态的口语总结；语音不可用时显示橙色“语音不可用，这条回复仅显示文字。”而不是假字幕"
+                    : "摘要卡片新增回复“目前有一个智能体在运行…”；语音不可用时显示橙色“语音不可用，这条回复仅显示文字。”而不是假字幕；头部副标题出现“上次汇报 刚刚”；紫色汇报按钮恢复可点击")
             ]), "03-report.png")
             return "汇报请求已回传；语音状态如实显示"
         }

@@ -21,6 +21,8 @@ pub(super) enum Tone {
     Primary,
     Danger,
     Ghost,
+    /// Staff accent: the prototype's purple report pill.
+    Accent,
 }
 
 pub(super) fn action(
@@ -34,6 +36,7 @@ pub(super) fn action(
         Tone::Primary => (FG, 0x0a0c0f, 0xffffff, 0xd8dde2),
         Tone::Danger => (0x1d1d1d, 0xff7b7b, 0x3b2424, 0x503030),
         Tone::Ghost => (0x000000, MUTED, 0x1d1d1d, 0x303030),
+        Tone::Accent => (0xb7a8ff, 0x120d2b, 0xc9bdff, 0x9d8df0),
     };
     Button::new(id.into())
         .small()
