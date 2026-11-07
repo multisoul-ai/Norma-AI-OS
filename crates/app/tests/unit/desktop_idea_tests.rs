@@ -315,17 +315,6 @@ fn ideas_capture_assign_rollback_and_reject_duplicates() {
         (IdeaState::Todo, None),
         "被拒绝后想法应回到待办"
     );
-
-    // 从项目会话触发 ⌘⇧I：宿主刷新要读取各项目会话，不能与正在更新的会话冲突（曾会 panic）。
-    session_a.update_in(cx, |app, window, cx| app.toggle_ideas(window, cx));
-    cx.run_until_parked();
-    host.read_with(cx, |app, _| {
-        assert_eq!(
-            app.desktop_workspace.drawers.left_view,
-            runtime::desktop_drawers::DesktopLeftView::Overview,
-            "项目会话触发 ToggleIdeas 后宿主左栏应切到运行概览（想法栏在其中）"
-        );
-    });
 }
 
 /// 新建智能体来完成：新卡片的 CLI 还在启动，任务必须等它就绪再输入，不能一建好就往 PTY 里打字（会被吞掉）。

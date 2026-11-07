@@ -50,14 +50,6 @@ impl MultisoulApp {
             .collect()
     }
 
-    /// 启用幕僚后，概览才显示“Norma 自主处理”栏。
-    pub(crate) fn brain_enabled(&self) -> bool {
-        self.brain
-            .settings
-            .as_ref()
-            .is_some_and(|settings| settings.enabled)
-    }
-
     pub(crate) fn brain_speaking(&self) -> bool {
         self.brain
             .settings
@@ -284,24 +276,6 @@ impl MultisoulApp {
                 .cmp(&a.proposal.at)
                 .then_with(|| b.proposal.id.cmp(&a.proposal.id))
                 .then_with(|| a.area_id.cmp(&b.area_id))
-        });
-        self.brain.proposal_feedback.retain(|(area, id), feedback| {
-            // 切换工作空间只隐藏行；实际派发完成之前不能解除防重复状态。
-            if matches!(feedback, super::proposals::ProposalFeedback::Dispatching) {
-                return true;
-            }
-            let Some(item) = snapshot
-                .proposals
-                .iter()
-                .find(|p| &p.area_id == area && p.proposal.id == *id)
-            else {
-                return false;
-            };
-            // 忙碌/待确认由实时状态展示，恢复后不能留下过期的同义错误。
-            !item.block.as_ref().is_some_and(|block| {
-                matches!(feedback, super::proposals::ProposalFeedback::Failed(message)
-                    if *message == block.message(&item.proposal.agent))
-            })
         });
         if snapshot != self.brain.overview {
             let approvals_changed = snapshot.approvals != self.brain.overview.approvals;

@@ -49,23 +49,28 @@ pub(crate) enum ShortcutCommandId {
     ToggleMasterLayout,
     ExitFocus,
     ToggleSettings,
-    ToggleRunOverview,
-    ToggleIdeas,
     /// `⌘⇧B`：弹出或关闭大脑活动窗口。
     ToggleBrainTrace,
     /// 系统级全局热键：任何 App 在前台时展开或收起灵动岛（Carbon 注册，见 `island::hotkey`）。
     ToggleIsland,
-    /// `⌃1…9`：把想法派给当前展开项目的第 N 张智能体卡片。
-    AssignIdeaToCard(u8),
-    /// `⌃0`（默认类型）与 `⌃⇧2…9`：新建智能体并派发，数字沿用 `⌘2…9` 的创建顺序。
-    AssignIdeaToNewAgent(u8),
     VoiceInteraction,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct ShortcutPreferences {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_overrides")]
     overrides: Vec<ShortcutOverride>,
+}
+
+/// Overrides for commands removed in later versions are dropped instead of failing the whole list.
+fn lenient_overrides<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<ShortcutOverride>, D::Error> {
+    let raw = Vec::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(raw
+        .into_iter()
+        .filter_map(|value| serde_json::from_value(value).ok())
+        .collect())
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

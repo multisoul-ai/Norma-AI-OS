@@ -226,11 +226,6 @@ impl MultisoulApp {
         &mut self.brain.activity
     }
 
-    /// 抽屉入口上的数字：上次打开面板之后的新动作数。
-    pub(crate) fn brain_unseen_actions(&self) -> usize {
-        self.brain.activity.unseen
-    }
-
     /// 在后台读一次库。面板打开时读整页并把动作标为已读，关着时只读未读数。
     /// 只有工作空间窗口读；每次最多一个在途请求，不到间隔不重复读。
     pub(crate) fn refresh_brain_activity(&mut self, force: bool, cx: &mut Context<Self>) {

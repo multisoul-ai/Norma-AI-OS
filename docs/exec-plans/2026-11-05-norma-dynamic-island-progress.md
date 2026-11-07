@@ -256,3 +256,11 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 - 隐藏、审批/提问/完成四开关已接入 App 全局缓存、后台读取与串行保存；隐藏恢复不创建原生岛窗口，显示切换不抢前台。退出共同等待语言与岛设置版本，新增保存竞态测试先 RED 后 GREEN。App island 聚焦 28/28，settings 7/7，App build、app/runtime all-targets Clippy -D warnings 通过；详见 `artifacts/island/m5-settings-*.log`。
 - `island-settings --visual` 于 `artifacts/desktop-workspace-e2e/2026-11-06T15-11-29Z/` 完整通过：退出 0，1/1 场景、5/5 步骤，927.75 秒（含看图等待），verification=model-assisted。中英四开关、精确持久化、原生合成器隐藏、重启不创建岛、恢复后悬停展开均实际验收。此证据不证明三类真实事件投递、Carbon、通知兜底或 M5 完成。
 - 用户要求把剩余工作交给 Grace，交接任务书为 `docs/exec-plans/2026-11-06-norma-dynamic-island-handoff.md`。M5 变更尚未提交，交接须保留完整 diff；后续顺序 M5 → M4 剩余 → M6，所有后续只提 PR，不合入 dev。
+
+### M5-C 旧入口删除（2026-11-06）
+
+- 已删除：左抽屉（对话/运行概览/想法）、orb、`DesktopLeftView` 及左侧状态/拖拽/动画、状态胶囊与顶栏入口、`⌘⇧E`/`⌘⇧I`/`⌃1–9`/`⌃0`/`⌃⇧*` 快捷键、对应 i18n（drawers 102、shortcuts 26、workspace 5 个键）和文档。保留右抽屉与右侧内容区、岛复用的 overview 数据/投影/审批/问答链路；旧 `keyboard.shortcuts.v1` 中已失效的命令由 `lenient_overrides` 忽略，旧布局字段可读不报错。
+- **取舍（须告知用户）**：想法清单与「提议」的派发/忽略 UI 随左抽屉一并删除，没有迁入岛。需要时应在岛内重做；`brain_host` 的提议数据与 CLI 链路未动。
+- E2E：删除 WorkspaceDrawerTabs / RunOverview(+Agents/Titles) / StatusCapsule / OverviewFloat / Ideas* / DispatchEffects 场景与看图清单；CanvasDrawers、CanvasProjectDrawers 改为只验收右抽屉与画布占位（Swift 编译通过，**尚未在真实 App 运行**）。
+- **未完成的 E2E 迁移**：WorkspaceAttentionRead、SettingsThemeConsistency/Visual 仍引用左栏「运行概览」，Brain* 场景仍通过 `⌘⇧E` 打开概览读盘，须在 M4（brain 迁移到 `global/current` 与岛内入口）和 M6 中改为经岛验收；此前不得宣称这些场景通过。
+- 验证：runtime/storage/ui 全部通过；app/runtime/storage/ui all-targets Clippy `-D warnings` 通过；行数、no-allow、指南行数、storage、performance guardrail、check-i18n（2116 键）、test-i18n 通过。`app --lib` 并行全量测试因 GPUI 窗口类测试争用出现挂起/偶发失败，单独重跑相关测试均通过；`shortcuts::` 16/16。单线程全量重跑与真实 App 验收（画布布局、右抽屉、设置页、他 App 前台热键、通知兜底）仍待完成。

@@ -6,7 +6,6 @@ use crate::motion::{
 };
 use std::time::Duration;
 
-pub(super) const LEFT_MIN_WIDTH: f32 = 150.0;
 pub(super) const RIGHT_MIN_WIDTH: f32 = 185.0;
 pub(super) const MIN_CANVAS_WIDTH: f32 = 320.0;
 
@@ -85,161 +84,91 @@ impl SideDrawerMotion {
 }
 
 pub(crate) struct DesktopAssistantDrawerMotion {
-    pub(crate) left: SideDrawerMotion,
     pub(crate) right: SideDrawerMotion,
 }
 
 impl Default for DesktopAssistantDrawerMotion {
     fn default() -> Self {
         Self {
-            left: SideDrawerMotion::new(false),
             right: SideDrawerMotion::new(false),
         }
     }
 }
 
 impl DesktopAssistantDrawerMotion {
-    /// Jump both drawers to their logical state without animating.
-    pub(crate) fn settle(&mut self, left_open: bool, right_open: bool) {
-        self.left = SideDrawerMotion::new(left_open);
-        self.right = SideDrawerMotion::new(right_open);
-    }
-
-    #[cfg(test)]
-    pub(crate) fn settle_left(&mut self, open: bool) {
-        self.left = SideDrawerMotion::new(open);
-    }
-
-    pub(crate) fn retarget(&mut self, left_open: bool, right_open: bool) {
-        self.left.retarget(left_open);
+    pub(crate) fn retarget(&mut self, right_open: bool) {
         self.right.retarget(right_open);
     }
 
     pub(crate) fn tick(&mut self, delta: Duration, reduce_motion: bool) -> bool {
-        self.left.tick(delta, reduce_motion) | self.right.tick(delta, reduce_motion)
+        self.right.tick(delta, reduce_motion)
     }
 
     pub(crate) fn is_active(&self) -> bool {
-        self.left.is_active() || self.right.is_active()
+        self.right.is_active()
     }
 
     #[cfg(test)]
     pub(crate) fn layout(
         &self,
         window_width: f32,
-        left_open: bool,
         right_open: bool,
         reduce_motion: bool,
     ) -> DesktopDrawerLayout {
-        self.layout_with_widths(
-            window_width,
-            left_open,
-            right_open,
-            reduce_motion,
-            None,
-            None,
-        )
+        self.layout_with_width(window_width, right_open, reduce_motion, None)
     }
 
-    pub(crate) fn layout_with_widths(
+    pub(crate) fn layout_with_width(
         &self,
         window_width: f32,
-        left_open: bool,
         right_open: bool,
         reduce_motion: bool,
-        left_width: Option<f32>,
         right_width: Option<f32>,
     ) -> DesktopDrawerLayout {
-        let left_fraction = if reduce_motion {
-            if left_open {
-                1.0
-            } else {
-                0.0
-            }
-        } else {
-            self.left.fraction(false)
-        };
         let right_fraction = if reduce_motion {
-            if right_open {
-                1.0
-            } else {
-                0.0
-            }
+            f32::from(right_open as u8)
         } else {
             self.right.fraction(false)
         };
-        DesktopDrawerLayout::with_widths(
-            window_width,
-            left_fraction,
-            right_fraction,
-            left_width,
-            right_width,
-        )
+        DesktopDrawerLayout::with_width(window_width, right_fraction, right_width)
     }
 }
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct DesktopDrawerLayout {
-    pub(crate) left_width: f32,
     pub(crate) right_width: f32,
-    pub(crate) left_space: f32,
     pub(crate) right_space: f32,
     pub(crate) canvas_width: f32,
 }
 
 impl DesktopDrawerLayout {
     #[cfg(test)]
-    pub(crate) fn new(window_width: f32, left_fraction: f32, right_fraction: f32) -> Self {
-        Self::with_widths(window_width, left_fraction, right_fraction, None, None)
+    pub(crate) fn new(window_width: f32, right_fraction: f32) -> Self {
+        Self::with_width(window_width, right_fraction, None)
     }
 
-    pub(crate) fn with_widths(
+    pub(crate) fn with_width(
         window_width: f32,
-        left_fraction: f32,
         right_fraction: f32,
-        left_width: Option<f32>,
         right_width: Option<f32>,
     ) -> Self {
-        let mut left_width = left_width
-            .unwrap_or((window_width * 0.31).clamp(366.0, 438.0) - 150.0)
-            .max(LEFT_MIN_WIDTH);
         let mut right_width = right_width
             .unwrap_or((window_width * 0.37).clamp(RIGHT_MIN_WIDTH, 560.0))
             .max(RIGHT_MIN_WIDTH);
-        // Match the prototype: only the mobile breakpoint uses overlay drawers.
+        // Match the prototype: only the mobile breakpoint uses an overlay drawer.
         let reserve = window_width >= 760.0;
-        if reserve && left_fraction > 0.0 && right_fraction > 0.0 {
-            let minimum_total = LEFT_MIN_WIDTH + RIGHT_MIN_WIDTH;
-            let available_total = (window_width - MIN_CANVAS_WIDTH).max(minimum_total);
-            let extra_left = left_width - LEFT_MIN_WIDTH;
-            let extra_right = right_width - RIGHT_MIN_WIDTH;
-            let extra_total = extra_left + extra_right;
-            if extra_total > 0.0 && minimum_total + extra_total > available_total {
-                let ratio = (available_total - minimum_total) / extra_total;
-                left_width = LEFT_MIN_WIDTH + extra_left * ratio;
-                right_width = RIGHT_MIN_WIDTH + extra_right * ratio;
-            }
-        } else if reserve && left_fraction > 0.0 {
-            left_width = left_width.min((window_width - MIN_CANVAS_WIDTH).max(LEFT_MIN_WIDTH));
-        } else if reserve && right_fraction > 0.0 {
+        if reserve && right_fraction > 0.0 {
             right_width = right_width.min((window_width - MIN_CANVAS_WIDTH).max(RIGHT_MIN_WIDTH));
         }
-        let left_space = if reserve {
-            left_width * left_fraction
-        } else {
-            0.0
-        };
         let right_space = if reserve {
             right_width * right_fraction
         } else {
             0.0
         };
         Self {
-            left_width,
             right_width,
-            left_space,
             right_space,
-            canvas_width: (window_width - left_space - right_space).max(1.0),
+            canvas_width: (window_width - right_space).max(1.0),
         }
     }
 }

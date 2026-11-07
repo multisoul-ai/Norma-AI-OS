@@ -3,10 +3,6 @@
 use crate::app::MultisoulApp;
 use norma::agent_hook::ApprovalDecision;
 
-#[cfg(test)]
-#[path = "../../../tests/unit/brain_user_approval_tests.rs"]
-mod tests;
-
 impl MultisoulApp {
     /// 用户直接放行或拒绝一条审批；不经过大脑，也不要求大脑在运行。
     /// 返回原请求的异步回执，复用原生/受控会话各自的授权和审计路径。

@@ -136,7 +136,6 @@ pub(crate) struct BrainHostState {
     proposals_dirty: bool,
     proposals_save: Option<Receiver<Result<(), String>>>,
     proposal_writer: proposals::Writer,
-    pub(crate) proposal_feedback: HashMap<(String, u64), proposals::ProposalFeedback>,
 }
 
 impl BrainHostState {
@@ -175,7 +174,6 @@ impl BrainHostState {
             proposals_dirty: false,
             proposals_save: None,
             proposal_writer: brain::persistence::shared_writer().clone(),
-            proposal_feedback: HashMap::new(),
         }
     }
 

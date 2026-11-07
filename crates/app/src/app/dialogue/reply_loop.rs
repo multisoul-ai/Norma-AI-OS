@@ -194,13 +194,9 @@ impl DialogueControlState {
         }
     }
 
-    pub(crate) fn last_reply_text(&self) -> Option<&str> {
-        self.last_reply_text.as_deref()
-    }
-
     #[cfg(test)]
     pub(crate) fn last_reply_text_for_tests(&self) -> Option<&str> {
-        self.last_reply_text()
+        self.last_reply_text.as_deref()
     }
 
     #[cfg(test)]

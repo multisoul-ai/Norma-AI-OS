@@ -10,30 +10,6 @@ fn draft(agent: &str, title: &str) -> Draft {
     }
 }
 
-/// 全局目录中的提议读写必须保留workspace来源，不能在不同项目间误载。
-/// 数据：alpha的一条完整提议。
-/// 执行：序列化scoped快照，分别按alpha/beta读取，再移除提议重写。
-/// 预期：alpha恢复完整内容，beta拒绝；空快照仍保留alpha身份和编号水位。
-#[test]
-fn scoped_proposals_round_trip_and_reject_other_workspaces() {
-    let mut proposals = Proposals::default();
-    let id = proposals
-        .add(draft("Alan", "检查迁移"), SystemTime::UNIX_EPOCH)
-        .unwrap();
-    let saved = proposals.to_scoped_json("alpha");
-    let mut restored = Proposals::from_scoped_json(&saved, "alpha").unwrap();
-    assert_eq!(restored.items(), proposals.items(), "完整内容保持");
-    assert!(
-        Proposals::from_scoped_json(&saved, "beta").is_err(),
-        "不能跨工作空间加载"
-    );
-    assert!(restored.take(id).is_some(), "可消费原提议");
-    let empty: Value = serde_json::from_str(&restored.to_scoped_json("alpha")).unwrap();
-    assert_eq!(empty["workspace_id"], "alpha", "空快照仍有来源");
-    assert_eq!(empty["next_id"], id, "已消费编号不复用");
-    assert_eq!(empty["items"].as_array().unwrap().len(), 0, "提议已移除");
-}
-
 /// 数据迁移完成后懒加载另一个项目时，仍要拒绝损坏的重复提议编号。
 /// 数据：有效alpha快照的同一编号出现两个不同完整任务。
 /// 执行：通过生产scoped读取接口加载。
@@ -125,24 +101,6 @@ fn same_agent_replaces_and_total_is_capped() {
         "超过 5 条应拒绝"
     );
     assert_eq!(proposals.items().len(), MAX_PROPOSALS);
-}
-
-/// 取出提议后它从列表消失，编号不复用。
-///
-/// 数据构造：提两条，取出第一条，再提一条。
-/// 预期结果：
-///   - 正断言：取出的就是第一条；新提议的编号大于之前所有编号
-///   - 负断言：同一编号不能取两次
-#[test]
-fn take_removes_and_ids_are_not_reused() {
-    let mut proposals = Proposals::default();
-    let at = SystemTime::UNIX_EPOCH;
-    let first = proposals.add(draft("A", "一"), at).unwrap();
-    let second = proposals.add(draft("B", "二"), at).unwrap();
-    assert_eq!(proposals.take(first).map(|p| p.title), Some("一".into()));
-    assert!(proposals.take(first).is_none(), "不能取两次");
-    let third = proposals.add(draft("C", "三"), at).unwrap();
-    assert!(third > second, "编号不复用");
 }
 
 /// 写入再读回，内容与编号都保留；损坏的文件返回错误。

@@ -1,10 +1,9 @@
 //! 大脑提议的落地：接收、保存、用户点“派发”或“忽略”。
 
 use super::proposals::{check_target, Draft, ProposalBlock, Proposals, RosterLite};
-use super::AutoKind;
 use crate::app::MultisoulApp;
 use gpui::Context;
-use norma::protocol::{BrainOp, CardCommandResult, ReportPriority};
+use norma::protocol::ReportPriority;
 use std::time::SystemTime;
 
 impl MultisoulApp {
@@ -143,13 +142,6 @@ impl MultisoulApp {
             .collect()
     }
 
-    pub(crate) fn brain_proposal_open(&self) -> Option<&(String, u64)> {
-        match &self.desktop_workspace.attention.open {
-            Some(crate::workspace::desktop::DetailKey::Proposal(key)) => Some(key),
-            _ => None,
-        }
-    }
-
     /// 目标 Agent 还没有卡片：派发会新建一张。
     pub(super) fn proposal_needs_card(&self, agent: &str) -> bool {
         self.proposal_roster()
@@ -180,28 +172,6 @@ impl MultisoulApp {
         target.busy.then_some(ProposalBlock::Busy)
     }
 
-    pub(crate) fn brain_proposal_feedback(
-        &self,
-        area: &str,
-        id: u64,
-    ) -> Option<&super::proposals::ProposalFeedback> {
-        self.brain.proposal_feedback.get(&(area.to_owned(), id))
-    }
-
-    pub(crate) fn set_brain_proposal_feedback(
-        &mut self,
-        area: &str,
-        id: u64,
-        feedback: Option<super::proposals::ProposalFeedback>,
-    ) {
-        let key = (area.to_owned(), id);
-        if let Some(feedback) = feedback {
-            self.brain.proposal_feedback.insert(key, feedback);
-        } else {
-            self.brain.proposal_feedback.remove(&key);
-        }
-    }
-
     /// 大脑交来一条提议：校验目标后放进“需要你处理”，并提醒用户一句。
     pub(super) fn propose_next_step(
         &mut self,
@@ -221,71 +191,5 @@ impl MultisoulApp {
         let text = ui::i18n::format("chrome.brain_proposal_spoken", &[("title", title)]);
         self.speak_brain_report(text, ReportPriority::Normal, cx);
         Ok(id)
-    }
-
-    /// 用户点“派发”：按提议原文派给目标 Agent。Agent 正忙或派发失败时提议保留，返回原因。
-    pub(crate) fn dispatch_brain_proposal(
-        &mut self,
-        id: u64,
-    ) -> Result<(BrainOp, CardCommandResult), String> {
-        let service = self
-            .shared_context_service()
-            .map_err(|error| error.to_string())?;
-        service
-            .execute_with_state(
-                agent::context::ContextOperation::DispatchTask,
-                None,
-                |state| Ok(self.dispatch_brain_proposal_checked(id, state)),
-            )
-            .map_err(|error| error.to_string())?
-    }
-
-    fn dispatch_brain_proposal_checked(
-        &mut self,
-        id: u64,
-        state: &agent::context::WorkingState,
-    ) -> Result<(BrainOp, CardCommandResult), String> {
-        let Some(proposal) = self
-            .brain
-            .proposals
-            .items()
-            .iter()
-            .find(|p| p.id == id)
-            .cloned()
-        else {
-            return Err(ui::i18n::text("chrome.brain_proposal_closed").to_string());
-        };
-        if let Some(block) = self.proposal_dispatch_block(&proposal.agent) {
-            return Err(block.message(&proposal.agent));
-        }
-        let op = BrainOp::Assign {
-            agent: proposal.agent.clone(),
-            task: proposal.task.clone(),
-        };
-        let result = self
-            .assign_task(
-                proposal.agent,
-                proposal.task,
-                None,
-                AutoKind::UserDispatched,
-                state,
-            )
-            .map_err(|error| error.to_string())?;
-        self.brain.proposals.take(id);
-        self.save_brain_proposals();
-        Ok((op, result))
-    }
-
-    /// 用户点“忽略”：移除提议，并告诉大脑别再提同样的事。
-    pub(crate) fn decline_brain_proposal(&mut self, id: u64) -> bool {
-        let Some(proposal) = self.brain.proposals.take(id) else {
-            return false;
-        };
-        self.save_brain_proposals();
-        self.push_brain(brain::BrainEventKind::ProposalDeclined {
-            agent: proposal.agent,
-            title: proposal.title,
-        });
-        true
     }
 }

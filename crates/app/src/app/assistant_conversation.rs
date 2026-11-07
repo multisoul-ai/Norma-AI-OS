@@ -27,10 +27,6 @@ impl Default for AssistantConversation {
 }
 
 impl AssistantConversation {
-    pub(crate) fn messages(&self) -> &[Message] {
-        &self.messages
-    }
-
     pub(crate) fn user(&mut self, text: &str) {
         self.push(Speaker::User, text);
     }
@@ -89,7 +85,3 @@ impl super::MultisoulApp {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "../../tests/unit/assistant_conversation_tests.rs"]
-mod tests;

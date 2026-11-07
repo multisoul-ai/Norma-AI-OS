@@ -1,6 +1,5 @@
 use super::*;
 use gpui::{AppContext as _, TestAppContext};
-use norma::protocol::{AgentProfile, CardCommand, CardCommandResult};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
@@ -21,88 +20,6 @@ impl PtyBackend for RejectTaskPty {
         Ok(())
     }
     fn kill(&mut self) {}
-}
-
-/// 派发正文失败时提议必须保留，不能记录成用户已成功派发。
-/// 数据构造：已就绪的 Alan 与拒绝所有写入的 PTY，一条带完整任务的提议。
-/// 执行过程：经生产创建 Agent 入口建立卡片，用户派发提议，再读取结果与概览日志。
-/// 预期结果：派发返回错误，原提议仍在，自主处理记录为空。
-#[test]
-fn failed_dispatch_keeps_the_proposal_and_does_not_log_success() {
-    let mut test = TestAppContext::single();
-    let dir = tempfile::tempdir().expect("应创建项目夹具");
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let writes = attempts.clone();
-    let factory: runtime::PtyFactory =
-        Box::new(move |_, _, _, _| Ok(Box::new(RejectTaskPty(writes.clone()))));
-    let (entity, cx) =
-        test.add_window_view(|_, cx| MultisoulApp::new_with_pty_factory(cx, factory));
-    entity.update(cx, |app, cx| {
-        app.enter_canvas_for_test(dir.path(), cx);
-        app.brain.settings = Some(config::BrainSettings::default());
-        app.brain.proposals_path = Some(dir.path().join("proposals.json"));
-    });
-    let created = entity.update_in(cx, |app, window, _| {
-        crate::app::execute_agent_card_command(
-            app,
-            window,
-            CardCommand::CreateAgent {
-                name: Some("Alan".into()),
-                profile: AgentProfile::Codex,
-                activate: true,
-            },
-        )
-        .expect("应创建测试卡片")
-    });
-    let CardCommandResult::AgentCreated {
-        node_id: Some(node),
-        ..
-    } = created
-    else {
-        panic!("必须返回卡片编号：{created:?}");
-    };
-    // Production overview prepares cold shared state off-thread before entering this gate.
-    let context = entity.update(cx, |app, _| app.shared_context_service().unwrap());
-    crate::app::shared_tokio_runtime()
-        .unwrap()
-        .block_on(context.snapshot())
-        .unwrap();
-    entity.update(cx, |app, _| {
-        app.pending_agent_submissions.mark_ready(node);
-        let id = app
-            .brain
-            .proposals
-            .add(
-                proposals::Draft {
-                    agent: "Alan".into(),
-                    title: "测试提议".into(),
-                    task: "完整测试任务".into(),
-                    why: "验证失败".into(),
-                },
-                std::time::SystemTime::now(),
-            )
-            .expect("应创建提议");
-        let before = attempts.load(Ordering::Relaxed);
-        let result = app.dispatch_brain_proposal(id);
-        assert!(result.is_err(), "失败回执不能被当成派发成功：{result:?}");
-        assert!(
-            attempts.load(Ordering::Relaxed) > before,
-            "必须实际经过 PTY 失败分支，不能因其他拒绝而假通过"
-        );
-        assert!(
-            result.unwrap_err().contains("未接收任务"),
-            "应报告失败回执，而不是前置检查错误"
-        );
-        assert_eq!(
-            app.brain.proposals.items().len(),
-            1,
-            "原提议应保留供用户重试"
-        );
-        assert!(
-            app.brain.activity_outbox.take().is_empty(),
-            "不能生成成功派发记录"
-        );
-    });
 }
 
 /// 概览只能展示当前工作空间的提议，切换后不能留下其他空间的不可处理条目。
@@ -321,79 +238,4 @@ fn stale_start_results_never_replace_a_new_generation() {
             "关闭后不能再次启动"
         );
     });
-}
-
-/// 提议快照写失败必须让用户看见，并在路径恢复后保存最新状态。
-/// 数据构造：两条提议；把保存目录位置建成普通文件，确定性造成写失败。
-/// 执行过程：忽略第一条、等待真实队列执行，再推进生产轮询；修复目录并再次推进。
-/// 预期结果：失败可见且不恢复已忽略条目，重试后文件只含第二条。
-#[test]
-fn failed_proposal_saves_are_visible_and_retried() {
-    let mut test = TestAppContext::single();
-    let dir = tempfile::tempdir().expect("应创建隔离目录");
-    let blocker = dir.path().join("blocked");
-    std::fs::write(&blocker, "fixture").expect("应制造不可写的父目录");
-    let path = blocker.join("proposals.json");
-    let (entity, cx) = test.add_window_view(|_, cx| {
-        MultisoulApp::new_with_pty_factory(
-            cx,
-            Box::new(|_, _, _, _| Ok(Box::new(RejectTaskPty::default()))),
-        )
-    });
-    entity.update(cx, |app, _| {
-        app.workspace_id = Some("proposal-save-fixture".into());
-        app.brain.settings = Some(config::BrainSettings::default());
-        app.brain.proposals_path = Some(path.clone());
-        for name in ["A", "B"] {
-            app.brain
-                .proposals
-                .add(
-                    proposals::Draft {
-                        agent: name.into(),
-                        title: name.into(),
-                        task: "完整任务".into(),
-                        why: "夹具".into(),
-                    },
-                    std::time::SystemTime::UNIX_EPOCH,
-                )
-                .unwrap();
-        }
-        assert!(
-            app.desktop_workspace.error.is_none(),
-            "不能由既有错误造成假阳性"
-        );
-        assert!(app.decline_brain_proposal(1), "应忽略第一条并提交快照");
-    });
-    brain::persistence::shared_writer()
-        .flush()
-        .recv()
-        .unwrap()
-        .unwrap();
-    entity.update(cx, |app, cx| {
-        app.brain_tick(&[], &[], cx);
-        assert!(
-            app.desktop_workspace
-                .error
-                .as_ref()
-                .is_some_and(|e| e.contains("保存幕僚提议失败")),
-            "写入失败必须在界面可见"
-        );
-        assert_eq!(app.brain.proposals.items().len(), 1, "不能恢复已忽略提议");
-    });
-    std::fs::remove_file(&blocker).unwrap();
-    entity.update(cx, |app, cx| {
-        app.brain.proposals_retry_at = Instant::now();
-        app.brain_tick(&[], &[], cx);
-    });
-    brain::persistence::shared_writer()
-        .flush()
-        .recv()
-        .unwrap()
-        .unwrap();
-    let saved = proposals::Proposals::from_json(
-        &std::fs::read_to_string(path).expect("恢复路径后必须重试保存"),
-    )
-    .unwrap();
-    assert_eq!(saved.items().len(), 1, "只保存当前快照");
-    assert_eq!(saved.items()[0].agent, "B", "已忽略的 A 不能复活");
 }

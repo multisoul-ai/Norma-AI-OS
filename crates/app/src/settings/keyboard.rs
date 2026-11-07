@@ -346,9 +346,6 @@ fn scope_badge(theme: Theme, label: &'static str) -> Div {
 }
 
 fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
-    if let Some((row, _)) = crate::shortcuts::idea_assign::settings_ids(command) {
-        return row;
-    }
     match command {
         ShortcutCommandId::NewWorkspace => "settings-shortcut-new-workspace",
         ShortcutCommandId::AddProject => "settings-shortcut-add-project",
@@ -385,14 +382,9 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ToggleMasterLayout => "settings-shortcut-toggle-master-layout",
         ShortcutCommandId::ExitFocus => "settings-shortcut-exit-focus",
         ShortcutCommandId::ToggleSettings => "settings-shortcut-toggle-settings",
-        ShortcutCommandId::ToggleRunOverview => "settings-shortcut-toggle-run-overview",
-        ShortcutCommandId::ToggleIdeas => "settings-shortcut-toggle-ideas",
         ShortcutCommandId::ToggleBrainTrace => "settings-shortcut-toggle-brain-trace",
         ShortcutCommandId::ToggleIsland => "settings-shortcut-toggle-island",
         ShortcutCommandId::VoiceInteraction => "settings-shortcut-voice-interaction",
-        ShortcutCommandId::AssignIdeaToCard(_) | ShortcutCommandId::AssignIdeaToNewAgent(_) => {
-            "settings-shortcut-assign-idea-unknown"
-        }
     }
 }
 
@@ -401,9 +393,6 @@ fn shortcut_hint_id(command: ShortcutCommandId) -> String {
 }
 
 fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
-    if let Some((_, restore)) = crate::shortcuts::idea_assign::settings_ids(command) {
-        return restore;
-    }
     match command {
         ShortcutCommandId::NewWorkspace => "settings-shortcut-restore-new-workspace",
         ShortcutCommandId::AddProject => "settings-shortcut-restore-add-project",
@@ -444,14 +433,9 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ToggleMasterLayout => "settings-shortcut-restore-toggle-master-layout",
         ShortcutCommandId::ExitFocus => "settings-shortcut-restore-exit-focus",
         ShortcutCommandId::ToggleSettings => "settings-shortcut-restore-toggle-settings",
-        ShortcutCommandId::ToggleRunOverview => "settings-shortcut-restore-toggle-run-overview",
-        ShortcutCommandId::ToggleIdeas => "settings-shortcut-restore-toggle-ideas",
         ShortcutCommandId::ToggleBrainTrace => "settings-shortcut-restore-toggle-brain-trace",
         ShortcutCommandId::ToggleIsland => "settings-shortcut-restore-toggle-island",
         ShortcutCommandId::VoiceInteraction => "settings-shortcut-restore-voice-interaction",
-        ShortcutCommandId::AssignIdeaToCard(_) | ShortcutCommandId::AssignIdeaToNewAgent(_) => {
-            "settings-shortcut-restore-assign-idea-unknown"
-        }
     }
 }
 

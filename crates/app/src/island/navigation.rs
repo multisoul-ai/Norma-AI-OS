@@ -116,7 +116,7 @@ impl IslandController {
                                 {
                                     return None;
                                 }
-                                host.open_island_artifact(&target.workspace, row, window, cx)
+                                host.open_island_artifact(&target.workspace, row, cx)
                             }
                         })
                     })

@@ -61,9 +61,7 @@ impl Notifier {
     /// `None` outside an app bundle (e.g. `cargo run`), where UserNotifications would abort.
     pub fn new(clicks: Sender<String>) -> Option<Self> {
         let mtm = MainThreadMarker::new()?;
-        if NSBundle::mainBundle().bundleIdentifier().is_none() {
-            return None;
-        }
+        NSBundle::mainBundle().bundleIdentifier()?;
         let allocated = Delegate::alloc(mtm).set_ivars(clicks);
         // SAFETY: initializes an allocated NSObject subclass on the main thread.
         let delegate: Retained<Delegate> = unsafe { msg_send![super(allocated), init] };

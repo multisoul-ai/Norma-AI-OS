@@ -156,10 +156,6 @@ pub(crate) fn browser_created() {
     analytics::track(Event::BrowserCardCreated);
 }
 
-pub(crate) fn idea_created() {
-    analytics::track(Event::IdeaCreated);
-}
-
 /// 授权结果；成功时用授权 Key 的盐哈希识别用户，原始 Key 不会被上报。
 pub(crate) fn license_activated(success: bool, identity_seed: Option<&str>) {
     analytics::track(Event::LicenseActivated { success });

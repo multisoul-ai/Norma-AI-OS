@@ -105,9 +105,7 @@ fn desktop_camera_origins_use_real_layout_without_prior_bounds() {
             .expect("应有项目展开动画")
             .rect();
         let drawer_layout = app.desktop_assistant_layout(window);
-        let mut local_bounds = canvas_rect_from_bounds(project_bounds);
-        let scale = window.scale_factor();
-        local_bounds.origin.x -= (drawer_layout.left_space * scale).round() / scale;
+        let local_bounds = canvas_rect_from_bounds(project_bounds);
         let expected = super::super::preview_canvas::project_canvas_rect(
             local_bounds,
             desktop_scene_rect(drawer_layout.canvas_width, 800.0).size,

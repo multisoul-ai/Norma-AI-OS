@@ -15,10 +15,6 @@ mod report_tests;
 mod confirmation_tests;
 
 #[cfg(test)]
-#[path = "../../../tests/unit/brain_proposal_context_tests.rs"]
-mod proposal_tests;
-
-#[cfg(test)]
 #[path = "../../../tests/unit/brain_action_context_tests.rs"]
 mod action_tests;
 
