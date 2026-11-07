@@ -48,7 +48,7 @@ impl IslandScreen {
         };
         let header_height = self.safe_top.max(34.);
         let (width, body, radius): (f64, f64, f64) = match mode {
-            IslandMode::Compact => (330., 0., 14.),
+            IslandMode::Compact => (330., 0., 999.),
             IslandMode::Activity => (460., 58., 24.),
             IslandMode::Alert => (540., 270., 32.),
             IslandMode::Expanded => (660., 510., 32.),
@@ -56,7 +56,8 @@ impl IslandScreen {
         let top = if notch_width > 0. {
             self.frame.y + self.frame.height
         } else {
-            self.visible_top - 6.
+            // Without a notch the capsule floats near the very top edge, over the menu bar.
+            self.frame.y + self.frame.height - 4.
         };
         let width = width.max(notch_width + 146.).min(self.frame.width);
         let height = (header_height + body).min((top - self.frame.y - 8.).max(header_height));
