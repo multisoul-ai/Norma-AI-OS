@@ -52,8 +52,11 @@ mod platform {
         // Build the macOS 12-compatible type from its stable string value. Referencing
         // the macOS 14+ Microphone symbol aborts under dyld on Ventura, while the old
         // BuiltInMicrophone static is deprecated by newer SDKs.
-        let built_in_microphone_type = NSString::from_str("AVCaptureDeviceTypeBuiltInMicrophone");
-        let device_types = NSArray::from_slice(&[&*built_in_microphone_type]);
+        // External covers USB/Bluetooth mics; unknown strings on older macOS are ignored.
+        let built_in = NSString::from_str("AVCaptureDeviceTypeBuiltInMicrophone");
+        let external = NSString::from_str("AVCaptureDeviceTypeExternal");
+        let external_legacy = NSString::from_str("AVCaptureDeviceTypeExternalUnknown");
+        let device_types = NSArray::from_slice(&[&*built_in, &*external, &*external_legacy]);
         let discovery = unsafe {
             AVCaptureDeviceDiscoverySession::discoverySessionWithDeviceTypes_mediaType_position(
                 &device_types,
@@ -63,7 +66,7 @@ mod platform {
         };
         let devices = unsafe { discovery.devices() };
 
-        Ok(devices
+        let mut list: Vec<AudioInputDevice> = devices
             .iter()
             .map(|device| {
                 let id = unsafe { ns_string_to_string(&device.uniqueID()) };
@@ -74,7 +77,19 @@ mod platform {
                     name,
                 }
             })
-            .collect())
+            .collect();
+        // The system default input is always usable even if discovery missed its type.
+        if !list.iter().any(|device| device.is_default) {
+            if let Some(device) = unsafe { AVCaptureDevice::defaultDeviceWithMediaType(media_type) }
+            {
+                list.push(AudioInputDevice {
+                    id: unsafe { ns_string_to_string(&device.uniqueID()) },
+                    name: unsafe { ns_string_to_string(&device.localizedName()) },
+                    is_default: true,
+                });
+            }
+        }
+        Ok(list)
     }
 
     fn ns_string_to_string(value: &NSString) -> String {
