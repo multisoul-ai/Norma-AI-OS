@@ -76,8 +76,15 @@ enum BrainSupport {
         }
         try await session.shortcut(key: 53, modifiers: [])
         _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
-        try await session.click(matching: [workspace], pick: .bottom)
-        _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 12))
+        // 启动页是工作空间卡片目录：点卡片进入工作空间；入场动画会吞点击，没进去就再点，最多三次。
+        var entered = false
+        for _ in 0..<3 where !entered {
+            try await Task.sleep(nanoseconds: 1_500_000_000)
+            try await session.click(matching: [workspace], pick: .bottom)
+            entered = (try? await session.wait(Expectation(allOf: ["E2E Project"], timeout: 6))) != nil
+        }
+        guard entered else { throw E2EError.product("点击工作空间卡片三次仍没进入工作空间：\(try await session.capture().summary)") }
+        try await Task.sleep(nanoseconds: 800_000_000)
         try await session.click(matching: ["E2E Project"], pick: .bottom)
         try await dismissGuide(session)
         _ = try await session.wait(Expectation(allOf: ["E2E Project"], absent: ["项目目录不可用"], timeout: 15))
@@ -92,16 +99,6 @@ enum BrainSupport {
             try await session.shortcut(key: 36, modifiers: [])
             try await Task.sleep(nanoseconds: 2_500_000_000)
             try await dismissGuide(session)
-        }
-    }
-
-    /// ⌘⇧E 打开运行概览；快捷键偶尔被刚结束的输入吞掉，没看到“运行概览”就再按，最多三次。
-    static func openOverview(_ session: Session) async throws {
-        for _ in 0..<3 {
-            try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
-            try await Task.sleep(nanoseconds: 1_200_000_000)
-            let frame = try await session.capture()
-            if frame.contains("运行概览") || frame.contains("Run Overview") { return }
         }
     }
 

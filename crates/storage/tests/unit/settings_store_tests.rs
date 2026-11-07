@@ -327,3 +327,48 @@ fn conditional_settings_changes_roll_back_on_write_failure() {
         "失败批次没有新值"
     );
 }
+
+/// 场景：清除已记住的授权只删除指定前缀，保留其他设置。
+///
+/// 数据构造：两条 `island.approval.allow.v1:` 授权、一条同名不同前缀的设置、一条无关设置。
+/// 执行过程：调用 `delete_prefix("island.approval.allow.v1:")`。
+/// 预期结果：返回 2；两条授权消失；其余两条设置原值保留。
+#[test]
+fn test_settings_store_delete_prefix_removes_only_matching_keys() {
+    let temp = tempfile::tempdir().expect("测试应创建隔离数据库目录");
+    let store = SettingsStore::new(temp.path().join("app.sqlite"));
+    for (key, value) in [
+        ("island.approval.allow.v1:aaa", "true"),
+        ("island.approval.allow.v1:bbb", "true"),
+        ("island.approval.allow.v2:ccc", "keep-version"),
+        ("island.preferences.v1", "keep-other"),
+    ] {
+        store.set_string(key, value).expect("准备设置应成功");
+    }
+    let removed = store
+        .delete_prefix("island.approval.allow.v1:")
+        .expect("按前缀删除应成功");
+    assert_eq!(removed, 2, "只应删除两条匹配前缀的授权");
+    for key in [
+        "island.approval.allow.v1:aaa",
+        "island.approval.allow.v1:bbb",
+    ] {
+        assert_eq!(store.get_string(key).unwrap(), None, "{key} 应已清除");
+    }
+    assert_eq!(
+        store
+            .get_string("island.approval.allow.v2:ccc")
+            .unwrap()
+            .as_deref(),
+        Some("keep-version"),
+        "相近但不同前缀的键不得误删"
+    );
+    assert_eq!(
+        store
+            .get_string("island.preferences.v1")
+            .unwrap()
+            .as_deref(),
+        Some("keep-other"),
+        "无关设置不得受影响"
+    );
+}

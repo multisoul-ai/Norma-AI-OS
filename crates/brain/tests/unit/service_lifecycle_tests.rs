@@ -7,14 +7,14 @@ use super::*;
 fn rejected_malformed_envelope_keeps_the_original_command() {
     let h = start();
     let command = "/tmp/zsh -lc '/opt/norma/bin/norma brain agents'";
-    h.service.push(BrainEvent::UserRequest {
+    h.push(BrainEventKind::UserRequest {
         text: format!("FAKE_ENVELOPE: {command}"),
     });
     let status = h.wait_status(
-        |s| matches!(s, BrainStatus::Trace(t) if t.item.kind == TraceKind::Permission),
+        |s| matches!(s, BrainStatusKind::Trace(t) if t.item.kind == TraceKind::Permission),
     );
     h.service.shutdown();
-    let BrainStatus::Trace(trace) = status else {
+    let BrainStatusKind::Trace(trace) = status else {
         panic!("预期权限记录")
     };
     assert!(trace.item.title.contains("拒绝"), "非法 shell 必须被拒绝");
@@ -43,23 +43,27 @@ fn failed_session_start_finishes_without_faking_a_sent_prompt() {
         dir.path().join("state"),
     );
     let (service, status) = BrainService::start(config);
-    service.push(BrainEvent::UserRequest {
-        text: "启动故障".into(),
-    });
+    service.push(
+        BrainEventKind::UserRequest {
+            text: "启动故障".into(),
+        }
+        .in_scope(test_scope()),
+    );
     let mut traces = Vec::new();
     loop {
         match status
             .recv_timeout(Duration::from_secs(5))
             .expect("启动必须给出错误")
+            .kind
         {
-            BrainStatus::Trace(t) => traces.push(t),
-            BrainStatus::BackendDown { .. } => break,
+            BrainStatusKind::Trace(t) => traces.push(t),
+            BrainStatusKind::BackendDown { .. } => break,
             _ => {}
         }
     }
     service.shutdown();
-    traces.extend(status.try_iter().filter_map(|s| match s {
-        BrainStatus::Trace(t) => Some(t),
+    traces.extend(status.try_iter().filter_map(|s| match s.kind {
+        BrainStatusKind::Trace(t) => Some(t),
         _ => None,
     }));
     assert_eq!(
@@ -87,7 +91,7 @@ fn failed_session_start_finishes_without_faking_a_sent_prompt() {
 #[test]
 fn shutdown_finishes_the_inflight_turn() {
     let h = start();
-    h.service.push(BrainEvent::UserRequest {
+    h.push(BrainEventKind::UserRequest {
         text: "FAKE_PARTIAL_SLEEP".into(),
     });
     h.wait_log("partial-output-sent");
@@ -95,8 +99,8 @@ fn shutdown_finishes_the_inflight_turn() {
     let traces: Vec<_> = h
         .status
         .try_iter()
-        .filter_map(|s| match s {
-            BrainStatus::Trace(t) => Some(t),
+        .filter_map(|s| match s.kind {
+            BrainStatusKind::Trace(t) => Some(t),
             _ => None,
         })
         .collect();
@@ -135,12 +139,12 @@ fn restarted_services_do_not_reuse_turn_ids() {
     let mut ids = Vec::new();
     for _ in 0..2 {
         let h = start();
-        h.service.push(BrainEvent::UserRequest {
+        h.push(BrainEventKind::UserRequest {
             text: "核查进度".into(),
         });
-        if let BrainStatus::Trace(trace) = h.wait_status(|s| {
+        if let BrainStatusKind::Trace(trace) = h.wait_status(|s| {
             matches!(s,
-            BrainStatus::Trace(t) if t.item.kind == TraceKind::Prompt)
+            BrainStatusKind::Trace(t) if t.item.kind == TraceKind::Prompt)
         }) {
             ids.push(trace.turn);
         }
@@ -175,10 +179,7 @@ fn every_abnormal_prompt_exit_finishes_once() {
         effort: None,
         handshake_timeout: Duration::from_secs(5),
     };
-    let gate = Gate {
-        norma_bin: NORMA.into(),
-        project_root: dir.path().into(),
-    };
+    let gate = Gate::for_project(NORMA.into(), dir.path().into());
     for (text, stop) in [
         ("FAKE_CRASH", "error"),
         ("FAKE_PARTIAL_SLEEP", "timeout"),
@@ -215,15 +216,13 @@ fn every_abnormal_prompt_exit_finishes_once() {
 #[test]
 fn parallel_approval_workers_have_distinct_turns() {
     let h = start_with(2);
-    h.service
-        .push(approval("unique-a", "cargo test FAKE_SLEEP"));
-    h.service
-        .push(approval("unique-b", "cargo test FAKE_SLEEP"));
+    h.push(approval("unique-a", "cargo test FAKE_SLEEP"));
+    h.push(approval("unique-b", "cargo test FAKE_SLEEP"));
     let mut ids = Vec::new();
     for _ in 0..2 {
-        if let BrainStatus::Trace(t) = h.wait_status(|s| {
+        if let BrainStatusKind::Trace(t) = h.wait_status(|s| {
             matches!(s,
-            BrainStatus::Trace(t) if t.item.kind == TraceKind::Prompt)
+            BrainStatusKind::Trace(t) if t.item.kind == TraceKind::Prompt)
         }) {
             assert_eq!(t.lane, "Approval", "两条均来自审批 worker");
             ids.push(t.turn);

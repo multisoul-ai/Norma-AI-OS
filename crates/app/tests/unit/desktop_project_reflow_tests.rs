@@ -229,10 +229,8 @@ fn desktop_project_reflow_preserves_agents_and_camera_origin() {
         .debug_bounds("desktop-project-area-2")
         .expect("中间帧C项目必须可见");
     host.update_in(cx, |app, window, cx| {
-        let mut shell = super::super::camera::canvas_rect_from_bounds(drawn);
+        let shell = super::super::camera::canvas_rect_from_bounds(drawn);
         let drawer = app.desktop_assistant_layout(window);
-        let scale = window.scale_factor();
-        shell.origin.x -= (drawer.left_space * scale).round() / scale;
         let expected = super::super::preview_canvas::project_canvas_rect(
             shell,
             super::super::desktop_scene_rect(drawer.canvas_width, 800.0).size,

@@ -2,7 +2,8 @@
 use super::{resolve_targets, routing_error_response};
 use gpui::App;
 use norma::protocol::{
-    BrainOp, CardCommand, CardCommandError, CardCommandResult, WireRequest, WireResponse,
+    BrainOp, CardCommand, CardCommandError, CardCommandResult, ReportKind, WireRequest,
+    WireResponse,
 };
 
 pub(super) fn dispatch(
@@ -17,6 +18,8 @@ pub(super) fn dispatch(
     let BrainOp::Report {
         text,
         priority,
+        kind,
+        reply_to,
         sources,
     } = *op
     else {
@@ -71,6 +74,18 @@ pub(super) fn dispatch(
                 return;
             }
         };
+        // A reply always reaches the island chat; an explicit report request also forces speech.
+        let forced = kind == ReportKind::Reply
+            && cx
+                .update(|cx| {
+                    crate::island::staff::state(cx).update(cx, |staff, cx| {
+                        cx.notify();
+                        staff
+                            .deliver_reply(&text, reply_to)
+                            .is_some_and(|reply| reply.speak)
+                    })
+                })
+                .unwrap_or(false);
         let delivery = target
             .app
             .update(cx, |app, cx| {
@@ -86,12 +101,21 @@ pub(super) fn dispatch(
                     tracker.cancel();
                     return Some(false);
                 }
-                Some(app.speak_saved_brain_report(text, priority, tracker.clone(), cx))
+                Some(app.speak_saved_brain_report(text, priority, tracker.clone(), forced, cx))
             })
             .ok()
             .flatten();
         if delivery.is_none() {
             tracker.cancel();
+        }
+        if forced {
+            let queued = delivery.unwrap_or(false);
+            let _ = cx.update(|cx| {
+                crate::island::staff::state(cx).update(cx, |staff, cx| {
+                    staff.end_speech(queued);
+                    cx.notify();
+                })
+            });
         }
         let saved = tracker.flush().await;
         let reply = match (delivery, saved) {

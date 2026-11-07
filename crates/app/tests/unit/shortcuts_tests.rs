@@ -159,22 +159,6 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
         Some("cmd-e"),
         "Voice Interaction 默认应使用 Cmd+E，且可在 Settings 中重新录制"
     );
-    assert_eq!(
-        shortcut_for(&effective, ShortcutCommandId::ToggleRunOverview),
-        Some("cmd-shift-e"),
-        "切换运行概览默认应使用 Cmd+Shift+E，不能占用语音的 Cmd+E"
-    );
-    let overview_entry = entry_for(&effective, ShortcutCommandId::ToggleRunOverview);
-    assert!(
-        overview_entry.editable,
-        "切换运行概览应允许在 Settings 中录制和恢复"
-    );
-    assert!(
-        !read_only_behaviors()
-            .iter()
-            .any(|behavior| behavior.title == "shortcuts.toggle_run_overview"),
-        "切换运行概览是可配置动作，不应出现在只读行为列表"
-    );
     let voice_entry = entry_for(&effective, ShortcutCommandId::VoiceInteraction);
     assert_eq!(
         voice_entry.category, "common.voice",
@@ -376,15 +360,6 @@ fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printabl
     assert!(
         validate_shortcut_change(
             ShortcutCommandId::VoiceInteraction,
-            "cmd-shift-e",
-            &effective
-        )
-        .is_err(),
-        "cmd-shift-e 已被切换运行概览占用，不应再分配给语音"
-    );
-    assert!(
-        validate_shortcut_change(
-            ShortcutCommandId::VoiceInteraction,
             "cmd-shift-y",
             &effective
         )
@@ -392,9 +367,8 @@ fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printabl
         "Voice Interaction 应允许改成未被占用的 cmd-shift-y"
     );
     assert!(
-        validate_shortcut_change(ShortcutCommandId::ToggleRunOverview, "cmd-e", &effective)
-            .is_err(),
-        "cmd-e 仍属于语音，切换运行概览不能占用"
+        validate_shortcut_change(ShortcutCommandId::NewTerminal, "cmd-e", &effective).is_err(),
+        "cmd-e 仍属于语音，其他命令不能占用"
     );
     assert!(
         validate_shortcut_change(ShortcutCommandId::NewTerminal, "up", &effective).is_err(),
@@ -478,4 +452,33 @@ fn entry_for(
         .iter()
         .find(|entry| entry.command == command)
         .expect("测试命令应存在于 effective shortcuts")
+}
+
+/// 场景：升级后旧偏好里残留已删除命令（运行概览、想法、想法派发）的覆盖，不能拖垮其余自定义快捷键。
+///
+/// 数据构造：JSON 含一条有效的 NewTerminal 覆盖，以及 toggle_run_overview、toggle_ideas、
+/// {"assign_idea_to_card":3} 三条已删除命令的覆盖。
+/// 执行过程：`ShortcutPreferences::from_json` 解析并生成有效快捷键表。
+/// 预期结果：NewTerminal 的自定义键保留；三条旧覆盖被忽略，不报错也不清空整份偏好。
+#[test]
+fn removed_commands_in_saved_preferences_do_not_discard_valid_overrides() {
+    let raw = r#"{"overrides":[
+        {"command":"toggle_run_overview","keystroke":"cmd-shift-u"},
+        {"command":"new_terminal","keystroke":"cmd-alt-t"},
+        {"command":"toggle_ideas","keystroke":"cmd-shift-j"},
+        {"command":{"assign_idea_to_card":3},"keystroke":"ctrl-3"}
+    ]}"#;
+    let prefs = ShortcutPreferences::from_json(raw);
+    let effective = effective_shortcuts(&prefs);
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::NewTerminal),
+        Some("alt-cmd-t"),
+        "有效的自定义快捷键必须在升级后保留"
+    );
+    assert_eq!(
+        prefs.to_json().matches("keystroke").count(),
+        1,
+        "已删除命令的旧覆盖应被丢弃: {}",
+        prefs.to_json()
+    );
 }

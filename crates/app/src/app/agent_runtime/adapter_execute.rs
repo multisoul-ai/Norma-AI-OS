@@ -33,7 +33,7 @@ fn execute_norma_adapter_command_unchecked(
             target,
             input_source,
             idea_commands::IdeaFlight {
-                origin: idea_commands::drawer_origin(app, cx),
+                origin: idea_commands::drawer_origin(),
                 user_initiated: false,
             },
         ),

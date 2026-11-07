@@ -73,12 +73,7 @@ impl MultisoulApp {
         viewport: gpui::Size<gpui::Pixels>,
     ) -> CanvasRect {
         let layout = self.desktop_workspace_landing_layout(f32::from(viewport.width));
-        CanvasRect::new(
-            layout.left_space,
-            0.0,
-            layout.canvas_width,
-            f32::from(viewport.height),
-        )
+        CanvasRect::new(0.0, 0.0, layout.canvas_width, f32::from(viewport.height))
     }
 
     /// Drawer geometry a camera leaving the directory lands in. Drawers are hidden while
@@ -87,12 +82,10 @@ impl MultisoulApp {
         &self,
         width: f32,
     ) -> super::drawers::motion::DesktopDrawerLayout {
-        self.desktop_workspace.drawer_motion.layout_with_widths(
+        self.desktop_workspace.drawer_motion.layout_with_width(
             width,
-            self.desktop_workspace.drawers.left_open,
             self.desktop_workspace.drawers.right_open,
             self.motion.reduce_motion,
-            self.desktop_workspace.drawer_widths.left,
             self.desktop_workspace.drawer_widths.right,
         )
     }
@@ -196,8 +189,7 @@ impl MultisoulApp {
         // The live workspace frame is anchored on the cached card; a card captured under
         // other drawers or another window size would land the workspace off its canvas.
         self.desktop_capture_project_rects(workspace_id, layout, window);
-        let mut expanded = super::desktop_scene_rect(layout.canvas_width, full.size.y);
-        expanded.origin.x += layout.left_space;
+        let expanded = super::desktop_scene_rect(layout.canvas_width, full.size.y);
         let directory_logical = super::desktop_scene_rect(full.size.x, full.size.y);
         let live_scale = expanded.size.x / directory_logical.size.x;
         nested.size.x *= live_scale;

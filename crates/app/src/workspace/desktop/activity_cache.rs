@@ -166,15 +166,6 @@ pub(crate) fn workspace_activity_event(event: &RuntimeEvent) -> bool {
 }
 
 impl MultisoulApp {
-    pub(super) fn overview_rows_for(&self, area_id: &str) -> Vec<OverviewAgentRow> {
-        self.desktop_workspace
-            .activity_overview
-            .as_ref()
-            .and_then(|areas| areas.iter().find(|area| area.area_id == area_id))
-            .map(|area| area.rows.clone())
-            .unwrap_or_default()
-    }
-
     pub(super) fn invalidate_workspace_activity(&mut self) {
         self.desktop_workspace.activity_generation =
             self.desktop_workspace.activity_generation.wrapping_add(1);
@@ -183,8 +174,6 @@ impl MultisoulApp {
         self.desktop_workspace.activity_overview = None;
         self.desktop_workspace.activity_run_overview = None;
         self.desktop_workspace.activity_capsule = None;
-        self.desktop_workspace.overview_cursor = None;
-        self.desktop_workspace.overview_prelight = None;
     }
 
     pub(super) fn ensure_workspace_activity_cache(&mut self, cx: &mut Context<Self>) {
@@ -323,24 +312,10 @@ impl MultisoulApp {
         self.desktop_workspace.activity_summary = Some(projected.summary);
         self.desktop_workspace.activity_view = Some(projected.view);
         self.desktop_workspace.activity_overview = Some(projected.areas);
-        let count = projected.overview.attention.len()
-            + projected.overview.running.len()
-            + projected.overview.idle.len()
-            + projected.overview.unloaded_projects.len();
-        if self
-            .desktop_workspace
-            .overview_cursor
-            .is_some_and(|index| index >= count)
-        {
-            self.desktop_workspace.overview_cursor = count.checked_sub(1);
-        }
         self.desktop_workspace.activity_run_overview = Some(projected.overview);
         self.desktop_workspace.activity_capsule = Some(projected.capsule);
         if changed {
             self.desktop_workspace.activity_updated_at_ms = Some(overview_clock_ms() as i64);
-            if !self.desktop_workspace.ideas.is_empty() {
-                self.refresh_ideas(cx);
-            }
             cx.notify();
         }
     }

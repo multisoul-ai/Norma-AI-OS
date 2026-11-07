@@ -2,6 +2,9 @@
 use norma::{agent_hook::ApprovalDecision, mobile::ApprovalSnapshot};
 use sha2::{Digest, Sha256};
 
+/// Settings-key prefix shared by every remembered approval.
+pub const APPROVAL_RULE_PREFIX: &str = "island.approval.allow.v1:";
+
 pub fn approval_rule_key(
     workspace: &str,
     area: &str,
@@ -45,10 +48,7 @@ pub fn approval_rule_key(
         &input,
     ))
     .ok()?;
-    Some(format!(
-        "island.approval.allow.v1:{:x}",
-        Sha256::digest(scope)
-    ))
+    Some(format!("{APPROVAL_RULE_PREFIX}{:x}", Sha256::digest(scope)))
 }
 
 #[cfg(test)]

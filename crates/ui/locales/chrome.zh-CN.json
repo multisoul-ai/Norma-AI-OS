@@ -134,6 +134,7 @@
   "chrome.brain_trigger_approval_request": "审批请求",
   "chrome.brain_trigger_user_request": "你的指令",
   "chrome.brain_trigger_user_returned": "你回来了",
+  "chrome.brain_trigger_report_request": "你要求汇报",
   "chrome.brain_trigger_scheduled": "定时摘要",
   "chrome.brain_trigger_unknown": "未知",
   "chrome.brain_trigger_user_approved": "你批准提议",
@@ -206,5 +207,9 @@
   "chrome.brain_approval_allowed": "已允许",
   "chrome.brain_approval_denied": "已拒绝",
   "chrome.brain_approval_submitting": "提交中…",
-  "chrome.brain_approval_unconfirmed": "审批结果尚未确认，请查看原卡片。"
+  "chrome.brain_approval_unconfirmed": "审批结果尚未确认，请查看原卡片。",
+  "chrome.brain_data_failed": "幕僚数据准备失败，原文件已保留：%{reason}",
+  "chrome.brain_data_not_ready": "幕僚数据尚未准备好，请稍后重试。",
+  "chrome.brain_proposals_load_failed": "无法读取幕僚提议，原文件已保留：%{reason}",
+  "chrome.brain_data_directory_missing": "无法定位幕僚数据目录。"
 }

@@ -334,8 +334,12 @@ impl MultisoulApp {
             move |settings| {
                 if key == ASSIGN_KEY {
                     settings.autonomy.assign_followups = false;
-                } else if !settings.always_ask.contains(&key) {
-                    settings.always_ask.push(key);
+                } else if !settings
+                    .always_ask
+                    .iter()
+                    .any(|rule| rule.matches(None, &key))
+                {
+                    settings.always_ask.push(key.into());
                 }
             },
             false,

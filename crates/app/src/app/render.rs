@@ -124,11 +124,7 @@ impl Render for MultisoulApp {
                         .absolute()
                         .top(px(0.0))
                         .bottom(px(0.0))
-                        .left(px(if directory_zoom {
-                            0.0
-                        } else {
-                            layout.left_space
-                        }))
+                        .left(px(0.0))
                         .right(px(if directory_zoom {
                             0.0
                         } else {
@@ -189,7 +185,7 @@ impl Render for MultisoulApp {
                         .absolute()
                         .top(px(0.0))
                         .bottom(px(0.0))
-                        .left(px(layout.left_space))
+                        .left(px(0.0))
                         .right(px(layout.right_space))
                         .child(self.render_desktop_dock(window, cx)),
                 );

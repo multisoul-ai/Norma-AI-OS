@@ -124,3 +124,34 @@ fn island_action_routes_exact_background_owner_and_rejects_stale_target() {
     cx.update(|cx| unregister_source(target.source, cx));
     cx.update(|cx| assert!(target.host(cx).is_none(), "释放来源后迟到操作必须失效"));
 }
+
+/// 场景：幕僚对话要借用已有身份的应用；工作空间身份在项目会话上，不在桌面宿主上。
+/// 数据：一个已登记宿主，内含一个项目会话。
+/// 预期：候选列表同时包含会话与宿主，且会话在宿主之前（先尝试带身份的会话）。
+#[test]
+fn staff_anchors_include_project_sessions_before_their_host() {
+    let mut cx = TestAppContext::single();
+    let new_app = |cx: &mut TestAppContext| {
+        cx.new(|cx| {
+            MultisoulApp::new_with_pty_factory(
+                cx,
+                Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+            )
+        })
+    };
+    let host = new_app(&mut cx);
+    let session = new_app(&mut cx);
+    host.update(&mut cx, |app, _| {
+        app.desktop_workspace
+            .sessions
+            .insert(("W".into(), "area".into()), session.clone());
+    });
+    cx.update(|cx| register_source(&host, cx));
+    let anchors = cx.update(|cx| hosts(cx));
+    let ids: Vec<_> = anchors.iter().map(|app| app.entity_id()).collect();
+    assert_eq!(
+        ids,
+        [session.entity_id(), host.entity_id()],
+        "会话应排在宿主之前"
+    );
+}

@@ -59,26 +59,19 @@ fn queued_snapshots_finish_in_submission_order() {
 }
 
 /// 旧拥有者仍有积压写入时，重开的拥有者必须等旧队列完成才能读取。
-/// 数据构造：FIFO 暂停全局 writer，旧拥有者排队保存新快照，新拥有者提交读取屏障。
-/// 执行过程：确认屏障尚未完成，打开 FIFO 解除 IO 阻塞，再等待屏障并读盘。
+/// 数据构造：持有日志文件锁暂停全局 writer，旧拥有者排队保存新快照，新拥有者提交读取屏障。
+/// 执行过程：确认屏障尚未完成，释放文件锁解除 IO 阻塞，再等待屏障并读盘。
 /// 预期结果：重开后读到已移除提议的快照，不能读到之前的待办。
 #[test]
 fn reopened_owner_waits_for_previously_queued_snapshots() {
-    use std::io::Read;
     let dir = tempfile::tempdir().expect("应创建夹具目录");
-    let fifo = dir.path().join("pause");
-    assert!(
-        std::process::Command::new("mkfifo")
-            .arg(&fifo)
-            .status()
-            .unwrap()
-            .success(),
-        "应创建可控 IO 夹具"
-    );
+    let log = dir.path().join("pause.jsonl");
+    let lock = std::fs::File::create(&log).expect("应创建可控日志夹具");
+    lock.lock().expect("应在提交写入前锁定日志");
     let state = dir.path().join("state.json");
     atomic_write(&state, b"pending").expect("应保存旧提议");
     let old_owner = shared_writer().clone();
-    let paused = old_owner.append(fifo.clone(), "resume".into());
+    let paused = old_owner.append(log.clone(), "resume".into());
     old_owner.save(state.clone(), "removed".into());
     drop(old_owner);
     let new_owner = shared_writer().clone();
@@ -90,13 +83,14 @@ fn reopened_owner_waits_for_previously_queued_snapshots() {
         ),
         "不能越过积压的旧写入"
     );
-    let mut content = String::new();
-    std::fs::File::open(&fifo)
-        .unwrap()
-        .read_to_string(&mut content)
-        .unwrap();
+    lock.unlock().expect("应解除日志写入阻塞");
     paused.recv().unwrap().expect("应解除暂停");
     barrier.recv().unwrap().expect("旧写入应全部完成");
+    assert_eq!(
+        std::fs::read_to_string(log).unwrap(),
+        "resume\n",
+        "被暂停的日志必须完整追加，不能通过跳过写入解除屏障"
+    );
     assert_eq!(
         std::fs::read_to_string(state).unwrap(),
         "removed",

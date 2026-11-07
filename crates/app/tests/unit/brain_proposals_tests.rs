@@ -10,6 +10,26 @@ fn draft(agent: &str, title: &str) -> Draft {
     }
 }
 
+/// 数据迁移完成后懒加载另一个项目时，仍要拒绝损坏的重复提议编号。
+/// 数据：有效alpha快照的同一编号出现两个不同完整任务。
+/// 执行：通过生产scoped读取接口加载。
+/// 预期：显式报错，不能让用户操作编号时消费错误的任务。
+#[test]
+fn scoped_proposals_reject_duplicate_ids_during_lazy_loading() {
+    let mut proposals = Proposals::default();
+    proposals
+        .add(draft("Alan", "检查迁移"), SystemTime::UNIX_EPOCH)
+        .unwrap();
+    let mut saved: Value = serde_json::from_str(&proposals.to_scoped_json("alpha")).unwrap();
+    let mut duplicate = saved["items"][0].clone();
+    duplicate["task"] = json!("another full task");
+    saved["items"].as_array_mut().unwrap().push(duplicate);
+    assert!(
+        Proposals::from_scoped_json(&saved.to_string(), "alpha").is_err(),
+        "同一快照中的重复编号不能被加载为有效提议"
+    );
+}
+
 /// 场景：超长的新建议不能先删掉同 Agent 已经等待用户处理的建议。
 /// 构造：先存一条有效提议，再提交 51 字符标题；另构造旧版长文案快照。
 /// 执行：使用生产 add/from_json，而非 UI 字符截取。
@@ -81,24 +101,6 @@ fn same_agent_replaces_and_total_is_capped() {
         "超过 5 条应拒绝"
     );
     assert_eq!(proposals.items().len(), MAX_PROPOSALS);
-}
-
-/// 取出提议后它从列表消失，编号不复用。
-///
-/// 数据构造：提两条，取出第一条，再提一条。
-/// 预期结果：
-///   - 正断言：取出的就是第一条；新提议的编号大于之前所有编号
-///   - 负断言：同一编号不能取两次
-#[test]
-fn take_removes_and_ids_are_not_reused() {
-    let mut proposals = Proposals::default();
-    let at = SystemTime::UNIX_EPOCH;
-    let first = proposals.add(draft("A", "一"), at).unwrap();
-    let second = proposals.add(draft("B", "二"), at).unwrap();
-    assert_eq!(proposals.take(first).map(|p| p.title), Some("一".into()));
-    assert!(proposals.take(first).is_none(), "不能取两次");
-    let third = proposals.add(draft("C", "三"), at).unwrap();
-    assert!(third > second, "编号不复用");
 }
 
 /// 写入再读回，内容与编号都保留；损坏的文件返回错误。

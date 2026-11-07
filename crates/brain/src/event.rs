@@ -2,6 +2,27 @@
 
 use crate::acp::trace::AcpTrace;
 use crate::risk::ApprovalSubject;
+use norma::protocol::BrainScope;
+
+/// Every service input carries the exact live workspace route.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BrainEvent {
+    pub scope: BrainScope,
+    pub kind: BrainEventKind,
+}
+
+impl BrainEventKind {
+    pub fn in_scope(self, scope: BrainScope) -> BrainEvent {
+        BrainEvent { scope, kind: self }
+    }
+}
+
+/// The scope survives worker queues, retries and all resulting status records.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BrainStatus {
+    pub scope: BrainScope,
+    pub kind: BrainStatusKind,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Outcome {
@@ -19,7 +40,7 @@ pub struct ApprovalRequest {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum BrainEvent {
+pub enum BrainEventKind {
     AgentProgress {
         agent: String,
         text: String,
@@ -50,6 +71,16 @@ pub enum BrainEvent {
     UserRequest {
         text: String,
     },
+    /// 岛内全局幕僚对话的用户消息：回复必须以 `--kind reply` 回到岛里，而不是项目 Dock。
+    StaffRequest {
+        text: String,
+    },
+    /// 岛上的“汇报”按钮：宿主已捕获有界的跨工作空间概览（数据，不是指令），要求大脑总结后以 reply 回传。
+    ReportRequested {
+        /// 岛上这次汇报请求的编号；回复要用 `--reply-to` 带回，才会被朗读。
+        request_id: u64,
+        overview: String,
+    },
     ContextRequest {
         text: String,
         reference: norma::protocol::ContextRef,
@@ -67,7 +98,7 @@ pub enum BrainEvent {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum BrainStatus {
+pub enum BrainStatusKind {
     Ready,
     BackendDown {
         reason: String,
@@ -88,6 +119,7 @@ pub enum TriggerKind {
     ApprovalRequest,
     UserRequest,
     UserReturned,
+    ReportRequest,
     /// 定时摘要等没有外部事件的唤醒。
     Scheduled,
     Unknown,
@@ -101,6 +133,7 @@ impl TriggerKind {
             Self::ApprovalRequest => "approval_request",
             Self::UserRequest => "user_request",
             Self::UserReturned => "user_returned",
+            Self::ReportRequest => "report_request",
             Self::Scheduled => "scheduled",
             Self::Unknown => "unknown",
         }
@@ -114,6 +147,7 @@ impl TriggerKind {
             Self::ApprovalRequest,
             Self::UserRequest,
             Self::UserReturned,
+            Self::ReportRequest,
             Self::Scheduled,
         ]
         .into_iter()

@@ -35,7 +35,7 @@ fn fixture(speak: bool) -> Fixture {
         app.enter_canvas_for_test(dir.path(), cx);
         app.register_loaded_project_route(None, cx);
         let (_, status) = std::sync::mpsc::channel();
-        app.brain.host = Some(super::super::BrainHost {
+        app.install_brain_host_for_test(super::super::BrainHost {
             service: None,
             status,
             token: "report-token".into(),
@@ -145,6 +145,8 @@ fn send_report(f: &mut Fixture) {
             op: Box::new(BrainOp::Report {
                 text: "部署已完成".into(),
                 priority: ReportPriority::Normal,
+                kind: norma::protocol::ReportKind::Status,
+                reply_to: None,
                 sources: vec![],
             }),
         },

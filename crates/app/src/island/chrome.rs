@@ -51,28 +51,36 @@ impl IslandView {
                             &[("count", workspaces.len().to_string())],
                         )),
                 );
-            right = right.child(
-                Button::new("island-pin")
-                    .w(px(26.))
-                    .h(px(24.))
-                    .p(px(0.))
-                    .rounded(px(7.))
-                    .child(
-                        svg()
-                            .path("icons/pin.svg")
-                            .size(px(13.))
-                            .text_color(rgb(if pinned { style::RUN } else { style::MUTED })),
-                    )
-                    .tooltip(text(if pinned { "island.unpin" } else { "island.pin" }))
-                    .custom(
-                        ButtonCustomVariant::new(cx)
-                            .color(rgba(0).into())
-                            .border(rgba(0).into())
-                            .hover(rgb(0x1d1d1d).into())
-                            .active(rgb(0x303030).into()),
-                    )
-                    .on_click(cx.listener(|view, _, _, cx| view.event(IslandEvent::TogglePin, cx))),
-            );
+            right =
+                right.child(
+                    div()
+                        .id("island-pin-tip")
+                        .tooltip(style::tip(text(if pinned {
+                            "island.unpin"
+                        } else {
+                            "island.pin"
+                        })))
+                        .child(
+                            Button::new("island-pin")
+                                .w(px(26.))
+                                .h(px(24.))
+                                .p(px(0.))
+                                .rounded(px(7.))
+                                .child(svg().path("icons/pin.svg").size(px(13.)).text_color(rgb(
+                                    if pinned { style::RUN } else { style::MUTED },
+                                )))
+                                .custom(
+                                    ButtonCustomVariant::new(cx)
+                                        .color(rgba(0).into())
+                                        .border(rgba(0).into())
+                                        .hover(rgb(0x1d1d1d).into())
+                                        .active(rgb(0x303030).into()),
+                                )
+                                .on_click(cx.listener(|view, _, _, cx| {
+                                    view.event(IslandEvent::TogglePin, cx)
+                                })),
+                        ),
+                );
         } else if mode == IslandMode::Alert {
             left = left
                 .child(div().size(px(7.)).rounded(px(4.)).bg(rgb(style::ATTENTION)))
@@ -265,7 +273,7 @@ impl IslandView {
         tabs
     }
 
-    pub fn staff_guide(&self, cx: &Context<Self>) -> Div {
+    pub fn staff_guide(&self, reason: Option<&'static str>, cx: &Context<Self>) -> Div {
         div()
             .flex()
             .flex_col()
@@ -298,7 +306,7 @@ impl IslandView {
                                 div()
                                     .text_size(px(12.))
                                     .text_color(rgb(style::MUTED))
-                                    .child(text("island.staff_guide")),
+                                    .child(text(reason.unwrap_or("island.staff_guide"))),
                             ),
                     ),
             )

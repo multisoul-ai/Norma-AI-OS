@@ -197,5 +197,6 @@ pub fn run_norma_os() {
         // Default and packaged builds enter the workbench without a license.
         settings::general::open_initial_window(cx);
         island::install(cx);
+        island::hotkey::install(cx);
     });
 }

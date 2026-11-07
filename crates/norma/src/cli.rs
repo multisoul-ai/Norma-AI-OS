@@ -5,6 +5,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::ffi::OsString;
 use std::path::PathBuf;
 mod brain_command;
+mod invocation;
 mod operation;
 mod output;
 mod task_command;
@@ -25,6 +26,8 @@ pub enum OutputFormat {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CliInvocation {
     pub command: CardCommand,
+    /// Explicit event identity for the global brain; not an Agent identity override.
+    pub brain_scope: Option<crate::protocol::BrainScope>,
     pub format: OutputFormat,
     pub wait_timeout_seconds: Option<u64>,
     pub target_workspace_id: Option<String>,
@@ -60,7 +63,7 @@ enum TopCommand {
     Present(PresentArgs),
     Ego(EgoArgs),
     /// 后台大脑使用的命令。
-    Brain(brain_command::BrainArgs),
+    Brain(Box<brain_command::BrainArgs>),
 }
 
 #[derive(Debug, Args)]
@@ -267,7 +270,11 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    let invocation = NormaArgs::try_parse_from(args)?.into_invocation();
+    let args = NormaArgs::try_parse_from(args)?;
+    if let TopCommand::Brain(brain) = &args.command {
+        brain.validate_scope()?;
+    }
+    let invocation = args.into_invocation();
     if let CardCommand::Brain { op, .. } = &invocation.command {
         op.validate_decision_copy().map_err(|error| {
             clap::Error::raw(clap::error::ErrorKind::ValueValidation, error.to_string())
@@ -323,75 +330,6 @@ where
                 exit_code: 1,
             })
             .and_then(Err)
-        }
-    }
-}
-
-impl NormaArgs {
-    fn into_invocation(self) -> CliInvocation {
-        let explicit_format = self.format;
-        match self.command {
-            TopCommand::Doctor => CliInvocation {
-                command: CardCommand::Doctor,
-                format: explicit_format.unwrap_or(OutputFormat::Text),
-                wait_timeout_seconds: None,
-                target_workspace_id: None,
-                operation_id: None,
-                project_self: false,
-            },
-            TopCommand::Workspace(workspace) => CliInvocation {
-                command: workspace.into_command(),
-                format: explicit_format.unwrap_or(OutputFormat::Json),
-                wait_timeout_seconds: None,
-                target_workspace_id: None,
-                operation_id: None,
-                project_self: false,
-            },
-            TopCommand::Card(card) => CliInvocation {
-                command: card.into_command(),
-                format: explicit_format.unwrap_or(OutputFormat::Text),
-                wait_timeout_seconds: None,
-                target_workspace_id: None,
-                operation_id: None,
-                project_self: false,
-            },
-            TopCommand::Agent(agent) => {
-                let project_self = matches!(agent.command, AgentCliCommand::Myself);
-                let (command, wait_timeout_seconds, target_workspace_id, operation_id) =
-                    agent.into_command();
-                CliInvocation {
-                    command,
-                    format: explicit_format.unwrap_or(OutputFormat::Json),
-                    wait_timeout_seconds,
-                    target_workspace_id,
-                    operation_id,
-                    project_self,
-                }
-            }
-            TopCommand::Present(present) => CliInvocation {
-                command: present.into_command(),
-                format: explicit_format.unwrap_or(OutputFormat::Json),
-                wait_timeout_seconds: None,
-                target_workspace_id: None,
-                operation_id: None,
-                project_self: false,
-            },
-            TopCommand::Brain(brain) => CliInvocation {
-                command: brain.into_command(),
-                format: explicit_format.unwrap_or(OutputFormat::Json),
-                wait_timeout_seconds: None,
-                target_workspace_id: None,
-                operation_id: None,
-                project_self: false,
-            },
-            TopCommand::Ego(ego) => CliInvocation {
-                command: ego.into_command(),
-                format: explicit_format.unwrap_or(OutputFormat::Json),
-                wait_timeout_seconds: None,
-                target_workspace_id: None,
-                operation_id: None,
-                project_self: false,
-            },
         }
     }
 }

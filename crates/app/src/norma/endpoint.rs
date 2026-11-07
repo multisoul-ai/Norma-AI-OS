@@ -21,6 +21,8 @@ mod routing;
 mod task_control;
 mod task_dispatch;
 
+#[cfg(test)]
+pub(crate) use routing::allows_sole_target_fallback;
 pub(crate) use routing::protocol_compatibility_error;
 use routing::{
     agent_error, closed_workspace_response, execute_cross_workspace, execute_in_workspace,

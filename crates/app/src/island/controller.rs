@@ -1,8 +1,6 @@
 use super::{IslandModel, IslandWorkspace};
 use gpui::{Context, Entity, Subscription, Task};
-use runtime::island::{
-    displays::IslandDisplays, IslandAlert, IslandAlertKind, IslandEvent, IslandOverview,
-};
+use runtime::island::{displays::IslandDisplays, IslandEvent, IslandOverview};
 use std::time::{Duration, Instant};
 
 pub(super) struct IslandController {
@@ -17,11 +15,14 @@ pub(super) struct IslandController {
     pub idle_open: std::collections::BTreeSet<String>,
     pub editing: std::collections::BTreeMap<String, super::question_editor::EditingQuestion>,
     pub focused_question: Option<(String, gpui::EntityId)>,
+    pub(super) gate: runtime::island::notification::NotificationGate,
+    pub(super) post: Option<super::fallback::Post>,
     screens: Vec<u32>,
     epoch: Instant,
     timer: Option<Task<()>>,
     _subscription: Subscription,
     _completion_subscription: Subscription,
+    _settings_subscription: Option<Subscription>,
 }
 
 impl IslandController {
@@ -33,12 +34,24 @@ impl IslandController {
         let completion_subscription =
             cx.subscribe(&model, |this, _, notice: &super::CompletionNotice, cx| {
                 this.completion_label = Some(notice.label.clone());
+                this.notify_completed(&notice.label, cx);
                 this.event(
                     this.displays.active_display().unwrap_or_default(),
                     IslandEvent::Completed(notice.id.clone()),
                     cx,
                 );
             });
+        let settings_subscription = super::preferences::state(cx).map(|settings| {
+            cx.observe(&settings, |this, settings, cx| {
+                let preferences = settings.read(cx).preferences;
+                this.notify_hidden(cx);
+                this.event(
+                    this.displays.active_display().unwrap_or_default(),
+                    IslandEvent::PreferencesChanged(preferences),
+                    cx,
+                );
+            })
+        });
         let mut this = Self {
             displays: IslandDisplays::default(),
             model,
@@ -51,12 +64,21 @@ impl IslandController {
             idle_open: Default::default(),
             editing: Default::default(),
             focused_question: None,
+            gate: Default::default(),
+            post: None,
             screens: Vec::new(),
             epoch: Instant::now(),
             timer: None,
             _subscription: subscription,
             _completion_subscription: completion_subscription,
+            _settings_subscription: settings_subscription,
         };
+        this.displays.apply(
+            0,
+            IslandEvent::PreferencesChanged(super::preferences::current(cx)),
+            0,
+        );
+        this.install_notifier(cx);
         this.refresh(cx);
         this
     }
@@ -148,29 +170,14 @@ impl IslandController {
         workspaces
     }
 
-    fn refresh(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn refresh(&mut self, cx: &mut Context<Self>) {
         self.check_remembered(cx);
-        let workspaces = &self.model.read(cx).workspaces;
-        let mut overview = IslandOverview::default();
-        for workspace in workspaces {
+        let mut overview = IslandOverview {
+            alerts: self.current_alerts(cx),
+            ..Default::default()
+        };
+        for workspace in &self.model.read(cx).workspaces {
             for project in &workspace.projects {
-                overview
-                    .alerts
-                    .extend(project.approvals.iter().map(|a| IslandAlert {
-                        id: alert_key(project.source, &workspace.id, &project.area_id, &a.target),
-                        kind: IslandAlertKind::Approval,
-                    }));
-                overview
-                    .alerts
-                    .extend(project.questions.iter().map(|q| IslandAlert {
-                        id: alert_key(
-                            project.source,
-                            &workspace.id,
-                            &project.area_id,
-                            &q.snapshot.question.target,
-                        ),
-                        kind: IslandAlertKind::Question,
-                    }));
                 overview.review_count += project
                     .overview
                     .attention
@@ -185,6 +192,7 @@ impl IslandController {
                     .count();
             }
         }
+        self.notify_hidden(cx);
         self.editing
             .retain(|id, _| overview.alerts.iter().any(|alert| &alert.id == id));
         if let Some(id) = self.focused_question.as_ref().map(|(id, _)| id.clone()) {

@@ -113,6 +113,20 @@ pub(super) fn resize(window: &Window, layout: IslandLayout, cx: &gpui::App) {
         .detach();
 }
 
+pub(super) fn set_visible(panel: Retained<NSWindow>, visible: bool, cx: &gpui::App) {
+    // AppKit visibility callbacks must run after GPUI releases its current leases.
+    cx.foreground_executor()
+        .spawn(async move {
+            if visible {
+                panel.orderFrontRegardless();
+            } else {
+                panel.setIgnoresMouseEvents(true);
+                panel.orderOut(None);
+            }
+        })
+        .detach();
+}
+
 pub(super) fn pointer() -> (f64, f64) {
     let p = NSEvent::mouseLocation();
     (p.x, p.y)
@@ -189,7 +203,7 @@ impl Watch {
         self.panels
             .borrow()
             .iter()
-            .find(|p| p.layout.contains(x, y))
+            .find(|p| p.panel.isVisible() && p.layout.contains(x, y))
             .map(|p| p.display)
     }
 }
@@ -197,7 +211,8 @@ impl Watch {
 fn update_hits(panels: &RefCell<Vec<HitPanel>>) {
     let (x, y) = pointer();
     for p in panels.borrow().iter() {
-        p.panel.setIgnoresMouseEvents(!p.layout.contains(x, y));
+        p.panel
+            .setIgnoresMouseEvents(!p.panel.isVisible() || !p.layout.contains(x, y));
     }
 }
 

@@ -3,11 +3,15 @@
 mod activity_feed;
 mod activity_sink;
 mod activity_view;
+pub(crate) use activity_view::{recent_activity_lines, ActivityLine};
 mod approvals;
 mod away;
+mod clients;
 mod config;
 mod context;
+mod data;
 mod decision_copy;
+mod events;
 mod history;
 mod lifecycle;
 mod log;
@@ -15,6 +19,7 @@ mod model_lists;
 mod ops;
 mod overview;
 mod own_prompts;
+mod owner;
 pub(crate) use overview::{OverviewProposal, OverviewQuestion, OverviewSnapshot};
 mod panel;
 mod panel_parts;
@@ -34,7 +39,7 @@ pub(crate) use settings::{adapter_package, BrainSettingsView};
 
 use crate::app::MultisoulApp;
 use brain::risk::ApprovalSubject;
-use brain::{ApprovalRequest, BrainEvent, BrainService, BrainStatus, Outcome};
+use brain::{ApprovalRequest, BrainEvent, BrainEventKind, BrainService, BrainStatus, Outcome};
 use gpui::Context;
 use norma::mobile::ApprovalTarget;
 use runtime::{AgentTaskState, RuntimeEvent};
@@ -47,6 +52,10 @@ use std::time::{Duration, Instant};
 #[cfg(test)]
 #[path = "../../tests/unit/brain_host_tests.rs"]
 mod brain_host_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/brain_data_tests.rs"]
+mod brain_data_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/brain_dispatch_tests.rs"]
@@ -89,13 +98,9 @@ pub(crate) struct BrainHostState {
     settings: Option<config::BrainSettings>,
     settings_loading: bool,
     settings_revision: u64,
-    start_generation: u64,
-    starting: Option<u64>,
+    active_generation: Option<u64>,
     pending_events: RefCell<VecDeque<BrainEvent>>,
-    host: Option<BrainHost>,
-    /// 已撤销令牌的服务仍在后台停止；排空其迟到记录后再释放通道。
-    retiring: Vec<Receiver<BrainStatus>>,
-    next_start: Instant,
+    client: Option<owner::BrainClient>,
     last_poll: Instant,
     tracked: HashMap<String, Tracked>,
     installed: Vec<brain::BackendKind>,
@@ -132,7 +137,6 @@ pub(crate) struct BrainHostState {
     proposals_dirty: bool,
     proposals_save: Option<Receiver<Result<(), String>>>,
     proposal_writer: proposals::Writer,
-    pub(crate) proposal_feedback: HashMap<(String, u64), proposals::ProposalFeedback>,
 }
 
 impl BrainHostState {
@@ -143,12 +147,9 @@ impl BrainHostState {
             settings: None,
             settings_loading: false,
             settings_revision: 0,
-            start_generation: 0,
-            starting: None,
+            active_generation: None,
             pending_events: RefCell::new(VecDeque::new()),
-            host: None,
-            retiring: Vec::new(),
-            next_start: now,
+            client: None,
             last_poll: now,
             tracked: HashMap::new(),
             installed: Vec::new(),
@@ -174,7 +175,6 @@ impl BrainHostState {
             proposals_dirty: false,
             proposals_save: None,
             proposal_writer: brain::persistence::shared_writer().clone(),
-            proposal_feedback: HashMap::new(),
         }
     }
 
@@ -202,7 +202,7 @@ impl BrainHostState {
     }
 
     pub(crate) fn token_matches(&self, token: &str) -> bool {
-        !token.is_empty() && self.host.as_ref().is_some_and(|host| host.token == token)
+        !token.is_empty() && self.token().as_deref() == Some(token)
     }
 }
 
@@ -214,17 +214,13 @@ impl MultisoulApp {
         excerpts: &[(u64, Option<String>)],
         cx: &mut Context<Self>,
     ) {
+        self.sync_brain_client(cx);
         self.flush_question_receipts(cx);
         self.poll_brain_questions();
         self.poll_brain_proposal_save(cx);
-        self.brain.drain_retired();
+        self.drain_brain_status(cx);
         if self.brain.settings.is_none() {
-            if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
-                self.brain.settings = host.read(cx).brain.settings.clone();
-            }
-            if self.brain.settings.is_none() {
-                self.refresh_brain_settings(cx);
-            }
+            self.refresh_brain_settings(cx);
         }
         // 工作空间窗口没有大脑，但要汇总各项目的状态给概览。
         if self.brain.overview_at.elapsed() >= APPROVAL_POLL {
@@ -234,7 +230,7 @@ impl MultisoulApp {
             self.refresh_brain_activity(false, cx);
         }
         if let Some(away) = self.brain.pending_return.take() {
-            let event = BrainEvent::UserReturned { away };
+            let event = BrainEventKind::UserReturned { away };
             for session in self.desktop_workspace.sessions.values() {
                 session.read(cx).push_brain(event.clone());
             }
@@ -243,13 +239,13 @@ impl MultisoulApp {
         if self.brain.settings.as_ref().is_some_and(|s| s.enabled) {
             self.load_brain_proposals(cx);
         }
-        if self.brain.host.is_none() {
+        if !self.brain.is_running() {
             self.try_start_brain(cx);
         }
         for event in events {
             self.forward_runtime_event(event, excerpts);
         }
-        if self.brain.host.is_none() {
+        if !self.brain.is_running() {
             return;
         }
         self.drain_brain_status(cx);
@@ -288,28 +284,6 @@ impl MultisoulApp {
         self.brain.activity_retry = writer.submit(batch).unwrap_or_default();
     }
 
-    pub(super) fn push_brain(&self, event: BrainEvent) {
-        if let Some(service) = self
-            .brain
-            .host
-            .as_ref()
-            .and_then(|host| host.service.as_ref())
-        {
-            service.push(event);
-        } else if self
-            .brain
-            .settings
-            .as_ref()
-            .is_none_or(|settings| settings.enabled)
-        {
-            let mut pending = self.brain.pending_events.borrow_mut();
-            pending.push_back(event);
-            if pending.len() > 200 {
-                pending.pop_front();
-            }
-        }
-    }
-
     fn forward_runtime_event(&mut self, event: &RuntimeEvent, excerpts: &[(u64, Option<String>)]) {
         let RuntimeEvent::AgentTaskStateChanged { node_id, to, .. } = event else {
             return;
@@ -327,13 +301,13 @@ impl MultisoulApp {
                     .as_ref()
                     .filter(|t| !self.brain.own_prompts.contains(t))
                 {
-                    self.push_brain(BrainEvent::Goal {
+                    self.push_brain(BrainEventKind::Goal {
                         agent: agent.clone(),
                         text: text.clone(),
                     });
                 }
                 let text = prompt.unwrap_or_else(|| "开始处理".into());
-                self.push_brain(BrainEvent::AgentProgress { agent, text });
+                self.push_brain(BrainEventKind::AgentProgress { agent, text });
                 return;
             }
             _ => return,
@@ -347,33 +321,12 @@ impl MultisoulApp {
         let excerpt = excerpt
             .or_else(|| self.runtime.agent_latest_prompt(*node_id))
             .unwrap_or_default();
-        self.push_brain(BrainEvent::AgentFinished {
+        self.push_brain(BrainEventKind::AgentFinished {
             agent,
             outcome,
             excerpt,
             from_result,
         });
-    }
-
-    fn drain_brain_status(&mut self, cx: &mut Context<Self>) {
-        while let Some(Ok(status)) = self.brain.host.as_ref().map(|host| host.status.try_recv()) {
-            match status {
-                BrainStatus::Ready => tracing::info!("大脑会话就绪"),
-                BrainStatus::BackendDown { reason } => {
-                    tracing::warn!(%reason, "大脑后端不可用");
-                    let pending: Vec<String> = self.brain.tracked.keys().cloned().collect();
-                    for id in pending {
-                        self.escalate(&id, "幕僚暂时不可用", cx);
-                    }
-                }
-                BrainStatus::Trace(entry) => self.brain.record_trace(entry),
-                BrainStatus::ApprovalTurnEnded { id } => {
-                    if self.brain.tracked.get(&id).is_some_and(|t| !t.escalated) {
-                        self.escalate(&id, "我拿不准", cx);
-                    }
-                }
-            }
-        }
     }
 
     /// 把审批留给用户：它仍在“需要你处理”里，这里只负责开口提醒。
@@ -460,7 +413,7 @@ impl MultisoulApp {
                         reminded: false,
                     },
                 );
-                self.push_brain(BrainEvent::ApprovalRequested(ApprovalRequest {
+                self.push_brain(BrainEventKind::ApprovalRequested(ApprovalRequest {
                     id,
                     agent,
                     subject,
@@ -476,7 +429,7 @@ impl MultisoulApp {
             .collect();
         for id in closed {
             self.brain.tracked.remove(&id);
-            self.push_brain(BrainEvent::ApprovalClosed { id });
+            self.push_brain(BrainEventKind::ApprovalClosed { id });
         }
     }
 }
