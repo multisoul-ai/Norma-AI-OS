@@ -79,5 +79,6 @@
   "island.staff_empty": "让幕僚跨所有工作空间查看，或点“汇报”听一段口语总结。",
   "island.staff_you": "你",
   "island.staff_staff": "幕僚",
-  "island.staff_activity": "幕僚最近活动"
+  "island.staff_activity": "幕僚最近活动",
+  "island.staff_speech_unavailable": "语音不可用，这条回复仅显示文字。"
 }

@@ -116,3 +116,32 @@ fn replies_land_in_the_chat_and_only_requested_reports_get_captions() {
     );
     assert_eq!(state.chat.lines().count(), 2);
 }
+
+/// 场景：汇报回复没有真正进入朗读队列（语音不可用/失效）时，不能留下字幕，并提示仅显示文字。
+/// 预期：先有字幕；end_speech(false) 后字幕清空、对话保留、notice 为 island.staff_speech_unavailable；
+/// end_speech(true) 保留字幕且不出现提示。
+#[test]
+fn captions_only_stay_when_speech_was_actually_queued() {
+    let mut state = StaffState::default();
+    state.begin_report();
+    state
+        .deliver_reply("Alan 完成了登录。")
+        .expect("回复入对话");
+    state.end_speech(true);
+    assert!(
+        !state.caption_sentences().is_empty(),
+        "已排队朗读应保留字幕"
+    );
+    assert!(state.notice.is_none());
+    state.begin_report();
+    state.deliver_reply("Bella 在测试。").expect("回复入对话");
+    state.end_speech(false);
+    assert!(state.caption_sentences().is_empty(), "未能朗读不得显示字幕");
+    assert_eq!(state.chat.lines().count(), 2, "文字回复仍保留");
+    assert_eq!(
+        state.notice,
+        Some(ui::i18n::LocalizedText::new(
+            "island.staff_speech_unavailable"
+        ))
+    );
+}

@@ -13,11 +13,19 @@ pub(crate) fn register_source(app: &Entity<MultisoulApp>, cx: &mut App) {
         .insert(app.entity_id().as_u64(), app.downgrade());
 }
 
-/// Live hosts in registration order (stable entity ids), for operations that need any one host.
+/// Live apps that can carry a request to the brain: every project session of every host (the
+/// workspace identity lives on the session) followed by the hosts themselves.
 pub(super) fn hosts(cx: &App) -> Vec<Entity<MultisoulApp>> {
-    cx.try_global::<Sources>()
+    let hosts: Vec<_> = cx
+        .try_global::<Sources>()
         .map(|sources| sources.0.values().filter_map(WeakEntity::upgrade).collect())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    let mut apps: Vec<_> = hosts
+        .iter()
+        .flat_map(|host| host.read(cx).desktop_workspace.sessions.values().cloned())
+        .collect();
+    apps.extend(hosts);
+    apps
 }
 
 pub(super) fn unregister_source(source: u64, cx: &mut App) {

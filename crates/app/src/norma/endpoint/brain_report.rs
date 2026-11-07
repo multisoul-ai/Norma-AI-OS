@@ -105,6 +105,15 @@ pub(super) fn dispatch(
         if delivery.is_none() {
             tracker.cancel();
         }
+        if forced {
+            let queued = delivery.unwrap_or(false);
+            let _ = cx.update(|cx| {
+                crate::island::staff::state(cx).update(cx, |staff, cx| {
+                    staff.end_speech(queued);
+                    cx.notify();
+                })
+            });
+        }
         let saved = tracker.flush().await;
         let reply = match (delivery, saved) {
             (_, Err(error)) => failure(id, error.to_string()),

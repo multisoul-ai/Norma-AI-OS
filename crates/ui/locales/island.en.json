@@ -79,5 +79,6 @@
   "island.staff_empty": "Ask Staff to look across all your workspaces, or press Report for a spoken summary.",
   "island.staff_you": "You",
   "island.staff_staff": "Staff",
-  "island.staff_activity": "Recent Staff activity"
+  "island.staff_activity": "Recent Staff activity",
+  "island.staff_speech_unavailable": "Speech is unavailable, so this reply is text only."
 }

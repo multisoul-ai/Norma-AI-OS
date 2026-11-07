@@ -90,7 +90,6 @@ pub(crate) fn read_snapshot(
 pub(crate) struct ActivityLine {
     pub at_ms: i64,
     pub label: String,
-    pub summary: String,
 }
 
 /// 最近 `limit` 轮活动，新的在前；文件读取，须在后台线程调用。
@@ -102,12 +101,17 @@ pub(crate) fn recent_activity_lines(
         .rows
         .into_iter()
         .filter_map(|row| match row {
-            FeedRow::Turn(turn) => Some(ActivityLine {
-                at_ms: turn.started_ms,
-                label: super::panel_parts::trigger_label(turn.trigger, &turn.trigger_who),
-                summary: turn.summary,
-            }),
-            FeedRow::Action(_) => None,
+            // The bootstrap turn (unknown trigger) carries the brain's own instructions, not activity.
+            FeedRow::Turn(turn)
+                if turn.trigger
+                    != super::activity_feed::FeedTrigger::Brain(brain::TriggerKind::Unknown) =>
+            {
+                Some(ActivityLine {
+                    at_ms: turn.started_ms,
+                    label: super::panel_parts::trigger_label(turn.trigger, &turn.trigger_who),
+                })
+            }
+            FeedRow::Turn(_) | FeedRow::Action(_) => None,
         })
         .take(limit)
         .collect())

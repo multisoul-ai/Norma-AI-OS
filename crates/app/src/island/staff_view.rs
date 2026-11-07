@@ -106,22 +106,27 @@ impl IslandView {
             );
         }
         if !activity.is_empty() {
-            let mut log = div().flex().flex_col().gap(px(3.)).child(
-                div()
-                    .text_size(px(10.5))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(rgb(style::FAINT))
-                    .child(text("island.staff_activity")),
-            );
+            // Fixed height: rows arriving while the user reads must not resize the window.
+            let mut log = div()
+                .flex()
+                .flex_col()
+                .gap(px(3.))
+                .h(px(70.))
+                .overflow_hidden()
+                .child(
+                    div()
+                        .text_size(px(10.5))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(rgb(style::FAINT))
+                        .child(text("island.staff_activity")),
+                );
             for line in activity {
                 log = log.child(
                     div()
-                        .flex()
-                        .gap(px(8.))
                         .text_size(px(11.))
                         .text_color(rgb(style::MUTED))
-                        .child(div().flex_none().child(line.label))
-                        .child(div().min_w(px(0.)).truncate().child(line.summary)),
+                        .truncate()
+                        .child(line.label),
                 );
             }
             panel = panel.child(log);

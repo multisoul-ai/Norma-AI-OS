@@ -51,6 +51,16 @@ impl StaffState {
         Some(reply)
     }
 
+    /// The host reports whether the reply really entered the speech queue; without speech there is
+    /// nothing to caption, so drop the captions and say the reply is text only.
+    pub fn end_speech(&mut self, queued: bool) {
+        if !queued && self.speech.take().is_some() {
+            self.notice = Some(ui::i18n::LocalizedText::new(
+                "island.staff_speech_unavailable",
+            ));
+        }
+    }
+
     #[cfg(test)]
     pub fn caption_sentences(&self) -> &[String] {
         self.speech.as_ref().map_or(&[], |(sentences, _)| sentences)

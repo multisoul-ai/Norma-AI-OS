@@ -259,7 +259,7 @@ fn the_jump_scroll_waits_for_the_turn_body() {
 
 /// 场景：岛内幕僚页只要最近几轮活动：新的在前，数量受限，每行带触发来源。
 /// 数据：写入 4 轮（时刻 1000…4000），触发者都是 Alan。
-/// 预期：limit=3 时返回最近 3 轮且按新→旧排列；每行标签含 Alan；空库返回空。
+/// 预期：limit=3 时返回最近 3 个有来源的轮次且按新→旧排列（第 5 轮是触发未知的启动提示，必须被排除）；每行标签含 Alan；空库返回空。
 #[test]
 fn island_activity_lines_are_newest_first_and_bounded() {
     let dir = tempfile::tempdir().expect("临时目录");
