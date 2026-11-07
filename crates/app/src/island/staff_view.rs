@@ -227,7 +227,7 @@ impl IslandView {
                     .active(|chip| chip.bg(rgb(0x303030)))
                     .child(text(key))
                     .on_click(cx.listener(move |_, _, _, cx| {
-                        staff::send_message(&text(key), cx);
+                        staff::send_message(text(key), cx);
                         cx.notify();
                     })),
             );
