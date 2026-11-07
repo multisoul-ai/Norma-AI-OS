@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Norma Island · 让事情安静地向前</title><link rel="stylesheet" href="style.css"></head>
+<body data-scene="tasks" data-hardware="notch">
+<video id="wallpaper" autoplay muted loop playsinline preload="auto" aria-hidden="true"><source src="../../../crates/app/assets/wallpapers/norma-awake.mp4" type="video/mp4"></video>
+<div class="wallpaper-shade"></div>
+<header class="mac-menubar" id="menubar"></header>
+<div class="app-hud" id="app-hud"></div>
+<main class="canvas-viewport" aria-label="Canvas" tabindex="0"><div class="canvas-world" id="world"></div></main>
+<section class="task-workspace" id="task-workspace"></section>
+<section class="other-app" id="other-app"></section>
+<aside class="island" id="island" data-open="false" aria-label="Norma Island">
+ <div class="island-surface"></div>
+ <button class="island-trigger" data-action="toggle-island" data-testid="island-trigger" aria-expanded="false" aria-controls="island-panel"></button>
+ <section class="island-panel" id="island-panel" data-testid="island-panel" inert></section>
+</aside>
+<div class="canvas-return" id="canvas-return"></div>
+<footer class="demo-toolbar" id="demo-toolbar"></footer>
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="detail-dialog"></dialog>
+<script src="data.js"></script><script src="app.js"></script>
+</body></html>
