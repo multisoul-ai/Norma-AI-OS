@@ -2,10 +2,15 @@
 """Regression fixtures for the resource-lifecycle source guard."""
 
 import importlib.util
+import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+
+# Under a git hook GIT_INDEX_FILE points at the real index; the temp-repo `git add` below would overwrite it.
+for _name in [name for name in os.environ if name.startswith("GIT_")]:
+    del os.environ[_name]
 
 SPEC = importlib.util.spec_from_file_location(
     "resource_lifecycle", Path(__file__).with_name("check-resource-lifecycle.py")
