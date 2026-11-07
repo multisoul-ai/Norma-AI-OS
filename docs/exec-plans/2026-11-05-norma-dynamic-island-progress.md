@@ -264,3 +264,17 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 - E2E：删除 WorkspaceDrawerTabs / RunOverview(+Agents/Titles) / StatusCapsule / OverviewFloat / Ideas* / DispatchEffects 场景与看图清单；CanvasDrawers、CanvasProjectDrawers 改为只验收右抽屉与画布占位（Swift 编译通过，**尚未在真实 App 运行**）。
 - **未完成的 E2E 迁移**：WorkspaceAttentionRead、SettingsThemeConsistency/Visual 仍引用左栏「运行概览」，Brain* 场景仍通过 `⌘⇧E` 打开概览读盘，须在 M4（brain 迁移到 `global/current` 与岛内入口）和 M6 中改为经岛验收；此前不得宣称这些场景通过。
 - 验证：runtime/storage/ui 全部通过；app/runtime/storage/ui all-targets Clippy `-D warnings` 通过；行数、no-allow、指南行数、storage、performance guardrail、check-i18n（2116 键）、test-i18n 通过。`app --lib` 并行全量测试因 GPUI 窗口类测试争用出现挂起/偶发失败，单独重跑相关测试均通过；`shortcuts::` 16/16。单线程全量重跑与真实 App 验收（画布布局、右抽屉、设置页、他 App 前台热键、通知兜底）仍待完成。
+
+### M4 收尾：全局幕僚对话与汇报（2026-11-07）
+
+- **raw wire 收口**：`allows_sole_target_fallback` 让缺 workspace/route 的大脑与编排命令不再退回唯一窗口（`norma_endpoint_tests::raw_wire_identity_fallback_never_applies_to_brain_or_managed_commands`）。E2E 中旧夹具因没带身份被拒，反过来证明收口生效；脚本化适配器已按 `【事件来源】` 带 `--workspace/--route`。
+- **协议**：`BrainOp::Report.kind`（`ReportKind::{Status,Reply}`，旧 wire 缺字段视为 Status）、`norma brain report --kind reply`、`BrainEventKind::ReportRequested{overview}` + `TriggerKind::ReportRequest`；基础提示词与用户请求提示都说明 `--kind reply`。
+- **岛内幕僚页**（`island/staff.rs`、`staff_view.rs`，纯逻辑在 `runtime::island::staff`）：全局对话（有界 40 条）、发送、汇报按钮（`bounded_overview` 最多 3000 字符并标注省略）、回复始终进对话；汇报请求的回复强制朗读（即使语音汇报关闭），其余遵循设置；未真正入朗读队列时清除字幕并提示“语音不可用，这条回复仅显示文字”；最近活动固定高度、只显示来源标签（跳过启动提示轮次）。锚点取带身份的项目会话（E2E 暴露：workspace 身份在会话上，不在桌面宿主上）。
+- **desktop-e2e `--visual`**：
+  - `island-staff`（脚本化大脑）通过：`artifacts/desktop-workspace-e2e/2026-11-07T02-47-25Z/`，对话、reply、汇报、提示核对（`prompts.log`：用户请求含原文+精确身份+`--kind reply`，汇报提示含带来源的有界概览）。
+  - `island-staff-real`（真实 Claude Code 后端、用户本机登录）通过：`artifacts/desktop-workspace-e2e/2026-11-07T02-51-24Z/`，真实模型回复引用了运行中的 Alan，汇报时主动用 `history` 读取对话并如实说明“没有内容”。
+  - `island-window` 通过：`artifacts/desktop-workspace-e2e/2026-11-07T02-07-25Z/`（含两处 UI 修复：悬停提示固定字号、无工作空间时保留启用引导）。
+- **未验证 / 缺口（如实）**：
+  - 真实 TTS 播放：测试环境语音不可用，只验证了“语音不可用”降级路径；逐句字幕仅有单测（`caption_index`），因没有语音入队而未在真实 App 里出现。字幕时长为字数估算（TTS 供应商不提供句边界）。
+  - 全局对话借用一个带身份的项目会话作为锚点（身份是该会话的精确 workspace/route，不是前台项目）；无任何工作空间时显示启用引导。
+  - 旧 brain E2E：已删除提议类场景（UI 随左抽屉移除），夹具改为带身份；`BrainApprovals/Autonomy/Questions` 等仍用 ⌘⇧E 打开已删除的概览，须改为经岛验收，**尚未迁移、不得视为通过**。
