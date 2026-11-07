@@ -6,11 +6,11 @@ use objc2::{
     MainThreadMarker,
 };
 use objc2_app_kit::{
-    NSColor, NSEvent, NSEventMask, NSScreen, NSView, NSWindow, NSWindowButton,
-    NSWindowCollectionBehavior, NSWindowStyleMask, NSWindowTitleVisibility,
+    NSColor, NSEvent, NSEventMask, NSScreen, NSView, NSWindow, NSWindowAnimationBehavior,
+    NSWindowButton, NSWindowCollectionBehavior, NSWindowStyleMask, NSWindowTitleVisibility,
 };
 use objc2_foundation::{
-    NSNotificationCenter, NSNumber, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
+    NSNotificationCenter, NSNumber, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString, NSValue,
 };
 use objc2_quartz_core::{
     CABasicAnimation, CALayer, CAMediaTiming, CAMediaTimingFunction, CATransaction,
@@ -18,7 +18,12 @@ use objc2_quartz_core::{
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use runtime::island::geometry::{IslandFrame, IslandLayout, IslandScreen};
 use runtime::island::transition::Morph;
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub(super) enum NativeEvent {
@@ -97,6 +102,8 @@ pub(super) fn configure(window: &Window, cx: &gpui::App) {
                 }
             }
             panel.setHidesOnDeactivate(false);
+            // AppKit's own window resize is main-thread and redraws every frame.
+            panel.setAnimationBehavior(NSWindowAnimationBehavior::None);
             panel.setTitle(&NSString::from_str(ui::i18n::text("island.title")));
         })
         .detach();
@@ -104,28 +111,82 @@ pub(super) fn configure(window: &Window, cx: &gpui::App) {
 
 /// Window frame plus the visible black shape inside it. The shape is a layer mask animated by the
 /// compositor, so a morph costs the main thread nothing after this call.
+#[derive(Clone, Copy)]
 pub(super) struct Shape {
     pub window: IslandFrame,
     pub surface: IslandLayout,
     pub morph: Option<Morph>,
 }
 
+/// Drops a mask animation that was queued and then replaced by a newer shape.
+static MORPH_TICK: AtomicU64 = AtomicU64::new(0);
+
 pub(super) fn apply_shape(window: &Window, shape: Shape, cx: &gpui::App) {
     let Some(panel) = panel(window) else { return };
-    let f = shape.window;
+    let tick = MORPH_TICK.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
+    let reveal = shape
+        .morph
+        .filter(|morph| !morph.fade_only && morph.duration_ms > 0);
+    let panel_for_reveal = panel.clone();
+    let shape_for_reveal = shape;
+    let reveal_for_snap = reveal;
     // setFrame synchronously calls GPUI's bounds callback. Match MacWindow::resize:
     // execute after the current App/Window lease is released.
     cx.foreground_executor()
         .spawn(async move {
-            let frame = NSRect::new(NSPoint::new(f.x, f.y), NSSize::new(f.width, f.height));
-            if panel.frame() != frame {
-                panel.setFrame_display(frame, true);
-            }
+            snap_window(&panel, shape.window);
             if let Some(layer) = panel.contentView().and_then(|view| view.layer()) {
-                shape_layer(&layer, &shape);
+                if let Some(morph) = reveal_for_snap {
+                    // Hold the current silhouette over the resized window. The
+                    // reveal starts once GPUI has drawn the larger content.
+                    let mut held = shape;
+                    held.surface = morph.from;
+                    held.morph = None;
+                    shape_layer(&layer, &held);
+                } else {
+                    shape_layer(&layer, &shape);
+                }
             }
         })
         .detach();
+    if reveal.is_none() {
+        return;
+    }
+    let panel = panel_for_reveal;
+    let shape = shape_for_reveal;
+    cx.spawn(async move |cx| {
+        cx.background_executor()
+            .timer(Duration::from_millis(32))
+            .await;
+        if MORPH_TICK.load(Ordering::Relaxed) != tick {
+            return;
+        }
+        cx.foreground_executor()
+            .spawn(async move {
+                if MORPH_TICK.load(Ordering::Relaxed) != tick {
+                    return;
+                }
+                if let Some(layer) = panel.contentView().and_then(|view| view.layer()) {
+                    shape_layer(&layer, &shape);
+                }
+            })
+            .detach();
+    })
+    .detach();
+}
+
+fn snap_window(panel: &NSWindow, frame: IslandFrame) {
+    let frame = NSRect::new(
+        NSPoint::new(frame.x, frame.y),
+        NSSize::new(frame.width, frame.height),
+    );
+    if panel.frame() == frame {
+        return;
+    }
+    CATransaction::begin();
+    CATransaction::setDisableActions(true);
+    panel.setFrame_display_animate(frame, false, false);
+    CATransaction::commit();
 }
 
 /// `(width, height, centre x, centre y, radius)` of a surface in the layer's coordinates; every
@@ -155,51 +216,94 @@ fn shape_layer(layer: &CALayer, shape: &Shape) {
         unsafe { layer.setMask(Some(&mask)) };
         mask
     });
-    let [w, h, cx, cy, radius] = geometry(layer, shape.window, &shape.surface);
+    // `surface` at the moment a morph is created is still the start shape.
+    // The animation has to end on `morph.to`, or the mask never moves.
+    let to_layout = shape.morph.map(|morph| morph.to).unwrap_or(shape.surface);
+    let to = geometry(layer, shape.window, &to_layout);
+    let Some(morph) = shape.morph else {
+        place(layer, &mask, to, 1.);
+        return;
+    };
+    let seconds = morph.duration_ms as f64 / 1000.;
+    // Model layer is the end shape. Explicit animations carry the first frame,
+    // in this same transaction, so a draw never sees the end shape early.
+    // `bounds` is one animation: width and height key paths both write it and stutter.
     CATransaction::begin();
     CATransaction::setDisableActions(true);
-    mask.setBounds(NSRect::new(NSPoint::new(0., 0.), NSSize::new(w, h)));
-    mask.setPosition(NSPoint::new(cx, cy));
-    mask.setCornerRadius(radius);
+    apply_geometry(&mask, to);
     layer.setOpacity(1.);
-    CATransaction::commit();
-    let Some(morph) = shape.morph else { return };
-    let seconds = morph.duration_ms as f64 / 1000.;
     if morph.fade_only {
-        animate(layer, "opacity", f64::from(morph.opacity_from), 1., seconds);
-        return;
+        animate(
+            layer,
+            "opacity",
+            &NSNumber::new_f64(f64::from(morph.opacity_from)),
+            &NSNumber::new_f64(1.),
+            seconds,
+        );
+    } else {
+        let from = geometry(layer, shape.window, &morph.from);
+        animate(&mask, "bounds", &rect_value(from), &rect_value(to), seconds);
+        animate(
+            &mask,
+            "position",
+            &point_value(from),
+            &point_value(to),
+            seconds,
+        );
+        animate(
+            &mask,
+            "cornerRadius",
+            &NSNumber::new_f64(from[4]),
+            &NSNumber::new_f64(to[4]),
+            seconds,
+        );
     }
-    let from = geometry(layer, shape.window, &morph.from);
-    let to = [w, h, cx, cy, radius];
-    for (key, (from, to)) in [
-        "bounds.size.width",
-        "bounds.size.height",
-        "position.x",
-        "position.y",
-        "cornerRadius",
-    ]
-    .into_iter()
-    .zip(from.into_iter().zip(to))
-    {
-        animate(&mask, key, from, to, seconds);
-    }
+    CATransaction::commit();
 }
 
-/// Ease-out cubic, the curve the pure transition tests assume.
-fn animate(layer: &CALayer, key: &str, from: f64, to: f64, seconds: f64) {
+fn place(layer: &CALayer, mask: &CALayer, geometry: [f64; 5], opacity: f32) {
+    CATransaction::begin();
+    CATransaction::setDisableActions(true);
+    apply_geometry(mask, geometry);
+    layer.setOpacity(opacity);
+    CATransaction::commit();
+}
+
+fn animate(layer: &CALayer, key: &str, from: &AnyObject, to: &AnyObject, seconds: f64) {
     let key = NSString::from_str(key);
     let animation = CABasicAnimation::animationWithKeyPath(Some(&key));
-    let (from, to) = (NSNumber::new_f64(from), NSNumber::new_f64(to));
-    // SAFETY: the values are NSNumbers, which CABasicAnimation accepts for scalar key paths.
+    // SAFETY: the values are NSNumber/NSValue, which these key paths accept.
     unsafe {
-        animation.setFromValue(Some(&from));
-        animation.setToValue(Some(&to));
+        animation.setFromValue(Some(from));
+        animation.setToValue(Some(to));
     }
     animation.setDuration(seconds);
     animation.setTimingFunction(Some(&CAMediaTimingFunction::functionWithControlPoints(
         0.215, 0.61, 0.355, 1.,
     )));
     layer.addAnimation_forKey(&animation, Some(&key));
+}
+
+fn rect_value(geometry: [f64; 5]) -> Retained<NSValue> {
+    // SAFETY: NSValue copies the rect.
+    unsafe {
+        NSValue::valueWithRect(NSRect::new(
+            NSPoint::new(0., 0.),
+            NSSize::new(geometry[0], geometry[1]),
+        ))
+    }
+}
+
+fn point_value(geometry: [f64; 5]) -> Retained<NSValue> {
+    // SAFETY: NSValue copies the point.
+    unsafe { NSValue::valueWithPoint(NSPoint::new(geometry[2], geometry[3])) }
+}
+
+fn apply_geometry(mask: &CALayer, geometry: [f64; 5]) {
+    let [w, h, cx, cy, radius] = geometry;
+    mask.setBounds(NSRect::new(NSPoint::new(0., 0.), NSSize::new(w, h)));
+    mask.setPosition(NSPoint::new(cx, cy));
+    mask.setCornerRadius(radius);
 }
 
 pub(super) fn set_visible(panel: Retained<NSWindow>, visible: bool, cx: &gpui::App) {

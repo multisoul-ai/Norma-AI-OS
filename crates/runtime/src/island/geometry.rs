@@ -46,7 +46,15 @@ impl IslandScreen {
         } else {
             0.
         };
-        let header_height = self.safe_top.max(34.);
+        let notch_clearance = self.safe_top.max(34.);
+        // The compact pill stays 34pt. Expanded keeps that clearance, then adds
+        // 18pt so the title, workspace count and pin are not packed against the
+        // tab bar.
+        let header_height = if mode == IslandMode::Expanded {
+            notch_clearance + 18.
+        } else {
+            notch_clearance
+        };
         let (width, body, radius): (f64, f64, f64) = match mode {
             IslandMode::Compact => (330., 0., 999.),
             IslandMode::Activity => (460., 58., 24.),

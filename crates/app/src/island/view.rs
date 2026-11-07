@@ -31,6 +31,8 @@ pub(super) struct IslandView {
     last_mode: IslandMode,
     /// Pending end-of-morph work (release the transparent window area, show the final content).
     settle: Option<gpui::Task<()>>,
+    /// The next morph waits for one unconstrained content measurement.
+    measure_before_morph: bool,
     pub(super) staff_input: Option<Entity<ui::component::input::InputState>>,
     pub(super) caption_tick: Option<gpui::Task<()>>,
     pub(super) _staff_subscription: Option<Subscription>,
@@ -61,6 +63,7 @@ impl IslandView {
             shown_mode: None,
             last_mode: IslandMode::Compact,
             settle: None,
+            measure_before_morph: false,
             staff_input: None,
             caption_tick: None,
             _staff_subscription: None,
@@ -80,10 +83,20 @@ impl IslandView {
             // GPUI focus routing only: this does not activate the native App or panel.
             self.focus.focus(window);
         }
-        let layout = self.screen.layout_for_content(
-            self.controller.read(cx).displays.mode_on(self.display),
-            self.body_height,
-        );
+        let mode = self.controller.read(cx).displays.mode_on(self.display);
+        // One paint at the content's own height, then a single morph. Measuring
+        // again after the window has grown restarts the animation and stutters.
+        if !measured
+            && self.settle.is_none()
+            && mode != self.last_mode
+            && mode != IslandMode::Compact
+        {
+            self.measure_before_morph = true;
+            cx.notify();
+            return;
+        }
+        self.measure_before_morph = false;
+        let layout = self.screen.layout_for_content(mode, self.body_height);
         let instant_revision = self.controller.read(cx).instant_revision;
         let now = self.epoch.elapsed().as_millis() as u64;
         let reduce = crate::motion::system_reduce_motion()
@@ -91,7 +104,10 @@ impl IslandView {
                 "MULTISOUL_REDUCE_MOTION",
             ));
         let morph = if measured && instant_revision == self.instant_revision {
-            self.transition.retarget_content(layout, now, reduce)
+            // Already in this mode: a tab or a late measurement only changes
+            // height. Replaying the expand morph moves the tab buttons.
+            self.transition
+                .retarget(layout, now, reduce, mode == self.last_mode)
         } else {
             self.transition.retarget(
                 layout,
@@ -101,7 +117,6 @@ impl IslandView {
             )
         };
         self.instant_revision = instant_revision;
-        let mode = self.controller.read(cx).displays.mode_on(self.display);
         self.hold_content(morph, window, cx);
         self.push_shape(morph, now, window, cx);
         self.last_mode = mode;
@@ -159,7 +174,11 @@ impl IslandView {
                 } else {
                     self.transition.sample(now).window
                 },
-                surface: self.transition.sample(now).surface,
+                // sample() is the in-flight shape. A morph must end on its target,
+                // which at t=0 is not the sample.
+                surface: morph
+                    .map(|morph| morph.to)
+                    .unwrap_or_else(|| self.transition.sample(now).surface),
                 morph,
             },
             cx,
@@ -202,6 +221,7 @@ impl Render for IslandView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.mount_questions(window, cx);
         let held = self.settle.is_some();
+        let measuring = self.measure_before_morph;
         let controller = self.controller.read(cx);
         let mode = self
             .shown_mode
@@ -211,7 +231,11 @@ impl Render for IslandView {
         let tab = controller.displays.state.tab();
         let workspaces = controller.visible_workspaces(cx);
         let (running, pending) = counts(&workspaces);
-        let layout = self.transition.content(held);
+        let layout = if measuring {
+            self.screen.layout_for_content(mode, self.body_height)
+        } else {
+            self.transition.content(held)
+        };
         let inset = if held {
             layout.radius.ceil().max(16.)
         } else {
@@ -219,12 +243,17 @@ impl Render for IslandView {
         };
         let message = controller.message.clone();
         let completion_label = controller.completion_label.clone().unwrap_or_default();
-        let wrap = div().size_full().flex().justify_center();
+        let mut wrap = div().size_full().flex().justify_center();
+        if measuring {
+            // Don't stretch the column to the still-compact window, or the
+            // measurement is the window instead of the content.
+            wrap = wrap.items_start();
+        }
         let mut root = div()
             .id("norma-island")
             .track_focus(&self.focus)
             .w(px(layout.frame.width as f32))
-            .h(px(layout.frame.height as f32))
+            .when(!measuring, |div| div.h(px(layout.frame.height as f32)))
             .flex_none()
             .overflow_hidden()
             .flex()
@@ -370,6 +399,7 @@ impl Render for IslandView {
                             .px(px(4.))
                             .text_size(px(11.5))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_color(rgb(style::MUTED))
                             .flex()
                             .items_center()
                             .gap(px(8.))
@@ -386,9 +416,13 @@ impl Render for IslandView {
             }
         }
         let entity = cx.entity().downgrade();
-        let viewport = div()
-            .flex_1()
-            .min_h(px(0.))
+        let mut viewport = div();
+        if measuring {
+            viewport = viewport.flex_none();
+        } else {
+            viewport = viewport.flex_1().min_h(px(0.));
+        }
+        let viewport = viewport
             // The bottom inset keeps opaque scrolling children inside the curved silhouette.
             .mb(px(inset as f32))
             .child(body)
@@ -404,19 +438,28 @@ impl Render for IslandView {
                 let entity = entity.clone();
                 window.defer(cx, move |window, cx| {
                     let _ = entity.update(cx, |view, cx| {
-                        let state = view.controller.read(cx);
-                        if state.displays.mode_on(view.display) == mode
-                            && state.displays.state.tab() == tab
-                            && (view.body_height - height).abs() > 1.
-                        {
-                            view.body_height = height;
-                            view.sync_layout(true, window, cx);
+                        // A measurement that arrives while the mask is moving used to
+                        // retarget and restart the morph. That restart is the stutter.
+                        if view.transition.blocks_content_measurement(view.now_ms()) {
+                            return;
                         }
+                        let state = view.controller.read(cx);
+                        if state.displays.mode_on(view.display) != mode
+                            || state.displays.state.tab() != tab
+                        {
+                            return;
+                        }
+                        let changed = (view.body_height - height).abs() > 1.;
+                        if !view.measure_before_morph && !changed {
+                            return;
+                        }
+                        view.body_height = height;
+                        view.sync_layout(true, window, cx);
                     });
                 });
             })
             .id("island-body")
-            .overflow_y_scroll();
+            .when(!measuring, |div| div.overflow_y_scroll());
         wrap.child(root.child(viewport))
     }
 }

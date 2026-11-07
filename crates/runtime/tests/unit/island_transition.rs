@@ -18,7 +18,7 @@ fn layout(mode: IslandMode) -> IslandLayout {
 }
 
 /// 场景：从胶囊展开后中途反向收起，黑色表面不跳帧，原生窗只在结束后缩小。
-/// 数据：1440×900无刘海屏，330×34胶囊与660×544面板，180ms进入、120ms退出。
+/// 数据：1440×900无刘海屏，330×34胶囊与660×562面板（52点标题行加510点正文），180ms进入、120ms退出。
 /// 执行：展开90ms时采样并反向，在最后一帧前后采样。
 /// 预期：先预留大窗、命中只覆盖当前黑色形状；反向起点连续，结束后窗口释放透明区域且无动画。
 #[test]
@@ -196,4 +196,22 @@ fn island_transition_hands_native_a_one_shot_morph_plan() {
         .expect("减少动态效果仍要淡入");
     assert!(reduced.fade_only);
     assert_eq!(reduced.duration_ms, 100);
+}
+
+/// 场景：展开动画还在播时，正文高度测量到了新值。
+/// 数据：胶囊在 t=0 展开，180ms；测量发生在 t=40。
+/// 执行：询问这一刻是否还挡住测量。
+/// 预期：播放中挡住，避免再开一段形变；180ms 结束后不再挡。
+#[test]
+fn island_transition_blocks_remeasure_until_the_morph_ends() {
+    let mut motion = IslandTransition::new(layout(IslandMode::Compact));
+    motion.retarget(layout(IslandMode::Expanded), 0, false, false);
+    assert!(
+        motion.blocks_content_measurement(40),
+        "40ms 仍在 180ms 形变内，测量不能再触发一段动画"
+    );
+    assert!(
+        !motion.blocks_content_measurement(180),
+        "形变结束后测量可以落成最终尺寸"
+    );
 }

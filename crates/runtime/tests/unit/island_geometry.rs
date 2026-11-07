@@ -2,9 +2,10 @@ use super::*;
 use crate::island::IslandMode;
 
 /// 场景：原型展开高度随内容变化，空态不留整屏黑色空白，长列表才滚动。
-/// 数据：无刘海屏顶部900；展开正文及页签总高160点，头部34点。
+/// 数据：无刘海屏顶部900；展开正文及页签总高160点。收起头部仍是34点，
+/// 展开标题行在此基础上再留18点，头部为52点。
 /// 执行：分别给出短内容、超长内容和收起模式，比较尺寸与顶部锚点。
-/// 预期：短内容总高194点；长内容受原最大高度限制；收起始终34点。
+/// 预期：短内容总高212点（52+160）；长内容停在562点（52+510）；收起始终34点。
 #[test]
 fn island_geometry_content_height_keeps_top_anchor_and_caps_long_lists() {
     let screen = IslandScreen {
@@ -20,7 +21,8 @@ fn island_geometry_content_height_keeps_top_anchor_and_caps_long_lists() {
         right_min_x: 0.,
     };
     let short = screen.layout_for_content(IslandMode::Expanded, 160.);
-    assert_eq!(short.frame.height, 194., "34点头部加160点实际内容");
+    assert_eq!(short.header_height, 52., "展开标题行是34点胶囊再加18点空隙");
+    assert_eq!(short.frame.height, 212., "52点头部加160点实际内容");
     assert_eq!(
         short.frame.y + short.frame.height,
         896.,
@@ -31,8 +33,13 @@ fn island_geometry_content_height_keeps_top_anchor_and_caps_long_lists() {
             .layout_for_content(IslandMode::Expanded, 2000.)
             .frame
             .height,
-        544.,
-        "长列表只增长到原型最大高度"
+        562.,
+        "长列表只增长到52点头部加510点正文"
+    );
+    assert_eq!(
+        screen.layout(IslandMode::Compact).header_height,
+        34.,
+        "收起胶囊不能跟着展开标题行变高"
     );
     assert_eq!(
         screen

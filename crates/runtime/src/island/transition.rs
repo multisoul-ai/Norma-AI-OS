@@ -130,6 +130,12 @@ impl IslandTransition {
         }
     }
 
+    /// A content measurement must not start a second morph while the compositor
+    /// is still playing the one it was given.
+    pub fn blocks_content_measurement(&self, now: u64) -> bool {
+        self.sample(now).animating
+    }
+
     pub fn sample(&self, now: u64) -> IslandPresentation {
         let fraction = if self.duration == 0 {
             1.
@@ -188,7 +194,7 @@ fn interpolate(a: IslandLayout, b: IslandLayout, t: f64) -> IslandLayout {
             height: mix(a.frame.height, b.frame.height),
         },
         notch_width: b.notch_width,
-        header_height: b.header_height,
+        header_height: mix(a.header_height, b.header_height),
         radius: mix(a.radius, b.radius),
     }
 }

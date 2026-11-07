@@ -25,7 +25,11 @@ impl IslandView {
         let mut left = div()
             .flex()
             .items_center()
-            .gap(px(6.))
+            .gap(px(if mode == IslandMode::Expanded {
+                12.
+            } else {
+                6.
+            }))
             .flex_1()
             .min_w(px(0.));
         let mut right = div()
@@ -39,6 +43,7 @@ impl IslandView {
             left = left
                 .child(
                     div()
+                        .text_size(px(13.))
                         .font_weight(FontWeight::SEMIBOLD)
                         .child(text("island.overview")),
                 )
@@ -192,7 +197,11 @@ impl IslandView {
             .id("island-header")
             .h(px(layout.header_height as f32))
             .flex_none()
-            .px(px(12.))
+            .px(px(if mode == IslandMode::Expanded {
+                16.
+            } else {
+                12.
+            }))
             .text_size(px(12.))
             .flex()
             .items_center()
@@ -231,13 +240,12 @@ impl IslandView {
             let label = div()
                 .flex()
                 .items_center()
+                .justify_center()
                 .gap(px(6.))
                 .text_size(px(12.5))
-                .font_weight(if selected {
-                    FontWeight::SEMIBOLD
-                } else {
-                    FontWeight::NORMAL
-                })
+                // Weight stays put. Switching to semibold changes the label
+                // width and the three equal tabs shift under the click.
+                .font_weight(FontWeight::MEDIUM)
                 .child(text(key))
                 .when(count > 0, |v| {
                     v.child(
