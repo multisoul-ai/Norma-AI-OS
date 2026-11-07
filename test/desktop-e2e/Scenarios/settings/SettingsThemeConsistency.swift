@@ -26,15 +26,8 @@ public enum SettingsThemeConsistency {
         }
         try await session.step("创建真实工作空间与项目夹具") {
             try session.launch(language: "zh-Hans")
-            _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
-            try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
-            let form = try await session.wait(Expectation(anyOf: ["工作空间名称", "Workspace name"]))
-            guard let input = form.pick(["网站改版", "Website redesign"], .bottom) else {
-                throw E2EError.product("创建表单缺少名称输入框：\(form.summary)")
-            }
-            try await session.click(local: input.center, on: form)
-            try await session.type("ThemeCheck")
-            try await session.shortcut(key: 36, modifiers: [])
+            // 入场动画会吞掉首次点击；用带重试的创建流程，与其他场景一致。
+            try await BrainSupport.createWorkspace(session, name: "ThemeCheck")
             _ = try await session.wait(Expectation(allOf: ["ThemeCheck"]))
             session.stop()
             guard let dataRoot = session.dataRoot else { throw E2EError.env("缺少隔离数据目录") }
@@ -48,19 +41,20 @@ public enum SettingsThemeConsistency {
         for (chinese, english, id, light) in themes {
             try await session.step("\(id)：起始页实时切换") {
                 try await session.shortcut(key: 40, modifiers: [0x37, 0x38])
-                _ = try await session.wait(Expectation(anyOf: ["搜索工作空间", "Search workspaces"]))
+                _ = try await session.wait(Expectation(anyOf: ["个工作空间", "workspaces"]))
                 try await session.shortcut(key: 43, modifiers: [0x37])
                 _ = try await SettingsSupport.select(session, labels: ["主题", "Themes"], content: ["Ink Black", "墨黑"])
                 try await chooseTheme(session, labels: [chinese, english], id: id)
                 try await SettingsSupport.prove(session, key: "appearance.theme.v1", value: id)
                 try await session.shortcut(key: 43, modifiers: [0x37])
-                let home = try await session.wait(Expectation(anyOf: ["搜索工作空间", "Search workspaces"], allOf: ["ThemeCheck"], absent: ["选择工作空间的外观", "选择工作空间外观"]))
+                let home = try await session.wait(Expectation(anyOf: ["个工作空间", "workspaces"], allOf: ["ThemeCheck"], absent: ["选择工作空间的外观", "选择工作空间外观"]))
                 try session.save(home, "\(id)-home.png")
                 return "同一进程切换主题，首页与保存值一致"
             }
             try await session.step("\(id)：右抽屉及画布外框") {
-                try await session.click(matching: ["打开", "Open"], pick: .bottom)
-                _ = try await session.wait(Expectation(allOf: ["E2E Project"]))
+                // 启动页是工作空间卡片目录：点卡片进入工作空间，再等项目卡片出现。
+                try await session.click(matching: ["ThemeCheck"], pick: .bottom)
+                _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 15))
                 var frame = try await settled(session)
                 if !frame.contains("更多工具") {
                     try await session.click(local: CGPoint(x: frame.windowFrame.width - 28, y: 26), on: frame)

@@ -313,3 +313,9 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 - 已迁移/退役旧场景：`WorkspaceAttentionRead`（契约已由 `island-artifacts` 覆盖）、`BrainApprovals`、`BrainQuestions`（契约由 `island-approvals`、`island-questions` 覆盖；“采用/委托幕僚回答”UI 随左抽屉删除，无迁移对象）已删除；`BrainAutonomy` 改用 ⌘⇧B 打开幕僚活动；`SettingsThemeConsistency/Visual` 改为只验右抽屉（**改写后未在真实 App 重跑**）；`canvas-drawers`、`canvas-project-drawers` 在真实 App 通过（OCR 模式）。
 - 通知授权被拒现在会在设置页显示本地化提示（`notification_permission_notice` 单测；真实授权弹窗路径未在本机验证）。
 - 汇报请求有编号：`report --reply-to <id>`，只有带正确编号的回复才朗读，无关回复不再抢走标记（`only_the_reply_to_a_report_request_gets_spoken`、`report_reply_to_is_optional_and_numeric`）；已更新脚本化夹具与提示词的需要见下。
+
+### 旧 OCR 场景现状（如实，2026-11-07）
+
+- `settings-theme-consistency`、`brain-autonomy` 已按“无左抽屉”改写，但**在本机无法跑通**：首页在 `3c392f34`（2026-10-28，已在 dev）重构为工作空间卡片目录，搜索框文案变为“搜索 N 个工作空间”，这些场景仍按旧占位符/“打开”按钮进入，OCR 又常识别不到卡片名。同一问题也存在于 `SettingsAgentsLibrary`、`WorkspaceFeatureGuide`、`WorkspaceLifecycle` 等未改动的场景，**属于首页改版遗留，不是本分支引入**（本分支未改 `home*`）。我只在 dev 的代码历史上确认了这一点，**没有在 dev 基线上实际跑过对照**。
+- 这批场景没有看图版；按规则，进入首页的稳定做法是看图版（`--visual`，如 `island-*` 场景）。后续应为它们补看图入口，或统一抽一个“从首页进入项目”的看图夹具。**不得把这批场景当作已通过。**
+- 已通过的真实 App 证据：`island-window`、`island-staff`、`island-staff-real`、`brain-dock-chat`、`canvas-drawers`、`canvas-project-drawers`、`island-approvals/questions/artifacts/navigation/settings`（M3/M5 阶段）。
