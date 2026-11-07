@@ -291,3 +291,19 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
 7. 低：活动记录每 3 秒初始化数据库 → 已修（只取路径，不再 `AppStore::initialize`）。
 - 审查提到 `opencode_foreground` 测试失败：本机并行时偶发（`question_transport_closed`），单独与整体重跑均通过，与本分支改动无关。
 - 系统级热键 E2E `island-hotkey` 已写好（System Events 发 ⌃⌥⌘Space、前台为他 App），**本机 `AXIsProcessTrusted=false`，osascript 被拒绝发送按键 → ENV，未取得证据**；授权辅助功能后可运行 `scripts/desktop-e2e.sh island-hotkey --visual`。
+
+### 方案第 8 节逐行证据（2026-11-07，分支 `feat/island-cleanup-20261106`）
+
+| 标准 | 证据 | 结果 |
+| --- | --- | --- |
+| 形态切换、优先级、自动收回 | `runtime::island` 单测（runtime 全量通过） | 通过 |
+| 别的 App 在前台时审批弹出，可就地允许，Norma 不抢前台 | `island-approvals` 等 `--visual`（M3 证据）；**系统级热键 `island-hotkey` 未取得证据**：本机 `AXIsProcessTrusted=false`，osascript 无法发按键，记 ENV | 审批通过；热键/前台不变 **未验证** |
+| 「定位」跳到另一工作空间卡片（含窗口已关） | `island-navigation`（M3） | 通过 |
+| 幕僚对话与跨工作空间语音汇报 | `island-staff`（脚本化）与 `island-staff-real`（真实 Claude Code）`--visual` 通过；`brain-dock-chat` 回归通过 | 对话/汇报文字通过；**语音朗读与逐句字幕未在真实 App 出现**（测试机无可用 TTS，仅验证“语音不可用”降级；字幕有 `caption_index` 单测） |
+| 旧幕僚数据迁移后不丢 | brain 迁移单测与 M4 迁移接线检查点 | 单测通过；真实 App 启动检查沿用 M4 检查点证据 |
+| 左抽屉与状态胶囊完全删除、无死入口 | 代码检索、i18n/快捷键文档清理、`canvas-drawers` 与 `canvas-project-drawers`（改为只验右抽屉）通过 | 通过；设置页“快捷键”页的真实 App 看图 **未单独做** |
+| 刘海屏、外接屏、全屏 Space、点击穿透、动画中间帧 | 无 | **未验证**（无对应硬件/场景） |
+| 系统通知兜底（隐藏岛时） | `NotificationGate` 单测 | 真实通知投递 **未验证**；授权被拒时无反馈（已知缺口） |
+| 样式还原原型 | `island-window` 与 `island-staff` 看图（页签、胶囊、幕僚页对照 `artifacts/island/prototype-*.png`） | 幕僚页/页签通过；审批、问题卡片的逐像素对照未重做 |
+
+其他：`app --lib` 并行全量因 GPUI 窗口类测试争用会挂起，单独重跑均通过；单线程全量见 `artifacts/island/final-app-lib.log`。仍引用已删除左栏“运行概览”的旧场景（`WorkspaceAttentionRead`、`SettingsTheme*`、`BrainApprovals/Autonomy/Questions` 等）**尚未迁移，不得视为通过**。

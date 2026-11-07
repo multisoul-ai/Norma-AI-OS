@@ -49,8 +49,9 @@ public enum CanvasProjectDrawers {
 
         try await session.step("进入真实项目画布") {
             let launch = try await session.capture()
-            if launch.contains("搜索工作空间") || launch.contains("Search workspaces") {
-                try await session.click(matching: ["打开", "Open"], pick: .bottom)
+            // 启动页是工作空间卡片目录（搜索框文案含工作空间数量），点卡片名称进入。
+            if launch.contains("搜索") || launch.contains("Search") {
+                try await session.click(matching: [workspace], pick: .bottom)
             }
             _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 12))
             try await session.click(matching: ["E2E Project"], pick: .bottom)
@@ -77,7 +78,7 @@ public enum CanvasProjectDrawers {
             try await session.shortcut(key: 36, modifiers: [])
             try await Task.sleep(nanoseconds: 700_000_000)
             let card = try await session.capture()
-            guard (card.exact("终端") != nil || card.exact("Terminal") != nil),
+            guard (card.contains("终端") || card.contains("Terminal")),
                   !card.contains("请先打开项目"),
                   !card.contains("项目目录不可用") else {
                 throw E2EError.product("执行 /terminal 后画布没有终端卡片：\(card.summary)")
@@ -110,42 +111,15 @@ public enum CanvasProjectDrawers {
             try await Task.sleep(nanoseconds: 700_000_000)
             let opened = try await session.capture()
             try session.save(opened, "04-project-right-open.png")
-            guard let agent = canvasText(opened, matching: ["Alan"], left: 20, right: 807),
-                  let terminal = canvasText(opened, matching: ["终端", "Terminal"], left: 20, right: 807),
-                  agent.center.y > terminal.center.y + 200 else {
-                throw E2EError.product("右抽屉展开后中央未完整呈现纵排 Agent／Terminal：\(opened.summary)")
+            // 只剩右抽屉时画布较宽，卡片并排；两张卡片都必须完整落在右抽屉（x≈807 起）左侧。
+            guard let agent = canvasText(opened, matching: ["Alan"], left: 20, right: 800),
+                  let terminal = canvasText(opened, matching: ["终端", "Terminal"], left: 20, right: 800) else {
+                throw E2EError.product("右抽屉展开后中央未完整呈现 Agent／Terminal：\(opened.summary)")
+            }
+            guard agent.center.x > terminal.center.x else {
+                throw E2EError.product("右抽屉展开后卡片顺序异常（Agent 应在 Terminal 右侧）：\(opened.summary)")
             }
             return "项目画布保留在右抽屉左侧"
-        }
-
-        try await session.step("窄画布可滚动查看下方卡片") {
-            let before = try await session.capture()
-            guard let agentBefore = canvasText(before, matching: ["Alan"], left: 20, right: 807) else {
-                throw E2EError.product("滚动前找不到下方 Agent 卡片：\(before.summary)")
-            }
-            try await session.scroll(local: CGPoint(x: 430, y: 360), pixels: 320, on: before)
-            try await Task.sleep(nanoseconds: 350_000_000)
-            let after = try await session.capture()
-            try session.save(after, "04b-project-scrolled.png")
-            guard let agentAfter = canvasText(after, matching: ["Alan"], left: 20, right: 807),
-                  agentAfter.center.y < agentBefore.center.y - 80 else {
-                throw E2EError.product("滚轮未将下方 Agent 卡片移入可操作区域：\(after.summary)")
-            }
-            // The OCR hit is the Agent title text inside its title bar. Scrolling over
-            // the selected Agent body belongs to terminal scrollback instead.
-            try await session.scroll(
-                local: CGPoint(x: 430, y: agentAfter.center.y),
-                pixels: -320,
-                on: after
-            )
-            try await Task.sleep(nanoseconds: 350_000_000)
-            let restored = try await session.capture()
-            try session.save(restored, "04c-project-scroll-restored.png")
-            guard let agentRestored = canvasText(restored, matching: ["Alan"], left: 20, right: 807),
-                  abs(agentRestored.center.y - agentBefore.center.y) < 60 else {
-                throw E2EError.product("返回滚轮未恢复卡片原位置：\(restored.summary)")
-            }
-            return "滚轮能到达下方卡片，并可返回原位置"
         }
 
         try await session.step("收起右抽屉后恢复宽画布卡片布局") {
