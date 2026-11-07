@@ -1,0 +1,11 @@
+const {chromium}=require('playwright');const path=require('node:path');const {pathToFileURL}=require('node:url');
+(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});const page=await browser.newPage({viewport:{width:1600,height:1050},deviceScaleFactor:1});const url=pathToFileURL(path.resolve(__dirname,'../index.html')).href;
+ const shot=async name=>{await page.mouse.move(page.viewportSize().width/2,20);return page.screenshot({animations:'disabled',path:path.resolve(__dirname,`../assets/${name}.png`)});};
+ await page.goto(url);await page.locator('#inbox').waitFor();await page.locator('video').evaluate(async v=>{v.pause();if(v.readyState<2)await new Promise(r=>v.addEventListener('loadeddata',r,{once:true}));await new Promise(r=>{v.addEventListener('seeked',r,{once:true});v.currentTime=3;});});await shot('inbox-home');
+ await page.locator('[data-work="login"]').click();await shot('inbox-conversation');
+ await page.getByTestId('thread-input').fill('保留当前配置，先采样 30 秒。');await page.locator('[data-action="locate"]').click();await shot('canvas-context');await page.locator('[data-action="return-inbox"]').click();
+ await page.locator('[data-menu="scope"]').click();await shot('workspace-picker');await page.keyboard.press('Escape');
+ await page.locator('[data-action="toggle-archive"]').click();await page.locator('[data-work="cleanup"]').click();await shot('answered-task');
+ await page.locator('[data-action="language"]').click();await page.setViewportSize({width:1000,height:900});await shot('compact-en');
+ await page.setViewportSize({width:600,height:900});await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));await shot('narrow-thread');await page.locator('[data-action="close-thread"]').click();await shot('narrow-home');await browser.close();
+})();
