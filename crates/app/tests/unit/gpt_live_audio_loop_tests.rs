@@ -75,6 +75,39 @@ fn live_close_preserves_hardware_errors_and_only_suppresses_expected_not_ready()
         "未确认关闭不能掩盖错误"
     );
 }
+/// 传输任务先退出会让上传观察通道关闭，该派生错误不得盖住真正的连接错误。
+/// 数据构造：上传观察结束的本地错误，分别配有传输错误和无传输错误的终态。
+/// 预期结果：有传输错误时本地错误让位；没有时仍显示本地错误。
+#[test]
+fn upload_observation_ended_yields_to_transport_error() {
+    let mut outcome = live_voice::LiveOutcome {
+        usage: live_voice::LiveUsage {
+            seconds: 183.0,
+            finalized: false,
+        },
+        reason: None,
+        error: Some(live_voice::LiveError::Connection),
+    };
+    assert_eq!(
+        local_call_error(
+            Err(LoopError::Other(UPLOAD_OBSERVATION_ENDED.into())),
+            false,
+            &outcome
+        ),
+        None,
+        "传输错误存在时不得用派生的通道关闭错误覆盖它"
+    );
+    outcome.error = None;
+    assert_eq!(
+        local_call_error(
+            Err(LoopError::Other(UPLOAD_OBSERVATION_ENDED.into())),
+            false,
+            &outcome
+        ),
+        Some(UPLOAD_OBSERVATION_ENDED.into()),
+        "没有传输错误时仍要显示本地错误"
+    );
+}
 impl AssistantAudioSink for SignalingSink {
     fn write_chunk(&mut self, _: &PcmAudioChunk) -> Result<std::time::Duration, String> {
         let _ = self.written.try_send(());
