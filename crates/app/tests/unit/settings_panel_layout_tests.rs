@@ -177,73 +177,18 @@ fn test_settings_panel_layout_respects_minimum_and_viewport_bounds() {
     );
 }
 
-/// 场景：语音设置里切换对话模式不得改变面板外框。布局只看分区，不看模式。
-/// 数据构造：1440×900。通用页每边 70% → 1008×630，left=(1440-1008)/2=216，top=(900-630)/2=135。
-/// 语音页宽 min(1440×0.94, 1280, 1440-64)=1280，高 min(900×0.9, 900, 900-64)=810，
-/// left=(1440-1280)/2=80，top=(900-810)/2=45，侧栏固定 256。
-/// 1000×700 低于 1100 的加宽门槛，语音页必须与通用页同尺寸。
-/// 执行过程：分别计算语音页和通用页在宽屏、窄屏下的布局。
-/// 预期结果：宽屏语音页固定 1280×810，且大于通用页；窄屏两者完全相同。
+/// 场景：所有设置页共用同一面板外框，切到语音页不得放大。
+/// 数据构造：1440×900，每边 70% → 1008×630，left=(1440-1008)/2=216，top=(900-630)/2=135。
+/// 执行过程：计算 1440×900 的布局，比较与旧语音页加宽框 1280×810 的差异。
+/// 预期结果：外框恒为 1008×630；不得出现 1280 宽的语音专用外框。
 #[test]
-fn test_voice_settings_panel_size_is_independent_of_conversation_mode() {
-    let voice = SettingsPanelLayout::for_viewport(1440.0, 900.0).for_section(
-        1440.0,
-        900.0,
-        SettingsSection::NormaVoice,
-    );
-    let general = SettingsPanelLayout::for_viewport(1440.0, 900.0).for_section(
-        1440.0,
-        900.0,
-        SettingsSection::General,
-    );
+fn test_settings_panel_size_is_the_same_for_every_section() {
+    let layout = SettingsPanelLayout::for_viewport(1440.0, 900.0);
 
     assert_eq!(
-        (
-            voice.width,
-            voice.height,
-            voice.left,
-            voice.top,
-            voice.sidebar_width
-        ),
-        (1280.0, 810.0, 80.0, 45.0, 256.0),
-        "语音页在 1440×900 上应使用固定的加宽外框"
-    );
-    assert_eq!(
-        (general.width, general.height, general.left, general.top),
+        (layout.width, layout.height, layout.left, layout.top),
         (1008.0, 630.0, 216.0, 135.0),
-        "其他设置页保持每边 70%"
+        "所有设置页保持每边 70%"
     );
-    assert_ne!(
-        (voice.width, voice.height),
-        (general.width, general.height),
-        "语音页仍保留双栏所需外框，不能缩回通用尺寸"
-    );
-
-    let narrow_voice = SettingsPanelLayout::for_viewport(1000.0, 700.0).for_section(
-        1000.0,
-        700.0,
-        SettingsSection::NormaVoice,
-    );
-    let narrow_general = SettingsPanelLayout::for_viewport(1000.0, 700.0).for_section(
-        1000.0,
-        700.0,
-        SettingsSection::General,
-    );
-    assert_eq!(
-        (
-            narrow_voice.width,
-            narrow_voice.height,
-            narrow_voice.left,
-            narrow_voice.top,
-            narrow_voice.sidebar_width
-        ),
-        (
-            narrow_general.width,
-            narrow_general.height,
-            narrow_general.left,
-            narrow_general.top,
-            narrow_general.sidebar_width
-        ),
-        "窗口窄于 1100px 时语音页不得再单独加宽"
-    );
+    assert_ne!(layout.width, 1280.0, "语音页不得再使用专用加宽外框");
 }
