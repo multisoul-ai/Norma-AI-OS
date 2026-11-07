@@ -1,5 +1,6 @@
 use super::{
-    ago, bounded_overview, caption_index, split_sentences, Ago, OverviewEntry, StaffChat, StaffRole,
+    ago, bounded_overview, caption_index, split_sentences, Ago, OverviewEntry, StaffChat,
+    StaffRole, REPORT_TTL_MS,
 };
 
 /// 场景：用户发话与幕僚回复进入同一份有界对话，汇报请求只放行一次强制朗读。
@@ -12,15 +13,15 @@ fn replies_are_ordered_and_a_report_request_forces_speech_exactly_once() {
     let mut chat = StaffChat::default();
     assert!(chat.push_user("   ").is_none(), "空白不应入对话");
     chat.push_user(" 补文档 ").expect("有效输入应入对话");
-    assert!(chat.request_report(), "第一次汇报请求应被接受");
-    assert!(!chat.request_report(), "等待回复期间不得叠加请求");
+    assert!(chat.request_report(0), "第一次汇报请求应被接受");
+    assert!(!chat.request_report(0), "等待回复期间不得叠加请求");
     let first = chat
-        .push_reply("Alan 完成了登录。")
+        .push_reply("Alan 完成了登录。", 0)
         .expect("非空回复应入对话");
     assert!(first.speak, "汇报请求后的回复必须朗读");
-    let second = chat.push_reply("还有一件事").expect("非空回复应入对话");
+    let second = chat.push_reply("还有一件事", 0).expect("非空回复应入对话");
     assert!(!second.speak, "请求已消耗，后续回复不强制朗读");
-    assert!(chat.push_reply("  ").is_none(), "空回复不入对话");
+    assert!(chat.push_reply("  ", 0).is_none(), "空回复不入对话");
     let roles: Vec<_> = chat.lines().map(|line| line.role).collect();
     assert_eq!(roles, [StaffRole::User, StaffRole::Staff, StaffRole::Staff]);
     assert_eq!(
@@ -117,4 +118,19 @@ fn elapsed_time_is_bucketed_into_now_minutes_and_hours() {
     assert_eq!(ago(59 * 60_000 + 59_999), Ago::Minutes(59));
     assert_eq!(ago(3_600_000), Ago::Hours(1));
     assert_eq!(ago(5 * 3_600_000 + 1), Ago::Hours(5));
+}
+
+/// 场景：大脑一直不回汇报时，按钮不能永久卡死：超过 TTL 后允许再次请求。
+/// 数据：t=0 请求，t=TTL-1 仍在等待，t=TTL 过期。
+/// 预期：过期前 `report_pending` 为真且不能再请求；过期后为假且可再次请求（新请求重新计时）。
+#[test]
+fn an_unanswered_report_request_expires() {
+    let mut chat = StaffChat::default();
+    assert!(chat.request_report(0));
+    assert!(chat.report_pending(REPORT_TTL_MS - 1));
+    assert!(!chat.request_report(REPORT_TTL_MS - 1), "未过期不得叠加");
+    assert!(!chat.report_pending(REPORT_TTL_MS), "到期后不再等待");
+    assert!(chat.request_report(REPORT_TTL_MS), "到期后可以重新请求");
+    let reply = chat.push_reply("迟到的回复", 0).expect("回复入对话");
+    assert!(reply.speak, "新请求下的回复应朗读");
 }

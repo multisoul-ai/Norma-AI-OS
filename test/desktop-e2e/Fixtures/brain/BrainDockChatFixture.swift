@@ -52,7 +52,7 @@ public enum BrainDockChatFixture {
                 with open(os.path.join(directory, "user-requests.log"), "a") as f:
                     f.write(asked.group(1) + "\\n")
                 reply = "幕僚收到：" + asked.group(1)
-                argv = [exe[0], "brain", "--workspace", scope.get("workspace_id", ""), "--route", scope.get("route_id", ""), "report", "--kind", "reply", "--text", reply, "--priority", "now"]
+                argv = [exe[0], "brain", "--workspace", scope.get("workspace_id", ""), "--route", scope.get("route_id", ""), "report", "--text", reply, "--priority", "now"]
                 if permission("dock-chat", " ".join(argv)):
                     subprocess.run(argv, env=os.environ, timeout=30)
             send({"jsonrpc": "2.0", "id": mid, "result": {"stopReason": "end_turn"}})

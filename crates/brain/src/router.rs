@@ -179,6 +179,12 @@ impl Router {
                 approval_id: None,
                 trigger: Trigger::new(TriggerKind::UserRequest, ""),
             }],
+            BrainEventKind::StaffRequest { text } => vec![Action {
+                lane: Lane::Main,
+                text: prompt::staff_request(&text),
+                approval_id: None,
+                trigger: Trigger::new(TriggerKind::UserRequest, ""),
+            }],
             BrainEventKind::ReportRequested { overview } => vec![Action {
                 lane: Lane::Main,
                 text: prompt::report_request(&overview),

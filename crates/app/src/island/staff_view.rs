@@ -59,7 +59,7 @@ impl IslandView {
                 lines,
                 staff.caption().map(str::to_owned),
                 staff.notice.clone(),
-                staff.chat.report_pending(),
+                staff.report_pending(),
                 staff.activity.clone(),
                 staff.last_report.map(|at| at.elapsed().as_millis() as u64),
             )
@@ -334,8 +334,10 @@ impl IslandView {
         if body.trim().is_empty() {
             return;
         }
-        input.update(cx, |input, cx| input.set_value(String::new(), window, cx));
-        staff::send_message(&body, cx);
+        // Keep the text when the brain refused it, so the user does not have to retype.
+        if staff::send_message(&body, cx) {
+            input.update(cx, |input, cx| input.set_value(String::new(), window, cx));
+        }
         cx.notify();
     }
 

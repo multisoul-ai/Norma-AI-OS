@@ -7,6 +7,8 @@ use std::collections::VecDeque;
 mod tests;
 
 const MAX_LINES: usize = 40;
+/// A report request nobody answers stops blocking the button after this long.
+pub const REPORT_TTL_MS: u64 = 120_000;
 const MS_PER_CHAR: u64 = 200;
 const MIN_SENTENCE_MS: u64 = 800;
 
@@ -35,7 +37,7 @@ pub struct StaffReply {
 pub struct StaffChat {
     lines: VecDeque<StaffLine>,
     next_id: u64,
-    report_pending: bool,
+    report_since_ms: Option<u64>,
 }
 
 impl StaffChat {
@@ -47,26 +49,31 @@ impl StaffChat {
         self.push(StaffRole::User, text)
     }
 
-    /// Marks that the next reply answers an explicit report request; `false` while one is open.
-    pub fn request_report(&mut self) -> bool {
-        !std::mem::replace(&mut self.report_pending, true)
+    /// Marks that the next reply answers an explicit report request; `false` while a live one is
+    /// open. A request older than `REPORT_TTL_MS` is treated as abandoned.
+    pub fn request_report(&mut self, now_ms: u64) -> bool {
+        if self.report_pending(now_ms) {
+            return false;
+        }
+        self.report_since_ms = Some(now_ms);
+        true
     }
 
-    pub fn report_pending(&self) -> bool {
-        self.report_pending
+    pub fn report_pending(&self, now_ms: u64) -> bool {
+        self.report_since_ms
+            .is_some_and(|since| now_ms.saturating_sub(since) < REPORT_TTL_MS)
     }
 
     /// Gives up an open request (the brain could not be reached) so the button works again.
     pub fn cancel_report(&mut self) {
-        self.report_pending = false;
+        self.report_since_ms = None;
     }
 
-    pub fn push_reply(&mut self, text: &str) -> Option<StaffReply> {
+    pub fn push_reply(&mut self, text: &str, now_ms: u64) -> Option<StaffReply> {
         let id = self.push(StaffRole::Staff, text)?;
-        Some(StaffReply {
-            id,
-            speak: std::mem::take(&mut self.report_pending),
-        })
+        let speak = self.report_pending(now_ms);
+        self.report_since_ms = None;
+        Some(StaffReply { id, speak })
     }
 
     fn push(&mut self, role: StaffRole, text: &str) -> Option<u64> {

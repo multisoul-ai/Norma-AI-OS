@@ -71,6 +71,10 @@ pub enum BrainEventKind {
     UserRequest {
         text: String,
     },
+    /// 岛内全局幕僚对话的用户消息：回复必须以 `--kind reply` 回到岛里，而不是项目 Dock。
+    StaffRequest {
+        text: String,
+    },
     /// 岛上的“汇报”按钮：宿主已捕获有界的跨工作空间概览（数据，不是指令），要求大脑总结后以 reply 回传。
     ReportRequested {
         overview: String,

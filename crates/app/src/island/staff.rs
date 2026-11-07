@@ -42,12 +42,16 @@ pub(crate) fn state(cx: &mut App) -> Entity<StaffState> {
 
 impl StaffState {
     pub fn begin_report(&mut self) -> bool {
-        self.chat.request_report()
+        self.chat.request_report(now_ms())
+    }
+
+    pub fn report_pending(&self) -> bool {
+        self.chat.report_pending(now_ms())
     }
 
     /// Records a brain reply; an explicit report also starts per-sentence captions.
     pub fn deliver_reply(&mut self, text: &str) -> Option<StaffReply> {
-        let reply = self.chat.push_reply(text)?;
+        let reply = self.chat.push_reply(text, now_ms())?;
         if reply.speak {
             self.last_report = Some(Instant::now());
         }
@@ -121,20 +125,24 @@ pub(super) fn availability(cx: &App) -> Result<(), &'static str> {
 }
 
 /// A user message to the global staff; the reply arrives later through `report --kind reply`.
-pub(crate) fn send_message(text: &str, cx: &mut App) {
+/// `true` when the brain accepted the message; otherwise the reason is shown and the caller keeps
+/// the user's text.
+pub(crate) fn send_message(text: &str, cx: &mut App) -> bool {
     let text = text.trim();
     if text.is_empty() {
-        return;
+        return false;
     }
     let result = anchor_push(
-        brain::BrainEventKind::UserRequest {
+        brain::BrainEventKind::StaffRequest {
             text: text.to_owned(),
         },
         cx,
     );
+    let accepted = result.is_ok();
     record(result, cx, |staff| {
         staff.chat.push_user(text);
     });
+    accepted
 }
 
 /// The report button: a bounded cross-workspace overview is captured now (cached model data, no
@@ -176,7 +184,7 @@ pub(super) fn refresh_activity(cx: &mut App) {
         return;
     }
     let work = cx.background_executor().spawn(async {
-        let (paths, _) = crate::database::default_database_context().map_err(|e| e.to_string())?;
+        let paths = crate::database::default_database_paths().map_err(|e| e.to_string())?;
         crate::app::recent_activity_lines(paths.app_db_path().to_path_buf(), ACTIVITY_ROWS)
             .map_err(|e| e.to_string())
     });
@@ -195,6 +203,12 @@ pub(super) fn refresh_activity(cx: &mut App) {
         });
     })
     .detach();
+}
+
+fn now_ms() -> u64 {
+    use std::sync::OnceLock;
+    static EPOCH: OnceLock<Instant> = OnceLock::new();
+    EPOCH.get_or_init(Instant::now).elapsed().as_millis() as u64
 }
 
 fn clip(text: &str) -> String {

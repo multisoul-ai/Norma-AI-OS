@@ -4,10 +4,11 @@ import E2EKit
 public enum IslandModule {
     public static let manifest = DesktopModule(
         name: "island",
-        scenarioNames: [IslandWindow.name, IslandApprovals.name, IslandApprovals.rememberedName, IslandApprovals.fallbackName, IslandQuestions.name, IslandArtifacts.name, IslandNavigation.name, IslandMigration.name, IslandSettings.name, IslandStaff.name, IslandStaff.realName],
-        visualScenarioNames: [IslandWindow.name, IslandApprovals.name, IslandApprovals.rememberedName, IslandApprovals.fallbackName, IslandQuestions.name, IslandArtifacts.name, IslandNavigation.name, IslandMigration.name, IslandSettings.name, IslandStaff.name, IslandStaff.realName],
+        scenarioNames: [IslandWindow.name, IslandApprovals.name, IslandApprovals.rememberedName, IslandApprovals.fallbackName, IslandQuestions.name, IslandArtifacts.name, IslandNavigation.name, IslandMigration.name, IslandSettings.name, IslandStaff.name, IslandStaff.realName, IslandHotkey.name],
+        visualScenarioNames: [IslandWindow.name, IslandApprovals.name, IslandApprovals.rememberedName, IslandApprovals.fallbackName, IslandQuestions.name, IslandArtifacts.name, IslandNavigation.name, IslandMigration.name, IslandSettings.name, IslandStaff.name, IslandStaff.realName, IslandHotkey.name],
         run: { scenario, session in
             switch scenario {
+            case IslandHotkey.name: try await IslandHotkey.run(session); return true
             case IslandStaff.name: try await IslandStaff.run(session, real: false); return true
             case IslandStaff.realName: try await IslandStaff.run(session, real: true); return true
             case IslandSettings.name: try await IslandSettings.run(session); return true

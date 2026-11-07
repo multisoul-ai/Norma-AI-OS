@@ -8,7 +8,11 @@ use gpui::{App, Global};
 use ui::i18n::LocalizedText;
 
 #[derive(Default)]
-struct Registered(Option<(Chord, carbon::Registration)>);
+struct Registered {
+    chord: Option<(Chord, carbon::Registration)>,
+    /// The press listener exists; without it a registered chord would swallow the keys for nothing.
+    handler: bool,
+}
 impl Global for Registered {}
 
 /// Installs the press listener, then registers the persisted shortcut from a background load.
@@ -21,6 +25,7 @@ pub(crate) fn install(cx: &mut App) {
             return;
         }
     };
+    cx.default_global::<Registered>().handler = true;
     cx.spawn(async move |cx| {
         while presses.recv().await.is_ok() {
             if cx.update(super::windows::toggle).is_err() {
@@ -50,29 +55,34 @@ pub(crate) fn install(cx: &mut App) {
 pub(crate) fn sync(source: Option<&str>, cx: &mut App) -> Result<(), LocalizedText> {
     let wanted = source.map(Chord::parse).transpose();
     let global = cx.default_global::<Registered>();
+    if !global.handler {
+        return Err(LocalizedText::new("island.hotkey_unavailable")
+            .with_arg("shortcut", crate::shortcuts::keystroke_label(source))
+            .with_arg("code", "handler".to_string()));
+    }
     let wanted = match wanted {
         Ok(wanted) => wanted,
         Err(_) => {
-            global.0 = None;
+            global.chord = None;
             return Err(LocalizedText::new(
                 "shortcuts.global_shortcut_needs_modifier",
             ));
         }
     };
-    if global.0.as_ref().map(|(chord, _)| *chord) == wanted {
+    if global.chord.as_ref().map(|(chord, _)| *chord) == wanted {
         return Ok(());
     }
     // Carbon rejects a duplicate chord, so release the old one before registering the new one.
-    let previous = global.0.take();
+    let previous = global.chord.take();
     let Some(chord) = wanted else { return Ok(()) };
     match carbon::Registration::new(chord) {
         Ok(registration) => {
-            global.0 = Some((chord, registration));
+            global.chord = Some((chord, registration));
             Ok(())
         }
         Err(code) => {
             if let Some((old, _)) = previous {
-                global.0 = carbon::Registration::new(old).ok().map(|r| (old, r));
+                global.chord = carbon::Registration::new(old).ok().map(|r| (old, r));
             }
             Err(LocalizedText::new("island.hotkey_unavailable")
                 .with_arg("shortcut", crate::shortcuts::keystroke_label(source))

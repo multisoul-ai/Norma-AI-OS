@@ -278,3 +278,16 @@ PR #187 head `13d946f5f1328daacdb282ad13ee3af9707d2df6`，CI run `42156643417` �
   - 真实 TTS 播放：测试环境语音不可用，只验证了“语音不可用”降级路径；逐句字幕仅有单测（`caption_index`），因没有语音入队而未在真实 App 里出现。字幕时长为字数估算（TTS 供应商不提供句边界）。
   - 全局对话借用一个带身份的项目会话作为锚点（身份是该会话的精确 workspace/route，不是前台项目）；无任何工作空间时显示启用引导。
   - 旧 brain E2E：已删除提议类场景（UI 随左抽屉移除），夹具改为带身份；`BrainApprovals/Autonomy/Questions` 等仍用 ⌘⇧E 打开已删除的概览，须改为经岛验收，**尚未迁移、不得视为通过**。
+
+### 对抗式审查（独立 subagent）与处理（2026-11-07）
+
+审查范围 `f1fabfe9..HEAD`，只读。发现与处理：
+1. **中**：汇报请求无超时、且 pending 标记会被无关回复抢走 → 已修：`StaffChat` 请求带 120s TTL（`an_unanswered_report_request_expires`），到期后按钮恢复；仍存在“汇报等待期间恰好插入一条普通 reply 会抢走朗读标记”的窄窗口（无相关 ID），**已知限制**。
+2. **中**：项目 Dock 的回复串进全局岛对话 → 已修：新增 `BrainEventKind::StaffRequest`，只有岛内请求提示 `--kind reply`；Dock 请求提示不变（`only_staff_requests_ask_for_reply_kind_reports`）。
+3. 低：单项“恢复默认”未同步 Carbon 热键 → 已修（并去掉重复调用）。
+4. 低：热键处理器未装上时仍会注册系统热键 → 已修（`handler` 标志）；启动时注册失败仍只有日志，设置页保存后会显示本地化错误。
+5. 低：系统通知授权被拒时无反馈（授权回调为空）→ **未修，已知缺口**；隐藏岛 + 授权被拒时用户收不到通知。
+6. 低：发送失败时输入被清空 → 已修（成功才清空）。
+7. 低：活动记录每 3 秒初始化数据库 → 已修（只取路径，不再 `AppStore::initialize`）。
+- 审查提到 `opencode_foreground` 测试失败：本机并行时偶发（`question_transport_closed`），单独与整体重跑均通过，与本分支改动无关。
+- 系统级热键 E2E `island-hotkey` 已写好（System Events 发 ⌃⌥⌘Space、前台为他 App），**本机 `AXIsProcessTrusted=false`，osascript 被拒绝发送按键 → ENV，未取得证据**；授权辅助功能后可运行 `scripts/desktop-e2e.sh island-hotkey --visual`。

@@ -56,7 +56,6 @@ fn restore_all_row(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
                 app.shortcuts.restore_all_defaults();
                 app.sync_desktop_shortcuts(cx);
                 app.sync_island_hotkey(cx);
-                app.sync_island_hotkey(cx);
                 cx.notify();
             }))
             .child(ui::i18n::text("settings.restore_defaults")),
@@ -229,6 +228,7 @@ fn restore_button(
         .on_click(cx.listener(move |app, _, _window, cx| {
             app.shortcuts.restore_default(command);
             app.sync_desktop_shortcuts(cx);
+            app.sync_island_hotkey(cx);
             cx.notify();
         }))
         .child(ui::i18n::text("common.restore"))
