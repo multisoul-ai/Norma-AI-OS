@@ -8,6 +8,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+# pre-commit 会把 GIT_INDEX_FILE 指到正在提交的 index。
+# 本进程先丢掉 GIT_*，避免临时仓库的 git add 改写它。
+for _name in [name for name in os.environ if name.startswith("GIT_")]:
+    del os.environ[_name]
+
 SPEC = importlib.util.spec_from_file_location(
     "resource_lifecycle", Path(__file__).with_name("check-resource-lifecycle.py")
 )
