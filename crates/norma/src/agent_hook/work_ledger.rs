@@ -69,7 +69,7 @@ impl CompletionJudge {
         }
         match event.provider_event.as_str() {
             "SessionEnd" => self.on_session_end(event),
-            "StopFailure" => {
+            "StopFailure" | "StopCancelled" => {
                 self.nodes.remove(&event.node_id);
                 vec![CompletionAction::Forward(event.clone())]
             }
@@ -402,7 +402,12 @@ fn is_grok_main_turn_event(event: &AgentHookEvent) -> bool {
     let raw = &event.raw_json;
     let lifecycle = matches!(
         event.provider_event.as_str(),
-        "SessionStart" | "SessionEnd" | "UserPromptSubmit" | "Stop" | "StopFailure"
+        "SessionStart"
+            | "SessionEnd"
+            | "UserPromptSubmit"
+            | "Stop"
+            | "StopFailure"
+            | "StopCancelled"
     );
     let in_subagent = raw
         .get("subagentType")

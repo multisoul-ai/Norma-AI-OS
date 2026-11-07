@@ -96,6 +96,8 @@ pub fn task_state_for_provider_event(event: &AgentHookEvent) -> Option<AgentHook
             }
         }
         "Stop" => Some(AgentHookTaskState::Done),
+        // Grok 回合未完成（Ctrl+C、拒绝权限、max_turns 等）时发它，代替 Stop。
+        "StopCancelled" if event.profile == AgentProfile::Grok => Some(AgentHookTaskState::Ended),
         "SessionEnd" => Some(AgentHookTaskState::Ended),
         "SubagentStart" => Some(AgentHookTaskState::RunningTool {
             tool_name: Some("subagent".to_string()),
@@ -148,6 +150,7 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
             "Notification",
             "Stop",
             "StopFailure",
+            "StopCancelled",
             "SessionEnd",
             "SubagentStart",
             "SubagentStop",

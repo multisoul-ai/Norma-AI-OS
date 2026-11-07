@@ -168,3 +168,30 @@ fn grok_session_close_stop_is_not_completion() {
     assert!(actions.is_empty(), "关闭 Stop 不得完成，实际 {actions:?}");
     assert!(confirm_flags(&judge.poll(10_000)).is_empty());
 }
+
+/// Grok 回合被中断时发 StopCancelled 而不是 Stop，卡片必须离开运行态并清掉账本。
+///
+/// 数据构造：先一个含 running 任务的 Stop（保持 Thinking），再 StopCancelled(user_interrupt)。
+///
+/// 执行过程：逐个 observe 后 poll 到窗口之后。
+///
+/// 预期结果：
+///   - 正断言：StopCancelled 被 Forward，映射为 Ended；节点不再被账本跟踪。
+///   - 负断言：之后没有迟到的 Confirm。
+#[test]
+fn grok_stop_cancelled_ends_turn_and_clears_ledger() {
+    let mut judge = judge();
+    judge.observe(&grok_stop(json!([{"id": "t1", "status": "running"}])), 0);
+    let cancelled = grok(json!({"hook_event_name": "StopCancelled", "reason": "user_interrupt"}));
+    assert_eq!(
+        norma::agent_hook::task_state_for_provider_event(&cancelled),
+        Some(norma::agent_hook::AgentHookTaskState::Ended)
+    );
+    let actions = judge.observe(&cancelled, 100);
+    assert!(
+        matches!(actions.as_slice(), [CompletionAction::Forward(event)] if event.provider_event == "StopCancelled"),
+        "实际 {actions:?}"
+    );
+    assert!(judge.tracked_nodes().is_empty());
+    assert!(confirm_flags(&judge.poll(10_000)).is_empty());
+}
