@@ -15,7 +15,9 @@ const CAPTION_TICK: std::time::Duration = std::time::Duration::from_millis(250);
 impl IslandView {
     pub(super) fn staff_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         if let Err(reason) = staff::availability(cx) {
-            return self.staff_guide(Some(reason), cx).into_any_element();
+            // Without any workspace the brain's state is unknown: the generic enable guide fits.
+            let reason = (reason != "island.staff_no_workspace").then_some(reason);
+            return self.staff_guide(reason, cx).into_any_element();
         }
         let input = self.staff_input(window, cx);
         let state = staff::state(cx);

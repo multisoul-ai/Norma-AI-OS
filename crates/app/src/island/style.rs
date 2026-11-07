@@ -1,5 +1,7 @@
 //! Visual values and hierarchy from the approved browser prototype, in logical points.
-use gpui::{div, prelude::*, px, rgb, rgba, Div, FontWeight, SharedString};
+use gpui::{
+    div, prelude::*, px, rgb, rgba, AnyView, App, Context, Div, FontWeight, SharedString, Window,
+};
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
     Sizable,
@@ -190,4 +192,28 @@ pub(super) fn empty(title: &'static str, detail: &'static str) -> Div {
                 .text_color(rgb(MUTED))
                 .child(ui::i18n::text(detail)),
         )
+}
+
+/// Tooltip with fixed point sizes: the library tooltip scales with the window's rem size and
+/// grew large enough to cover the neighbouring tab inside the island.
+struct Tip(SharedString);
+
+impl Render for Tip {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .px(px(8.))
+            .py(px(4.))
+            .rounded(px(6.))
+            .bg(rgb(0x1d1d1d))
+            .border_1()
+            .border_color(rgb(0x303030))
+            .text_size(px(11.))
+            .text_color(rgb(FG))
+            .child(self.0.clone())
+    }
+}
+
+pub(super) fn tip(label: impl Into<SharedString>) -> impl Fn(&mut Window, &mut App) -> AnyView {
+    let label = label.into();
+    move |_, cx| cx.new(|_| Tip(label.clone())).into()
 }
