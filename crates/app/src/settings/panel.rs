@@ -82,21 +82,6 @@ impl SettingsPanelLayout {
         }
     }
 
-    /// Voice settings uses one frame for every conversation mode.
-    /// The wider frame leaves room for the command preview column. Switching
-    /// among voice commands, Doubao, and GPT-Live must not resize the panel.
-    fn for_section(mut self, width: f32, height: f32, section: SettingsSection) -> Self {
-        if section == SettingsSection::NormaVoice && width >= 1100.0 {
-            self.width = (width * 0.94).min(1280.0).min(width - 64.0);
-            self.height = (height * 0.9).min(900.0).min(height - 64.0);
-            // Preserve room for the existing product/version footer.
-            self.sidebar_width = 256.0;
-            self.left = (width - self.width) * 0.5;
-            self.top = (height - self.height) * 0.5;
-        }
-        self
-    }
-
     fn content_width(self) -> f32 {
         match self.navigation_mode {
             SettingsNavigationMode::TopBar => self.width,
@@ -236,11 +221,7 @@ impl MultisoulApp {
         let win = window.viewport_size();
         let win_w = f32::from(win.width);
         let win_h = f32::from(win.height);
-        let layout = SettingsPanelLayout::for_viewport(win_w, win_h).for_section(
-            win_w,
-            win_h,
-            self.settings_panel.active_section,
-        );
+        let layout = SettingsPanelLayout::for_viewport(win_w, win_h);
         if self.settings_panel.active_section == SettingsSection::NormaVoice
             && self.voice_settings.values().desktop_mode()
                 == crate::settings::voice::DesktopVoiceMode::Legacy

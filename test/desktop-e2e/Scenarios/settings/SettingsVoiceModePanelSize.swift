@@ -2,7 +2,7 @@ import CoreGraphics
 import E2EKit
 import Foundation
 
-/// 虚拟屏高 900，窗口内容区最高 870。1440×870 上语音页外框为 1280×783。
+/// 虚拟屏高 900，窗口内容区最高 870。1440×870 上设置面板外框为 1008×609，与其他设置页相同。
 /// 旧逻辑只放大「语音指令」，豆包与 GPT-Live 会缩回 1008×609。
 /// 侧栏「语音」在隔离屏上经常被 Vision 漏掉，所以定位走模型看图。
 @MainActor
@@ -44,14 +44,14 @@ public enum SettingsVoiceModePanelSize {
             boxes.live = try measure(page, name: "03-live-panel.png", session: session)
             return "GPT-Live \(boxes.live!)"
         }
-        try await session.step("三种对话模式的面板外框一致且为加宽尺寸") {
+        try await session.step("三种对话模式的面板外框一致且与其他设置页同为七成尺寸") {
             guard let legacy = boxes.legacy, let doubao = boxes.doubao, let live = boxes.live else {
                 throw E2EError.product("三种模式没有全部量到外框")
             }
             for box in [legacy, doubao, live] {
-                // 1440×870 的加宽框是 1280×783。未加宽的七成框是 1008×609，会被宽高下限拒绝。
-                guard box.width >= 1180, box.width <= 1360, box.height >= 740, box.height <= 880 else {
-                    throw E2EError.product("面板应接近 1280×783，实测 \(box)。语音指令 \(legacy)，豆包 \(doubao)，GPT-Live \(live)")
+                // 1440×870 的七成框是 1008×609。旧的语音页加宽框 1280×783 会被宽高上限拒绝。
+                guard box.width >= 960, box.width <= 1060, box.height >= 570, box.height <= 650 else {
+                    throw E2EError.product("面板应接近 1008×609，实测 \(box)。语音指令 \(legacy)，豆包 \(doubao)，GPT-Live \(live)")
                 }
             }
             guard abs(legacy.width - doubao.width) <= 8, abs(legacy.height - doubao.height) <= 8,
