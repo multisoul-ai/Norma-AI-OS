@@ -375,7 +375,8 @@ fn response_work_id(raw: &Value) -> Option<String> {
 }
 
 fn background_task_ids(raw: &Value) -> Option<HashSet<String>> {
-    // Grok 只发 camelCase 的 `backgroundTasks`。
+    // Grok 只发 camelCase 的 `backgroundTasks`。已结束的条目仍留在列表里，
+    // 不计为开放工作，否则回合结束后卡片会一直停在运行中。
     let tasks = raw
         .get("background_tasks")
         .or_else(|| raw.get("backgroundTasks"))?
@@ -383,9 +384,16 @@ fn background_task_ids(raw: &Value) -> Option<HashSet<String>> {
     Some(
         tasks
             .iter()
+            .filter(|task| background_task_still_open(task))
             .filter_map(|task| string_at(task, "id"))
             .collect(),
     )
+}
+
+fn background_task_still_open(task: &Value) -> bool {
+    !string_at(task, "status").is_some_and(|status| {
+        matches!(status.to_ascii_lowercase().as_str(), "completed" | "failed")
+    })
 }
 
 /// Grok 子会话的生命周期事件属于子 Agent，不是这张卡片的回合；

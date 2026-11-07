@@ -72,6 +72,52 @@ fn grok_stop_with_background_tasks_keeps_thinking() {
     );
 }
 
+/// Grok 回合结束时 backgroundTasks 仍列出已结束任务：卡片不能停在运行中。
+///
+/// 数据构造：node=318。Henry 会话 01a1b583 在 2026-11-07T10:38:25Z 的 Stop
+/// 之前，快照里只剩 status=completed / failed 的任务（69a53873、b1e88d6f、f6516e37），
+/// 没有 running。对照快照再加一条 status=running。
+///
+/// 执行过程：已结束快照 observe 后 poll 到 800ms；另一判定器观察混合快照后同样 poll。
+///
+/// 预期结果：
+///   - 正断言：只有 completed/failed 时，800ms 窗口后 Confirm，且 background_unsettled=false。
+///   - 负断言：窗口差 1ms 不确认；混有 running 时到窗口结束仍不是 Confirm。
+#[test]
+fn grok_stop_with_only_settled_background_tasks_confirms() {
+    let mut judge = judge();
+    let settled = judge.observe(
+        &grok_stop(json!([
+            {"id": "69a53873-0ff8-4b75-be10-96171cf23726", "type": "shell", "status": "completed"},
+            {"id": "b1e88d6f-a6dd-445e-8abe-f0722798616b", "type": "shell", "status": "failed"},
+            {"id": "f6516e37-0bf1-4dc3-b652-08ec5a3fcbec", "type": "shell", "status": "failed"}
+        ])),
+        1_000,
+    );
+    assert!(
+        matches!(settled.as_slice(), [CompletionAction::KeepThinking { .. }]),
+        "已结束任务的 Stop 先进入确认窗口，实际 {settled:?}"
+    );
+    assert_eq!(
+        quiet_until_confirm(&mut judge, 1_000),
+        vec![false],
+        "没有仍在跑的后台任务时，800ms 后卡片必须完成且不是未结清"
+    );
+
+    let mut mixed = CompletionJudge::new();
+    mixed.observe(
+        &grok_stop(json!([
+            {"id": "done-1", "status": "completed"},
+            {"id": "live-1", "status": "running"}
+        ])),
+        1_000,
+    );
+    assert!(
+        confirm_flags(&mixed.poll(1_000 + CONFIRMATION_WINDOW_MS)).is_empty(),
+        "还有 running 任务时不得因为旁边的 completed 提前完成"
+    );
+}
+
 /// Grok 子会话的 SessionEnd / UserPromptSubmit / Stop 不属于父卡片，必须丢弃。
 ///
 /// 数据构造：三个事件都带 subagentType="explore"；PreToolUse 也带 subagentType。
