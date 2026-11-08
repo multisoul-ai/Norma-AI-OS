@@ -8,6 +8,7 @@ pub(super) struct IslandController {
     pub model: Entity<IslandModel>,
     pub message: Option<ui::i18n::LocalizedText>,
     pub completion_label: Option<String>,
+    pub completion_route: Option<super::CompletionRoute>,
     pub pending: std::collections::BTreeSet<String>,
     pub checked_grants: std::collections::BTreeSet<String>,
     pub navigation: u64,
@@ -36,6 +37,7 @@ impl IslandController {
         let completion_subscription =
             cx.subscribe(&model, |this, _, notice: &super::CompletionNotice, cx| {
                 this.completion_label = Some(notice.label.clone());
+                this.completion_route = notice.route.clone();
                 this.notify_completed(&notice.label, cx);
                 this.event(
                     this.displays.active_display().unwrap_or_default(),
@@ -59,6 +61,7 @@ impl IslandController {
             model,
             message: None,
             completion_label: None,
+            completion_route: None,
             pending: Default::default(),
             checked_grants: Default::default(),
             navigation: 0,

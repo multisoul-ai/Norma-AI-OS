@@ -253,3 +253,51 @@ fn the_queue_advances_into_a_review_before_the_later_alert() {
     assert_eq!(gone.focused_review, None, "空队列没有下一张");
     assert!(!gone.hold_review, "空队列松开按住");
 }
+
+/// 场景：两个项目各有一张节点号同为 42 的卡片，只有其中一个刚完成。
+/// 数据：同一宿主来源 7。area-a 的 Ada 仍在运行，area-b 的 Bea 也在运行。完成身份是 7:area-b:42。
+/// 执行：收集脸，再用完成身份匹配。
+/// 预期：命中 Bea；只用来源和节点号的 7:42 匹配不到任何人，也不能落到 Ada。
+#[test]
+fn completion_face_keeps_the_project_when_node_ids_collide() {
+    let project = |area: &str, name: &str| {
+        let mut person = agent(name, 42, RunOverviewPresence::Running, "thinking");
+        person.area_id = area.into();
+        super::super::IslandProject {
+            source: 7,
+            area_id: area.into(),
+            name: area.into(),
+            root: format!("/{area}").into(),
+            loaded: true,
+            overview: RunOverview {
+                attention: vec![],
+                running: vec![person],
+                idle: vec![],
+                unloaded_projects: vec![],
+            },
+            cached_overview: RunOverview {
+                attention: vec![],
+                running: vec![],
+                idle: vec![],
+                unloaded_projects: vec![],
+            },
+            approvals: vec![],
+            questions: vec![],
+        }
+    };
+    let space = IslandWorkspace {
+        database: "db".into(),
+        id: "ws".into(),
+        name: "Norma".into(),
+        projects: vec![project("area-a", "Ada"), project("area-b", "Bea")],
+    };
+    let faces = collect(std::slice::from_ref(&space));
+    let matched =
+        matching_completion_face(&faces, &agent_id(7, "area-b", 42)).expect("完成身份必须命中 Bea");
+    assert_eq!(matched.name, "Bea", "同号节点必须留在自己的项目");
+    assert_eq!(matched.area_id, "area-b", "命中的项目是 area-b");
+    assert!(
+        matching_completion_face(&faces, "7:42").is_none(),
+        "丢掉项目后不能绑到 Ada"
+    );
+}

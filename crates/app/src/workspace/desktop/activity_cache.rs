@@ -199,6 +199,30 @@ impl MultisoulApp {
         self.mark_workspace_activity_dirty(cx);
     }
 
+    /// The island source is the desktop host. A background session must not
+    /// publish its own entity id, or locate cannot find the card.
+    pub(crate) fn island_completion_route(
+        &self,
+        node: u64,
+        cx: &Context<Self>,
+    ) -> Option<crate::island::CompletionRoute> {
+        let host = self.desktop_host.as_ref().and_then(|host| host.upgrade())?;
+        let self_id = cx.entity().entity_id();
+        let (workspace, area) = host
+            .read(cx)
+            .desktop_workspace
+            .sessions
+            .iter()
+            .find(|(_, session)| session.entity_id() == self_id)
+            .map(|(key, _)| key.clone())?;
+        Some(crate::island::CompletionRoute {
+            source: host.entity_id().as_u64(),
+            workspace,
+            area,
+            node,
+        })
+    }
+
     pub(crate) fn note_workspace_activity_from_frame(
         &mut self,
         hook_changed: bool,
@@ -222,7 +246,7 @@ impl MultisoulApp {
                     }
                 })
                 .unwrap_or_default();
-            crate::island::task_completed(cx.entity().entity_id().as_u64(), node, label, cx);
+            crate::island::task_completed(self.island_completion_route(node, cx), label, cx);
         }
         if hook_changed || events.iter().any(workspace_activity_event) {
             self.note_workspace_activity_changed(cx);
