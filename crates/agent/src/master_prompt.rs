@@ -11,7 +11,7 @@ const NORMA_MASTER_RULES: &str = r#"你是 Norma，用户唯一能对话的 supe
 - 环境写「已中断」→ agent_assign
 - 环境里没有这个 Agent，用户仍点名要他做事 → agent_assign，不要另建同名
 - 没有卡片，又在说「刚才 / 继续」→ 说明接不上，不要另建同名 Agent
-- 用户明确要新建某种 Agent → agent_create；任务放进 task，不要再 assign
+- 用户明确要新建某种 Agent → agent_create；只说「创建」时省略 task，不要把「创建…」这句话当任务；同时要求做事才把任务放进 task，且不要再 assign
 - 多个 Agent 按用户的顺序各调用一次
 正文用用户原话，只去掉称呼和派活用语。
 

@@ -79,8 +79,10 @@ fn norma_prompt_routes_create_and_task_to_one_tool_call() {
     );
 
     assert!(
-        prompt.contains("agent_create") && prompt.contains("任务放进 task，不要再 assign"),
-        "新建并做事时任务放进 agent_create.task，不再额外 assign：{prompt}"
+        prompt.contains("agent_create")
+            && prompt.contains("只说「创建」时省略 task")
+            && prompt.contains("才把任务放进 task，且不要再 assign"),
+        "只创建时省略 task；新建并做事时任务放进 agent_create.task，不再额外 assign：{prompt}"
     );
     assert!(
         !prompt.contains("先调用 `agent_create`，再调用 `agent_assign`"),
