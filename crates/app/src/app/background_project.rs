@@ -143,6 +143,7 @@ impl MultisoulApp {
     ) -> Self {
         let mut runtime =
             runtime::Runtime::new_for_workspace(prepared.identity.canonical_root.clone());
+        runtime.set_native_first_questions(true);
         if let Some(document) = prepared.document {
             runtime.restore_canvas_snapshot(document);
         }

@@ -20,6 +20,8 @@ mod opencode_host;
 #[derive(Default)]
 pub(super) struct Questions {
     fallback: fallback::FallbackQuestions,
+    /// Hand a Claude question to the agent card's own terminal instead of holding the Hook.
+    pub(super) native_first: bool,
     native_hosts: HashMap<NodeId, codex_host::OwnedHost>,
     opencode_hosts: HashMap<NodeId, opencode_host::OwnedHost>,
     cursor_hosts: HashMap<NodeId, cursor_host::OwnedHost>,
@@ -141,6 +143,12 @@ fn same_request(a: &QuestionRef, b: &QuestionRef) -> bool {
 }
 
 impl Runtime {
+    /// Let the agent card show a Claude question in its own terminal instead of holding the Hook
+    /// for the island. The App turns this on for real projects; protocol tests keep the Hook.
+    pub fn set_native_first_questions(&mut self, on: bool) {
+        self.questions.native_first = on;
+    }
+
     fn validate_question_run(&self, target: &QuestionRef) -> Result<(), &'static str> {
         target.validate()?;
         let Some(CanvasNodeKind::Agent(spec)) = self.document.node(target.node_id).map(|n| &n.kind)

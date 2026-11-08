@@ -57,6 +57,11 @@ impl Runtime {
             hook.cancel();
         } else {
             self.reconcile_early_native_results(&hook);
+            // The agent's own card owns a Claude question by default: release the held Hook at
+            // once so the native prompt shows in the terminal. The island only points at it.
+            if let (true, Ok(target)) = (self.questions.native_first, &result) {
+                let _ = self.release_question_to_native(target);
+            }
         }
         result
     }
