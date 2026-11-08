@@ -96,6 +96,28 @@ pub(super) fn avatar(
     face: AvatarFace,
     animate: bool,
 ) -> Div {
+    avatar_with_ping(name, provider, size, face, animate, false)
+}
+
+/// A waiting avatar that also sends out the prototype's expanding attention ring.
+pub(super) fn avatar_pinging(
+    name: &str,
+    provider: &str,
+    size: f32,
+    face: AvatarFace,
+    animate: bool,
+) -> Div {
+    avatar_with_ping(name, provider, size, face, animate, true)
+}
+
+fn avatar_with_ping(
+    name: &str,
+    provider: &str,
+    size: f32,
+    face: AvatarFace,
+    animate: bool,
+    ping: bool,
+) -> Div {
     let color = match provider.to_ascii_lowercase().as_str() {
         "claude" => 0xe08a66,
         "codex" => 0x6cc4b4,
@@ -107,7 +129,7 @@ pub(super) fn avatar(
             .fold(0usize, |sum, b| sum.wrapping_add(b as usize))
             % 5],
     };
-    super::bloub_view::bloub(name, color, size, face.mood, face.opacity, animate)
+    super::bloub_view::bloub(name, color, size, face.mood, face.opacity, animate, ping)
 }
 
 pub(super) fn chip(label: impl Into<SharedString>, color: u32) -> Div {

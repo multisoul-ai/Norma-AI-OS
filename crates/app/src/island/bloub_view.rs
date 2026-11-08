@@ -2,8 +2,8 @@
 //! mood animates; a window schedules one coalesced redraw per tick instead of one per avatar, at
 //! 30 fps for busy moods and 15 fps for the rest, never at the display rate.
 use gpui::{
-    canvas, point, prelude::*, px, rgba, App, Bounds, Div, PathBuilder, Pixels, Point, Window,
-    WindowId,
+    canvas, point, prelude::*, px, quad, rgba, size, App, Bounds, Corners, Div, Edges, PathBuilder,
+    Pixels, Point, Window, WindowId,
 };
 use runtime::island::bloub::{profile, sample, Frame, Mood, Pt, EYE_POINTS};
 use std::collections::HashMap;
@@ -64,6 +64,7 @@ pub(super) fn bloub(
     mood: Mood,
     opacity: f32,
     animate: bool,
+    ping: bool,
 ) -> Div {
     let profile = profile(seed);
     let still = -profile.phase;
@@ -79,6 +80,9 @@ pub(super) fn bloub(
                 move |bounds, _, window, cx| {
                     let time = if animate { clock() } else { still };
                     paint(&sample(&profile, mood, time), bounds, color, window);
+                    if ping && animate {
+                        paint_ping(bounds, window);
+                    }
                     if animate {
                         schedule_redraw(window, cx, tick);
                     }
@@ -190,4 +194,27 @@ fn paint_smile(
     if let Ok(path) = arc.build() {
         window.paint_path(path, rgba((EYE_COLOR << 8) | alpha));
     }
+}
+
+const PING_PERIOD: f32 = 1.4;
+const PING_GROW: f32 = 10.;
+
+/// Prototype `.ping::after`: a ring that grows from the avatar's edge and fades out. Painted on
+/// the avatar's own coalesced redraw tick so it never forces a second, per-frame re-render.
+fn paint_ping(bounds: Bounds<Pixels>, window: &mut Window) {
+    let t = (clock() / PING_PERIOD).fract();
+    let grow = px(PING_GROW * t);
+    let ring = Bounds::new(
+        bounds.origin - point(grow / 2., grow / 2.),
+        size(bounds.size.width + grow, bounds.size.height + grow),
+    );
+    let alpha = (0.9 * (1. - t) * 255.) as u32;
+    window.paint_quad(quad(
+        ring,
+        Corners::all(ring.size.width / 2.),
+        rgba(0),
+        Edges::all(px(1.)),
+        rgba((super::style::ATTENTION << 8) | alpha),
+        gpui::BorderStyle::Solid,
+    ));
 }

@@ -2,12 +2,11 @@
 
 use super::{
     faces::Face,
-    style::{self, avatar},
+    style::{self, avatar, avatar_pinging},
     view::IslandView,
 };
-use gpui::{div, prelude::*, px, rgb, rgba, Animation, AnimationExt, Context, Div};
+use gpui::{div, prelude::*, px, rgb, rgba, Context, Div};
 use runtime::island::roster::{avatar_face, compact_roster, AgentActivity};
-use std::time::Duration;
 use ui::i18n::text;
 
 const AVATAR: f32 = 20.;
@@ -103,13 +102,17 @@ impl IslandView {
                 let waiting = avatar_face(AgentActivity::Waiting);
                 stack = stack.child(
                     div()
-                        .relative()
                         .rounded(px(11.))
                         .border_1()
                         .border_color(rgb(style::ATTENTION))
                         .when(index > 0, |slot| slot.ml(px(-2.)))
-                        .child(avatar(&face.name, &face.provider, AVATAR, waiting, animate))
-                        .when(animate, |slot| slot.child(ping_ring(index))),
+                        .child(avatar_pinging(
+                            &face.name,
+                            &face.provider,
+                            AVATAR,
+                            waiting,
+                            animate,
+                        )),
                 );
             }
             right = right.child(stack).child(
@@ -132,26 +135,4 @@ impl IslandView {
         }
         (left, right)
     }
-}
-
-/// Prototype `.ping::after`: a ring that grows from the avatar's edge and fades out, forever.
-fn ping_ring(index: usize) -> impl IntoElement {
-    const FACE: f32 = AVATAR + 2.;
-    const GROW: f32 = 10.;
-    div()
-        .absolute()
-        .rounded_full()
-        .border_1()
-        .border_color(rgb(style::ATTENTION))
-        .with_animation(
-            ("island-ping", index),
-            Animation::new(Duration::from_millis(1400)).repeat(),
-            |ring, t| {
-                let size = FACE + GROW * t;
-                ring.size(px(size))
-                    .left(px(-(GROW * t) / 2. - 1.))
-                    .top(px(-(GROW * t) / 2. - 1.))
-                    .opacity(0.9 * (1. - t))
-            },
-        )
 }
