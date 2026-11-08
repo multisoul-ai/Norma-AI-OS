@@ -142,9 +142,24 @@ fn same_request(a: &QuestionRef, b: &QuestionRef) -> bool {
         && a.request_id == b.request_id
 }
 
+impl Questions {
+    /// Drop every pending question but keep the host's policy; loading a project snapshot used to
+    /// wipe `native_first` and silently put the island back in charge of Claude questions.
+    pub(super) fn reset(&mut self) {
+        *self = Self {
+            native_first: self.native_first,
+            ..Self::default()
+        };
+    }
+}
+
 impl Runtime {
     /// Let the agent card show a Claude question in its own terminal instead of holding the Hook
     /// for the island. The App turns this on for real projects; protocol tests keep the Hook.
+    pub fn native_first_questions(&self) -> bool {
+        self.questions.native_first
+    }
+
     pub fn set_native_first_questions(&mut self, on: bool) {
         self.questions.native_first = on;
     }

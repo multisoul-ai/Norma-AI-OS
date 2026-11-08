@@ -464,3 +464,15 @@ fn native_first_releases_the_hook_as_soon_as_it_is_accepted() {
         "钩子释放后岛不能再代答"
     );
 }
+
+/// 场景：载入项目画布快照会清空问答，但不能顺带关掉“原生优先”策略。
+/// 构造：打开开关后先恢复一份空快照，再接收同一个Claude问答。
+/// 执行：恢复快照后重新走问答接收。
+/// 预期：钩子仍在接收时立即被释放。
+#[test]
+fn restoring_a_snapshot_keeps_the_native_first_policy() {
+    let (mut runtime, _, _) = setup_with(None, true);
+    let snapshot = runtime.collect_canvas_snapshot();
+    runtime.restore_canvas_snapshot(snapshot);
+    assert!(runtime.native_first_questions(), "快照恢复后策略仍开启");
+}

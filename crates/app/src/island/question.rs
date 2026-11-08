@@ -30,6 +30,21 @@ impl IslandView {
             style::ATTENTION,
             runtime::island::bloub::Mood::Waiting,
         ));
+        if !row.available {
+            // The Hook was handed back to the agent's own terminal: nothing can be answered
+            // here, so show the question and one clear way to reach the card.
+            for item in &row.snapshot.question.items {
+                card = card.child(div().text_size(px(13.5)).child(item.prompt.clone()));
+            }
+            return card
+                .child(
+                    div()
+                        .flex()
+                        .justify_end()
+                        .child(self.answer_on_card_button(&route, row, &id, true, cx)),
+                )
+                .into_any_element();
+        }
         let Some(editing) = editing else {
             return card.into_any_element();
         };
@@ -105,28 +120,39 @@ impl IslandView {
                 card = card.child(reply);
             }
         }
-        let native_route = route.clone();
-        let native_target = row.snapshot.question.target.clone();
-        let native = button(
-            format!("{id}-native"),
-            text("island.answer_in_card"),
-            false,
-            cx,
-        )
-        .on_click(cx.listener(move |view, _, _, cx| {
-            view.controller.update(cx, |state, cx| {
-                state.answer_in_card(native_route.clone(), native_target.clone(), cx);
-            });
-        }));
         card = card.child(
             div()
                 .flex()
                 .justify_end()
                 .gap(px(6.))
-                .child(native)
+                .child(self.answer_on_card_button(&route, row, &id, false, cx))
                 .children(submit),
         );
         card.into_any_element()
+    }
+
+    fn answer_on_card_button(
+        &self,
+        route: &IslandTarget,
+        row: &OverviewQuestion,
+        id: &str,
+        primary: bool,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
+        let route = route.clone();
+        let target = row.snapshot.question.target.clone();
+        button(
+            format!("{id}-native"),
+            text("island.answer_in_card"),
+            primary,
+            cx,
+        )
+        .on_click(cx.listener(move |view, _, _, cx| {
+            view.controller.update(cx, |state, cx| {
+                state.answer_in_card(route.clone(), target.clone(), cx);
+            });
+        }))
+        .into_any_element()
     }
 
     fn question_choice(
