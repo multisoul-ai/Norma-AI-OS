@@ -2,7 +2,7 @@ import E2EKit
 import Fixtures
 import Foundation
 
-/// 真实 App：手动 Ctrl+C 后，豆包模型选择 reply_agent；同一 PTY 必须执行下一条完整指令。
+/// 真实 App：手动 Ctrl+C 后，豆包模型选择 agent_reply；同一 PTY 必须执行下一条完整指令。
 @MainActor
 public enum AgentVoiceResume {
     public nonisolated static let name = "agent-voice-resume"
@@ -120,7 +120,7 @@ public enum AgentVoiceResume {
         let response: [String: Any] = ["choices": [["finish_reason": "tool_calls", "message": [
             "role": "assistant", "content": NSNull(), "tool_calls": [[
                 "id": id, "type": "function", "function": [
-                    "name": "reply_agent", "arguments": String(decoding: arguments, as: UTF8.self),
+                    "name": "agent_reply", "arguments": String(decoding: arguments, as: UTF8.self),
                 ],
             ]],
         ]]]]

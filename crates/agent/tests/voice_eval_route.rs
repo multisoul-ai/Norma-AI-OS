@@ -35,7 +35,7 @@ fn replay(text: &str, roster: &[AgentRosterEntry]) -> Value {
             "t_route_ms":elapsed, "t_parse_ms":elapsed}),
         agent::DirectPlan::Calls(calls) => {
             let targets: Vec<_> = calls.iter().map(|c| c.arguments["agent"].clone()).collect();
-            let action = if calls.iter().all(|c| c.tool == "reply_agent") {
+            let action = if calls.iter().all(|c| c.tool == "agent_reply") {
                 "reply"
             } else {
                 "assign"

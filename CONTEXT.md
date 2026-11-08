@@ -195,11 +195,11 @@ _Avoid_: 30 个 Agent 的硬上限、Agent 类型列表、职责名称、强制�
 _Avoid_: 把 Norma 当成 Agent 卡片目标、要求 Agent 卡片预先激活、要求用户必须说出“指派任务”、模糊自动路由、未知名称自动创建
 
 **Master Agent 路由**：
-Norma 使用每项目唯一的 Rig `NormaSession` 将一轮用户输入处理为普通回复、最小澄清或十个受约束 typed tools 之一。每轮都重新拼接自解释的 `<environment>`；语音和文字共享同一协议历史。直接点名已有 Agent 的可执行请求必须立即调用 `assign_agent_task`，不先确认，也不由 Norma 代做；真正副作用由 App `AgentCardAdapter` 重新校验实时目标后执行。模型文本不能代替工具回执宣称成功。
+Norma 使用每项目唯一的 Rig `NormaSession` 将一轮用户输入处理为普通回复、最小澄清或同一套 `模块_操作` 工具之一。文字会话、豆包、语音指令和 GPT-Live 后台共用工具名和可见性。每轮都重新拼接自解释的 `<environment>`；语音和文字共享同一协议历史。直接点名已有 Agent 的可执行请求必须立即调用 `agent_reply` 或只填呼叫名的 `agent_assign`，不先确认，也不由 Norma 代做；真正副作用由 App `AgentCardAdapter` 重新校验实时目标后执行。模型文本不能代替工具回执宣称成功。
 _Avoid_: Dialogue 路由、第二个 CardTask 模型、批量宽工具、凭模型文本报告执行成功
 
 **Master Agent 工具循环**：
-Master Agent 只有一个 Rig 多轮工具循环，固定暴露 `find_agent_tasks`、`create_agent`、`assign_agent_task`、`cancel_agent_task`、`create_terminal`、`create_browser`、`create_preview`、`focus_card`、`send_terminal_input` 与 `delete_canvas_card`。`create_browser` 可省略 URL 并使用产品默认首页；用户所说的 REVIEW 卡片按现有产品语义映射为文件 Preview 卡片，`create_preview` 只引用目标文件，不读取内容进入模型，也不改写文件；缺少路径时 Norma 只做一次最小澄清。工具并发为 1；多 Agent 创建或派发拆成多次串行调用。副作用由隐藏的 `turn_id + tool_call_id` 做会话级幂等；回执为 `unknown` 时立即停止，不自动重放。工具前的承诺文本不进入最终回复或 TTS。
+Master Agent 只有一个 Rig 多轮工具循环。模型目录是一套：`task_list`、`agent_create`、`agent_assign`、`task_cancel`、`agent_reply`、`reply_cancel`、`terminal_create`、`card_delete`、四个记忆工具、`workspace_memory`、`workspace_snapshot`、`file_open`、`agent_show`、`idea_save`、`idea_list`、`handoff_to_brain`、`context_read`、`context_update`。`agent_assign` 当前项目只填 `agent`，别的项目只填 `workspace_id`、`area_id`、`node_id`，两种地址不能一起填；互斥由解析器保证。模型不能调用 `create_browser`、`create_preview`、`focus_card`、`send_terminal_input`、`assign_idea`。`terminal_create` 只建终端卡片。豆包在已打开项目时发送完整目录；个人会话按是否处于桌面过滤。GPT-Live 的 `session.start` 不带工具，工具注册在委派后的 NormaSession，删除工具去掉根 oneOf。语音指令只接受呼叫名形式的 `agent_reply` / `agent_assign`。工具并发为 1；多 Agent 创建或派发拆成多次串行调用。副作用由隐藏的 `turn_id + tool_call_id` 做会话级幂等；回执为 `unknown` 时立即停止，不自动重放。工具前的承诺文本不进入最终回复或 TTS。
 _Avoid_: CardTask、第二个规划 Agent、`open_agent`、通用批量工具、并行副作用、未知结果自动重试
 
 **Agent 任务润色**：
@@ -207,7 +207,7 @@ _Avoid_: CardTask、第二个规划 Agent、`open_agent`、通用批量工具、
 _Avoid_: 逐字直传中的口语噪音、摘要化删减、自由改写、重型任务模板、臆造验收标准
 
 **多 Agent 委派**：
-在一条指令中可以向多个 Agent 分别派发任务；Norma 为每个目标按模型输出顺序单独调用一次 `assign_agent_task`，外部 Agent 也必须为每个目标单独调用一次 Norma CLI `assign`。每次真实接收立即返回独立 `task_id`，后续目标失败不回滚已经成功的派发，因此结果可能部分成功并必须逐 Agent 说明。不同 Agent 可并行执行，各自内部仍保持 FIFO；“一起”不表示 Agent 间能通信、共享进度或建立主从协作。
+在一条指令中可以向多个 Agent 分别派发任务；Norma 为每个目标按模型输出顺序单独调用一次 `agent_assign`，外部 Agent 也必须为每个目标单独调用一次 Norma CLI `assign`。每次真实接收立即返回独立 `task_id`，后续目标失败不回滚已经成功的派发，因此结果可能部分成功并必须逐 Agent 说明。不同 Agent 可并行执行，各自内部仍保持 FIFO；“一起”不表示 Agent 间能通信、共享进度或建立主从协作。
 _Avoid_: 把任务正文中的名称当成目标、把“一起”宣称为 Agent 间协作、批量派发命令、部分失败时抹掉已成功事实
 
 **Agent 子委派**：
@@ -223,7 +223,7 @@ _Avoid_: 因 Thinking/RunningTool 再建等待完成队列、重复发送已提�
 _Avoid_: 内部处理任务已入队、Agent 任务完成
 
 **Agent 任务回执**：
-描述 AgentCard 已接收、已排队、运行、请求取消或已进入完成、失败、取消、中断终态的真实反馈。无论通过 `assign_agent_task` 还是 Norma CLI 派发，系统都立即返回 `accepted/queued/untracked + task_id`，不等待任务完成；调用方通过独立的查询、等待、结果读取或取消操作跟进。只有 Hook 等运行时终态证据才能产生完成回执。CLI 的终态 `status` 与 `wait` 直接携带绑定到精确 `task_id` 的 Agent 最终回复；`task result` 提供同一结果的单次查询，非终态返回可重试的 `task_result_not_ready`。Provider 未提供可信最终回复时返回 `availability=unavailable`，不得用最近对话猜测；回复沿用对话观察的 1200 字符上限并显式返回 `truncated`，仍不返回终端全文、文件内容或工作产物。`task wait` 默认最多等待 60 秒，任务提前进入终态时立即返回，超时则返回 `wait_timeout` 与当前状态但不取消任务，调用方可以再次等待或通过 `--timeout <seconds>` 调整单次等待时间。后台终态使用确定性模板进入 UI/TTS，不自动唤醒 Norma；模型最终答复必须忠实区分接收与完成。
+描述 AgentCard 已接收、已排队、运行、请求取消或已进入完成、失败、取消、中断终态的真实反馈。无论通过 `agent_assign` 还是 Norma CLI 派发，系统都立即返回 `accepted/queued/untracked + task_id`，不等待任务完成；调用方通过独立的查询、等待、结果读取或取消操作跟进。只有 Hook 等运行时终态证据才能产生完成回执。CLI 的终态 `status` 与 `wait` 直接携带绑定到精确 `task_id` 的 Agent 最终回复；`task result` 提供同一结果的单次查询，非终态返回可重试的 `task_result_not_ready`。Provider 未提供可信最终回复时返回 `availability=unavailable`，不得用最近对话猜测；回复沿用对话观察的 1200 字符上限并显式返回 `truncated`，仍不返回终端全文、文件内容或工作产物。`task wait` 默认最多等待 60 秒，任务提前进入终态时立即返回，超时则返回 `wait_timeout` 与当前状态但不取消任务，调用方可以再次等待或通过 `--timeout <seconds>` 调整单次等待时间。后台终态使用确定性模板进入 UI/TTS，不自动唤醒 Norma；模型最终答复必须忠实区分接收与完成。
 _Avoid_: 以已接收代替已完成、无运行时证据的成功播报、把终态冒充为任务产物、为后台终态额外调用 LLM、把等待超时当作任务取消或失败
 
 **Agent 任务跟踪**：

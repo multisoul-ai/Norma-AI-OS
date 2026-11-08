@@ -66,7 +66,7 @@ async fn cancelled_proposal_context_cannot_install_a_fresh_voice_draft() {
     let first = session
         .submit_voice_proposals(
             vec![VoiceProposal {
-                tool: "assign_agent_task".into(),
+                tool: "agent_assign".into(),
                 arguments: serde_json::json!({"agent":"Henry","task":"检查登录报错"}),
             }],
             &context,

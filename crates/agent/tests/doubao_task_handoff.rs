@@ -46,11 +46,11 @@ async fn delegation_routes_forward_task_without_appending_transcript() {
     let original = "那让你看一下 Grace 你给她派发个任务。看他方案有什么问题。";
     let task = "看他方案有什么问题。";
     for (tool, arguments) in [
-        ("assign_agent_task", json!({"agent":"Grace","task":task})),
-        ("reply_agent", json!({"agent":"Grace","message":task})),
-        ("create_agent", json!({"profile":"codex","task":task})),
+        ("agent_assign", json!({"agent":"Grace","task":task})),
+        ("agent_reply", json!({"agent":"Grace","message":task})),
+        ("agent_create", json!({"profile":"codex","task":task})),
         (
-            "assign_workspace_task",
+            "agent_assign",
             json!({"workspace_id":"ws-1","area_id":"area-2","node_id":7,"task":task}),
         ),
         ("handoff_to_brain", json!({"request":task})),
@@ -63,18 +63,18 @@ async fn delegation_routes_forward_task_without_appending_transcript() {
         let commands = adapter.0.lock().expect("实际交接记录");
         assert_eq!(commands.len(), 1, "{tool} 只交接一次");
         let text = match (tool, &commands[0]) {
-            ("assign_agent_task", AdapterCommand::AssignAgentTask { agent, task }) => {
+            ("agent_assign", AdapterCommand::AssignAgentTask { agent, task }) => {
                 assert_eq!(agent, "Grace", "派发目标不得变化");
                 task
             }
-            ("reply_agent", AdapterCommand::ReplyAgent { agent, message }) => {
+            ("agent_reply", AdapterCommand::ReplyAgent { agent, message }) => {
                 assert_eq!(agent, "Grace", "续聊目标不得变化");
                 message
             }
-            ("create_agent", AdapterCommand::CreateAgent { task, .. }) => {
+            ("agent_create", AdapterCommand::CreateAgent { task, .. }) => {
                 task.as_ref().expect("附带任务不能丢失")
             }
-            ("assign_workspace_task", AdapterCommand::AssignWorkspaceTask { task, .. }) => task,
+            ("agent_assign", AdapterCommand::AssignWorkspaceTask { task, .. }) => task,
             ("handoff_to_brain", AdapterCommand::HandoffToBrain { request }) => request,
             _ => panic!("{tool} 不得变为其他操作"),
         };
@@ -100,16 +100,8 @@ fn delegation_prompt_requires_verbatim_task_text() {
         &[],
     );
     assert!(
-        prompt.contains("逐字保留") && prompt.contains("不润色"),
-        "必须要求逐字保留原话"
-    );
-    assert!(
-        prompt.contains("→“你去看下登录页有什么问题”"),
-        "必须给出去掉称呼后的原话示例"
-    );
-    assert!(
-        prompt.contains("不适用于任务正文"),
-        "播报风格不能压缩任务正文"
+        prompt.contains("正文用用户原话，只去掉称呼和派活用语。"),
+        "派发正文用用户原话，只去掉称呼和派活用语"
     );
     assert!(!prompt.contains("润色只调整表达"), "不得再指示润色任务正文");
 }
@@ -142,7 +134,7 @@ async fn delegation_appends_transcript_only_when_constraints_dropped() {
         let adapter = Arc::new(RecordingAdapter::default());
         NormaToolRuntime::new(adapter.clone())
             .execute(
-                "assign_agent_task",
+                "agent_assign",
                 json!({"agent":"Daisy","task":task}),
                 &context(original),
             )

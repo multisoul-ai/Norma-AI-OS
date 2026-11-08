@@ -301,8 +301,8 @@ fn test_agent_card_command_adapter_creates_multiple_terminals_in_real_runtime() 
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Initial Agent definitions = 0
-///   `create_agent(codex, task)` calls = 1 → definitions=1、AgentCard=1、active tasks=1
-///   Additional `assign_agent_task` calls = 0
+///   `agent_create(codex, task)` calls = 1 → definitions=1、AgentCard=1、active tasks=1
+///   Additional `agent_assign` calls = 0
 ///   Expected task_id = initial next id 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -340,14 +340,14 @@ fn test_norma_adapter_creates_builtin_agent_and_dispatches_without_confirmation(
             )
         })
     });
-    let created = created.expect("create_agent should execute on the production App Adapter");
+    let created = created.expect("agent_create should execute on the production App Adapter");
     assert_eq!(
         created.status, "accepted",
-        "create_agent with a task should report FIFO acceptance, not task completion"
+        "agent_create with a task should report FIFO acceptance, not task completion"
     );
     assert!(
         created.node_id.is_some(),
-        "create_agent should return the activated AgentCard node id"
+        "agent_create should return the activated AgentCard node id"
     );
     assert_eq!(
         created.task_id,

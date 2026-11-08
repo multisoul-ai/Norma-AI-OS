@@ -64,7 +64,10 @@ pub(super) async fn run_call(
     )
     .await
     {
-        Ok(config) => config,
+        Ok(config) => {
+            agent::trace_assembled_prompt("gpt-live", &config.instructions);
+            config
+        }
         Err(error) => {
             return CallEnd {
                 usage: Default::default(),

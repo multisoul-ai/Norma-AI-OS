@@ -14,7 +14,7 @@ mod definitions;
 mod ideas;
 mod task_handoff;
 mod voice;
-pub use definitions::norma_tool_definitions;
+pub use definitions::{model_tool_visible, norma_tool_definitions, ModelToolScope};
 mod delete_intent;
 use delete_intent::{
     has_explicit_agent_delete_intent, has_explicit_delete_intent,

@@ -340,8 +340,8 @@ pub(crate) fn is_read_only_tool(name: &str) -> bool {
             | "memory_read"
             | "context_read"
             | "workspace_snapshot"
-            | "find_agent_tasks"
-            | "list_ideas"
+            | "task_list"
+            | "idea_list"
     )
 }
 

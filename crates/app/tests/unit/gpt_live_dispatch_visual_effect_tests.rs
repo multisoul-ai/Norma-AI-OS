@@ -3,11 +3,11 @@ use crate::motion::DispatchVisualOrigin;
 use gpui::TestAppContext;
 use norma::protocol::{AgentProfile, CardCommand, CardCommandResult};
 
-/// DR-T-5：GPT-Live 用 reply_agent 给已有卡片发消息时，与豆包一样必须放出派发流星。
+/// DR-T-5：GPT-Live 用 agent_reply 给已有卡片发消息时，与豆包一样必须放出派发流星。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Agent cards = 1（Alan/Codex，位于 Canvas 可见区）
-///   reply_agent 调用 = 1（来源 GptLiveVoice）
+///   agent_reply 调用 = 1（来源 GptLiveVoice）
 ///   expected visual effects = 1（目标即 Alan 卡片）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -19,7 +19,7 @@ use norma::protocol::{AgentProfile, CardCommand, CardCommandResult};
 ///   - 正断言：回复回执指向 Alan，视觉层恰好一个从 Command Dock 起飞、命中 Alan 的 effect。
 ///   - 负断言：GPT-Live 来源不得被输入源过滤器漏掉（此前为 0 个 effect）。
 #[test]
-fn test_gpt_live_reply_agent_spawns_dispatch_visual_effect() {
+fn test_gpt_live_agent_reply_spawns_dispatch_visual_effect() {
     let factory: runtime::PtyFactory = Box::new(|_cmd, _cols, _rows, tx| {
         Ok(Box::new(terminal::TestPtyBackend::echo(tx)) as Box<dyn terminal::PtyBackend>)
     });

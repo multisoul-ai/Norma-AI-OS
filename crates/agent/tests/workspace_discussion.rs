@@ -42,7 +42,7 @@ async fn discussion_cannot_dispatch_but_explicit_execution_can() {
     assert!(
         runtime
             .execute(
-                "assign_agent_task",
+                "agent_assign",
                 serde_json::json!({"agent":"Alan","task":"实现"}),
                 &context
             )
@@ -59,7 +59,7 @@ async fn discussion_cannot_dispatch_but_explicit_execution_can() {
     assert!(
         runtime
             .execute(
-                "assign_agent_task",
+                "agent_assign",
                 serde_json::json!({"agent":"Alan","task":"实现"}),
                 &context
             )

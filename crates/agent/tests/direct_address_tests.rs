@@ -199,7 +199,7 @@ async fn norma_session_assigns_ended_agent_instead_of_replying() {
     );
 }
 
-/// 语音直接续聊必须把 Voice 来源完整传到真实 reply_agent Adapter 上下文。
+/// 语音直接续聊必须把 Voice 来源完整传到真实 agent_reply Adapter 上下文。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Agent definitions = 1（Alan）；

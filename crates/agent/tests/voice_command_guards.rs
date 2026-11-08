@@ -48,7 +48,7 @@ fn fast_path_requires_an_explicit_action_and_valid_session() {
 #[test]
 fn normalized_proposals_submit_only_once() {
     let proposals = ["检查登录", "修复登录"].map(|task| VoiceProposal {
-        tool: "assign_agent_task".into(),
+        tool: "agent_assign".into(),
         arguments: json!({"agent":"Bruno","task":task}),
     });
     let commits = validate_voice_proposals(
@@ -81,7 +81,7 @@ fn target_scope_and_session_state_are_rechecked() {
             input,
             &roster,
             vec![VoiceProposal {
-                tool: "assign_agent_task".into(),
+                tool: "agent_assign".into(),
                 arguments: json!({"agent":target,"task":input}),
             }],
         );
@@ -94,7 +94,7 @@ fn target_scope_and_session_state_are_rechecked() {
         "Bruno，继续刚才的任务",
         &[bruno()],
         vec![VoiceProposal {
-            tool: "reply_agent".into(),
+            tool: "agent_reply".into(),
             arguments: json!({"agent":"Bruno","message":"继续"}),
         }],
     )
@@ -121,7 +121,7 @@ fn named_target_cannot_be_bypassed_with_another_write_tool() {
             arguments: json!({"request":"修复登录"}),
         },
         VoiceProposal {
-            tool: "assign_workspace_task".into(),
+            tool: "agent_assign".into(),
             arguments: json!({"workspace_id":"other","area_id":"other","node_id":999,"task":"修复登录"}),
         },
     ] {
@@ -139,7 +139,7 @@ fn named_target_cannot_be_bypassed_with_another_write_tool() {
 #[test]
 fn cancellation_keeps_the_named_target_and_requires_explicit_intent() {
     let proposal = VoiceProposal {
-        tool: "cancel_agent_task".into(),
+        tool: "task_cancel".into(),
         arguments: json!({"task_id":7}),
     };
     let commits =

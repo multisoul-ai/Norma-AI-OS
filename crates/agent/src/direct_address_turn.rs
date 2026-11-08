@@ -36,7 +36,7 @@ pub fn plan_direct_address(input: &str, roster: &[crate::AgentRosterEntry]) -> D
             agents
                 .into_iter()
                 .map(|agent| DirectCall {
-                    tool: "reply_agent",
+                    tool: "agent_reply",
                     arguments: json!({"agent": agent.name, "message": message}),
                 })
                 .collect(),
@@ -46,7 +46,7 @@ pub fn plan_direct_address(input: &str, roster: &[crate::AgentRosterEntry]) -> D
             agents
                 .into_iter()
                 .map(|agent| DirectCall {
-                    tool: "assign_agent_task",
+                    tool: "agent_assign",
                     arguments: json!({"agent": agent.name, "task": message}),
                 })
                 .collect(),
@@ -56,7 +56,7 @@ pub fn plan_direct_address(input: &str, roster: &[crate::AgentRosterEntry]) -> D
 
 /// 把单次工具回执转为口述文本。
 pub fn direct_call_speech(tool: &str, message: &str, reply_status: Option<&str>) -> String {
-    if tool != "reply_agent" || !message.trim().is_empty() {
+    if tool != "agent_reply" || !message.trim().is_empty() {
         return message.trim().to_string();
     }
     match reply_status {
@@ -91,7 +91,7 @@ pub(crate) async fn maybe_handle_direct_address(
     let mut parts = Vec::new();
     for (index, call) in calls.into_iter().enumerate() {
         let mut call_context = context.clone();
-        let kind = if call.tool == "reply_agent" {
+        let kind = if call.tool == "agent_reply" {
             "reply"
         } else {
             "assign"

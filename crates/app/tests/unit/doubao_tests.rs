@@ -416,9 +416,7 @@ fn test_doubao_plan_chat_reuses_norma_prompt_and_tools() {
     assert!(
         body["messages"][0]["content"]
             .as_str()
-            .is_some_and(
-                |text| text.contains("Norma Master Agent") && text.contains("spec-workspace")
-            ),
+            .is_some_and(|text| text.contains("你是 Norma") && text.contains("spec-workspace")),
         "应复用完整人设与项目上下文"
     );
     let system = body["messages"][0]["content"]
@@ -426,17 +424,17 @@ fn test_doubao_plan_chat_reuses_norma_prompt_and_tools() {
         .expect("应有最终 system 提示词");
     assert!(system.contains("简洁直接"), "方舟请求应使用当前简洁人设");
     assert!(
-        !system.contains("语气柔软、自然、口语化"),
+        !system.contains("可以说「哦」「呢」「啦」"),
         "方舟请求不应混入未选择的暖心人设"
     );
     assert!(
-        !system.contains("不使用 Markdown"),
+        !system.contains("不用 Markdown"),
         "方舟请求不应保留暖心人设的格式禁令"
     );
     assert!(
         body["tools"].as_array().is_some_and(|items| items
             .iter()
-            .any(|item| item["function"]["name"] == "assign_agent_task")),
+            .any(|item| item["function"]["name"] == "agent_assign")),
         "应复用现有派工工具"
     );
     assert!(

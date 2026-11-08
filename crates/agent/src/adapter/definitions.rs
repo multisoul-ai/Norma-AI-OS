@@ -4,8 +4,8 @@ use serde_json::{json, Value};
 pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
     let mut tools = vec![
         definition(
-            "find_agent_tasks",
-            "查询 AgentCard 任务；无筛选条件时返回最近的未结束任务。",
+            "task_list",
+            "查询当前项目的 Agent 任务。无筛选条件时返回最近的未结束任务。",
             object_schema(
                 json!({
                     "task_id": {"type": "integer", "minimum": 1},
@@ -20,8 +20,8 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             ),
         ),
         definition(
-            "create_agent",
-            "仅在用户明确要求新建某个内置类型的 Agent 时使用。若同时要求新 Agent 执行任务，把完整任务放入 task，由系统在创建后立即入队，不要再调用 assign_agent_task。若用户点名的 Agent 画布上已有卡片，不要调用本工具，应 reply_agent 直接对话。",
+            "agent_create",
+            "仅在用户明确要求新建某个内置类型的 Agent 时使用。只要求创建时省略 task，不要把「创建…」这句话当任务；若同时要求新 Agent 执行任务，把完整任务放入 task，由系统在创建后立即入队，不要再调用 agent_assign。若用户点名的 Agent 画布上已有卡片，不要调用本工具，应 agent_reply 直接对话。",
             object_schema(
                 json!({
                     "profile": {"type": "string", "enum": ["codex", "claude", "opencode", "infcode", "cursor", "grok", "kimi", "zcode", "pi", "hermes"]},
@@ -31,18 +31,21 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             ),
         ),
         definition(
-            "assign_agent_task",
-            "把任务派发给已启用的 Agent；画布上没有卡片时系统会自动打开唯一一张。目标明确时直接执行，无需确认；已有卡片且用户只是对话时用 reply_agent。",
+            "agent_assign",
+            "派任务。当前项目只填 agent。别的项目只填 workspace_id、area_id、node_id，且必须来自同一次 workspace_snapshot。不要两种地址一起填。已有卡片且用户只是对话时用 agent_reply。",
             object_schema(
                 json!({
+                    "task": {"type": "string", "minLength": 1},
                     "agent": {"type": "string", "minLength": 1},
-                    "task": {"type": "string", "minLength": 1}
+                    "workspace_id": {"type": "string", "minLength": 1},
+                    "area_id": {"type": "string", "minLength": 1},
+                    "node_id": {"type": "integer", "minimum": 1}
                 }),
-                &["agent", "task"],
+                &["task"],
             ),
         ),
         definition(
-            "cancel_agent_task",
+            "task_cancel",
             "取消一个明确 task_id 的 AgentCard 任务。",
             object_schema(
                 json!({"task_id": {"type": "integer", "minimum": 1}}),
@@ -50,7 +53,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             ),
         ),
         definition(
-            "reply_agent",
+            "agent_reply",
             "向画布上已有卡片的 Agent 发送会话消息；有卡即可对话，不要求先激活或新建，也不创建新任务。",
             object_schema(
                 json!({
@@ -61,7 +64,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             ),
         ),
         definition(
-            "cancel_agent_reply",
+            "reply_cancel",
             "撤回尚未提交的会话回复；可按 reply_id 或 Agent 名称取消。",
             object_schema(
                 json!({
@@ -72,51 +75,12 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             ),
         ),
         definition(
-            "create_terminal",
+            "terminal_create",
             "直接创建一张 Terminal 卡片。",
             object_schema(json!({}), &[]),
         ),
         definition(
-            "create_browser",
-            "在桌面工作空间右侧标签打开网页；用户未指定网址时省略 url，使用产品默认首页。",
-            object_schema(json!({"url": {"type": "string", "minLength": 1}}), &[]),
-        ),
-        definition(
-            "create_preview",
-            "在桌面工作空间右侧标签打开只读文件预览（用户也可能称 REVIEW）；path 可使用当前工作区中的相对路径或绝对路径。",
-            object_schema(
-                json!({
-                    "path": {"type": "string", "minLength": 1},
-                    "preview_type": {
-                        "type": "string",
-                        "enum": ["markdown", "text", "image"]
-                    }
-                }),
-                &["path"],
-            ),
-        ),
-        definition(
-            "focus_card",
-            "聚焦一张已存在的 Canvas 卡片。",
-            object_schema(
-                json!({"node_id": {"type": "integer", "minimum": 1}}),
-                &["node_id"],
-            ),
-        ),
-        definition(
-            "send_terminal_input",
-            "向 Terminal 卡片发送文本；不能用于 AgentCard。",
-            object_schema(
-                json!({
-                    "node_id": {"type": "integer", "minimum": 1},
-                    "text": {"type": "string"},
-                    "submit": {"type": "boolean"}
-                }),
-                &["node_id", "text", "submit"],
-            ),
-        ),
-        definition(
-            "delete_canvas_card",
+            "card_delete",
             "仅在用户明确要求删除或关闭指定卡片时使用；目标必须且只能是稳定 node_id、用户所说的 1-based 画布位置，或 Agent 呼叫名/语音别名之一。",
             delete_canvas_card_schema(),
         ),
@@ -135,20 +99,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
     ));
     tools.push(definition(
-        "assign_workspace_task",
-        "向当前桌面工作空间内一张已加载的 Agent 卡片派发任务。先查 workspace_snapshot，使用返回的 workspace_id、area_id 和 node_id；每次只派一个目标，按真实回执答复。",
-        object_schema(
-            json!({
-                "workspace_id": {"type": "string", "minLength": 1},
-                "area_id": {"type": "string", "minLength": 1},
-                "node_id": {"type": "integer", "minimum": 1},
-                "task": {"type": "string", "minLength": 1}
-            }),
-            &["workspace_id", "area_id", "node_id", "task"],
-        ),
-    ));
-    tools.push(definition(
-        "open_workspace_artifact",
+        "file_open",
         "打开 workspace_snapshot 返回的任务产物，保持当前画布，并在右侧选中对应文件标签。所有身份字段必须来自同一条产物和所属工作空间。",
         object_schema(
             json!({
@@ -163,8 +114,8 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
     ));
     tools.push(definition(
-        "locate_workspace_agent",
-        "定位当前工作空间内已加载的 Agent 卡片。处理待审项时同时传 workspace_snapshot 中的 approval_run_id 和 approval_turn_id；App 会重新校验待审状态，再切到所属项目。",
+        "agent_show",
+        "切到工作空间内已加载的 Agent 卡片。处理待审项时同时传 workspace_snapshot 中的 approval_run_id 和 approval_turn_id；App 会重新校验待审状态，再切到所属项目。",
         object_schema(
             json!({
                 "workspace_id": {"type": "string", "minLength": 1},
@@ -177,28 +128,14 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
     ));
     tools.push(definition(
-        "capture_idea",
+        "idea_save",
         "用户说“记一下/记下来/别忘了/提醒我/加个待办”等，想把一个想法留着以后做时调用。body 写成一句自包含的想法原文，不要自行扩写或拆分。只记录，不执行；用户没有要求现在就做时不要派发。",
         object_schema(json!({"body": {"type": "string", "minLength": 1}}), &["body"]),
     ));
     tools.push(definition(
-        "list_ideas",
-        "只读：列出当前工作空间的想法清单（待办、已指派、已完成）及 idea_id。用户问“有哪些想法/待办”，或需要 idea_id 才能派发时先调用。",
+        "idea_list",
+        "只读：列出当前工作空间的想法清单（待办、已指派、已完成）及 idea_id。",
         object_schema(json!({}), &[]),
-    ));
-    tools.push(definition(
-        "assign_idea",
-        "把清单里的一条待办想法交给 Agent 去做。先用 list_ideas 取得 idea_id；目标二选一：已有智能体传 node_id（来自 workspace_snapshot），新建智能体传 new_agent_profile。workspace_id 与 area_id 必填，新建时 area_id 即新卡片所在项目区域。一次只派一个想法给一个目标，按真实回执答复。",
-        object_schema(
-            json!({
-                "idea_id": {"type": "string", "minLength": 1},
-                "workspace_id": {"type": "string", "minLength": 1},
-                "area_id": {"type": "string", "minLength": 1},
-                "node_id": {"type": "integer", "minimum": 1},
-                "new_agent_profile": {"type": "string", "enum": ["codex", "claude", "opencode", "infcode", "cursor", "grok", "kimi", "zcode", "pi", "hermes"]}
-            }),
-            &["idea_id", "workspace_id", "area_id"],
-        ),
     ));
     tools.push(definition(
         "handoff_to_brain",
@@ -227,6 +164,30 @@ fn delete_canvas_card_schema() -> Value {
         ],
         "additionalProperties": false
     })
+}
+
+/// 当前会话能不能把这个工具交给模型。文字会话、豆包、语音和 GPT-Live 后台用同一份判断。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ModelToolScope {
+    pub personal: bool,
+    pub desktop: bool,
+    pub shared: bool,
+    pub mobile: bool,
+}
+
+pub fn model_tool_visible(name: &str, scope: ModelToolScope) -> bool {
+    match name {
+        "memory_list" | "memory_search" | "memory_read" | "memory_write" => true,
+        "context_read" | "context_update" => scope.shared,
+        "workspace_memory" => scope.mobile,
+        "workspace_snapshot" | "agent_show" | "file_open" | "idea_save" | "idea_list" => {
+            scope.desktop
+        }
+        "agent_assign" => scope.desktop || !scope.personal,
+        "agent_reply" | "agent_create" | "task_list" | "task_cancel" | "reply_cancel"
+        | "terminal_create" | "card_delete" | "handoff_to_brain" => !scope.personal,
+        _ => false,
+    }
 }
 
 fn definition(name: &str, description: &str, parameters: Value) -> ToolDefinition {

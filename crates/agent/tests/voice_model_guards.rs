@@ -21,7 +21,7 @@ fn paused_and_ambiguous_commands_cannot_bypass_proposal_validation() {
     for (input, tool, args) in [
         (
             "Bruno，新建任务检查登录，不对，先别执行",
-            "assign_agent_task",
+            "agent_assign",
             json!({"agent":"Bruno","task":"检查登录"}),
         ),
         (
@@ -36,13 +36,13 @@ fn paused_and_ambiguous_commands_cannot_bypass_proposal_validation() {
         ),
         (
             "让 Brunno 检查登录",
-            "create_agent",
+            "agent_create",
             json!({"profile":"codex","task":"检查登录"}),
         ),
         (
             "让 Brunno 检查登录",
-            "assign_idea",
-            json!({"idea_id":"i1","workspace_id":"w1","area_id":"a1","node_id":11}),
+            "agent_assign",
+            json!({"workspace_id":"w1","area_id":"a1","node_id":11,"task":"检查登录"}),
         ),
     ] {
         assert!(

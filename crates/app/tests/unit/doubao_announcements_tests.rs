@@ -19,7 +19,7 @@ fn task_event(node_id: u64, to: AgentTaskState, source_event: &str) -> RuntimeEv
 /// 豆包续聊回合：没有派工 task_id 时，真实卡片 Stop 仍产生唯一完成播报。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   AgentCard = 1（Chloe/Claude）；协调器任务 = 0，模拟 reply_agent 只有 reply_id 的路径。
+///   AgentCard = 1（Chloe/Claude）；协调器任务 = 0，模拟 agent_reply 只有 reply_id 的路径。
 ///   事件 = 1 次 UserPromptSubmit + 2 次 Stop；每轮通知预算 = 1 条。
 ///   卡片几何 = 640 × 360，仅提供合法画布区域，不影响完成判断。
 ///

@@ -51,7 +51,7 @@ fn roster() -> Vec<AgentRosterEntry> {
 #[tokio::test]
 async fn target_only_answer_preserves_the_pending_task_without_another_model_call() {
     let (endpoint,server)=sse::serve_openai(vec![
-        json!({"role":"assistant","tool_calls":[{"index":0,"id":"guess","type":"function","function":{"name":"assign_agent_task","arguments":json!({"agent":"Bruno","task":"检查登录报错"}).to_string()}}]}),
+        json!({"role":"assistant","tool_calls":[{"index":0,"id":"guess","type":"function","function":{"name":"agent_assign","arguments":json!({"agent":"Bruno","task":"检查登录报错"}).to_string()}}]}),
         json!({"role":"assistant","content":"应该发给谁？"}),
     ]).await;
     let host = Arc::new(Host::default());
@@ -189,7 +189,7 @@ async fn cancelled_or_changed_drafts_never_resume() {
     for cancelled in [true, false] {
         let args = json!({"agent":"Bruno","task":"检查登录报错"});
         let responses = vec![
-            json!({"role":"assistant","tool_calls":[{"index":0,"id":"guess","type":"function","function":{"name":"assign_agent_task","arguments":if cancelled {serde_json::Value::String(args.to_string())} else {args}}}]}),
+            json!({"role":"assistant","tool_calls":[{"index":0,"id":"guess","type":"function","function":{"name":"agent_assign","arguments":if cancelled {serde_json::Value::String(args.to_string())} else {args}}}]}),
             json!({"role":"assistant","content":"应该发给谁？"}),
         ];
         let (endpoint, server) = if cancelled {
@@ -277,7 +277,7 @@ impl AgentCardAdapter for PartialHost {
 /// 预期：反馈明确记为 1/2，不能谎称整批未发送或已经回滚。
 #[tokio::test]
 async fn partial_submission_reports_the_number_actually_received() {
-    let calls:Vec<_>=[("assign_agent_task",json!({"agent":"Bruno","task":"检查 Henry 方案"})),("reply_agent",json!({"agent":"Bruno","message":"补充测试"}))].into_iter().enumerate().map(|(index,(name,args))|json!({"index":index,"id":format!("proposal-{index}"),"type":"function","function":{"name":name,"arguments":args.to_string()}})).collect();
+    let calls:Vec<_>=[("agent_assign",json!({"agent":"Bruno","task":"检查 Henry 方案"})),("agent_reply",json!({"agent":"Bruno","message":"补充测试"}))].into_iter().enumerate().map(|(index,(name,args))|json!({"index":index,"id":format!("proposal-{index}"),"type":"function","function":{"name":name,"arguments":args.to_string()}})).collect();
     let (endpoint, server) = sse::serve_openai(vec![
         json!({"role":"assistant","tool_calls":calls}),
         json!({"role":"assistant","content":"全部发送成功"}),
@@ -344,7 +344,7 @@ async fn target_clarification_replans_unbound_tool_with_original_request() {
     let (endpoint,server)=sse::serve_openai(vec![
         json!({"role":"assistant","tool_calls":[{"index":0,"id":"guess","type":"function","function":{"name":"handoff_to_brain","arguments":json!({"request":"检查登录报错"}).to_string()}}]}),
         json!({"role":"assistant","content":"要找谁？"}),
-        json!({"role":"assistant","tool_calls":[{"index":0,"id":"resolved","type":"function","function":{"name":"reply_agent","arguments":json!({"agent":"Henry","message":"检查登录报错"}).to_string()}}]}),
+        json!({"role":"assistant","tool_calls":[{"index":0,"id":"resolved","type":"function","function":{"name":"agent_reply","arguments":json!({"agent":"Henry","message":"检查登录报错"}).to_string()}}]}),
         json!({"role":"assistant","content":"已发送"}),
     ]).await;
     let host = Arc::new(Host::default());

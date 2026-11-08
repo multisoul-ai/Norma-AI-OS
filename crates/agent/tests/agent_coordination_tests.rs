@@ -83,7 +83,7 @@ fn coordinator_distinguishes_queued_cancellation_from_running_request() {
     let remaining_tasks = coordinator.tasks();
     assert_eq!(
         remaining_tasks[0].state, "cancel_requested",
-        "find_agent_tasks must expose the running task's pending cancellation state"
+        "task_list must expose the running task's pending cancellation state"
     );
     assert!(
         remaining_tasks[0].state != "running",
@@ -91,7 +91,7 @@ fn coordinator_distinguishes_queued_cancellation_from_running_request() {
     );
     assert_eq!(
         remaining_tasks[1].state, "cancelled",
-        "find_agent_tasks must retain the queued task's terminal cancelled state"
+        "task_list must retain the queued task's terminal cancelled state"
     );
     assert_ne!(
         remaining_tasks[1].state, "queued",

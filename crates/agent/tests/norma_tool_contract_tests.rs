@@ -50,7 +50,7 @@ impl AgentCardAdapter for RecordingAdapter {
 /// TOOL-3：明确指派给 AgentCard 的任务直接进入 Adapter，不经过确认状态
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   Tool calls = 1（`assign_agent_task`）
+///   Tool calls = 1（`agent_assign`）
 ///   Target Agent = 1（Alan）
 ///   Expected task id = 41（RecordingAdapter 的确定性回执）
 ///
@@ -64,7 +64,7 @@ impl AgentCardAdapter for RecordingAdapter {
 ///   - 正断言：结果直接是 accepted 且带 task_id=41
 ///   - 负断言：结果和命令中均不存在确认步骤
 #[tokio::test]
-async fn assign_agent_task_executes_immediately_without_confirmation() {
+async fn agent_assign_executes_immediately_without_confirmation() {
     let adapter = Arc::new(RecordingAdapter::default());
     let runtime = NormaToolRuntime::new(adapter.clone());
     let context = ToolContext {
@@ -81,7 +81,7 @@ async fn assign_agent_task_executes_immediately_without_confirmation() {
 
     let result = runtime
         .execute(
-            "assign_agent_task",
+            "agent_assign",
             json!({
                 "agent": "Alan",
                 "task": "检查当前项目有哪些技术栈。"
@@ -158,11 +158,11 @@ async fn unknown_operation_receipt_is_idempotent_and_never_replayed() {
     };
 
     let first = runtime
-        .execute("create_terminal", json!({}), &context)
+        .execute("terminal_create", json!({}), &context)
         .await
         .expect("the first unknown Adapter receipt should be returned as data");
     let second = runtime
-        .execute("create_terminal", json!({}), &context)
+        .execute("terminal_create", json!({}), &context)
         .await
         .expect("a duplicate operation should reuse its first receipt");
 
@@ -196,7 +196,7 @@ async fn unknown_operation_receipt_is_idempotent_and_never_replayed() {
 ///   Expected Adapter side effects = 2 - 1 rejected = 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 用“整理一下画布”执行 `delete_canvas_card`
+///   1. 用“整理一下画布”执行 `card_delete`
 ///   2. Runtime 在 Adapter 前拒绝模糊意图
 ///   3. 用“不要删除卡片 #12”验证否定表达仍被拒绝
 ///   4. 用“删除卡片 #12”再次执行相同工具
@@ -205,7 +205,7 @@ async fn unknown_operation_receipt_is_idempotent_and_never_replayed() {
 ///   - 正断言：明确删除请求到达 Adapter 且成功
 ///   - 负断言：模糊整理请求被拒绝，不产生第一次删除副作用
 #[tokio::test]
-async fn delete_canvas_card_requires_explicit_user_intent() {
+async fn card_delete_requires_explicit_user_intent() {
     let adapter = Arc::new(RecordingAdapter::default());
     let runtime = NormaToolRuntime::new(adapter.clone());
     let ambiguous = ToolContext {
@@ -221,7 +221,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
     };
 
     let rejected = runtime
-        .execute("delete_canvas_card", json!({"node_id": 12}), &ambiguous)
+        .execute("card_delete", json!({"node_id": 12}), &ambiguous)
         .await;
 
     assert!(
@@ -250,7 +250,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
         cancellation: CancellationToken::new(),
     };
     let negated_result = runtime
-        .execute("delete_canvas_card", json!({"node_id": 12}), &negated)
+        .execute("card_delete", json!({"node_id": 12}), &negated)
         .await;
 
     assert!(
@@ -279,7 +279,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
         cancellation: CancellationToken::new(),
     };
     let close_result = runtime
-        .execute("delete_canvas_card", json!({"node_id": 12}), &negated_close)
+        .execute("card_delete", json!({"node_id": 12}), &negated_close)
         .await;
 
     assert!(
@@ -308,7 +308,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
         cancellation: CancellationToken::new(),
     };
     let accepted = runtime
-        .execute("delete_canvas_card", json!({"node_id": 12}), &explicit)
+        .execute("card_delete", json!({"node_id": 12}), &explicit)
         .await
         .expect("an explicit delete request should reach the Adapter");
 
@@ -343,7 +343,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
 ///   - 正断言：只有第三次精确上下文授权到达 Adapter
 ///   - 负断言：数字子串 #123 不授权 #12，空上下文指代也不授权任何删除
 #[tokio::test]
-async fn delete_canvas_card_binds_exact_node_or_actual_context_target() {
+async fn card_delete_binds_exact_node_or_actual_context_target() {
     let adapter = Arc::new(RecordingAdapter::default());
     let runtime = NormaToolRuntime::new(adapter.clone());
     let context = |turn: &str, input: &str, targets: Vec<u64>| ToolContext {
@@ -360,21 +360,21 @@ async fn delete_canvas_card_binds_exact_node_or_actual_context_target() {
 
     let substring = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({"node_id": 12}),
             &context("turn-20", "删除卡片 #123", Vec::new()),
         )
         .await;
     let unbound_context = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({"node_id": 12}),
             &context("turn-21", "删除当前卡片", Vec::new()),
         )
         .await;
     let bound_context = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({"node_id": 12}),
             &context("turn-22", "删除当前卡片", vec![12]),
         )

@@ -29,20 +29,19 @@ fn reply_agent(
     }
     let definition_id = definition.id;
     let name = definition.name.clone();
-    let node_id = app.voice_bound_node(definition_id).or_else(|| app
-        .runtime
-        .document
-        .nodes()
-        .iter()
-        .find_map(|node| {
-            let canvas::CanvasNodeKind::Agent(spec) = &node.kind else {
-                return None;
-            };
-            (spec.definition_id == Some(definition_id)).then_some(node.id)
-        }))
+    let node_id = app
+        .voice_bound_node(definition_id)
+        .or_else(|| {
+            app.runtime.document.nodes().iter().find_map(|node| {
+                let canvas::CanvasNodeKind::Agent(spec) = &node.kind else {
+                    return None;
+                };
+                (spec.definition_id == Some(definition_id)).then_some(node.id)
+            })
+        })
         .ok_or_else(|| {
             AdapterError::Rejected(format!(
-                "{name} 画布上还没有卡片；若定义已启用，请用 assign_agent_task 自动打开唯一卡片后再对话"
+                "{name} 画布上还没有卡片；若定义已启用，请用 agent_assign 自动打开唯一卡片后再对话"
             ))
         })?;
     // Card presence is enough to converse. Session id may arrive later via Hook;

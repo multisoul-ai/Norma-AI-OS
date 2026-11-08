@@ -265,13 +265,13 @@ async fn desktop_voice_followup_keeps_previous_exchange() {
 }
 
 /// 场景：单个回答超过历史余额时必须裁掉，但不能影响后续短对话的上下文保留。
-/// 构造：首个回答含 8,192 字节正文，超过桌面固定材料之外约 5 KiB 的历史余额。
+/// 构造：首个回答含 30,000 字节正文。输入预算是 28,672 字节，任何系统提示和工具定义之外都放不下这一整轮。
 /// 执行：公开语音入口依次接收超长回答、短回答和追问，观察最后实际 HTTP 请求。
 /// 预期：超长回合已裁掉，最近短对话完整保留，每次请求加协议余量不超输入预算。
-/// 数值：输入预算 = (16,384 - 2,048 回复 token) × 2 保守字节/token = 28,672 字节。
+/// 数值：输入预算 = (16,384 - 2,048 回复 token) × 2 保守字节/token = 28,672 字节；30,000 > 28,672，整轮必须裁掉。
 #[tokio::test]
 async fn desktop_voice_history_drops_oversized_exchange_then_keeps_recent_one() {
-    let oversized = format!("OVERSIZED_REPLY:{}", "x".repeat(8192));
+    let oversized = format!("OVERSIZED_REPLY:{}", "x".repeat(30_000));
     let (endpoint, server) = sse::serve(vec![
         serde_json::json!({"role":"assistant","content":oversized}),
         serde_json::json!({"role":"assistant","content":"RECENT_SHORT_REPLY"}),

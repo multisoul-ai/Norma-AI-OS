@@ -15,7 +15,7 @@ fn runtime_target_clarification_survives_completed_turn_replacement() {
     let paths = storage::DatabasePaths::isolated_test(directory.path());
     storage::AppStore::initialize(&paths).expect("隔离数据库");
     shared_tokio_runtime().expect("运行时").block_on(async {
-        let (endpoint,server)=sse::serve(vec![json!({"role":"assistant","tool_calls":[{"index":0,"id":"guess","type":"function","function":{"name":"assign_agent_task","arguments":json!({"agent":"Bruno","task":"检查登录报错"}).to_string()}}]}),json!({"role":"assistant","content":"应该发给谁？"})]).await;
+        let (endpoint,server)=sse::serve(vec![json!({"role":"assistant","tool_calls":[{"index":0,"id":"guess","type":"function","function":{"name":"agent_assign","arguments":json!({"agent":"Bruno","task":"检查登录报错"}).to_string()}}]}),json!({"role":"assistant","content":"应该发给谁？"})]).await;
         let config=agent::ProviderConfig::new(agent::ProviderProtocol::OpenAiCompatible,endpoint,"fixture",Some("fixture".into()));
         let (runtime,adapter,_events)=ProjectAgentRuntime::spawn_scoped("fixture".into(),config,paths,Some(directory.path().to_path_buf()),false,None).expect("真实 worker");
         let roster=vec![(1,"Bruno",11),(2,"Henry",22)].into_iter().map(|(definition_id,name,node)| AgentRosterEntry {definition_id,name:name.into(),speech_alias:None,profile:AgentProfile::Codex,enabled:true,active_node_id:Some(node),tracking:AgentTrackingMode::Managed,busy:false,task_state:AgentTaskState::Ready}).collect();
