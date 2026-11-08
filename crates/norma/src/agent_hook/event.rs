@@ -98,6 +98,13 @@ pub fn task_state_for_provider_event(event: &AgentHookEvent) -> Option<AgentHook
         "Stop" => Some(AgentHookTaskState::Done),
         // Grok 回合未完成（Ctrl+C、拒绝权限、max_turns 等）时发它，代替 Stop。
         "StopCancelled" if event.profile == AgentProfile::Grok => Some(AgentHookTaskState::Ended),
+        // 完成判定只在开放回合且无 Stop 时放行它，作为漏报 Stop 的兜底。
+        "Notification"
+            if event.profile == AgentProfile::Grok
+                && event.raw_json["notificationType"].as_str() == Some("idle_prompt") =>
+        {
+            Some(AgentHookTaskState::Done)
+        }
         "SessionEnd" => Some(AgentHookTaskState::Ended),
         "SubagentStart" => Some(AgentHookTaskState::RunningTool {
             tool_name: Some("subagent".to_string()),

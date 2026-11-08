@@ -195,3 +195,131 @@ fn grok_stop_cancelled_ends_turn_and_clears_ledger() {
     assert!(judge.tracked_nodes().is_empty());
     assert!(confirm_flags(&judge.poll(10_000)).is_empty());
 }
+
+/// Grok 回合结束时另一条队列发 `Notification(task_complete)`，常晚于 Stop 到达。
+///
+/// 数据构造：node=318。空 Stop 后 10ms 到达 notificationType=task_complete。
+///
+/// 执行过程：空 Stop(t=0) → Notification(t=10) → poll 到窗口结束。
+///
+/// 预期结果：
+///   - 正断言：窗口结束得到一次 Confirm(unsettled=false)，卡片能完成。
+///   - 负断言：Notification 不得作废确认窗口，否则卡片永久停在运行中。
+#[test]
+fn grok_notification_after_stop_does_not_cancel_confirmation() {
+    let mut judge = judge();
+    judge.observe(&grok_stop(json!([])), 0);
+    judge.observe(
+        &grok(json!({"hook_event_name": "Notification", "notificationType": "task_complete"})),
+        10,
+    );
+    assert_eq!(quiet_until_confirm(&mut judge, 0), vec![false]);
+}
+
+fn grok_prompt(prompt_id: &str) -> AgentHookEvent {
+    grok(json!({"hook_event_name": "UserPromptSubmit", "prompt": "hi", "promptId": prompt_id}))
+}
+
+fn grok_idle() -> AgentHookEvent {
+    grok(json!({"hook_event_name": "Notification", "notificationType": "idle_prompt"}))
+}
+
+/// Grok 漏发 Stop 时，idle_prompt 兜底把开放回合收尾为 Done。
+///
+/// 数据构造：node=318。UserPromptSubmit(p1) 后没有任何结束报告，60s 后到达 idle_prompt。
+///
+/// 执行过程：prompt → idle_prompt。
+///
+/// 预期结果：
+///   - 正断言：idle_prompt 被 Forward，且映射为 Done。
+///   - 负断言：第二次 idle_prompt（回合已收尾）不再产生任何动作。
+#[test]
+fn grok_idle_prompt_settles_turn_without_stop() {
+    let mut judge = judge();
+    judge.observe(&grok_prompt("p1"), 0);
+    let actions = judge.observe(&grok_idle(), 60_000);
+    let [CompletionAction::Forward(event)] = actions.as_slice() else {
+        panic!("开放回合的 idle_prompt 必须 Forward，实际 {actions:?}");
+    };
+    assert_eq!(
+        norma::agent_hook::task_state_for_provider_event(event),
+        Some(norma::agent_hook::AgentHookTaskState::Done)
+    );
+    let again = judge.observe(&grok_idle(), 120_000);
+    assert!(
+        again.is_empty(),
+        "已收尾回合的 idle_prompt 不得再改状态，实际 {again:?}"
+    );
+}
+
+/// 已确认完成、被中断或后台任务未清时，idle_prompt 不得改写状态。
+///
+/// 数据构造：node=318。三种情形各一个 judge：Stop 已确认 / StopCancelled / 账本含 running 任务。
+///
+/// 执行过程：各自走到对应状态后发 idle_prompt。
+///
+/// 预期结果：
+///   - 正断言：三种情形都得到空动作。
+///   - 负断言：不会把 Ended 改成 Done，也不会提前结束后台任务。
+#[test]
+fn grok_idle_prompt_ignored_outside_open_quiet_turn() {
+    let mut done = judge();
+    done.observe(&grok_prompt("p1"), 0);
+    done.observe(&grok_stop(json!([])), 10);
+    assert_eq!(quiet_until_confirm(&mut done, 10), vec![false]);
+    assert!(done.observe(&grok_idle(), 60_000).is_empty());
+
+    let mut cancelled = judge();
+    cancelled.observe(&grok_prompt("p1"), 0);
+    cancelled.observe(
+        &grok(json!({"hook_event_name": "StopCancelled", "reason": "user_interrupt", "promptId": "p1"})),
+        10,
+    );
+    assert!(cancelled.observe(&grok_idle(), 60_000).is_empty());
+
+    let mut background = judge();
+    background.observe(&grok_prompt("p1"), 0);
+    background.observe(
+        &grok_stop(json!([{"id": "m1", "type": "monitor", "status": "running"}])),
+        10,
+    );
+    assert!(background.observe(&grok_idle(), 60_000).is_empty());
+}
+
+/// 上一回合的结束报告晚于下一回合 UserPromptSubmit 到达时按 promptId 丢弃。
+///
+/// 数据构造：node=318。prompt(p1) → prompt(p2) → StopCancelled(p1) / Stop(p1)，最后 Stop(p2)。
+///
+/// 执行过程：依次 observe，再等窗口。
+///
+/// 预期结果：
+///   - 正断言：Stop(p2) 过窗口后 Confirm 一次。
+///   - 负断言：p1 的迟到报告不产生任何动作，不会把 p2 标成 Ended 或提前 Done。
+#[test]
+fn grok_late_report_from_previous_prompt_is_dropped() {
+    let mut judge = judge();
+    judge.observe(&grok_prompt("p1"), 0);
+    judge.observe(&grok_prompt("p2"), 100);
+    let cancelled = judge.observe(
+        &grok(json!({"hook_event_name": "StopCancelled", "reason": "user_interrupt", "promptId": "p1"})),
+        110,
+    );
+    assert!(
+        cancelled.is_empty(),
+        "上一回合的 StopCancelled 必须丢弃，实际 {cancelled:?}"
+    );
+    let stale_stop = judge.observe(
+        &grok(json!({"hook_event_name": "Stop", "reason": "end_turn", "backgroundTasks": [], "promptId": "p1"})),
+        120,
+    );
+    assert!(
+        stale_stop.is_empty(),
+        "上一回合的 Stop 必须丢弃，实际 {stale_stop:?}"
+    );
+    assert!(confirm_flags(&judge.poll(120 + CONFIRMATION_WINDOW_MS)).is_empty());
+    judge.observe(
+        &grok(json!({"hook_event_name": "Stop", "reason": "end_turn", "backgroundTasks": [], "promptId": "p2"})),
+        2_000,
+    );
+    assert_eq!(quiet_until_confirm(&mut judge, 2_000), vec![false]);
+}
