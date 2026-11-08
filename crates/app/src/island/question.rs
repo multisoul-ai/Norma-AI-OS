@@ -28,6 +28,7 @@ impl IslandView {
             text("island.question_title"),
             text("island.question_label"),
             style::ATTENTION,
+            runtime::island::bloub::Mood::Waiting,
         ));
         let Some(editing) = editing else {
             return card.into_any_element();

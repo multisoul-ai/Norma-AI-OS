@@ -91,5 +91,20 @@
   "island.staff_chip_needs": "有什么要我处理？",
   "island.staff_chip_done": "最近完成了什么？",
   "island.staff_no_summary": "还没有汇报。点“语音汇报进度”，或在下方提问。",
-  "island.notify_permission_denied": "系统通知已对 Norma 关闭，隐藏岛无法提醒你。请在 系统设置 → 通知 中允许。"
+  "island.notify_permission_denied": "系统通知已对 Norma 关闭，隐藏岛无法提醒你。请在 系统设置 → 通知 中允许。",
+  "island.completed_line": "%{name} 完成了 %{task}",
+  "island.completed_line_bare": "%{name} 完成了一项任务",
+  "island.view_result": "查看成果",
+  "island.filter_all": "全部",
+  "island.filter_waiting": "等你",
+  "island.filter_done": "完成",
+  "island.pending_queue": "待处理队列",
+  "island.pending_more": "还有 %{count} 个",
+  "island.pending_items": "%{count} 件待处理",
+  "island.agent_count": "%{count} 个",
+  "island.waiting_on_you": "等你处理",
+  "island.not_started": "尚未开始",
+  "island.awaiting_reply": "等待你的回复",
+  "island.file_count": "%{count} 个文件",
+  "island.elapsed_minutes": "%{count} 分"
 }

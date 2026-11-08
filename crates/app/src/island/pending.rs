@@ -96,6 +96,7 @@ impl IslandView {
                             text("island.approval_title"),
                             text("island.approval_label"),
                             style::ATTENTION,
+                            runtime::island::bloub::Mood::Waiting,
                         ))
                         .child(
                             div()
@@ -196,6 +197,7 @@ impl IslandView {
                         text("island.approval_title"),
                         text("island.approval_label"),
                         style::ATTENTION,
+                        runtime::island::bloub::Mood::Waiting,
                     ))
                     .child(
                         div()
@@ -253,7 +255,7 @@ impl IslandView {
             ));
         }
         if !alert_only {
-            rows.extend(self.render_artifacts(workspace, project, cx));
+            rows.extend(self.render_artifacts(workspace, project, None, cx));
         }
         rows
     }

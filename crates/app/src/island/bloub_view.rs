@@ -13,8 +13,9 @@ use std::time::{Duration, Instant};
 const BUSY_TICK: Duration = Duration::from_millis(33);
 const CALM_TICK: Duration = Duration::from_millis(66);
 
-/// Body radius as a share of the box; leaves room for the egg and triangle silhouettes.
-const BODY_SHARE: f32 = 0.47;
+/// Circle diameter is 0.80 of the box. The triangle's 1.153 scale then
+/// reaches about half a point past a 20pt slot, which keeps the four areas level.
+const BODY_SHARE: f32 = 0.40;
 const EYE_COLOR: u32 = 0x0b0d10;
 
 fn clock() -> f32 {
@@ -56,20 +57,36 @@ fn schedule_redraw(window: &mut Window, cx: &mut App, tick: Duration) {
         .detach();
 }
 
-pub(super) fn bloub(seed: &str, color: u32, size: f32, mood: Mood) -> Div {
+pub(super) fn bloub(
+    seed: &str,
+    color: u32,
+    size: f32,
+    mood: Mood,
+    opacity: f32,
+    animate: bool,
+) -> Div {
     let profile = profile(seed);
+    let still = -profile.phase;
     let tick = if mood.is_busy() { BUSY_TICK } else { CALM_TICK };
-    gpui::div().size(px(size)).flex_none().relative().child(
-        canvas(
-            |_, _, _| (),
-            move |bounds, _, window, cx| {
-                paint(&sample(&profile, mood, clock()), bounds, color, window);
-                schedule_redraw(window, cx, tick);
-            },
+    gpui::div()
+        .size(px(size))
+        .flex_none()
+        .relative()
+        .opacity(opacity)
+        .child(
+            canvas(
+                |_, _, _| (),
+                move |bounds, _, window, cx| {
+                    let time = if animate { clock() } else { still };
+                    paint(&sample(&profile, mood, time), bounds, color, window);
+                    if animate {
+                        schedule_redraw(window, cx, tick);
+                    }
+                },
+            )
+            .absolute()
+            .size_full(),
         )
-        .absolute()
-        .size_full(),
-    )
 }
 
 fn paint(frame: &Frame, bounds: Bounds<Pixels>, color: u32, window: &mut Window) {

@@ -12,7 +12,9 @@ pub(super) struct IslandController {
     pub checked_grants: std::collections::BTreeSet<String>,
     pub navigation: u64,
     pub instant_revision: u64,
-    pub idle_open: std::collections::BTreeSet<String>,
+    pub run_filter: runtime::island::roster::RunFilter,
+    pub focused_review: Option<String>,
+    queue_ids: Vec<String>,
     pub editing: std::collections::BTreeMap<String, super::question_editor::EditingQuestion>,
     pub focused_question: Option<(String, gpui::EntityId)>,
     pub(super) gate: runtime::island::notification::NotificationGate,
@@ -61,7 +63,9 @@ impl IslandController {
             checked_grants: Default::default(),
             navigation: 0,
             instant_revision: 0,
-            idle_open: Default::default(),
+            run_filter: runtime::island::roster::RunFilter::All,
+            focused_review: None,
+            queue_ids: Vec::new(),
             editing: Default::default(),
             focused_question: None,
             gate: Default::default(),
@@ -131,6 +135,7 @@ impl IslandController {
     }
 
     pub fn action_feedback(&mut self, id: String, confirmed: bool, cx: &mut Context<Self>) {
+        let focus = self.focused_review.clone().unwrap_or_else(|| id.clone());
         self.event(
             self.displays.active_display().unwrap_or_default(),
             if confirmed {
@@ -140,6 +145,9 @@ impl IslandController {
             },
             cx,
         );
+        if confirmed {
+            self.follow_queue(Some(focus), cx);
+        }
     }
 
     /// Shared presentation snapshot for counts, rows and input mounting.
@@ -178,18 +186,8 @@ impl IslandController {
         };
         for workspace in &self.model.read(cx).workspaces {
             for project in &workspace.projects {
-                overview.review_count += project
-                    .overview
-                    .attention
-                    .iter()
-                    .filter(|a| {
-                        matches!(
-                            a.kind,
-                            norma::mobile::RunOverviewAttentionKind::Review
-                                | norma::mobile::RunOverviewAttentionKind::File
-                        )
-                    })
-                    .count();
+                overview.review_count +=
+                    super::faces::result_cards(&project.overview.attention).len();
             }
         }
         self.notify_hidden(cx);
@@ -200,6 +198,10 @@ impl IslandController {
                 self.release_question_focus(&id, cx);
             }
         }
+        let previous_focus = self
+            .focused_review
+            .clone()
+            .or_else(|| self.displays.state.alert_id().map(str::to_owned));
         let pointer_display = (!self.screens.is_empty())
             .then(super::native::pointer_screen)
             .flatten();
@@ -211,6 +213,38 @@ impl IslandController {
             IslandEvent::OverviewUpdated(overview),
             cx,
         );
+        self.follow_queue(previous_focus, cx);
+    }
+
+    /// After a card leaves, show the next approval, question or result.
+    fn follow_queue(&mut self, previous_focus: Option<String>, cx: &mut Context<Self>) {
+        let workspaces = self.visible_workspaces(cx);
+        let items = super::faces::queue_items(&workspaces);
+        let step = super::faces::queue_step(&self.queue_ids, &items, previous_focus.as_deref());
+        let still_here = previous_focus
+            .as_ref()
+            .is_some_and(|id| items.iter().any(|item| &item.id == id));
+        self.queue_ids = items.into_iter().map(|item| item.id).collect();
+        if still_here
+            || !matches!(
+                self.displays.state.mode(),
+                runtime::island::IslandMode::Alert | runtime::island::IslandMode::Activity
+            )
+        {
+            return;
+        }
+        let display = self.displays.active_display().unwrap_or_default();
+        if step.hold_review {
+            let changed = self.focused_review != step.focused_review;
+            self.focused_review = step.focused_review;
+            if changed {
+                self.message = None;
+            }
+            self.event(display, IslandEvent::ReviewHold(true), cx);
+        } else if let Some(id) = step.select_alert {
+            self.focused_review = None;
+            self.event(display, IslandEvent::SelectAlert(id), cx);
+        }
     }
 
     fn clock_visible(&self, cx: &gpui::App) -> bool {
@@ -265,28 +299,22 @@ pub(super) fn alert_key(
 }
 
 pub(super) fn counts(workspaces: &[IslandWorkspace]) -> (usize, usize) {
-    workspaces
+    // The running tab matches faces still working. A finished agent can remain
+    // in the overview running list until the review is cleared.
+    let running = super::faces::collect(workspaces)
         .iter()
-        .flat_map(|ws| &ws.projects)
-        .fold((0, 0), |(running, pending), p| {
-            (
-                running + p.overview.running.len(),
-                pending
-                    + p.approvals.len()
-                    + p.questions.len()
-                    + p.overview
-                        .attention
-                        .iter()
-                        .filter(|a| {
-                            matches!(
-                                a.kind,
-                                norma::mobile::RunOverviewAttentionKind::Review
-                                    | norma::mobile::RunOverviewAttentionKind::File
-                            )
-                        })
-                        .count(),
-            )
-        })
+        .filter(|face| face.activity == runtime::island::roster::AgentActivity::Running)
+        .count();
+    let pending = workspaces
+        .iter()
+        .flat_map(|workspace| &workspace.projects)
+        .fold(0, |pending, project| {
+            pending
+                + project.approvals.len()
+                + project.questions.len()
+                + super::faces::result_cards(&project.overview.attention).len()
+        });
+    (running, pending)
 }
 
 #[cfg(test)]

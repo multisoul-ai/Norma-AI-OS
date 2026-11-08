@@ -123,20 +123,23 @@ impl IslandView {
         &self,
         workspace: &IslandWorkspace,
         project: &IslandProject,
+        only: Option<&str>,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         let route = IslandTarget::new(workspace, project);
-        project
-            .overview
-            .attention
-            .iter()
-            .filter(|row| {
-                matches!(
-                    row.kind,
-                    RunOverviewAttentionKind::Review | RunOverviewAttentionKind::File
-                )
-            })
+        super::faces::result_cards(&project.overview.attention)
+            .into_iter()
             .enumerate()
+            .filter(|(_, row)| {
+                let review = super::faces::review_id(
+                    route.source,
+                    &route.workspace,
+                    &route.area,
+                    row.node_id,
+                    &row.turn_id,
+                );
+                only.is_none_or(|want| want == review)
+            })
             .map(|(index, row)| {
                 let id = format!(
                     "artifact:{}:{}:{}:{index}",
@@ -159,6 +162,7 @@ impl IslandView {
                         text("island.artifact_title"),
                         text("island.artifact_label"),
                         style::OK,
+                        runtime::island::bloub::Mood::Responded,
                     ))
                     .child(
                         div()

@@ -28,7 +28,16 @@ pub struct IslandLayout {
 
 impl IslandScreen {
     pub fn layout_for_content(self, mode: IslandMode, body_height: f64) -> IslandLayout {
-        let mut layout = self.layout(mode);
+        self.layout_for_content_width(mode, body_height, compact_width(0, 0))
+    }
+
+    pub fn layout_for_content_width(
+        self,
+        mode: IslandMode,
+        body_height: f64,
+        compact: f64,
+    ) -> IslandLayout {
+        let mut layout = self.layout_width(mode, compact);
         let height = if mode == IslandMode::Compact {
             layout.header_height
         } else {
@@ -41,6 +50,10 @@ impl IslandScreen {
     }
 
     pub fn layout(self, mode: IslandMode) -> IslandLayout {
+        self.layout_width(mode, compact_width(0, 0))
+    }
+
+    pub fn layout_width(self, mode: IslandMode, compact: f64) -> IslandLayout {
         let notch_width = if self.safe_top > 0. && self.right_min_x > self.left_max_x {
             self.right_min_x - self.left_max_x
         } else {
@@ -56,8 +69,10 @@ impl IslandScreen {
             notch_clearance
         };
         let (width, body, radius): (f64, f64, f64) = match mode {
-            IslandMode::Compact => (330., 0., 999.),
-            IslandMode::Activity => (460., 58., 24.),
+            IslandMode::Compact => (compact, 0., 999.),
+            // 58 was the old one-line notice. The card now has a 30pt face,
+            // two text lines and a button, so the measured body needs room.
+            IslandMode::Activity => (460., 168., 24.),
             IslandMode::Alert => (540., 270., 32.),
             IslandMode::Expanded => (660., 510., 32.),
         };
@@ -86,6 +101,15 @@ impl IslandScreen {
             header_height,
             radius: radius.min(height / 2.),
         }
+    }
+}
+
+/// 330 until four or more running and pending agents share the capsule, then 416.
+pub fn compact_width(running: usize, pending: usize) -> f64 {
+    if super::roster::needs_wide_capsule(running, pending) {
+        416.
+    } else {
+        330.
     }
 }
 

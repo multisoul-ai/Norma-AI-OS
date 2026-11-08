@@ -132,3 +132,65 @@ fn island_geometry_notch_uses_auxiliary_areas_and_clamps_small_displays() {
         "辅助区无间隙时回退胶囊"
     );
 }
+
+/// 场景：收起宽度随运行数 + 待处理数变化，其他形态宽度不变。
+/// 数据：无刘海的 1440×900 屏。窄侧 1+1，宽侧 4+3。
+/// 执行：compact_width 与 layout_width。
+/// 预期：330 与 416；完成通知 460、审批 540、展开 660、展开头部 52 不受槽位影响。
+#[test]
+fn compact_width_is_330_until_four_agents_then_416() {
+    let screen = IslandScreen {
+        frame: IslandFrame {
+            x: 0.,
+            y: 0.,
+            width: 1440.,
+            height: 900.,
+        },
+        visible_top: 876.,
+        safe_top: 0.,
+        left_max_x: 0.,
+        right_min_x: 0.,
+    };
+    assert_eq!(compact_width(1, 1), 330., "2 个智能体保持 330");
+    assert_eq!(compact_width(3, 0), 330., "3 个还不到加宽线");
+    assert_eq!(compact_width(2, 2), 416., "4 个是 416 的边界");
+    assert_eq!(compact_width(4, 3), 416., "8 人夹具的 4+3 为 416");
+    assert_eq!(
+        screen.layout_width(IslandMode::Compact, 330.).frame.width,
+        330.,
+        "窄胶囊窗口宽 330"
+    );
+    assert_eq!(
+        screen.layout_width(IslandMode::Compact, 416.).frame.width,
+        416.,
+        "宽胶囊窗口宽 416"
+    );
+    assert_eq!(
+        screen
+            .layout_for_content_width(IslandMode::Compact, 80., 416.)
+            .frame
+            .height,
+        34.,
+        "加宽不改变 34 点高度"
+    );
+    assert_eq!(
+        screen.layout(IslandMode::Activity).frame.width,
+        460.,
+        "完成通知仍是 460"
+    );
+    assert_eq!(
+        screen.layout(IslandMode::Alert).frame.width,
+        540.,
+        "审批仍是 540"
+    );
+    assert_eq!(
+        screen.layout(IslandMode::Expanded).frame.width,
+        660.,
+        "展开仍是 660"
+    );
+    assert_eq!(
+        screen.layout(IslandMode::Expanded).header_height,
+        52.,
+        "展开头部仍是 52"
+    );
+}

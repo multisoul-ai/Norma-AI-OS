@@ -1,4 +1,82 @@
-use super::{IslandEvent as E, IslandMode as M, IslandOverview, IslandState, IslandTab};
+use super::{
+    IslandAlert, IslandAlertKind, IslandEvent as E, IslandMode as M, IslandOverview, IslandState,
+    IslandTab,
+};
+
+fn approval(id: &str) -> IslandAlert {
+    IslandAlert {
+        id: id.to_owned(),
+        kind: IslandAlertKind::Approval,
+    }
+}
+
+// 场景：审批卡下方的队列点击切换，处理完自动轮到下一个。
+// 数据：待处理 a b c。先弹出 a，再点 c，然后 c 被处理掉。
+// 执行：OverviewUpdated、SelectAlert、再 OverviewUpdated。
+// 预期：点选后当前卡是 c；c 消失后轮到 b，而不是跳回 a。
+#[test]
+fn selecting_a_queued_alert_then_resolving_it_advances_forward() {
+    let mut island = IslandState::default();
+    island.apply(
+        E::OverviewUpdated(IslandOverview {
+            alerts: vec![approval("a"), approval("b"), approval("c")],
+            review_count: 0,
+        }),
+        0,
+    );
+    assert_eq!(island.mode(), M::Alert, "新审批弹出提醒");
+    assert_eq!(island.alert_id(), Some("a"), "默认第一张");
+    assert!(
+        island.apply(E::SelectAlert("c".into()), 10),
+        "点队列头像应改变状态"
+    );
+    assert_eq!(island.alert_id(), Some("c"), "当前卡换成 c");
+    assert_eq!(island.mode(), M::Alert, "切换仍停在审批形态");
+    island.apply(
+        E::OverviewUpdated(IslandOverview {
+            alerts: vec![approval("a"), approval("b")],
+            review_count: 0,
+        }),
+        20,
+    );
+    assert_eq!(island.alert_id(), Some("b"), "c 处理完轮到它前面的 b");
+    assert!(
+        !island.apply(E::SelectAlert("missing".into()), 30),
+        "不存在的卡不能切换"
+    );
+    assert_eq!(island.alert_id(), Some("b"), "无效点击保持当前卡");
+}
+
+/// 场景：审批处理完，下一个是成果。成果不进提醒种类，否则会自动弹岛。
+/// 数据：审批 a 正在显示。先按住成果，再把审批从概览里拿走。
+/// 执行：ReviewHold，然后 OverviewUpdated 成空列表。
+/// 预期：岛停在提醒形态，当前审批清空；没有按住时，空列表会收回。
+#[test]
+fn a_review_keeps_the_alert_open_after_the_last_approval_leaves() {
+    let mut island = IslandState::default();
+    island.apply(
+        E::OverviewUpdated(IslandOverview {
+            alerts: vec![approval("a")],
+            review_count: 1,
+        }),
+        0,
+    );
+    assert_eq!(island.mode(), M::Alert, "审批先把岛打开");
+    assert!(island.apply(E::ReviewHold(true), 10), "按住成果应记入状态");
+    island.apply(E::OverviewUpdated(IslandOverview::default()), 20);
+    assert_eq!(island.mode(), M::Alert, "成果还在时不能收回");
+    assert_eq!(island.alert_id(), None, "失效审批不再指向卡片");
+    let mut plain = IslandState::default();
+    plain.apply(
+        E::OverviewUpdated(IslandOverview {
+            alerts: vec![approval("a")],
+            review_count: 0,
+        }),
+        0,
+    );
+    plain.apply(E::OverviewUpdated(IslandOverview::default()), 20);
+    assert_eq!(plain.mode(), M::Compact, "没有成果按住时，空队列收回");
+}
 
 // 场景：用户固定面板或正在输入时不能被离开计时器打断。
 // 构造：快捷键展开并固定；执行：离开、取消固定、输入得失焦，最后 Esc。

@@ -7,14 +7,13 @@ use gpui::{
     div, prelude::*, px, rgb, Context, Entity, FocusHandle, SharedString, Subscription, Window,
 };
 use runtime::island::transition::{IslandTransition, Morph};
-use runtime::island::{geometry::IslandScreen, IslandEvent, IslandMode, IslandTab};
+use runtime::island::{geometry::IslandScreen, IslandEvent, IslandMode};
 use std::{
     cell::RefCell,
     rc::Rc,
     time::{Duration, Instant},
 };
 use ui::component::button::Button;
-use ui::i18n::text;
 
 pub(super) struct IslandView {
     pub display: u32,
@@ -77,10 +76,10 @@ impl IslandView {
     }
 
     fn sync_layout(&mut self, measured: bool, window: &mut Window, cx: &mut Context<Self>) {
-        if self.controller.read(cx).displays.mode_on(self.display) == IslandMode::Expanded
-            && window.focused(cx).is_none()
-        {
+        let mode_now = self.controller.read(cx).displays.mode_on(self.display);
+        if mode_now != IslandMode::Compact && window.focused(cx).is_none() {
             // GPUI focus routing only: this does not activate the native App or panel.
+            // Alert and activity must receive Escape the same way expanded does.
             self.focus.focus(window);
         }
         let mode = self.controller.read(cx).displays.mode_on(self.display);
@@ -96,13 +95,17 @@ impl IslandView {
             return;
         }
         self.measure_before_morph = false;
-        let layout = self.screen.layout_for_content(mode, self.body_height);
+        let workspaces = self.controller.read(cx).visible_workspaces(cx);
+        let faces = super::faces::collect(&workspaces);
+        let roster = runtime::island::roster::compact_roster(&super::faces::slots(&faces));
+        let compact =
+            runtime::island::geometry::compact_width(roster.running_total(), roster.pending_total);
+        let layout = self
+            .screen
+            .layout_for_content_width(mode, self.body_height, compact);
         let instant_revision = self.controller.read(cx).instant_revision;
         let now = self.epoch.elapsed().as_millis() as u64;
-        let reduce = crate::motion::system_reduce_motion()
-            || crate::motion::util::reduce_motion_from_env_value(std::env::var_os(
-                "MULTISOUL_REDUCE_MOTION",
-            ));
+        let reduce = !animations_on();
         let morph = if measured && instant_revision == self.instant_revision {
             // Already in this mode: a tab or a late measurement only changes
             // height. Replaying the expand morph moves the tab buttons.
@@ -217,8 +220,17 @@ impl IslandView {
     }
 }
 
+fn animations_on() -> bool {
+    !(crate::motion::system_reduce_motion()
+        || crate::motion::util::reduce_motion_from_env_value(std::env::var_os(
+            "MULTISOUL_REDUCE_MOTION",
+        )))
+}
+
 impl Render for IslandView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let animate = animations_on();
+        super::style::set_animations(animate);
         self.mount_questions(window, cx);
         let held = self.settle.is_some();
         let measuring = self.measure_before_morph;
@@ -243,6 +255,12 @@ impl Render for IslandView {
         };
         let message = controller.message.clone();
         let completion_label = controller.completion_label.clone().unwrap_or_default();
+        let faces = super::faces::collect(&workspaces);
+        let queue = super::faces::queue_items(&workspaces);
+        let activity_deadline = (mode == IslandMode::Activity
+            && controller.displays.state.activity_id().is_some())
+        .then(|| controller.displays.state.deadline_ms())
+        .flatten();
         let mut wrap = div().size_full().flex().justify_center();
         if measuring {
             // Don't stretch the column to the still-compact window, or the
@@ -261,6 +279,7 @@ impl Render for IslandView {
             .bg(rgb(0x000000))
             .text_color(rgb(0xf4f6f8))
             .text_size(px(12.))
+            .relative()
             .rounded_b(px(layout.radius as f32))
             .when(layout.notch_width == 0., |div| {
                 div.rounded_t(px(layout.radius as f32))
@@ -281,140 +300,36 @@ impl Render for IslandView {
                     cx.stop_propagation();
                 }
             }));
-        root = root.child(self.header(layout, &workspaces, running, pending, cx));
+        root = root.child(self.header(layout, &workspaces, &faces, &queue, animate, cx));
+        if let Some(deadline) = activity_deadline {
+            root = root.child(super::activity_view::countdown(
+                self.now_ms(),
+                deadline,
+                animate,
+            ));
+        }
         if mode == IslandMode::Compact {
             return wrap.child(root);
         }
         if mode == IslandMode::Expanded {
             root = root.child(self.tabs(running, pending, inset, cx));
         }
-        let mut body = div()
-            .w(px(self.screen.layout(mode).frame.width as f32))
-            .flex_none()
-            .px(px(16.))
-            .pt(px(match mode {
-                IslandMode::Activity => 4.,
-                IslandMode::Alert => 6.,
-                _ => 12.,
-            }))
-            .flex()
-            .flex_col()
-            .gap(px(if mode == IslandMode::Expanded {
-                14.
-            } else {
-                10.
-            }));
-        if let Some(message) = message {
-            body = body.child(
-                div()
-                    .id("island-feedback")
-                    .flex()
-                    .items_center()
-                    .gap(px(8.))
-                    .when(confirmation, |row| {
-                        row.child(
-                            ui::component::Icon::new(ui::component::IconName::Check)
-                                .size(px(14.))
-                                .text_color(rgb(style::OK)),
-                        )
-                    })
-                    .child(message.to_string())
-                    .on_click(cx.listener(|view, _, _, cx| view.event(IslandEvent::Expand, cx))),
-            );
-        }
-        if mode == IslandMode::Activity {
-            if !confirmation {
-                body = body.child(
-                    div()
-                        .id("island-completed")
-                        .cursor_pointer()
-                        .child(format!(
-                            "{} · {}",
-                            completion_label,
-                            text("island.completed")
-                        ))
-                        .on_click(
-                            cx.listener(|view, _, _, cx| view.event(IslandEvent::Expand, cx)),
-                        ),
-                );
-            }
-        } else if tab == IslandTab::Staff && mode == IslandMode::Expanded {
-            body = body.child(self.staff_tab(window, cx));
-        } else {
-            if mode == IslandMode::Expanded
-                && ((tab == IslandTab::Running
-                    && workspaces.iter().all(|w| {
-                        w.projects.iter().all(|p| {
-                            p.overview.running.is_empty()
-                                && p.overview.idle.is_empty()
-                                && p.overview.unloaded_projects.is_empty()
-                                && !p.overview.attention.iter().any(|a| {
-                                    matches!(
-                                        a.kind,
-                                        norma::mobile::RunOverviewAttentionKind::Failed
-                                            | norma::mobile::RunOverviewAttentionKind::Takeover
-                                    )
-                                })
-                        })
-                    }))
-                    || (tab == IslandTab::Pending && pending == 0))
-            {
-                body = body.child(style::empty(
-                    if tab == IslandTab::Running {
-                        "island.no_running"
-                    } else {
-                        "island.no_pending"
-                    },
-                    if tab == IslandTab::Running {
-                        "island.no_running_hint"
-                    } else {
-                        "island.no_pending_hint"
-                    },
-                ));
-            }
-            for workspace in &workspaces {
-                let mut rows = Vec::new();
-                for project in &workspace.projects {
-                    if tab == IslandTab::Running && mode == IslandMode::Expanded {
-                        rows.extend(self.render_running(workspace, project, cx));
-                    } else {
-                        rows.extend(self.render_pending(
-                            workspace,
-                            project,
-                            mode == IslandMode::Alert,
-                            cx,
-                        ));
-                    }
-                }
-                if rows.is_empty() {
-                    continue;
-                }
-                let mut group = div()
-                    .flex()
-                    .flex_col()
-                    .gap(px(if tab == IslandTab::Running { 4. } else { 14. }));
-                if tab == IslandTab::Running && mode == IslandMode::Expanded {
-                    group = group.child(
-                        div()
-                            .px(px(4.))
-                            .text_size(px(11.5))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .text_color(rgb(style::MUTED))
-                            .flex()
-                            .items_center()
-                            .gap(px(8.))
-                            .child(workspace.name.clone())
-                            .child(
-                                div()
-                                    .font_weight(gpui::FontWeight::NORMAL)
-                                    .text_color(rgb(style::FAINT))
-                                    .child(super::running::workspace_summary(workspace)),
-                            ),
-                    );
-                }
-                body = body.child(group.children(rows));
-            }
-        }
+        let body = self.island_body(
+            super::body::BodyInput {
+                mode,
+                tab,
+                workspaces: &workspaces,
+                faces: &faces,
+                queue: &queue,
+                pending,
+                message,
+                confirmation,
+                completion_label: &completion_label,
+                animate,
+            },
+            window,
+            cx,
+        );
         let entity = cx.entity().downgrade();
         let mut viewport = div();
         if measuring {

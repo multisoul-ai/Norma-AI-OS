@@ -68,6 +68,38 @@ fn blink_squashes_the_eye_then_reopens() {
     assert!((height(start + 1.0) - height(start - 0.5)).abs() < 0.05);
 }
 
+/// 场景：四种轮廓按填充面积对齐，圆不被描边撑大。
+/// 数据：静止 32 点身体的鞋带面积。缩放是 sqrt(圆面积/轮廓面积)：
+/// 圆 1、蛋 1.114、六边形 1.055、三角形 1.153。
+/// 执行：两两相除。
+/// 预期：每个比值落在 0.9 到 1.1；圆的缩放精确为 1。
+#[test]
+fn silhouette_areas_stay_within_ten_percent_and_the_circle_is_unscaled() {
+    let shapes = [
+        Silhouette::Circle,
+        Silhouette::Egg,
+        Silhouette::Hexagon,
+        Silhouette::Triangle,
+    ];
+    assert_eq!(
+        silhouette_scale(Silhouette::Circle),
+        1.,
+        "圆保持单位半径，绘制层也只有填充、没有描边"
+    );
+    let areas = shapes.map(resting_area);
+    for (i, left) in areas.iter().enumerate() {
+        for (j, right) in areas.iter().enumerate().skip(i + 1) {
+            let ratio = left / right;
+            assert!(
+                (0.9..=1.1).contains(&ratio),
+                "{:?}/{:?} = {ratio}，面积应落在 0.9–1.1",
+                shapes[i],
+                shapes[j]
+            );
+        }
+    }
+}
+
 #[test]
 fn only_working_is_busy() {
     assert!(ALL_MOODS
