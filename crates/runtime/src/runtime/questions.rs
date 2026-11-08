@@ -142,7 +142,14 @@ fn same_request(a: &QuestionRef, b: &QuestionRef) -> bool {
         && a.request_id == b.request_id
 }
 
+static NATIVE_FIRST_DEFAULT: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 impl Questions {
+    fn native_first(&self) -> bool {
+        self.native_first || NATIVE_FIRST_DEFAULT.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     /// Drop every pending question but keep the host's policy; loading a project snapshot used to
     /// wipe `native_first` and silently put the island back in charge of Claude questions.
     pub(super) fn reset(&mut self) {
@@ -154,10 +161,16 @@ impl Questions {
 }
 
 impl Runtime {
-    /// Let the agent card show a Claude question in its own terminal instead of holding the Hook
-    /// for the island. The App turns this on for real projects; protocol tests keep the Hook.
+    /// App-wide choice (Settings > Island): hand Claude questions to the agent card's terminal
+    /// instead of holding the Hook so the island can answer. Off keeps the island in charge.
+    pub fn set_native_first_questions_default(on: bool) {
+        NATIVE_FIRST_DEFAULT.store(on, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Whether this runtime hands Claude questions to the agent card's terminal (own flag or the
+    /// app-wide setting).
     pub fn native_first_questions(&self) -> bool {
-        self.questions.native_first
+        self.questions.native_first()
     }
 
     pub fn set_native_first_questions(&mut self, on: bool) {

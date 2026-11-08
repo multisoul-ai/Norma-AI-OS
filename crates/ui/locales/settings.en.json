@@ -284,5 +284,7 @@
   "settings.wallpaper_import_cancelled": "Import cancelled",
   "settings.wallpaper_deleted": "Wallpaper deleted",
   "settings.wallpaper_file_delete_failed": "Wallpaper reset, but the file couldn't be deleted: %{error}",
-  "settings.wallpaper_delete_failed": "Couldn't delete wallpaper: %{error}"
+  "settings.wallpaper_delete_failed": "Couldn't delete wallpaper: %{error}",
+  "settings.island": "Island",
+  "settings.island_subtitle": "Choose when the island appears, what it pops up for, and who answers questions."
 }

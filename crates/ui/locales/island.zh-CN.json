@@ -107,5 +107,6 @@
   "island.not_started": "尚未开始",
   "island.awaiting_reply": "等待你的回复",
   "island.file_count": "%{count} 个文件",
-  "island.elapsed_minutes": "%{count} 分"
+  "island.elapsed_minutes": "%{count} 分",
+  "island.native_questions": "问答交给 Agent 卡片回答（关闭时在灵动岛回答）"
 }

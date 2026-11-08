@@ -46,6 +46,8 @@ pub struct IslandPreferences {
     pub approvals: bool,
     pub questions: bool,
     pub completions: bool,
+    /// Hand Claude questions to the agent card's own terminal instead of answering on the island.
+    pub native_questions: bool,
 }
 impl Default for IslandPreferences {
     fn default() -> Self {
@@ -54,6 +56,7 @@ impl Default for IslandPreferences {
             approvals: true,
             questions: true,
             completions: true,
+            native_questions: false,
         }
     }
 }

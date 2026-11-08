@@ -306,7 +306,6 @@ pub(super) fn general_settings(theme: Theme, cx: &mut Context<crate::app::Multis
         .when_some(analytics, |view, analytics| {
             view.child(analytics_section(theme, analytics.is_enabled(), app))
         })
-        .child(crate::settings::island::section(theme, cx))
 }
 
 fn analytics_section(

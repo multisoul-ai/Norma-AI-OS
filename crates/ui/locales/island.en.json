@@ -107,5 +107,6 @@
   "island.not_started": "Not started",
   "island.awaiting_reply": "Waiting for your reply",
   "island.file_count": "%{count} files",
-  "island.elapsed_minutes": "%{count} min"
+  "island.elapsed_minutes": "%{count} min",
+  "island.native_questions": "Answer questions on the agent card (off: answer on the island)"
 }

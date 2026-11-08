@@ -182,6 +182,7 @@ pub(super) fn settings_content(
                     SettingsSection::NormaBrain => {
                         crate::settings::brain::settings(theme, &brain, cx)
                     }
+                    SettingsSection::NormaIsland => crate::settings::island::page(theme, cx),
                     SettingsSection::Effects => crate::settings::effects::effects_settings(
                         theme,
                         &effects,
@@ -289,6 +290,7 @@ fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> Str
     match section {
         SettingsSection::General => ui::i18n::text("general.subtitle").into(),
         SettingsSection::NormaBrain => ui::i18n::text("settings.brain_subtitle").to_string(),
+        SettingsSection::NormaIsland => ui::i18n::text("settings.island_subtitle").to_string(),
         SettingsSection::Mobile => {
             ui::i18n::text("settings.connect_your_iphone_over_a_local_network_or_tailscale")
                 .to_string()

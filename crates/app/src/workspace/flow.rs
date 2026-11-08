@@ -351,7 +351,6 @@ pub(crate) fn enter_workspace_for_path_with_source(
     let hook_config = runtime.agent_hook_config().cloned();
     let mut next_runtime = Runtime::new_for_workspace(root.clone());
     next_runtime.set_agent_hook_config(hook_config);
-    next_runtime.set_native_first_questions(true);
     next_runtime
         .load_canvas_snapshot(&project_store.canvas_store())
         .map_err(|error| {

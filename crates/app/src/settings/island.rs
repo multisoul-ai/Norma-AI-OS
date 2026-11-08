@@ -7,7 +7,11 @@ use ui::{
     Theme,
 };
 
-pub(super) fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) -> Div {
+pub(super) fn page(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) -> Div {
+    section(theme, cx)
+}
+
+fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) -> Div {
     let state = preferences::state(cx);
     let ready = state.is_some();
     let preferences = preferences::current(cx);
@@ -53,6 +57,12 @@ pub(super) fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) 
             Setting::Completions,
             "island.popup_completions",
             preferences.completions,
+        ),
+        (
+            "island-setting-native-questions",
+            Setting::NativeQuestions,
+            "island.native_questions",
+            preferences.native_questions,
         ),
     ] {
         section = section.child(
