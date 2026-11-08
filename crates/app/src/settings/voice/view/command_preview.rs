@@ -100,8 +100,8 @@ impl CommandPreview {
                 match validate_voice_proposals(&value, &self.roster, proposals) {
                     Ok(commits) if commits.len() == 1 => {
                         match commits[0].proposal().tool.as_str() {
-                            "assign_agent_task" => "voice.command_preview_assign",
-                            "reply_agent" => "voice.command_preview_reply",
+                            "agent_assign" => "voice.command_preview_assign",
+                            "agent_reply" => "voice.command_preview_reply",
                             _ => "voice.command_preview_model",
                         }
                     }

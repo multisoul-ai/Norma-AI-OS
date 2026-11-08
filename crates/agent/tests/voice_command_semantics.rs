@@ -131,7 +131,7 @@ fn semantic_hazards_leave_the_fast_path_without_dispatching() {
 #[tokio::test]
 async fn model_proposal_cannot_override_no_new_task_constraint() {
     let (endpoint, server) = sse::serve_openai(vec![
-        json!({"role":"assistant","tool_calls":[{"index":0,"id":"proposal-1","type":"function","function":{"name":"assign_agent_task","arguments":json!({"agent":"Bruno","task":"继续刚才的登录方案"}).to_string()}}]}),
+        json!({"role":"assistant","tool_calls":[{"index":0,"id":"proposal-1","type":"function","function":{"name":"agent_assign","arguments":json!({"agent":"Bruno","task":"继续刚才的登录方案"}).to_string()}}]}),
         json!({"role":"assistant","content":"任务已新建"}),
     ]).await;
     let config = ProviderConfig::new(
@@ -190,7 +190,7 @@ async fn all_proposals_are_checked_before_any_executor_is_called() {
     for dialect in 0..3 {
         let calls: Vec<_> = ["Henry", "Bruno"].into_iter().enumerate().map(|(index,name)| {
             let args=json!({"agent":name,"message":"帮我检查 Bruno 写的方案"});
-            json!({"index":index,"id":format!("proposal-{index}"),"type":"function","function":{"name":"reply_agent","arguments":if dialect==2 {args} else {serde_json::Value::String(args.to_string())}}})
+            json!({"index":index,"id":format!("proposal-{index}"),"type":"function","function":{"name":"agent_reply","arguments":if dialect==2 {args} else {serde_json::Value::String(args.to_string())}}})
         }).collect();
         let responses = vec![
             json!({"role":"assistant","tool_calls":calls}),
@@ -253,7 +253,7 @@ async fn all_proposals_are_checked_before_any_executor_is_called() {
 fn unresolved_target_and_ended_session_do_not_become_assignments() {
     let roster = [member(1, "Bruno", Some(11))];
     let proposal = VoiceProposal {
-        tool: "reply_agent".into(),
+        tool: "agent_reply".into(),
         arguments: json!({"agent":"Bruno","message":"继续刚才那个"}),
     };
     assert_eq!(
@@ -271,7 +271,7 @@ fn unresolved_target_and_ended_session_do_not_become_assignments() {
         "Ended 会话不能接受续聊"
     );
     let assign = VoiceProposal {
-        tool: "assign_agent_task".into(),
+        tool: "agent_assign".into(),
         arguments: json!({"agent":"Bruno","task":"继续刚才的任务"}),
     };
     assert_eq!(
@@ -290,7 +290,7 @@ fn commit_keeps_original_content_and_rechecks_stable_target_identity() {
     let input = "Bruno，修复登录报错";
     let roster = [member(1, "Bruno", Some(11))];
     let proposals = vec![VoiceProposal {
-        tool: "assign_agent_task".into(),
+        tool: "agent_assign".into(),
         arguments: json!({"agent":"Bruno","task":"发布生产"}),
     }];
     let commits = validate_voice_proposals(input, &roster, proposals).expect("完整候选应可验证");
@@ -325,7 +325,7 @@ fn host_commit_rejects_old_generations_projects_and_changed_input() {
         input,
         &roster,
         vec![VoiceProposal {
-            tool: "assign_agent_task".into(),
+            tool: "agent_assign".into(),
             arguments: json!({"agent":"Bruno","task":input}),
         }],
     )
@@ -392,7 +392,7 @@ async fn single_voice_write_requires_a_validated_commit_envelope() {
     };
     let result = tools
         .execute(
-            "assign_agent_task",
+            "agent_assign",
             json!({"agent":"Bruno","task":"修复登录"}),
             &context,
         )

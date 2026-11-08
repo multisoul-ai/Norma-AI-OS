@@ -28,7 +28,7 @@ fn persona_changes_style_without_replacing_identity_or_tool_rules() {
         "用户保存的说明应进入提示词"
     );
     assert!(
-        professional.contains("固定身份与工具规则"),
+        professional.contains("不改变工具和派发正文"),
         "人设不能覆盖工具边界"
     );
     assert!(

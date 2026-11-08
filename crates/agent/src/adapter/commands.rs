@@ -1,8 +1,7 @@
 use super::{AdapterCommand, AdapterError, WorkspaceSnapshotScope};
-use norma::protocol::{AgentProfile, PreviewType};
+use norma::protocol::AgentProfile;
 use serde::Deserialize;
 use serde_json::Value;
-use std::path::PathBuf;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -18,15 +17,6 @@ struct FindAgentTasksArgs {
 struct WorkspaceSnapshotArgs {
     scope: WorkspaceSnapshotScope,
     area_id: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AssignWorkspaceTaskArgs {
-    workspace_id: String,
-    area_id: String,
-    node_id: u64,
-    task: String,
 }
 
 #[derive(Deserialize)]
@@ -73,9 +63,12 @@ struct CreateAgentArgs {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct AssignAgentTaskArgs {
-    agent: String,
+struct AgentAssignArgs {
     task: String,
+    agent: Option<String>,
+    workspace_id: Option<String>,
+    area_id: Option<String>,
+    node_id: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -104,55 +97,10 @@ struct EmptyArgs {}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct CreateBrowserArgs {
-    url: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CreatePreviewArgs {
-    path: String,
-    preview_type: Option<PreviewTypeArg>,
-}
-
-#[derive(Clone, Copy, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum PreviewTypeArg {
-    Markdown,
-    Text,
-    Image,
-}
-
-impl From<PreviewTypeArg> for PreviewType {
-    fn from(value: PreviewTypeArg) -> Self {
-        match value {
-            PreviewTypeArg::Markdown => Self::Markdown,
-            PreviewTypeArg::Text => Self::Text,
-            PreviewTypeArg::Image => Self::Image,
-        }
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct NodeIdArgs {
-    node_id: u64,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 struct DeleteCanvasCardArgs {
     node_id: Option<u64>,
     position: Option<u64>,
     agent: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct TerminalInputArgs {
-    node_id: u64,
-    text: String,
-    submit: bool,
 }
 
 pub(crate) fn parse_adapter_command(
@@ -179,7 +127,7 @@ pub(crate) fn parse_adapter_command(
                 request: require_text("request", args.request)?,
             })
         }
-        "locate_workspace_agent" => {
+        "agent_show" => {
             let args: LocateWorkspaceAgentArgs = parse(arguments)?;
             require_positive("node_id", args.node_id)?;
             let approval_run_id = clean_optional(args.approval_run_id);
@@ -197,7 +145,7 @@ pub(crate) fn parse_adapter_command(
                 approval_turn_id,
             })
         }
-        "open_workspace_artifact" => {
+        "file_open" => {
             let args: OpenWorkspaceArtifactArgs = parse(arguments)?;
             require_positive("node_id", args.node_id)?;
             Ok(AdapterCommand::OpenWorkspaceArtifact {
@@ -209,16 +157,7 @@ pub(crate) fn parse_adapter_command(
                 version: require_text("version", args.version)?,
             })
         }
-        "assign_workspace_task" => {
-            let args: AssignWorkspaceTaskArgs = parse(arguments)?;
-            require_positive("node_id", args.node_id)?;
-            Ok(AdapterCommand::AssignWorkspaceTask {
-                workspace_id: require_text("workspace_id", args.workspace_id)?,
-                area_id: require_text("area_id", args.area_id)?,
-                node_id: args.node_id,
-                task: require_text("task", args.task)?,
-            })
-        }
+        "agent_assign" => parse_agent_assign(arguments),
         "workspace_snapshot" => {
             let args: WorkspaceSnapshotArgs = parse(arguments)?;
             let area_id = clean_optional(args.area_id);
@@ -272,7 +211,7 @@ pub(crate) fn parse_adapter_command(
         "memory_list" | "memory_search" | "memory_read" | "memory_write" => {
             crate::memory_access::parse_memory_command(name, arguments).map(AdapterCommand::Memory)
         }
-        "find_agent_tasks" => {
+        "task_list" => {
             let args: FindAgentTasksArgs = parse(arguments)?;
             Ok(AdapterCommand::FindAgentTasks {
                 task_id: args.task_id,
@@ -280,7 +219,7 @@ pub(crate) fn parse_adapter_command(
                 states: args.states,
             })
         }
-        "create_agent" => {
+        "agent_create" => {
             let args: CreateAgentArgs = parse(arguments)?;
             let profile = match args.profile.as_str() {
                 "codex" => AgentProfile::Codex,
@@ -304,26 +243,20 @@ pub(crate) fn parse_adapter_command(
                 task: clean_optional(args.task),
             })
         }
-        "assign_agent_task" => {
-            let args: AssignAgentTaskArgs = parse(arguments)?;
-            let agent = require_text("agent", args.agent)?;
-            let task = require_text("task", args.task)?;
-            Ok(AdapterCommand::AssignAgentTask { agent, task })
-        }
-        "cancel_agent_task" => {
+        "task_cancel" => {
             let args: TaskIdArgs = parse(arguments)?;
             require_positive("task_id", args.task_id)?;
             Ok(AdapterCommand::CancelAgentTask {
                 task_id: args.task_id,
             })
         }
-        "reply_agent" => {
+        "agent_reply" => {
             let args: ReplyAgentArgs = parse(arguments)?;
             let agent = require_text("agent", args.agent)?;
             let message = require_text("message", args.message)?;
             Ok(AdapterCommand::ReplyAgent { agent, message })
         }
-        "cancel_agent_reply" => {
+        "reply_cancel" => {
             let args: CancelAgentReplyArgs = parse(arguments)?;
             let reply_id = match args.reply_id {
                 Some(value) => {
@@ -335,46 +268,16 @@ pub(crate) fn parse_adapter_command(
             let agent = clean_optional(args.agent);
             if reply_id.is_none() && agent.is_none() {
                 return Err(AdapterError::InvalidArguments(
-                    "cancel_agent_reply requires reply_id or agent".to_string(),
+                    "reply_cancel requires reply_id or agent".to_string(),
                 ));
             }
             Ok(AdapterCommand::CancelAgentReply { reply_id, agent })
         }
-        "create_terminal" => {
+        "terminal_create" => {
             let _: EmptyArgs = parse(arguments)?;
             Ok(AdapterCommand::CreateTerminal)
         }
-        "create_browser" => {
-            let args: CreateBrowserArgs = parse(arguments)?;
-            Ok(AdapterCommand::CreateBrowser {
-                url: clean_optional(args.url),
-            })
-        }
-        "create_preview" => {
-            let args: CreatePreviewArgs = parse(arguments)?;
-            let path = require_text("path", args.path)?;
-            Ok(AdapterCommand::CreatePreview {
-                path: PathBuf::from(path),
-                explicit_type: args.preview_type.map(Into::into),
-            })
-        }
-        "focus_card" => {
-            let args: NodeIdArgs = parse(arguments)?;
-            require_positive("node_id", args.node_id)?;
-            Ok(AdapterCommand::FocusCard {
-                node_id: args.node_id,
-            })
-        }
-        "send_terminal_input" => {
-            let args: TerminalInputArgs = parse(arguments)?;
-            require_positive("node_id", args.node_id)?;
-            Ok(AdapterCommand::SendTerminalInput {
-                node_id: args.node_id,
-                text: args.text,
-                submit: args.submit,
-            })
-        }
-        "delete_canvas_card" => {
+        "card_delete" => {
             let args: DeleteCanvasCardArgs = parse(arguments)?;
             match (args.node_id, args.position, args.agent) {
                 (Some(node_id), None, None) => {
@@ -389,14 +292,47 @@ pub(crate) fn parse_adapter_command(
                     agent: require_text("agent", agent)?,
                 }),
                 _ => Err(AdapterError::InvalidArguments(
-                    "delete_canvas_card requires exactly one of node_id, position, or agent"
-                        .to_string(),
+                    "card_delete requires exactly one of node_id, position, or agent".to_string(),
                 )),
             }
         }
         other => Err(AdapterError::InvalidArguments(format!(
             "unknown Norma tool: {other}"
         ))),
+    }
+}
+
+fn parse_agent_assign(arguments: Value) -> Result<AdapterCommand, AdapterError> {
+    let args: AgentAssignArgs = parse(arguments)?;
+    let task = require_text("task", args.task)?;
+    let agent = clean_optional(args.agent);
+    let ids = match (args.workspace_id, args.area_id, args.node_id) {
+        (None, None, None) => None,
+        (Some(workspace_id), Some(area_id), Some(node_id)) => {
+            require_positive("node_id", node_id)?;
+            Some((
+                require_text("workspace_id", workspace_id)?,
+                require_text("area_id", area_id)?,
+                node_id,
+            ))
+        }
+        _ => {
+            return Err(AdapterError::InvalidArguments(
+                "agent_assign 跨项目时必须同时提供 workspace_id、area_id 和 node_id".into(),
+            ))
+        }
+    };
+    match (agent, ids) {
+        (Some(agent), None) => Ok(AdapterCommand::AssignAgentTask { agent, task }),
+        (None, Some((workspace_id, area_id, node_id))) => Ok(AdapterCommand::AssignWorkspaceTask {
+            workspace_id,
+            area_id,
+            node_id,
+            task,
+        }),
+        _ => Err(AdapterError::InvalidArguments(
+            "agent_assign 只能填写 agent，或填写 workspace_id、area_id、node_id".into(),
+        )),
     }
 }
 

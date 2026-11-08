@@ -4,7 +4,6 @@ use agent::{
 };
 use futures::future::BoxFuture;
 use serde_json::json;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
 
@@ -13,25 +12,13 @@ struct RecordingAdapter {
     commands: Mutex<Vec<AdapterCommand>>,
 }
 
-/// Norma 提示词应将 REVIEW 识别为文件查看请求，并按来源选择右侧工具。
+/// 普通文件预览已不在模型目录；有任务来源的成果仍走 file_open。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   Canvas cards = 0
-///   Agent roster entries = 0
-///   Ordinary review route = 1（REVIEW → create_preview）
-///   Task-bound review route = 1（REVIEW → open_workspace_artifact）
-///   Missing-path clarification limit = 1 次
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 用空画布构建生产 system prompt。
-///   2. 检查 REVIEW 别称、两类目标工具与缺少路径时的行为约束。
-///
-/// 预期结果：
-///   - 正断言：普通文件走 `create_preview`，有任务来源的成果走 `open_workspace_artifact`，都在右侧显示。
-///   - 正断言：缺少路径时只允许一次最小澄清。
-///   - 负断言：REVIEW 不得被路由到 Terminal 工具或允许猜测文件。
+/// 数据构造：空画布、空名册，以及生产工具目录。
+/// 执行过程：检查系统提示和工具名。
+/// 预期结果：create_preview 不存在；file_open 仍说明在右侧打开；提示词不罗列卡片。
 #[test]
-fn norma_prompt_routes_review_language_to_right_drawer_file_tools() {
+fn norma_prompt_keeps_task_artifact_open_without_preview_tool() {
     let prompt = norma_system_prompt(
         &CurrentCanvasContext {
             project_name: "project-1".to_string(),
@@ -42,31 +29,32 @@ fn norma_prompt_routes_review_language_to_right_drawer_file_tools() {
         },
         &[],
     );
-
+    let definitions = norma_tool_definitions();
     assert!(
-        prompt.contains("REVIEW")
-            && prompt.contains("普通本地文件")
-            && prompt.contains("`create_preview`")
-            && prompt.contains("有明确任务来源的成果优先使用 `open_workspace_artifact`")
-            && prompt.contains("右侧标签"),
-        "REVIEW 应按文件来源选择工具，并在桌面右侧展示"
+        definitions.iter().all(|tool| tool.name != "create_preview"),
+        "模型不能再创建 Preview 卡片"
+    );
+    let file_open = definitions
+        .iter()
+        .find(|tool| tool.name == "file_open")
+        .expect("有任务来源的成果仍由 file_open 打开");
+    assert!(
+        file_open.description.contains("右侧"),
+        "成果仍在右侧打开：{}",
+        file_open.description
     );
     assert!(
-        prompt.contains("只询问一次路径"),
-        "Norma prompt should require one minimal clarification when a REVIEW path is missing"
-    );
-    assert!(
-        !prompt.contains("REVIEW 卡片时调用 `create_terminal`") && prompt.contains("不要猜测"),
-        "Norma must not route REVIEW to Terminal or invent a target file"
+        !prompt.contains("当前画布卡片"),
+        "精简后的系统提示不再罗列卡片：{prompt}"
     );
 }
 
-/// Norma 路由应把“创建 Agent 并执行任务”合并为一次 create_agent 调用。
+/// Norma 路由应把“创建 Agent 并执行任务”合并为一次 agent_create 调用。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   User intents = 2（创建卡片 + 执行任务）
-///   Required model tool calls = 1（`create_agent` with `task`）
-///   Forbidden follow-up calls = 1（额外 `assign_agent_task`）
+///   Required model tool calls = 1（`agent_create` with `task`）
+///   Forbidden follow-up calls = 1（额外 `agent_assign`）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 用空画布与空 Agent 名册构建生产 system prompt。
@@ -74,9 +62,9 @@ fn norma_prompt_routes_review_language_to_right_drawer_file_tools() {
 ///   3. 检查该规则是否禁止紧接着再次派发同一任务。
 ///
 /// 预期结果：
-///   - 正断言：提示词要求把完整任务放进 `create_agent.task`。
+///   - 正断言：提示词要求把完整任务放进 `agent_create.task`。
 ///   - 正断言：提示词明确限定整个新建场景只调用一次工具。
-///   - 负断言：提示词不得允许随后再调用 `assign_agent_task` 造成串行往返或重复任务。
+///   - 负断言：提示词不得允许随后再调用 `agent_assign` 造成串行往返或重复任务。
 #[test]
 fn norma_prompt_routes_create_and_task_to_one_tool_call() {
     let prompt = norma_system_prompt(
@@ -91,16 +79,11 @@ fn norma_prompt_routes_create_and_task_to_one_tool_call() {
     );
 
     assert!(
-        prompt.contains("把完整任务放入 `create_agent.task`"),
-        "Norma prompt should route the complete new-Agent task into create_agent.task"
+        prompt.contains("agent_create") && prompt.contains("任务放进 task，不要再 assign"),
+        "新建并做事时任务放进 agent_create.task，不再额外 assign：{prompt}"
     );
     assert!(
-        prompt.contains("只调用一次 `create_agent`")
-            && prompt.contains("不要随后再调用 `assign_agent_task`"),
-        "Norma prompt should require one combined tool call and forbid a serial follow-up assignment"
-    );
-    assert!(
-        !prompt.contains("先调用 `create_agent`，再调用 `assign_agent_task`"),
+        !prompt.contains("先调用 `agent_create`，再调用 `agent_assign`"),
         "Norma prompt must not preserve the old two-call create-then-assign route"
     );
 }
@@ -108,7 +91,7 @@ fn norma_prompt_routes_create_and_task_to_one_tool_call() {
 /// Norma 创建 Agent 时携带任务，应通过一次 typed tool 调用抵达 Adapter。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   Tool calls = 1（`create_agent`）
+///   Tool calls = 1（`agent_create`）
 ///   Requested Agent profiles = 1（Codex）
 ///   Attached tasks = 1（检查技术栈）
 ///   Expected Adapter commands = 1 + 0 additional assignment calls = 1
@@ -124,13 +107,13 @@ fn norma_prompt_routes_create_and_task_to_one_tool_call() {
 ///   - 正断言：Adapter 恰好只执行一次，避免第二次串行工具调用。
 ///   - 负断言：可选 task 不得被 `deny_unknown_fields` 拒绝或丢弃。
 #[tokio::test]
-async fn create_agent_accepts_attached_task_in_one_adapter_call() {
+async fn agent_create_accepts_attached_task_in_one_adapter_call() {
     let adapter = Arc::new(RecordingAdapter::default());
     let runtime = NormaToolRuntime::new(adapter.clone());
     let create = norma_tool_definitions()
         .into_iter()
-        .find(|definition| definition.name == "create_agent")
-        .expect("create_agent definition should exist");
+        .find(|definition| definition.name == "agent_create")
+        .expect("agent_create definition should exist");
     let context = ToolContext {
         project_id: "project-1".to_string(),
         turn_id: "turn-create-and-dispatch".to_string(),
@@ -145,7 +128,7 @@ async fn create_agent_accepts_attached_task_in_one_adapter_call() {
 
     let result = runtime
         .execute(
-            "create_agent",
+            "agent_create",
             json!({
                 "profile": "codex",
                 "task": "检查当前项目有哪些技术栈。"
@@ -153,21 +136,21 @@ async fn create_agent_accepts_attached_task_in_one_adapter_call() {
             &context,
         )
         .await
-        .expect("create_agent should accept one optional task without a second tool call");
+        .expect("agent_create should accept one optional task without a second tool call");
 
     assert_eq!(
         create.parameters["properties"]["task"],
         json!({"type": "string", "minLength": 1}),
-        "create_agent schema should expose one optional non-empty task"
+        "agent_create schema should expose one optional non-empty task"
     );
     assert_eq!(
         create.parameters["required"],
         json!(["profile"]),
-        "task should stay optional so card-only create_agent calls remain compatible"
+        "task should stay optional so card-only agent_create calls remain compatible"
     );
     assert_eq!(
         result.status, "accepted",
-        "create_agent with a task should preserve the Adapter's accepted receipt"
+        "agent_create with a task should preserve the Adapter's accepted receipt"
     );
     let commands = adapter
         .commands
@@ -176,7 +159,7 @@ async fn create_agent_accepts_attached_task_in_one_adapter_call() {
     assert_eq!(
         commands.len(),
         1,
-        "create_agent with a task should execute exactly one Adapter command"
+        "agent_create with a task should execute exactly one Adapter command"
     );
     assert_eq!(
         commands[0],
@@ -184,7 +167,7 @@ async fn create_agent_accepts_attached_task_in_one_adapter_call() {
             profile: norma::protocol::AgentProfile::Codex,
             task: Some("检查当前项目有哪些技术栈。".to_string()),
         },
-        "create_agent should preserve the requested profile and complete task in one command"
+        "agent_create should preserve the requested profile and complete task in one command"
     );
     assert!(
         !matches!(commands[0], AdapterCommand::AssignAgentTask { .. }),
@@ -208,147 +191,57 @@ impl AgentCardAdapter for RecordingAdapter {
     }
 }
 
-/// Browser 与 Preview 工具 schema 应保持窄参数边界。
+/// 已从模型目录删除的工具名必须报参数错误，不能静默执行菜单命令。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   New card tools = 2（create_browser + create_preview）
-///   Browser required fields = 0（允许使用默认首页）
-///   Preview required fields = 1（path）
-///   Preview type values = 3（markdown + text + image）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 从生产工具注册表定位 Browser 与 Preview definition。
-///   2. 检查 required、additionalProperties 与 preview_type 枚举。
-///
-/// 预期结果：
-///   - 正断言：Browser 可省略 URL，Preview 只强制要求 path。
-///   - 正断言：Preview 类型只允许三个既有 renderer。
-///   - 负断言：两个 schema 都不得接收模型臆造字段。
-#[test]
-fn browser_and_preview_tool_schemas_keep_narrow_card_arguments() {
-    let definitions = norma_tool_definitions();
-    let browser = definitions
-        .iter()
-        .find(|definition| definition.name == "create_browser")
-        .expect("create_browser definition should exist");
-    let preview = definitions
-        .iter()
-        .find(|definition| definition.name == "create_preview")
-        .expect("create_preview definition should exist");
-
-    assert_eq!(
-        browser.parameters["required"],
-        json!([]),
-        "create_browser should allow the product default page when URL is omitted"
-    );
-    assert_eq!(
-        browser.parameters["additionalProperties"],
-        json!(false),
-        "create_browser should reject model-invented fields"
-    );
-    assert_eq!(
-        preview.parameters["required"],
-        json!(["path"]),
-        "create_preview should require exactly the file path"
-    );
-    assert_eq!(
-        preview.parameters["properties"]["preview_type"]["enum"],
-        json!(["markdown", "text", "image"]),
-        "create_preview should constrain explicit renderer types"
-    );
-    assert_eq!(
-        preview.parameters["additionalProperties"],
-        json!(false),
-        "create_preview should reject model-invented fields"
-    );
-}
-
-/// Browser 与 Preview typed tools 应把结构化参数原样交给 Adapter。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   Tool calls = 2（create_browser + create_preview）
-///   Browser URL = 1 个完整 HTTPS URL
-///   Preview path = 1 个工作区相对 Markdown 路径
-///   Expected Adapter commands = 2
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 调用 `create_browser`，传入文档页 URL。
-///   2. 调用 `create_preview`，传入报告路径与 markdown 类型。
-///   3. 从 RecordingAdapter 读取按调用顺序收到的命令。
-///
-/// 预期结果：
-///   - 正断言：Browser URL 与 Preview 路径/类型完整保留。
-///   - 正断言：两个工具均返回 Adapter 的真实 accepted 回执。
-///   - 负断言：两个创建请求都不得退化成 CreateTerminal。
+/// 数据构造：四个旧名字，各带一份以前能通过的参数。
+/// 执行过程：经 NormaToolRuntime 解析。
+/// 预期结果：全部 InvalidArguments，适配器零调用。
 #[tokio::test]
-async fn browser_and_preview_tools_preserve_structured_card_payloads() {
+async fn removed_model_tool_names_do_not_execute() {
     let adapter = Arc::new(RecordingAdapter::default());
     let runtime = NormaToolRuntime::new(adapter.clone());
-    let context = |turn: &str, call: &str, input: &str| ToolContext {
+    let context = ToolContext {
         project_id: "project-1".to_string(),
-        turn_id: turn.to_string(),
-        user_input: input.to_string(),
+        turn_id: "turn-removed".to_string(),
+        user_input: "打开网页".to_string(),
         input_source: agent::AgentInputSource::Other,
         voice_commit: None,
         contextual_delete_targets: Vec::new(),
-        tool_call_id: call.to_string(),
-        operation_id: Some(format!("{turn}:{call}")),
+        tool_call_id: "call-removed".to_string(),
+        operation_id: Some("turn-removed:call-removed".to_string()),
         cancellation: CancellationToken::new(),
     };
-
-    let browser = runtime
-        .execute(
+    for (name, arguments) in [
+        (
             "create_browser",
             json!({"url": "https://docs.example.com/guide"}),
-            &context("turn-browser", "call-1", "打开文档网页"),
-        )
-        .await
-        .expect("create_browser should reach the Adapter");
-    let preview = runtime
-        .execute(
+        ),
+        (
             "create_preview",
             json!({"path": "docs/report.md", "preview_type": "markdown"}),
-            &context("turn-preview", "call-1", "打开报告预览"),
-        )
-        .await
-        .expect("create_preview should reach the Adapter");
-
-    assert_eq!(
-        browser.status, "accepted",
-        "create_browser should return the Adapter's actual accepted status"
-    );
-    assert_eq!(
-        preview.status, "accepted",
-        "create_preview should return the Adapter's actual accepted status"
-    );
-    let commands = adapter
-        .commands
-        .lock()
-        .expect("recording adapter command lock should not be poisoned");
-    assert_eq!(
-        commands.len(),
-        2,
-        "the two card tools should produce exactly two Adapter commands"
-    );
-    assert_eq!(
-        commands[0],
-        AdapterCommand::CreateBrowser {
-            url: Some("https://docs.example.com/guide".to_string()),
-        },
-        "create_browser should preserve the exact requested URL"
-    );
-    assert_eq!(
-        commands[1],
-        AdapterCommand::CreatePreview {
-            path: PathBuf::from("docs/report.md"),
-            explicit_type: Some(norma::protocol::PreviewType::Markdown),
-        },
-        "create_preview should preserve path and explicit Markdown renderer"
-    );
+        ),
+        ("focus_card", json!({"node_id": 1})),
+        (
+            "send_terminal_input",
+            json!({"node_id": 1, "text": "git status", "submit": true}),
+        ),
+        (
+            "assign_idea",
+            json!({"idea_id": "i1", "workspace_id": "w", "area_id": "a", "node_id": 1}),
+        ),
+    ] {
+        let result = runtime.execute(name, arguments, &context).await;
+        assert!(
+            matches!(result, Err(AdapterError::InvalidArguments(_))),
+            "{name} 应作为未知工具被拒绝：{result:?}"
+        );
+    }
     assert!(
-        !commands
-            .iter()
-            .any(|command| matches!(command, AdapterCommand::CreateTerminal)),
-        "Browser and Preview tools must not create Terminal cards"
+        adapter
+            .commands
+            .lock()
+            .expect("recording adapter command lock should not be poisoned")
+            .is_empty(),
+        "旧工具名不得落到菜单里的 Browser、Preview 或 AssignIdea"
     );
 }

@@ -35,7 +35,7 @@ impl NormaSession {
         if draft
             .proposals
             .iter()
-            .all(|p| matches!(p.tool.as_str(), "assign_agent_task" | "reply_agent"))
+            .all(|p| matches!(p.tool.as_str(), "agent_assign" | "agent_reply"))
         {
             return self
                 .submit_voice_replan(draft, context, Vec::new(), deltas)

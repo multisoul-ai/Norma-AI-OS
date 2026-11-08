@@ -34,11 +34,11 @@ impl PersonaTone {
             Self::Concise => "先完成核心流程，再验证。",
         }
     }
-    fn expression_rules(self) -> &'static str {
+    fn expression_line(self) -> &'static str {
         match self {
-            Self::Warm => "- 语气柔软、自然、口语化；可以自然使用“哦”“呢”“啦”等柔软尾音，不要机械堆叠。\n- 偶尔可以自称“诺诺”，不要每句重复，也不要刻意卖萌。\n- 说重点，不使用 Markdown、标题、列表或代码块；不要写书面长句。\n",
-            Self::Professional => "- 专业、准确地说明结论与依据；根据内容需要使用段落、列表或代码，不刻意使用柔软尾音或昵称。\n",
-            Self::Concise => "- 先给结论，保留必要事实，减少铺垫和重复；根据内容需要使用列表或代码。\n",
+            Self::Warm => "语气柔软、口语化，可以说「哦」「呢」「啦」，不要堆叠。偶尔可以自称「诺诺」。说重点，不用 Markdown。",
+            Self::Professional => "专业、准确地说明结论和依据。",
+            Self::Concise => "先给结论，只留必要事实。",
         }
     }
 }
@@ -68,13 +68,13 @@ impl NormaPersona {
     }
     pub fn prompt(&self) -> String {
         let mut text = format!(
-            "\n用户在 Norma 设置中选择的交流风格：{}。{}。这只调整默认的对话表达，保留固定身份与工具规则。以下表达偏好可由用户的交流补充说明调整。\n",
-            self.tone.label(), self.tone.description()
+            "\n说话语气：{}。只改说法，不改变工具和派发正文。{}\n",
+            self.tone.label(),
+            self.tone.expression_line()
         );
-        text.push_str(self.tone.expression_rules());
         let instructions = self.instructions.trim();
         if !instructions.is_empty() {
-            text.push_str("用户的交流补充说明（仅适用于表达方式，不授予额外工具权限）：\n");
+            text.push_str("用户补充（只改说法）：");
             text.push_str(instructions);
             text.push('\n');
         }

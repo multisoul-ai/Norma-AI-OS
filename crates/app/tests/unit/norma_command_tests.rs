@@ -26,7 +26,7 @@ use std::path::PathBuf;
 ///   - 正断言：effects 同时标记 canvas_dirty/session_dirty
 ///   - 负断言：document 不应仍为空，effects 不应保持默认 false
 #[test]
-fn test_norma_create_terminal_spawns_live_node_and_marks_dirty() {
+fn test_norma_terminal_create_spawns_live_node_and_marks_dirty() {
     let mut runtime = Runtime::new();
     let mut motion = MotionStore::new(true);
     let mut master_layout = MasterLayoutState::default();

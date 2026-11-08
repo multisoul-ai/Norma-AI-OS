@@ -54,7 +54,7 @@ def rust_enum_variants(source: str, enum_name: str) -> set[str]:
 
 
 def create_agent_schema_profiles(source: str) -> set[str]:
-    create_agent = source.split('"create_agent"', 1)[1].split("definition(", 1)[0]
+    create_agent = source.split('"agent_create"', 1)[1].split("definition(", 1)[0]
     profile = re.search(
         r'"profile"\s*:\s*\{[^{}]*"enum"\s*:\s*\[(?P<values>[^]]+)\]',
         create_agent,
@@ -117,7 +117,7 @@ def check_agent_profile_contract(root: Path) -> list[str]:
         )
     if schema_profiles != set(expected):
         failures.append(
-            f"{schema}: create_agent schema profiles {sorted(schema_profiles)} do not match "
+            f"{schema}: agent_create schema profiles {sorted(schema_profiles)} do not match "
             f"AgentProfile values {sorted(expected)}"
         )
     if parser_profiles != expected:

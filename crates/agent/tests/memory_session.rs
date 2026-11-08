@@ -108,19 +108,19 @@ async fn recall_epoch_clears_previous_injection_and_personal_tools_are_limited()
     );
     let professional_prompt = requests[2]["messages"][0]["content"].to_string();
     assert!(
-        professional_prompt.contains("你的固定姓名是 Norma"),
+        professional_prompt.contains("你是 Norma"),
         "选择专业风格必须保留固定身份"
     );
     assert!(
-        professional_prompt.contains("工具必须串行执行"),
+        professional_prompt.contains("不改变工具和派发正文"),
         "选择专业风格必须保留工具执行边界"
     );
     assert!(
-        !professional_prompt.contains("语气柔软、自然、口语化"),
+        !professional_prompt.contains("可以说「哦」「呢」「啦」"),
         "专业风格不能继续受默认暖心口语要求约束"
     );
     assert!(
-        !professional_prompt.contains("不使用 Markdown"),
+        !professional_prompt.contains("不用 Markdown"),
         "专业风格不能继承默认口语的格式禁令"
     );
     assert!(
@@ -160,7 +160,7 @@ async fn recall_epoch_clears_previous_injection_and_personal_tools_are_limited()
     assert!(
         !tools
             .iter()
-            .any(|tool| tool["function"]["name"] == "create_terminal"),
+            .any(|tool| tool["function"]["name"] == "terminal_create"),
         "个人不授予项目操作"
     );
 }

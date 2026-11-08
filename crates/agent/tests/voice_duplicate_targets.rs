@@ -37,7 +37,7 @@ impl AgentCardAdapter for Host {
 /// 预期：补问列出两个稳定节点，不取首个；补答只提交节点 12，且不再调用模型。
 #[tokio::test]
 async fn duplicate_names_can_be_clarified_by_stable_card_identity() {
-    let (endpoint,server)=sse::serve_openai(vec![json!({"role":"assistant","tool_calls":[{"index":0,"id":"guess","type":"function","function":{"name":"reply_agent","arguments":json!({"agent":"Bruno","message":"继续刚才的任务"}).to_string()}}]}),json!({"role":"assistant","content":"是哪一张卡片？"})]).await;
+    let (endpoint,server)=sse::serve_openai(vec![json!({"role":"assistant","tool_calls":[{"index":0,"id":"guess","type":"function","function":{"name":"agent_reply","arguments":json!({"agent":"Bruno","message":"继续刚才的任务"}).to_string()}}]}),json!({"role":"assistant","content":"是哪一张卡片？"})]).await;
     let roster = [11, 12]
         .map(|node| AgentRosterEntry {
             definition_id: 1,

@@ -58,7 +58,7 @@ async fn doubao_voice_delete_skips_secondary_text_authorization() {
     let runtime = NormaToolRuntime::new(adapter.clone());
     let ordinary = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({"position": 2}),
             &tool_context("ordinary", "把第二张卡片去掉"),
         )
@@ -66,7 +66,7 @@ async fn doubao_voice_delete_skips_secondary_text_authorization() {
     let mut doubao = tool_context("doubao", "把第二张卡片去掉");
     doubao.input_source = agent::AgentInputSource::DoubaoVoice;
     let privileged = runtime
-        .execute("delete_canvas_card", json!({"position": 2}), &doubao)
+        .execute("card_delete", json!({"position": 2}), &doubao)
         .await;
     let commands = adapter.commands.lock().expect("删除目标记录锁不应中毒");
 
@@ -100,10 +100,10 @@ async fn doubao_voice_delete_skips_secondary_text_authorization() {
 ///   预期 Adapter 副作用数 = 3 - 2 = 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 用原文“关闭第二张卡片”调用 `delete_canvas_card(position=1)`。
+///   1. 用原文“关闭第二张卡片”调用 `card_delete(position=1)`。
 ///   2. Runtime 对照原始用户位置，拒绝错误的第一张目标。
-///   3. 使用新 turn 调用 `delete_canvas_card(node_id=2)`，验证序数不能授权同数字节点。
-///   4. 再使用新 turn 调用 `delete_canvas_card(position=2)`。
+///   3. 使用新 turn 调用 `card_delete(node_id=2)`，验证序数不能授权同数字节点。
+///   4. 再使用新 turn 调用 `card_delete(position=2)`。
 ///   5. Runtime 把唯一获授权的位置删除命令交给 Adapter。
 ///
 /// 预期结果：
@@ -112,27 +112,27 @@ async fn doubao_voice_delete_skips_secondary_text_authorization() {
 ///   - 正断言：position=2 成功到达 Adapter。
 ///   - 正断言：Adapter 记录的是位置目标，不是模型猜测的 node_id。
 #[tokio::test]
-async fn delete_canvas_card_authorizes_only_the_spoken_position() {
+async fn card_delete_authorizes_only_the_spoken_position() {
     let adapter = Arc::new(RecordingAdapter::default());
     let runtime = NormaToolRuntime::new(adapter.clone());
 
     let wrong_position = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({"position": 1}),
             &tool_context("turn-position-wrong", "关闭第二张卡片"),
         )
         .await;
     let guessed_node = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({"node_id": 2}),
             &tool_context("turn-position-as-node", "关闭第2张卡片"),
         )
         .await;
     let exact_position = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({"position": 2}),
             &tool_context("turn-position-exact", "关闭第二张卡片"),
         )
@@ -184,9 +184,9 @@ async fn delete_canvas_card_authorizes_only_the_spoken_position() {
 ///   预期 Adapter 副作用数     = 2 - 1 次名称前缀误匹配 = 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 用原文“关闭chloe”调用 `delete_canvas_card(agent="ChloeBackup")`。
+///   1. 用原文“关闭chloe”调用 `card_delete(agent="ChloeBackup")`。
 ///   2. Runtime 拒绝未在原文中出现的较长名称，不能把前缀关系当成授权。
-///   3. 使用新 turn 调用 `delete_canvas_card(agent="Chloe")`。
+///   3. 使用新 turn 调用 `card_delete(agent="Chloe")`。
 ///   4. Runtime 忽略英文大小写并把精确名称目标交给 Adapter。
 ///
 /// 预期结果：
@@ -194,20 +194,20 @@ async fn delete_canvas_card_authorizes_only_the_spoken_position() {
 ///   - 正断言：Chloe 获得授权并到达 Adapter。
 ///   - 正断言：Adapter 收到名称目标，后续可解析对应活跃 AgentCard。
 #[tokio::test]
-async fn delete_canvas_card_authorizes_only_the_spoken_agent_name() {
+async fn card_delete_authorizes_only_the_spoken_agent_name() {
     let adapter = Arc::new(RecordingAdapter::default());
     let runtime = NormaToolRuntime::new(adapter.clone());
 
     let wrong_agent = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({"agent": "ChloeBackup"}),
             &tool_context("turn-agent-wrong", "关闭chloe"),
         )
         .await;
     let exact_agent = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({"agent": "Chloe"}),
             &tool_context("turn-agent-exact", "关闭chloe"),
         )
@@ -256,7 +256,7 @@ async fn delete_canvas_card_authorizes_only_the_spoken_agent_name() {
 ///   预期 Adapter 副作用数   = 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 输入“请关闭 Chloe 的 Agent 卡片，谢谢”并调用 `delete_canvas_card(agent="Chloe")`。
+///   1. 输入“请关闭 Chloe 的 Agent 卡片，谢谢”并调用 `card_delete(agent="Chloe")`。
 ///   2. Runtime 在精确名称后识别卡片限定语与自然语言标点边界。
 ///   3. Runtime 把关闭命令交给 Adapter。
 ///
@@ -265,13 +265,13 @@ async fn delete_canvas_card_authorizes_only_the_spoken_agent_name() {
 ///   - 正断言：Adapter 只记录 Chloe 这个名称目标。
 ///   - 负断言：不得因为逗号后的礼貌文本把请求误判为无授权。
 #[tokio::test]
-async fn delete_canvas_card_accepts_punctuation_after_exact_agent_name() {
+async fn card_delete_accepts_punctuation_after_exact_agent_name() {
     let adapter = Arc::new(RecordingAdapter::default());
     let runtime = NormaToolRuntime::new(adapter.clone());
 
     let result = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({"agent": "Chloe"}),
             &tool_context("turn-agent-punctuation", "请关闭 Chloe 的 Agent 卡片，谢谢"),
         )
@@ -315,7 +315,7 @@ async fn delete_canvas_card_accepts_punctuation_after_exact_agent_name() {
 ///   预期 Adapter 副作用数   = 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 调用不带目标的 `delete_canvas_card`。
+///   1. 调用不带目标的 `card_delete`。
 ///   2. 调用同时携带 `node_id=7` 和 `position=2` 的工具请求。
 ///   3. 检查参数解析错误与 Adapter 记录。
 ///
@@ -324,20 +324,20 @@ async fn delete_canvas_card_accepts_punctuation_after_exact_agent_name() {
 ///   - 负断言：同时提供两个目标必须作为无效参数被拒绝。
 ///   - 正断言：两次非法调用均在 Adapter 前终止，副作用数保持为零。
 #[tokio::test]
-async fn delete_canvas_card_requires_exactly_one_target_dimension() {
+async fn card_delete_requires_exactly_one_target_dimension() {
     let adapter = Arc::new(RecordingAdapter::default());
     let runtime = NormaToolRuntime::new(adapter.clone());
 
     let missing = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({}),
             &tool_context("turn-target-missing", "关闭第二张卡片"),
         )
         .await;
     let conflicting = runtime
         .execute(
-            "delete_canvas_card",
+            "card_delete",
             json!({"node_id": 7, "position": 2}),
             &tool_context("turn-target-conflicting", "关闭第二张卡片"),
         )

@@ -14,7 +14,7 @@ use serde_json::json;
 ///   3. 检查请求可提交、问候保留且项目派发工具仍可用。
 ///
 /// 预期结果：
-///   - 正断言：请求构造成功，包含“你好”和 assign_agent_task。
+///   - 正断言：请求构造成功，包含“你好”和 agent_assign。
 ///   - 负断言：首句不得产生 context_budget 错误，不能删除当前 user。
 #[test]
 fn voice_first_project_utterance_fits_request_budget() {
@@ -43,7 +43,7 @@ fn voice_first_project_utterance_fits_request_budget() {
             .as_array()
             .expect("项目工具应存在")
             .iter()
-            .any(|tool| tool["function"]["name"] == "assign_agent_task"),
+            .any(|tool| tool["function"]["name"] == "agent_assign"),
         "修复预算不能移除项目派发能力"
     );
     assert_eq!(history.len(), 1, "唯一的当前 user 不得被裁剪");

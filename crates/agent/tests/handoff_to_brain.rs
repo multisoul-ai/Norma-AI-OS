@@ -1,6 +1,6 @@
 use agent::{
-    norma_system_prompt, norma_tool_definitions, AdapterCommand, AdapterError, AdapterResult,
-    AgentCardAdapter, AgentInputSource, CurrentCanvasContext, NormaToolRuntime, ToolContext,
+    norma_tool_definitions, AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter,
+    AgentInputSource, NormaToolRuntime, ToolContext,
 };
 use futures::future::BoxFuture;
 use serde_json::{json, Value};
@@ -96,17 +96,7 @@ fn the_tool_is_defined_once_and_described_in_the_prompt() {
         "request 必填"
     );
     assert!(
-        norma_system_prompt(
-            &CurrentCanvasContext {
-                project_name: "p".into(),
-                workspace_root: "/w".into(),
-                total_cards: 0,
-                cards: Vec::new(),
-                conversation_tails: Vec::new(),
-            },
-            &[],
-        )
-        .contains("handoff_to_brain"),
-        "系统提示要告诉模型何时交接"
+        matching[0].description.contains("后台大脑"),
+        "交接时机写在工具说明里，不再重复进系统提示"
     );
 }

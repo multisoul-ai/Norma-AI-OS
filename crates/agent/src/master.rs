@@ -11,8 +11,7 @@ mod voice_resume;
 use crate::master_history::{history_char_budget, is_human_user_message, protocol_history_chars};
 use crate::rig_tools::{
     AssignAgentTaskTool, CancelAgentReplyTool, CancelAgentTaskTool, CreateAgentTool,
-    CreateBrowserTool, CreatePreviewTool, CreateTerminalTool, DeleteCanvasCardTool,
-    FindAgentTasksTool, FocusCardTool, ReplyAgentTool, RigToolContext, SendTerminalInputTool,
+    CreateTerminalTool, DeleteCanvasCardTool, FindAgentTasksTool, ReplyAgentTool, RigToolContext,
 };
 use crate::{
     AgentCardAdapter, AgentRosterEntry, CurrentCanvasContext, DesktopContext, NormaToolRuntime,

@@ -22,10 +22,14 @@ pub(super) async fn request_with_shared_context(
     } else {
         None
     };
-    match frame {
-        Some(frame) => insert_shared_data(body, history, &frame, turn),
-        None => Ok(body),
+    let body = match frame {
+        Some(frame) => insert_shared_data(body, history, &frame, turn)?,
+        None => body,
+    };
+    if let Some(prompt) = body["messages"][0]["content"].as_str() {
+        agent::trace_assembled_prompt("doubao", prompt);
     }
+    Ok(body)
 }
 
 /// Measure the actual JSON including the data message's outer escaping. Keep the
@@ -120,8 +124,18 @@ pub(crate) fn bounded_request(
     loop {
         let mut body = request_body(prompt, history, include_tools);
         if personal {
+            let scope = agent::ModelToolScope {
+                personal: true,
+                desktop: false,
+                shared: true,
+                mobile: false,
+            };
             if let Some(tools) = body["tools"].as_array_mut() {
-                tools.retain(|tool| tool["function"]["name"].as_str().is_some_and(personal_tool));
+                tools.retain(|tool| {
+                    tool["function"]["name"]
+                        .as_str()
+                        .is_some_and(|name| agent::model_tool_visible(name, scope))
+                });
             }
         }
         if body.to_string().len() <= REQUEST_INPUT_BYTES {
@@ -153,28 +167,21 @@ pub(crate) async fn request_with_current_context(
         agent::norma_system_prompt_base_with_desktop(&canvas, &roster, desktop.as_ref());
     prompt.push_str(instructions);
     let desktop_active = direct::desktop_active(desktop.as_ref());
-    let mut body = bounded_request(&prompt, history, include_tools, personal && !desktop_active)?;
-    if personal && desktop_active {
+    let mut body = bounded_request(&prompt, history, include_tools, false)?;
+    if personal {
+        let scope = agent::ModelToolScope {
+            personal: true,
+            desktop: desktop_active,
+            shared: true,
+            mobile: false,
+        };
         if let Some(tools) = body["tools"].as_array_mut() {
             tools.retain(|tool| {
-                tool["function"]["name"].as_str().is_some_and(|name| {
-                    personal_tool(name)
-                        || matches!(
-                            name,
-                            "workspace_snapshot"
-                                | "assign_workspace_task"
-                                | "open_workspace_artifact"
-                                | "locate_workspace_agent"
-                                | "create_browser"
-                                | "create_preview"
-                        )
-                })
+                tool["function"]["name"]
+                    .as_str()
+                    .is_some_and(|name| agent::model_tool_visible(name, scope))
             });
         }
     }
     Ok(body)
-}
-
-fn personal_tool(name: &str) -> bool {
-    name.starts_with("memory_") || matches!(name, "context_read" | "context_update")
 }

@@ -56,14 +56,15 @@ final class RealtimeBindingTests: XCTestCase {
         var configuration = RealtimeLocalConfiguration()
         XCTAssertNil(configuration.offlineUpdate, "未收到真实会话前不能凭空编造角色配置")
         let avatar: [String: Any] = ["type":"function", "name":"set_behavior", "parameters":["type":"object"]]
-        configuration.capture(["instructions":"用中文交谈", "tools":[avatar, ["type":"function", "name":"create_agent"]]])
+        configuration.capture(["instructions":"用中文交谈", "tools":[avatar, ["type":"function", "name":"agent_create"], ["type":"function", "name":"agent_assign"]]])
         let update = try XCTUnwrap(configuration.offlineUpdate, "已有媒体配置应可以在 Mac 离线后继续聊天")
         let session = try XCTUnwrap(update["session"] as? [String: Any], "恢复事件必须只更新会话能力")
         let tools = try XCTUnwrap(session["tools"] as? [[String: Any]], "必须显式移除任务工具")
         XCTAssertEqual(update["type"] as? String, "session.update", "恢复不得挂断音频或伪造任务结果")
         XCTAssertEqual(tools.count, 1, "离线时只保留本机可执行的角色工具")
         XCTAssertEqual(tools.first?["name"] as? String, "set_behavior", "角色表情仍应可用")
-        XCTAssertFalse(tools.contains { $0["name"] as? String == "create_agent" }, "离线不能向模型继续暴露派工能力")
+        XCTAssertFalse(tools.contains { $0["name"] as? String == "agent_create" }, "离线不能向模型继续暴露派工能力")
+        XCTAssertFalse(tools.contains { $0["name"] as? String == "agent_assign" }, "离线不能向模型继续暴露派活能力")
         XCTAssertTrue((session["instructions"] as? String)?.hasPrefix("用中文交谈") == true, "必须保留原媒体会话的聊天指令")
         XCTAssertNil(update["item"], "手机不能替 Mac 伪造工具回执")
     }
