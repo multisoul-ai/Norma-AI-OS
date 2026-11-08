@@ -211,12 +211,22 @@ pub(super) fn doubao_settings(
                 )
                 .child(
                     div()
+                        .id("settings-doubao-api-key")
+                        .debug_selector(|| "settings-doubao-api-key".to_string())
                         .flex()
                         .items_center()
                         .gap(px(10.0))
-                        .child(inputs.input(VoiceSettingsField::DoubaoApiKey))
+                        .when(!configured, |row| {
+                            row.child(inputs.input(VoiceSettingsField::DoubaoApiKey))
+                        })
                         .when(configured, |row| {
                             row.child(
+                                div()
+                                    .flex_1()
+                                    .settings_text(TextRole::Helper, theme)
+                                    .child(ui::i18n::text("voice.live_key_saved")),
+                            )
+                            .child(
                                 super::action_button(
                                     theme,
                                     ui::i18n::text("common.remove"),

@@ -7,7 +7,10 @@ use ui::Theme;
 
 mod controller;
 mod picker;
+mod reply_row;
 mod voice_list;
+
+pub(super) use reply_row::spoken_reply_row;
 
 pub(super) fn tts_provider_settings(
     theme: Theme,

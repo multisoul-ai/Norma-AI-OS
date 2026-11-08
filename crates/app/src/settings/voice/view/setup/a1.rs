@@ -1,9 +1,12 @@
 use super::components::{compact_setup_row, setup_action_button, SetupButtonTone};
 use crate::{
     app::MultisoulApp,
-    settings::voice::{VoiceRequirementState, VoiceSettingsState, VoiceSetupDestination},
+    settings::{
+        typography::{SettingsText, TextRole},
+        voice::{VoiceRequirementState, VoiceSettingsState, VoiceSetupDestination},
+    },
 };
-use gpui::{div, prelude::*, px, ClickEvent, Context, Div, Window};
+use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, KeyDownEvent, Stateful, Window};
 use ui::Theme;
 
 pub(in crate::settings::voice::view) fn a1_detail(
@@ -71,6 +74,88 @@ pub(in crate::settings::voice::view) fn a1_detail(
         .when(!ready && !checking, |detail| {
             detail.child(ui::i18n::text("voice.a1_setup_required"))
         })
+}
+
+/// 主界面只保留一行状态。点击展开「更多设置」，完整安装与取消留在那里。
+pub(in crate::settings::voice::view) fn a1_status_row(
+    theme: Theme,
+    state: &VoiceSettingsState,
+    cx: &mut Context<MultisoulApp>,
+) -> Stateful<Div> {
+    let active = state.values().asr_provider() == asr::AsrProviderId::LocalA1;
+    let allowed = state
+        .values()
+        .desktop_mode()
+        .supports_local_a1(state.values().interaction_mode());
+    let ready = state.a1_requirement() == VoiceRequirementState::Ready;
+    let checking = matches!(
+        state.a1_requirement(),
+        VoiceRequirementState::Installing { .. }
+    );
+    let hint = if checking {
+        "voice.a1_checking"
+    } else if !allowed {
+        "voice.a1_single_only"
+    } else if ready && active {
+        "voice.a1_selected"
+    } else if ready {
+        "voice.a1_ready_to_activate"
+    } else {
+        "voice.a1_setup_required"
+    };
+    let hover = super::super::with_alpha(theme.text_primary, 0x10);
+    let pressed = super::super::with_alpha(theme.text_primary, 0x1c);
+    div()
+        .id("voice-a1-status-row")
+        .debug_selector(|| "voice-a1-status-row".to_string())
+        .w_full()
+        .min_w(px(0.0))
+        .flex()
+        .items_center()
+        .gap(px(12.0))
+        .px(px(12.0))
+        .py(px(10.0))
+        .rounded(px(8.0))
+        .cursor_pointer()
+        .border_1()
+        .border_color(rgba(0x00000000))
+        .hover(move |row| row.bg(rgba(hover)))
+        .active(move |row| row.bg(rgba(pressed)))
+        .tab_index(0)
+        .focus(move |row| row.border_color(rgba(theme.accent_blue)))
+        .on_click(cx.listener(MultisoulApp::on_voice_settings_show_advanced))
+        .on_key_down(cx.listener(|app, event: &KeyDownEvent, _, cx| {
+            if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                app.voice_settings.expand_advanced();
+                cx.notify();
+                cx.stop_propagation();
+            }
+        }))
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(0.0))
+                .flex()
+                .flex_col()
+                .gap(px(2.0))
+                .child(
+                    div()
+                        .settings_text(TextRole::RowTitle, theme)
+                        .child(ui::i18n::text("voice.a1_name")),
+                )
+                .child(
+                    div()
+                        .settings_text(TextRole::Helper, theme)
+                        .child(ui::i18n::text(hint)),
+                ),
+        )
+        .child(
+            div()
+                .flex_none()
+                .settings_text(TextRole::Helper, theme)
+                .text_color(rgba(theme.accent_blue))
+                .child(ui::i18n::text("voice.more_settings")),
+        )
 }
 
 impl MultisoulApp {

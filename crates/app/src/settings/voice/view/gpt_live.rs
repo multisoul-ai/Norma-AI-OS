@@ -36,7 +36,6 @@ pub(super) fn gpt_live_settings(
         .min_w(px(0.0))
         .flex()
         .flex_col()
-        .child(heading(theme))
         .when(call.active, |page| {
             page.child(call_controls(theme, &call, cx))
         })
@@ -46,39 +45,6 @@ pub(super) fn gpt_live_settings(
         .child(preferences(theme, state, shortcut, cx))
         .child(diagnostics::section(theme, state, &call, cx))
         .child(footer(theme, state))
-}
-
-fn heading(theme: Theme) -> Div {
-    div()
-        .flex()
-        .items_center()
-        .gap(px(11.0))
-        .mb(px(18.0))
-        .child(
-            div()
-                .size(px(37.0))
-                .flex_none()
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(px(12.0))
-                .bg(rgba(with_alpha(theme.text_primary, 0x0d)))
-                .child(icon("icons/activity.svg", theme.text_primary, 20.0)),
-        )
-        .child(
-            div()
-                .flex_1()
-                .min_w(px(0.0))
-                .flex()
-                .flex_col()
-                .gap(px(2.0))
-                .child(
-                    div()
-                        .settings_text(TextRole::Headline, theme)
-                        .child(ui::i18n::text("voice.live_name")),
-                )
-                .child(helper(theme, ui::i18n::text("voice.live_settings_intro"))),
-        )
 }
 
 /// Last-call failure summary; the raw error stays in diagnostics.

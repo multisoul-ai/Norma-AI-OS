@@ -23,10 +23,6 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
                 state.setup_asr_source(),
                 cx,
             ))
-            .when(
-                state.setup_asr_source() == asr::AsrProviderId::CloudAzure,
-                |rows| rows.child(recognition::azure_detail(theme, state, inputs, cx)),
-            )
             .child(interaction_rows(
                 theme,
                 state,
@@ -41,16 +37,18 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
             ))
             .when(
                 state.setup_asr_source() != asr::AsrProviderId::CloudAzure,
-                |rows| rows.child(super::setup::a1::a1_detail(theme, state, inputs, cx)),
+                |rows| rows.child(super::setup::a1::a1_status_row(theme, state, cx)),
             ),
     );
     let speak = section(
         theme,
         "speak",
         "voice.output",
-        div().child(super::tts_provider::tts_provider_settings(
-            theme, state, inputs, cx,
-        )),
+        if state.tts_picker_open() {
+            super::tts_provider::tts_provider_settings(theme, state, inputs, cx)
+        } else {
+            div().child(super::tts_provider::spoken_reply_row(theme, state, cx))
+        },
     );
     let advanced = div()
         .id("advanced")
@@ -130,11 +128,18 @@ fn advanced_rows(
                 .text_color(rgba(theme.text_secondary))
                 .child(if expanded { "⌃" } else { "⌄" }),
         );
+    let source = state.setup_asr_source();
     let body = div()
         .w_full()
         .min_w(px(0.0))
         .flex()
         .flex_col()
+        .when(source == asr::AsrProviderId::CloudAzure, |rows| {
+            rows.child(recognition::azure_detail(theme, state, inputs, cx))
+        })
+        .when(source != asr::AsrProviderId::CloudAzure, |rows| {
+            rows.child(super::setup::a1::a1_detail(theme, state, inputs, cx))
+        })
         .child(
             div()
                 .settings_text(TextRole::Helper, theme)

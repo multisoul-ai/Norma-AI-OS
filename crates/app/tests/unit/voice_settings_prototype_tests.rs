@@ -45,6 +45,26 @@ fn voice_settings_match_grouped_prototype_before_setup() {
             .is_none(),
         "高级设置默认折叠，不应显示模型行"
     );
+    assert!(
+        cx.debug_bounds("settings-tts-change-voice").is_some(),
+        "语音回复应是可点开声音面板的一行"
+    );
+    assert!(
+        cx.debug_bounds("settings-tts-current-voice").is_none(),
+        "主界面不应再展示当前声音大卡片"
+    );
+    assert!(
+        cx.debug_bounds("voice-a1-status-row").is_some(),
+        "主界面应保留一行 A1 状态入口"
+    );
+    assert!(
+        cx.debug_bounds("voice-a1-download-install").is_none(),
+        "A1 完整安装面板默认应收进更多设置"
+    );
+    assert!(
+        cx.debug_bounds("voice-setup-asr-azure-detail").is_none(),
+        "Azure 凭据默认不应铺在语音输入主界面"
+    );
     let viewport = cx
         .debug_bounds("settings-content-scroll")
         .expect("内容视口");
@@ -99,10 +119,10 @@ fn voice_settings_match_grouped_prototype_before_setup() {
     );
 }
 
-/// 场景：分组列表必须提供A1完整安装和Jev配置入口，不能只显示诊断或未接入提示。
-/// 构造：隔离App与默认语音模式，1280×850采用原有桌面验收基准。
-/// 执行：从公开语音设置入口绘制，查找安装操作及Jev密钥/保存/验证操作。
-/// 预期：安装无需Python输入，真实配置入口存在，不能虚构已连接或Jev生产已启用。
+/// 场景：主界面只留 A1 状态行；展开更多设置后才出现完整安装和 Jev 配置。
+/// 构造：隔离 App 与默认语音模式，1280×850 采用原有桌面验收基准。
+/// 执行：从公开语音设置入口绘制，确认安装按钮未展开；再展开更多设置并查找安装与 Jev 操作。
+/// 预期：折叠时没有安装按钮和 Python 输入；展开后安装与 Jev 入口存在，不能虚构已连接或生产已启用。
 #[test]
 fn voice_settings_expose_a1_install_and_jev_configuration() {
     let temp = tempfile::tempdir().expect("隔离目录");
@@ -121,8 +141,12 @@ fn voice_settings_expose_a1_install_and_jev_configuration() {
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
     assert!(
-        cx.debug_bounds("voice-a1-download-install").is_some(),
-        "A1 安装入口应在听分组中可见"
+        cx.debug_bounds("voice-a1-status-row").is_some(),
+        "主界面应有 A1 状态行"
+    );
+    assert!(
+        cx.debug_bounds("voice-a1-download-install").is_none(),
+        "未展开更多设置时不应绘制完整安装面板"
     );
     let viewport = cx
         .debug_bounds("settings-content-scroll")
@@ -150,6 +174,17 @@ fn voice_settings_expose_a1_install_and_jev_configuration() {
         .debug_bounds("voice-command-advanced-toggle")
         .expect("高级设置开关应存在");
     cx.simulate_click(toggle.center(), Modifiers::none());
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+    let viewport = cx
+        .debug_bounds("settings-content-scroll")
+        .expect("展开后内容视口");
+    cx.simulate_event(ScrollWheelEvent {
+        position: viewport.center(),
+        delta: ScrollDelta::Pixels(point(px(0.0), -px(4000.0))),
+        modifiers: Modifiers::none(),
+        touch_phase: TouchPhase::Moved,
+    });
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
     for selector in [

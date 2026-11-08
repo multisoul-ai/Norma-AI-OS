@@ -84,12 +84,6 @@ pub(crate) fn voice_settings(
                     .filter(|_| state.status().is_some_and(|(_, error)| error)),
             );
     }
-    let page = page.child(voice_status_overview(
-        theme,
-        state,
-        voice_shortcut_label,
-        cx,
-    ));
     if state.values().desktop_mode() == super::DesktopVoiceMode::Doubao {
         return page
             .child(doubao_interaction_group(
@@ -101,6 +95,12 @@ pub(crate) fn voice_settings(
             .child(doubao_settings(theme, state, inputs, window, cx))
             .children(status_message(theme, state));
     }
+    let page = page.child(voice_status_overview(
+        theme,
+        state,
+        voice_shortcut_label,
+        cx,
+    ));
     if !matches!(state.readiness(), super::VoiceEntryState::Ready) || state.reviewing_setup() {
         return page
             .child(interaction_group(theme, state, voice_shortcut_label, cx))
@@ -296,6 +296,16 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.voice_settings.toggle_advanced_expanded();
+        cx.notify();
+    }
+
+    pub(crate) fn on_voice_settings_show_advanced(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.expand_advanced();
         cx.notify();
     }
 

@@ -371,7 +371,9 @@ pub(super) fn status_badge(label: &'static str, color: u32) -> Div {
         .child(label)
 }
 
-fn active_voice_summary(state: &VoiceSettingsState) -> (&'static str, String, String) {
+pub(in crate::settings::voice::view) fn active_voice_summary(
+    state: &VoiceSettingsState,
+) -> (&'static str, String, String) {
     match state
         .values()
         .active_tts_provider_id()
