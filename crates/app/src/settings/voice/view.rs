@@ -36,6 +36,7 @@ mod spoken_reply;
 mod status;
 mod tts_catalog;
 mod tts_provider;
+mod voice_sheet;
 
 pub(super) use components::{action_button, text_setting_row};
 pub(crate) use options::VoiceSettingsView;
@@ -48,7 +49,7 @@ pub(crate) fn voice_settings(
     if view.state.values().desktop_mode() == super::DesktopVoiceMode::Legacy
         && !view.state.reviewing_setup()
     {
-        return grouped::grouped_settings(view, cx);
+        return grouped::grouped_settings(view, window, cx);
     }
     let VoiceSettingsView {
         live_call,
@@ -119,7 +120,7 @@ pub(crate) fn voice_settings(
         .child(interaction_group(theme, state, voice_shortcut_label, cx))
         .child(asr_provider_group(theme, state, inputs, cx))
         .child(command_policy::command_policy_group(theme))
-        .child(spoken_reply_group(theme, state, inputs, cx))
+        .child(spoken_reply_group(theme, state, inputs, window, cx))
         .child(advanced_group(theme, state, inputs, cx))
         .children(status_message(theme, state))
 }

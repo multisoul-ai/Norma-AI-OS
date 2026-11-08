@@ -1,4 +1,5 @@
 use super::super::with_alpha;
+use super::super::VoiceSettingsInputs;
 use super::picker::active_voice_summary;
 use crate::app::MultisoulApp;
 use crate::settings::typography::{SettingsText, TextRole};
@@ -9,6 +10,7 @@ use ui::Theme;
 pub(in crate::settings::voice::view) fn spoken_reply_row(
     theme: Theme,
     state: &VoiceSettingsState,
+    inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Stateful<gpui::Div> {
     let (provider, voice, detail) = active_voice_summary(state);
@@ -31,6 +33,7 @@ pub(in crate::settings::voice::view) fn spoken_reply_row(
         .hover(move |row| row.bg(rgba(hover)))
         .active(move |row| row.bg(rgba(pressed)))
         .tab_index(0)
+        .track_focus(&inputs.tts_row_focus)
         .focus(move |row| row.border_color(rgba(theme.accent_blue)))
         .on_click(cx.listener(MultisoulApp::on_voice_open_tts_picker))
         .on_key_down(cx.listener(|app, event: &gpui::KeyDownEvent, _, cx| {

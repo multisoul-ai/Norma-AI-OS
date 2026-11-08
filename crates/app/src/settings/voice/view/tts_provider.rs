@@ -2,7 +2,7 @@ use super::{action_button, setting_row, text_setting_row, with_alpha, VoiceSetti
 use crate::app::MultisoulApp;
 use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::{VoiceSettingsField, VoiceSettingsState};
-use gpui::{div, prelude::*, px, rgba, Context, Div};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Window};
 use ui::Theme;
 
 mod controller;
@@ -10,15 +10,17 @@ mod picker;
 mod reply_row;
 mod voice_list;
 
+pub(in crate::settings::voice::view) use picker::local_voice_picker;
 pub(super) use reply_row::spoken_reply_row;
 
 pub(super) fn tts_provider_settings(
     theme: Theme,
     state: &VoiceSettingsState,
     inputs: &VoiceSettingsInputs,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    picker::tts_provider_settings(theme, state, inputs, cx)
+    picker::tts_provider_settings(theme, state, inputs, window, cx)
 }
 
 pub(super) fn minimax_configuration(

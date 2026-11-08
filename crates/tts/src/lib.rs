@@ -27,10 +27,11 @@ pub use profile::{
 };
 pub use provider::{
     builtin_provider_registry, create_builtin_remote_tts_client, query_builtin_provider_voices,
-    BuiltinRemoteTtsRequest, BuiltinTtsProviderRegistry, TtsProviderConfiguration,
-    TtsProviderDescriptor, TtsProviderId, TtsProviderIdError, TtsProviderModelDescriptor,
-    LOCAL_TTS_PROVIDER_ID, MINIMAX_SPEECH_HD_MODEL_ID, MINIMAX_SPEECH_TURBO_MODEL_ID,
-    MINIMAX_TTS_PROVIDER_ID,
+    system_tts_model_id, BuiltinRemoteTtsRequest, BuiltinTtsProviderRegistry,
+    TtsProviderConfiguration, TtsProviderDescriptor, TtsProviderId, TtsProviderIdError,
+    TtsProviderModelDescriptor, LOCAL_TTS_PROVIDER_ID, MINIMAX_SPEECH_HD_MODEL_ID,
+    MINIMAX_SPEECH_TURBO_MODEL_ID, MINIMAX_TTS_PROVIDER_ID, OFF_TTS_PROVIDER_ID,
+    SYSTEM_TTS_MODEL_ID, SYSTEM_TTS_PROVIDER_ID,
 };
 pub use stream::{TtsChunkSink, TtsClient, TtsError, TtsErrorKind, TtsStreamSummary};
 pub use voice_catalog::{ProviderVoiceCatalog, ProviderVoiceDescriptor, TtsVoiceOrigin};

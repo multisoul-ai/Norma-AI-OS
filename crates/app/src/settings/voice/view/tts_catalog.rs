@@ -8,7 +8,7 @@ use ui::Theme;
 mod controller;
 mod reference;
 pub(crate) use controller::synthesize_tts_preview;
-use reference::zipvoice_reference_controls;
+pub(in crate::settings::voice::view) use reference::zipvoice_reference_controls;
 
 struct TtsCatalogItem<'a> {
     theme: Theme,

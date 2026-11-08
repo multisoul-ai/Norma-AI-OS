@@ -10,21 +10,41 @@ impl MultisoulApp {
     pub(crate) fn on_voice_open_tts_picker(
         &mut self,
         _: &ClickEvent,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.voice_settings.open_tts_picker();
+        if self.voice_settings.tts_picker_provider_id() == Some(tts::SYSTEM_TTS_PROVIDER_ID) {
+            self.refresh_system_voices(cx);
+        }
         self.voice_settings_inputs
             .sync_from_state(&self.voice_settings, cx);
+        self.voice_settings_inputs.focus_tts_sheet_later(window, cx);
         cx.notify();
     }
 
     pub(crate) fn on_voice_cancel_tts_picker(
         &mut self,
         _: &ClickEvent,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.dismiss_tts_picker(window, cx);
+    }
+
+    pub(crate) fn on_voice_sheet_key(
+        &mut self,
+        event: &gpui::KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if event.keystroke.key == "escape" {
+            self.dismiss_tts_picker(window, cx);
+            cx.stop_propagation();
+        }
+    }
+
+    fn dismiss_tts_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.pending_tts_activation.is_some() {
             self.voice_settings.report_tts_status(
                 ui::i18n::LocalizedText::new(
@@ -38,7 +58,53 @@ impl MultisoulApp {
         self.voice_settings.cancel_tts_picker();
         self.voice_settings_inputs
             .sync_from_state(&self.voice_settings, cx);
+        self.voice_settings_inputs.focus_tts_row_later(window, cx);
         cx.notify();
+    }
+
+    pub(crate) fn on_voice_pick_off_tts(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings
+            .select_tts_picker_provider(tts::OFF_TTS_PROVIDER_ID);
+        cx.notify();
+    }
+
+    pub(crate) fn on_voice_pick_system_tts(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings
+            .select_tts_picker_provider(tts::SYSTEM_TTS_PROVIDER_ID);
+        self.refresh_system_voices(cx);
+        cx.notify();
+    }
+
+    pub(crate) fn on_voice_pick_system_voice(&mut self, name: String, cx: &mut Context<Self>) {
+        self.voice_settings.set_tts_picker_system_voice(&name);
+        cx.notify();
+    }
+
+    pub(crate) fn refresh_system_voices(&mut self, cx: &mut Context<Self>) {
+        let generation = self.voice_settings.begin_system_voice_scan();
+        let work = cx
+            .background_executor()
+            .spawn(async move { crate::app::dialogue::list_system_voices() });
+        cx.spawn(async move |this, cx| {
+            let names = work.await;
+            let _ = this.update(cx, |app, cx| {
+                if app.voice_settings.system_voice_scan_generation() == generation {
+                    app.voice_settings.set_system_voice_names(names);
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 
     pub(crate) fn on_voice_pick_local_tts(

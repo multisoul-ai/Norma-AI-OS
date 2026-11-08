@@ -55,6 +55,8 @@ pub(crate) struct VoiceSettingsInputs {
     doubao_api_key: Entity<VoiceTextInput>,
     gpt_live_api_key: Entity<VoiceTextInput>,
     doubao_voice_search: Entity<VoiceTextInput>,
+    pub(crate) tts_sheet_focus: FocusHandle,
+    pub(crate) tts_row_focus: FocusHandle,
 }
 
 impl VoiceSettingsInputs {
@@ -224,7 +226,19 @@ impl VoiceSettingsInputs {
             doubao_api_key,
             gpt_live_api_key,
             doubao_voice_search,
+            tts_sheet_focus: cx.focus_handle().tab_stop(true),
+            tts_row_focus: cx.focus_handle().tab_stop(true),
         }
+    }
+
+    pub(crate) fn focus_tts_sheet_later(&self, window: &mut Window, cx: &mut gpui::App) {
+        let focus = self.tts_sheet_focus.clone();
+        window.defer(cx, move |window, _| focus.focus(window));
+    }
+
+    pub(crate) fn focus_tts_row_later(&self, window: &mut Window, cx: &mut gpui::App) {
+        let focus = self.tts_row_focus.clone();
+        window.defer(cx, move |window, _| focus.focus(window));
     }
 
     pub(crate) fn input(&self, field: VoiceSettingsField) -> Entity<VoiceTextInput> {

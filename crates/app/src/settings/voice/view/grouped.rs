@@ -5,10 +5,14 @@ use super::{ready::voice_status_overview, setup::recognition, with_alpha, VoiceS
 use crate::app::MultisoulApp;
 use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::VoiceRequirement;
-use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
 use ui::Theme;
 
-pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<MultisoulApp>) -> Div {
+pub(super) fn grouped_settings(
+    view: VoiceSettingsView<'_>,
+    window: &mut Window,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
     let theme = view.theme;
     let state = view.state;
     let inputs = view.inputs;
@@ -45,9 +49,11 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
         "speak",
         "voice.output",
         if state.tts_picker_open() {
-            super::tts_provider::tts_provider_settings(theme, state, inputs, cx)
+            super::tts_provider::tts_provider_settings(theme, state, inputs, window, cx)
         } else {
-            div().child(super::tts_provider::spoken_reply_row(theme, state, cx))
+            div().child(super::tts_provider::spoken_reply_row(
+                theme, state, inputs, cx,
+            ))
         },
     );
     let advanced = div()

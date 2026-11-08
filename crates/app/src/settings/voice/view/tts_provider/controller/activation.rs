@@ -13,6 +13,9 @@ impl MultisoulApp {
         match self.voice_settings.tts_picker_provider_id() {
             Some(tts::MINIMAX_TTS_PROVIDER_ID) => self.apply_minimax_tts_picker(cx),
             Some(tts::LOCAL_TTS_PROVIDER_ID) => self.apply_local_tts_picker(cx),
+            Some(tts::OFF_TTS_PROVIDER_ID) | Some(tts::SYSTEM_TTS_PROVIDER_ID) => {
+                self.apply_output_mode_tts_picker(cx)
+            }
             _ => {
                 self.voice_settings.report_tts_status(
                     ui::i18n::LocalizedText::new(
@@ -51,6 +54,44 @@ impl MultisoulApp {
             return;
         }
         self.activate_minimax_tts(rollback, cx);
+    }
+
+    fn apply_output_mode_tts_picker(&mut self, cx: &mut Context<Self>) {
+        let provider = self
+            .voice_settings
+            .tts_picker_provider_id()
+            .map(str::to_string);
+        let voice = self.voice_settings.tts_picker_system_voice().cloned();
+        if !self.voice_settings.commit_tts_picker_output_mode() {
+            self.voice_settings.report_tts_status(
+                ui::i18n::LocalizedText::new("voice.choose_a_tts_provider_before_applying_a_voice"),
+                true,
+            );
+            cx.notify();
+            return;
+        }
+        self.dialogue.selected_tts_model = match provider.as_deref() {
+            Some(tts::SYSTEM_TTS_PROVIDER_ID) => {
+                voice.map(crate::app::dialogue::SelectedTtsModel::system)
+            }
+            _ => None,
+        };
+        self.complete_voice_setup_if_ready(cx);
+        cx.notify();
+    }
+
+    pub(crate) fn preview_system_voice(&mut self, voice: tts::TtsVoiceId, cx: &mut Context<Self>) {
+        self.preview_tts_selection_work(
+            move |runtime, cancelled| {
+                let selected = crate::app::dialogue::SelectedTtsModel::system(voice);
+                super::super::super::tts_catalog::synthesize_tts_preview(
+                    &runtime, &selected, cancelled,
+                )
+            },
+            false,
+            false,
+            cx,
+        );
     }
 
     fn apply_local_tts_picker(&mut self, cx: &mut Context<Self>) {

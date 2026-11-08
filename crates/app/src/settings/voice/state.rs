@@ -30,6 +30,7 @@ mod readiness_state;
 mod recognition_source;
 mod resync;
 pub(crate) use resync::{provider_configuration_differs, tts_configuration_differs};
+mod tts_output;
 mod tts_picker;
 mod tts_provider;
 mod tts_provider_persistence;
@@ -96,6 +97,8 @@ pub(crate) struct VoiceSettingsState {
     minimax_profile_generation: u64,
     minimax_preview_generation: Option<u64>,
     tts_picker: Option<tts_picker::TtsPickerDraft>,
+    system_voice_names: Option<Vec<String>>,
+    system_voice_scan_generation: u64,
     model_root: PathBuf,
     model_manager: AsrModelManagerState,
     asr_model_selection_generation: u64,
@@ -193,6 +196,8 @@ impl VoiceSettingsState {
             minimax_profile_generation: 0,
             minimax_preview_generation: None,
             tts_picker: None,
+            system_voice_names: None,
+            system_voice_scan_generation: 0,
             model_root,
             model_manager,
             asr_model_selection_generation: 0,

@@ -24,7 +24,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     let source = concat!(
         include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/voice/view/diagnostics.rs"),
-        include_str!("../../src/settings/voice/view/tts_provider/picker/provider_list.rs"),
+        include_str!("../../src/settings/voice/view/voice_sheet.rs"),
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/voice.rs"),
