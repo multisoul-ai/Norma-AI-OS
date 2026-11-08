@@ -51,6 +51,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         include_str!("../../src/settings/voice/view/spoken_reply.rs"),
         include_str!("../../src/settings/voice/view/provider.rs"),
         include_str!("../../src/settings/voice/view/provider/api_key.rs"),
+        include_str!("../../src/settings/voice/view/credential_row.rs"),
         include_str!("../../src/settings/voice/view/setup.rs"),
         include_str!("../../src/settings/voice/view/setup/components.rs"),
         include_str!("../../src/settings/voice/view/setup/models.rs"),
@@ -116,12 +117,13 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("agent_model");
     assert_anchor!("agent_api_key");
     assert_anchor!("settings-agent-provider-api-key-clear");
-    assert_anchor!("settings-agent-provider-api-key-visibility");
+    assert_anchor!("settings-agent-provider-api-key-save");
+    assert_anchor!("settings-agent-provider-api-key-status");
+    assert_anchor!("voice.understanding_api_key");
     assert_anchor!("*********");
-    assert_anchor!("voice.stored_in_this_mac_s_local_database_hidden_by_default_and");
+    assert_anchor!("voice.stored_in_this_mac_s_local_database_never_written_to_logs");
     assert_anchor!("voice-setup-provider-connect");
     assert_anchor!("voice.base_url");
-    assert_anchor!("API Key");
     assert_anchor!("settings-voice-trace-toggle");
     assert_anchor!("settings-agent-task-announcements-toggle");
     assert_anchor!("voice.agent_task_announcements");
@@ -155,7 +157,8 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     );
     assert!(
         !source.contains("settings-voice-edit")
-            && !source.contains("settings-agent-provider-api-key-edit"),
-        "Voice Settings 不应保留 Edit 或 Replace 按钮锚点"
+            && !source.contains("settings-agent-provider-api-key-edit")
+            && !source.contains("settings-agent-provider-api-key-visibility"),
+        "Voice Settings 不应保留 Edit、Replace 或 Key 回显按钮"
     );
 }

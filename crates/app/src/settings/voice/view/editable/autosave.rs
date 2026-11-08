@@ -22,9 +22,6 @@ impl MultisoulApp {
             }
         }
         self.voice_settings.begin_edit_with_value(field, value);
-        if field == VoiceSettingsField::GptLiveApiKey {
-            self.voice_settings.set_gpt_live_key_expanded(true);
-        }
         cx.notify();
     }
 
@@ -74,7 +71,6 @@ impl MultisoulApp {
         if saved.is_some() {
             if field == VoiceSettingsField::GptLiveApiKey {
                 self.stop_gpt_live_voice(cx);
-                self.voice_settings.set_gpt_live_key_expanded(false);
             }
             self.persist_voice_settings_in_background(cx);
             if field == VoiceSettingsField::MiniMaxVoiceId

@@ -338,36 +338,6 @@ impl MultisoulApp {
         self.persist_voice_settings_in_background(cx);
         cx.notify();
     }
-
-    pub(crate) fn on_voice_settings_clear_api_key(
-        &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.voice_settings.clear_agent_api_key();
-        self.voice_settings_inputs
-            .sync_from_state(&self.voice_settings, cx);
-        self.persist_voice_settings_in_background(cx);
-        cx.notify();
-    }
-
-    pub(crate) fn on_voice_settings_toggle_api_key_visibility(
-        &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let secret = self
-            .voice_settings
-            .values()
-            .active_provider_profile()
-            .api_key()
-            .map(ToOwned::to_owned);
-        self.voice_settings_inputs
-            .toggle_api_key_visibility(secret.as_deref(), cx);
-        cx.notify();
-    }
 }
 
 fn provider_model_choices(

@@ -21,6 +21,7 @@ mod asr_provider;
 pub(crate) mod capabilities;
 mod command_policy;
 mod components;
+mod credential_row;
 mod doubao;
 mod editable;
 mod gpt_live;

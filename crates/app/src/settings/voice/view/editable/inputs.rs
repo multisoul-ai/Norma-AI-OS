@@ -334,6 +334,11 @@ impl VoiceSettingsInputs {
         })
     }
 
+    /// Current editor text. Callers that save a key must not log or display this value.
+    pub(crate) fn draft_text(&self, field: VoiceSettingsField, cx: &App) -> String {
+        self.input(field).read(cx).content.to_string()
+    }
+
     pub(crate) fn rendered_text(&self, field: VoiceSettingsField, cx: &App) -> Option<String> {
         self.input(field)
             .read(cx)

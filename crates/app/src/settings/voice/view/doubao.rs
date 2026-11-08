@@ -1,4 +1,5 @@
 use super::components::VoiceAction;
+use super::credential_row::{credential_row, CredentialRowSpec};
 use super::{settings_group, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
 use crate::settings::spacing::CARD_PADDING_COMPACT;
@@ -200,50 +201,28 @@ pub(super) fn doubao_settings(
                 )
                 .child(
                     div()
-                        .settings_text(TextRole::Helper, theme)
-                        .child(if configured {
-                            ui::i18n::text("voice.api_key_saved_in_this_mac_s_local_database")
-                        } else {
-                            ui::i18n::text(
-                                "voice.enter_your_volcengine_ark_api_key_for_asr_2_0_chat",
-                            )
-                        }),
-                )
-                .child(
-                    div()
                         .id("settings-doubao-api-key")
                         .debug_selector(|| "settings-doubao-api-key".to_string())
-                        .flex()
-                        .items_center()
-                        .gap(px(10.0))
-                        .when(!configured, |row| {
-                            row.child(inputs.input(VoiceSettingsField::DoubaoApiKey))
-                        })
-                        .when(configured, |row| {
-                            row.child(
-                                div()
-                                    .flex_1()
-                                    .settings_text(TextRole::Helper, theme)
-                                    .child(ui::i18n::text("voice.live_key_saved")),
-                            )
-                            .child(
-                                super::action_button(
-                                    theme,
-                                    ui::i18n::text("common.remove"),
-                                    theme.destructive,
-                                )
-                                .id("settings-doubao-api-key-clear")
-                                .debug_selector(|| "settings-doubao-api-key-clear".to_string())
-                                .on_click(cx.listener(
-                                    |app, _, _, cx| {
-                                        app.stop_doubao_voice(cx);
-                                        app.voice_settings.clear_doubao_credential();
-                                        app.persist_voice_settings_in_background(cx);
-                                        cx.notify();
-                                    },
-                                )),
-                            )
-                        }),
+                        .child(credential_row(
+                            theme,
+                            CredentialRowSpec {
+                                label: "voice.ark_api_key",
+                                hint: "voice.stored_in_this_mac_s_local_database_never_written_to_logs",
+                                field: VoiceSettingsField::DoubaoApiKey,
+                                configured,
+                                pending: state.credential_persistence_pending(),
+                                status_id: "settings-doubao-api-key-status",
+                                save_id: "settings-doubao-api-key-save",
+                                clear_id: "settings-doubao-api-key-clear",
+                            },
+                            inputs,
+                            cx,
+                            |app, _, cx| {
+                                app.stop_doubao_voice(cx);
+                                app.voice_settings.clear_doubao_credential();
+                                app.persist_voice_settings_in_background(cx);
+                            },
+                        )),
                 ),
         )
         .child(
