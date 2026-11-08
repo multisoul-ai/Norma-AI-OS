@@ -197,24 +197,28 @@ fn paint_smile(
 }
 
 const PING_PERIOD: f32 = 1.4;
-const PING_GROW: f32 = 10.;
+/// Prototype `.ping::after`: inset -2px, grows from 0.9x to 1.5x, 1.5px ring, ease-out, 0.9 to 0 opacity.
+const PING_INSET: f32 = 2.;
+const PING_FROM: f32 = 0.9;
+const PING_TO: f32 = 1.5;
+const PING_WIDTH: f32 = 1.5;
 
-/// Prototype `.ping::after`: a ring that grows from the avatar's edge and fades out. Painted on
-/// the avatar's own coalesced redraw tick so it never forces a second, per-frame re-render.
+/// The ring asks for a frame on every vsync so it moves at the display rate. Only the avatar
+/// canvases repaint; the island view itself is not re-rendered.
 fn paint_ping(bounds: Bounds<Pixels>, window: &mut Window) {
     let t = (clock() / PING_PERIOD).fract();
-    let grow = px(PING_GROW * t);
-    let ring = Bounds::new(
-        bounds.origin - point(grow / 2., grow / 2.),
-        size(bounds.size.width + grow, bounds.size.height + grow),
-    );
-    let alpha = (0.9 * (1. - t) * 255.) as u32;
+    let eased = 1. - (1. - t) * (1. - t);
+    let base = bounds.size.width.min(bounds.size.height) + px(PING_INSET * 2.);
+    let side = base * (PING_FROM + (PING_TO - PING_FROM) * eased);
+    let ring = Bounds::centered_at(bounds.center(), size(side, side));
+    let alpha = (0.9 * (1. - eased) * 255.) as u32;
     window.paint_quad(quad(
         ring,
-        Corners::all(ring.size.width / 2.),
+        Corners::all(side / 2.),
         rgba(0),
-        Edges::all(px(1.)),
+        Edges::all(px(PING_WIDTH)),
         rgba((super::style::ATTENTION << 8) | alpha),
         gpui::BorderStyle::Solid,
     ));
+    window.request_animation_frame();
 }

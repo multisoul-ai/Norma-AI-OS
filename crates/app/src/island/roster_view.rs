@@ -100,20 +100,9 @@ impl IslandView {
                 let Some(face) = by_id(id) else { continue };
                 // The prototype draws every right-slot face as waiting, with an orange ring.
                 let waiting = avatar_face(AgentActivity::Waiting);
-                stack = stack.child(
-                    div()
-                        .rounded(px(11.))
-                        .border_1()
-                        .border_color(rgb(style::ATTENTION))
-                        .when(index > 0, |slot| slot.ml(px(-2.)))
-                        .child(avatar_pinging(
-                            &face.name,
-                            &face.provider,
-                            AVATAR,
-                            waiting,
-                            animate,
-                        )),
-                );
+                stack = stack.child(div().when(index > 0, |slot| slot.ml(px(-2.))).child(
+                    avatar_pinging(&face.name, &face.provider, AVATAR, waiting, animate),
+                ));
             }
             right = right.child(stack).child(
                 div()
