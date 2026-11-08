@@ -47,7 +47,7 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
     let speak = section(
         theme,
         "speak",
-        "voice.spoken_replies",
+        "voice.output",
         div().child(super::tts_provider::tts_provider_settings(
             theme, state, inputs, cx,
         )),
@@ -116,7 +116,7 @@ fn advanced_rows(
                 .child(
                     div()
                         .settings_text(TextRole::RowTitle, theme)
-                        .child(ui::i18n::text("voice.advanced_settings")),
+                        .child(ui::i18n::text("voice.more_settings")),
                 )
                 .child(
                     div()

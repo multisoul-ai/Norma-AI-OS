@@ -129,6 +129,8 @@
   "voice.hold": "Hold",
   "voice.toggle": "Toggle",
   "voice.spoken_replies": "Spoken Replies",
+  "voice.output": "Voice Output",
+  "voice.more_settings": "More Settings",
   "voice.agent_task_announcements": "Agent task announcements",
   "voice.announce_when_an_agent_task_finishes_or_needs_attention": "Announce when an agent task finishes or needs attention",
   "voice.speech_glow": "Speech glow",

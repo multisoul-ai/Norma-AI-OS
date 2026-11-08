@@ -129,6 +129,8 @@
   "voice.hold": "按住",
   "voice.toggle": "切换",
   "voice.spoken_replies": "语音回复",
+  "voice.output": "语音输出",
+  "voice.more_settings": "更多设置",
   "voice.agent_task_announcements": "智能体任务播报",
   "voice.announce_when_an_agent_task_finishes_or_needs_attention": "在任务完成或需要处理时播报",
   "voice.speech_glow": "语音光晕",
