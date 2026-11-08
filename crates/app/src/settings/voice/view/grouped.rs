@@ -52,12 +52,12 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
             theme, state, inputs, cx,
         )),
     );
-    let advanced = section(
-        theme,
-        "advanced",
-        "voice.advanced_settings",
-        advanced_rows(theme, state, inputs, cx),
-    );
+    let advanced = div()
+        .id("advanced")
+        .debug_selector(|| "voice-command-group-advanced".to_string())
+        .w_full()
+        .min_w(px(0.0))
+        .child(advanced_rows(theme, state, inputs, cx));
     let column = div()
         .flex_1()
         .min_w(px(0.0))
@@ -92,22 +92,44 @@ fn advanced_rows(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let expanded = state.advanced_expanded();
-    let toggle = detail_row(
-        theme,
-        "voice.recognition_models_provider_diagnostics",
-        "voice.manage_the_asr_catalog_connection_details_and_troubleshooting",
-        component_action(
-            theme,
-            "voice-command-advanced-toggle",
-            if expanded {
-                ui::i18n::text("voice.hide")
-            } else {
-                ui::i18n::text("voice.show")
-            },
-            cx,
-            cx.listener(MultisoulApp::on_voice_settings_toggle_advanced),
-        ),
-    );
+    let toggle = div()
+        .id("voice-command-advanced-toggle")
+        .debug_selector(|| "voice-command-advanced-toggle".to_string())
+        .w_full()
+        .flex()
+        .items_center()
+        .justify_between()
+        .gap(px(12.0))
+        .px(px(12.0))
+        .py(px(12.0))
+        .rounded(px(12.0))
+        .cursor_pointer()
+        .hover(|row| row.bg(rgba(with_alpha(theme.text_primary, 0x10))))
+        .on_click(cx.listener(MultisoulApp::on_voice_settings_toggle_advanced))
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(0.0))
+                .flex()
+                .flex_col()
+                .gap(px(2.0))
+                .child(
+                    div()
+                        .settings_text(TextRole::RowTitle, theme)
+                        .child(ui::i18n::text("voice.advanced_settings")),
+                )
+                .child(
+                    div()
+                        .settings_text(TextRole::Helper, theme)
+                        .child(ui::i18n::text("voice.advanced_settings_summary")),
+                ),
+        )
+        .child(
+            div()
+                .settings_text(TextRole::Helper, theme)
+                .text_color(rgba(theme.text_secondary))
+                .child(if expanded { "⌃" } else { "⌄" }),
+        );
     let body = div()
         .w_full()
         .min_w(px(0.0))
@@ -166,23 +188,16 @@ fn section(theme: Theme, id: &'static str, title: &'static str, rows: Div) -> St
         .min_w(px(0.0))
         .flex()
         .flex_col()
-        .gap(px(10.0))
+        .gap(px(4.0))
         .child(
             div()
-                .settings_text(TextRole::Headline, theme)
+                .px(px(12.0))
+                .pt(px(8.0))
+                .settings_text(TextRole::Label, theme)
+                .text_color(rgba(theme.accent_blue))
                 .child(ui::i18n::text(title)),
         )
-        .child(
-            div()
-                .w_full()
-                .min_w(px(0.0))
-                .p(px(16.0))
-                .rounded(px(12.0))
-                .border_1()
-                .border_color(rgba(with_alpha(theme.text_primary, 0x18)))
-                .bg(rgba(theme.panel_high))
-                .child(rows),
-        )
+        .child(div().w_full().min_w(px(0.0)).child(rows))
 }
 
 fn value_row(theme: Theme, title: &'static str, value: String) -> Div {

@@ -469,5 +469,6 @@
   "voice.live_key_done": "Done",
   "voice.live_interaction": "Interaction mode",
   "voice.live_reply_voice": "Reply voice",
-  "voice.live_refresh_microphone": "Refresh microphone"
+  "voice.live_refresh_microphone": "Refresh microphone",
+  "voice.advanced_settings_summary": "Understanding model, speech services and credentials, reply preferences, diagnostics"
 }

@@ -469,5 +469,6 @@
   "voice.live_key_done": "完成",
   "voice.live_interaction": "交互方式",
   "voice.live_reply_voice": "回复音色",
-  "voice.live_refresh_microphone": "刷新麦克风"
+  "voice.live_refresh_microphone": "刷新麦克风",
+  "voice.advanced_settings_summary": "理解模型、语音服务与凭据、回复偏好、诊断"
 }
