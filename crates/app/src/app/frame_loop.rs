@@ -252,16 +252,6 @@ impl MultisoulApp {
                     app.refresh_session_titles(&agent_hook_report.events, cx);
                     app.refresh_restored_session_titles(cx);
                     let mut queue_changed = false;
-                    for started in agent_hook_report.started_tasks {
-                        queue_changed |=
-                            app.register_external_agent_root(started.node_id, started.task_title);
-                    }
-                    for node_id in agent_hook_report.ready_node_ids {
-                        tracing::info!(node_id, "[ask-diag] hook reported card ready");
-                        queue_changed |= app.submit_pending_agent_task_for_ready_node(node_id, cx);
-                    }
-                    queue_changed |= app.submit_due_pending_agent_tasks(Instant::now(), cx);
-                    app.advance_session_reply_queue();
                     let speak_agent_completions = app.dialogue.is_active()
                         && app.voice_settings.values().interaction_mode()
                             == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
@@ -270,27 +260,49 @@ impl MultisoulApp {
                         .iter()
                         .map(|terminal| (terminal.node_id, terminal.result.text.clone()))
                         .collect();
-                    for terminal in agent_hook_report.terminal_tasks {
-                        let node_id = terminal.node_id;
-                        if speak_agent_completions {
-                            if let Some(report) = app.agent_completion_report_for_node(node_id) {
-                                let report = if terminal.result.background_unsettled {
-                                    format!(
-                                        "{report} {}",
-                                        ui::i18n::text("voice.background_unsettled")
-                                    )
-                                } else {
-                                    report
-                                };
-                                app.dialogue.queue_agent_report(report);
+                    // Stop 若排在下一条 UserPromptSubmit 前面，必须先结算旧回合，再登记新根。
+                    for effect in agent_hook_report.queue_effects {
+                        match effect {
+                            crate::settings::agent_hooks::AgentHookQueueEffect::Started(
+                                started,
+                            ) => {
+                                queue_changed |= app.register_external_agent_root(
+                                    started.node_id,
+                                    started.task_title,
+                                );
+                            }
+                            crate::settings::agent_hooks::AgentHookQueueEffect::Terminal(
+                                terminal,
+                            ) => {
+                                let node_id = terminal.node_id;
+                                if speak_agent_completions {
+                                    if let Some(report) =
+                                        app.agent_completion_report_for_node(node_id)
+                                    {
+                                        let report = if terminal.result.background_unsettled {
+                                            format!(
+                                                "{report} {}",
+                                                ui::i18n::text("voice.background_unsettled")
+                                            )
+                                        } else {
+                                            report
+                                        };
+                                        app.dialogue.queue_agent_report(report);
+                                    }
+                                }
+                                queue_changed |= app.advance_published_agent_task(
+                                    node_id,
+                                    terminal.settled_state,
+                                    terminal.result,
+                                );
                             }
                         }
-                        queue_changed |= app.advance_published_agent_task(
-                            node_id,
-                            terminal.settled_state,
-                            terminal.result,
-                        );
                     }
+                    for node_id in agent_hook_report.ready_node_ids {
+                        tracing::info!(node_id, "[ask-diag] hook reported card ready");
+                        queue_changed |= app.submit_pending_agent_task_for_ready_node(node_id, cx);
+                    }
+                    queue_changed |= app.submit_due_pending_agent_tasks(Instant::now(), cx);
                     app.advance_session_reply_queue();
                     let runtime_events = app.runtime.take_events();
                     app.reconcile_doubao_channel(cx);

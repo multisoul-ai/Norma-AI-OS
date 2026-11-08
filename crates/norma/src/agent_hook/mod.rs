@@ -19,8 +19,8 @@ mod cursor;
 mod event;
 mod work_ledger;
 pub use work_ledger::{
-    CompletionAction, CompletionJudge, BACKGROUND_WAIT_LIMIT_MS, CONFIRMATION_WINDOW_MS,
-    MAX_PROCESS_DEFERRALS,
+    prompt_is_only_settled_task_notification, CompletionAction, CompletionJudge,
+    BACKGROUND_WAIT_LIMIT_MS, CONFIRMATION_WINDOW_MS, MAX_PROCESS_DEFERRALS,
 };
 mod forward;
 mod hermes;
@@ -50,7 +50,8 @@ pub use conversation_observe::{
     ConversationObservationState, MAX_CONVERSATION_MESSAGE_CHARS,
 };
 pub use event::{
-    extract_prompt_text, hook_events_for_source, parse_hook_event, task_state_for_provider_event,
+    extract_prompt_text, hook_events_for_source, parse_hook_event, raw_prompt_text,
+    task_state_for_provider_event, user_prompt_is_only_settled_task_notification,
 };
 pub use forward::{forward_event, forward_hook};
 pub use hermes::{disable_hermes_plugin_blocking, enable_hermes_plugin_blocking};

@@ -202,6 +202,8 @@ struct QueuedAgentTask {
     source_definition_id: Option<i64>,
     source_node_id: Option<u64>,
     source: AgentQueueTaskSource,
+    /// 只有 hook 登记的用户根任务。队列里的手动派发 source 也是 Manual，但不能被下一条 prompt 收掉。
+    external_root: bool,
     target_node_id: u64,
     task: String,
     cancel_requested: bool,

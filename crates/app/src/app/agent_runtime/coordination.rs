@@ -171,6 +171,12 @@ impl MultisoulApp {
             }
         };
         let task_title = task_title.unwrap_or_else(|| "用户直接任务".to_string());
+        let previous_active_id = coordinator.tasks().into_iter().find_map(|task| {
+            (task.definition_id == definition_id
+                && task.target_node_id == node_id
+                && matches!(task.state, "running" | "cancel_requested"))
+            .then_some(task.task_id)
+        });
         let Ok((receipt, created)) =
             coordinator.register_external_root(definition_id, node_id, task_title)
         else {
@@ -190,6 +196,10 @@ impl MultisoulApp {
             return false;
         }
         if let Some(writer) = self.persistence.agent_dispatch_writer() {
+            if let Some(task_id) = previous_active_id.filter(|task_id| *task_id != receipt.task_id)
+            {
+                writer.finish_task(task_id, storage::AgentDispatchTaskState::Done, None);
+            }
             let tracking = match receipt.state {
                 agent::AgentDispatchState::SubmittedUntracked => {
                     storage::AgentDispatchTracking::Untracked

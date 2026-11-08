@@ -438,6 +438,25 @@ fn prompt_text(raw: &Value) -> Option<String> {
     first_string(raw, &["prompt", "message", "user_message"])
 }
 
+/// 整段 prompt 只由已结清的 `<task-notification>` 组成时，它是 Claude 的自动回合。
+/// running 或不完整的通知块会让整段返回 false。
+pub fn prompt_is_only_settled_task_notification(prompt: &str) -> bool {
+    let mut rest = prompt.to_string();
+    let mut saw_settled = false;
+    while let Some(start) = rest.find("<task-notification>") {
+        let Some(relative_end) = rest[start..].find("</task-notification>") else {
+            return false;
+        };
+        let end = start + relative_end + "</task-notification>".len();
+        if settled_notification_ids(&rest[start..end]).is_empty() {
+            return false;
+        }
+        saw_settled = true;
+        rest.replace_range(start..end, "");
+    }
+    saw_settled && rest.trim().is_empty()
+}
+
 fn settled_notification_ids(prompt: &str) -> Vec<String> {
     let mut ids = Vec::new();
     for block in prompt.split("<task-notification>").skip(1) {

@@ -243,20 +243,32 @@ fn normalize_provider_event(source: HookSource, provider_event: String) -> Strin
     .to_string()
 }
 
+/// Full user prompt. Title display uses [`extract_prompt_text`], which truncates at 60 chars.
+pub fn raw_prompt_text(raw_json: &Value) -> Option<String> {
+    ["prompt", "message", "user_message"]
+        .iter()
+        .find_map(|key| string_field(raw_json, key))
+        .or_else(|| super::kimi::kimi_prompt_text(raw_json))
+}
+
 /// Extract user prompt text from a UserPromptSubmit raw_json.
 /// Tries keys in order: "prompt", "message", "user_message".
 /// Truncates to 60 chars (by char count) and appends "…" if longer.
 pub fn extract_prompt_text(raw_json: &Value) -> Option<String> {
-    let text = ["prompt", "message", "user_message"]
-        .iter()
-        .find_map(|key| string_field(raw_json, key))
-        .or_else(|| super::kimi::kimi_prompt_text(raw_json))?;
+    let text = raw_prompt_text(raw_json)?;
     if text.chars().count() <= 60 {
         Some(text)
     } else {
         let truncated: String = text.chars().take(60).collect();
         Some(format!("{truncated}…"))
     }
+}
+
+/// 用未截断的 prompt 判断是不是纯已结清通知。60 字标题截断会吃掉闭合标签。
+pub fn user_prompt_is_only_settled_task_notification(raw_json: &Value) -> bool {
+    raw_prompt_text(raw_json)
+        .as_deref()
+        .is_some_and(super::prompt_is_only_settled_task_notification)
 }
 
 fn string_field(raw: &Value, field: &str) -> Option<String> {
