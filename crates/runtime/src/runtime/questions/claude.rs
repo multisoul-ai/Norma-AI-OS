@@ -59,8 +59,17 @@ impl Runtime {
             self.reconcile_early_native_results(&hook);
             // The agent's own card owns a Claude question by default: release the held Hook at
             // once so the native prompt shows in the terminal. The island only points at it.
-            if let (true, Ok(target)) = (self.questions.native_first, &result) {
-                let _ = self.release_question_to_native(target);
+            if let Ok(target) = &result {
+                if self.questions.native_first {
+                    let released = self.release_question_to_native(target);
+                    tracing::info!(
+                        ?released,
+                        node = target.node_id,
+                        "claude question released to native"
+                    );
+                } else {
+                    tracing::info!(node = target.node_id, "claude question held for the island");
+                }
             }
         }
         result
