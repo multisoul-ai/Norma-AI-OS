@@ -32,7 +32,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
         definition(
             "agent_assign",
-            "派任务。当前项目只填 agent。别的项目只填 workspace_id、area_id、node_id，且必须来自同一次 workspace_snapshot。不要两种地址一起填。已有卡片且用户只是对话时用 agent_reply。",
+            "派任务。task 只写要做的事，不含称呼和派活用语。当前项目只填 agent。别的项目只填 workspace_id、area_id、node_id，且必须来自同一次 workspace_snapshot。不要两种地址一起填。已有卡片且用户只是对话时用 agent_reply。",
             object_schema(
                 json!({
                     "task": {"type": "string", "minLength": 1},
@@ -54,7 +54,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
         definition(
             "agent_reply",
-            "向画布上已有卡片的 Agent 发送会话消息；有卡即可对话，不要求先激活或新建，也不创建新任务。",
+            "向画布上已有卡片的 Agent 发送会话消息；message 只写要说的内容，不含称呼和派活用语。有卡即可对话，不要求先激活或新建，也不创建新任务。",
             object_schema(
                 json!({
                     "agent": {"type": "string", "minLength": 1},
