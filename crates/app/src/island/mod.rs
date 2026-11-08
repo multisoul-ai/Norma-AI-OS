@@ -1,9 +1,12 @@
 //! App-wide activity cache shared by every island window.
 mod actions;
+mod activity_view;
 mod artifacts;
 mod bloub_view;
+mod body;
 mod chrome;
 mod controller;
+mod faces;
 mod fallback;
 pub(crate) mod hotkey;
 mod model;
@@ -16,8 +19,11 @@ mod pending;
 pub(crate) mod preferences;
 mod question;
 mod question_editor;
+mod queue_view;
 mod remembered;
+mod roster_view;
 mod running;
+mod running_filter;
 pub(crate) mod staff;
 mod staff_view;
 mod style;

@@ -7,7 +7,11 @@ use ui::{
     Theme,
 };
 
-pub(super) fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) -> Div {
+pub(super) fn page(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) -> Div {
+    section(theme, cx)
+}
+
+fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) -> Div {
     let state = preferences::state(cx);
     let ready = state.is_some();
     let preferences = preferences::current(cx);
@@ -33,7 +37,7 @@ pub(super) fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) 
         (
             "island-setting-hidden",
             Setting::Hidden,
-            "island.hide",
+            "island.enable",
             preferences.hidden,
         ),
         (
@@ -54,7 +58,14 @@ pub(super) fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) 
             "island.popup_completions",
             preferences.completions,
         ),
+        (
+            "island-setting-native-questions",
+            Setting::NativeQuestions,
+            "island.native_questions",
+            preferences.native_questions,
+        ),
     ] {
+        let invert = matches!(setting, Setting::Hidden);
         section = section.child(
             div()
                 .flex()
@@ -67,11 +78,14 @@ pub(super) fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) 
                         .child(text(label)),
                 )
                 .child(
+                    // The stored flag is `hidden`; the switch reads as "enabled", so invert it.
                     Switch::new(id)
-                        .checked(checked)
-                        .disabled(!ready)
+                        .checked(checked ^ invert)
+                        .disabled(!ready || (preferences.hidden && !invert))
                         .with_size(Size::Medium)
-                        .on_click(move |checked, _, cx| preferences::select(setting, *checked, cx)),
+                        .on_click(move |checked, _, cx| {
+                            preferences::select(setting, *checked ^ invert, cx)
+                        }),
                 ),
         );
     }

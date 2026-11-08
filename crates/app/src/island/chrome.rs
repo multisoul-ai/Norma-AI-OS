@@ -4,7 +4,6 @@ use super::{
     IslandWorkspace,
 };
 use gpui::{div, prelude::*, px, rgb, rgba, svg, Context, Div, FontWeight};
-use runtime::island::bloub::Mood;
 use runtime::island::{geometry::IslandLayout, IslandEvent, IslandMode, IslandTab};
 use ui::{
     component::button::{Button, ButtonCustomVariant, ButtonVariants},
@@ -16,8 +15,9 @@ impl IslandView {
         &self,
         layout: IslandLayout,
         workspaces: &[IslandWorkspace],
-        running: usize,
-        pending: usize,
+        faces: &[super::faces::Face],
+        queue: &[super::faces::QueueItem],
+        animate: bool,
         cx: &Context<Self>,
     ) -> impl IntoElement {
         let controller = self.controller.read(cx);
@@ -87,7 +87,42 @@ impl IslandView {
                                 })),
                         ),
                 );
+        } else if mode == IslandMode::Activity && controller.displays.state.activity_id().is_some()
+        {
+            left = left
+                .child(
+                    ui::component::Icon::new(ui::component::IconName::Check)
+                        .size(px(13.))
+                        .text_color(rgb(style::OK)),
+                )
+                .child(
+                    div()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(rgb(style::OK))
+                        .child(text("island.done")),
+                );
+            let id = controller
+                .displays
+                .state
+                .activity_id()
+                .unwrap_or("")
+                .to_owned();
+            right = right.child(
+                div()
+                    .text_color(rgb(style::FAINT))
+                    .text_size(px(11.))
+                    .truncate()
+                    .child(
+                        Self::completion_face(faces, &id)
+                            .map(|face| face.workspace_name.clone())
+                            .unwrap_or_default(),
+                    ),
+            );
         } else if mode == IslandMode::Alert {
+            let selected = controller
+                .focused_review
+                .as_deref()
+                .or_else(|| controller.displays.state.alert_id());
             left = left
                 .child(div().size(px(7.)).rounded(px(4.)).bg(rgb(style::ATTENTION)))
                 .child(
@@ -95,6 +130,15 @@ impl IslandView {
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(rgb(style::ATTENTION))
                         .child(text("island.needs_you")),
+                )
+                .child(
+                    div()
+                        .text_size(px(11.))
+                        .text_color(rgb(style::FAINT))
+                        .child(ui::i18n::format(
+                            "island.pending_items",
+                            &[("count", queue.len().to_string())],
+                        )),
                 );
             right = right.child(
                 div()
@@ -102,97 +146,17 @@ impl IslandView {
                     .text_size(px(11.))
                     .truncate()
                     .child(
-                        workspaces
+                        queue
                             .iter()
-                            .find(|workspace| {
-                                workspace.projects.iter().any(|project| {
-                                    let selected = controller.displays.state.alert_id();
-                                    project.approvals.iter().any(|a| {
-                                        Some(super::controller::alert_key(
-                                            project.source,
-                                            &workspace.id,
-                                            &project.area_id,
-                                            &a.target,
-                                        ))
-                                        .as_deref()
-                                            == selected
-                                    }) || project.questions.iter().any(|q| {
-                                        Some(super::controller::alert_key(
-                                            project.source,
-                                            &workspace.id,
-                                            &project.area_id,
-                                            &q.snapshot.question.target,
-                                        ))
-                                        .as_deref()
-                                            == selected
-                                    })
-                                })
-                            })
-                            .map(|ws| ws.name.clone())
+                            .find(|item| Some(item.id.as_str()) == selected)
+                            .map(|item| item.workspace.clone())
                             .unwrap_or_default(),
                     ),
             );
         } else {
-            if running == 0 {
-                left = left.child(
-                    div()
-                        .text_color(rgb(style::FAINT))
-                        .child(text("island.idle")),
-                );
-            } else {
-                left = left
-                    .child(
-                        div()
-                            .size(px(10.))
-                            .rounded(px(5.))
-                            .border_1()
-                            .border_color(rgb(style::RUN)),
-                    )
-                    .child(
-                        div()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(running.to_string()),
-                    );
-                let mut stack = div().flex();
-                for (index, row) in workspaces
-                    .iter()
-                    .flat_map(|ws| &ws.projects)
-                    .flat_map(|p| &p.overview.running)
-                    .take(3)
-                    .enumerate()
-                {
-                    stack = stack.child(
-                        style::avatar_mood(&row.name, &row.profile, 26., Mood::Working)
-                            .border_2()
-                            .border_color(rgb(0))
-                            .when(index > 0, |s| s.ml(px(-8.))),
-                    );
-                }
-                left = left.child(stack);
-            }
-            right = if pending > 0 {
-                right.child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(px(5.))
-                        .h(px(20.))
-                        .px(px(8.))
-                        .rounded(px(10.))
-                        .bg(rgba(0xffa94d29))
-                        .text_color(rgb(style::ATTENTION))
-                        .text_size(px(11.5))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child(div().size(px(6.)).rounded(px(3.)).bg(rgb(style::ATTENTION)))
-                        .child(pending.to_string()),
-                )
-            } else {
-                right.child(
-                    ui::component::Icon::new(ui::component::IconName::Check)
-                        .size(px(13.))
-                        .text_color(rgb(style::OK)),
-                )
-            };
+            let (slot_left, slot_right) = self.compact_slots(faces, animate, cx);
+            left = slot_left;
+            right = slot_right;
         }
         div()
             .id("island-header")

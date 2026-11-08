@@ -1,0 +1,255 @@
+use super::*;
+use norma::mobile::{
+    ApprovalSnapshot, ApprovalTarget, RunOverview, RunOverviewAgent, RunOverviewAttention,
+    RunOverviewAttentionKind, RunOverviewPresence,
+};
+use runtime::island::roster::{AgentActivity, SlotKind};
+
+fn agent(name: &str, node: u64, presence: RunOverviewPresence, raw: &str) -> RunOverviewAgent {
+    RunOverviewAgent {
+        area_id: "area".into(),
+        project: "Norma".into(),
+        current: true,
+        node_id: node,
+        name: name.into(),
+        profile: "Claude".into(),
+        raw_state: raw.into(),
+        presence,
+        approval_count: 0,
+        task: Some(format!("{name} task")),
+        latest_prompt: None,
+        action: Some("step".into()),
+        progress: None,
+        started_at_unix_ms: None,
+    }
+}
+
+fn approval(node: u64, title: &str) -> ApprovalSnapshot {
+    ApprovalSnapshot {
+        target: ApprovalTarget {
+            node_id: node,
+            profile: "Claude".into(),
+            run_id: "run".into(),
+            session_id: "session".into(),
+            turn_id: "turn".into(),
+            request_id: format!("req-{node}"),
+        },
+        card_title: title.into(),
+        tool: "bash".into(),
+        details: serde_json::json!({}),
+        decisions: vec![],
+    }
+}
+
+fn review(node: u64, agent: &str, turn: &str) -> RunOverviewAttention {
+    RunOverviewAttention {
+        kind: RunOverviewAttentionKind::Review,
+        area_id: "area".into(),
+        node_id: node,
+        project: "Norma".into(),
+        agent: agent.into(),
+        title: "result".into(),
+        run_id: "run".into(),
+        turn_id: turn.into(),
+        request_id: None,
+        fingerprint: Some("fp".into()),
+        paths: vec!["a.rs".into(), "b.rs".into()],
+        loaded: true,
+    }
+}
+
+fn workspace(
+    running: Vec<RunOverviewAgent>,
+    idle: Vec<RunOverviewAgent>,
+    attention: Vec<RunOverviewAttention>,
+    approvals: Vec<ApprovalSnapshot>,
+) -> IslandWorkspace {
+    IslandWorkspace {
+        database: "db".into(),
+        id: "ws".into(),
+        name: "Norma-AI-OS".into(),
+        projects: vec![super::super::IslandProject {
+            source: 7,
+            area_id: "area".into(),
+            name: "App".into(),
+            root: "/app".into(),
+            loaded: true,
+            overview: RunOverview {
+                attention,
+                running,
+                idle,
+                unloaded_projects: vec![],
+            },
+            cached_overview: RunOverview {
+                attention: vec![],
+                running: vec![],
+                idle: vec![],
+                unloaded_projects: vec![],
+            },
+            approvals,
+            questions: vec![],
+        }],
+    }
+}
+
+/// 场景：一个人不能同时占左右槽。完成的成果留在右侧，排队的人不占槽。
+/// 数据：Grace 在跑，Iris 在跑但有审批，Leo 已完成且有成果，Daisy 闲着。
+/// 执行：collect 再按槽位归类。
+/// 预期：Grace 在左；Iris 只在右且表情是等你；Leo 在右且表情是完成；Daisy 隐藏并排队。
+#[test]
+fn pending_takes_the_person_off_the_running_side() {
+    let faces = collect(&[workspace(
+        vec![
+            agent("Grace", 1, RunOverviewPresence::Running, "thinking"),
+            agent("Iris", 2, RunOverviewPresence::Running, "thinking"),
+        ],
+        vec![
+            agent("Leo", 3, RunOverviewPresence::Idle, "done"),
+            agent("Daisy", 4, RunOverviewPresence::Idle, "idle"),
+        ],
+        vec![review(3, "Leo", "turn-leo")],
+        vec![approval(2, "Iris")],
+    )]);
+    let face = |name: &str| faces.iter().find(|face| face.name == name).expect(name);
+    assert_eq!(face("Grace").slot, SlotKind::Running, "运行的人在左槽");
+    assert_eq!(
+        face("Grace").activity,
+        AgentActivity::Running,
+        "运行用工作表情"
+    );
+    assert_eq!(face("Iris").slot, SlotKind::Pending, "有审批的人不进左槽");
+    assert_eq!(face("Iris").activity, AgentActivity::Waiting, "审批是等你");
+    assert_ne!(
+        face("Iris").slot,
+        SlotKind::Running,
+        "同一个人不能出现在两侧"
+    );
+    assert_eq!(face("Leo").slot, SlotKind::Pending, "待查看成果在右槽");
+    assert_eq!(
+        face("Leo").activity,
+        AgentActivity::Done,
+        "完成的成果保持完成表情"
+    );
+    assert_eq!(face("Leo").files, 2, "成果文件数来自路径");
+    assert_eq!(face("Daisy").slot, SlotKind::Hidden, "排队的人不占收起槽");
+    assert_eq!(
+        face("Daisy").activity,
+        AgentActivity::Queued,
+        "排队单独成一种活动"
+    );
+    assert_eq!(faces.len(), 4, "四个人各一张脸，成果不额外造人");
+}
+
+fn file_row(node: u64, agent: &str, turn: &str, path: &str) -> RunOverviewAttention {
+    let mut row = review(node, agent, turn);
+    row.kind = RunOverviewAttentionKind::File;
+    row.title = path.into();
+    row.paths = vec![path.into()];
+    row
+}
+
+/// 场景：同一回合的成果和它列出的文件是一张待处理卡。
+/// 数据：Iris 一条审批。Leo 的 turn-leo 有一条带 3 条路径的成果，以及这 3 个文件各一行。
+/// Noah 的另一回合只有一个文件，没有成果行。
+/// 执行：queue_items，并用来历数页签件数。
+/// 预期：Iris、Leo、Noah 三张卡。Leo 只出现一次。页签件数与队列相同，是 3 不是 6。
+#[test]
+fn one_turn_of_files_is_one_pending_card() {
+    let paths = ["relay.mjs", "retry.mjs", "relay.test.mjs"];
+    let mut attention = vec![review(4, "Leo", "turn-leo")];
+    attention[0].paths = paths.iter().map(|path| (*path).to_string()).collect();
+    for path in paths {
+        attention.push(file_row(4, "Leo", "turn-leo", path));
+    }
+    attention.push(file_row(9, "Noah", "turn-other", "notes.md"));
+    let space = workspace(vec![], vec![], attention, vec![approval(2, "Iris")]);
+    let items = queue_items(std::slice::from_ref(&space));
+    let names: Vec<_> = items.iter().map(|item| item.name.as_str()).collect();
+    assert_eq!(
+        names,
+        vec!["Iris", "Leo", "Noah"],
+        "同一回合的三个文件不能再各算一件：{names:?}"
+    );
+    assert!(
+        items.iter().any(|item| item.name == "Leo" && item.review),
+        "Leo 保留成果卡"
+    );
+    assert_eq!(
+        items
+            .iter()
+            .map(|item| item.id.as_str())
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        items.len(),
+        "队列里不能有重复 id"
+    );
+    assert_eq!(
+        super::super::controller::counts(&[space]).1,
+        3,
+        "页签件数必须和队列一样，是 3 不是 6"
+    );
+}
+
+/// 场景：完成的人还留在概览的运行列表里，但成果已经把他标成完成。
+/// 数据：Grace 仍在跑。Leo 的 raw_state 是 done，并且有一条成果。
+/// 执行：用生产计数算运行页签。
+/// 预期：页签是 1，不是运行列表的长度 2。筛选「运行中」与页签同一口径。
+#[test]
+fn running_tab_counts_faces_still_running_not_the_overview_list() {
+    let grace = agent("Grace", 1, RunOverviewPresence::Running, "running");
+    let leo = agent("Leo", 4, RunOverviewPresence::Running, "done");
+    let space = workspace(
+        vec![grace, leo],
+        vec![],
+        vec![review(4, "Leo", "turn-leo")],
+        vec![],
+    );
+    let faces = collect(std::slice::from_ref(&space));
+    let running_faces = faces
+        .iter()
+        .filter(|face| face.activity == AgentActivity::Running)
+        .count();
+    assert_eq!(running_faces, 1, "Leo 已完成，脸上不再是运行中");
+    assert_eq!(
+        super::super::controller::counts(&[space]),
+        (1, 1),
+        "运行页签跟脸的状态走，待处理仍是 Leo 这一张成果"
+    );
+}
+
+/// 场景：审批处理完，队列里下一个是成果，而不是跳到更后面的提问。
+/// 数据：顺序 a、成果 r、提问 q。a 被拿走。
+/// 执行：queue_step。
+/// 预期：按住成果 r；a 还在时停在 a；全部消失则没有下一张。
+#[test]
+fn the_queue_advances_into_a_review_before_the_later_alert() {
+    let review = QueueItem {
+        id: "r".into(),
+        name: "Leo".into(),
+        provider: "OpenCode".into(),
+        workspace: "norma-cloud".into(),
+        review: true,
+    };
+    let alert = |id: &str| QueueItem {
+        id: id.into(),
+        name: id.into(),
+        provider: "Claude".into(),
+        workspace: "Norma".into(),
+        review: false,
+    };
+    let previous = ["a".to_owned(), "r".to_owned(), "q".to_owned()];
+    let remaining = vec![review, alert("q")];
+    let step = queue_step(&previous, &remaining, Some("a"));
+    assert_eq!(step.focused_review.as_deref(), Some("r"), "下一张是成果");
+    assert!(step.hold_review, "成果要按住提醒形态");
+    assert_eq!(step.select_alert, None, "成果不是审批 id");
+    let stay = queue_step(&previous, &remaining, Some("r"));
+    assert_eq!(
+        stay.focused_review.as_deref(),
+        Some("r"),
+        "还在的成果保持不动"
+    );
+    let gone = queue_step(&previous, &[], Some("a"));
+    assert_eq!(gone.focused_review, None, "空队列没有下一张");
+    assert!(!gone.hold_review, "空队列松开按住");
+}

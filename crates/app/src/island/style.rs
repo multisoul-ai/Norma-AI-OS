@@ -3,6 +3,8 @@ use gpui::{
     div, prelude::*, px, rgb, rgba, AnyView, App, Context, Div, FontWeight, SharedString, Window,
 };
 use runtime::island::bloub::Mood;
+use runtime::island::roster::AvatarFace;
+use std::cell::Cell;
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
     Sizable,
@@ -74,7 +76,48 @@ pub(super) fn card() -> Div {
         .gap(px(10.))
 }
 
-pub(super) fn avatar_mood(name: &str, provider: &str, size: f32, mood: Mood) -> Div {
+thread_local! {
+    static ANIMATE: Cell<bool> = const { Cell::new(true) };
+}
+
+/// One AppKit read per island frame. Avatars must not ask again while they paint.
+pub(super) fn set_animations(enabled: bool) {
+    ANIMATE.with(|cell| cell.set(enabled));
+}
+
+pub(super) fn animations_enabled() -> bool {
+    ANIMATE.with(|cell| cell.get())
+}
+
+pub(super) fn avatar(
+    name: &str,
+    provider: &str,
+    size: f32,
+    face: AvatarFace,
+    animate: bool,
+) -> Div {
+    avatar_with_ping(name, provider, size, face, animate, false)
+}
+
+/// A waiting avatar that also sends out the prototype's expanding attention ring.
+pub(super) fn avatar_pinging(
+    name: &str,
+    provider: &str,
+    size: f32,
+    face: AvatarFace,
+    animate: bool,
+) -> Div {
+    avatar_with_ping(name, provider, size, face, animate, true)
+}
+
+fn avatar_with_ping(
+    name: &str,
+    provider: &str,
+    size: f32,
+    face: AvatarFace,
+    animate: bool,
+    ping: bool,
+) -> Div {
     let color = match provider.to_ascii_lowercase().as_str() {
         "claude" => 0xe08a66,
         "codex" => 0x6cc4b4,
@@ -86,7 +129,7 @@ pub(super) fn avatar_mood(name: &str, provider: &str, size: f32, mood: Mood) -> 
             .fold(0usize, |sum, b| sum.wrapping_add(b as usize))
             % 5],
     };
-    super::bloub_view::bloub(name, color, size, mood)
+    super::bloub_view::bloub(name, color, size, face.mood, face.opacity, animate, ping)
 }
 
 pub(super) fn chip(label: impl Into<SharedString>, color: u32) -> Div {
@@ -111,12 +154,19 @@ pub(super) fn card_heading(
     title: &str,
     badge: &str,
     color: u32,
+    mood: Mood,
 ) -> Div {
     div()
         .flex()
         .items_center()
         .gap(px(9.))
-        .child(avatar_mood(name, provider, 40., Mood::Waiting))
+        .child(avatar(
+            name,
+            provider,
+            40.,
+            AvatarFace { mood, opacity: 1. },
+            animations_enabled(),
+        ))
         .child(
             div()
                 .flex_1()

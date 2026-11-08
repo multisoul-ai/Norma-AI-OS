@@ -2,10 +2,10 @@
 //! mood animates; a window schedules one coalesced redraw per tick instead of one per avatar, at
 //! 30 fps for busy moods and 15 fps for the rest, never at the display rate.
 use gpui::{
-    canvas, point, prelude::*, px, rgb, App, Bounds, Div, PathBuilder, Pixels, Point, Window,
-    WindowId,
+    canvas, point, prelude::*, px, quad, rgba, size, App, Bounds, Corners, Div, Edges, PathBuilder,
+    Pixels, Point, Window, WindowId,
 };
-use runtime::island::bloub::{profile, sample, Frame, Mood, Pt};
+use runtime::island::bloub::{profile, sample, Frame, Mood, Pt, EYE_POINTS};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -13,8 +13,9 @@ use std::time::{Duration, Instant};
 const BUSY_TICK: Duration = Duration::from_millis(33);
 const CALM_TICK: Duration = Duration::from_millis(66);
 
-/// Body radius as a share of the box; leaves room for the egg and triangle silhouettes.
-const BODY_SHARE: f32 = 0.47;
+/// Circle diameter is 0.80 of the box. The triangle's 1.153 scale then
+/// reaches about half a point past a 20pt slot, which keeps the four areas level.
+const BODY_SHARE: f32 = 0.40;
 const EYE_COLOR: u32 = 0x0b0d10;
 
 fn clock() -> f32 {
@@ -56,25 +57,65 @@ fn schedule_redraw(window: &mut Window, cx: &mut App, tick: Duration) {
         .detach();
 }
 
-pub(super) fn bloub(seed: &str, color: u32, size: f32, mood: Mood) -> Div {
+pub(super) fn bloub(
+    seed: &str,
+    color: u32,
+    size: f32,
+    mood: Mood,
+    opacity: f32,
+    animate: bool,
+    ping: bool,
+) -> Div {
     let profile = profile(seed);
+    let still = -profile.phase;
     let tick = if mood.is_busy() { BUSY_TICK } else { CALM_TICK };
-    gpui::div().size(px(size)).flex_none().relative().child(
-        canvas(
-            |_, _, _| (),
-            move |bounds, _, window, cx| {
-                paint(&sample(&profile, mood, clock()), bounds, color, window);
-                schedule_redraw(window, cx, tick);
-            },
+    gpui::div()
+        .size(px(size))
+        .flex_none()
+        .relative()
+        .opacity(opacity)
+        .child(
+            canvas(
+                |_, _, _| (),
+                move |bounds, _, window, cx| {
+                    let time = if animate { clock() } else { still };
+                    paint(&sample(&profile, mood, time), bounds, color, window);
+                    if ping && animate {
+                        paint_ping(bounds, window);
+                    }
+                    if animate {
+                        schedule_redraw(window, cx, tick);
+                    }
+                },
+            )
+            .absolute()
+            .size_full(),
         )
-        .absolute()
-        .size_full(),
-    )
 }
 
+/// GPUI paths get 4x MSAA at most, which leaves visible stair steps at 20 to 30 points on a 1x
+/// display. One solid pass keeps the shape opaque; four faint passes nudged by a third of a point
+/// fill in the edge coverage the multisampling misses.
+const SOFT_OFFSETS: [(f32, f32); 4] = [(0.35, 0.), (-0.35, 0.), (0., 0.35), (0., -0.35)];
+const SOFT_ALPHA: u32 = 0x40;
+
 fn paint(frame: &Frame, bounds: Bounds<Pixels>, color: u32, window: &mut Window) {
+    paint_pass(frame, bounds, (0., 0.), 0xff, color, window);
+    for offset in SOFT_OFFSETS {
+        paint_pass(frame, bounds, offset, SOFT_ALPHA, color, window);
+    }
+}
+
+fn paint_pass(
+    frame: &Frame,
+    bounds: Bounds<Pixels>,
+    offset: (f32, f32),
+    alpha: u32,
+    color: u32,
+    window: &mut Window,
+) {
     let radius = bounds.size.width.min(bounds.size.height) * BODY_SHARE;
-    let center = bounds.center();
+    let center = bounds.center() + point(px(offset.0), px(offset.1));
     let at = |p: &Pt| -> Point<Pixels> { point(center.x + radius * p.x, center.y + radius * p.y) };
 
     let mut body = PathBuilder::fill();
@@ -100,15 +141,84 @@ fn paint(frame: &Frame, bounds: Bounds<Pixels>, color: u32, window: &mut Window)
     }
     body.close();
     if let Ok(path) = body.build() {
-        window.paint_path(path, rgb(color));
+        window.paint_path(path, rgba((color << 8) | alpha));
     }
 
     for eye in frame.eyes.iter().flatten() {
+        if frame.smile {
+            paint_smile(eye, &at, radius, alpha, window);
+            continue;
+        }
         let points: Vec<Point<Pixels>> = eye.iter().map(at).collect();
         let mut builder = PathBuilder::fill();
         builder.add_polygon(&points, true);
         if let Ok(path) = builder.build() {
-            window.paint_path(path, rgb(EYE_COLOR));
+            window.paint_path(path, rgba((EYE_COLOR << 8) | alpha));
         }
     }
+}
+
+/// Prototype `eh`: an upward arc (a closed, smiling eye) as wide as the capsule it replaces.
+fn paint_smile(
+    eye: &[Pt; EYE_POINTS],
+    at: &impl Fn(&Pt) -> Point<Pixels>,
+    radius: Pixels,
+    alpha: u32,
+    window: &mut Window,
+) {
+    let n = eye.len() as f32;
+    let (cx, cy) = (
+        eye.iter().map(|p| p.x).sum::<f32>() / n,
+        eye.iter().map(|p| p.y).sum::<f32>() / n,
+    );
+    let half = eye
+        .iter()
+        .map(|p| (p.x - cx).abs())
+        .fold(0f32, f32::max)
+        .max(0.12);
+    let mut arc = PathBuilder::stroke((radius * 0.13).max(px(1.1)));
+    arc.move_to(at(&Pt {
+        x: cx - half,
+        y: cy + half * 0.55,
+    }));
+    arc.curve_to(
+        at(&Pt {
+            x: cx + half,
+            y: cy + half * 0.55,
+        }),
+        at(&Pt {
+            x: cx,
+            y: cy - half * 1.05,
+        }),
+    );
+    if let Ok(path) = arc.build() {
+        window.paint_path(path, rgba((EYE_COLOR << 8) | alpha));
+    }
+}
+
+const PING_PERIOD: f32 = 1.4;
+/// Prototype `.ping::after`: inset -2px, grows from 0.9x to 1.5x, 1.5px ring, ease-out, 0.9 to 0 opacity.
+const PING_INSET: f32 = 2.;
+const PING_FROM: f32 = 0.9;
+const PING_TO: f32 = 1.5;
+const PING_WIDTH: f32 = 1.5;
+
+/// The ring asks for a frame on every vsync so it moves at the display rate. Only the avatar
+/// canvases repaint; the island view itself is not re-rendered.
+fn paint_ping(bounds: Bounds<Pixels>, window: &mut Window) {
+    let t = (clock() / PING_PERIOD).fract();
+    let eased = 1. - (1. - t) * (1. - t);
+    let base = bounds.size.width.min(bounds.size.height) + px(PING_INSET * 2.);
+    let side = base * (PING_FROM + (PING_TO - PING_FROM) * eased);
+    let ring = Bounds::centered_at(bounds.center(), size(side, side));
+    let alpha = (0.9 * (1. - eased) * 255.) as u32;
+    window.paint_quad(quad(
+        ring,
+        Corners::all(side / 2.),
+        rgba(0),
+        Edges::all(px(PING_WIDTH)),
+        rgba((super::style::ATTENTION << 8) | alpha),
+        gpui::BorderStyle::Solid,
+    ));
+    window.request_animation_frame();
 }

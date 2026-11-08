@@ -20,6 +20,8 @@ mod opencode_host;
 #[derive(Default)]
 pub(super) struct Questions {
     fallback: fallback::FallbackQuestions,
+    /// Hand a Claude question to the agent card's own terminal instead of holding the Hook.
+    pub(super) native_first: bool,
     native_hosts: HashMap<NodeId, codex_host::OwnedHost>,
     opencode_hosts: HashMap<NodeId, opencode_host::OwnedHost>,
     cursor_hosts: HashMap<NodeId, cursor_host::OwnedHost>,
@@ -140,7 +142,41 @@ fn same_request(a: &QuestionRef, b: &QuestionRef) -> bool {
         && a.request_id == b.request_id
 }
 
+static NATIVE_FIRST_DEFAULT: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+impl Questions {
+    fn native_first(&self) -> bool {
+        self.native_first || NATIVE_FIRST_DEFAULT.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Drop every pending question but keep the host's policy; loading a project snapshot used to
+    /// wipe `native_first` and silently put the island back in charge of Claude questions.
+    pub(super) fn reset(&mut self) {
+        *self = Self {
+            native_first: self.native_first,
+            ..Self::default()
+        };
+    }
+}
+
 impl Runtime {
+    /// App-wide choice (Settings > Island): hand Claude questions to the agent card's terminal
+    /// instead of holding the Hook so the island can answer. Off keeps the island in charge.
+    pub fn set_native_first_questions_default(on: bool) {
+        NATIVE_FIRST_DEFAULT.store(on, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Whether this runtime hands Claude questions to the agent card's terminal (own flag or the
+    /// app-wide setting).
+    pub fn native_first_questions(&self) -> bool {
+        self.questions.native_first()
+    }
+
+    pub fn set_native_first_questions(&mut self, on: bool) {
+        self.questions.native_first = on;
+    }
+
     fn validate_question_run(&self, target: &QuestionRef) -> Result<(), &'static str> {
         target.validate()?;
         let Some(CanvasNodeKind::Agent(spec)) = self.document.node(target.node_id).map(|n| &n.kind)

@@ -58,7 +58,7 @@ impl Mood {
             },
             Mood::Waiting => Motion {
                 face: Some(ExpressionId::Curious),
-                sway: 8.,
+                sway: 12.,
                 ..calm
             },
             Mood::Failed => Motion {
@@ -69,7 +69,7 @@ impl Mood {
             },
             Mood::Responded => Motion {
                 face: Some(ExpressionId::Happy),
-                bounce: 0.07,
+                bounce: 0.14,
                 period: 1.1,
                 ..calm
             },
@@ -105,6 +105,8 @@ pub struct Frame {
     pub body: [Pt; BODY_POINTS],
     /// Closed outlines; `None` when the eye faces away from the viewer.
     pub eyes: [Option<[Pt; EYE_POINTS]>; 2],
+    /// The renderer strokes each eye as a smiling arc (the prototype's happy face) instead of filling it.
+    pub smile: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -215,26 +217,56 @@ fn blink_lid(t: f32) -> f32 {
     1.
 }
 
-fn radii(silhouette: Silhouette, sample: usize) -> f32 {
+/// Scales that make the four filled silhouettes occupy the same area.
+/// The prototype's 1 / 0.98 / 1.06 / 1.10 fit its SVG paths. These radial profiles
+/// are smaller than the unit circle (the egg's raw area is about 0.81 of the circle),
+/// so the same constants would leave the egg at 1.28× the circle. The factors below are
+/// `sqrt(circle_area / profile_area)` on the 32-point body the renderer actually draws:
+/// 1 / 1.114 / 1.055 / 1.153. Circle stays at 1, so a stroke cannot enlarge it.
+pub fn silhouette_scale(silhouette: Silhouette) -> f32 {
     match silhouette {
         Silhouette::Circle => 1.,
-        Silhouette::Egg => EGG[sample * 2],
-        Silhouette::Hexagon => HEXAGON[sample * 2],
-        Silhouette::Triangle => TRIANGLE[sample * 2],
+        Silhouette::Egg => 1.114,
+        Silhouette::Hexagon => 1.055,
+        Silhouette::Triangle => 1.153,
     }
+}
+
+fn profile_radius(silhouette: Silhouette, index: usize) -> f32 {
+    let raw = match silhouette {
+        Silhouette::Circle => 1.,
+        Silhouette::Egg => EGG[index % PROFILE_SAMPLES],
+        Silhouette::Hexagon => HEXAGON[index % PROFILE_SAMPLES],
+        Silhouette::Triangle => TRIANGLE[index % PROFILE_SAMPLES],
+    };
+    raw * silhouette_scale(silhouette)
+}
+
+fn radii(silhouette: Silhouette, sample: usize) -> f32 {
+    profile_radius(silhouette, sample * 2)
 }
 
 fn radius_at(silhouette: Silhouette, angle: f32) -> f32 {
     let t = (angle / TAU).rem_euclid(1.) * PROFILE_SAMPLES as f32;
     let i = t.floor() as usize;
-    let at = |k: usize| match silhouette {
-        Silhouette::Circle => 1.,
-        Silhouette::Egg => EGG[k % PROFILE_SAMPLES],
-        Silhouette::Hexagon => HEXAGON[k % PROFILE_SAMPLES],
-        Silhouette::Triangle => TRIANGLE[k % PROFILE_SAMPLES],
-    };
     let f = t - i as f32;
-    at(i) * (1. - f) + at(i + 1) * f
+    profile_radius(silhouette, i) * (1. - f) + profile_radius(silhouette, i + 1) * f
+}
+
+/// Shoelace area of the resting 32-point body. Drift and breathing are not included.
+pub fn resting_area(silhouette: Silhouette) -> f32 {
+    let n = BODY_POINTS;
+    let mut sum = 0.;
+    for i in 0..n {
+        let a0 = (i * 2) as f32 / PROFILE_SAMPLES as f32 * TAU;
+        let a1 = ((i + 1) * 2) as f32 / PROFILE_SAMPLES as f32 * TAU;
+        let r0 = radii(silhouette, i);
+        let r1 = radii(silhouette, (i + 1) % n);
+        let (x0, y0) = (r0 * a0.cos(), r0 * a0.sin());
+        let (x1, y1) = (r1 * a1.cos(), r1 * a1.sin());
+        sum += x0 * y1 - x1 * y0;
+    }
+    sum.abs() * 0.5
 }
 
 type V3 = [f32; 3];
@@ -336,6 +368,7 @@ pub fn sample(profile: &Profile, mood: Mood, t: f32) -> Frame {
         }
         let cfg = exp.eyes[i];
         let fit = radius_at(profile.silhouette, y.atan2(x));
+        let face = silhouette_scale(profile.silhouette);
         let phi = cfg.tilt.to_radians();
         let (sp, cp) = phi.sin_cos();
         let k = 0.06 + 0.94 * lid.min(cfg.open).clamp(0., 1.);
@@ -346,8 +379,8 @@ pub fn sample(profile: &Profile, mood: Mood, t: f32) -> Frame {
             (-b * sp + d * cp) * k,
         ];
         Some(capsule(
-            cfg.w,
-            cfg.h,
+            cfg.w * face,
+            cfg.h * face,
             m,
             Pt {
                 x: x * fit + drift.0,
@@ -355,5 +388,9 @@ pub fn sample(profile: &Profile, mood: Mood, t: f32) -> Frame {
             },
         ))
     });
-    Frame { body, eyes }
+    Frame {
+        body,
+        eyes,
+        smile: mood == Mood::Responded,
+    }
 }

@@ -108,6 +108,7 @@ fn install_prepared(prepared: Prepared, cx: &mut App) {
     if state(cx).is_some() {
         return;
     }
+    apply_to_runtime(&prepared.preferences);
     let writer = prepared.store.map(Persistence::start);
     let results = writer.as_ref().map(|writer| writer.results.clone());
     let entity = cx.new(|_| Settings {
@@ -141,6 +142,11 @@ fn install_prepared(prepared: Prepared, cx: &mut App) {
         })
         .detach();
     }
+}
+
+/// The runtime reads this when a Claude question arrives, so it never needs a restart.
+fn apply_to_runtime(preferences: &IslandPreferences) {
+    runtime::Runtime::set_native_first_questions_default(preferences.native_questions);
 }
 
 /// Forget every remembered "always allow" grant in all retained workspace databases.
@@ -182,6 +188,7 @@ pub(crate) enum Setting {
     Approvals,
     Questions,
     Completions,
+    NativeQuestions,
 }
 
 pub(crate) fn select(setting: Setting, checked: bool, cx: &mut App) {
@@ -192,11 +199,13 @@ pub(crate) fn select(setting: Setting, checked: bool, cx: &mut App) {
             Setting::Approvals => &mut state.preferences.approvals,
             Setting::Questions => &mut state.preferences.questions,
             Setting::Completions => &mut state.preferences.completions,
+            Setting::NativeQuestions => &mut state.preferences.native_questions,
         };
         if *target == checked {
             return;
         }
         *target = checked;
+        apply_to_runtime(&state.preferences);
         state.error = None;
         match state
             .writer

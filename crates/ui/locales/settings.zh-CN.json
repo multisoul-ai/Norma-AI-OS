@@ -284,5 +284,7 @@
   "settings.wallpaper_import_cancelled": "已取消导入",
   "settings.wallpaper_deleted": "已删除壁纸",
   "settings.wallpaper_file_delete_failed": "已恢复默认壁纸，但无法删除文件：%{error}",
-  "settings.wallpaper_delete_failed": "壁纸删除失败：%{error}"
+  "settings.wallpaper_delete_failed": "壁纸删除失败：%{error}",
+  "settings.island": "灵动岛",
+  "settings.island_subtitle": "控制灵动岛的显示、主动提醒，以及问答由谁回答。"
 }

@@ -13,7 +13,12 @@ fn setup() -> (Runtime, HookQuestion, QuestionRef) {
 }
 
 fn setup_turn(turn: Option<&str>) -> (Runtime, HookQuestion, QuestionRef) {
+    setup_with(turn, false)
+}
+
+fn setup_with(turn: Option<&str>, native_first: bool) -> (Runtime, HookQuestion, QuestionRef) {
     let mut runtime = Runtime::new_for_workspace("/tmp/claude-question-test");
+    runtime.set_native_first_questions(native_first);
     runtime.set_agent_hook_config(Some(AgentHookRuntimeConfig {
         endpoint: "http://127.0.0.1:49152/agent-hooks".into(),
         token: "test".into(),
@@ -440,4 +445,34 @@ fn cancelled_hook_keeps_question_blocked_until_native_user_answers() {
         !runtime.has_pending_question(target.node_id),
         "消费完成后解除输入阻塞"
     );
+}
+
+/// 场景：真实项目默认把 Claude 问答交还 Agent 卡片自己的终端，岛里不再拦截。
+/// 构造：与拦截测试相同的真实夹具，但打开原生优先开关。
+/// 执行：接收原Hook。
+/// 预期：原Hook已被释放（Cancelled），终端可立即显示原生问答，不需要再点任何按钮。
+#[test]
+fn native_first_releases_the_hook_as_soon_as_it_is_accepted() {
+    let (runtime, ticket, target) = setup_with(None, true);
+    assert_eq!(
+        ticket.status(Instant::now()),
+        norma::agent_hook::QuestionHookStatus::Cancelled,
+        "默认就交还原生，不是等用户点按钮"
+    );
+    assert!(
+        !runtime.native_question_available(&target),
+        "钩子释放后岛不能再代答"
+    );
+}
+
+/// 场景：载入项目画布快照会清空问答，但不能顺带关掉“原生优先”策略。
+/// 构造：打开开关后先恢复一份空快照，再接收同一个Claude问答。
+/// 执行：恢复快照后重新走问答接收。
+/// 预期：钩子仍在接收时立即被释放。
+#[test]
+fn restoring_a_snapshot_keeps_the_native_first_policy() {
+    let (mut runtime, _, _) = setup_with(None, true);
+    let snapshot = runtime.collect_canvas_snapshot();
+    runtime.restore_canvas_snapshot(snapshot);
+    assert!(runtime.native_first_questions(), "快照恢复后策略仍开启");
 }

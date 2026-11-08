@@ -135,4 +135,32 @@ impl MultisoulApp {
             }
         }
     }
+
+    /// Hand the question back to the agent's own terminal: the held Hook is relinquished so the
+    /// native prompt appears on the card. Never records an answer.
+    pub(crate) fn release_overview_question_at(
+        &mut self,
+        workspace: &str,
+        area: &str,
+        target: &QuestionRef,
+        cx: &mut Context<Self>,
+    ) {
+        self.revoke_overview_question_delegation_at(workspace, area, target, cx);
+        let released = self
+            .with_overview_session_at(workspace, area, cx, |app, _| {
+                app.runtime.release_question_to_native(target)
+            })
+            .unwrap_or(Err("question_project_closed"));
+        if let Err(error) = released {
+            if self.brain.questions.ui_errors.len() >= 32 {
+                self.brain.questions.ui_errors.remove(0);
+            }
+            self.brain
+                .questions
+                .ui_errors
+                .push((target.clone(), error.into()));
+        }
+        self.refresh_brain_overview(cx);
+        cx.notify();
+    }
 }

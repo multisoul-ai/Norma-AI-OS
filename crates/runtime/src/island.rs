@@ -5,6 +5,7 @@ pub mod bloub;
 pub mod displays;
 pub mod geometry;
 pub mod notification;
+pub mod roster;
 pub mod staff;
 pub mod transition;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -45,6 +46,8 @@ pub struct IslandPreferences {
     pub approvals: bool,
     pub questions: bool,
     pub completions: bool,
+    /// Hand Claude questions to the agent card's own terminal instead of answering on the island.
+    pub native_questions: bool,
 }
 impl Default for IslandPreferences {
     fn default() -> Self {
@@ -53,6 +56,7 @@ impl Default for IslandPreferences {
             approvals: true,
             questions: true,
             completions: true,
+            native_questions: false,
         }
     }
 }
@@ -72,6 +76,10 @@ pub enum IslandEvent {
     TogglePin,
     InputFocusChanged(bool),
     SelectTab(IslandTab),
+    /// Show this approval or question in the alert card. Ignored when the id is not actionable.
+    SelectAlert(String),
+    /// Keep the alert shell open for a result card. Results are not alert kinds.
+    ReviewHold(bool),
     SpeakingChanged(bool),
     PreferencesChanged(IslandPreferences),
 }
@@ -87,6 +95,8 @@ pub struct IslandState {
     pinned: bool,
     input_focused: bool,
     speaking: bool,
+    /// The visible card is a result, which is not an alert id.
+    review_hold: bool,
     tab: IslandTab,
     preferences: IslandPreferences,
 }
@@ -143,7 +153,7 @@ impl IslandState {
                         .map(|a| a.id.clone());
                     if id.is_some() {
                         self.alert_id = id;
-                    } else {
+                    } else if !self.review_hold {
                         self.collapse();
                     }
                 }
@@ -182,18 +192,26 @@ impl IslandState {
             {
                 self.mode = IslandMode::Activity;
                 self.activity_id = Some(id);
-                self.deadline = Some(now_ms.saturating_add(3000));
+                self.deadline = Some(now_ms.saturating_add(roster::ACTIVITY_HOLD_MS));
             }
             IslandEvent::ActionConfirmed(id) => {
-                self.confirmed_alerts.insert(id);
+                let previous: Vec<String> = self
+                    .overview
+                    .alerts
+                    .iter()
+                    .map(|alert| alert.id.clone())
+                    .collect();
+                self.confirmed_alerts.insert(id.clone());
                 if self.mode != IslandMode::Expanded {
-                    self.alert_id = self
+                    let remaining: Vec<String> = self
                         .overview
                         .alerts
                         .iter()
-                        .find(|a| self.alert_enabled(a))
-                        .map(|a| a.id.clone());
+                        .filter(|alert| self.alert_enabled(alert))
+                        .map(|alert| alert.id.clone())
+                        .collect();
                     self.activity_id = None;
+                    self.alert_id = roster::pending_successor(&previous, &remaining, &id);
                     if self.alert_id.is_some() {
                         self.mode = IslandMode::Alert;
                         self.deadline = None;
@@ -207,18 +225,34 @@ impl IslandState {
                 self.confirmed_alerts
                     .retain(|id| overview.alerts.iter().any(|a| &a.id == id));
                 let next = if self.mode == IslandMode::Alert {
+                    let previous: Vec<String> = self
+                        .overview
+                        .alerts
+                        .iter()
+                        .filter(|alert| self.alert_enabled(alert))
+                        .map(|alert| alert.id.clone())
+                        .collect();
+                    let remaining: Vec<String> = overview
+                        .alerts
+                        .iter()
+                        .filter(|alert| self.alert_enabled(alert))
+                        .map(|alert| alert.id.clone())
+                        .collect();
+                    roster::pending_successor(
+                        &previous,
+                        &remaining,
+                        self.alert_id.as_deref().unwrap_or(""),
+                    )
+                } else {
                     overview
                         .alerts
                         .iter()
-                        .find(|a| Some(&a.id) == self.alert_id.as_ref() && self.alert_enabled(a))
-                        .or_else(|| overview.alerts.iter().find(|a| self.alert_enabled(a)))
-                } else {
-                    overview.alerts.iter().find(|a| {
-                        self.alert_enabled(a)
-                            && !self.overview.alerts.iter().any(|old| old.id == a.id)
-                    })
-                }
-                .map(|a| a.id.clone());
+                        .find(|alert| {
+                            self.alert_enabled(alert)
+                                && !self.overview.alerts.iter().any(|old| old.id == alert.id)
+                        })
+                        .map(|alert| alert.id.clone())
+                };
                 if self.mode != IslandMode::Expanded {
                     if let Some(id) = next {
                         self.mode = IslandMode::Alert;
@@ -226,8 +260,10 @@ impl IslandState {
                         self.activity_id = None;
                         self.deadline = None;
                     } else if self.mode == IslandMode::Alert {
-                        self.mode = IslandMode::Compact;
                         self.alert_id = None;
+                        if !self.review_hold {
+                            self.mode = IslandMode::Compact;
+                        }
                     }
                 }
                 self.overview = overview;
@@ -251,6 +287,34 @@ impl IslandState {
                 }
             }
             IslandEvent::SelectTab(tab) if self.mode == IslandMode::Expanded => self.tab = tab,
+            IslandEvent::SelectAlert(id) => {
+                if self
+                    .overview
+                    .alerts
+                    .iter()
+                    .any(|alert| alert.id == id && self.alert_enabled(alert))
+                {
+                    self.alert_id = Some(id);
+                    self.review_hold = false;
+                    if self.mode != IslandMode::Expanded {
+                        self.mode = IslandMode::Alert;
+                        self.activity_id = None;
+                        self.deadline = None;
+                    }
+                }
+            }
+            IslandEvent::ReviewHold(hold) => {
+                self.review_hold = hold;
+                if hold && self.mode != IslandMode::Expanded {
+                    // A result follows the card the user just finished. The short
+                    // confirmation must not cover it.
+                    self.mode = IslandMode::Alert;
+                    self.activity_id = None;
+                    self.deadline = None;
+                } else if !hold && self.mode == IslandMode::Alert && self.alert_id.is_none() {
+                    self.mode = IslandMode::Compact;
+                }
+            }
             IslandEvent::SpeakingChanged(speaking) => self.speaking = speaking,
             _ => {}
         }
@@ -290,6 +354,7 @@ impl IslandState {
         self.deadline = None;
         self.alert_id = None;
         self.activity_id = None;
+        self.review_hold = false;
     }
     fn collapse(&mut self) {
         self.mode = IslandMode::Compact;
@@ -298,6 +363,7 @@ impl IslandState {
         self.deadline = None;
         self.alert_id = None;
         self.activity_id = None;
+        self.review_hold = false;
     }
 }
 #[cfg(test)]

@@ -70,13 +70,19 @@ fn sidebar_navigation_items_use_canonical_thirty_nine_pixel_height() {
 /// 执行过程：逐组核对生产导航的顺序和页面归属，再检查扁平化后的唯一性与隐藏项。
 /// 预期结果：完整结构与用户确认的两级菜单一致；没有独立外观组、重复页面或测试占位页。
 #[test]
-fn settings_navigation_has_four_groups_and_twelve_unique_pages() {
+fn settings_navigation_has_four_groups_and_thirteen_unique_pages() {
     use super::SettingsSection::*;
     let expected: &[(&str, &[super::SettingsSection])] = &[
         ("general.title", &[General, Themes, Wallpaper, Effects]),
         (
             "Norma",
-            &[NormaPersona, NormaMemory, NormaVoice, NormaBrain],
+            &[
+                NormaPersona,
+                NormaMemory,
+                NormaVoice,
+                NormaBrain,
+                NormaIsland,
+            ],
         ),
         ("settings.input_controls", &[Keyboard]),
         ("settings.ai_automation", &[Agents, Orchestration, Mobile]),
@@ -99,7 +105,7 @@ fn settings_navigation_has_four_groups_and_twelve_unique_pages() {
         .iter()
         .flat_map(|(_, sections)| sections.iter().copied())
         .collect();
-    assert_eq!(pages.len(), 12, "页面总数应为 4 + 4 + 1 + 3 = 12");
+    assert_eq!(pages.len(), 13, "页面总数应为 4 + 5 + 1 + 3 = 13");
     for (index, page) in pages.iter().enumerate() {
         assert!(!pages[..index].contains(page), "页面 {page:?} 只能出现一次");
     }

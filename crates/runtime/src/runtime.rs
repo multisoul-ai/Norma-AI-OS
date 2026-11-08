@@ -132,7 +132,7 @@ impl Runtime {
 
     pub fn restore_canvas_snapshot(&mut self, snapshot: DocumentSnapshot) {
         self.kill_all();
-        self.questions = questions::Questions::default();
+        self.questions.reset();
         self.events.remove_all();
         self.document = Document::from_snapshot(snapshot);
         self.selection.clear();
