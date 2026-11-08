@@ -13,6 +13,7 @@
   "island.deny": "拒绝",
   "island.answer": "回答",
   "island.custom_reply": "自由回复",
+  "island.answer_in_card": "在原卡片回答",
   "island.submit_reply": "发送回复",
   "island.expired": "这条请求已失效。",
   "island.submitted": "决定已提交",

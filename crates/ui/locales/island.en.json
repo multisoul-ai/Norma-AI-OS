@@ -13,6 +13,7 @@
   "island.deny": "Deny",
   "island.answer": "Answer",
   "island.custom_reply": "Write a reply",
+  "island.answer_in_card": "Answer on card",
   "island.submit_reply": "Send reply",
   "island.expired": "This request is no longer available.",
   "island.submitted": "Decision submitted",

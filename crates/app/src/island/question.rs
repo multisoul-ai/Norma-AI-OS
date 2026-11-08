@@ -105,9 +105,27 @@ impl IslandView {
                 card = card.child(reply);
             }
         }
-        if let Some(submit) = submit {
-            card = card.child(div().flex().justify_end().child(submit));
-        }
+        let native_route = route.clone();
+        let native_target = row.snapshot.question.target.clone();
+        let native = button(
+            format!("{id}-native"),
+            text("island.answer_in_card"),
+            false,
+            cx,
+        )
+        .on_click(cx.listener(move |view, _, _, cx| {
+            view.controller.update(cx, |state, cx| {
+                state.answer_in_card(native_route.clone(), native_target.clone(), cx);
+            });
+        }));
+        card = card.child(
+            div()
+                .flex()
+                .justify_end()
+                .gap(px(6.))
+                .child(native)
+                .children(submit),
+        );
         card.into_any_element()
     }
 
@@ -191,6 +209,25 @@ impl IslandView {
 mod tests;
 
 impl super::controller::IslandController {
+    /// Release the intercepted question to its native prompt, then bring the card into view.
+    pub fn answer_in_card(
+        &mut self,
+        route: IslandTarget,
+        target: norma::protocol::QuestionRef,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(host) = route.host(cx) else {
+            self.message = Some(ui::i18n::LocalizedText::new("island.expired"));
+            cx.notify();
+            return;
+        };
+        let node = target.node_id;
+        host.update(cx, |host, cx| {
+            host.release_overview_question_at(&route.workspace, &route.area, &target, cx)
+        });
+        self.locate(route, node, cx);
+    }
+
     pub fn submit_question(
         &mut self,
         route: IslandTarget,
