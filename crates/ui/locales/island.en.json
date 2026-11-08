@@ -55,7 +55,7 @@
   "island.waiting_count": "%{count} waiting",
   "island.waiting_names": "Waiting · %{names}",
   "island.settings_hint": "Choose when the island appears. Turning off popups keeps pending items available when you open it.",
-  "island.hide": "Hide Dynamic Island",
+  "island.enable": "Enable Dynamic Island",
   "island.popup_approvals": "Show approval popups",
   "island.popup_questions": "Show question popups",
   "island.popup_completions": "Show completion popups",

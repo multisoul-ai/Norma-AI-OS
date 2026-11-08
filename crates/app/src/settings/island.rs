@@ -37,7 +37,7 @@ fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) -> Div {
         (
             "island-setting-hidden",
             Setting::Hidden,
-            "island.hide",
+            "island.enable",
             preferences.hidden,
         ),
         (
@@ -65,6 +65,7 @@ fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) -> Div {
             preferences.native_questions,
         ),
     ] {
+        let invert = matches!(setting, Setting::Hidden);
         section = section.child(
             div()
                 .flex()
@@ -77,11 +78,14 @@ fn section(theme: Theme, cx: &mut Context<crate::app::MultisoulApp>) -> Div {
                         .child(text(label)),
                 )
                 .child(
+                    // The stored flag is `hidden`; the switch reads as "enabled", so invert it.
                     Switch::new(id)
-                        .checked(checked)
-                        .disabled(!ready)
+                        .checked(checked ^ invert)
+                        .disabled(!ready || (preferences.hidden && !invert))
                         .with_size(Size::Medium)
-                        .on_click(move |checked, _, cx| preferences::select(setting, *checked, cx)),
+                        .on_click(move |checked, _, cx| {
+                            preferences::select(setting, *checked ^ invert, cx)
+                        }),
                 ),
         );
     }

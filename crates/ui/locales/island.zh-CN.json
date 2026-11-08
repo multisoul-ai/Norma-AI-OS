@@ -55,7 +55,7 @@
   "island.waiting_count": "%{count} 待开始",
   "island.waiting_names": "待开始 · %{names}",
   "island.settings_hint": "控制灵动岛的显示与主动提醒。关闭主动弹出后，待办仍可手动查看。",
-  "island.hide": "隐藏灵动岛",
+  "island.enable": "开启灵动岛",
   "island.popup_approvals": "审批时主动弹出",
   "island.popup_questions": "提问时主动弹出",
   "island.popup_completions": "完成时主动弹出",
@@ -108,5 +108,5 @@
   "island.awaiting_reply": "等待你的回复",
   "island.file_count": "%{count} 个文件",
   "island.elapsed_minutes": "%{count} 分",
-  "island.native_questions": "问答交给 Agent 卡片回答（关闭时在灵动岛回答）"
+  "island.native_questions": "Agent 提问时在卡片中回答（关闭则在灵动岛回答）"
 }
