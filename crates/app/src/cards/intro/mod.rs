@@ -21,14 +21,26 @@ const MIDDLE_DOT: u8 = 0x7f;
 
 const TERMINAL_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
     include_bytes!("../../../assets/init-animation/ghostty-terminal-16-47.bin");
-const AGENT_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
-    include_bytes!("../../../assets/init-animation/norma-agent-duotone.bin");
 const CODEX_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
     include_bytes!("../../../assets/init-animation/codex-brand-ascii.bin");
 const CLAUDE_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
     include_bytes!("../../../assets/init-animation/claude-code-brand-ascii.bin");
 const CURSOR_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
     include_bytes!("../../../assets/init-animation/cursor-brand-ascii.bin");
+const GROK_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
+    include_bytes!("../../../assets/init-animation/grok-brand-ascii.bin");
+const OPENCODE_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
+    include_bytes!("../../../assets/init-animation/opencode-brand-ascii.bin");
+const INFCODE_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
+    include_bytes!("../../../assets/init-animation/infcode-brand-ascii.bin");
+const KIMI_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
+    include_bytes!("../../../assets/init-animation/kimi-brand-ascii.bin");
+const ZCODE_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
+    include_bytes!("../../../assets/init-animation/zcode-brand-ascii.bin");
+const PI_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
+    include_bytes!("../../../assets/init-animation/pi-brand-ascii.bin");
+const HERMES_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
+    include_bytes!("../../../assets/init-animation/hermes-brand-ascii.bin");
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct IntroCell {
@@ -57,13 +69,13 @@ pub(crate) fn intro_frame(kind: InitializationAnimationKind, frame_index: usize)
         InitializationAnimationKind::Codex => CODEX_FRAMES,
         InitializationAnimationKind::Claude => CLAUDE_FRAMES,
         InitializationAnimationKind::Cursor => CURSOR_FRAMES,
-        InitializationAnimationKind::Grok => AGENT_FRAMES,
-        InitializationAnimationKind::OpenCode => AGENT_FRAMES,
-        InitializationAnimationKind::InfCode => AGENT_FRAMES,
-        InitializationAnimationKind::Kimi => AGENT_FRAMES,
-        InitializationAnimationKind::ZCode => AGENT_FRAMES,
-        InitializationAnimationKind::Pi => AGENT_FRAMES,
-        InitializationAnimationKind::Hermes => AGENT_FRAMES,
+        InitializationAnimationKind::Grok => GROK_FRAMES,
+        InitializationAnimationKind::OpenCode => OPENCODE_FRAMES,
+        InitializationAnimationKind::InfCode => INFCODE_FRAMES,
+        InitializationAnimationKind::Kimi => KIMI_FRAMES,
+        InitializationAnimationKind::ZCode => ZCODE_FRAMES,
+        InitializationAnimationKind::Pi => PI_FRAMES,
+        InitializationAnimationKind::Hermes => HERMES_FRAMES,
     };
     let index = frame_index.min(INTRO_ANIMATION_FRAME_COUNT - 1);
     let start = index * INTRO_ANIMATION_FRAME_BYTES;
@@ -78,13 +90,13 @@ pub(crate) fn intro_asset_name(kind: InitializationAnimationKind) -> &'static st
         InitializationAnimationKind::Codex => "codex-brand-ascii",
         InitializationAnimationKind::Claude => "claude-code-brand-ascii",
         InitializationAnimationKind::Cursor => "cursor-brand-ascii",
-        InitializationAnimationKind::Grok => "norma-agent-duotone",
-        InitializationAnimationKind::OpenCode => "norma-agent-duotone",
-        InitializationAnimationKind::InfCode => "norma-agent-duotone",
-        InitializationAnimationKind::Kimi => "norma-agent-duotone",
-        InitializationAnimationKind::ZCode => "norma-agent-duotone",
-        InitializationAnimationKind::Pi => "norma-agent-duotone",
-        InitializationAnimationKind::Hermes => "norma-agent-duotone",
+        InitializationAnimationKind::Grok => "grok-brand-ascii",
+        InitializationAnimationKind::OpenCode => "opencode-brand-ascii",
+        InitializationAnimationKind::InfCode => "infcode-brand-ascii",
+        InitializationAnimationKind::Kimi => "kimi-brand-ascii",
+        InitializationAnimationKind::ZCode => "zcode-brand-ascii",
+        InitializationAnimationKind::Pi => "pi-brand-ascii",
+        InitializationAnimationKind::Hermes => "hermes-brand-ascii",
     }
 }
 

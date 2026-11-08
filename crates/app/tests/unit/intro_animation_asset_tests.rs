@@ -62,57 +62,41 @@ fn test_terminal_intro_asset_keeps_upstream_frame_17_blue_border_cell() {
     );
 }
 
-/// IA-A2：OpenCode 继续使用现有 Norma 资源，最后稳定帧保留中性人物轮廓和紫色 X 发饰。
+/// IA-A2：OpenCode 使用自己的窗口标，稳定帧同时有白色外框和灰色内块。
 ///
 /// 数据构造（含关键数值推导）：
 ///   帧数为 32，最后稳定帧 index = 32 - 1 = 31。
-///   100×41 网格共 4100 格，需至少各有一个 normal/accent 非空格。
+///   外框采样为 accent，内块采样为 neutral，两边都至少 1 格。
 ///
 /// 执行过程：
-///   1. 读取 OpenCode 第 31 帧。
-///   2. 遍历全部格子，统计中性和 accent 的可见字符数。
+///   1. 读取 OpenCode 第 31 帧并统计中性格与强调格。
+///   2. 读取资源名。
 ///
 /// 预期结果：
-///   - 正断言：中性层包含人物轮廓字符。
-///   - 正断言：accent 层包含从白色 X 发饰派生的字符。
-///   - 负断言：Agent 最终帧不得退化为纯空格或纯单色。
+///   - 正断言：资源名是 opencode-brand-ascii，且两层都有可见字符。
+///   - 负断言：不得再使用 norma-agent-duotone。
 #[test]
-fn test_agent_intro_asset_stable_frame_contains_neutral_portrait_and_accent_x() {
-    let frame = intro_frame(
-        InitializationAnimationKind::OpenCode,
-        super::super::INTRO_ANIMATION_FRAME_COUNT - 1,
-    );
-    let mut neutral_visible = 0usize;
-    let mut accent_visible = 0usize;
-    for row in 0..INTRO_ANIMATION_ROWS {
-        for column in 0..INTRO_ANIMATION_COLUMNS {
-            let cell = frame.cell(row, column);
-            if cell.glyph == ' ' {
-                continue;
-            }
-            if cell.accent {
-                accent_visible += 1;
-            } else {
-                neutral_visible += 1;
-            }
-        }
-    }
+fn test_opencode_intro_asset_uses_window_mark_instead_of_norma_portrait() {
+    let final_frame = super::super::INTRO_ANIMATION_FRAME_COUNT - 1;
+    let (neutral, accent) =
+        super::super::intro_visible_cell_counts(InitializationAnimationKind::OpenCode, final_frame);
+    let asset = super::super::intro_asset_name(InitializationAnimationKind::OpenCode);
 
-    assert!(
-        neutral_visible > 0,
-        "Norma ASCII 肖像应保留至少一个中性轮廓字符，实际为 {neutral_visible}"
+    assert_eq!(
+        asset, "opencode-brand-ascii",
+        "OpenCode 必须使用自己的窗口标资源"
     );
     assert!(
-        accent_visible > 0,
-        "Norma ASCII 肖像应保留至少一个 X 发饰 accent 字符，实际为 {accent_visible}"
+        accent > 0,
+        "OpenCode 稳定帧必须保留白色外框，实际强调格为 {accent}"
+    );
+    assert!(
+        neutral > 0,
+        "OpenCode 稳定帧必须保留灰色内块，实际中性格为 {neutral}"
     );
     assert_ne!(
-        neutral_visible, 0,
-        "Agent 最终帧不应退化为只含紫色 accent 的单色图形"
-    );
-    assert_ne!(
-        accent_visible, 0,
-        "Agent 最终帧不应退化为完全没有 X 发饰 accent 的纯中性图形"
+        asset, "norma-agent-duotone",
+        "OpenCode 不再回退到通用 Norma ASCII 肖像"
     );
 }
 
@@ -219,6 +203,82 @@ fn test_cursor_intro_asset_uses_distinct_hexagon_arrow_frames() {
         asset, "codex-brand-ascii",
         "Cursor 不应错误复用 Codex 的品牌初始化资源"
     );
+}
+
+/// IA-A6：其余智能体各自使用独立品牌资源，稳定帧停住且不再共用 Norma 肖像。
+///
+/// 数据构造（含关键数值推导）：
+///   最后稳定帧 index = 31。成形在 index 21 完成，index 22–31 复制这一帧，
+///   因此 index 21 与 index 31 的可见格数量必须相同。单色标只有强调层；
+///   Kimi 与 InfCode 同时有中性层和强调层。
+///
+/// 执行过程：
+///   1. 读取 Grok、InfCode、Kimi、ZCode、Pi、Hermes 的资源名，以及 index 21 和 index 31 的可见格数。
+///   2. 与 norma-agent-duotone 比较。
+///
+/// 预期结果：
+///   - 正断言：每个 profile 使用自己的 `*-brand-ascii`，稳定帧至少有一个强调格。
+///   - 正断言：index 21 与 index 31 的可见格数相同。
+///   - 负断言：任何一个都不得再叫 norma-agent-duotone。
+#[test]
+fn test_remaining_brand_intros_use_distinct_stable_ascii_frames() {
+    let cases = [
+        (InitializationAnimationKind::Grok, "grok-brand-ascii", false),
+        (
+            InitializationAnimationKind::InfCode,
+            "infcode-brand-ascii",
+            true,
+        ),
+        (InitializationAnimationKind::Kimi, "kimi-brand-ascii", true),
+        (
+            InitializationAnimationKind::ZCode,
+            "zcode-brand-ascii",
+            false,
+        ),
+        (InitializationAnimationKind::Pi, "pi-brand-ascii", false),
+        (
+            InitializationAnimationKind::Hermes,
+            "hermes-brand-ascii",
+            false,
+        ),
+    ];
+    let stable = super::super::INTRO_ANIMATION_FRAME_COUNT - 1;
+    let held = 21;
+
+    for (kind, expected_name, expects_neutral) in cases {
+        let asset = super::super::intro_asset_name(kind);
+        let (neutral, accent) = super::super::intro_visible_cell_counts(kind, stable);
+        let (held_neutral, held_accent) = super::super::intro_visible_cell_counts(kind, held);
+
+        assert_eq!(
+            asset, expected_name,
+            "{expected_name} 必须映射到同名紧凑帧资源"
+        );
+        assert_ne!(
+            asset, "norma-agent-duotone",
+            "{expected_name} 不得回退到通用 Norma 肖像"
+        );
+        assert!(
+            accent > 0,
+            "{expected_name} 稳定帧必须至少有一个强调字符，实际为 {accent}"
+        );
+        if expects_neutral {
+            assert!(
+                neutral > 0,
+                "{expected_name} 稳定帧必须保留中性内形，实际为 {neutral}"
+            );
+        } else {
+            assert_eq!(
+                neutral, 0,
+                "{expected_name} 是单色标，稳定帧不应出现中性格，实际为 {neutral}"
+            );
+        }
+        assert_eq!(
+            (held_neutral, held_accent),
+            (neutral, accent),
+            "{expected_name} 从 index 21 起必须停住，index 21 与 index 31 可见格数要相同"
+        );
+    }
 }
 
 /// IA-A5：Codex 与 Claude Code 的 ASCII 品牌图按终端字符的真实 8×16 像素比例等比显示。
