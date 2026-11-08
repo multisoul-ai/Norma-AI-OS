@@ -5,7 +5,7 @@ use gpui::{
     canvas, point, prelude::*, px, rgb, App, Bounds, Div, PathBuilder, Pixels, Point, Window,
     WindowId,
 };
-use runtime::island::bloub::{profile, sample, Frame, Mood, Pt};
+use runtime::island::bloub::{profile, sample, Frame, Mood, Pt, EYE_POINTS};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -121,11 +121,52 @@ fn paint(frame: &Frame, bounds: Bounds<Pixels>, color: u32, window: &mut Window)
     }
 
     for eye in frame.eyes.iter().flatten() {
+        if frame.smile {
+            paint_smile(eye, &at, radius, window);
+            continue;
+        }
         let points: Vec<Point<Pixels>> = eye.iter().map(at).collect();
         let mut builder = PathBuilder::fill();
         builder.add_polygon(&points, true);
         if let Ok(path) = builder.build() {
             window.paint_path(path, rgb(EYE_COLOR));
         }
+    }
+}
+
+/// Prototype `eh`: an upward arc (a closed, smiling eye) as wide as the capsule it replaces.
+fn paint_smile(
+    eye: &[Pt; EYE_POINTS],
+    at: &impl Fn(&Pt) -> Point<Pixels>,
+    radius: Pixels,
+    window: &mut Window,
+) {
+    let n = eye.len() as f32;
+    let (cx, cy) = (
+        eye.iter().map(|p| p.x).sum::<f32>() / n,
+        eye.iter().map(|p| p.y).sum::<f32>() / n,
+    );
+    let half = eye
+        .iter()
+        .map(|p| (p.x - cx).abs())
+        .fold(0f32, f32::max)
+        .max(0.12);
+    let mut arc = PathBuilder::stroke((radius * 0.17).max(px(1.2)));
+    arc.move_to(at(&Pt {
+        x: cx - half,
+        y: cy + half * 0.55,
+    }));
+    arc.curve_to(
+        at(&Pt {
+            x: cx + half,
+            y: cy + half * 0.55,
+        }),
+        at(&Pt {
+            x: cx,
+            y: cy - half * 1.05,
+        }),
+    );
+    if let Ok(path) = arc.build() {
+        window.paint_path(path, rgb(EYE_COLOR));
     }
 }

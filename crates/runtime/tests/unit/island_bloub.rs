@@ -107,3 +107,15 @@ fn only_working_is_busy() {
         .filter(|m| m.is_busy())
         .eq([&Mood::Working]));
 }
+
+#[test]
+fn only_responded_draws_smiling_arc_eyes() {
+    let p = profile("Leo");
+    for mood in [Mood::Idle, Mood::Working, Mood::Waiting, Mood::Failed] {
+        assert!(
+            !sample(&p, mood, 1.).smile,
+            "{mood:?} must keep capsule eyes"
+        );
+    }
+    assert!(sample(&p, Mood::Responded, 1.).smile);
+}

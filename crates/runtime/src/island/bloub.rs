@@ -105,6 +105,8 @@ pub struct Frame {
     pub body: [Pt; BODY_POINTS],
     /// Closed outlines; `None` when the eye faces away from the viewer.
     pub eyes: [Option<[Pt; EYE_POINTS]>; 2],
+    /// The renderer strokes each eye as a smiling arc (the prototype's happy face) instead of filling it.
+    pub smile: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -386,5 +388,9 @@ pub fn sample(profile: &Profile, mood: Mood, t: f32) -> Frame {
             },
         ))
     });
-    Frame { body, eyes }
+    Frame {
+        body,
+        eyes,
+        smile: mood == Mood::Responded,
+    }
 }
