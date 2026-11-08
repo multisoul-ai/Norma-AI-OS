@@ -12,10 +12,9 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
     let theme = view.theme;
     let state = view.state;
     let inputs = view.inputs;
-    let input = section(
+    let listen = section(
         theme,
-        "input",
-        "01",
+        "listen",
         "voice.command_input",
         div()
             .child(recognition::source_selector(
@@ -43,82 +42,21 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
             .when(
                 state.setup_asr_source() != asr::AsrProviderId::CloudAzure,
                 |rows| rows.child(super::setup::a1::a1_detail(theme, state, inputs, cx)),
-            )
-            .child(detail_row(
-                theme,
-                "voice.local_engine_details",
-                "voice.command_engine_managed",
-                component_action(
-                    theme,
-                    "voice-command-recognition-details",
-                    ui::i18n::text("voice.show"),
-                    cx,
-                    cx.listener(MultisoulApp::on_voice_manage_asr_models),
-                ),
-            )),
-    );
-    let understanding = section(
-        theme,
-        "understanding",
-        "02",
-        "voice.command_understanding",
-        div()
-            .child(detail_row(
-                theme,
-                "voice.command_model",
-                "voice.command_model_hint",
-                component_action(
-                    theme,
-                    "voice-command-model-details",
-                    ui::i18n::text("mobile.configure"),
-                    cx,
-                    cx.listener(MultisoulApp::on_voice_manage_provider),
-                ),
-            ))
-            .child(value_row(
-                theme,
-                "voice.command_current_model",
-                state.values().active_provider_profile().model().to_string(),
-            ))
-            .when_some(inputs.jev_panel.clone(), |rows, panel| rows.child(panel)),
-    );
-    let dispatch = section(
-        theme,
-        "dispatch",
-        "03",
-        "voice.command_dispatch",
-        div()
-            .child(value_row(
-                theme,
-                "voice.command_scope",
-                ui::i18n::text("voice.command_current_canvas").to_string(),
-            ))
-            .child(value_row(
-                theme,
-                "voice.command_unclear_target",
-                ui::i18n::text("voice.command_ask_target").to_string(),
-            ))
-            .child(value_row(
-                theme,
-                "voice.command_continue_session",
-                ui::i18n::text("voice.command_always_checked").to_string(),
-            ))
-            .child(
-                div()
-                    .settings_text(TextRole::Helper, theme)
-                    .child(ui::i18n::text("voice.command_session_hint")),
             ),
     );
-    let reply = section(
+    let speak = section(
         theme,
-        "reply",
-        "04",
+        "speak",
         "voice.spoken_replies",
-        div()
-            .child(super::tts_provider::tts_provider_settings(
-                theme, state, inputs, cx,
-            ))
-            .child(super::spoken_reply::reply_preferences(theme, state, cx)),
+        div().child(super::tts_provider::tts_provider_settings(
+            theme, state, inputs, cx,
+        )),
+    );
+    let advanced = section(
+        theme,
+        "advanced",
+        "voice.advanced_settings",
+        advanced_rows(theme, state, inputs, cx),
     );
     let column = div()
         .flex_1()
@@ -126,17 +64,9 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
         .flex()
         .flex_col()
         .gap(px(20.0))
-        .child(input)
-        .child(understanding)
-        .child(dispatch)
-        .child(reply)
-        .child(component_action(
-            theme,
-            "voice-command-advanced",
-            ui::i18n::text("voice.advanced_settings"),
-            cx,
-            cx.listener(MultisoulApp::on_voice_review_setup),
-        ));
+        .child(listen)
+        .child(speak)
+        .child(advanced);
     div()
         .w_full()
         .min_w(px(0.0))
@@ -154,13 +84,81 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
         .children(super::status::status_message(theme, state))
 }
 
-fn section(
+// 高级设置收纳理解模型、本地引擎诊断、回复偏好与豆包/GPT-Live 的附加面板；默认折叠。
+fn advanced_rows(
     theme: Theme,
-    id: &'static str,
-    number: &'static str,
-    title: &'static str,
-    rows: Div,
-) -> Stateful<Div> {
+    state: &crate::settings::voice::VoiceSettingsState,
+    inputs: &super::VoiceSettingsInputs,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    let expanded = state.advanced_expanded();
+    let toggle = detail_row(
+        theme,
+        "voice.recognition_models_provider_diagnostics",
+        "voice.manage_the_asr_catalog_connection_details_and_troubleshooting",
+        component_action(
+            theme,
+            "voice-command-advanced-toggle",
+            if expanded {
+                ui::i18n::text("voice.hide")
+            } else {
+                ui::i18n::text("voice.show")
+            },
+            cx,
+            cx.listener(MultisoulApp::on_voice_settings_toggle_advanced),
+        ),
+    );
+    let body = div()
+        .w_full()
+        .min_w(px(0.0))
+        .flex()
+        .flex_col()
+        .child(
+            div()
+                .settings_text(TextRole::Helper, theme)
+                .child(ui::i18n::text("voice.command_session_hint")),
+        )
+        .child(detail_row(
+            theme,
+            "voice.command_model",
+            "voice.command_model_hint",
+            component_action(
+                theme,
+                "voice-command-model-details",
+                ui::i18n::text("mobile.configure"),
+                cx,
+                cx.listener(MultisoulApp::on_voice_manage_provider),
+            ),
+        ))
+        .child(value_row(
+            theme,
+            "voice.command_current_model",
+            state.values().active_provider_profile().model().to_string(),
+        ))
+        .when_some(inputs.jev_panel.clone(), |rows, panel| rows.child(panel))
+        .child(detail_row(
+            theme,
+            "voice.local_engine_details",
+            "voice.command_engine_managed",
+            component_action(
+                theme,
+                "voice-command-recognition-details",
+                ui::i18n::text("voice.show"),
+                cx,
+                cx.listener(MultisoulApp::on_voice_manage_asr_models),
+            ),
+        ))
+        .child(super::spoken_reply::reply_preferences(theme, state, cx));
+    div()
+        .w_full()
+        .min_w(px(0.0))
+        .flex()
+        .flex_col()
+        .child(toggle)
+        .when(expanded, |rows| rows.child(body))
+}
+
+fn section(theme: Theme, id: &'static str, title: &'static str, rows: Div) -> Stateful<Div> {
     div()
         .id(id)
         .debug_selector(move || format!("voice-command-group-{id}"))
@@ -171,20 +169,8 @@ fn section(
         .gap(px(10.0))
         .child(
             div()
-                .flex()
-                .items_center()
-                .gap(px(10.0))
-                .child(
-                    div()
-                        .settings_font(TextRole::Label)
-                        .text_color(rgba(theme.accent_blue))
-                        .child(number),
-                )
-                .child(
-                    div()
-                        .settings_text(TextRole::Headline, theme)
-                        .child(ui::i18n::text(title)),
-                ),
+                .settings_text(TextRole::Headline, theme)
+                .child(ui::i18n::text(title)),
         )
         .child(
             div()
@@ -225,7 +211,7 @@ fn value_row(theme: Theme, title: &'static str, value: String) -> Div {
         )
         .child(
             div()
-                .min_w(px(0.0))
+                .flex_none()
                 .max_w(px(280.0))
                 .debug_selector(move || format!("voice-command-value-{title}"))
                 .settings_text(TextRole::Helper, theme)

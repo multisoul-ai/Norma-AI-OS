@@ -55,23 +55,11 @@ fn voice_redesign_task_layout_and_mode_persistence() {
         cx.debug_bounds("voice-setup-finish").is_none(),
         "未就绪时不能展示没有操作的完成按钮"
     );
+    expand_advanced_settings(&host, cx);
     // 从分组列表的真实配置入口进入详情编辑器，再验证既有配置控件。
     let details = cx
         .debug_bounds("voice-command-recognition-details")
         .expect("分组列表的引擎配置入口");
-    let viewport = cx
-        .debug_bounds("settings-content-scroll")
-        .expect("内容视口");
-    let shift = (details.center().y - viewport.center().y).max(px(0.0));
-    host.update(cx, |app, _| {
-        app.settings_viewport
-            .content_scroll
-            .set_offset(gpui::point(px(0.0), -shift))
-    });
-    cx.update(|window, cx| window.draw(cx).clear());
-    let details = cx
-        .debug_bounds("voice-command-recognition-details")
-        .expect("滚动后的配置入口");
     cx.simulate_click(details.center(), Modifiers::none());
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
@@ -342,7 +330,7 @@ fn voice_redesign_ready_voice_change_cancel_and_preferences() {
         "日常页面必须保留连续聆听模式"
     );
     let reply = cx
-        .debug_bounds("voice-command-group-reply")
+        .debug_bounds("voice-command-group-speak")
         .expect("四组列表的声音分组");
     let viewport = cx
         .debug_bounds("settings-content-scroll")
@@ -406,6 +394,7 @@ fn voice_redesign_ready_voice_change_cancel_and_preferences() {
             .values()
             .agent_task_announcements_enabled()
     });
+    expand_advanced_settings(&host, cx);
     let toggle = cx
         .debug_bounds("settings-agent-task-announcements-toggle")
         .expect("设置期间也应保留播报开关");
@@ -427,4 +416,34 @@ fn voice_redesign_ready_voice_change_cancel_and_preferences() {
         Some(if before { "false" } else { "true" }),
         "播报开关必须后台保存"
     );
+}
+
+/// 高级设置默认折叠：滚轮滚到底部后点击其开关展开，之后其中的控件才会绘制。
+fn expand_advanced_settings(host: &gpui::Entity<MultisoulApp>, cx: &mut gpui::VisualTestContext) {
+    scroll_settings_to_bottom(cx);
+    let toggle = cx
+        .debug_bounds("voice-command-advanced-toggle")
+        .expect("高级设置开关应存在");
+    cx.simulate_click(toggle.center(), Modifiers::none());
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+    scroll_settings_to_bottom(cx);
+    assert!(
+        host.read_with(cx, |app, _| app.voice_settings.advanced_expanded()),
+        "点击高级设置开关后应展开"
+    );
+}
+
+fn scroll_settings_to_bottom(cx: &mut gpui::VisualTestContext) {
+    let viewport = cx
+        .debug_bounds("settings-content-scroll")
+        .expect("内容视口");
+    cx.simulate_event(gpui::ScrollWheelEvent {
+        position: viewport.center(),
+        delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.0), -px(4000.0))),
+        modifiers: Modifiers::none(),
+        touch_phase: gpui::TouchPhase::Moved,
+    });
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
 }
