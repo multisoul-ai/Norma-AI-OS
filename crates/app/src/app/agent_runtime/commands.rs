@@ -7,7 +7,7 @@ use norma::protocol::{
 use std::collections::{HashMap, HashSet};
 
 use super::command_protocol::{
-    coordination_error, internal_agent_error, profile_slug, tracking_label,
+    coordination_error, dispatch_assignments, internal_agent_error, profile_slug, tracking_label,
 };
 use super::command_support::{activate_definition, type_agent_task, AgentTaskSubmitError};
 use super::pending::unsafe_submission_recovery_message;
@@ -266,21 +266,18 @@ pub(super) fn execute_coordinated_agent_command(
                     }
                 }
             }
-            let receipts = app
-                .agent_task_coordinator
-                .as_mut()
-                .expect("coordinator initialized above")
-                .dispatch_from(
-                    assignments
-                        .into_iter()
-                        .map(|assignment| {
-                            agent::AgentAssignment::new(assignment.name, assignment.task)
-                        })
-                        .collect(),
-                    force_untracked,
-                    source,
-                )
-                .map_err(|error| coordination_error(error, source_identity.as_ref()))?;
+            let receipts = dispatch_assignments(
+                app.agent_task_coordinator
+                    .as_mut()
+                    .expect("coordinator initialized above"),
+                assignments
+                    .into_iter()
+                    .map(|assignment| agent::AgentAssignment::new(assignment.name, assignment.task))
+                    .collect(),
+                force_untracked,
+                source,
+                source_identity.as_ref(),
+            )?;
             let mut failed_tasks = HashMap::<u64, AgentTaskSubmitError>::new();
             let mut waiting_tasks = HashSet::<u64>::new();
             let mut retry_safe_managed_failures = HashSet::<i64>::new();
