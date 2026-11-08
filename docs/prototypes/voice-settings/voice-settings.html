@@ -194,7 +194,7 @@ const LOCAL_VOICES={'matcha-zh':[['default','默认音色']],'matcha-zh-en':[['d
 const MM_MODELS=[['turbo','Speech 2.8 Turbo','互动回复推荐'],['hd','Speech 2.8 HD','优先音质']];
 const CANVAS=[['Grace','#422'],['Henry','#420'],['Iris','#424']];
 
-const init=()=>({
+const init=()=>({jev:{key:false,connected:false},
  mode:'cmd', mic:false,
  keys:{azure:false,minimax:false,ark:false,openai:false,agent:false},
  cmd:{recog:'sherpa',sherpaReady:false,a1Ready:false,lang:'zh-CN',asr:'paraformer',
@@ -247,6 +247,28 @@ function ttsSub(t){
  return '本机合成，可离线';
 }
 
+function a1Block(){
+  const c=S.cmd;
+  if(c.recog!=='a1') return '';
+  const ok=c.a1Ready, inst=c.installing;
+  return `<div class="sub">本地精准 A1 · 仅单次指令</div>
+  <div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>运行环境与模型</b><span>${ok?'已安装并校验，可离线使用':inst?'正在下载 语音运行环境：260.4 / 408.6 MB':'自动下载运行环境与模型，无需配置 Python'}</span></div>
+    <div class="v">${ok?'<span class="pill-ok">已就绪</span>':inst?btn('a1cancel','取消安装','text'):btn('install','下载安装')}</div></div>
+  <div class="row"><div class="ic">${ICON.check}</div><div class="t"><b>文件校验与启用</b><span>完全离线，中英文混合。单次最长 60 秒</span></div><div class="v">${ok?'<span class="pill-ok">已启用</span>':'<span>未启用</span>'}</div></div>`;
+}
+function jevBlock(){
+  const j=S.jev;
+  return `<div class="sub">Jev 快速判断 · 配置与连接测试</div>
+  <div class="cred"><div class="hint" style="margin-top:0">保存凭据并用合成请求测试连接。不会发送录音、转写或画布内容。</div>
+    <div class="hint">固定服务端点：https://api.typesafe.ai/v1/systemone</div>
+    <div class="hint">请求模型：jev-latest</div>
+    <div class="lbl" style="margin-top:10px"><b>Jev API Key</b>${j.key?tag('已保存'):'<em>未配置</em>'}</div>
+    <div class="field sm"><input type="password" placeholder="输入 API Key；留空使用已保存的凭据" data-keyinput="jev"></div>
+    <div class="jevbtns" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      ${btn('jevsave','保存凭据',j.key?'tonal':'tonal','')}${btn('jevverify','验证连接','tonal','')}${btn('jevclear','清除凭据','text','')}${btn('jevenv','从环境变量导入','tonal','')}
+    </div>
+    <div class="hint">${j.connected?'已连接':'未配置'}。生产语音入口保持禁用，配置保存或连接测试通过不会启用语音派发。</div></div>`;
+}
 function cmdBody(){
  const c=S.cmd, rec=RECOG.find(x=>x[0]===c.recog);
  const recSub=c.recog==='azure'?`音频发送到 Azure Speech · ${LANGS[c.lang]}`:c.recog==='sherpa'?(c.sherpaReady?`${ASR_LOCAL.find(x=>x[0]===c.asr)[1]} · 已安装`:'未安装，首次使用需要下载'):(c.a1Ready?'已安装，可离线使用':'未安装 · 无需配置 Python');
@@ -275,6 +297,8 @@ function cmdBody(){
     ${row('wave','识别语言','默认 zh-CN',valTxt(LANGS[c.lang]),'lang')}
     ${keyField('azure','Azure API Key','保存在此 Mac 的本地数据库中，不写入日志。')}
     <div class="cred"><div class="lbl"><b>验证</b>${c.azVerified?tag('✓ 已验证'):'<em>未验证</em>'}</div><div class="field sm"><span style="flex:1;color:var(--text-3);font-size:13px">检查区域与凭据，不切换当前识别来源</span>${btn('azverify','验证配置')}${btn('aztest','测试 3 秒','text')}</div></div>`:''}
+  ${a1Block()}
+  ${jevBlock()}
   <div class="sub">回复偏好</div>
   <div class="row"><div class="ic">${ICON.spk}</div><div class="t"><b>智能体任务播报</b><span>任务完成或需要处理时播报</span></div>${sw('announce',c.announce,'智能体任务播报')}</div>
   <div class="row"><div class="ic">${ICON.spk}</div><div class="t"><b>语音光晕</b><span>Norma 说话时显示柔和的窗口光晕</span></div>${sw('glow',c.glow,'语音光晕')}</div>
@@ -448,6 +472,11 @@ document.addEventListener('click',e=>{
  else if(a==='aivalidate'){ c.aiListed=false; toast('已验证模型 ID'); }
  else if(a==='azverify'){ if(!S.keys.azure){toast('请先保存 Azure Key');return} c.azVerified=true; toast('Azure 配置已通过验证'); }
  else if(a==='aztest'){ if(!S.keys.azure){toast('请先保存 Azure Key');return} toast('测试：请说话（3 秒），不改变当前来源'); }
+ else if(a==='a1cancel'){ c.installing=false; toast('已取消安装，原配置未替换'); }
+ else if(a==='jevsave'){ S.jev.key=true; toast('Jev 凭据已保存'); }
+ else if(a==='jevverify'){ if(!S.jev.key){toast('请先保存 Jev API Key');} else { S.jev.connected=true; toast('Jev 连接测试通过'); } }
+ else if(a==='jevclear'){ S.jev.key=false; S.jev.connected=false; toast('已清除 Jev 凭据'); }
+ else if(a==='jevenv'){ toast('环境变量中未找到 Jev 凭据'); }
  else if(a==='diag'){ toast(c.sherpaReady||c.a1Ready?'本地模型已安装，校验通过':'尚未安装本地模型'); }
  render();
 });
