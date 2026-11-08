@@ -465,6 +465,10 @@ mod voice_settings_tts_provider_tests;
 mod voice_settings_tts_picker_tests;
 
 #[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_tts_apply_gate_tests.rs"]
+mod voice_settings_tts_apply_gate_tests;
+
+#[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_tts_activation_tests.rs"]
 mod voice_settings_tts_activation_tests;
 
