@@ -202,40 +202,58 @@ fn test_motion_store_tracks_explicit_initialization_and_cleans_removed_nodes() {
     );
 }
 
-/// IA-4：初始化动画不受既有 reduce_motion 标志影响，仍按完整 31ms 帧间隔播放。
+/// IA-4：减少动态效果时跳过成形，直接显示最后一帧并立刻交叉淡入。
 ///
 /// 数据构造（含关键数值推导）：
-///   MotionStore(reduce_motion=true)；Terminal 动画首帧为 0，31ms 后为 1。
-///   这是本需求明确约定的例外：其他节点视觉可降级，但新卡片初始化不得跳帧。
+///   MotionStore(reduce_motion=true)。稳定帧 index = 32 - 1 = 31。
+///   交叉淡入时长 186ms，31ms 时进度 = 31 / 186 ≈ 0.167，内容透明度应大于 0。
 ///
 /// 执行过程：
-///   1. 用 reduce_motion=true 创建 MotionStore 并登记 Terminal 初始化。
-///   2. 推进 31ms，读取 initialization presentation。
+///   1. 用 reduce_motion=true 登记 Terminal 初始化，读取 0ms 画面。
+///   2. 推进 31ms，再读画面。
 ///
 /// 预期结果：
-///   - 正断言：31ms 后仍有动画且帧号为 1。
-///   - 负断言：不应因 reduce_motion 把初始化状态直接清空或停留在第 0 帧。
+///   - 正断言：0ms 就是第 31 帧，覆盖层不透明，内容仍透明。
+///   - 正断言：31ms 后仍是第 31 帧，内容已经开始淡入。
+///   - 负断言：不得播放第 1 帧，也不得把初始化直接清空。
 #[test]
-fn test_initialization_animation_ignores_reduce_motion_preference() {
+fn test_initialization_animation_shows_stable_frame_when_reduce_motion() {
     let mut store = MotionStore::new(true);
     let node_id = 43;
     store.spawn_node(node_id, CanvasRect::new(0.0, 0.0, 640.0, 360.0));
     store.start_initialization(node_id, InitializationAnimationKind::Terminal);
 
+    let start = store
+        .initialization_presentation(node_id)
+        .expect("减少动态效果时仍应显示初始化稳定帧");
+    assert_eq!(
+        start.frame_index,
+        INITIALIZATION_FRAME_COUNT - 1,
+        "减少动态效果应直接停在最后一帧"
+    );
+    assert_eq!(start.overlay_opacity, 1.0, "稳定帧开始时覆盖层应不透明");
+    assert_eq!(start.content_opacity, 0.0, "稳定帧开始时真实内容应仍透明");
+
     assert!(
         store.tick(INITIALIZATION_FRAME_INTERVAL),
-        "reduce_motion=true 时初始化动画推进一帧仍应请求重绘"
+        "减少动态效果的交叉淡入推进后应请求重绘"
     );
     let presentation = store
         .initialization_presentation(node_id)
-        .expect("reduce_motion=true 不应清空初始化画面");
+        .expect("31ms 时交叉淡入尚未结束，画面应仍在");
     assert_eq!(
-        presentation.frame_index, 1,
-        "reduce_motion=true 时 31ms 后仍应显示第 1 帧"
+        presentation.frame_index,
+        INITIALIZATION_FRAME_COUNT - 1,
+        "减少动态效果期间帧号必须停在稳定帧"
+    );
+    assert!(
+        presentation.content_opacity > 0.0,
+        "31ms 后内容应已经开始淡入，实际为 {}",
+        presentation.content_opacity
     );
     assert_ne!(
-        presentation.frame_index, 0,
-        "reduce_motion=true 时初始化动画不应卡在第 0 帧"
+        presentation.frame_index, 1,
+        "减少动态效果不得再播放成形过程的第 1 帧"
     );
 }
 

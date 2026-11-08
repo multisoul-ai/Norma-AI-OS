@@ -23,7 +23,6 @@ const [ghosttyRoot] = process.argv.slice(2);
 const root = path.resolve(import.meta.dirname, "..");
 const outputDirectory = path.join(root, "crates/app/assets/init-animation");
 const sourceDirectory = path.join(outputDirectory, "source");
-const logoPath = path.join(root, "crates/app/assets/icons/logo.png");
 const codexBrandPath = path.join(sourceDirectory, "codex-brand.png");
 const claudeCodeBrandPath = path.join(sourceDirectory, "claude-code-brand.png");
 const rows = 41;
@@ -43,10 +42,6 @@ if (ghosttyRoot) {
   );
 }
 fs.writeFileSync(
-  path.join(outputDirectory, "norma-agent-duotone.bin"),
-  buildNormaFrames(logoPath),
-);
-fs.writeFileSync(
   path.join(outputDirectory, "codex-brand-ascii.bin"),
   buildCodexBrandFrames(codexBrandPath),
 );
@@ -54,10 +49,8 @@ fs.writeFileSync(
   path.join(outputDirectory, "claude-code-brand-ascii.bin"),
   buildClaudeCodeBrandFrames(claudeCodeBrandPath),
 );
-fs.writeFileSync(
-  path.join(outputDirectory, "cursor-brand-ascii.bin"),
-  buildCursorBrandFrames(),
-);
+// Cursor、Grok、OpenCode、InfCode、Kimi、ZCode、Pi、Hermes 的品牌帧由
+// scripts/generate-brand-intro-ascii.py 从 source/*.png 生成，避免这里覆盖。
 
 function buildGhosttyFrames(websiteRoot) {
   const revision = execFileSync("git", ["-C", websiteRoot, "rev-parse", "HEAD"], {
