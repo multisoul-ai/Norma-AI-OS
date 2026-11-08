@@ -178,6 +178,7 @@ pub(super) async fn run_audio_loop(
     let mut draining_generations = std::collections::BTreeSet::new();
     let mut release_pending = None;
     let mut mute_sequence = 0_u64;
+    let mut dropped_output_bytes = 0_u64;
     let mut submitted_samples = 0_u64;
     let mut uploaded_samples = 0_u64;
     let mut last_real_sample = None;
@@ -294,6 +295,11 @@ pub(super) async fn run_audio_loop(
                     Some(live_voice::LiveEvent::OutputAudio(pcm)) => {
                         if !output_blocked { playback.enqueue_for(playback.generation(), pcm).map_err(|error| error.to_string())?; }
                         tracing::trace!(buffered_ms=playback.buffered_duration().as_millis(), "Live playback backlog");
+                        let dropped = control.dropped_output_audio_bytes();
+                        if dropped != dropped_output_bytes {
+                            dropped_output_bytes = dropped;
+                            tracing::warn!(target: "norma_voice", dropped_bytes = dropped, "GPT-Live dropped output audio because the consumer lagged");
+                        }
                     },
                     Some(live_voice::LiveEvent::Delegation(notice)) => send_event(CallEvent::Delegation(notice))?,
                     Some(live_voice::LiveEvent::Usage(usage)) => send_event(CallEvent::Usage(usage))?,
