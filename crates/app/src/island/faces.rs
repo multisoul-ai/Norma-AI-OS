@@ -50,6 +50,18 @@ pub(super) fn agent_id(source: u64, area: &str, node: u64) -> String {
     format!("{source}:{area}:{node}")
 }
 
+/// Match the finished card, including its project. `{source}:{node}` is shared
+/// by every project under one host, so it must not select a face.
+pub(super) fn matching_completion_face<'a>(
+    faces: &'a [Face],
+    completion_id: &str,
+) -> Option<&'a Face> {
+    if completion_id.is_empty() {
+        return None;
+    }
+    faces.iter().find(|face| face.id == completion_id)
+}
+
 /// Same id wins once. A pending card removes the agent from the running side.
 /// An approval or a question means they are waiting. A result keeps the responded
 /// face when the task is already done.

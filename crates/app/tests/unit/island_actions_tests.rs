@@ -155,3 +155,130 @@ fn staff_anchors_include_project_sessions_before_their_host() {
         "会话应排在宿主之前"
     );
 }
+
+/// 场景：后台项目里的智能体完成后，点「查看成果」要定位到那张卡片。
+/// 数据：宿主当前空间是 current；会话登记在 ws-b / area-9。完成事件从会话发出，节点 42 不在文档里。
+/// 执行：会话处理 Thinking→Done，控制器记下路由，再执行查看成果。
+/// 预期：来源是宿主实体而不是会话，空间是 ws-b 不是 current；卡片缺失时提示不存在，岛保持完成通知，不展开待办页。
+#[test]
+fn completed_session_agent_routes_view_result_to_its_card() {
+    let mut cx = TestAppContext::single();
+    let new_app = |cx: &mut TestAppContext| {
+        cx.new(|cx| {
+            MultisoulApp::new_with_pty_factory(
+                cx,
+                Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+            )
+        })
+    };
+    let host = new_app(&mut cx);
+    let session = new_app(&mut cx);
+    let host_id = host.entity_id().as_u64();
+    let session_id = session.entity_id().as_u64();
+    session.update(&mut cx, |app, _| {
+        app.desktop_host = Some(host.downgrade());
+    });
+    host.update(&mut cx, |app, _| {
+        app.desktop_workspace.active_id = Some("current".into());
+        app.desktop_workspace
+            .sessions
+            .insert(("ws-b".into(), "area-9".into()), session.clone());
+    });
+    host.update(&mut cx, |app, cx| {
+        assert!(
+            app.island_completion_route(42, cx).is_none(),
+            "宿主概览上没有这张卡片，不能落到当前空间 current"
+        );
+    });
+    let model = cx.update(crate::island::model);
+    let controller = cx.new(|cx| super::super::controller::IslandController::new(model, cx));
+    cx.update(|cx| register_source(&host, cx));
+    session.update(&mut cx, |app, cx| {
+        app.note_workspace_activity_from_frame(
+            false,
+            &[runtime::RuntimeEvent::AgentTaskStateChanged {
+                node_id: 42,
+                from: runtime::AgentTaskState::Thinking,
+                to: runtime::AgentTaskState::Done,
+                source_event: "fixture".into(),
+            }],
+            cx,
+        );
+    });
+    controller.update(&mut cx, |state, cx| {
+        let route = state
+            .completion_route
+            .clone()
+            .expect("完成通知必须记下原卡片");
+        assert_eq!(route.source, host_id, "定位来源必须是岛登记的宿主");
+        assert_ne!(route.source, session_id, "后台会话实体对不上卡片来源");
+        assert_eq!(route.workspace, "ws-b", "必须回到会话所在工作空间");
+        assert_ne!(route.workspace, "current", "不能跳到宿主当前空间");
+        assert_eq!(route.area, "area-9", "必须回到会话所在项目");
+        assert_eq!(route.node, 42, "必须是刚完成的那张卡片");
+        assert_eq!(
+            state.displays.state.activity_id().map(str::to_owned),
+            Some(format!("{host_id}:area-9:42")),
+            "完成通知身份必须带上项目，避免同号节点串脸"
+        );
+        state.open_completed(cx);
+        assert_eq!(
+            state.message,
+            Some(ui::i18n::LocalizedText::new("island.card_missing")),
+            "卡片已不在时走定位失败"
+        );
+        assert_eq!(
+            state.displays.state.mode(),
+            runtime::island::IslandMode::Activity,
+            "查看成果不能改去展开待办页"
+        );
+        assert_ne!(
+            state.displays.state.tab(),
+            runtime::island::IslandTab::Pending,
+            "查看成果不能切到需要你处理"
+        );
+    });
+}
+
+/// 场景：经典画布没有桌面宿主，完成事件不能冒充一张可定位的岛卡片。
+/// 数据：单独的画布实体，当前空间名叫 current，节点 42 从 Thinking 进入 Done。
+/// 执行：处理完成事件，再读已订阅的岛控制器。
+/// 预期：不记录路由，也不弹出完成通知；不能提示卡片不存在。
+#[test]
+fn canvas_without_desktop_host_does_not_publish_a_false_completion() {
+    let mut cx = TestAppContext::single();
+    let canvas = cx.new(|cx| {
+        let mut app = MultisoulApp::new_with_pty_factory(
+            cx,
+            Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+        );
+        app.desktop_workspace.active_id = Some("current".into());
+        app
+    });
+    let model = cx.update(crate::island::model);
+    let controller = cx.new(|cx| super::super::controller::IslandController::new(model, cx));
+    canvas.update(&mut cx, |app, cx| {
+        app.note_workspace_activity_from_frame(
+            false,
+            &[runtime::RuntimeEvent::AgentTaskStateChanged {
+                node_id: 42,
+                from: runtime::AgentTaskState::Thinking,
+                to: runtime::AgentTaskState::Done,
+                source_event: "fixture".into(),
+            }],
+            cx,
+        );
+    });
+    controller.read_with(&cx, |state, _| {
+        assert!(
+            state.completion_route.is_none(),
+            "没有宿主会话就不能写成可定位路由"
+        );
+        assert_eq!(
+            state.displays.state.mode(),
+            runtime::island::IslandMode::Compact,
+            "不能弹出无法跳转的完成通知"
+        );
+        assert!(state.message.is_none(), "不能提示卡片不存在");
+    });
+}
