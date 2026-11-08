@@ -1,7 +1,7 @@
 //! macOS `say` as a reply-level PCM client. Voices come from `say -v '?'`.
 
 use audio::{PcmAudioChunk, PcmFormat};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 type SaySynth = fn(&str, &str) -> Result<Vec<u8>, String>;
 
@@ -258,6 +258,7 @@ impl tts::TtsClient for SystemSayClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
     use tts::TtsClient;
 
     struct MemorySink {
