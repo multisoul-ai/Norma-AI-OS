@@ -302,11 +302,7 @@ impl Render for IslandView {
             }));
         root = root.child(self.header(layout, &workspaces, &faces, &queue, animate, cx));
         if let Some(deadline) = activity_deadline {
-            root = root.child(super::activity_view::countdown(
-                self.now_ms(),
-                deadline,
-                animate,
-            ));
+            root = root.child(super::activity_view::countdown(deadline, animate));
         }
         if mode == IslandMode::Compact {
             return wrap.child(root);

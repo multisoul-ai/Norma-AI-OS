@@ -5,8 +5,9 @@ use super::{
     style::{self, avatar, Tone},
     view::IslandView,
 };
-use gpui::{div, prelude::*, px, rgb, AnyElement, Context, IntoElement};
-use runtime::island::roster::{avatar_face, countdown_scale, AgentActivity};
+use gpui::{div, prelude::*, px, rgb, Animation, AnimationExt, AnyElement, Context, IntoElement};
+use runtime::island::roster::{avatar_face, AgentActivity, ACTIVITY_HOLD_MS};
+use std::time::Duration;
 use ui::i18n::text;
 
 impl IslandView {
@@ -105,15 +106,21 @@ impl IslandView {
     }
 }
 
-pub(super) fn countdown(now_ms: u64, deadline_ms: u64, animate: bool) -> AnyElement {
-    let scale = countdown_scale(now_ms, deadline_ms, !animate);
-    div()
-        .id("island-countdown")
+/// Shrinks on GPUI's frame clock; computing the width per render only moved it at the avatar's 15 fps.
+pub(super) fn countdown(deadline_ms: u64, animate: bool) -> AnyElement {
+    let bar = div()
         .absolute()
         .bottom(px(0.))
         .left(px(0.))
         .h(px(2.))
-        .w(gpui::relative(scale as f32))
-        .bg(rgb(style::OK))
-        .into_any_element()
+        .bg(rgb(style::OK));
+    if !animate {
+        return bar.w(gpui::relative(1.)).into_any_element();
+    }
+    bar.with_animation(
+        ("island-countdown", deadline_ms),
+        Animation::new(Duration::from_millis(ACTIVITY_HOLD_MS)),
+        |bar, progress| bar.w(gpui::relative(1. - progress)),
+    )
+    .into_any_element()
 }

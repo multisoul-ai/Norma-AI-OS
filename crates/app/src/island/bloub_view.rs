@@ -2,7 +2,7 @@
 //! mood animates; a window schedules one coalesced redraw per tick instead of one per avatar, at
 //! 30 fps for busy moods and 15 fps for the rest, never at the display rate.
 use gpui::{
-    canvas, point, prelude::*, px, rgb, App, Bounds, Div, PathBuilder, Pixels, Point, Window,
+    canvas, point, prelude::*, px, rgba, App, Bounds, Div, PathBuilder, Pixels, Point, Window,
     WindowId,
 };
 use runtime::island::bloub::{profile, sample, Frame, Mood, Pt, EYE_POINTS};
@@ -89,9 +89,29 @@ pub(super) fn bloub(
         )
 }
 
+/// GPUI paths get 4x MSAA at most, which leaves visible stair steps at 20 to 30 points on a 1x
+/// display. One solid pass keeps the shape opaque; four faint passes nudged by a third of a point
+/// fill in the edge coverage the multisampling misses.
+const SOFT_OFFSETS: [(f32, f32); 4] = [(0.35, 0.), (-0.35, 0.), (0., 0.35), (0., -0.35)];
+const SOFT_ALPHA: u32 = 0x40;
+
 fn paint(frame: &Frame, bounds: Bounds<Pixels>, color: u32, window: &mut Window) {
+    paint_pass(frame, bounds, (0., 0.), 0xff, color, window);
+    for offset in SOFT_OFFSETS {
+        paint_pass(frame, bounds, offset, SOFT_ALPHA, color, window);
+    }
+}
+
+fn paint_pass(
+    frame: &Frame,
+    bounds: Bounds<Pixels>,
+    offset: (f32, f32),
+    alpha: u32,
+    color: u32,
+    window: &mut Window,
+) {
     let radius = bounds.size.width.min(bounds.size.height) * BODY_SHARE;
-    let center = bounds.center();
+    let center = bounds.center() + point(px(offset.0), px(offset.1));
     let at = |p: &Pt| -> Point<Pixels> { point(center.x + radius * p.x, center.y + radius * p.y) };
 
     let mut body = PathBuilder::fill();
@@ -117,19 +137,19 @@ fn paint(frame: &Frame, bounds: Bounds<Pixels>, color: u32, window: &mut Window)
     }
     body.close();
     if let Ok(path) = body.build() {
-        window.paint_path(path, rgb(color));
+        window.paint_path(path, rgba((color << 8) | alpha));
     }
 
     for eye in frame.eyes.iter().flatten() {
         if frame.smile {
-            paint_smile(eye, &at, radius, window);
+            paint_smile(eye, &at, radius, alpha, window);
             continue;
         }
         let points: Vec<Point<Pixels>> = eye.iter().map(at).collect();
         let mut builder = PathBuilder::fill();
         builder.add_polygon(&points, true);
         if let Ok(path) = builder.build() {
-            window.paint_path(path, rgb(EYE_COLOR));
+            window.paint_path(path, rgba((EYE_COLOR << 8) | alpha));
         }
     }
 }
@@ -139,6 +159,7 @@ fn paint_smile(
     eye: &[Pt; EYE_POINTS],
     at: &impl Fn(&Pt) -> Point<Pixels>,
     radius: Pixels,
+    alpha: u32,
     window: &mut Window,
 ) {
     let n = eye.len() as f32;
@@ -151,7 +172,7 @@ fn paint_smile(
         .map(|p| (p.x - cx).abs())
         .fold(0f32, f32::max)
         .max(0.12);
-    let mut arc = PathBuilder::stroke((radius * 0.17).max(px(1.2)));
+    let mut arc = PathBuilder::stroke((radius * 0.13).max(px(1.1)));
     arc.move_to(at(&Pt {
         x: cx - half,
         y: cy + half * 0.55,
@@ -167,6 +188,6 @@ fn paint_smile(
         }),
     );
     if let Ok(path) = arc.build() {
-        window.paint_path(path, rgb(EYE_COLOR));
+        window.paint_path(path, rgba((EYE_COLOR << 8) | alpha));
     }
 }

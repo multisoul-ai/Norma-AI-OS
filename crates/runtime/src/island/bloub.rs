@@ -58,7 +58,7 @@ impl Mood {
             },
             Mood::Waiting => Motion {
                 face: Some(ExpressionId::Curious),
-                sway: 8.,
+                sway: 12.,
                 ..calm
             },
             Mood::Failed => Motion {
@@ -69,7 +69,7 @@ impl Mood {
             },
             Mood::Responded => Motion {
                 face: Some(ExpressionId::Happy),
-                bounce: 0.07,
+                bounce: 0.14,
                 period: 1.1,
                 ..calm
             },
