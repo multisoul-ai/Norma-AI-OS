@@ -13,7 +13,12 @@ fn setup() -> (Runtime, HookQuestion, QuestionRef) {
 }
 
 fn setup_turn(turn: Option<&str>) -> (Runtime, HookQuestion, QuestionRef) {
+    setup_with(turn, false)
+}
+
+fn setup_with(turn: Option<&str>, native_first: bool) -> (Runtime, HookQuestion, QuestionRef) {
     let mut runtime = Runtime::new_for_workspace("/tmp/claude-question-test");
+    runtime.set_native_first_questions(native_first);
     runtime.set_agent_hook_config(Some(AgentHookRuntimeConfig {
         endpoint: "http://127.0.0.1:49152/agent-hooks".into(),
         token: "test".into(),
@@ -439,5 +444,23 @@ fn cancelled_hook_keeps_question_blocked_until_native_user_answers() {
     assert!(
         !runtime.has_pending_question(target.node_id),
         "消费完成后解除输入阻塞"
+    );
+}
+
+/// 场景：真实项目默认把 Claude 问答交还 Agent 卡片自己的终端，岛里不再拦截。
+/// 构造：与拦截测试相同的真实夹具，但打开原生优先开关。
+/// 执行：接收原Hook。
+/// 预期：原Hook已被释放（Cancelled），终端可立即显示原生问答，不需要再点任何按钮。
+#[test]
+fn native_first_releases_the_hook_as_soon_as_it_is_accepted() {
+    let (runtime, ticket, target) = setup_with(None, true);
+    assert_eq!(
+        ticket.status(Instant::now()),
+        norma::agent_hook::QuestionHookStatus::Cancelled,
+        "默认就交还原生，不是等用户点按钮"
+    );
+    assert!(
+        !runtime.native_question_available(&target),
+        "钩子释放后岛不能再代答"
     );
 }

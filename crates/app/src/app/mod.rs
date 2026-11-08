@@ -295,6 +295,7 @@ impl MultisoulApp {
     ) -> Self {
         let agent_hook_server = AgentHookServer::start(cx);
         let mut runtime = Runtime::new();
+        runtime.set_native_first_questions(true);
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         Self::build(
             cx,
