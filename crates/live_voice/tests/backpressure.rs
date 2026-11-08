@@ -69,23 +69,90 @@ async fn microphone_budget_is_bounded_and_close_discards_queued_input() {
     .expect("关闭测试必须有界");
 }
 
-/// AC03：消费者不取音频时，下行积压超过1秒必须显式失败，不能无界排队。
+/// 下行语音是有损实时流：消费者落后时丢弃音频，不能终止通话。
 ///
-/// 数据构造：假上游连续发两个32000字节PCM块，总2秒，超过1秒预算。
-/// 执行过程：连接后不调用next_event，等待driver自己因溢出结束，再读取结束结果。
-/// 预期结果：Capacity错误可见，usage未最终确认；没有等待消费者造成无限挂起。
+/// 数据构造：假上游连续发两个32000字节PCM块，总2秒，超过1秒预算；消费者不取事件。
+/// 执行过程：等待driver丢弃超限音频，再主动关闭。
+/// 预期结果：恰好丢弃第二秒音频，通话正常结束并确认用量。
 #[tokio::test]
-async fn slow_audio_consumer_fails_at_duration_budget() {
+async fn slow_audio_consumer_drops_audio_without_ending_the_call() {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("应绑定");
+        let address = listener.local_addr().expect("应有端口");
+        let server = tokio::spawn(async move {
+            let mut socket = live_server::ready(listener, "live_slow").await;
+            let event = Message::Text(json!({"type":"session.output_audio.delta","delta":STANDARD.encode(vec![0; 32_000])}).to_string().into());
+            socket.send(event.clone()).await.expect("第一秒应送达");
+            socket.send(event).await.expect("第二秒应送达");
+            live_server::finish(&mut socket, "live_slow").await;
+        });
+        let client = connect_loopback(address, LiveConfig::default(), "fixture-key", CancellationToken::new())
+            .await.expect("应ready");
+        let control = client.control();
+        while control.dropped_output_audio_bytes() < 32_000 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(control.dropped_output_audio_bytes(), 32_000, "只丢超出预算的第二秒");
+        let outcome = client.finish().await;
+        assert!(outcome.error.is_none(), "丢音频不能终止通话");
+        assert!(outcome.usage.finalized, "应收到closed");
+        server.await.expect("假上游应退出");
+    }).await.expect("背压测试必须有界");
+}
+
+/// 语音突发不能挤掉控制事件：队列须给转写、确认等控制事件留槽。
+///
+/// 数据构造：60个20ms音频块后紧跟一条转写；消费者先不取事件。
+/// 执行过程：等driver丢弃多余音频，再逐个取事件直到转写出现。
+/// 预期结果：有音频被丢弃、通话存活，且转写事件仍能送达。
+#[tokio::test]
+async fn audio_burst_never_starves_control_events() {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("应绑定");
+        let address = listener.local_addr().expect("应有端口");
+        let server = tokio::spawn(async move {
+            let mut socket = live_server::ready(listener, "live_burst").await;
+            let audio = Message::Text(json!({"type":"session.output_audio.delta","delta":STANDARD.encode(vec![0; 640])}).to_string().into());
+            for _ in 0..60 { socket.send(audio.clone()).await.expect("音频应送达"); }
+            socket.send(Message::Text(json!({"type":"session.output_transcript.delta","event_id":"a1","delta":"好","start_ms":0,"end_ms":10}).to_string().into()))
+                .await.expect("转写应送达");
+            live_server::finish(&mut socket, "live_burst").await;
+        });
+        let mut client = connect_loopback(address, LiveConfig::default(), "fixture-key", CancellationToken::new())
+            .await.expect("应ready");
+        let control = client.control();
+        while control.dropped_output_audio_bytes() == 0 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        loop {
+            match client.next_event().await.expect("通话不应因突发语音结束") {
+                live_voice::LiveEvent::Transcript(_) => break,
+                _ => continue,
+            }
+        }
+        let outcome = client.finish().await;
+        assert!(outcome.error.is_none(), "突发语音不能终止通话");
+        server.await.expect("假上游应退出");
+    }).await.expect("背压测试必须有界");
+}
+
+/// 控制事件队列溢出说明消费者已失效，仍须显式失败，不能被吞成正常结束。
+///
+/// 数据构造：假上游连发80条转写，超过64槽队列；消费者不取事件。
+/// 预期结果：Capacity错误可见，usage未最终确认。
+#[tokio::test]
+async fn control_event_overflow_still_fails_the_call() {
     tokio::time::timeout(Duration::from_secs(5), async {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("应绑定");
         let address = listener.local_addr().expect("应有端口");
         let cancellation = CancellationToken::new();
         let peer_done = cancellation.clone();
         let server = tokio::spawn(async move {
-            let mut socket = live_server::ready(listener, "live_slow").await;
-            let event = Message::Text(json!({"type":"session.output_audio.delta","delta":STANDARD.encode(vec![0; 32_000])}).to_string().into());
-            socket.send(event.clone()).await.expect("第一秒应送达");
-            socket.send(event).await.expect("第二秒应送达");
+            let mut socket = live_server::ready(listener, "live_control").await;
+            for i in 0..80 {
+                socket.send(Message::Text(json!({"type":"session.output_transcript.delta","event_id":format!("a{i}"),"delta":"x","start_ms":i * 10,"end_ms":i * 10 + 5}).to_string().into()))
+                    .await.expect("转写应送达");
+            }
             peer_done.cancelled().await;
         });
         let client = connect_loopback(address, LiveConfig::default(), "fixture-key", cancellation.clone())
