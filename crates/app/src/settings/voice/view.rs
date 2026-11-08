@@ -20,7 +20,6 @@ use ui::Theme;
 mod asr_provider;
 pub(crate) mod capabilities;
 mod command_policy;
-pub(crate) mod command_preview;
 mod components;
 mod doubao;
 mod editable;
@@ -59,7 +58,6 @@ pub(crate) fn voice_settings(
         content_scroll,
         setup_scroll_target,
         voice_shortcut_label,
-        available_width: _,
     } = view;
     let page = div()
         .w_full()

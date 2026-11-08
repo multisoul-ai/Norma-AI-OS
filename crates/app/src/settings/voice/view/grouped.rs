@@ -12,12 +12,6 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
     let theme = view.theme;
     let state = view.state;
     let inputs = view.inputs;
-    let wide = view.available_width >= 800.0;
-    if let Some(preview) = &inputs.command_preview {
-        preview.update(cx, |preview, cx| {
-            preview.set_width(if wide { 280.0 } else { view.available_width }, cx)
-        });
-    }
     let input = section(
         theme,
         "input",
@@ -86,16 +80,7 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
                 "voice.command_current_model",
                 state.values().active_provider_profile().model().to_string(),
             ))
-            .when_some(inputs.jev_panel.clone(), |rows, panel| rows.child(panel))
-            .child(value_row(
-                theme,
-                "voice.command_targets",
-                inputs
-                    .command_preview
-                    .as_ref()
-                    .map(|view| view.read(cx).target_summary())
-                    .unwrap_or_else(|| ui::i18n::text("voice.command_empty_canvas").to_string()),
-            )),
+            .when_some(inputs.jev_panel.clone(), |rows, panel| rows.child(panel)),
     );
     let dispatch = section(
         theme,
@@ -152,23 +137,6 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
             cx,
             cx.listener(MultisoulApp::on_voice_review_setup),
         ));
-    let layout = div()
-        .w_full()
-        .min_w(px(0.0))
-        .flex()
-        .gap(px(24.0))
-        .when(wide, |layout| layout.flex_row().items_start())
-        .when(!wide, |layout| layout.flex_col())
-        .child(column)
-        .when_some(inputs.command_preview.clone(), |layout, preview| {
-            layout.child(
-                div()
-                    .min_w(px(0.0))
-                    .when(wide, |panel| panel.w(px(280.0)).flex_none())
-                    .when(!wide, |panel| panel.w_full())
-                    .child(preview),
-            )
-        });
     div()
         .w_full()
         .min_w(px(0.0))
@@ -182,7 +150,7 @@ pub(super) fn grouped_settings(view: VoiceSettingsView<'_>, cx: &mut Context<Mul
             view.voice_shortcut_label,
             cx,
         ))
-        .child(layout)
+        .child(column)
         .children(super::status::status_message(theme, state))
 }
 
