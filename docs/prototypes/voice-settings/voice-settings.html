@@ -273,12 +273,12 @@ function cmdBody(){
  const c=S.cmd, rec=RECOG.find(x=>x[0]===c.recog);
  const recSub=c.recog==='azure'?`音频发送到 Azure Speech · ${LANGS[c.lang]}`:c.recog==='sherpa'?(c.sherpaReady?`${ASR_LOCAL.find(x=>x[0]===c.asr)[1]} · 已安装`:'未安装，首次使用需要下载'):(c.a1Ready?'已安装，可离线使用':'未安装 · 无需配置 Python');
  const out=[];
- out.push(grp('听'));
+ out.push(grp('语音输入'));
  out.push(row('wave','语音识别',recSub,valTxt(rec[1]),'recog'));
  out.push(`<div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>唤起方式</b><span>${c.inter==='single'?'按 ⌘E 说一句，结束后执行':'一直收音，无需快捷键'}</span></div>${seg([['single','单次指令'],['continuous','持续聆听']],c.inter,'inter')}</div>`);
  out.push(`<div class="row"><div class="ic">${ICON.key}</div><div class="t"><b>快捷键 ⌘E</b><span>${c.trig==='hold'?'按住说话，松开结束':'按一次开始，再按一次结束'}</span></div>${seg([['hold','按住'],['toggle','切换']],c.trig,'trig')}</div>`);
  out.push(row('mic','麦克风','语音输入使用的设备',valTxt(c.device),'mic'));
- out.push(grp('说'));
+ out.push(grp('语音输出'));
  out.push(row('spk','语音回复',ttsSub(c.tts),valTxt(ttsName(c.tts)),'voice'));
  out.push(`<div style="height:1px;background:var(--outline-soft);margin:10px 12px"></div>`);
  out.push(`<div class="adv ${c.adv?'open':''}"><button class="row link adv-toggle" data-act="adv" aria-expanded="${c.adv}" style="border:0;background:none;width:100%"><div class="t"><b>更多设置</b><span>理解模型、语音服务与凭据、回复偏好、诊断</span></div>${ICON.chev}</button><div class="adv-body">
@@ -309,20 +309,20 @@ function cmdBody(){
 }
 function doubaoBody(){
  const d=S.doubao;
- return grp('听 · 对话')+
+ return grp('对话输入')+
   `<div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>对话方式</b><span>${d.trig==='realtime'?'按 ⌘E 开始或结束，停顿后自动发送，可打断播报':'按住 ⌘E 录音，松开发送给豆包'}</span></div>${seg([['realtime','实时对话'],['hold','按住说话']],d.trig,'dtrig')}</div>`+
   row('mic','麦克风','语音输入使用的设备',valTxt(d.device),'mic')+
   keyField('ark','火山方舟 API Key','用于 ASR 2.0、对话与 TTS 2.0，保存在此 Mac 的本地数据库中。')+
-  grp('说')+
+  grp('语音输出')+
   row('spk','音色','豆包 2.0 音色目录',valTxt(d.voice),'dvoice');
 }
 function liveBody(){
  const l=S.live;
- return grp('听 · 对话')+
+ return grp('对话输入')+
   `<div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>对话方式</b><span>${l.trig==='realtime'?'按 ⌘E 开始或结束，可随时插话':'按住 ⌘E 说话，松开后回复'}</span></div>${seg([['realtime','实时对话'],['hold','按住说话']],l.trig,'ltrig')}</div>`+
   row('mic','麦克风','使用系统声音设置中的输入设备',valTxt('系统默认'),'mic')+
   keyField('openai','OpenAI API Key','同一个 Key 用于实时对话和项目操作，保存后自动生效。')+
-  grp('说')+
+  grp('语音输出')+
   `<div class="row"><div class="ic">${ICON.spk}</div><div class="t"><b>音色</b><span>音色更改在下次通话生效</span></div>${seg([['marin','Marin'],['cedar','Cedar']],l.voice,'lvoice')}</div>`;
 }
 
