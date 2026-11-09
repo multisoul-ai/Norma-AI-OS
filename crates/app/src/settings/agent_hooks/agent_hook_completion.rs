@@ -39,6 +39,7 @@ impl AgentHookServer {
                 apply_agent_hook_event_with_outcome(runtime, event);
             }
         }
+        report.changed |= runtime.settle_delivered_hook_answers();
         for question in self.questions.try_iter() {
             let Some(project_id) = project_id else {
                 question.cancel();

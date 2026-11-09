@@ -15,6 +15,7 @@ mod delivery;
 mod fallback;
 mod history;
 mod lifecycle;
+pub(in crate::runtime) use lifecycle::reserves_native_question_run;
 mod opencode_host;
 
 #[derive(Default)]

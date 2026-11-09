@@ -45,12 +45,34 @@ fn install_writes_seven_verified_events_and_enables_hooks() {
     );
     for event in hook_events_for_source(HookSource::ZCode) {
         let groups = root["hooks"]["events"][event].as_array().expect("事件数组");
-        assert_eq!(groups.len(), 1, "{event} 应恰好一条");
-        let command = groups[0]["hooks"][0]["command"].as_str().unwrap();
-        assert!(
-            command.ends_with("forward --source zcode"),
-            "命令: {command}"
-        );
+        if *event == "PreToolUse" {
+            assert_eq!(groups.len(), 2, "PreToolUse 要有生命周期和问答两条");
+            assert!(
+                groups.iter().any(|group| {
+                    group["hooks"][0]["command"]
+                        .as_str()
+                        .is_some_and(|command| command.ends_with("forward --source zcode"))
+                }),
+                "生命周期命令必须保留"
+            );
+            assert!(
+                groups.iter().any(|group| {
+                    group["matcher"] == "AskUserQuestion"
+                        && group["hooks"][0]["timeout"] == 125
+                        && group["hooks"][0]["command"]
+                            .as_str()
+                            .is_some_and(|command| command.contains("--request-question"))
+                }),
+                "问答 hook 必须是 matcher=AskUserQuestion、timeout=125"
+            );
+        } else {
+            assert_eq!(groups.len(), 1, "{event} 应恰好一条");
+            let command = groups[0]["hooks"][0]["command"].as_str().unwrap();
+            assert!(
+                command.ends_with("forward --source zcode"),
+                "命令: {command}"
+            );
+        }
         assert_eq!(groups[0]["hooks"][0]["type"], "command");
     }
     assert_eq!(root["hooks"]["enabled"], json!(true), "必须开启 hooks");

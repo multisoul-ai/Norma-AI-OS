@@ -76,7 +76,7 @@ fn grok_camel_case_pre_tool_use_maps_to_running_tool() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   target = Grok；官方事件数 = hook_events_for_source(Grok).len()
-///   install 次数 = 2 → 幂等后 Norma command 数仍应等于官方事件数
+///   install 次数 = 2 → 幂等后 Norma command 数 = 官方事件数 + 1（AskUserQuestion 问答）
 ///   第三方 PreToolUse command 数 = 1 → install/uninstall 前后都必须保持 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -87,7 +87,7 @@ fn grok_camel_case_pre_tool_use_maps_to_running_tool() {
 ///   5. 重新读取 JSON，确认第三方 Hook 仍存在。
 ///
 /// 预期结果：
-///   - 正断言：安装后每个 Grok 事件仅有一个 Norma command，第三方 command 保留；
+///   - 正断言：生命周期每事件一条，另加一条 matcher=AskUserQuestion、timeout=125 的问答 command；第三方 command 保留；
 ///   - 正断言：卸载后第三方 command 仍保留；
 ///   - 负断言：卸载后不得残留 `forward --source grok`，也不得写入 Codex source。
 #[test]
@@ -140,8 +140,21 @@ fn grok_hook_install_is_idempotent_and_uninstall_preserves_third_party_hooks() {
     );
     assert_eq!(
         installed.matches(&grok_command).count(),
-        hook_events_for_source(HookSource::Grok).len(),
-        "重复安装后 Grok command 数应等于官方事件数，不能翻倍"
+        hook_events_for_source(HookSource::Grok).len() + 1,
+        "生命周期每事件一条，另加一条问答 --request-question；重复安装不能翻倍"
+    );
+    assert_eq!(
+        installed.matches("--request-question").count(),
+        1,
+        "AskUserQuestion 问答 hook 只能有一条"
+    );
+    assert!(
+        installed.contains("\"matcher\": \"AskUserQuestion\""),
+        "Grok 问答 hook 必须用 AskUserQuestion matcher，实际={installed}"
+    );
+    assert!(
+        installed.contains("\"timeout\": 125"),
+        "问答 hook 超时必须是 125 秒，实际={installed}"
     );
     assert_eq!(
         installed.matches(third_party_command).count(),

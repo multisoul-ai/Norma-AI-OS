@@ -1,5 +1,5 @@
 //! Provider-specific mapping behind the same revocable host wait. Approval tools are excluded.
-use super::{AgentHookEvent, ClaudeQuestion};
+use super::{is_hook_ask_tool, AgentHookEvent, ClaudeQuestion};
 use crate::codex::questions::CodexQuestion;
 use crate::opencode::questions::OpenCodeQuestion;
 use crate::protocol::{
@@ -45,10 +45,17 @@ impl NativeQuestion {
     pub fn from_event(event: &AgentHookEvent) -> Result<Self, &'static str> {
         let adapter = match event.profile {
             AgentProfile::Claude
+            | AgentProfile::Grok
+            | AgentProfile::Kimi
+            | AgentProfile::ZCode
+            | AgentProfile::InfCode
                 if event.provider_event == "PreToolUse"
-                    && event.tool_name.as_deref() == Some("AskUserQuestion") =>
+                    && is_hook_ask_tool(event.profile, event.tool_name.as_deref()) =>
             {
-                Self::Claude(ClaudeQuestion::from_hook(&event.raw_json)?)
+                Self::Claude(ClaudeQuestion::from_profile(
+                    event.profile,
+                    &event.raw_json,
+                )?)
             }
             AgentProfile::Codex
                 if event.provider_event == "NormaQuestion"
@@ -130,7 +137,7 @@ impl NativeQuestion {
 
     pub fn provider(&self) -> AgentProfile {
         match self {
-            Self::Claude(_) => AgentProfile::Claude,
+            Self::Claude(question) => question.provider(),
             Self::Codex { .. } => AgentProfile::Codex,
             Self::OpenCode { .. } => AgentProfile::OpenCode,
             Self::Cursor { .. } => AgentProfile::Cursor,
@@ -161,7 +168,7 @@ impl NativeQuestion {
 
     pub fn connection_id(&self, run_id: &str) -> String {
         match self {
-            Self::Claude(_) => format!("claude-hook:{run_id}"),
+            Self::Claude(question) => question.connection_id(run_id),
             Self::Codex { connection_id, .. }
             | Self::OpenCode { connection_id, .. }
             | Self::Cursor { connection_id, .. } => connection_id.clone(),
@@ -271,6 +278,17 @@ impl NativeQuestion {
                     && question.confirms_answer(&raw["event"], answers)
             }
         }
+    }
+
+    pub fn answer_is_hook_terminal(&self) -> bool {
+        match self {
+            Self::Claude(question) => question.answer_is_hook_terminal(),
+            Self::Codex { .. } | Self::OpenCode { .. } | Self::Cursor { .. } => false,
+        }
+    }
+
+    pub fn uses_blocking_hook(&self) -> bool {
+        matches!(self, Self::Claude(_))
     }
 
     pub fn confirms_failure(&self, raw: &Value) -> bool {

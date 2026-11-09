@@ -203,9 +203,9 @@ fn kimi_prompt_array_feeds_conversation_evidence() {
 /// 安装/幂等/卸载：只管理带标记的区块，保留用户内容与既有 [[hooks]]。
 ///
 /// 数据构造：config.toml 初始 = 注释 + `[tui]` 表 + 用户自己的一条 [[hooks]]（共 5 行）；
-///   Kimi 订阅 11 个事件，故区块内应有 11 条 `[[hooks]]`，加用户 1 条共 12 条。
+///   Kimi 订阅 11 个事件，另加 1 条 AskUserQuestion 问答 hook，加用户 1 条共 13 条。
 /// 执行过程：安装两次（幂等）→ 检查 → 卸载。
-/// 预期结果：两次安装后 `[[hooks]]` 总数 12、begin 标记 1 次、已安装检测为真；
+/// 预期结果：两次安装后 `[[hooks]]` 总数 13、begin 标记 1 次、已安装检测为真；
 ///   卸载后文件与初始内容逐字节相同，检测为假；目标文件不存在时安装会创建目录与文件。
 #[test]
 fn kimi_install_is_idempotent_and_uninstall_keeps_user_content() {
@@ -226,8 +226,16 @@ fn kimi_install_is_idempotent_and_uninstall_keeps_user_content() {
     );
     assert_eq!(
         text.matches("[[hooks]]").count(),
-        12,
-        "11 条自有 + 1 条用户"
+        13,
+        "11 条生命周期 + 1 条 AskUserQuestion + 1 条用户"
+    );
+    assert!(
+        text.contains("matcher = \"AskUserQuestion\""),
+        "Kimi 问答 hook 必须带 matcher，实际={text}"
+    );
+    assert!(
+        text.contains("timeout = 125"),
+        "Kimi 问答 hook 超时必须是 125 秒，实际={text}"
     );
     assert_eq!(
         text.matches(">>> multisoul-agent-hook managed").count(),
