@@ -92,6 +92,13 @@ fn managed_block(command_path: &Path) -> String {
             "[[hooks]]\nevent = \"{event}\"\ncommand = {command}\ntimeout = {HOOK_TIMEOUT_SECONDS}\n"
         ));
     }
+    let question = toml_basic_string(&format!(
+        "{} --request-question",
+        build_hook_command(command_path, HookSource::Kimi)
+    ));
+    block.push_str(&format!(
+        "[[hooks]]\nevent = \"PreToolUse\"\nmatcher = \"AskUserQuestion\"\ncommand = {question}\ntimeout = 125\n"
+    ));
     block.push_str(BLOCK_END);
     block.push('\n');
     block

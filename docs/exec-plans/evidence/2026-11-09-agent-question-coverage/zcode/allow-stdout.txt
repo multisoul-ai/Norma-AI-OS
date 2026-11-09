@@ -1,0 +1,14 @@
+{
+  "sessionId": "sess_801ce72c-aff1-4166-a218-5290a916fab8",
+  "traceId": "259e492b-fc1a-45c4-961e-720e8c13a556",
+  "turnId": "turn_d428af58-2c8e-409f-b14c-f6018b9ce73e",
+  "response": "SPIKE_ANSWER=Blue",
+  "eventCount": 28,
+  "projection": {
+    "status": "idle",
+    "turnCount": 1,
+    "totalTokenCount": 0,
+    "contextUsed": 0,
+    "contextWindow": 200000
+  }
+}

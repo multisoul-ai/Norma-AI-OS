@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "The user answered Spike color? with Blue.",
+  "metadata": {
+    "infcodeHookBlocked": {
+      "event": "PreToolUse",
+      "decision": "block",
+      "reason": "The user answered Spike color? with Blue."
+    }
+  }
+}
