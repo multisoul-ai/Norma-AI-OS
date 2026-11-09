@@ -203,6 +203,8 @@ impl Runtime {
     }
 
     pub fn observe_native_question_result(&mut self, event: &AgentHookEvent) -> bool {
+        // Deny stdout is already the answer. Close it before this Post can relabel the card.
+        let settled = self.settle_delivered_hook_answers();
         let supported = match event.profile {
             AgentProfile::Claude
             | AgentProfile::Grok
@@ -221,7 +223,7 @@ impl Runtime {
             _ => false,
         };
         if !supported {
-            return false;
+            return settled;
         }
         let fallback_closed = self.release_claude_question_blocker(event);
         let found = self.questions.entries.iter().position(|entry| {
@@ -245,7 +247,7 @@ impl Runtime {
         });
         let Some(index) = found else {
             self.remember_early_native_result(event);
-            return fallback_closed;
+            return settled || fallback_closed;
         };
         if event.provider_event == "PostToolUseFailure" {
             let entry = &mut self.questions.entries[index];

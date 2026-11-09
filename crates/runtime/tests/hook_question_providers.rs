@@ -372,3 +372,79 @@ fn infcode_question_tool_registers_and_kimi_object_error_closes() {
         "失败收口后解除阻塞"
     );
 }
+
+/// 场景：岛上的 deny 已经写给 agent 之后，迟到的 Post 不能改成答在别处。
+///
+/// 数据构造：Grok 选择 Blue，stdout 已写完，状态仍是 Submitted。
+/// 随后同一 tool_use_id call-spike 的 PostToolUse 带 UserAnswered。
+/// 同一段结算也挡在 PostToolUseFailure 之前，所以失败事件同样不能改判。
+///
+/// 执行：写出 deny，不先调用 settle，再 observe 这条 Post。
+///
+/// 预期：状态是 Answered，证据是 Grok/hook-deny，不是 PostToolUse 收口。
+#[test]
+fn delivered_deny_survives_a_later_post_tool_use() {
+    let (mut runtime, ticket, target) = open(
+        CanvasProfile::Grok,
+        HookSource::Grok,
+        "ask_user_question",
+        false,
+    );
+    let submission = runtime
+        .claim_question_answer(
+            &target,
+            vec![QuestionAnswer {
+                key: "question-0".into(),
+                selected: vec!["option-0".into()],
+                text: None,
+            }],
+            "delivery-grok-post",
+        )
+        .unwrap()
+        .unwrap();
+    runtime.deliver_native_question(&submission).unwrap();
+    assert!(
+        ticket.take_response(Instant::now()).is_some(),
+        "CLI 取到 deny"
+    );
+    ticket
+        .with_response_write(Instant::now(), || Ok(true))
+        .unwrap();
+    let mut post = parse_hook_event(
+        HookSource::Grok,
+        target.node_id,
+        json!({
+            "hook_event_name": "PostToolUse",
+            "tool_name": "ask_user_question",
+            "session_id": "sess-spike",
+            "tool_use_id": "call-spike",
+            "tool_response": {"UserAnswered": {"message": "Blue"}}
+        }),
+    )
+    .unwrap();
+    post.control_run_id = Some(target.run_id.clone());
+    assert!(
+        runtime.observe_native_question_result(&post),
+        "写出 deny 后的 Post 仍应让界面刷新"
+    );
+    let grok = runtime.question(&target).unwrap();
+    assert_eq!(
+        grok.state,
+        QuestionState::Answered,
+        "已经交给 Grok 的 deny 不能被事后事件改成答在别处"
+    );
+    assert_ne!(
+        grok.evidence.as_deref(),
+        Some("Grok/PostToolUse:ask_user_question"),
+        "不能把岛内 deny 记成终端 Post 收口"
+    );
+    assert_eq!(
+        grok.evidence.as_deref(),
+        Some("Grok/hook-deny"),
+        "证据应是 hook 写出的 deny"
+    );
+    assert!(
+        !runtime.has_pending_question(target.node_id),
+        "答完后不再占着需要你处理"
+    );
+}
