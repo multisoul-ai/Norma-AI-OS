@@ -131,6 +131,29 @@ fn round_trips_through_json() {
     );
 }
 
+/// 场景：派发或忽略只取走被点中的那一条提议。
+/// 数据：A 先加入得到编号 1，B 随后得到编号 2。
+/// 执行：take(1)，再 take(1)，再 take(9)。
+/// 预期：第一次得到 A；列表只剩 B；重复和不存在都是 None，B 的编号不变。
+#[test]
+fn take_removes_only_the_chosen_proposal() {
+    let mut proposals = Proposals::default();
+    let first = proposals
+        .add(draft("A", "一"), SystemTime::UNIX_EPOCH)
+        .expect("第一条应写入");
+    let second = proposals
+        .add(draft("B", "二"), SystemTime::UNIX_EPOCH)
+        .expect("第二条应写入");
+    let taken = proposals.take(first).expect("编号 1 必须被取走");
+    assert_eq!(taken.agent, "A", "取走的是 A，不是 B");
+    assert_eq!(taken.id, first, "取走的编号就是 1");
+    assert_eq!(proposals.items().len(), 1, "列表只剩一条");
+    assert_eq!(proposals.items()[0].id, second, "剩下的是 B");
+    assert!(proposals.take(first).is_none(), "同一条不能再取一次");
+    assert!(proposals.take(9).is_none(), "不存在的编号不能取走任何提议");
+    assert_eq!(proposals.items()[0].agent, "B", "失败的取走不能删掉 B");
+}
+
 /// 合法 JSON 里任一提议坏掉时也必须整份拒绝，不能静默删除该条。
 /// 数据构造：一份正常快照，分别删除 why、改错 at 类型、破坏顶层 items。
 /// 执行过程：逐份解析损坏副本，并以正常快照作对照。

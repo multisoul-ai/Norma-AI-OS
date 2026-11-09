@@ -290,6 +290,7 @@ fn island_confirmed_question_cannot_remount_from_stale_projection() {
                     overview,
                     approvals: vec![],
                     questions: vec![row, next],
+                    proposals: vec![],
                 }],
             }];
             model

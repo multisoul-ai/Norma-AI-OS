@@ -5,6 +5,27 @@ use std::{
     path::PathBuf,
 };
 
+/// 幕僚提议在岛上的投影。阻断原因在捕获时算好，展示边界再翻译。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct IslandProposal {
+    pub id: u64,
+    pub area_id: String,
+    pub agent: String,
+    pub title: String,
+    pub task: String,
+    pub why: String,
+    pub block: Option<IslandProposalBlock>,
+    pub creates_card: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum IslandProposalBlock {
+    WaitingConfirmation,
+    Busy,
+    Missing,
+    Disabled,
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct IslandProject {
     pub source: u64,
@@ -16,6 +37,7 @@ pub(crate) struct IslandProject {
     pub cached_overview: RunOverview,
     pub approvals: Vec<ApprovalSnapshot>,
     pub questions: Vec<OverviewQuestion>,
+    pub proposals: Vec<IslandProposal>,
 }
 
 impl PartialEq for IslandProject {
@@ -29,6 +51,7 @@ impl PartialEq for IslandProject {
             && self.overview == other.overview
             && self.approvals == other.approvals
             && self.questions == other.questions
+            && self.proposals == other.proposals
     }
 }
 
@@ -158,6 +181,7 @@ impl IslandModel {
                         cached.loaded = false;
                         cached.approvals.clear();
                         cached.questions.clear();
+                        cached.proposals.clear();
                         cached.overview = project.cached_overview.clone();
                         target.projects.push(cached);
                     } else {

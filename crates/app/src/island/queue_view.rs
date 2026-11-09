@@ -33,6 +33,7 @@ impl IslandView {
         for (index, item) in items.iter().enumerate() {
             let id = item.id.clone();
             let review = item.review;
+            let proposal = item.proposal;
             let on = selected == Some(item.id.as_str());
             // Selected card waits. The rest stay idle at full opacity; queued 0.55 is only for the running list.
             let mood = if on {
@@ -69,7 +70,17 @@ impl IslandView {
                         let id = id.clone();
                         let display = view.display;
                         view.controller.update(cx, |state, cx| {
-                            if review {
+                            if proposal {
+                                state.focused_review = None;
+                                state.event(display, runtime::island::IslandEvent::Expand, cx);
+                                state.event(
+                                    display,
+                                    runtime::island::IslandEvent::SelectTab(
+                                        runtime::island::IslandTab::Pending,
+                                    ),
+                                    cx,
+                                );
+                            } else if review {
                                 state.focused_review = Some(id.clone());
                                 state.event(
                                     display,
