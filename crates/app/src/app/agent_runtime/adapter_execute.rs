@@ -33,7 +33,7 @@ fn execute_norma_adapter_command_unchecked(
             target,
             input_source,
             idea_commands::IdeaFlight {
-                origin: idea_commands::drawer_origin(app, cx),
+                origin: idea_commands::drawer_origin(),
                 user_initiated: false,
             },
         ),
@@ -55,12 +55,14 @@ fn execute_norma_adapter_command_unchecked(
             source_path,
             version,
         } => app.norma_open_workspace_artifact(
-            &workspace_id,
-            &area_id,
-            node_id,
-            &turn_id,
-            &source_path,
-            &version,
+            crate::workspace::desktop::ArtifactLocation {
+                workspace_id: &workspace_id,
+                area_id: &area_id,
+                node_id,
+                turn_id: &turn_id,
+                source_path: &source_path,
+                version: &version,
+            },
             cx,
         ),
         AdapterCommand::LocateWorkspaceAgent {
@@ -70,11 +72,13 @@ fn execute_norma_adapter_command_unchecked(
             approval_run_id,
             approval_turn_id,
         } => app.norma_locate_workspace_agent(
-            &workspace_id,
-            &area_id,
-            node_id,
-            approval_run_id.as_deref(),
-            approval_turn_id.as_deref(),
+            crate::workspace::desktop::AgentLocation {
+                workspace_id: &workspace_id,
+                area_id: &area_id,
+                node_id,
+                approval_run_id: approval_run_id.as_deref(),
+                approval_turn_id: approval_turn_id.as_deref(),
+            },
             window
                 .as_deref_mut()
                 .ok_or_else(|| AdapterError::Rejected("定位 Agent 需要桌面窗口".into()))?,
@@ -182,7 +186,7 @@ fn execute_norma_adapter_command_unchecked(
                     let canvas::CanvasNodeKind::Agent(spec) = &node.kind else {
                         return None;
                     };
-                    (spec.definition_id == Some(task.definition_id)).then_some(node.id)
+                    (spec.definition_id == Some(task.definition_id) && node.id == task.target_node_id).then_some(node.id)
                 })
             });
             if let Some((node_id, task_was_typed)) =
@@ -293,7 +297,10 @@ fn execute_norma_adapter_command_unchecked(
             if let Some(window) = window.as_deref_mut().filter(|_| {
                 matches!(
                     input_source,
-                    agent::AgentInputSource::Voice | agent::AgentInputSource::DoubaoVoice
+                    agent::AgentInputSource::Voice
+                        | agent::AgentInputSource::SingleVoiceCommand { .. }
+                        | agent::AgentInputSource::DoubaoVoice
+                        | agent::AgentInputSource::GptLiveVoice
                 )
             }) {
                 let visible_area = app.visible_canvas_rect(window);

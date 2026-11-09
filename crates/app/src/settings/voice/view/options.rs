@@ -3,6 +3,7 @@ use gpui::ScrollHandle;
 use ui::Theme;
 
 pub(crate) struct VoiceSettingsView<'a> {
+    pub(crate) available_width: f32,
     pub(crate) live_call: crate::app::LiveCallView,
     pub(crate) theme: Theme,
     pub(crate) state: &'a VoiceSettingsState,

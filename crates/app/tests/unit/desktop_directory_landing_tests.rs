@@ -105,7 +105,7 @@ fn check_directory_project_zoom(home: bool, count: usize, cache: CardCache) {
                     .expect("应捕获无抽屉时的项目卡片");
             }
             app.desktop_workspace.drawers.right_open = true;
-            app.desktop_workspace.drawer_motion.retarget(false, true);
+            app.desktop_workspace.drawer_motion.retarget(true);
             while app.desktop_workspace.drawer_motion.is_active() {
                 app.desktop_workspace
                     .drawer_motion
@@ -218,7 +218,7 @@ fn desktop_workspace_shell_fades_out_at_drawer_landing() {
                 app.desktop_workspace.workspaces = vec![workspace.clone()];
                 app.desktop_workspace.active_id = Some(workspace.id.clone());
                 app.desktop_workspace.drawers.right_open = true;
-                app.desktop_workspace.drawer_motion.retarget(false, true);
+                app.desktop_workspace.drawer_motion.retarget(true);
                 while app.desktop_workspace.drawer_motion.is_active() {
                     app.desktop_workspace
                         .drawer_motion

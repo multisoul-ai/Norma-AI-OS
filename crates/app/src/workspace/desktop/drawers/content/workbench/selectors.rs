@@ -28,10 +28,11 @@ impl MultisoulApp {
                 &picker,
                 |app, _, event: &SelectEvent<SearchableVec<Choice>>, cx| {
                     if let SelectEvent::Confirm(Some(id)) = event {
-                        let s = &mut app.desktop_workspace.workbench;
-                        if s.busy {
+                        if app.desktop_workspace.workbench.busy {
                             return;
                         }
+                        app.begin_desktop_content_navigation();
+                        let s = &mut app.desktop_workspace.workbench;
                         if s.saved.area_id.as_ref() != Some(id) {
                             s.saved.area_id = Some(id.clone());
                             s.saved.selected = None;
@@ -43,6 +44,7 @@ impl MultisoulApp {
                         s.lock_area = false;
                         s.turn_paths = None;
                         s.pending_turn_diff = None;
+                        s.pending_turn_review = None;
                         app.refresh_file_workbench(cx);
                     }
                 },
@@ -76,6 +78,7 @@ impl MultisoulApp {
                 &picker,
                 |app, _, event: &SelectEvent<SearchableVec<Choice>>, cx| {
                     if let SelectEvent::Confirm(Some(id)) = event {
+                        app.begin_desktop_content_navigation();
                         app.desktop_workspace.workbench.saved.comparison =
                             Comparison::Branch(id.clone());
                         app.refresh_file_workbench(cx);

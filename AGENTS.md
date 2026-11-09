@@ -66,17 +66,21 @@ Workspace 分层：
 - **Agent 指南 ≤ 300 行**：`AGENTS.md` 与 `CLAUDE.md` 由 [`scripts/check-agent-guide-lines.sh`](scripts/check-agent-guide-lines.sh) 拦截；超长内容归档到 `docs/`，并在 §4 增加指针。
 - **禁止 `#[allow(...)]`**：Rust 源码不得用 allow 压制编译器或 clippy 诊断；由 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截，必须修根因。
 - **本地 hook 可安装**：运行 `bash scripts/install-git-hooks.sh` 后，原生 pre-commit 会跑 staged 约束和轻量 Rust 检查。
+- **`dev` 合并门禁**：所有变更必须通过 PR 合并到 `dev`；合并前必须确认 PR 最新提交的 CI（含 `rust checks`）已全部完成并通过，禁止直接推送、绕过 CI 或使用管理员权限强制合并。
+- **禁止在主目录 `dev` 上直接改代码**：主仓库目录只保持干净的 `dev` 检出；任何修改（含文档）先 `git worktree add -b <type>/<topic>-<date> ../<dir> dev`，在 worktree 分支开发并通过 PR 合并；不要用 `git stash` 在 worktree 间搬运改动。
 - **Agent 不得绕过提交验证**：禁止 `git commit --no-verify`、`git commit -n` 及关闭/替换 hook；完整规则与按范围提速流程见 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md)。
 - **写代码前先 TDD**：新功能或 bugfix 先补能失败的聚焦测试，再实现。
 - **测试目录按 crate 维护**：大型独立单元测试放 `crates/<crate>/tests/unit/` 并从源码模块用 `#[path]` 挂载；集成测试放 `crates/<crate>/tests/*.rs`；crate 专用 helper 放 `crates/<crate>/tests/support/`。
 - **测试注释必须完整**：测试上方写场景、数据构造、执行过程、预期结果；关键数值写推导。
 - **断言必须具体**：每个 `assert!` / `assert_eq!` 带说明字符串；关键状态要有正断言和负断言。
 - **PTY 生命周期要收口**：项目运行实例释放或主动退出 App 时必须 kill/wait 子进程；手机服务开启后关窗只解除视图，保留同一 Runtime / PTY。
+- **资源生命周期门禁**：后台 `open` 必须等待回收；禁止用遗忘资源掩盖生命周期问题。运行 `python3 scripts/check-resource-lifecycle.py`、`cargo lint-resources`；原生显示资源回归与限制见 [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md) R7。
 - **关窗生命周期有明确例外**：未启用手机服务且无后台项目时，关闭最后窗口必须 quit；手机服务开启后可无窗口运行，Dock 重开复用项目，主动退出统一停止服务/项目并取消迟到加载。见 [`docs/exec-plans/2026-09-12-mobile-background-projects.md`](docs/exec-plans/2026-09-12-mobile-background-projects.md)。
 - **交互决策放 runtime**：输入意图先通过 `runtime::route` 这类纯函数表达，再由 `app` 层执行副作用。
 - **新增可配置快捷键必须进 Settings**：任何新的 app shortcut 都要注册到 `shortcuts.rs`，并在 Settings → Keyboard Shortcuts 支持录制与恢复。
 - **旧 e2e 套件已移除**：用户流程使用受影响 crate 的单元/集成测试与真实 App 验收；原型浏览器测试归各自原型目录维护。
 - **按实际行为验收**：使用受影响 crate 的单元/集成测试；`TestAppContext`/`simulate_click` 不等于启动真实 `.app`，要求真实程序的流程须操作真实 App 并检查最终结果。
+- **只跑与本次改动相关的测试**：按 §5 矩阵只跑受影响 crate 及其相关用例（`-p <crate>`、`--test <文件>` 或用例名过滤）；不要为单个任务跑 `cargo test --workspace` 或 `cargo test -p app --tests` 这类全量，全量交给 CI。
 - **页面/样式验收优先 desktop-e2e**：本次实际改变的页面、布局、样式或视觉状态，优先用 `scripts/desktop-e2e.sh` 在真实 App 上定向验收；非必要不使用 Computer Use，仅在 E2E 无法表达所需交互时才降级，不能因 E2E 失败直接改为手动验收。合并与已有证据复用按[执行规范](docs/quality/agent-execution-policy.md)确定范围，headless GPUI、单测和静态截图只能作补充。细则见 [`docs/quality/desktop-e2e.md`](docs/quality/desktop-e2e.md)。
 - **新增 desktop-e2e 按模块划分**：场景放 `test/desktop-e2e/Scenarios/<模块>/`，看图清单放 `checks/<模块>/`，夹具放 `Fixtures/<模块>/`。同一模块只改该目录的 `<模块>Module.swift`；`Scenarios/Catalog.swift` 只追加模块 `manifest`。`scripts/desktop-e2e.sh <模块>` 跑完该模块，`<场景>` 只跑一条。边界见 [`.agents/skills/norma-desktop-e2e/references/modules.md`](.agents/skills/norma-desktop-e2e/references/modules.md)。 新增或改版页面的 E2E 默认走模型看图（`--visual`，当前 Agent 多模态读原图，不依赖系统 Vision OCR）：新场景须在模块 `visualScenarioNames` 登记看图版；OCR 报 e5rt/Vision 不可用属 ENV，改用 `--visual`，不得退回 Computer Use 或手动验收。
 - **不要把知识塞进地图**：`AGENTS.md` 只放指针；长说明沉淀到 `CLAUDE.md` 或未来 `docs/`。

@@ -42,11 +42,12 @@ struct CommandCenterView: View {
                 GeometryReader { geometry in
                     ScrollView {
                         VStack(spacing: 0) {
-                            if call.isCalling && call.avatar.loadError == nil {
+                            if call.avatar.loadError == nil {
                                 AvatarView(avatar: call.avatar, degraded: call.degraded,
                                            active: active && scenePhase == .active && !call.showSettings,
                                            onTouch: { head in _ = call.avatar.touch(head: head) })
-                                    .frame(height: max(200, geometry.size.height * 0.65))
+                                    .frame(width: geometry.size.width,
+                                           height: max(200, geometry.size.height * (call.isCalling ? 0.65 : 0.72)))
                             } else {
                                 Image("NormaCompanion").resizable().scaledToFit()
                                     .frame(width: geometry.size.width, height: max(200, geometry.size.height * 0.72))

@@ -281,3 +281,16 @@ fn test_timeline_is_loading_until_finished_or_timeout() {
     );
     assert!(!loading_after_finish, "Finished 之后必须立即停止显示进度线");
 }
+
+/// 首次提交前原生视图隐藏，但加载失败（永不提交）时 3s 后必须放行，不能等满 30s。
+#[test]
+fn reveal_window_is_shorter_than_progress_timeout() {
+    let t0 = Instant::now();
+    let mut timeline = LoadTimeline::default();
+    timeline.begin(t0, None);
+    let limit = Duration::from_secs(3);
+
+    assert!(timeline.is_loading_within(t0 + Duration::from_secs(2), limit));
+    assert!(!timeline.is_loading_within(t0 + Duration::from_secs(4), limit));
+    assert!(timeline.is_loading(t0 + Duration::from_secs(4)));
+}

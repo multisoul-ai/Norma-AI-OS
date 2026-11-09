@@ -1,7 +1,7 @@
 use crate::orchestration::{load_provider_authorization, InstallPaths, OrchestrationProvider};
 use crate::protocol::{
-    AgentErrorCode, CardCommand, CardCommandError, CardCommandResult, ProviderAuthorization,
-    WireRequest, WireResponse, CURRENT_PROTOCOL_VERSION,
+    AgentErrorCode, BrainScope, CardCommand, CardCommandError, CardCommandResult,
+    ProviderAuthorization, WireRequest, WireResponse, CURRENT_PROTOCOL_VERSION,
 };
 use std::env;
 use std::io::{BufRead, BufReader, Write};
@@ -162,12 +162,31 @@ impl ClientRequestContext {
         Ok(context)
     }
 
-    fn from_current_process(command: &CardCommand) -> Result<Self, ClientError> {
+    fn from_current_process(
+        command: &CardCommand,
+        brain_scope: Option<BrainScope>,
+    ) -> Result<Self, ClientError> {
         if matches!(command, CardCommand::Brain { .. }) {
+            let (workspace, route) = match brain_scope {
+                Some(scope) => (Some(scope.workspace_id), Some(scope.route_id)),
+                None => (
+                    env::var(WORKSPACE_ID_ENV).ok(),
+                    env::var(WORKSPACE_ROUTE_ID_ENV).ok(),
+                ),
+            };
+            if workspace.as_ref().is_none_or(|id| id.trim().is_empty())
+                || route.as_ref().is_none_or(|id| id.trim().is_empty())
+            {
+                return Err(ClientError::Command(CardCommandError::agent(
+                    AgentErrorCode::WorkspaceRequired,
+                    "请求必须携带完整的 Workspace 和 route 身份，不会猜测当前项目",
+                    false,
+                )));
+            }
             // 大脑进程不是 Agent 卡片：不带 Provider 授权，只带 App 下发的 Workspace 身份。
             return Ok(Self {
-                source_workspace_id: env::var(WORKSPACE_ID_ENV).ok(),
-                source_workspace_route_id: env::var(WORKSPACE_ROUTE_ID_ENV).ok(),
+                source_workspace_id: workspace,
+                source_workspace_route_id: route,
                 ..Self::default()
             });
         }
@@ -224,15 +243,16 @@ pub fn send_command(command: CardCommand) -> Result<CardCommandResult, ClientErr
 }
 
 pub fn send_command_with_metadata(command: CardCommand) -> Result<ClientResponse, ClientError> {
-    send_command_with_request_metadata(command, None, None)
+    send_command_with_request_metadata(command, None, None, None)
 }
 
 pub fn send_command_with_request_metadata(
     command: CardCommand,
     target_workspace_id: Option<String>,
     operation_id: Option<String>,
+    brain_scope: Option<BrainScope>,
 ) -> Result<ClientResponse, ClientError> {
-    let context = ClientRequestContext::from_current_process(&command)?;
+    let context = ClientRequestContext::from_current_process(&command, brain_scope)?;
     send_command_to_path_with_context_and_metadata(
         default_socket_path(),
         command,

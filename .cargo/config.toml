@@ -1,5 +1,6 @@
 [alias]
 packager = "run --quiet --manifest-path packaging/cargo-packager-wrapper/Cargo.toml --"
+lint-resources = "clippy --workspace --lib --bins -- -D clippy::zombie_processes -D clippy::mem_forget"
 
 [target.aarch64-apple-darwin]
 runner = "scripts/run-macos-dev-app.sh"

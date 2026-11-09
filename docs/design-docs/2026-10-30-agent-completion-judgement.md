@@ -15,7 +15,7 @@ Done 随即被卡片、播报、移动端推送和 `crates/app/src/app/agent_run
 用独立 command hook 抓了四次 `claude -p` 的真实 payload(单后台、双后台、TaskStop 杀死、后台子 Agent)。用户全局 `~/.claude/settings.json` 未改。路径与 transcript 不入库。
 
 - 登记发生在 `PostToolUse`,且 `tool_input.run_in_background == true`。工作 id 优先 `tool_response.backgroundTaskId` 或 `tool_response.agentId`,否则 `tool_use_id`。`PostToolUseFailure` 与前台工具不登记。
-- `Stop` / `SubagentStop` 若带 `background_tasks` 数组,用该数组的 id **替换**开放集合。字段缺失不是空快照,不清已登记的工作。`session_crons` 不计入开放工作。
+- `Stop` / `SubagentStop` 若带 `background_tasks` 数组,用该数组里仍开放的 id **替换**开放集合。`status` 为 `completed` 或 `failed` 的条目已结束,不计入;缺 `status` 或 `running` 仍计入。字段缺失不是空快照,不清已登记的工作。`session_crons` 不计入开放工作。
 - 单后台:非空 `Stop` 之后约 1177ms 才来 `<task-notification>`,所以非空快照不能靠 800ms 放行。
 - 结清:工具名 `TaskStop`(旧名 `KillBash` / `KillShell` 仍认),id 来自 `tool_input.task_id` 或 `tool_response.task_id`。本次没有 `BashOutput`,不把它当结清信号。
 - 唤醒是 `UserPromptSubmit`。payload 没有 `source` 字段。完整 prompt 里的 `<task-notification>` 在 status 非空且不是 `running` 时,按 `<task-id>` 与 `<tool-use-id>` 删除。普通 prompt 不清账本。
@@ -49,10 +49,11 @@ Done 随即被卡片、播报、移动端推送和 `crates/app/src/app/agent_run
 
 - 每节点一个 `HashSet<WorkId>`。
 - 登记:Claude `PostToolUse` 且 `tool_input.run_in_background == true`。id 优先 `backgroundTaskId` / `agentId`,否则 `tool_use_id`,并记下 tool_use_id 别名。`SubagentStart` 的 `agent_id` 也登记。`PostToolUseFailure` 与前台工具不登记。
-- 快照:`Stop` / `SubagentStop` 带 `background_tasks` 数组时,用数组 id 替换开放集合。缺字段只走增量账本,且账本已空时仍进入确认窗口,否则旧 hook 与无后台的回合永远不 Done。
+- 快照:`Stop` / `SubagentStop` 带 `background_tasks`（Grok 为 `backgroundTasks`）数组时,用其中仍开放的 id 替换开放集合。`completed` / `failed` 不算开放工作;缺 `status` 或 `running` 仍算。缺字段只走增量账本,且账本已空时仍进入确认窗口,否则旧 hook 与无后台的回合永远不 Done。
 - 显式删除:`TaskStop` / `KillShell` / `KillBash` 按 `task_id` 删。`<task-notification>` 在 status 不是空也不是 `running` 时,按 `<task-id>` 与 `<tool-use-id>` 删。删到空也不马上 Done,要等下一次空快照的 `Stop` 加上确认窗口。
 - `SubagentStop` 有快照就替换(实测仍可能是 running);缺字段才按 `agent_id` 删除。它本身 Forward,并取消窗口。
 - `stop_hook_active == true` 与普通 `Stop` 相同：被阻止后续跑和最终那次 Stop 都带 true，只能靠续跑活动作废窗口，否则卡片会永久运行。Grok 同样进入本账本：子会话（带 `subagentType`）的生命周期事件与会话关闭时 `reason != end_turn` 的 Stop 直接丢弃。
+- Grok 事件不保证顺序：`Notification` / `PreCompact` / `PostCompact` 是观察型事件，不作废确认窗口（`task_complete` 常晚于 Stop 到达）。`Stop` / `StopFailure` / `StopCancelled` 的 `promptId` 与当前回合不同即上一回合的迟到报告，直接丢弃。漏发 Stop 时，开放回合且账本已空的 `idle_prompt` Notification（安静约 1 分钟后）收尾为 Done。
 - 清理:账本非空的 `SessionEnd`、`StopFailure`、Agent 进程退出(`abandon`)整体清空,不补发 Done。空账本且确认窗口仍开着时,`SessionEnd` 先 Confirm(`unsettled=false`)再 Forward。
 - 新的 `UserPromptSubmit` 不清账本,但取消待定窗口,并记下 `last_prompt_unix_ms`。
 
@@ -124,7 +125,7 @@ Done 为可撤销状态:Done 后收到活动事件 → 回 Thinking(外部副作
 
 - 确认窗口让真正的完成通知晚约 800ms。子 Agent 的 notification 可以比空 Stop 晚 36ms,窗口按这个间隔取的。
 - 进程探针扫不到 `nohup` / `setsid` 和云端 Agent,只能延后,不能单独决定完成。进程名含 `mcp` 的常驻后代排除在外。
-- Codex、Cursor、Grok、Kimi、Hermes、Pi、ZCode、OpenCode、InfCode 尚未接入。它们的 Stop 仍立即 Done。
+- Codex、Cursor、Kimi、Hermes、Pi、ZCode、OpenCode、InfCode 尚未接入。它们的 Stop 仍立即 Done。
 - `claude -p` 的 SessionEnd 紧跟最终 Stop。空账本时同一 drain 先发 Done 再发 Ended。任务结算使用发布当时的状态,避免最终的 Ended 把刚成功的任务记成中断。
 
 ## 8. 已定与仍开放

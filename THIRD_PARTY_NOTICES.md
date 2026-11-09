@@ -1,5 +1,10 @@
 # Third-party notices
 
+Norma OS's GNU Affero General Public License v3.0 does not replace or modify
+the licenses of third-party code, dependencies, or assets. Those components
+remain subject to their respective licenses and notices, including license
+files supplied alongside them.
+
 ## Norma Aurora orb
 
 `crates/app/assets/icons/norma-orb-00.png` through `norma-orb-31.png` and

@@ -1,15 +1,16 @@
 fn start_event_pump(
-    events: async_channel::Receiver<AgentEvent>,
+    events: async_channel::Receiver<RuntimeEvent>,
     runtime_id: u64,
     cx: &mut Context<MultisoulApp>,
 ) {
     cx.spawn(async move |this, cx| {
         while let Ok(event) = events.recv().await {
-            diagnostics::event_receive(runtime_id, &event);
+            diagnostics::event_receive(runtime_id, &event.event);
             let _ = this.update(cx, |app, cx| {
-                if !is_current_runtime(app, runtime_id) {
+                if !is_current_runtime(app, runtime_id) || !event.is_current(Some(app.dialogue.reply_generation)) {
                     return;
                 }
+                let event = event.event;
                 match event {
                     AgentEvent::DialogueTextDelta { text } => {
                         app.dialogue.on_agent_text_delta(&text, cx);

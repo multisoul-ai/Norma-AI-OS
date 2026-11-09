@@ -132,7 +132,7 @@ impl Runtime {
 
     pub fn restore_canvas_snapshot(&mut self, snapshot: DocumentSnapshot) {
         self.kill_all();
-        self.questions = questions::Questions::default();
+        self.questions.reset();
         self.events.remove_all();
         self.document = Document::from_snapshot(snapshot);
         self.selection.clear();
@@ -256,13 +256,7 @@ impl Runtime {
         worktree: Option<&Path>,
     ) -> Result<NodeId, PtyError> {
         let node_id = self.add_agent_node(profile, definition_id, alias, bounds);
-        if matches!(
-            profile,
-            AgentProfile::Claude
-                | AgentProfile::Codex
-                | AgentProfile::Cursor
-                | AgentProfile::OpenCode
-        ) {
+        if questions::reserves_native_question_run(profile) {
             self.reserve_native_run(node_id);
         }
         let sid = self.allocate_session_id();

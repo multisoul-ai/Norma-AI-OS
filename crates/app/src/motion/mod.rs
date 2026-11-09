@@ -35,7 +35,7 @@ pub(crate) use crate::motion::initialization::{
 };
 #[cfg(test)]
 pub(crate) use crate::motion::initialization::{
-    INITIALIZATION_CROSSFADE_DURATION, INITIALIZATION_CROSSFADE_START,
+    INITIALIZATION_CROSSFADE_DURATION, INITIALIZATION_CROSSFADE_START, INITIALIZATION_FRAME_COUNT,
     INITIALIZATION_FRAME_INTERVAL, INITIALIZATION_INTERRUPT_DURATION,
     INITIALIZATION_TOTAL_DURATION,
 };
@@ -149,8 +149,10 @@ impl MotionStore {
     }
     pub(crate) fn start_initialization(&mut self, id: NodeId, kind: InitializationAnimationKind) {
         if self.nodes.contains_key(&id) {
-            self.initializations
-                .insert(id, InitializationAnimation::new(kind));
+            self.initializations.insert(
+                id,
+                InitializationAnimation::starting(kind, self.reduce_motion),
+            );
         }
     }
     pub(crate) fn initialization_presentation(

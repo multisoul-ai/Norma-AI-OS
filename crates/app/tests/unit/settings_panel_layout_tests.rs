@@ -176,3 +176,19 @@ fn test_settings_panel_layout_respects_minimum_and_viewport_bounds() {
         "导航仍按既有面板宽度断点选择"
     );
 }
+
+/// 场景：所有设置页共用同一面板外框，切到语音页不得放大。
+/// 数据构造：1440×900，每边 70% → 1008×630，left=(1440-1008)/2=216，top=(900-630)/2=135。
+/// 执行过程：计算 1440×900 的布局，比较与旧语音页加宽框 1280×810 的差异。
+/// 预期结果：外框恒为 1008×630；不得出现 1280 宽的语音专用外框。
+#[test]
+fn test_settings_panel_size_is_the_same_for_every_section() {
+    let layout = SettingsPanelLayout::for_viewport(1440.0, 900.0);
+
+    assert_eq!(
+        (layout.width, layout.height, layout.left, layout.top),
+        (1008.0, 630.0, 216.0, 135.0),
+        "所有设置页保持每边 70%"
+    );
+    assert_ne!(layout.width, 1280.0, "语音页不得再使用专用加宽外框");
+}

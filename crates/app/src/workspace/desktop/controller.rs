@@ -19,6 +19,7 @@ impl MultisoulApp {
                 Ok((workspaces, previews)) => {
                     app.desktop_workspace.workspaces = workspaces;
                     app.desktop_workspace.previews = previews;
+                    app.mark_workspace_activity_dirty(cx);
                     app.bind_desktop_wallpaper(cx);
                     app.broadcast_wallpaper_state(None, cx);
                     cx.notify();
@@ -136,7 +137,7 @@ impl MultisoulApp {
         })
         .detach();
     }
-    pub(super) fn open_desktop_workspace(
+    pub(crate) fn open_desktop_workspace(
         &mut self,
         id: String,
         window: &mut Window,

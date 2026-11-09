@@ -1,4 +1,4 @@
-use brain::{BrainEvent, Lane, Router, RouterConfig, TriggerKind};
+use brain::{BrainEventKind, Lane, Router, RouterConfig, TriggerKind};
 use std::time::Instant;
 
 /// 场景：前台转交后台的长用户请求，不能按播报摘要长度截掉末尾背景和约束。
@@ -22,7 +22,7 @@ fn long_user_request_reaches_brain_without_losing_tail_constraints() {
         let now = Instant::now();
         let mut router = Router::new(RouterConfig::default(), now);
         let actions = router.push(
-            BrainEvent::UserRequest {
+            BrainEventKind::UserRequest {
                 text: original.clone(),
             },
             now,

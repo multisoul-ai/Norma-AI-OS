@@ -35,6 +35,7 @@ fn context(input: &str) -> ToolContext {
         turn_id: "turn".into(),
         user_input: input.into(),
         input_source: AgentInputSource::Voice,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "function-call".into(),
         operation_id: None,
@@ -58,12 +59,12 @@ async fn shared_budget_stops_before_twenty_first_side_effect() {
     for index in 0..20 {
         let entry = if index % 2 == 0 { &policy } else { &other };
         entry
-            .execute(&runtime, "create_terminal", json!({}), &context("execute"))
+            .execute(&runtime, "terminal_create", json!({}), &context("execute"))
             .await
             .expect("前 20 次应能进入 Adapter");
     }
     let overflow = other
-        .execute(&runtime, "create_terminal", json!({}), &context("execute"))
+        .execute(&runtime, "terminal_create", json!({}), &context("execute"))
         .await;
     assert!(
         matches!(overflow, Err(AdapterError::Rejected(_))),
@@ -75,7 +76,7 @@ async fn shared_budget_stops_before_twenty_first_side_effect() {
         "溢出调用不得到达 Adapter"
     );
     let next = ToolCallPolicy::default()
-        .execute(&runtime, "create_terminal", json!({}), &context("execute"))
+        .execute(&runtime, "terminal_create", json!({}), &context("execute"))
         .await
         .expect("新回合预算应独立");
     assert_eq!(next.status, "accepted", "接收回执不能改写成任务完成");
@@ -96,7 +97,7 @@ async fn consecutive_failures_reset_only_on_known_success() {
     let policy = ToolCallPolicy::default();
     for _ in 0..2 {
         policy
-            .execute(&runtime, "create_terminal", json!({}), &context("fail"))
+            .execute(&runtime, "terminal_create", json!({}), &context("fail"))
             .await
             .expect_err("构造失败");
     }
@@ -105,19 +106,19 @@ async fn consecutive_failures_reset_only_on_known_success() {
         "两次失败不能提前耗尽三次预算"
     );
     policy
-        .execute(&runtime, "create_terminal", json!({}), &context("execute"))
+        .execute(&runtime, "terminal_create", json!({}), &context("execute"))
         .await
         .expect("第三次成功应执行并清零");
     assert!(!policy.failure_budget_exhausted(), "成功应清零连续失败");
     for _ in 0..3 {
         policy
-            .execute(&runtime, "create_terminal", json!({}), &context("fail"))
+            .execute(&runtime, "terminal_create", json!({}), &context("fail"))
             .await
             .expect_err("构造三次连续失败");
     }
     assert!(policy.failure_budget_exhausted(), "三次连续失败应耗尽预算");
     let blocked = policy
-        .execute(&runtime, "create_terminal", json!({}), &context("execute"))
+        .execute(&runtime, "terminal_create", json!({}), &context("execute"))
         .await;
     assert!(blocked.is_err(), "预算耗尽后不能再次写入");
     assert_eq!(
@@ -139,12 +140,12 @@ async fn unknown_outcome_stops_all_cloned_entries() {
     let policy = ToolCallPolicy::default();
     let other = policy.clone();
     let unknown = policy
-        .execute(&runtime, "create_terminal", json!({}), &context("unknown"))
+        .execute(&runtime, "terminal_create", json!({}), &context("unknown"))
         .await;
     assert!(unknown.is_err(), "unknown 不能作为成功工具结果返回");
     assert!(other.unknown_seen(), "停止标记必须在同回合共享");
     let blocked = other
-        .execute(&runtime, "create_terminal", json!({}), &context("execute"))
+        .execute(&runtime, "terminal_create", json!({}), &context("execute"))
         .await;
     assert!(blocked.is_err(), "未知结果后的写操作必须阻断");
     assert_eq!(adapter.0.load(Ordering::Relaxed), 1, "不得出现第二次副作用");

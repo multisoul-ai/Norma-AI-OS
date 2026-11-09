@@ -222,6 +222,21 @@ impl MultisoulApp {
         let win_w = f32::from(win.width);
         let win_h = f32::from(win.height);
         let layout = SettingsPanelLayout::for_viewport(win_w, win_h);
+        if self.settings_panel.active_section == SettingsSection::NormaVoice
+            && self.voice_settings.values().desktop_mode()
+                == crate::settings::voice::DesktopVoiceMode::Legacy
+        {
+            let roster = self.single_voice_roster();
+            let project = self.workspace_state.current_root.clone();
+            self.voice_settings_inputs
+                .prepare_command_preview(self.theme, project, roster, window, cx);
+            self.voice_settings_inputs.prepare_capabilities(
+                &self.voice_settings,
+                self.theme,
+                window,
+                cx,
+            );
+        }
         debug_assert!(
             layout.content_width() > 0.0,
             "settings layout must reserve positive content width"

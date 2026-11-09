@@ -10,11 +10,19 @@ where
 {
     async fn on_event(&self, _context: &HookContext, event: StepEvent<'_, M>) -> Flow {
         if let StepEvent::ToolCall {
+            tool_name,
+            args,
             tool_call_id,
             internal_call_id,
             ..
         } = event
         {
+            if self.context.is_single_voice_command()
+                && !crate::voice_command::is_read_only_tool(tool_name)
+            {
+                self.context.propose_voice_command(tool_name, args);
+                return Flow::skip("{\"status\":\"proposed\",\"executed\":false}");
+            }
             self.context
                 .record_tool_call(tool_call_id, internal_call_id);
         }
@@ -36,6 +44,7 @@ where
     let personal = rig_context.context_project_is_personal();
     let workspace = rig_context.is_mobile_workspace();
     let gpt_live = rig_context.is_gpt_live();
+    let normalized_delete_schema = gpt_live || rig_context.is_single_voice_command();
     let builder = AgentBuilder::new(model)
         .name("Norma")
         .description("Norma OS 的唯一 Master Agent")
@@ -63,9 +72,6 @@ where
     let builder = if desktop_active {
         builder
             .tool(crate::rig_tools::WorkspaceSnapshotTool::new(tools.clone()))
-            .tool(crate::rig_tools::AssignWorkspaceTaskTool::new(
-                tools.clone(),
-            ))
             .tool(crate::rig_tools::OpenWorkspaceArtifactTool::new(
                 tools.clone(),
             ))
@@ -74,21 +80,7 @@ where
             ))
             .tool(crate::rig_tools::CaptureIdeaTool::new(tools.clone()))
             .tool(crate::rig_tools::ListIdeasTool::new(tools.clone()))
-            .tool(crate::rig_tools::AssignIdeaTool::new(tools.clone()))
-    } else {
-        builder
-    };
-    let builder = if desktop_active && personal {
-        builder
-            .tool(CreateBrowserTool::new(tools.clone()))
-            .tool(CreatePreviewTool::new(tools.clone()))
-    } else {
-        builder
-    };
-    let builder = if desktop_active && personal {
-        builder
-            .tool(CreateBrowserTool::new(tools.clone()))
-            .tool(CreatePreviewTool::new(tools.clone()))
+            .tool(AssignAgentTaskTool::new(tools.clone()))
     } else {
         builder
     };
@@ -101,16 +93,16 @@ where
         .tool(crate::rig_tools::HandoffToBrainTool::new(tools.clone()))
         .tool(FindAgentTasksTool::new(tools.clone()))
         .tool(CreateAgentTool::new(tools.clone()))
-        .tool(AssignAgentTaskTool::new(tools.clone()))
         .tool(CancelAgentTaskTool::new(tools.clone()))
         .tool(ReplyAgentTool::new(tools.clone()))
         .tool(CancelAgentReplyTool::new(tools.clone()))
-        .tool(CreateTerminalTool::new(tools.clone()))
-        .tool(CreateBrowserTool::new(tools.clone()))
-        .tool(CreatePreviewTool::new(tools.clone()))
-        .tool(FocusCardTool::new(tools.clone()))
-        .tool(SendTerminalInputTool::new(tools));
-    if gpt_live {
+        .tool(CreateTerminalTool::new(tools.clone()));
+    let builder = if desktop_active {
+        builder
+    } else {
+        builder.tool(AssignAgentTaskTool::new(tools.clone()))
+    };
+    if normalized_delete_schema {
         builder
             .tool(crate::rig_tools::GptLiveDeleteCanvasCardTool(delete))
             .build()
@@ -228,6 +220,10 @@ impl NormaSession {
             }
         }
         self.prune_protocol_history();
+        crate::trace_assembled_prompt("session", &preamble);
+        if let Some(data) = &context_data {
+            crate::trace_assembled_prompt("session-shared", data);
+        }
         Ok((preamble, context_data))
     }
 }
@@ -239,27 +235,20 @@ fn active_definition(
     shared: bool,
 ) -> bool {
     let rig = RigToolContext::new(context.clone());
-    let personal = rig.context_project_is_personal();
-    let desktop = matches!(
-        desktop,
-        Some(
-            DesktopContext::WorkspaceOverview { .. }
-                | DesktopContext::ProjectCanvas { .. }
-                | DesktopContext::Switching { .. }
-        )
-    );
-    match name {
-        "memory_list" | "memory_search" | "memory_read" | "memory_write" => true,
-        "context_read" | "context_update" => shared,
-        "workspace_memory" => rig.is_mobile_workspace(),
-        "workspace_snapshot"
-        | "assign_workspace_task"
-        | "open_workspace_artifact"
-        | "locate_workspace_agent"
-        | "capture_idea"
-        | "list_ideas"
-        | "assign_idea" => desktop,
-        "create_browser" | "create_preview" => !personal || desktop,
-        _ => !personal,
-    }
+    crate::model_tool_visible(
+        name,
+        crate::ModelToolScope {
+            personal: rig.context_project_is_personal(),
+            desktop: matches!(
+                desktop,
+                Some(
+                    DesktopContext::WorkspaceOverview { .. }
+                        | DesktopContext::ProjectCanvas { .. }
+                        | DesktopContext::Switching { .. }
+                )
+            ),
+            shared,
+            mobile: rig.is_mobile_workspace(),
+        },
+    )
 }

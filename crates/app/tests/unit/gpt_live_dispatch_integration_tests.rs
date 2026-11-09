@@ -1,20 +1,19 @@
 use super::super::bridge::LiveBridge;
 use super::*;
+use crate::test_gpt_live_sse as sse;
 use agent::{AgentCardAdapter, AgentInputSource, ProviderConfig, ProviderProtocol, ToolContext};
 use serde_json::json;
-#[path = "../support/gpt_live_sse.rs"]
-mod sse;
 
 /// AC05/AC07/AC08/AC10：本地SSE规划经真实NormaSession、持久Adapter和GPUI pump创建隔离项目卡片。
-/// 构造：观测原文“创建浏览器”、模型create_browser和最终回复；真实App域状态及隔离SQLite。
+/// 构造：观测原文“创建一个终端”、模型 terminal_create 和最终回复；真实App域状态及隔离SQLite。
 /// 执行：认领→SSE工具调用→生产channel/MemoryAdapter/画布副作用→真实回执；换owner重放相同操作。
-/// 预期：真实Browser只有一张；node回执与账本一致；重放回执不新增卡片；不代表真人或云端验收。
+/// 预期：真实终端只有一张；node回执与账本一致；重放回执不新增卡片；不代表真人或云端验收。
 #[test]
-fn gpt_live_sse_to_real_project_adapter_records_one_browser_and_replays_receipt() {
+fn gpt_live_sse_to_real_project_adapter_records_one_terminal_and_replays_receipt() {
     let runtime = crate::app::shared_tokio_runtime().expect("Tokio runtime");
     let (endpoint,server)=runtime.block_on(sse::serve(vec![
-        json!({"role":"assistant","tool_calls":[{"index":0,"id":"tool-fixture","type":"function","function":{"name":"create_browser","arguments":"{}"}}]}),
-        json!({"role":"assistant","content":"浏览器已创建"}),
+        json!({"role":"assistant","tool_calls":[{"index":0,"id":"tool-fixture","type":"function","function":{"name":"terminal_create","arguments":"{}"}}]}),
+        json!({"role":"assistant","content":"终端已创建"}),
     ]));
     let mut gpui = gpui::TestAppContext::single();
     let project = tempfile::tempdir().expect("隔离项目");
@@ -31,7 +30,7 @@ fn gpt_live_sse_to_real_project_adapter_records_one_browser_and_replays_receipt(
         .transcript(live_voice::TranscriptFragment {
             event_id: "u1".into(),
             speaker: live_voice::Speaker::User,
-            delta: "创建一个浏览器".into(),
+            delta: "创建一个终端".into(),
             start_ms: 0.0,
             end_ms: 200.0,
         })
@@ -85,7 +84,7 @@ fn gpt_live_sse_to_real_project_adapter_records_one_browser_and_replays_receipt(
                 request_id: intent,
                 revision: snapshot.revision,
                 user_input: snapshot.user_input,
-                conversation: "User: 创建一个浏览器".into(),
+                conversation: "User: 创建一个终端".into(),
                 cancellation: token,
             })
             .await;
@@ -137,6 +136,7 @@ fn gpt_live_sse_to_real_project_adapter_records_one_browser_and_replays_receipt(
         turn_id: turn_id.clone(),
         user_input: work.snapshot.user_input.clone(),
         input_source: AgentInputSource::GptLiveVoice,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "replay".into(),
         operation_id: Some(format!("{turn_id}:step-1")),
@@ -150,11 +150,11 @@ fn gpt_live_sse_to_real_project_adapter_records_one_browser_and_replays_receipt(
         "owner-b".into(),
     );
     let replay = runtime
-        .block_on(restarted.execute(agent::AdapterCommand::CreateBrowser { url: None }, &context))
+        .block_on(restarted.execute(agent::AdapterCommand::CreateTerminal, &context))
         .expect("重启重放");
     assert_eq!(replay.node_id, Some(node), "重启只返回原回执");
     let count = app.read_with(cx, |app, _| app.runtime.document.nodes().len());
-    assert_eq!(count, 1, "真实项目只有一张Browser，重放不新增");
+    assert_eq!(count, 1, "真实项目只有一张终端，重放不新增");
     let requests = runtime.block_on(server).expect("SSE服务结束");
     assert_eq!(requests.len(), 2, "工具调用和最终回复均完成真实HTTP交换");
     app.update(cx, |app, cx| app.stop_gpt_live_voice(cx));

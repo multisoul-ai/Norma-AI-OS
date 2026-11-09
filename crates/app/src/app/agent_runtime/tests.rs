@@ -27,6 +27,9 @@ mod agent_dispatch_submit_tests;
 #[path = "../../../tests/unit/agent_dispatch_visual_effect_tests.rs"]
 mod agent_dispatch_visual_effect_tests;
 
+#[path = "../../../tests/unit/gpt_live_dispatch_visual_effect_tests.rs"]
+mod gpt_live_dispatch_visual_effect_tests;
+
 #[path = "../../../tests/unit/agent_to_agent_dispatch_visual_effect_tests.rs"]
 mod agent_to_agent_dispatch_visual_effect_tests;
 
@@ -53,3 +56,6 @@ mod agent_context_command_tests;
 
 #[path = "../../../tests/unit/agent_self_identity_tests.rs"]
 mod agent_self_identity_tests;
+
+#[path = "../../../tests/unit/voice_runtime_commit_tests.rs"]
+mod voice_runtime_commit_tests;

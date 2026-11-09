@@ -1,0 +1,211 @@
+<title>Norma 灵动岛 2.0</title>
+<style>
+/* 布局：沿用现有岛的真实结构（刘海居中、左右各一个槽、收起/完成/审批/展开四形态），把 Bloub 角色放进岛里，并解决 7～8 个 Agent 的显示 */
+:root{color-scheme:dark;--page:#0a0c0f;--page-fg:#e6e9ee;--page-muted:#8a919d;--page-line:rgba(255,255,255,.08);
+ --island:#000;--fg:#f4f6f8;--muted:rgba(232,238,246,.58);--faint:rgba(232,238,246,.34);--line:rgba(255,255,255,.08);--surface:rgba(255,255,255,.06);--surface-hi:rgba(255,255,255,.11);
+ --run:#5fcbe0;--attn:#ffa94d;--ok:#5ad38a;--deny:#ff7b7b;--staff:#a99bff;--win:#111419;--win-bar:#171b21;--card:#191e26;--card-line:rgba(255,255,255,.07);--dot:rgba(255,255,255,.07);
+ --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Helvetica Neue",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace;--ease:cubic-bezier(.32,.72,0,1);--spring:cubic-bezier(.34,1.56,.64,1)}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--page-fg);font-family:var(--sans);margin:0;padding-block:28px 56px;padding-inline:16px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--run);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{margin:0;font-size:22px;font-weight:650}.lead{margin:4px 0 0;color:var(--page-muted);font-size:13px;max-width:70ch;line-height:1.6}
+h2.sec{margin:6px 0 0;font-size:13px;font-weight:650;color:var(--page-muted);letter-spacing:.04em}
+.stage{position:relative;height:640px;border-radius:16px;overflow:hidden;background:radial-gradient(120% 90% at 15% 0%,#2a3550,transparent 55%),radial-gradient(90% 80% at 100% 100%,#3b2a45,transparent 60%),linear-gradient(160deg,#151a24,#0d1016);box-shadow:0 0 0 1px var(--page-line)}
+.stage.sm{height:auto;min-height:0;padding-top:34px;display:flex;justify-content:center;align-items:flex-start;padding-bottom:26px}
+.menubar{position:absolute;inset:0 0 auto;height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:13px;background:rgba(18,20,26,.5);backdrop-filter:blur(24px)}
+.menubar .m{display:flex;gap:18px}.menubar b{font-weight:650}.menubar .dim{color:rgba(240,243,248,.82)}
+.window{position:absolute;top:54px;left:3.5%;right:3.5%;bottom:20px;border-radius:12px;background:var(--win);box-shadow:0 0 0 1px rgba(255,255,255,.07);overflow:hidden}
+.wbar{height:36px;display:flex;align-items:center;gap:7px;padding:0 14px;background:var(--win-bar);border-bottom:1px solid var(--card-line)}.wbar i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.wbar i:nth-child(2){background:#febc2e}.wbar i:nth-child(3){background:#28c840}
+.canvas{position:absolute;inset:36px 0 0;background-image:radial-gradient(var(--dot) 1px,transparent 1.2px);background-size:22px 22px}
+.fc{position:absolute;width:260px;height:150px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--card-line)}
+
+/* —— 岛 —— */
+.island{--w:330px;position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:10;width:var(--w);height:34px;background:var(--island);color:var(--fg);border-radius:0 0 17px 17px;overflow:hidden;font-size:12px;
+ transition:width .4s var(--ease),height .4s var(--ease),border-radius .4s var(--ease),box-shadow .3s}
+.stage.sm .island{position:relative;left:auto;transform:none;margin:0 auto}
+.island[data-mode=activity]{border-radius:0 0 24px 24px}.island[data-mode=alert]{border-radius:0 0 32px 32px}.island[data-mode=expanded]{border-radius:0 0 32px 32px}
+.island:not([data-mode=compact]){box-shadow:0 22px 60px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.07)}
+.row{height:34px;display:grid;grid-template-columns:1fr 184px 1fr;align-items:center;padding:0 12px;cursor:pointer}
+.island[data-mode=expanded] .row{height:52px;cursor:default}
+.notch{height:34px;position:relative}.notch::after{content:"";position:absolute;left:50%;top:12px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:#0c1018;box-shadow:inset 0 0 0 1.5px #1a2130}
+.slot{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap}.slot.r{justify-content:flex-end}
+.view{display:none}.view.on{display:block;animation:viewin .26s ease-out .08s both}
+@keyframes viewin{from{opacity:0;transform:translateY(-4px) scale(.985)}}
+.spin{width:11px;height:11px;border-radius:50%;border:1.6px solid rgba(95,203,224,.25);border-top-color:var(--run);animation:spin .9s linear infinite;flex:none}@keyframes spin{to{transform:rotate(360deg)}}
+.num{font-variant-numeric:tabular-nums;font-weight:600}.kind{font-size:11px;color:var(--faint)}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--attn);animation:pulse 1.6s ease-out infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,169,77,.6)}70%,100%{box-shadow:0 0 0 7px rgba(255,169,77,0)}}
+.badge{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;border-radius:10px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}.badge.attn{background:rgba(255,169,77,.16);color:var(--attn)}.badge.ok{color:var(--ok)}
+.icon{width:13px;height:13px;flex:none}
+.wave{display:flex;align-items:center;gap:2px;height:16px}.wave i{width:2.5px;height:100%;border-radius:2px;background:var(--staff);transform:scaleY(.3);animation:wave .9s ease-in-out infinite}.wave i:nth-child(2){animation-delay:-.2s}.wave i:nth-child(3){animation-delay:-.45s}.wave i:nth-child(4){animation-delay:-.1s}.wave i:nth-child(5){animation-delay:-.6s}@keyframes wave{50%{transform:scaleY(1)}}
+.orb{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#efeaff,#a99bff 45%,#5a46c9);animation:breathe 1.4s ease-in-out infinite}@keyframes breathe{50%{transform:scale(1.1);box-shadow:0 0 18px rgba(169,155,255,.55)}}
+
+/* —— Bloub 头像：按 Agent 固定的轮廓 + 随状态变化的表情与动作 —— */
+.bl{--s:22px;width:var(--s);height:var(--s);flex:none;display:inline-block;position:relative}
+.bl svg{width:100%;height:100%;overflow:visible;display:block}
+.bl .bd{transform-box:fill-box;transform-origin:50% 100%}
+.bl .e{opacity:0}.bl .ey{transform-box:fill-box;transform-origin:center;animation:blink 4.4s infinite;animation-delay:var(--p)}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+.bl[data-m=work] .en,.bl[data-m=idle] .en,.bl[data-m=queued] .en{opacity:1}.bl[data-m=wait] .ec{opacity:1}.bl[data-m=resp] .eh{opacity:1}.bl[data-m=fail] .es{opacity:1}
+.bl[data-m=work] .bd{animation:work .9s ease-in-out infinite;animation-delay:var(--p)}@keyframes work{50%{transform:scale(1.06,.96)}}
+.bl[data-m=work] .en{animation:gaze 1.8s ease-in-out infinite alternate;animation-delay:var(--p)}@keyframes gaze{from{transform:translateX(-.07px)}to{transform:translateX(.07px)}}
+.bl[data-m=wait] .bd{animation:sway 1.1s ease-in-out infinite}@keyframes sway{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+.bl[data-m=resp] .bd{animation:hop 1.1s var(--spring) infinite}@keyframes hop{40%{transform:translateY(-12%) scale(.97,1.05)}}
+.bl[data-m=fail] .bd{transform:scaleY(.93)}.bl[data-m=idle] .bd,.bl[data-m=queued] .bd{animation:idle 3.4s ease-in-out infinite}@keyframes idle{50%{transform:scale(1.025)}}
+.bl[data-m=queued]{opacity:.55}
+.bl.ping::after{content:"";position:absolute;inset:-2px;border-radius:50%;box-shadow:0 0 0 1.5px var(--attn);animation:ring 1.4s ease-out infinite}@keyframes ring{from{opacity:.9;transform:scale(.9)}to{opacity:0;transform:scale(1.5)}}
+.stack{display:flex}.stack .bl{filter:drop-shadow(0 0 0 #000) drop-shadow(0 0 1.5px #000)}.stack .bl+.bl{margin-left:-2px}
+.more{height:16px;min-width:16px;padding:0 4px;margin-left:-4px;border-radius:8px;background:#23272f;color:#fff;font-size:9.5px;font-weight:650;display:grid;place-items:center;box-shadow:0 0 0 1.5px #000}
+
+/* —— 完成通知 —— */
+.act{display:flex;align-items:center;gap:12px;padding:4px 16px 14px;font-size:13px}
+.act .tx{flex:1;min-width:0;line-height:1.45}.act .tx small{color:var(--muted);font-size:11.5px}
+.act .tm{position:absolute;left:0;bottom:0;height:2px;background:var(--ok);width:100%;transform-origin:left;animation:tm 3s linear forwards}@keyframes tm{to{transform:scaleX(0)}}
+/* —— 通用控件 —— */
+.btn{height:30px;padding:0 12px;border-radius:9px;font-size:12.5px;font-weight:560;background:var(--surface);transition:background .15s,transform .1s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}.btn:hover{background:var(--surface-hi)}.btn:active{transform:scale(.97)}
+.btn.pri{background:var(--fg);color:#0a0c0f}.btn.pri:hover{background:#fff}.btn.no{color:var(--deny)}.btn.ghost{background:none;color:var(--muted);padding:0 8px}.btn.ghost:hover{background:var(--surface);color:var(--fg)}
+.chip{display:inline-flex;align-items:center;height:19px;padding:0 7px;border-radius:6px;font-size:11px;font-weight:550;white-space:nowrap}.chip.run{background:rgba(95,203,224,.13);color:var(--run)}.chip.done{background:rgba(90,211,138,.13);color:var(--ok)}.chip.wait{background:var(--surface);color:var(--muted)}.chip.attn{background:rgba(255,169,77,.14);color:var(--attn)}
+/* —— 审批 —— */
+.alert{padding:6px 16px 16px;display:flex;flex-direction:column;gap:10px}
+.pc{border-radius:16px;background:var(--surface);padding:12px;display:flex;flex-direction:column;gap:10px}
+.ph{display:flex;align-items:center;gap:10px;font-size:13px;min-width:0}.ph .who{display:flex;flex-direction:column;gap:1px;min-width:0}.ph .who small{font-size:11px;color:var(--faint)}.ph .chip{margin-left:auto}
+.code{font:12px/1.5 var(--mono);background:rgba(0,0,0,.55);border:1px solid var(--line);border-radius:9px;padding:8px 10px;overflow-x:auto;white-space:pre}.code::before{content:"$ ";color:var(--faint)}
+.why{font-size:12px;color:var(--muted);line-height:1.5}.acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}.acts .sp{flex:1}
+.opts{display:flex;flex-direction:column;gap:6px}.opt{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.35);font-size:12.5px;text-align:left;box-shadow:inset 0 0 0 1px var(--line)}.opt[aria-checked=true]{box-shadow:inset 0 0 0 1.5px var(--run)}.opt .rd{width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--faint)}.opt[aria-checked=true] .rd{box-shadow:inset 0 0 0 4px var(--run)}
+.files{display:flex;flex-wrap:wrap;gap:6px;font:11.5px var(--mono);color:var(--muted)}.files span{padding:2px 7px;border-radius:6px;background:rgba(0,0,0,.4)}.plus{color:var(--ok)}.minus{color:var(--deny)}
+.queue{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);padding:0 4px}.queue button{border-radius:12px;padding:3px;display:inline-flex;transition:background .15s}.queue button:hover{background:var(--surface)}.queue button[aria-pressed=true]{background:var(--surface-hi);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+/* —— 展开 —— */
+.tabs{display:flex;gap:2px;margin:4px 16px 0;padding:3px;border-radius:11px;background:var(--surface)}
+.tab{flex:1;height:30px;border-radius:8px;font-size:12.5px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px}.tab:hover{color:var(--fg)}.tab[aria-selected=true]{background:var(--surface-hi);color:var(--fg);font-weight:600}
+.tab .n{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}.tab .n.attn{color:var(--attn)}
+.pane{max-height:440px;overflow:auto;padding:12px 16px 16px;display:flex;flex-direction:column;gap:12px;scrollbar-width:thin}
+.roster{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fl{height:26px;padding:0 10px;border-radius:13px;font-size:12px;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line);display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}.fl:hover{color:var(--fg)}.fl[aria-pressed=true]{color:var(--fg);background:var(--surface-hi);box-shadow:none}
+.fl i{width:7px;height:7px;border-radius:50%}
+.ws-h{display:flex;gap:8px;align-items:baseline;font-size:11.5px;margin-bottom:2px;padding:0 4px}.ws-h b{font-weight:650}.ws-h span{color:var(--faint)}
+.agent{display:flex;gap:10px;align-items:center;padding:7px 8px;border-radius:12px}.agent:hover{background:var(--surface)}
+.agent .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.t1{display:flex;gap:7px;align-items:center;font-size:13px;min-width:0}.t1 .task{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.t2{font-size:11.5px;color:var(--muted);display:flex;gap:6px;align-items:center;font-variant-numeric:tabular-nums}
+.bar{height:3px;border-radius:2px;background:var(--surface-hi);overflow:hidden;margin-top:3px}.bar i{display:block;height:100%;background:var(--run)}
+.staffp{display:flex;flex-direction:column;gap:12px}.staffp .who{display:flex;align-items:center;gap:12px}.speak{height:34px;padding:0 14px;border-radius:17px;background:var(--staff);color:#120f24;font-weight:620;font-size:12.5px;margin-left:auto}
+.cap{font-size:14px;line-height:1.75;border-radius:14px;background:var(--surface);padding:12px 14px;color:var(--muted)}.cap .now{color:var(--fg)}
+/* —— 控制条 —— */
+.controls{display:flex;flex-wrap:wrap;gap:16px 28px}.group{display:flex;flex-direction:column;gap:8px}.group h3{margin:0;font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--page-muted)}
+.bs{display:flex;flex-wrap:wrap;gap:6px}.cb{height:30px;padding:0 12px;border-radius:8px;font-size:12.5px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px var(--page-line)}.cb:hover{background:rgba(255,255,255,.1)}.cb[aria-pressed=true]{box-shadow:inset 0 0 0 1.5px var(--run);color:var(--run)}
+.gal{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:14px}.cell{display:flex;flex-direction:column;gap:8px;min-width:0}.cell p{margin:0;font-size:12px;color:var(--page-muted);line-height:1.6}.cell b{color:var(--page-fg);font-size:13px}
+.cell .stage{overflow:hidden}.cell .island{font-size:12px}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;font-size:12.5px;line-height:1.6;color:var(--page-muted)}.notes b{color:var(--page-fg);display:block;margin-bottom:2px;font-size:13px}
+html.solo .wrap>*:not(#main){display:none}html.solo body{padding:0}html.solo .wrap{max-width:none}html.solo .stage{border-radius:0;height:640px}
+html.still *,html.still *::before,html.still *::after{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+<div class="wrap">
+  <header><h1>Norma 灵动岛 2.0</h1><p class="lead">保留现有岛的结构：贴着刘海，左边是在干活的，右边是要你处理的，悬停展开三栏。新增的是：Bloub 角色直接住在岛里并随状态做动作，Agent 多到 7～8 个时按优先级分流到刘海两侧，岛按需加宽。</p></header>
+  <div class="stage" id="main"><div class="menubar"><div class="m"><b>Norma OS</b><span class="dim">文件</span><span class="dim">编辑</span><span class="dim">画布</span><span class="dim">窗口</span></div><div class="m dim"><span>周六 11月7日</span><span>10:42</span></div></div>
+    <div class="window"><div class="wbar"><i></i><i></i><i></i></div><div class="canvas"><div class="fc" style="left:6%;top:70px"></div><div class="fc" style="left:36%;top:150px"></div><div class="fc" style="left:66%;top:60px"></div></div></div></div>
+  <div class="controls">
+    <div class="group"><h3>岛的状态</h3><div class="bs" id="modeBtns"><button class="cb" data-go="compact">收起</button><button class="cb" data-go="activity">完成通知</button><button class="cb" data-go="alert">审批提醒</button><button class="cb" data-go="expanded">展开</button><button class="cb" data-go="speaking">幕僚汇报中</button></div></div>
+    <div class="group"><h3>Agent 数量</h3><div class="bs" id="nBtns"><button class="cb" data-n="2">2</button><button class="cb" data-n="5">5</button><button class="cb" data-n="8">8</button></div></div>
+  </div>
+  <h2 class="sec">收起形态：Agent 数量对比</h2>
+  <div class="gal" id="gal"></div>
+  <div class="notes">
+    <div><b>角色住在岛里</b>每个 Agent 有固定的轮廓（圆、蛋形、六边形、三角形）和 provider 配色。工作时眼睛专注并轻微呼吸，等你时歪头摇摆，完成时开心地弹跳，排队时变淡。</div>
+    <div><b>刘海两侧分流</b>刘海左边放「在运行」的角色，最多 3 个，其余折成 +N。右边放「等你处理」的角色，带橙色脉冲环，最多 2 个，旁边是总数。同一个 Agent 不会出现在两侧。</div>
+    <div><b>按需加宽</b>收起宽度默认 330pt。角色超过 4 个时加宽到 416pt，让两侧槽位放得下，仍贴着刘海，不遮挡菜单栏。</div>
+    <div><b>审批队列</b>待处理不止一个时，审批卡下方出现角色队列，点头像切换，处理完自动轮到下一个，不用展开岛。</div>
+  </div>
+</div>
+<script>
+(function(){
+  var KIND={Claude:'#e08a66',Codex:'#6cc4b4',Cursor:'#93a6ff',OpenCode:'#e6bb5c',Kimi:'#c29cff'};
+  var ALL=[
+    {id:'grace',name:'Grace',kind:'Claude',sh:'egg',ws:'Norma-AI-OS',task:'支持打开项目外部文件',st:'run',step:'调用 view_image',mins:21},
+    {id:'iris',name:'Iris',kind:'Claude',sh:'circle',ws:'Norma-AI-OS',task:'Git worktree 清理',st:'wait',p:{t:'perm',cmd:'rm -rf target/debug/incremental',why:'清理增量编译缓存，释放 6.2 GB。磁盘剩余不足，测试编译失败了一次。'}},
+    {id:'kevin',name:'Kevin',kind:'Codex',sh:'circle',ws:'Norma-AI-OS',task:'灵动岛原型',st:'run',step:'编辑 island/mod.rs',mins:6},
+    {id:'leo',name:'Leo',kind:'OpenCode',sh:'hex',ws:'norma-cloud',task:'push relay 失败重试',st:'done',step:'3 个文件 +84 −12 · 2 分钟前',p:{t:'review',files:['relay.mjs','retry.mjs','relay.test.mjs'],add:84,del:12}},
+    {id:'mia',name:'Mia',kind:'Cursor',sh:'hex',ws:'multisoul',task:'iOS 发布流水线',st:'run',step:'cargo test',done:142,total:180,mins:3},
+    {id:'sam',name:'Sam',kind:'Codex',sh:'egg',ws:'multisoul',task:'配对二维码刷新',st:'wait',p:{t:'q',q:'二维码多久刷新一次？',opts:['每 30 秒','每 60 秒']}},
+    {id:'noah',name:'Noah',kind:'OpenCode',sh:'tri',ws:'norma-cloud',task:'推送重试单测',st:'run',step:'npm test',mins:9},
+    {id:'daisy',name:'Daisy',kind:'Kimi',sh:'tri',ws:'Norma-AI-OS',task:'等待分配任务',st:'queued'}];
+  var SHAPE={circle:'<circle r="1" stroke-width="0"/>',egg:'<path stroke-width="0" d="M0-1C.74-1 1.02-.1.98.36.94.84.5 1 0 1-.5 1-.94.84-.98.36-1.02-.1-.74-1 0-1Z"/>',hex:'<path d="M0-.88.76-.44V.44L0 .88-.76.44V-.44Z" stroke-width=".24" stroke-linejoin="round"/>',tri:'<path d="M0-.84.84.72H-.84Z" stroke-width=".32" stroke-linejoin="round"/>'};
+  var K={circle:1,egg:.98,hex:1.06,tri:1.1};var EY={circle:-.12,egg:-.08,hex:-.06,tri:.2};
+  var MOOD={run:'work',wait:'wait',done:'resp',queued:'queued',idle:'idle'};
+  function av(a,s,extra){var y=EY[a.sh],c=KIND[a.kind],ph=-((a.name.charCodeAt(0)*7)%30)/10+'s',m=MOOD[a.st];if(extra&&extra.m)m=extra.m;
+    return '<span class="bl'+(extra&&extra.ping?' ping':'')+'" style="--s:'+s+'px;--p:'+ph+'" data-m="'+m+'"><svg viewBox="-1.2 -1.2 2.4 2.4"><g class="bd"><g fill="'+c+'" stroke="'+c+'">'+SHAPE[a.sh]+'</g>'+
+      '<g class="ey" transform="translate(0 '+y+')"><g class="e en"><rect x="-.45" y="-.25" width=".26" height=".5" rx=".13" fill="#0b0d10"/><rect x=".19" y="-.25" width=".26" height=".5" rx=".13" fill="#0b0d10"/></g>'+
+      '<g class="e ec"><rect x="-.4" y="-.12" width=".22" height=".34" rx=".11" fill="#0b0d10"/><rect x=".15" y="-.32" width=".3" height=".62" rx=".15" fill="#0b0d10"/></g>'+
+      '<g class="e eh"><path d="M-.5 .08q.19-.34.38 0M.12 .08q.19-.34.38 0" stroke="#0b0d10" stroke-width=".15" fill="none" stroke-linecap="round"/></g>'+
+      '<g class="e es"><rect x="-.45" y="-.2" width=".26" height=".46" rx=".13" fill="#0b0d10" transform="rotate(-24 -.32 0)"/><rect x=".19" y="-.2" width=".26" height=".46" rx=".13" fill="#0b0d10" transform="rotate(24 .32 0)"/></g></g></g></svg></span>'}
+  var I={ck:'<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>',pin:'<svg class="icon" viewBox="0 0 16 16" fill="currentColor"><path d="M10.5 1.5l4 4-1.6.6-2.6 2.6.3 3.1-1.3 1.3-2.8-2.8L3 14l-.6-.6 3.7-3.5-2.8-2.8 1.3-1.3 3.1.3L10 2.9z"/></svg>',go:'<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 11l6-6M6 5h5v5"/></svg>'};
+  var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+
+  function mount(host,o){
+    var n=o.n||8,mode=o.mode||'compact',tab=o.tab||'pending',speaking=!!o.speaking,sel=0,filter='all',agents,
+        isl=document.createElement('div');isl.className='island';
+    isl.innerHTML='<div class="row" tabindex="0" role="button"><div class="slot l"></div><div class="notch"></div><div class="slot r"></div></div><div class="body"><div class="view" data-v="activity"></div><div class="view" data-v="alert"></div><div class="view" data-v="expanded"></div></div>';
+    host.appendChild(isl);
+    var row=isl.querySelector('.row'),L=row.querySelector('.l'),R=row.querySelector('.r'),V={};['activity','alert','expanded'].forEach(function(k){V[k]=isl.querySelector('[data-v='+k+']')});
+    function data(){agents=ALL.slice(0,n).map(function(a){return Object.assign({},a)})}
+    function runs(){return agents.filter(function(a){return a.st==='run'})}
+    function pend(){return agents.filter(function(a){return a.p})}
+    function slots(){
+      if(mode==='expanded'){L.innerHTML='<b style="font-weight:620">运行概览</b><span class="kind">3 个工作空间</span>';R.innerHTML='<button class="btn ghost" aria-label="固定展开" style="height:24px">'+I.pin+'</button>';return}
+      if(mode==='alert'){L.innerHTML='<span class="pulse"></span><b style="color:var(--attn);font-weight:600">需要你</b><span class="kind">'+pend().length+' 件待处理</span>';var p=pend()[sel]||pend()[0];R.innerHTML='<span class="kind">'+(p?p.ws:'')+'</span>';return}
+      if(mode==='activity'){L.innerHTML='<span class="badge ok">'+I.ck+'已完成</span>';R.innerHTML='<span class="kind">norma-cloud</span>';return}
+      if(speaking){L.innerHTML='<span class="orb"></span><b style="color:var(--staff);font-weight:600">幕僚</b>';R.innerHTML='<span class="wave"><i></i><i></i><i></i><i></i><i></i></span>';return}
+      var r=runs(),pp=pend(),big=r.length+pp.length>=4;isl.style.setProperty('--w',(big?416:330)+'px');
+      L.innerHTML=r.length?'<span class="spin"></span><span class="num">'+r.length+'</span><span class="stack">'+r.slice(0,3).map(function(a){return av(a,20)}).join('')+(r.length>3?'<span class="more">+'+(r.length-3)+'</span>':'')+'</span>':'<span class="kind">空闲</span>';
+      R.innerHTML=pp.length?'<span class="stack">'+pp.slice(0,2).map(function(a){return av(a,20,{ping:1,m:'wait'})}).join('')+'</span><span class="badge attn"><span class="pulse"></span>'+pp.length+'</span>':'<span class="badge ok">'+I.ck+'</span>';
+      row.setAttribute('aria-label',r.length+' 个智能体运行中，'+pp.length+' 件事待处理，展开灵动岛')}
+    function activity(){var a=agents.filter(function(x){return x.st==='done'})[0]||agents[0];
+      V.activity.innerHTML='<div class="act">'+av(a,30,{m:'resp'})+'<div class="tx"><b>'+a.name+'</b> 完成了 '+esc(a.task)+'<br><small>'+esc(a.step||'')+'</small></div><button class="btn pri">查看成果</button><i class="tm"></i></div>'}
+    function card(a){var p=a.p,h='<div class="pc"><div class="ph">'+av(a,40,{m:p.t==='review'?'resp':'wait'})+'<div class="who"><b>'+a.name+'</b><small>'+a.kind+' · '+a.ws+'</small></div><span class="chip attn">'+({perm:'权限请求',q:'需要你回答',review:'待查看成果'})[p.t]+'</span></div>';
+      if(p.t==='perm')h+='<div class="code">'+esc(p.cmd)+'</div><div class="why">'+esc(p.why)+'</div><div class="acts"><button class="btn no">拒绝</button><span class="sp"></span><button class="btn">允许一次</button><button class="btn pri">总是允许</button></div>';
+      if(p.t==='q')h+='<div class="why" style="color:var(--fg);font-size:13px">'+esc(p.q)+'</div><div class="opts">'+p.opts.map(function(x,i){return '<button class="opt" role="radio" aria-checked="'+(i===0)+'"><span class="rd"></span>'+esc(x)+'</button>'}).join('')+'</div><div class="acts"><button class="btn ghost">稍后</button><button class="btn pri">发送</button></div>';
+      if(p.t==='review')h+='<div class="files">'+p.files.map(function(f){return '<span>'+f+'</span>'}).join('')+'<span><b class="plus">+'+p.add+'</b> <b class="minus">−'+p.del+'</b></span></div><div class="acts"><button class="btn ghost">稍后</button><button class="btn pri">查看成果 '+I.go+'</button></div>';
+      return h+'</div>'}
+    function alert(){var pp=pend(),p=pp[sel]||pp[0];if(!p){V.alert.innerHTML='';return}
+      V.alert.innerHTML='<div class="alert">'+card(p)+(pp.length>1?'<div class="queue">待处理队列'+pp.map(function(a,i){return '<button data-q="'+i+'" aria-pressed="'+(a===p)+'" aria-label="'+a.name+'">'+av(a,22,{m:a===p?'wait':'idle'})+'</button>'}).join('')+'<span style="margin-left:auto">还有 '+(pp.length-1)+' 个</span></div>':'')+'</div>';
+      [].forEach.call(V.alert.querySelectorAll('[data-q]'),function(b){b.onclick=function(){sel=+b.dataset.q;slots();alert();fit()}})}
+    function expanded(){var pp=pend(),r=agents.filter(function(a){return a.st==='run'}),
+      tabs='<div class="tabs" role="tablist"><button class="tab" role="tab" data-t="pending" aria-selected="'+(tab==='pending')+'">需要你处理 <span class="n attn">'+pp.length+'</span></button><button class="tab" role="tab" data-t="running" aria-selected="'+(tab==='running')+'">运行中 <span class="n">'+r.length+'</span></button><button class="tab" role="tab" data-t="staff" aria-selected="'+(tab==='staff')+'">幕僚</button></div>',body='';
+      if(tab==='pending')body=pp.length?pp.map(card).join(''):'<div class="why" style="text-align:center;padding:24px">没有需要处理的事</div>';
+      if(tab==='running'){var cnt=function(s){return agents.filter(function(a){return a.st===s}).length},F=[['all','全部',agents.length,'#fff'],['run','运行中',cnt('run'),'var(--run)'],['wait','等你',cnt('wait'),'var(--attn)'],['done','完成',cnt('done'),'var(--ok)']];
+        body='<div class="roster">'+F.map(function(f){return '<button class="fl" data-f="'+f[0]+'" aria-pressed="'+(filter===f[0])+'"><i style="background:'+f[3]+'"></i>'+f[1]+' '+f[2]+'</button>'}).join('')+'<span class="stack" style="margin-left:auto">'+agents.map(function(a){return av(a,20)}).join('')+'</span></div>';
+        var wss=[];agents.forEach(function(a){if(wss.indexOf(a.ws)<0)wss.push(a.ws)});
+        body+=wss.map(function(w){var as=agents.filter(function(a){return a.ws===w&&(filter==='all'||a.st===filter)});if(!as.length)return '';
+          return '<section><div class="ws-h"><b>'+w+'</b><span>'+as.length+' 个</span></div>'+as.map(function(a){var chip={run:['run','运行中'],wait:['attn','等你处理'],done:['done','已完成'],queued:['wait','待开始']}[a.st];
+            return '<div class="agent">'+av(a,30)+'<div class="main"><div class="t1"><b>'+a.name+'</b><span class="kind">'+a.kind+'</span><span class="task">'+esc(a.task)+'</span></div><div class="t2">'+(a.st==='run'?'<span class="spin"></span><span>'+esc(a.step)+(a.total?' · '+a.done+'/'+a.total:'')+'</span><span>· '+a.mins+' 分</span>':a.st==='done'?'<span style="color:var(--ok)">'+I.ck+'</span><span>'+esc(a.step)+'</span>':a.st==='wait'?'<span>等待你的回复</span>':'<span>尚未开始</span>')+'</div>'+(a.total?'<div class="bar"><i style="width:'+a.done/a.total*100+'%"></i></div>':'')+'</div><span class="chip '+chip[0]+'">'+chip[1]+'</span>'+(a.st!=='queued'?'<button class="btn ghost" style="height:22px">定位 '+I.go+'</button>':'')+'</div>'}).join('')+'</section>'}).join('')}
+      if(tab==='staff')body='<div class="staffp"><div class="who"><span class="orb" style="width:44px;height:44px"></span><div><b style="font-size:14px">幕僚</b><br><small style="color:var(--muted)">先听一段跨工作空间的进度汇报</small></div><button class="btn speak">开始汇报</button></div><div class="cap"><span class="now">现在有 '+runs().length+' 个智能体在跑。</span> Grace 正在确认截图效果，Mia 的测试跑了八成。<br>有 '+pend().length+' 件事在等你，最急的是 Iris 要清理缓存。</div></div>';
+      V.expanded.innerHTML=tabs+'<div class="pane">'+body+'</div>';
+      [].forEach.call(V.expanded.querySelectorAll('[data-t]'),function(b){b.onclick=function(){tab=b.dataset.t;expanded();fit()}});
+      [].forEach.call(V.expanded.querySelectorAll('[data-f]'),function(b){b.onclick=function(){filter=b.dataset.f;expanded();fit()}})}
+    function fit(){var v=mode==='compact'||speaking&&mode==='compact'?null:V[mode];var h=row.offsetHeight+(v?v.offsetHeight:0);isl.style.height=h+'px'}
+    var W={compact:330,activity:460,alert:540,expanded:660};
+    function render(){data();[].forEach.call(isl.querySelectorAll('.view'),function(v){v.classList.remove('on')});isl.dataset.mode=mode;
+      if(mode!=='compact'||!speaking)isl.style.setProperty('--w',W[mode]+'px');slots();
+      if(mode==='activity')activity();if(mode==='alert')alert();if(mode==='expanded')expanded();
+      if(V[mode])V[mode].classList.add('on');
+      requestAnimationFrame(function(){fit()})}
+    row.onclick=function(){if(mode==='compact'||mode==='activity'){api.set('expanded')}};
+    row.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();row.onclick()}};
+    var api={set:function(m){speaking=m==='speaking';mode=speaking?'compact':m;if(mode==='expanded'&&pend().length===0)tab='running';render();return api},setN:function(k){n=k;render()}};
+    render();return api}
+
+  // 主舞台：可交互
+  var q=new URLSearchParams(location.search);['solo','still'].forEach(function(k){if(q.get(k)==='1')document.documentElement.classList.add(k)});var N0=+(q.get('n')||8),cur=q.get('mode')||'compact',nn=N0,main=mount(document.getElementById('main'),{n:N0,mode:cur==='speaking'?'compact':cur,speaking:cur==='speaking',tab:q.get('tab')||'pending'});
+  function press(){[].forEach.call(document.querySelectorAll('[data-go]'),function(b){b.setAttribute('aria-pressed',b.dataset.go===cur)});[].forEach.call(document.querySelectorAll('[data-n]'),function(b){b.setAttribute('aria-pressed',+b.dataset.n===nn)})}
+  [].forEach.call(document.querySelectorAll('[data-go]'),function(b){b.onclick=function(){cur=b.dataset.go;main.set(cur);press()}});
+  [].forEach.call(document.querySelectorAll('[data-n]'),function(b){b.onclick=function(){nn=+b.dataset.n;main.setN(nn);press()}});press();
+  // 收起形态对比
+  var gal=document.getElementById('gal');
+  [[2,'2 个 Agent','左边 1 个在跑，右边 1 个在等你。槽位宽松，保持 330pt。'],[5,'5 个 Agent','3 个在跑 + 2 个等你，已接近上限。'],[8,'8 个 Agent','4 个在跑（露出 3 个 + 1），3 个等你（露出 2 个，总数 3）。加宽到 416pt。']].forEach(function(c){
+    var d=document.createElement('div');d.className='cell';d.innerHTML='<div class="stage sm"><div class="menubar"><div class="m"><b>Norma OS</b></div><div class="m dim"><span>10:42</span></div></div></div><p><b>'+c[1]+'</b><br>'+c[2]+'</p>';gal.appendChild(d);
+    var st=d.querySelector('.stage'),hold=document.createElement('div');hold.style.cssText='position:relative;width:100%;height:36px';st.appendChild(hold);mount(hold,{n:c[0],mode:'compact'})});
+  var mx=[['activity','完成通知','Agent 完成时岛向下弹出 3 秒，角色开心弹跳，底边是倒计时线。'],['alert','审批提醒','多个待处理时，卡片下方是角色队列，点头像切换。']];
+  mx.forEach(function(c){var d=document.createElement('div');d.className='cell';d.innerHTML='<div class="stage sm" style="padding-bottom:20px"><div class="menubar"><div class="m"><b>Norma OS</b></div><div class="m dim"><span>10:42</span></div></div></div><p><b>'+c[1]+'</b><br>'+c[2]+'</p>';gal.appendChild(d);
+    var st=d.querySelector('.stage'),hold=document.createElement('div');hold.style.cssText='position:relative;width:100%;height:'+(c[0]==='alert'?'330':'110')+'px';st.appendChild(hold);var m=mount(hold,{n:8,mode:c[0]});if(c[0]==='activity'){var t=hold.querySelector('.tm');if(t)t.style.animation='none'}});
+})();
+</script>

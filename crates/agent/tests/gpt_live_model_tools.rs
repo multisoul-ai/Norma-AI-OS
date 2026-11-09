@@ -28,6 +28,7 @@ fn context(input: &str) -> ToolContext {
         turn_id: "live:model:r1".into(),
         user_input: input.into(),
         input_source: AgentInputSource::GptLiveVoice,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "fixture-call".into(),
         operation_id: None,
@@ -44,42 +45,26 @@ async fn gpt_live_model_selected_tools_are_not_filtered_by_user_wording() {
     let cases = [
         (
             "嗯，你能建个Codex分析如何优化登录吗？",
-            "create_agent",
+            "agent_create",
             json!({"profile":"codex","task":"分析如何优化登录"}),
         ),
         (
             "Codex能不能先看看这个问题？",
-            "assign_agent_task",
+            "agent_assign",
             json!({"agent":"Codex","task":"分析登录问题"}),
         ),
         (
             "Simon，之前那个问题呢？",
-            "reply_agent",
+            "agent_reply",
             json!({"agent":"Simon","message":"之前的问题进展如何？"}),
         ),
-        ("那个任务先缓缓", "cancel_agent_task", json!({"task_id":7})),
+        ("那个任务先缓缓", "task_cancel", json!({"task_id":7})),
         (
             "给Simon的消息先撤回来吧",
-            "cancel_agent_reply",
+            "reply_cancel",
             json!({"agent":"Simon"}),
         ),
-        ("给我来个终端吧", "create_terminal", json!({})),
-        (
-            "能开个网页吗？",
-            "create_browser",
-            json!({"url":"https://example.com"}),
-        ),
-        (
-            "这个文件怎么预览？",
-            "create_preview",
-            json!({"path":"/isolated/readme.md"}),
-        ),
-        ("让我看看第九张", "focus_card", json!({"node_id":9})),
-        (
-            "检查一下是否有改动",
-            "send_terminal_input",
-            json!({"node_id":9,"text":"git status","submit":true}),
-        ),
+        ("给我来个终端吧", "terminal_create", json!({})),
         (
             "以后就中文聊，不用自动播报",
             "memory_write",
@@ -87,17 +72,13 @@ async fn gpt_live_model_selected_tools_are_not_filtered_by_user_wording() {
         ),
         (
             "这张已经没用了，收起来吧",
-            "delete_canvas_card",
+            "card_delete",
             json!({"node_id":9}),
         ),
-        (
-            "第二张可以撤掉了吗？",
-            "delete_canvas_card",
-            json!({"position":2}),
-        ),
+        ("第二张可以撤掉了吗？", "card_delete", json!({"position":2})),
         (
             "Simon那张可以收起来吗？",
-            "delete_canvas_card",
+            "card_delete",
             json!({"agent":"Simon"}),
         ),
     ];
@@ -145,10 +126,10 @@ async fn gpt_live_keeps_typed_argument_and_cancellation_checks() {
     let host = Arc::new(Host::default());
     let runtime = NormaToolRuntime::new(host.clone());
     for (tool, arguments) in [
-        ("create_agent", json!({"profile":"unknown"})),
-        ("delete_canvas_card", json!({})),
-        ("delete_canvas_card", json!({"node_id":9,"position":2})),
-        ("delete_canvas_card", json!({"node_id":-1})),
+        ("agent_create", json!({"profile":"unknown"})),
+        ("card_delete", json!({})),
+        ("card_delete", json!({"node_id":9,"position":2})),
+        ("card_delete", json!({"node_id":-1})),
     ] {
         assert!(
             matches!(
@@ -162,7 +143,7 @@ async fn gpt_live_keeps_typed_argument_and_cancellation_checks() {
     cancelled.cancellation.cancel();
     assert_eq!(
         runtime
-            .execute("create_terminal", json!({}), &cancelled)
+            .execute("terminal_create", json!({}), &cancelled)
             .await,
         Err(AdapterError::Cancelled),
         "取消令牌必须在宿主副作用前生效"
@@ -191,7 +172,7 @@ async fn gpt_live_removal_preserves_legacy_delete_policies() {
         assert!(
             matches!(
                 runtime
-                    .execute("delete_canvas_card", json!({"node_id":9}), &input)
+                    .execute("card_delete", json!({"node_id":9}), &input)
                     .await,
                 Err(AdapterError::Rejected(_))
             ),
@@ -209,7 +190,7 @@ async fn gpt_live_removal_preserves_legacy_delete_policies() {
         let mut input = context("这张没用了，收起来吧");
         input.input_source = source;
         runtime
-            .execute("delete_canvas_card", json!({"node_id":9}), &input)
+            .execute("card_delete", json!({"node_id":9}), &input)
             .await
             .expect("采用模型选定的目标");
     }

@@ -130,6 +130,12 @@ impl MultisoulApp {
         ) {
             return;
         }
+        // Standalone canvas windows have no content drawer; their Preview cards only support
+        // text, Markdown and images. Keep HTML/video usable through the system application.
+        if super::infer_preview_type(&path, None).is_err() {
+            open_path_in_system_app(path);
+            return;
+        }
         let area = self.visible_canvas_rect(window);
         let bounds = area.inset(self.layout_gap_canvas());
         let zoom = self.runtime.document.viewport.zoom;
@@ -216,8 +222,14 @@ pub(crate) fn open_path_in_system_app(path: PathBuf) {
                 if probe_system_open(&path) == SystemOpen::RevealInFinder {
                     command.arg("-R");
                 }
-                if let Err(error) = command.arg(&path).spawn() {
-                    tracing::warn!(%error, "failed to open terminal path in system app");
+                match command.arg(&path).status() {
+                    Ok(status) if !status.success() => {
+                        tracing::warn!(%status, "failed to open terminal path in system app")
+                    }
+                    Err(error) => {
+                        tracing::warn!(%error, "failed to open terminal path in system app")
+                    }
+                    Ok(_) => {}
                 }
             });
     }

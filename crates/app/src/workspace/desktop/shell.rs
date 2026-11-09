@@ -21,30 +21,6 @@ impl MultisoulApp {
             .cloned()
     }
 
-    /// 左栏对话展示的会话。项目缩放进行中沿用缩放前的来源，结束后一次切换，
-    /// 避免展开/收起瞬间左栏内容换成另一个会话的（空）状态。
-    pub(crate) fn desktop_drawer_chat_project(&self) -> Option<gpui::Entity<Self>> {
-        let transition = self.desktop_workspace.transition.as_ref()?;
-        let plain_zoom = transition.projects.is_none() && transition.directory_content.is_none();
-        let super::camera::DesktopCanvasSubject::Project {
-            workspace_id,
-            area_id,
-        } = &transition.subject
-        else {
-            return self.expanded_desktop_project();
-        };
-        if !plain_zoom || !matches!(self.screen, crate::app::AppScreen::DesktopWorkspace) {
-            return self.expanded_desktop_project();
-        }
-        if self.desktop_workspace.expanded_area_id.is_some() {
-            return None;
-        }
-        self.desktop_workspace
-            .sessions
-            .get(&(workspace_id.clone(), area_id.clone()))
-            .cloned()
-    }
-
     pub(crate) fn render_desktop_dock(
         &mut self,
         window: &mut Window,
@@ -52,7 +28,6 @@ impl MultisoulApp {
     ) -> Div {
         let switcher = self.render_desktop_project_switcher(window, cx);
         let project = self.expanded_desktop_project();
-        let left_space = self.desktop_assistant_layout(window).left_space;
         let project_zoom_active = self.desktop_project_zoom_active();
         if let Some(project) = project {
             project.update(cx, |project, cx| {
@@ -66,13 +41,11 @@ impl MultisoulApp {
                     let size = window.viewport_size();
                     let frame =
                         super::desktop_scene_rect(f32::from(size.width), f32::from(size.height));
-                    // 叠加层的原点在左抽屉右侧：卡片坐标按叠加层本地算（不含抽屉宽度），
-                    // 窗口坐标的起点（想法行）要减去这段位移才对得上。
                     crate::effects::dispatch_receipt::render_with_canvas_offset(
                         project,
                         window,
                         point(px(frame.origin.x), px(frame.origin.y)),
-                        point(px(left_space), px(0.0)),
+                        point(px(0.0), px(0.0)),
                     )
                 };
                 div()
@@ -262,10 +235,6 @@ mod settings_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_top_bar_tests.rs"]
 mod top_bar_tests;
-
-#[cfg(test)]
-#[path = "../../../tests/unit/desktop_brand_anchor_tests.rs"]
-mod brand_anchor_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/command_dock_width_tests.rs"]

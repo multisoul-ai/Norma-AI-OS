@@ -57,6 +57,20 @@ impl Runtime {
             hook.cancel();
         } else {
             self.reconcile_early_native_results(&hook);
+            // The agent's own card owns a Claude question by default: release the held Hook at
+            // once so the native prompt shows in the terminal. The island only points at it.
+            if let Ok(target) = &result {
+                if self.questions.native_first() {
+                    let released = self.release_question_to_native(target);
+                    tracing::info!(
+                        ?released,
+                        node = target.node_id,
+                        "claude question released to native"
+                    );
+                } else {
+                    tracing::info!(node = target.node_id, "claude question held for the island");
+                }
+            }
         }
         result
     }
@@ -102,8 +116,8 @@ impl Runtime {
             request_id: hook.adapter().request_id(),
             revision: 1,
         };
-        // Claude's connection derives from the owned process. Native transports attach separately.
-        if target.provider == AgentProfile::Claude {
+        // Blocking hook providers derive the connection from the owned process.
+        if hook.adapter().uses_blocking_hook() {
             self.bind_question_connection(&target)?;
         } else {
             self.validate_question_connection(&target)?;
@@ -189,12 +203,18 @@ impl Runtime {
     }
 
     pub fn observe_native_question_result(&mut self, event: &AgentHookEvent) -> bool {
+        // Deny stdout is already the answer. Close it before this Post can relabel the card.
+        let settled = self.settle_delivered_hook_answers();
         let supported = match event.profile {
-            AgentProfile::Claude => {
+            AgentProfile::Claude
+            | AgentProfile::Grok
+            | AgentProfile::Kimi
+            | AgentProfile::ZCode
+            | AgentProfile::InfCode => {
                 matches!(
                     event.provider_event.as_str(),
                     "PostToolUse" | "PostToolUseFailure"
-                ) && event.tool_name.as_deref() == Some("AskUserQuestion")
+                ) && norma::agent_hook::is_hook_ask_tool(event.profile, event.tool_name.as_deref())
             }
             AgentProfile::Codex => {
                 event.provider_event == "NormaQuestionResult"
@@ -203,7 +223,7 @@ impl Runtime {
             _ => false,
         };
         if !supported {
-            return false;
+            return settled;
         }
         let fallback_closed = self.release_claude_question_blocker(event);
         let found = self.questions.entries.iter().position(|entry| {
@@ -227,14 +247,22 @@ impl Runtime {
         });
         let Some(index) = found else {
             self.remember_early_native_result(event);
-            return fallback_closed;
+            return settled || fallback_closed;
         };
         if event.provider_event == "PostToolUseFailure" {
             let entry = &mut self.questions.entries[index];
             // The question itself is closed. Failed is reserved for a failed delivery while
             // the original question can still be waiting in the TUI.
             entry.snapshot.state = QuestionState::Cancelled;
-            entry.snapshot.evidence = Some("claude/PostToolUseFailure:AskUserQuestion".into());
+            entry.snapshot.evidence = Some(if event.profile == AgentProfile::Claude {
+                "claude/PostToolUseFailure:AskUserQuestion".into()
+            } else {
+                format!(
+                    "{:?}/PostToolUseFailure:{}",
+                    event.profile,
+                    event.tool_name.as_deref().unwrap_or("")
+                )
+            });
             entry.snapshot.error = Some(
                 if event.raw_json["is_interrupt"] == true {
                     "question_interrupted"
@@ -272,8 +300,14 @@ impl Runtime {
                     .as_str()
                     .unwrap_or("")
             )
-        } else {
+        } else if event.profile == AgentProfile::Claude {
             "claude/PostToolUse:AskUserQuestion".into()
+        } else {
+            format!(
+                "{:?}/PostToolUse:{}",
+                event.profile,
+                event.tool_name.as_deref().unwrap_or("")
+            )
         };
         if let Some(submission) = ours {
             return self
@@ -289,5 +323,42 @@ impl Runtime {
         }
         self.refresh_question_projection(event.node_id);
         true
+    }
+
+    /// Deny-style hooks finish when stdout is written. Allow-style hooks still wait for PostToolUse.
+    pub fn settle_delivered_hook_answers(&mut self) -> bool {
+        let pending: Vec<_> = self
+            .questions
+            .entries
+            .iter()
+            .filter_map(|entry| {
+                let hook = entry.hook.as_ref()?;
+                if !hook.adapter().answer_is_hook_terminal() {
+                    return None;
+                }
+                if !matches!(
+                    entry.snapshot.state,
+                    QuestionState::Submitted | QuestionState::Unknown
+                ) {
+                    return None;
+                }
+                if !hook.transport_sent() {
+                    return None;
+                }
+                entry.submission.clone()
+            })
+            .collect();
+        let mut changed = false;
+        for submission in pending {
+            let evidence = format!("{:?}/hook-deny", submission.target().provider);
+            let answers = submission.answers().to_vec();
+            if self
+                .confirm_question_answer(&submission, &answers, &evidence)
+                .is_ok()
+            {
+                changed = true;
+            }
+        }
+        changed
     }
 }

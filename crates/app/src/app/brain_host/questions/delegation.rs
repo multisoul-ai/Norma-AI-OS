@@ -86,47 +86,6 @@ impl MultisoulApp {
             .any(|grant| grant.question.target == *target && grant.valid())
     }
 
-    pub(crate) fn delegate_overview_question(
-        &mut self,
-        area: &str,
-        target: &QuestionRef,
-        cx: &mut Context<Self>,
-    ) {
-        let result = self
-            .with_overview_session(area, cx, |app, cx| {
-                if app.brain.host.is_none() {
-                    return Err("question_brain_unavailable".to_owned());
-                }
-                if app.authorize_question_delegation(target)? {
-                    let question = app
-                        .runtime
-                        .question(target)
-                        .ok_or("question_not_found")?
-                        .question
-                        .clone();
-                    app.push_brain(brain::BrainEvent::QuestionRequested {
-                        agent: app
-                            .agent_announcement_name(target.node_id)
-                            .unwrap_or_else(|| format!("{:?}", target.provider)),
-                        question,
-                        delegated: true,
-                    });
-                    cx.notify();
-                }
-                Ok(())
-            })
-            .unwrap_or_else(|| Err("question_project_closed".into()));
-        self.brain
-            .questions
-            .ui_errors
-            .retain(|(key, _)| key != target);
-        if let Err(error) = result {
-            self.brain.questions.ui_errors.push((target.clone(), error));
-        }
-        self.refresh_brain_overview(cx);
-        cx.notify();
-    }
-
     pub(crate) fn poll_brain_questions(&mut self) {
         self.brain
             .questions
@@ -143,11 +102,11 @@ impl MultisoulApp {
                 .question(&suggestion.target)
                 .is_some_and(|q| q.state.blocks_input())
         });
-        let Some(host) = &self.brain.host else {
+        let Some(token) = self.brain.token() else {
             return;
         };
-        if self.brain.questions.announced_token != host.token {
-            self.brain.questions.announced_token = host.token.clone();
+        if self.brain.questions.announced_token != token {
+            self.brain.questions.announced_token = token;
             self.brain.questions.announced.clear();
         }
         self.brain.questions.announced.retain(|target| {
@@ -163,7 +122,7 @@ impl MultisoulApp {
             {
                 let delegated = self.question_delegated(&question.target);
                 self.brain.questions.announced.push(question.target.clone());
-                self.push_brain(brain::BrainEvent::QuestionRequested {
+                self.push_brain(brain::BrainEventKind::QuestionRequested {
                     agent: self
                         .agent_announcement_name(question.target.node_id)
                         .unwrap_or_else(|| format!("{:?}", question.target.provider)),

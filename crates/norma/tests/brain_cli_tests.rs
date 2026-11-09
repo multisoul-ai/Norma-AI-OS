@@ -1,5 +1,5 @@
 use norma::cli::{parse_invocation_from, OutputFormat};
-use norma::protocol::{BrainDecision, BrainOp, CardCommand, ReportPriority};
+use norma::protocol::{BrainDecision, BrainOp, CardCommand, ReportKind, ReportPriority};
 
 fn parse(args: &[&str]) -> CardCommand {
     parse_invocation_from(args.iter().copied())
@@ -28,11 +28,13 @@ fn report_parses_text_and_priority() {
         normal,
         CardCommand::Brain {
             token: "t0".into(),
-            op: BrainOp::Report {
+            op: Box::new(BrainOp::Report {
                 text: "Codex 完成了".into(),
                 sources: Vec::new(),
-                priority: ReportPriority::Normal
-            },
+                priority: ReportPriority::Normal,
+                kind: ReportKind::Status,
+                reply_to: None,
+            }),
         },
         "默认优先级应是 Normal"
     );
@@ -50,13 +52,13 @@ fn report_parses_text_and_priority() {
     assert!(
         matches!(
             now,
-            CardCommand::Brain {
-                op: BrainOp::Report {
+            CardCommand::Brain { ref op, .. } if matches!(
+                **op,
+                BrainOp::Report {
                     priority: ReportPriority::Now,
                     ..
-                },
-                ..
-            }
+                }
+            )
         ),
         "--priority now 应解析为 Now：{now:?}"
     );
@@ -91,11 +93,11 @@ fn decide_parses_the_three_decisions_and_requires_a_reason() {
             command,
             CardCommand::Brain {
                 token: "t".into(),
-                op: BrainOp::Decide {
+                op: Box::new(BrainOp::Decide {
                     approval_id: id.into(),
                     decision: want,
                     reason: "测试命令".into()
-                },
+                }),
             },
             "{word} 应解析为对应结论"
         );
@@ -122,17 +124,11 @@ fn decide_parses_the_three_decisions_and_requires_a_reason() {
 fn agents_approvals_and_assign_parse() {
     assert!(matches!(
         parse(&["norma", "brain", "--token", "t", "agents"]),
-        CardCommand::Brain {
-            op: BrainOp::Agents,
-            ..
-        }
+        CardCommand::Brain { op, .. } if matches!(*op, BrainOp::Agents)
     ));
     assert!(matches!(
         parse(&["norma", "brain", "--token", "t", "approvals"]),
-        CardCommand::Brain {
-            op: BrainOp::Approvals,
-            ..
-        }
+        CardCommand::Brain { op, .. } if matches!(*op, BrainOp::Approvals)
     ));
     let assign = parse(&[
         "norma",
@@ -148,10 +144,10 @@ fn agents_approvals_and_assign_parse() {
         assign,
         CardCommand::Brain {
             token: "t".into(),
-            op: BrainOp::Assign {
+            op: Box::new(BrainOp::Assign {
                 agent: "Cursor".into(),
                 task: "实现安全闸门".into()
-            },
+            }),
         },
         "assign 应带上 Agent 与任务"
     );
@@ -192,11 +188,11 @@ fn history_parses_agent_last_and_grep() {
         full,
         CardCommand::Brain {
             token: "t0".into(),
-            op: BrainOp::History {
+            op: Box::new(BrainOp::History {
                 agent: "Alan".into(),
                 last: Some(3),
                 grep: Some("error".into())
-            },
+            }),
         }
     );
     let bare = parse(&["norma", "brain", "--token", "t0", "history", "Alan"]);
@@ -204,11 +200,11 @@ fn history_parses_agent_last_and_grep() {
         bare,
         CardCommand::Brain {
             token: "t0".into(),
-            op: BrainOp::History {
+            op: Box::new(BrainOp::History {
                 agent: "Alan".into(),
                 last: None,
                 grep: None
-            },
+            }),
         }
     );
 }
@@ -239,12 +235,12 @@ fn propose_parses_title_task_and_why() {
         command,
         CardCommand::Brain {
             token: "t0".into(),
-            op: BrainOp::Propose {
+            op: Box::new(BrainOp::Propose {
                 agent: "Alan".into(),
                 title: "补测试".into(),
                 task: "为概览搜索补单元测试；cargo test 通过即完成".into(),
                 why: "搜索没有测试".into(),
-            },
+            }),
         }
     );
     let missing_why = parse_invocation_from([
@@ -255,4 +251,87 @@ fn propose_parses_title_task_and_why() {
         "norma", "brain", "propose", "Alan", "--title", "t", "--task", "  ", "--why", "w",
     ]);
     assert!(blank_task.is_err(), "空白指令应解析失败");
+}
+
+/// `norma brain report --kind reply` 把汇报标成对用户请求的回复。
+///
+/// 数据构造：同一段文本，分别不带 `--kind`、`--kind reply`、`--kind status`、`--kind bogus`。
+/// 预期结果：
+///   - 正断言：缺省与 status 为 Status（旧调用方不变），reply 为 Reply；旧 JSON 缺 kind 仍可反序列化
+///   - 负断言：未知 kind 解析失败，不静默当成 Status
+#[test]
+fn report_kind_defaults_to_status_and_accepts_reply() {
+    let kind_of = |extra: &[&str]| {
+        let mut args = vec!["norma", "brain", "--token", "t0", "report", "--text", "hi"];
+        args.extend_from_slice(extra);
+        match parse(&args) {
+            CardCommand::Brain { op, .. } => match *op {
+                BrainOp::Report { kind, .. } => kind,
+                other => panic!("应是 Report：{other:?}"),
+            },
+            other => panic!("应是 Brain 命令：{other:?}"),
+        }
+    };
+    assert_eq!(kind_of(&[]), ReportKind::Status, "缺省应是 Status");
+    assert_eq!(kind_of(&["--kind", "status"]), ReportKind::Status);
+    assert_eq!(kind_of(&["--kind", "reply"]), ReportKind::Reply);
+    assert!(
+        parse_invocation_from(
+            ["norma", "brain", "--token", "t0", "report", "--text", "hi", "--kind", "bogus"]
+                .iter()
+                .copied()
+        )
+        .is_err(),
+        "未知 kind 必须报错"
+    );
+    let legacy = r#"{"Report":{"text":"x","priority":"Normal"}}"#;
+    let BrainOp::Report { kind, .. } = serde_json::from_str(legacy).expect("旧 JSON 应兼容")
+    else {
+        panic!("应是 Report");
+    };
+    assert_eq!(kind, ReportKind::Status, "旧 wire 缺 kind 视为 Status");
+}
+
+/// `--reply-to` 把汇报请求编号带进 report，缺省为 None（旧调用方不变）。
+/// 预期：缺省 None；`--reply-to 7` 为 Some(7)；非数字报错；旧 JSON 缺字段仍可读。
+#[test]
+fn report_reply_to_is_optional_and_numeric() {
+    let reply_to = |extra: &[&str]| {
+        let mut args = vec!["norma", "brain", "--token", "t0", "report", "--text", "hi"];
+        args.extend_from_slice(extra);
+        match parse(&args) {
+            CardCommand::Brain { op, .. } => match *op {
+                BrainOp::Report { reply_to, .. } => reply_to,
+                other => panic!("应是 Report：{other:?}"),
+            },
+            other => panic!("应是 Brain 命令：{other:?}"),
+        }
+    };
+    assert_eq!(reply_to(&[]), None);
+    assert_eq!(reply_to(&["--reply-to", "7"]), Some(7));
+    assert!(
+        parse_invocation_from(
+            [
+                "norma",
+                "brain",
+                "--token",
+                "t0",
+                "report",
+                "--text",
+                "hi",
+                "--reply-to",
+                "x"
+            ]
+            .iter()
+            .copied()
+        )
+        .is_err(),
+        "非数字编号必须报错"
+    );
+    let legacy = r#"{"Report":{"text":"x","priority":"Normal"}}"#;
+    let BrainOp::Report { reply_to, .. } = serde_json::from_str(legacy).expect("旧 JSON 应兼容")
+    else {
+        panic!("应是 Report");
+    };
+    assert_eq!(reply_to, None);
 }

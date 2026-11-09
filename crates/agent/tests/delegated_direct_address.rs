@@ -1,5 +1,5 @@
 #[path = "support/sse.rs"]
-mod sse;
+pub mod sse;
 use agent::{
     AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter, AgentInputSource,
     AgentRosterEntry, AgentTaskState, AgentTrackingMode, CurrentCanvasContext, NormaDelegation,
@@ -121,7 +121,7 @@ async fn delegated_addressed_speech_always_reaches_the_model() {
 }
 
 /// 场景：GPT模型可根据姓名或别名语义选择回复或新任务，本地只执行合法参数。
-/// 构造：两条自然语音和模型选定的reply_agent/assign_agent_task；真实HTTP往返。
+/// 构造：两条自然语音和模型选定的agent_reply/agent_assign；真实HTTP往返。
 /// 执行：公开委派入口，核对宿主命令、原话、来源和稳定step身份。
 /// 预期：只执行模型指定的工具一次，原话不改写，不再生成direct寻址身份。
 #[tokio::test]
@@ -129,7 +129,7 @@ async fn delegated_model_selects_addressed_tools_and_preserves_original_input() 
     for (input, tool, args, expected) in [
         (
             "小码，之前那个问题呢？",
-            "reply_agent",
+            "agent_reply",
             json!({"agent":"Codex","message":"之前的问题进展如何？"}),
             AdapterCommand::ReplyAgent {
                 agent: "Codex".into(),
@@ -138,7 +138,7 @@ async fn delegated_model_selects_addressed_tools_and_preserves_original_input() 
         ),
         (
             "给小码来个新任务，看看如何优化登录",
-            "assign_agent_task",
+            "agent_assign",
             json!({"agent":"Codex","task":"分析如何优化登录"}),
             AdapterCommand::AssignAgentTask {
                 agent: "Codex".into(),
@@ -198,7 +198,7 @@ impl AgentCardAdapter for UnknownHost {
 /// 预期：只调用第一名Agent，第二项未执行，返回UnknownSideEffect而非成功。
 #[tokio::test]
 async fn delegated_model_unknown_stops_other_agents() {
-    for (tool, field) in [("reply_agent", "message"), ("assign_agent_task", "task")] {
+    for (tool, field) in [("agent_reply", "message"), ("agent_assign", "task")] {
         let calls:Vec<_>=["Codex","Claude"].into_iter().enumerate().map(|(index,agent)| {
             let args=json!({"agent":agent,field:"修复登录"});
             json!({"index":index,"id":format!("agent-{index}"),"type":"function","function":{"name":tool,"arguments":args.to_string()}})
@@ -222,7 +222,7 @@ async fn delegated_model_unknown_stops_other_agents() {
         assert_eq!(calls.len(), 1, "第二名Agent不能被继续调用");
         assert_eq!(
             matches!(calls[0], AdapterCommand::AssignAgentTask { .. }),
-            tool == "assign_agent_task",
+            tool == "agent_assign",
             "覆盖两类工具"
         );
     }
@@ -247,12 +247,12 @@ impl AgentCardAdapter for PendingHost {
 }
 
 /// 场景：模型寻址工具等待期间，取消必须及时结束整轮并传递给宿主。
-/// 构造：真实HTTP模型调用reply_agent，Adapter以Notify报告进入后永久等待。
+/// 构造：真实HTTP模型调用agent_reply，Adapter以Notify报告进入后永久等待。
 /// 执行：观察宿主进入再取消令牌，在1秒测试期限内收取结果。
 /// 预期：返回Cancelled，宿主上下文也已取消，没有正常成功结果。
 #[tokio::test]
 async fn cancelling_pending_model_addressed_tool_ends_the_entire_turn() {
-    let (endpoint,server)=sse::serve_openai(vec![json!({"role":"assistant","tool_calls":[{"index":0,"id":"pending-reply","type":"function","function":{"name":"reply_agent","arguments":"{\"agent\":\"Codex\",\"message\":\"修复登录\"}"}}]})]).await;
+    let (endpoint,server)=sse::serve_openai(vec![json!({"role":"assistant","tool_calls":[{"index":0,"id":"pending-reply","type":"function","function":{"name":"agent_reply","arguments":"{\"agent\":\"Codex\",\"message\":\"修复登录\"}"}}]})]).await;
     let host = Arc::new(PendingHost {
         entered: tokio::sync::Notify::new(),
         context: Mutex::new(None),

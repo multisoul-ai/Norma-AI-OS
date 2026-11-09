@@ -264,3 +264,46 @@ fn running_agent_action_prefers_live_summary_over_task_title() {
     assert_eq!(fallback.action, fallback.task, "没有实时动作时回退任务名");
     assert!(fallback.task.is_some());
 }
+
+/// 场景：岛列表在智能体名字后展示真实Provider，不能用名字或项目猜测。
+/// 数据：Bella/Bruno都来自Codex，项目名为Norma-AI-OS，名字与Provider互不相同。
+/// 执行：生产activity→overview投影，分别读取运行中与待开始行。
+/// 预期：两行保留Codex身份，同时保留各自名字和项目，三者不互相替换。
+#[test]
+fn overview_preserves_provider_separately_from_agent_and_project() {
+    let view = WorkspaceActivityView::from_facts(&facts());
+    let overview = project_run_overview("area-current", &view, &files(), &presence());
+    for (row, name) in [
+        (&overview.running[0], "Bella"),
+        (&overview.idle[0], "Bruno"),
+    ] {
+        assert_eq!(row.profile, "Codex", "Provider必须从原始事实透传");
+        assert_eq!(row.name, name, "Provider不能替换智能体名");
+        assert_eq!(row.project, "Norma-AI-OS", "项目名应独立保留");
+        assert_ne!(row.profile, row.name, "不能按姓名推测Provider");
+    }
+}
+
+/// 场景：原生CLI与Ego的完成任务都显示完成，不能被岛归入待开始。
+/// 数据：相同事实分别采用生产raw_state done、ego_completed、ready。
+/// 执行：经过activity与overview两次生产投影，查询首行的完成语义。
+/// 预期：两个完成状态为真；ready为假，避免把真正待开始也展示为完成。
+#[test]
+fn overview_completion_covers_native_and_ego_agents() {
+    for (state, completed) in [("done", true), ("ego_completed", true), ("ready", false)] {
+        let mut raw = facts_json();
+        raw["workspace"]["projects"][0]["agents"][0]["card"]["state"] = state.into();
+        raw["approvals"] = json!([]);
+        raw["reviews"] = json!([]);
+        let facts: WorkspaceActivityFacts =
+            serde_json::from_value(raw).expect("不同完成状态的事实");
+        let view = WorkspaceActivityView::from_facts(&facts);
+        let overview = project_run_overview("area-current", &view, &[], &presence());
+        let row = overview
+            .idle
+            .iter()
+            .find(|row| row.node_id == 1)
+            .expect("完成和等待均保留行");
+        assert_eq!(row.is_completed(), completed, "{state}必须保持生产完成语义");
+    }
+}

@@ -60,6 +60,9 @@ enum InitializationPhase {
     Playing {
         elapsed: Duration,
     },
+    Reduced {
+        elapsed: Duration,
+    },
     Dismissing {
         elapsed: Duration,
         overlay_start: f32,
@@ -85,9 +88,28 @@ impl InitializationAnimation {
         }
     }
 
+    /// 减少动态效果：跳过成形，直接停在最后一帧并立刻做 186ms 交叉淡入。
+    pub(crate) fn reduced(kind: InitializationAnimationKind) -> Self {
+        Self {
+            kind,
+            phase: InitializationPhase::Reduced {
+                elapsed: Duration::ZERO,
+            },
+        }
+    }
+
+    pub(crate) fn starting(kind: InitializationAnimationKind, reduce_motion: bool) -> Self {
+        if reduce_motion {
+            Self::reduced(kind)
+        } else {
+            Self::new(kind)
+        }
+    }
+
     pub(crate) fn presentation(self) -> Option<InitializationPresentation> {
         match self.phase {
             InitializationPhase::Playing { elapsed } => playing_presentation(self.kind, elapsed),
+            InitializationPhase::Reduced { elapsed } => reduced_presentation(self.kind, elapsed),
             InitializationPhase::Dismissing {
                 elapsed,
                 overlay_start,
@@ -115,6 +137,12 @@ impl InitializationAnimation {
                     self.phase = InitializationPhase::Finished;
                 }
             }
+            InitializationPhase::Reduced { elapsed } => {
+                *elapsed = elapsed.saturating_add(delta);
+                if *elapsed >= INITIALIZATION_CROSSFADE_DURATION {
+                    self.phase = InitializationPhase::Finished;
+                }
+            }
             InitializationPhase::Dismissing { elapsed, .. } => {
                 *elapsed = elapsed.saturating_add(delta);
                 if *elapsed >= INITIALIZATION_INTERRUPT_DURATION {
@@ -130,7 +158,10 @@ impl InitializationAnimation {
         let Some(presentation) = self.presentation() else {
             return false;
         };
-        if !matches!(self.phase, InitializationPhase::Playing { .. }) {
+        if !matches!(
+            self.phase,
+            InitializationPhase::Playing { .. } | InitializationPhase::Reduced { .. }
+        ) {
             return false;
         }
         self.phase = InitializationPhase::Dismissing {
@@ -154,6 +185,9 @@ impl InitializationAnimation {
                 let next_frame = INITIALIZATION_FRAME_INTERVAL
                     * (completed_frames + 1).min(INITIALIZATION_FRAME_COUNT) as u32;
                 Some(next_frame.saturating_sub(elapsed))
+            }
+            InitializationPhase::Reduced { elapsed } => {
+                Some(INITIALIZATION_CROSSFADE_DURATION.saturating_sub(elapsed))
             }
             InitializationPhase::Dismissing { elapsed, .. } => {
                 Some(INITIALIZATION_INTERRUPT_DURATION.saturating_sub(elapsed))
@@ -181,6 +215,22 @@ fn playing_presentation(
         frame_index,
         overlay_opacity: 1.0 - crossfade,
         content_opacity: crossfade,
+    })
+}
+
+fn reduced_presentation(
+    kind: InitializationAnimationKind,
+    elapsed: Duration,
+) -> Option<InitializationPresentation> {
+    if elapsed >= INITIALIZATION_CROSSFADE_DURATION {
+        return None;
+    }
+    let progress = duration_progress(elapsed, INITIALIZATION_CROSSFADE_DURATION);
+    Some(InitializationPresentation {
+        kind,
+        frame_index: INITIALIZATION_FRAME_COUNT - 1,
+        overlay_opacity: 1.0 - progress,
+        content_opacity: progress,
     })
 }
 

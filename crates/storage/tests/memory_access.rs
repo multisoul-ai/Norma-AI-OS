@@ -7,6 +7,7 @@ fn context(input: &str, turn: &str) -> ToolContext {
         turn_id: turn.into(),
         user_input: input.into(),
         input_source: AgentInputSource::Other,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "memory-call".into(),
         operation_id: Some(format!("{turn}:memory-call")),

@@ -25,11 +25,21 @@ impl MultisoulApp {
             .content_tab_generation
             .wrapping_add(1);
         self.desktop_workspace.content_tabs.clear();
+        self.desktop_workspace.content_browser.new_tab_page = false;
         self.desktop_workspace.content_previews.clear();
         self.desktop_workspace.content_snapshots.clear();
         self.desktop_workspace.content_resources.clear();
         self.desktop_workspace.content_loading.clear();
         self.desktop_workspace.content_load_versions.clear();
+    }
+
+    /// User navigation supersedes late opens and any unacknowledged workbench review.
+    pub(crate) fn begin_desktop_content_navigation(&mut self) -> u64 {
+        let state = &mut self.desktop_workspace;
+        state.content_tab_generation = state.content_tab_generation.wrapping_add(1);
+        state.workbench.pending_turn_review = None;
+        state.workbench.pending_turn_diff = None;
+        state.content_tab_generation
     }
 
     pub(crate) fn enqueue_desktop_content_open(
@@ -44,11 +54,7 @@ impl MultisoulApp {
         let epoch = self.desktop_workspace.content_workspace_epoch;
         let store =
             storage::DesktopContentTabStore::new(self.database_paths.app_db_path().to_owned());
-        self.desktop_workspace.content_tab_generation = self
-            .desktop_workspace
-            .content_tab_generation
-            .wrapping_add(1);
-        let generation = self.desktop_workspace.content_tab_generation;
+        let generation = self.begin_desktop_content_navigation();
         let previous = self.desktop_workspace.content_tab_task.take();
         self.desktop_workspace.content_tab_task = Some(cx.spawn(async move |this, cx| {
             if let Some(previous) = previous {
@@ -104,13 +110,12 @@ impl MultisoulApp {
                             "drawers.open_superseded",
                         )));
                     }
-                    let (tab, created, tabs) = opened.map_err(|error| {
+                    let (tab, created, tabs) = opened.inspect_err(|error| {
                         app.desktop_workspace.error = Some(ui::i18n::message(
                             "drawers.open_content_failed",
                             &[("error", (error).to_string())],
                         ));
                         cx.notify();
-                        error
                     })?;
                     app.hide_desktop_content_browsers();
                     // Reused files must refresh both content and type. Invalidate in-flight reads too.
@@ -123,14 +128,14 @@ impl MultisoulApp {
                         app.desktop_workspace.content_load_versions.remove(&tab.id);
                     }
                     app.desktop_workspace.content_tabs = tabs;
+                    app.desktop_workspace.content_browser.new_tab_page = false;
                     app.desktop_workspace.drawers = route_drawer(
                         app.desktop_workspace.drawers,
                         DesktopDrawerEvent::OpenArtifact,
                     );
-                    app.desktop_workspace.drawer_motion.retarget(
-                        app.desktop_workspace.drawers.left_open,
-                        app.desktop_workspace.drawers.right_open,
-                    );
+                    app.desktop_workspace
+                        .drawer_motion
+                        .retarget(app.desktop_workspace.drawers.right_open);
                     app.load_selected_desktop_content(cx);
                     if let Some(receipt) = receipt.as_ref() {
                         receipt.focus(cx)?;

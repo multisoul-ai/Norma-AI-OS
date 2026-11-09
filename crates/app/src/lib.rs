@@ -18,6 +18,7 @@ mod database;
 mod e2e_control;
 mod effects;
 mod frame_diagnostics;
+mod island;
 mod license_gate;
 mod logging;
 mod media;
@@ -41,6 +42,22 @@ mod menu_bar_tests;
 #[cfg(test)]
 #[path = "../tests/unit/pinned_locale.rs"]
 mod pinned_locale;
+#[cfg(test)]
+#[path = "../tests/support/brain_question.rs"]
+mod test_brain_question;
+#[cfg(test)]
+#[path = "../../norma/tests/support/codex_relay.rs"]
+mod test_codex_relay;
+#[cfg(test)]
+#[path = "../tests/support/drawer_locale.rs"]
+mod test_drawer_locale;
+/// 多个单元测试共用的夹具，只加载一次。
+#[cfg(test)]
+#[path = "../tests/support/gpt_live_sse.rs"]
+mod test_gpt_live_sse;
+#[cfg(test)]
+#[path = "../tests/support/run_overview_rows.rs"]
+mod test_run_overview_rows;
 
 #[cfg(feature = "e2e-test-support")]
 pub use app::{
@@ -124,7 +141,7 @@ pub fn run_norma_os() {
         if !settings::general::is_ready(cx) {
             return;
         }
-        if cx.windows().is_empty() {
+        if !island::has_workspace_windows(cx) {
             if let Err(error) = license_gate::open_gated_window(cx) {
                 tracing::warn!(%error, "failed to reopen Norma window");
             }
@@ -162,7 +179,7 @@ pub fn run_norma_os() {
         cx.on_window_closed(|cx| {
             let background = workspace::sessions::windows_closed(cx);
             workspace::desktop::sessions::windows_closed(background, cx);
-            if cx.windows().is_empty() && !background {
+            if !island::has_workspace_windows(cx) && !background {
                 settings::general::quit_after_saving(cx);
             }
         })
@@ -179,5 +196,7 @@ pub fn run_norma_os() {
         // The opt-in `licenses` feature controls the hard gate (ADR 0015).
         // Default and packaged builds enter the workbench without a license.
         settings::general::open_initial_window(cx);
+        island::install(cx);
+        island::hotkey::install(cx);
     });
 }

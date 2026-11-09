@@ -22,6 +22,7 @@ pub(crate) struct RigToolContext {
     base: ToolContext,
     identities: Arc<Mutex<CallIdentities>>,
     policy: ToolCallPolicy,
+    voice_proposals: Arc<Mutex<Vec<crate::voice_command::VoiceProposal>>>,
 }
 
 impl RigToolContext {
@@ -30,6 +31,7 @@ impl RigToolContext {
             base,
             identities: Arc::new(Mutex::new(CallIdentities::default())),
             policy: ToolCallPolicy::default(),
+            voice_proposals: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -47,6 +49,28 @@ impl RigToolContext {
 
     pub(crate) fn is_gpt_live(&self) -> bool {
         self.base.input_source == crate::AgentInputSource::GptLiveVoice
+    }
+
+    pub(crate) fn is_single_voice_command(&self) -> bool {
+        matches!(
+            self.base.input_source,
+            crate::AgentInputSource::SingleVoiceCommand { .. }
+        )
+    }
+
+    pub(crate) fn propose_voice_command(&self, tool: &str, arguments: &str) {
+        let proposal = crate::voice_command::VoiceProposal {
+            tool: tool.into(),
+            arguments: serde_json::from_str(arguments).unwrap_or(Value::Null),
+        };
+        let mut proposals = self.voice_proposals.lock().expect("voice proposal lock");
+        if !proposals.contains(&proposal) {
+            proposals.push(proposal);
+        }
+    }
+
+    pub(crate) fn take_voice_proposals(&self) -> Vec<crate::voice_command::VoiceProposal> {
+        std::mem::take(&mut *self.voice_proposals.lock().expect("voice proposal lock"))
     }
 
     pub(crate) fn unknown_seen(&self) -> bool {
@@ -192,32 +216,26 @@ macro_rules! define_rig_tool {
     };
 }
 
-define_rig_tool!(FindAgentTasksTool, "find_agent_tasks", 0);
-define_rig_tool!(CreateAgentTool, "create_agent", 1);
-define_rig_tool!(AssignAgentTaskTool, "assign_agent_task", 2);
-define_rig_tool!(CancelAgentTaskTool, "cancel_agent_task", 3);
-define_rig_tool!(ReplyAgentTool, "reply_agent", 4);
-define_rig_tool!(CancelAgentReplyTool, "cancel_agent_reply", 5);
-define_rig_tool!(CreateTerminalTool, "create_terminal", 6);
-define_rig_tool!(CreateBrowserTool, "create_browser", 7);
-define_rig_tool!(CreatePreviewTool, "create_preview", 8);
-define_rig_tool!(FocusCardTool, "focus_card", 9);
-define_rig_tool!(SendTerminalInputTool, "send_terminal_input", 10);
-define_rig_tool!(DeleteCanvasCardTool, "delete_canvas_card", 11);
+define_rig_tool!(FindAgentTasksTool, "task_list", 0);
+define_rig_tool!(CreateAgentTool, "agent_create", 1);
+define_rig_tool!(AssignAgentTaskTool, "agent_assign", 2);
+define_rig_tool!(CancelAgentTaskTool, "task_cancel", 3);
+define_rig_tool!(ReplyAgentTool, "agent_reply", 4);
+define_rig_tool!(CancelAgentReplyTool, "reply_cancel", 5);
+define_rig_tool!(CreateTerminalTool, "terminal_create", 6);
+define_rig_tool!(DeleteCanvasCardTool, "card_delete", 7);
 
-define_rig_tool!(MemoryListTool, "memory_list", 12);
-define_rig_tool!(MemorySearchTool, "memory_search", 13);
-define_rig_tool!(MemoryReadTool, "memory_read", 14);
-define_rig_tool!(MemoryWriteTool, "memory_write", 15);
+define_rig_tool!(MemoryListTool, "memory_list", 8);
+define_rig_tool!(MemorySearchTool, "memory_search", 9);
+define_rig_tool!(MemoryReadTool, "memory_read", 10);
+define_rig_tool!(MemoryWriteTool, "memory_write", 11);
 
-define_rig_tool!(WorkspaceMemoryTool, "workspace_memory", 16);
-define_rig_tool!(WorkspaceSnapshotTool, "workspace_snapshot", 17);
-define_rig_tool!(AssignWorkspaceTaskTool, "assign_workspace_task", 18);
-define_rig_tool!(OpenWorkspaceArtifactTool, "open_workspace_artifact", 19);
-define_rig_tool!(LocateWorkspaceAgentTool, "locate_workspace_agent", 20);
-define_rig_tool!(CaptureIdeaTool, "capture_idea", 21);
-define_rig_tool!(ListIdeasTool, "list_ideas", 22);
-define_rig_tool!(AssignIdeaTool, "assign_idea", 23);
-define_rig_tool!(HandoffToBrainTool, "handoff_to_brain", 24);
-define_rig_tool!(ReadSharedContextTool, "context_read", 25);
-define_rig_tool!(UpdateWorkingStateTool, "context_update", 26);
+define_rig_tool!(WorkspaceMemoryTool, "workspace_memory", 12);
+define_rig_tool!(WorkspaceSnapshotTool, "workspace_snapshot", 13);
+define_rig_tool!(OpenWorkspaceArtifactTool, "file_open", 14);
+define_rig_tool!(LocateWorkspaceAgentTool, "agent_show", 15);
+define_rig_tool!(CaptureIdeaTool, "idea_save", 16);
+define_rig_tool!(ListIdeasTool, "idea_list", 17);
+define_rig_tool!(HandoffToBrainTool, "handoff_to_brain", 18);
+define_rig_tool!(ReadSharedContextTool, "context_read", 19);
+define_rig_tool!(UpdateWorkingStateTool, "context_update", 20);

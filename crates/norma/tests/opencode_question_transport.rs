@@ -47,6 +47,9 @@ fn server(reply_status: u16) -> (String, std::thread::JoinHandle<Vec<(String, Va
                     Err(error) => panic!("应收到有界本机HTTP请求：{error}"),
                 }
             };
+            // macOS can inherit the listener's nonblocking flag on accepted sockets.
+            // Only accept is polled; HTTP reads must honor the bounded timeout below.
+            socket.set_nonblocking(false).unwrap();
             socket
                 .set_read_timeout(Some(Duration::from_secs(3)))
                 .unwrap();

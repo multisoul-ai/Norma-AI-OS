@@ -1,20 +1,27 @@
 //! Desktop overview reads a cached projection. Recompute runs off the render path.
-use super::status::{
-    approval_is_actionable, approval_is_pending, ego_stop_agent, live_agents, state_label,
-};
+use super::status::{approval_is_actionable, approval_is_pending, state_label};
 use crate::app::MultisoulApp;
-use gpui::{App, Context};
+use gpui::Context;
 use norma::mobile::{
-    project_run_overview, status_capsule, CardSnapshot, DesktopChatAgent, DesktopChatProject,
-    DesktopChatWorkspace, RunOverview, RunOverviewFile, RunOverviewProjectPresence, StatusCapsule,
-    WorkspaceActivityFacts, WorkspaceActivitySummary, WorkspaceActivityView,
+    project_run_overview, status_capsule, RunOverview, RunOverviewFile, RunOverviewProjectPresence,
+    StatusCapsule, WorkspaceActivityFacts, WorkspaceActivitySummary, WorkspaceActivityView,
 };
 use runtime::RuntimeEvent;
+
+mod capture;
+mod cards;
+mod current;
+mod project;
+pub(super) use capture::ActivityMonitor;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_activity_overview_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/island_activity_tests.rs"]
+mod island_tests;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct ActivityPresentation {
@@ -104,8 +111,11 @@ pub(super) fn overview_areas_from_activity(
 }
 
 struct ActivityInput {
-    generation: u64,
+    database: std::path::PathBuf,
+    questions: Vec<crate::app::OverviewQuestion>,
+    proposals: Vec<crate::island::IslandProposal>,
     facts: WorkspaceActivityFacts,
+    cached_facts: Option<WorkspaceActivityFacts>,
     area_ids: Vec<String>,
     presentation: Vec<ActivityPresentation>,
     current_area_id: String,
@@ -114,7 +124,7 @@ struct ActivityInput {
 }
 
 struct ActivityOutput {
-    generation: u64,
+    island: crate::island::IslandWorkspace,
     summary: WorkspaceActivitySummary,
     view: WorkspaceActivityView,
     areas: Vec<OverviewArea>,
@@ -129,14 +139,15 @@ fn project_activity(input: ActivityInput) -> ActivityOutput {
         .unwrap_or(0);
     let view = WorkspaceActivityView::from_facts(&input.facts);
     let mut capsule = status_capsule(&input.facts, &input.current_area_id);
-    let summary = WorkspaceActivitySummary::from_facts("desktop", input.facts, now);
     let areas = overview_areas_from_activity(&input.area_ids, &view, &input.presentation);
     let overview =
         project_run_overview(&input.current_area_id, &view, &input.files, &input.presence);
     // 状态条与抽屉统计同源：数字都从这一份概览投影里来。
     capsule.apply_run_overview(&overview);
+    let island = project::island_workspace(&input, &view);
+    let summary = WorkspaceActivitySummary::from_facts("desktop", input.facts, now);
     ActivityOutput {
-        generation: input.generation,
+        island,
         summary,
         view,
         areas,
@@ -156,15 +167,6 @@ pub(crate) fn workspace_activity_event(event: &RuntimeEvent) -> bool {
 }
 
 impl MultisoulApp {
-    pub(super) fn overview_rows_for(&self, area_id: &str) -> Vec<OverviewAgentRow> {
-        self.desktop_workspace
-            .activity_overview
-            .as_ref()
-            .and_then(|areas| areas.iter().find(|area| area.area_id == area_id))
-            .map(|area| area.rows.clone())
-            .unwrap_or_default()
-    }
-
     pub(super) fn invalidate_workspace_activity(&mut self) {
         self.desktop_workspace.activity_generation =
             self.desktop_workspace.activity_generation.wrapping_add(1);
@@ -173,8 +175,6 @@ impl MultisoulApp {
         self.desktop_workspace.activity_overview = None;
         self.desktop_workspace.activity_run_overview = None;
         self.desktop_workspace.activity_capsule = None;
-        self.desktop_workspace.overview_cursor = None;
-        self.desktop_workspace.overview_prelight = None;
     }
 
     pub(super) fn ensure_workspace_activity_cache(&mut self, cx: &mut Context<Self>) {
@@ -200,18 +200,73 @@ impl MultisoulApp {
         self.mark_workspace_activity_dirty(cx);
     }
 
+    /// The island source is the desktop host. A background session must not
+    /// publish its own entity id, or locate cannot find the card.
+    pub(crate) fn island_completion_route(
+        &self,
+        node: u64,
+        cx: &Context<Self>,
+    ) -> Option<crate::island::CompletionRoute> {
+        let host = self.desktop_host.as_ref().and_then(|host| host.upgrade())?;
+        let self_id = cx.entity().entity_id();
+        let (workspace, area) = host
+            .read(cx)
+            .desktop_workspace
+            .sessions
+            .iter()
+            .find(|(_, session)| session.entity_id() == self_id)
+            .map(|(key, _)| key.clone())?;
+        Some(crate::island::CompletionRoute {
+            source: host.entity_id().as_u64(),
+            workspace,
+            area,
+            node,
+        })
+    }
+
     pub(crate) fn note_workspace_activity_from_frame(
         &mut self,
         hook_changed: bool,
         events: &[RuntimeEvent],
         cx: &mut Context<Self>,
     ) {
+        for node in events.iter().filter_map(runtime::island::completion_node) {
+            let label = self
+                .runtime
+                .document
+                .node(node)
+                .and_then(|node| {
+                    if let canvas::CanvasNodeKind::Agent(spec) = &node.kind {
+                        Some(
+                            spec.alias
+                                .clone()
+                                .unwrap_or_else(|| spec.profile.display_title().to_owned()),
+                        )
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default();
+            crate::island::task_completed(self.island_completion_route(node, cx), label, cx);
+        }
         if hook_changed || events.iter().any(workspace_activity_event) {
             self.note_workspace_activity_changed(cx);
         }
     }
 
     pub(super) fn mark_workspace_activity_dirty(&mut self, cx: &mut Context<Self>) {
+        // Embedded projects contribute through their desktop host, never as a second source.
+        if self.desktop_host.is_some() || self.desktop_workspace.activity_monitor.stopped {
+            return;
+        }
+        if !self.desktop_workspace.activity_monitor.registered {
+            self.desktop_workspace.activity_monitor.registered = true;
+            let source = cx.entity().entity_id().as_u64();
+            crate::island::register_source(&cx.entity(), cx);
+            cx.on_release(move |_, cx| crate::island::remove_source(source, cx))
+                .detach();
+            self.start_island_activity_monitor(cx);
+        }
         if self.desktop_workspace.activity_gate.mark() {
             self.spawn_workspace_activity_refresh(cx);
         }
@@ -219,59 +274,60 @@ impl MultisoulApp {
 
     pub(crate) fn note_workspace_activity_changed(&mut self, cx: &mut Context<Self>) {
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
-            let _ = host.update(cx, |host, cx| host.mark_workspace_activity_dirty(cx));
+            host.update(cx, |host, cx| host.mark_workspace_activity_dirty(cx));
             return;
         }
-        if matches!(self.screen, crate::app::AppScreen::DesktopWorkspace) {
+        if matches!(self.screen, crate::app::AppScreen::DesktopWorkspace)
+            || !self.desktop_workspace.sessions.is_empty()
+        {
             self.mark_workspace_activity_dirty(cx);
+        }
+    }
+
+    fn ensure_proposal_snapshots(&mut self, cx: &mut Context<Self>) {
+        let sessions: Vec<_> = self.desktop_workspace.sessions.values().cloned().collect();
+        for session in sessions {
+            session.update(cx, |app, cx| app.load_brain_proposals(cx));
         }
     }
 
     fn spawn_workspace_activity_refresh(&mut self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
-            let Some(input) = this
-                .update(cx, |app, cx| {
-                    app.desktop_workspace.activity_gate.begin();
-                    app.capture_activity_input(cx)
-                })
-                .ok()
-                .flatten()
-            else {
-                let _ = this.update(cx, |app, cx| {
-                    if app.desktop_workspace.activity_gate.finish() {
-                        app.spawn_workspace_activity_refresh(cx);
-                    }
-                });
+            let Ok(input) = this.update(cx, |app, cx| {
+                app.desktop_workspace.activity_gate.begin();
+                app.ensure_proposal_snapshots(cx);
+                app.capture_activity_input(cx)
+            }) else {
                 return;
             };
+            let generation = input.generation;
+            let database = input.database.clone();
+            let version = cx.update(crate::island::begin_refresh).unwrap_or_default();
             let projected = cx
                 .background_executor()
-                .spawn(async move { project_activity(input) })
+                .spawn(async move { project::project_workspaces(input) })
                 .await;
             let _ = this.update(cx, |app, cx| {
-                if app.desktop_workspace.activity_generation == projected.generation {
-                    app.desktop_workspace.activity_summary = Some(projected.summary);
-                    app.desktop_workspace.activity_view = Some(projected.view);
-                    app.desktop_workspace.activity_overview = Some(projected.areas);
-                    app.desktop_workspace.activity_run_overview = Some(projected.overview.clone());
-                    app.desktop_workspace.activity_updated_at_ms = Some(overview_clock_ms() as i64);
-                    let count = projected.overview.attention.len()
-                        + projected.overview.running.len()
-                        + projected.overview.idle.len()
-                        + projected.overview.unloaded_projects.len();
-                    if app
-                        .desktop_workspace
-                        .overview_cursor
-                        .is_some_and(|index| index >= count)
-                    {
-                        app.desktop_workspace.overview_cursor = count.checked_sub(1);
+                if app.desktop_workspace.activity_generation == generation
+                    && !app.desktop_workspace.activity_monitor.stopped
+                {
+                    match projected.islands {
+                        Ok(islands) => {
+                            crate::island::publish(
+                                cx.entity().entity_id().as_u64(),
+                                version,
+                                database,
+                                islands,
+                                cx,
+                            );
+                        }
+                        Err(error) => {
+                            tracing::warn!(%error, "workspace activity projection failed")
+                        }
                     }
-                    app.desktop_workspace.activity_capsule = Some(projected.capsule);
-                    // 智能体状态变了：已指派的想法要跟着任务状态联动（完成、取消、失败）。
-                    if !app.desktop_workspace.ideas.is_empty() {
-                        app.refresh_ideas(cx);
+                    if let Some(current) = projected.current {
+                        app.apply_current_activity(current, cx);
                     }
-                    cx.notify();
                 }
                 if app.desktop_workspace.activity_gate.finish() {
                     app.spawn_workspace_activity_refresh(cx);
@@ -281,190 +337,21 @@ impl MultisoulApp {
         .detach();
     }
 
-    fn capture_activity_input(&self, cx: &App) -> Option<ActivityInput> {
-        let workspace_id = self.desktop_workspace.active_id.clone()?;
-        let workspace_name = self
-            .desktop_workspace
-            .active()
-            .map(|workspace| workspace.name.clone())
-            .unwrap_or_default();
-        let mut projects = Vec::new();
-        let mut presentation = Vec::new();
-        let mut area_ids = Vec::new();
-        for area in &self.desktop_workspace.areas {
-            area_ids.push(area.id.clone());
-            let (agents, presented) = self.capture_area_agents(&workspace_id, &area.id, cx);
-            presentation.extend(presented);
-            projects.push(DesktopChatProject {
-                area_id: area.id.clone(),
-                project_id: area.id.clone(),
-                name: area.display_name.clone(),
-                root: String::new(),
-                agents,
-                definitions: Vec::new(),
-            });
+    fn apply_current_activity(&mut self, projected: ActivityOutput, cx: &mut Context<Self>) {
+        let changed = self.desktop_workspace.activity_run_overview.as_ref()
+            != Some(&projected.overview)
+            || self.desktop_workspace.activity_overview.as_ref() != Some(&projected.areas)
+            || self.desktop_workspace.activity_capsule.as_ref() != Some(&projected.capsule);
+        self.desktop_workspace.activity_summary = Some(projected.summary);
+        self.desktop_workspace.activity_view = Some(projected.view);
+        self.desktop_workspace.activity_overview = Some(projected.areas);
+        self.desktop_workspace.activity_run_overview = Some(projected.overview);
+        self.desktop_workspace.activity_capsule = Some(projected.capsule);
+        if changed {
+            self.desktop_workspace.activity_updated_at_ms = Some(overview_clock_ms() as i64);
+            cx.notify();
         }
-        let current_area_id = self
-            .desktop_workspace
-            .expanded_area_id
-            .clone()
-            .or_else(|| self.desktop_workspace.active_area_id.clone())
-            .unwrap_or_default();
-        let files = self
-            .desktop_workspace
-            .content_artifacts
-            .iter()
-            .map(|artifact| RunOverviewFile {
-                area_id: artifact.area_id.clone(),
-                node_id: artifact.node_id,
-                agent_hint: artifact.agent_profile.clone(),
-                project_hint: self
-                    .desktop_workspace
-                    .areas
-                    .iter()
-                    .find(|area| area.id == artifact.area_id)
-                    .map(|area| area.display_name.clone())
-                    .unwrap_or_default(),
-                path: artifact.source_path.clone(),
-                turn_id: artifact.turn_id.clone(),
-                fingerprint: artifact.version.clone(),
-            })
-            .collect();
-        let presence = self
-            .desktop_workspace
-            .areas
-            .iter()
-            .map(|area| RunOverviewProjectPresence {
-                area_id: area.id.clone(),
-                loaded: self
-                    .desktop_workspace
-                    .sessions
-                    .contains_key(&(workspace_id.clone(), area.id.clone())),
-                updated_at_unix_ms: self
-                    .desktop_workspace
-                    .status_cache
-                    .get(&area.id)
-                    .map(|status| status.updated_at_unix_ms),
-            })
-            .collect();
-        Some(ActivityInput {
-            generation: self.desktop_workspace.activity_generation,
-            area_ids,
-            presentation,
-            current_area_id,
-            files,
-            presence,
-            facts: WorkspaceActivityFacts {
-                workspace: DesktopChatWorkspace {
-                    id: workspace_id,
-                    name: workspace_name,
-                    revision: 0,
-                    projects,
-                },
-                observed: true,
-                approvals: self
-                    .brain_overview()
-                    .approvals
-                    .iter()
-                    .map(|(area, approval)| norma::mobile::ActivityApprovalFact {
-                        area_id: area.clone(),
-                        approval: approval.clone(),
-                    })
-                    .collect(),
-                reviews: Vec::new(),
-            },
-        })
     }
-
-    fn capture_area_agents(
-        &self,
-        workspace_id: &str,
-        area_id: &str,
-        cx: &App,
-    ) -> (Vec<DesktopChatAgent>, Vec<ActivityPresentation>) {
-        let view = self.desktop_area_status_view(workspace_id, area_id, cx);
-        let mut agents = Vec::new();
-        let mut presentation = Vec::new();
-        if view.live {
-            if let Some(session) = self
-                .desktop_workspace
-                .sessions
-                .get(&(workspace_id.to_owned(), area_id.to_owned()))
-            {
-                let project = session.read(cx);
-                let snapshots = project.mobile_card_snapshots();
-                for agent in live_agents(&project) {
-                    let card = card_from_status(
-                        &agent,
-                        snapshots.iter().find(|card| card.node_id == agent.node_id),
-                    );
-                    presentation.push(ActivityPresentation {
-                        area_id: area_id.to_owned(),
-                        node_id: agent.node_id,
-                        live: true,
-                        updated_at_unix_ms: None,
-                        ego_stop_agent: agent
-                            .state
-                            .starts_with("ego_")
-                            .then(|| ego_stop_agent(&project, agent.node_id))
-                            .flatten(),
-                    });
-                    agents.push(chat_agent(agent.name, card));
-                }
-                return (agents, presentation);
-            }
-        }
-        for agent in view.agents {
-            let node_id = agent.node_id;
-            let name = agent.name.clone();
-            presentation.push(ActivityPresentation {
-                area_id: area_id.to_owned(),
-                node_id,
-                live: false,
-                updated_at_unix_ms: view.updated_at_unix_ms,
-                ego_stop_agent: None,
-            });
-            agents.push(chat_agent(name, card_from_status(&agent, None)));
-        }
-        (agents, presentation)
-    }
-}
-
-fn chat_agent(name: String, card: CardSnapshot) -> DesktopChatAgent {
-    let profile = card.profile.clone();
-    DesktopChatAgent {
-        definition_id: 0,
-        name,
-        profile,
-        card,
-    }
-}
-
-fn card_from_status(
-    agent: &storage::DesktopAgentStatus,
-    snapshot: Option<&CardSnapshot>,
-) -> CardSnapshot {
-    let mut card = snapshot.cloned().unwrap_or(CardSnapshot {
-        node_id: agent.node_id,
-        profile: "Agent".into(),
-        title: agent.name.clone(),
-        mobile_control: false,
-        state: agent.state.clone(),
-        run_id: agent.run_id.clone(),
-        session_id: None,
-        turn_id: agent.turn_id.clone(),
-        task_title: agent.task.clone(),
-        latest_prompt: None,
-        can_interrupt: None,
-        task_timing: None,
-        task_progress: None,
-        task_summary: None,
-    });
-    card.state = agent.state.clone();
-    card.task_title = agent.task.clone();
-    card.run_id = agent.run_id.clone();
-    card.turn_id = agent.turn_id.clone();
-    card
 }
 
 pub(in crate::workspace::desktop) fn overview_clock_ms() -> u64 {

@@ -152,7 +152,12 @@ impl MultisoulApp {
                     .w(px(rect.size.x * scale))
                     .h(px(rect.size.y * scale))
                     .child(self.desktop_home_card(
-                        index, workspace, rect.size, full.size, scale, window, cx,
+                        index,
+                        workspace,
+                        (rect.size, full.size),
+                        scale,
+                        window,
+                        cx,
                     )),
             );
         }

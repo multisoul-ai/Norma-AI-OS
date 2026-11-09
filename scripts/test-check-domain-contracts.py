@@ -35,13 +35,14 @@ class AgentProfileContractTests(unittest.TestCase):
         files = {
             "crates/norma/src/protocol.rs": profile_variants,
             "crates/canvas/src/node/agent_profile.rs": profile_variants,
-            "crates/agent/src/adapter.rs": f'''definition(
-    "create_agent",
+            "crates/agent/src/adapter.rs": "mod definitions;\npub use definitions::norma_tool_definitions;\n",
+            "crates/agent/src/adapter/definitions.rs": f'''definition(
+    "agent_create",
     object_schema(json!({{
         "profile": {{"type": "string", "enum": {schema_profiles}}}
     }})),
 ),
-definition("assign_agent_task", object_schema(json!({{}}))),
+definition("agent_assign", object_schema(json!({{}}))),
 ''',
             "crates/agent/src/adapter/commands.rs": """match args.profile.as_str() {
     "claude" => AgentProfile::Claude,
@@ -81,8 +82,8 @@ match value {
           parser mappings       = 5（与 variants 一一对应）
 
         执行过程（逐步说明系统如何处理）：
-          1. 在临时仓库创建 adapter.rs schema 与 adapter/commands.rs parser
-          2. checker 分别读取两个 canonical 文件
+          1. 在临时仓库创建 adapter.rs 模块入口、adapter/definitions.rs schema 与 commands.rs parser
+          2. checker 分别读取拆分后的 schema 与 parser canonical 文件
           3. checker 对比 wire、canvas、schema、parser 与 storage 映射
 
         预期结果：
@@ -115,12 +116,12 @@ match value {
           parser mappings       = 5
 
         执行过程（逐步说明系统如何处理）：
-          1. 构造不含 grok 的 create_agent schema
+          1. 构造不含 grok 的 agent_create schema
           2. 保持 parser 与 storage 的五种映射完整
           3. checker 比较 schema 集合与 wire variants
 
         预期结果：
-          - 正断言：失败信息明确指向 create_agent schema profiles
+          - 正断言：失败信息明确指向 agent_create schema profiles
           - 负断言：缺失 grok 的 schema 不得通过契约检查
         """
         with tempfile.TemporaryDirectory() as directory:
@@ -131,9 +132,9 @@ match value {
 
         report = "\n".join(failures)
         self.assertIn(
-            "create_agent schema profiles",
+            "agent_create schema profiles",
             report,
-            "missing Grok should produce a concrete create_agent schema failure",
+            "missing Grok should produce a concrete agent_create schema failure",
         )
         self.assertNotEqual(
             failures,

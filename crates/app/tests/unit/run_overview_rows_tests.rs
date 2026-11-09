@@ -1,9 +1,6 @@
-#[path = "../support/run_overview_rows.rs"]
-mod fixtures;
-use fixtures::sample;
+use crate::test_run_overview_rows::sample;
 
-#[path = "../support/drawer_locale.rs"]
-mod drawer_locale;
+use crate::test_drawer_locale as drawer_locale;
 use drawer_locale::expected_copy;
 
 use super::{
@@ -238,10 +235,12 @@ fn overview_rows_use_prototype_copy_without_percentages() {
     );
     let blob = format!("{screen:?}{blocked:?}");
     assert!(!blob.contains('%'), "概览文案不能出现百分比");
-    assert!(
-        OVERVIEW_TEXT_PRIMARY >= 11.0 && OVERVIEW_TEXT_SECONDARY >= 11.0,
-        "最小字号 11px"
-    );
+    const {
+        assert!(
+            OVERVIEW_TEXT_PRIMARY >= 11.0 && OVERVIEW_TEXT_SECONDARY >= 11.0,
+            "最小字号 11px"
+        )
+    };
     assert_eq!(overview_row_height(OverviewRowKind::Attention), 48.0);
     assert_eq!(overview_row_height(OverviewRowKind::Project), 48.0);
     assert!(
@@ -406,7 +405,7 @@ fn overview_row_feedback_is_distinct_in_light_and_dark_themes() {
 }
 
 fn blend(background: u32, foreground: u32) -> (u8, u8, u8) {
-    let alpha = (foreground & 0xff) as u32;
+    let alpha = foreground & 0xff;
     let mix = |shift: u32| {
         let back = (background >> shift) & 0xff;
         let fore = (foreground >> shift) & 0xff;

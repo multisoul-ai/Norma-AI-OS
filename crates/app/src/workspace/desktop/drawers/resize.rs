@@ -1,24 +1,20 @@
 //! Mouse adaptation for the pure drawer resize decision in runtime.
 
-use super::motion::{DesktopDrawerLayout, LEFT_MIN_WIDTH, MIN_CANVAS_WIDTH, RIGHT_MIN_WIDTH};
+use super::motion::{DesktopDrawerLayout, MIN_CANVAS_WIDTH, RIGHT_MIN_WIDTH};
 use crate::app::MultisoulApp;
 use gpui::{
     div, prelude::*, px, rgba, Context, Div, MouseButton, MouseDownEvent, MouseMoveEvent,
     MouseUpEvent, Stateful, Window,
 };
-use runtime::desktop_drawers::{
-    resize_drawer, route_drawer, DesktopDrawerEvent, DesktopDrawerSide,
-};
+use runtime::desktop_drawers::{resize_drawer, route_drawer, DesktopDrawerEvent};
 
 #[derive(Default)]
 pub(crate) struct DesktopDrawerWidths {
-    pub(crate) left: Option<f32>,
     pub(crate) right: Option<f32>,
 }
 
 #[derive(Clone, Copy)]
 pub(crate) struct DesktopDrawerResizeSession {
-    side: DesktopDrawerSide,
     initial_x: f32,
     initial_width: f32,
 }
@@ -26,31 +22,17 @@ pub(crate) struct DesktopDrawerResizeSession {
 impl MultisoulApp {
     pub(super) fn drawer_resize_handle(
         &self,
-        side: DesktopDrawerSide,
         width: f32,
         inset: f32,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let left = side == DesktopDrawerSide::Left;
         div()
-            .id(if left {
-                "desktop-left-resize-handle"
-            } else {
-                "desktop-right-resize-handle"
-            })
-            .debug_selector(move || {
-                if left {
-                    "desktop-left-resize-handle"
-                } else {
-                    "desktop-right-resize-handle"
-                }
-                .to_string()
-            })
+            .id("desktop-right-resize-handle")
+            .debug_selector(|| "desktop-right-resize-handle".to_string())
             .absolute()
             .top_0()
             .bottom_0()
-            .when(left, |handle| handle.left(px(width + inset - 8.0)))
-            .when(!left, |handle| handle.right(px(width + inset - 8.0)))
+            .right(px(width + inset - 8.0))
             .w(px(16.0))
             .cursor_ew_resize()
             .occlude()
@@ -68,7 +50,6 @@ impl MultisoulApp {
                 cx.listener(move |app, event: &MouseDownEvent, _, cx| {
                     cx.stop_propagation();
                     app.desktop_workspace.drawer_resize = Some(DesktopDrawerResizeSession {
-                        side,
                         initial_x: f32::from(event.position.x),
                         initial_width: width,
                     });
@@ -112,55 +93,29 @@ impl MultisoulApp {
         let Some(session) = self.desktop_workspace.drawer_resize else {
             return;
         };
-        let layout = self.desktop_assistant_layout(window);
-        let (minimum, other_space) = match session.side {
-            DesktopDrawerSide::Left => (LEFT_MIN_WIDTH, layout.right_space),
-            DesktopDrawerSide::Right => (RIGHT_MIN_WIDTH, layout.left_space),
-        };
         let maximum =
-            (f32::from(window.viewport_size().width) - other_space - MIN_CANVAS_WIDTH).max(minimum);
+            (f32::from(window.viewport_size().width) - MIN_CANVAS_WIDTH).max(RIGHT_MIN_WIDTH);
         let result = resize_drawer(
-            session.side,
             session.initial_width,
             session.initial_x,
             x,
-            minimum,
+            RIGHT_MIN_WIDTH,
             maximum,
         );
-        let event = match session.side {
-            DesktopDrawerSide::Left => {
-                self.desktop_workspace.drawer_widths.left = Some(result.width);
-                DesktopDrawerEvent::ResizeLeft(result.open)
-            }
-            DesktopDrawerSide::Right => {
-                self.desktop_workspace.drawer_widths.right = Some(result.width);
-                DesktopDrawerEvent::ResizeRight(result.open)
-            }
-        };
+        self.desktop_workspace.drawer_widths.right = Some(result.width);
         let before = self.desktop_workspace.drawers;
-        self.desktop_workspace.drawers = route_drawer(before, event);
-        if before != self.desktop_workspace.drawers {
-            self.desktop_workspace.drawer_motion.retarget(
-                self.desktop_workspace.drawers.left_open,
-                self.desktop_workspace.drawers.right_open,
-            );
-            self.wake_animation_frame_loop();
+        let next = route_drawer(before, DesktopDrawerEvent::ResizeRight(result.open));
+        if before != next {
+            self.apply_desktop_drawers(next, cx);
         }
         cx.notify();
     }
 }
 
-pub(super) fn layout_with_user_widths(
+pub(super) fn layout_with_user_width(
     window_width: f32,
-    left_fraction: f32,
     right_fraction: f32,
     widths: &DesktopDrawerWidths,
 ) -> DesktopDrawerLayout {
-    DesktopDrawerLayout::with_widths(
-        window_width,
-        left_fraction,
-        right_fraction,
-        widths.left,
-        widths.right,
-    )
+    DesktopDrawerLayout::with_width(window_width, right_fraction, widths.right)
 }

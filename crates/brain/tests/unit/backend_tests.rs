@@ -103,6 +103,10 @@ fn claude_sessions_ignore_user_settings_and_disable_write_tools() {
         "写工具要禁用"
     );
     assert_eq!(options["model"], "haiku");
+    assert_eq!(
+        options["persistSession"], false,
+        "大脑会话不能出现在用户的 Claude /resume 列表"
+    );
     assert_eq!(session_mode(BackendKind::ClaudeCode), Some("default"));
     // Codex 默认的 Auto review 模式跑命令不发权限请求，闸门会失效；只读模式下写入和连 socket 都要请求批准。
     assert_eq!(session_mode(BackendKind::Codex), Some("read-only"));

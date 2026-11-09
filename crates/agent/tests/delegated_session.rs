@@ -1,5 +1,5 @@
 #[path = "support/sse.rs"]
-mod sse;
+pub mod sse;
 use agent::{
     AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter, AgentInputSource,
     NormaDelegation, NormaSession, ProviderConfig, ProviderProtocol, ToolContext,
@@ -29,13 +29,13 @@ impl AgentCardAdapter for Host {
 
 /// AC05/AC08/AC10：实际模型可见完整对话，但工具授权只采用真实用户原文和Live专属来源。
 ///
-/// 数据构造：用户“创建一个终端”，助手上下文含删除建议；SSE返回create_terminal后给出已核验回复。
+/// 数据构造：用户“创建一个终端”，助手上下文含删除建议；SSE返回terminal_create后给出已核验回复。
 /// 执行过程：调用NormaSession委派入口，真实HTTP往返及共享工具运行时到达Adapter。
 /// 预期结果：模型收到双向上下文；Adapter只收到用户授权原文、稳定外部请求关联和node回执。
 #[tokio::test]
 async fn delegation_keeps_model_context_separate_from_tool_authorization() {
     let (endpoint, server) = sse::serve(vec![
-        json!({"role":"assistant","tool_calls":[{"index":0,"id":"call-fixture","type":"function","function":{"name":"create_terminal","arguments":"{}"}}]}),
+        json!({"role":"assistant","tool_calls":[{"index":0,"id":"call-fixture","type":"function","function":{"name":"terminal_create","arguments":"{}"}}]}),
         json!({"role":"assistant","content":"已创建 Terminal #41"}),
     ]).await;
     let calls = Arc::new(Mutex::new(Vec::new()));
@@ -96,15 +96,15 @@ async fn delegation_keeps_model_context_separate_from_tool_authorization() {
 
 /// AC07：用户明确要求两项相同工具操作时，稳定序号不能将第二项误去重。
 ///
-/// 数据构造：创建两个终端，模型一次返回两个create_terminal调用，原始调用ID不同。
+/// 数据构造：创建两个终端，模型一次返回两个terminal_create调用，原始调用ID不同。
 /// 执行过程：真实SSE进入串行工具运行时，记录两项Adapter请求的稳定操作身份。
 /// 预期结果：两项均到达Adapter，step-1/step-2不同；不宣称已验证真实桌面卡片。
 #[tokio::test]
 async fn identical_tools_in_one_delegation_have_distinct_stable_steps() {
     let (endpoint, server) = sse::serve(vec![
         json!({"role":"assistant","tool_calls":[
-            {"index":0,"id":"call-first","type":"function","function":{"name":"create_terminal","arguments":"{}"}},
-            {"index":1,"id":"call-second","type":"function","function":{"name":"create_terminal","arguments":"{}"}}
+            {"index":0,"id":"call-first","type":"function","function":{"name":"terminal_create","arguments":"{}"}},
+            {"index":1,"id":"call-second","type":"function","function":{"name":"terminal_create","arguments":"{}"}}
         ]}),
         json!({"role":"assistant","content":"已处理两项创建"}),
     ]).await;
@@ -196,14 +196,14 @@ async fn invalid_and_cancelled_delegations_do_not_start_a_provider_turn() {
 }
 
 /// AC07：上游重放同一调用ID或用该ID换命令，均不能再次执行副作用。
-/// 数据构造：三轮真实SSE，call-once创建终端后重放；另一组用同ID改为浏览器。
+/// 数据构造：三轮真实SSE，call-once创建终端后重放；另一组用同ID改为创建 Codex。
 /// 执行过程：每组经公开委派入口、Rig Hook和共享工具缓存，核对最终Adapter命令。
 /// 预期结果：只创建一个终端；合法不同ID的相同工具仍由前一测试证明可执行两次。
 #[tokio::test]
 async fn provider_call_id_replay_and_conflict_do_not_repeat_side_effects() {
     for (tool, args) in [
-        ("create_terminal", "{}"),
-        ("create_browser", r#"{"url":"https://example.com"}"#),
+        ("terminal_create", "{}"),
+        ("agent_create", r#"{"profile":"codex","task":"打开示例"}"#),
     ] {
         let call = |tool: &str, args: &str| {
             json!({"role":"assistant","tool_calls":[{
@@ -211,7 +211,7 @@ async fn provider_call_id_replay_and_conflict_do_not_repeat_side_effects() {
             "function":{"name":tool,"arguments":args}}]})
         };
         let (endpoint, server) = sse::serve(vec![
-            call("create_terminal", "{}"),
+            call("terminal_create", "{}"),
             call(tool, args),
             json!({"role":"assistant","content":"已核对执行回执"}),
         ])
@@ -230,7 +230,7 @@ async fn provider_call_id_replay_and_conflict_do_not_repeat_side_effects() {
             .turn_delegated(NormaDelegation {
                 request_id: "live-session:replay".into(),
                 revision: 1,
-                user_input: "创建一个终端并打开浏览器 https://example.com".into(),
+                user_input: "创建一个终端，再创建一个 Codex".into(),
                 conversation: String::new(),
                 cancellation: CancellationToken::new(),
             })
@@ -244,12 +244,12 @@ async fn provider_call_id_replay_and_conflict_do_not_repeat_side_effects() {
             AdapterCommand::CreateTerminal,
             "原操作不能被替换"
         );
-        if tool == "create_browser" {
+        if tool == "agent_create" {
             assert!(
                 requests[2]["messages"]
                     .to_string()
                     .contains("操作ID与原始请求不匹配"),
-                "调用ID冲突必须回传明确拒绝，不能假报已执行浏览器"
+                "调用ID冲突必须回传明确拒绝，不能假报已创建 Codex"
             );
         }
     }
@@ -264,7 +264,7 @@ async fn ollama_without_provider_call_ids_keeps_tools_available() {
     for live in [false, true] {
         let (endpoint, server) = sse::serve_ollama(vec![
             json!({"role":"assistant","content":"","tool_calls":[{
-                "function":{"name":"create_terminal","arguments":{}}}]}),
+                "function":{"name":"terminal_create","arguments":{}}}]}),
             json!({"role":"assistant","content":"已创建终端"}),
         ])
         .await;

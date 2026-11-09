@@ -9,11 +9,12 @@ use thiserror::Error;
 use tokio_util::sync::CancellationToken;
 
 mod commands;
-use commands::parse_adapter_command;
+pub(crate) use commands::parse_adapter_command;
 mod definitions;
 mod ideas;
 mod task_handoff;
-pub use definitions::norma_tool_definitions;
+mod voice;
+pub use definitions::{model_tool_visible, norma_tool_definitions, ModelToolScope};
 mod delete_intent;
 use delete_intent::{
     has_explicit_agent_delete_intent, has_explicit_delete_intent,
@@ -27,6 +28,7 @@ pub struct ToolContext {
     pub user_input: String,
     pub input_source: crate::AgentInputSource,
     pub contextual_delete_targets: Vec<u64>,
+    pub voice_commit: Option<Box<crate::voice_command::VoiceCommit>>,
     pub tool_call_id: String,
     pub operation_id: Option<String>,
     pub cancellation: CancellationToken,
@@ -259,6 +261,8 @@ impl AdapterResult {
 
 #[derive(Clone, Debug, Eq, PartialEq, Error, Serialize, Deserialize)]
 pub enum AdapterError {
+    #[error("voice command rejected: {0:?}")]
+    VoiceCommand(crate::voice_command::VoiceFeedback),
     #[error("invalid tool arguments: {0}")]
     InvalidArguments(String),
     #[error("tool execution cancelled")]
@@ -335,8 +339,22 @@ impl NormaToolRuntime {
         if context.cancellation.is_cancelled() {
             return Err(AdapterError::Cancelled);
         }
+        if matches!(
+            context.input_source,
+            crate::AgentInputSource::SingleVoiceCommand { .. }
+        ) && !crate::voice_command::is_read_only_tool(tool_name)
+            && !context
+                .voice_commit
+                .as_deref()
+                .is_some_and(|commit| commit.matches(tool_name, &arguments, &context.user_input))
+        {
+            return Err(AdapterError::VoiceCommand(
+                crate::voice_command::VoiceFeedback::InvalidProposal,
+            ));
+        }
         let request = json!({"tool":tool_name,"arguments":arguments,
             "project":context.project_id,"turn":context.turn_id,"user":context.user_input,
+            "voice_commit":context.voice_commit,
             "source":format!("{:?}", context.input_source)});
         if let Some(operation_id) = context.operation_id.as_deref() {
             if let Some(receipt) = self
@@ -392,7 +410,7 @@ impl NormaToolRuntime {
                 "用户原始请求没有明确授权删除这个卡片目标".to_string(),
             ));
         }
-        task_handoff::preserve_doubao_request(&mut command, context);
+        task_handoff::preserve_doubao_constraints(&mut command, context);
         let result = self.adapter.execute(command, context).await;
         if let Some(operation_id) = context.operation_id.as_deref() {
             self.operation_receipts

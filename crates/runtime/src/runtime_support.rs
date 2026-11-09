@@ -17,11 +17,12 @@ pub(crate) fn usize_to_u16(value: usize) -> u16 {
 
 pub(crate) fn terminal_shell_command(shell: &str) -> PtyCommand {
     let command = PtyCommand::new(shell);
-    if is_zsh_shell(shell) {
+    let command = if is_zsh_shell(shell) {
         command.arg("-l")
     } else {
         command
-    }
+    };
+    crate::agent_hooks::without_inherited_agent_identity(command)
 }
 
 fn is_zsh_shell(shell: &str) -> bool {

@@ -8,6 +8,9 @@ use crate::protocol::{AgentProfile, NodeId};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
+mod grok;
+use grok::{is_grok_main_turn_event, is_idle_prompt, is_stale_turn_report};
+
 /// 空账本的 `Stop` 之后，还要安静这么久才确认完成。
 /// 取证里子 Agent 的 task-notification 比空 `Stop` 晚 36ms，800ms 能吃掉这个间隔。
 pub const CONFIRMATION_WINDOW_MS: u64 = 800;
@@ -48,6 +51,10 @@ struct NodeLedger {
     last_prompt_unix_ms: Option<u64>,
     deferrals: u8,
     stashed_stop: Option<AgentHookEvent>,
+    /// 已 UserPromptSubmit、尚未发出终态。Grok idle_prompt 兜底只作用于开放回合。
+    turn_open: bool,
+    /// Grok 当前回合的 promptId，用于丢弃上一回合迟到的结束报告。
+    prompt_id: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -67,13 +74,22 @@ impl CompletionJudge {
         if !matches!(event.profile, AgentProfile::Claude | AgentProfile::Grok) {
             return vec![CompletionAction::Forward(event.clone())];
         }
+        if is_stale_turn_report(self.nodes.get(&event.node_id), event) {
+            return Vec::new();
+        }
         match event.provider_event.as_str() {
             "SessionEnd" => self.on_session_end(event),
-            "StopFailure" => {
+            "StopFailure" | "StopCancelled" => {
                 self.nodes.remove(&event.node_id);
                 vec![CompletionAction::Forward(event.clone())]
             }
             "Stop" => self.on_stop(event, now_ms),
+            // 观察型事件不是回合活动：Grok 的 task_complete Notification 常晚于 Stop 到达，
+            // 若作废确认窗口，卡片会永久停在运行中。
+            "Notification" if is_idle_prompt(event) => self.on_idle_prompt(event),
+            "Notification" | "PreCompact" | "PostCompact" => {
+                vec![CompletionAction::Forward(event.clone())]
+            }
             "SubagentStop" => self.on_subagent_stop(event),
             "SubagentStart" => {
                 self.register_subagent(event);
@@ -248,11 +264,32 @@ impl CompletionJudge {
     fn on_prompt(&mut self, event: &AgentHookEvent, now_ms: u64) {
         let node = self.ledger(event.node_id);
         node.last_prompt_unix_ms = Some(now_ms);
+        node.turn_open = true;
+        node.prompt_id = string_at(&event.raw_json, "promptId");
         if let Some(prompt) = prompt_text(&event.raw_json) {
             for id in settled_notification_ids(&prompt) {
                 remove_work(node, &id);
             }
         }
+    }
+
+    /// Grok 有几种回合不发 Stop（stop hook 未跑完、退出时报告被丢）。idle_prompt
+    /// 在会话安静约 1 分钟后发出，开放回合且账本已空时用它收尾。
+    fn on_idle_prompt(&mut self, event: &AgentHookEvent) -> Vec<CompletionAction> {
+        let open_turn = self
+            .nodes
+            .get(&event.node_id)
+            .is_some_and(|node| node.turn_open && node.open.is_empty());
+        if !open_turn {
+            return Vec::new();
+        }
+        if let Some(action) = self.take_confirm(event.node_id, false) {
+            return vec![action];
+        }
+        let node = self.ledger(event.node_id);
+        node.turn_open = false;
+        node.pending = None;
+        vec![CompletionAction::Forward(event.clone())]
     }
 
     fn register_subagent(&mut self, event: &AgentHookEvent) {
@@ -313,6 +350,7 @@ impl CompletionJudge {
         node.aliases.clear();
         node.deferrals = 0;
         node.stashed_stop = None;
+        node.turn_open = false;
         Some(CompletionAction::Confirm {
             event,
             background_unsettled,
@@ -375,7 +413,8 @@ fn response_work_id(raw: &Value) -> Option<String> {
 }
 
 fn background_task_ids(raw: &Value) -> Option<HashSet<String>> {
-    // Grok 只发 camelCase 的 `backgroundTasks`。
+    // Grok 只发 camelCase 的 `backgroundTasks`。已结束的条目仍留在列表里，
+    // 不计为开放工作，否则回合结束后卡片会一直停在运行中。
     let tasks = raw
         .get("background_tasks")
         .or_else(|| raw.get("backgroundTasks"))?
@@ -383,29 +422,39 @@ fn background_task_ids(raw: &Value) -> Option<HashSet<String>> {
     Some(
         tasks
             .iter()
+            .filter(|task| background_task_still_open(task))
             .filter_map(|task| string_at(task, "id"))
             .collect(),
     )
 }
 
-/// Grok 子会话的生命周期事件属于子 Agent，不是这张卡片的回合；
-/// 会话关闭时附带的 Stop（reason 不是 end_turn）也不是回合完成。
-fn is_grok_main_turn_event(event: &AgentHookEvent) -> bool {
-    let raw = &event.raw_json;
-    let lifecycle = matches!(
-        event.provider_event.as_str(),
-        "SessionStart" | "SessionEnd" | "UserPromptSubmit" | "Stop" | "StopFailure"
-    );
-    let in_subagent = raw
-        .get("subagentType")
-        .is_some_and(|value| !value.is_null());
-    let session_close_stop = event.provider_event == "Stop"
-        && string_at(raw, "reason").is_some_and(|reason| reason != "end_turn");
-    !(session_close_stop || (lifecycle && in_subagent))
+fn background_task_still_open(task: &Value) -> bool {
+    !string_at(task, "status").is_some_and(|status| {
+        matches!(status.to_ascii_lowercase().as_str(), "completed" | "failed")
+    })
 }
 
 fn prompt_text(raw: &Value) -> Option<String> {
     first_string(raw, &["prompt", "message", "user_message"])
+}
+
+/// 整段 prompt 只由已结清的 `<task-notification>` 组成时，它是 Claude 的自动回合。
+/// running 或不完整的通知块会让整段返回 false。
+pub fn prompt_is_only_settled_task_notification(prompt: &str) -> bool {
+    let mut rest = prompt.to_string();
+    let mut saw_settled = false;
+    while let Some(start) = rest.find("<task-notification>") {
+        let Some(relative_end) = rest[start..].find("</task-notification>") else {
+            return false;
+        };
+        let end = start + relative_end + "</task-notification>".len();
+        if settled_notification_ids(&rest[start..end]).is_empty() {
+            return false;
+        }
+        saw_settled = true;
+        rest.replace_range(start..end, "");
+    }
+    saw_settled && rest.trim().is_empty()
 }
 
 fn settled_notification_ids(prompt: &str) -> Vec<String> {

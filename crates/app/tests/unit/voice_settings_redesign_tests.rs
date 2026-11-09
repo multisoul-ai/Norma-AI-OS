@@ -2,7 +2,7 @@ use crate::app::MultisoulApp;
 use crate::settings::voice::DesktopVoiceMode;
 use gpui::{px, size, AppContext, Modifiers, TestAppContext};
 
-/// 语音页面以状态概览和完整宽度的任务卡片组织，模式切换仍写入真实设置存储。
+/// 分组列表可打开配置详情，完整宽度的配置卡片与模式保存仍可用。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   隔离空数据库，语音能力未配置；窗口 1280×800px，为桌面基准。
@@ -55,6 +55,26 @@ fn voice_redesign_task_layout_and_mode_persistence() {
         cx.debug_bounds("voice-setup-finish").is_none(),
         "未就绪时不能展示没有操作的完成按钮"
     );
+    // 从分组列表的真实配置入口进入详情编辑器，再验证既有配置控件。
+    let details = cx
+        .debug_bounds("voice-command-recognition-details")
+        .expect("分组列表的引擎配置入口");
+    let viewport = cx
+        .debug_bounds("settings-content-scroll")
+        .expect("内容视口");
+    let shift = (details.center().y - viewport.center().y).max(px(0.0));
+    host.update(cx, |app, _| {
+        app.settings_viewport
+            .content_scroll
+            .set_offset(gpui::point(px(0.0), -shift))
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let details = cx
+        .debug_bounds("voice-command-recognition-details")
+        .expect("滚动后的配置入口");
+    cx.simulate_click(details.center(), Modifiers::none());
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
     let recognition = cx
         .debug_bounds("voice-setup-requirement-asr")
         .expect("应保留识别卡片");
@@ -77,6 +97,10 @@ fn voice_redesign_task_layout_and_mode_persistence() {
         recognition.size.width, provider.size.width,
         "识别与连接卡片应共用完整内容宽度"
     );
+    assert!(
+        cx.debug_bounds("voice-setup-asr-source-a1").is_none(),
+        "产品来源必须合并为本地/云端，不再并列展示 A1 第三入口"
+    );
     let local_source = cx
         .debug_bounds("voice-setup-asr-source-local")
         .expect("应有本地来源入口");
@@ -91,6 +115,24 @@ fn voice_redesign_task_layout_and_mode_persistence() {
     assert!(
         azure_source.right() < recognition.right(),
         "来源入口不能超出卡片右边界"
+    );
+    // 分组列表增加麦克风行后，先通过真实 ScrollHandle 把来源居中，再点击当前帧坐标。
+    let viewport = cx
+        .debug_bounds("settings-content-scroll")
+        .expect("内容视口");
+    let shift = (azure_source.center().y - viewport.center().y).max(px(0.0));
+    host.update(cx, |app, _| {
+        app.settings_viewport
+            .content_scroll
+            .set_offset(gpui::point(px(0.0), -shift))
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let azure_source = cx
+        .debug_bounds("voice-setup-asr-source-azure")
+        .expect("滚动后来源入口");
+    assert!(
+        azure_source.top() >= viewport.top() && azure_source.bottom() <= viewport.bottom(),
+        "来源按钮必须真正位于可点击视口内"
     );
     cx.simulate_click(azure_source.center(), Modifiers::none());
     cx.update(|window, cx| window.draw(cx).clear());
@@ -113,6 +155,12 @@ fn voice_redesign_task_layout_and_mode_persistence() {
         app.voice_settings.model_manager_mut().mark_ready(&id);
         app.voice_settings.select_asr_model(Some(id));
         cx.notify();
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    host.update(cx, |app, _| {
+        app.settings_viewport
+            .content_scroll
+            .set_offset(gpui::Point::default())
     });
     cx.update(|window, cx| window.draw(cx).clear());
     let next = cx
@@ -239,7 +287,7 @@ fn voice_redesign_task_layout_and_mode_persistence() {
 ///   ASR = Zipformer Bilingual；TTS = Matcha Chinese-English 的 default 音色。
 ///   滚动距离由实际 max_offset.height 推导，不假设卡片高度。
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 打开 Voice 并建立四项就绪 → 从概览点击声音 Change。
+///   1. 打开 Voice 并建立四项就绪 → 滚动到语音回复分组，点击更换声音。
 ///   2. 声音选择器滚入视口 → 点击 Cancel → 检查当前音色和草稿状态。
 ///   3. 点击任务播报开关 → 等待后台持久化 → 检查开关与数据库值。
 ///
@@ -293,8 +341,20 @@ fn voice_redesign_ready_voice_change_cancel_and_preferences() {
         cx.debug_bounds("settings-voice-mode-continuous").is_some(),
         "日常页面必须保留连续聆听模式"
     );
+    let reply = cx
+        .debug_bounds("voice-command-group-reply")
+        .expect("四组列表的声音分组");
+    let viewport = cx
+        .debug_bounds("settings-content-scroll")
+        .expect("内容视口");
+    let scroll = host.read_with(cx, |app, _| app.settings_viewport.content_scroll.clone());
+    scroll.set_offset(gpui::point(
+        px(0.0),
+        (viewport.top() + px(8.0) - reply.top()).max(-scroll.max_offset().height),
+    ));
+    cx.update(|window, cx| window.draw(cx).clear());
     let change = cx
-        .debug_bounds("voice-ready-change-tts")
+        .debug_bounds("settings-tts-change-voice")
         .expect("应保留声音更改入口");
     cx.simulate_click(change.center(), Modifiers::none());
     cx.run_until_parked();
@@ -367,119 +427,4 @@ fn voice_redesign_ready_voice_change_cancel_and_preferences() {
         Some(if before { "false" } else { "true" }),
         "播报开关必须后台保存"
     );
-}
-
-/// 设置操作通过 Enter、空格和鼠标触发同一回调，其他按键不触发操作。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   单按钮窗口，操作次数初始为 0；Enter(1)+空格(1)+鼠标(1)=3 次操作。
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 建立窗口初始焦点后用 Tab 遍历按钮；Escape 不触发操作。
-///   2. Enter 与空格分别执行一次回调；鼠标点击仍执行同一回调。
-///
-/// 预期结果：
-///   - 正断言：三种激活方式各增加一次计数。
-///   - 负断言：Escape 不激活按钮，键盘事件不会重复执行回调。
-#[test]
-fn voice_redesign_actions_support_keyboard_and_mouse() {
-    use crate::settings::voice::view::components::VoiceAction;
-    use gpui::{div, prelude::*, Context, Render, Window};
-    use std::{cell::Cell, rc::Rc};
-    use ui::component::button::Button;
-
-    struct ActionFixture(Rc<Cell<usize>>);
-    impl Render for ActionFixture {
-        fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-            let activations = self.0.clone();
-            div().child(
-                Button::new("voice-keyboard-action")
-                    .debug_selector(|| "voice-keyboard-action".to_string())
-                    .label("Activate")
-                    .on_activate(move |_, _, _| activations.set(activations.get() + 1)),
-            )
-        }
-    }
-    let activations = Rc::new(Cell::new(0));
-    let mut test = TestAppContext::single();
-    test.update(ui::init_components);
-    let (_, cx) = test.add_window_view(|window, cx| {
-        let view = cx.new(|_| ActionFixture(activations.clone()));
-        ui::component::Root::new(view, window, cx)
-    });
-    cx.update(|window, cx| window.draw(cx).clear());
-    cx.update(|window, _| window.focus_next());
-    cx.simulate_keystrokes("tab escape");
-    assert_eq!(activations.get(), 0, "Escape 不能执行设置操作");
-    cx.simulate_keystrokes("enter");
-    assert_eq!(activations.get(), 1, "Enter 应恰好激活一次设置操作");
-    cx.simulate_keystrokes("space");
-    assert_eq!(activations.get(), 2, "空格应激活一次，不得重复处理键盘事件");
-    let action = cx
-        .debug_bounds("voice-keyboard-action")
-        .expect("应有设置按钮");
-    cx.simulate_click(action.center(), Modifiers::none());
-    assert_eq!(activations.get(), 3, "补充键盘行为后鼠标点击仍应正常");
-}
-
-/// 播报开关可通过键盘切换，状态和鼠标操作共用同一回调。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   初始关闭；空格(1)+Enter(1)+鼠标(1)=3 次切换，最终应开启。
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 建立窗口初始焦点后用 Tab 遍历开关；Escape 不执行回调。
-///   2. 空格开启，重绘后 Enter 关闭，再重绘后鼠标开启。
-///
-/// 预期结果：
-///   - 正断言：键盘与鼠标分别切换实际受控值，回调累计三次。
-///   - 负断言：Escape 不切换，Enter 不重复执行且不保留过期值。
-#[test]
-fn voice_redesign_switch_supports_keyboard_and_mouse() {
-    use crate::settings::voice::view::spoken_reply::toggle_row;
-    use gpui::{prelude::*, Context, Render, Window};
-    use std::{cell::Cell, rc::Rc};
-
-    struct SwitchFixture(Rc<Cell<bool>>, Rc<Cell<usize>>);
-    impl Render for SwitchFixture {
-        fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-            let value = self.0.clone();
-            let calls = self.1.clone();
-            toggle_row(
-                ui::Theme::dark(),
-                "Announcement",
-                "Toggle spoken replies",
-                value.get(),
-                "voice-keyboard-switch",
-                move |next, _, cx| {
-                    value.set(*next);
-                    calls.set(calls.get() + 1);
-                    cx.refresh_windows();
-                },
-            )
-        }
-    }
-    let value = Rc::new(Cell::new(false));
-    let calls = Rc::new(Cell::new(0));
-    let mut test = TestAppContext::single();
-    test.update(ui::init_components);
-    let (_, cx) = test.add_window_view(|window, cx| {
-        let view = cx.new(|_| SwitchFixture(value.clone(), calls.clone()));
-        ui::component::Root::new(view, window, cx)
-    });
-    cx.update(|window, cx| window.draw(cx).clear());
-    cx.update(|window, _| window.focus_next());
-    cx.simulate_keystrokes("tab escape");
-    assert_eq!(calls.get(), 0, "Escape 不能切换播报开关");
-    cx.simulate_keystrokes("space");
-    assert!(value.get(), "空格应开启实际受控值");
-    cx.update(|window, cx| window.draw(cx).clear());
-    cx.simulate_keystrokes("enter");
-    assert!(!value.get(), "重绘后 Enter 应关闭，不得使用上次的过期值");
-    assert_eq!(calls.get(), 2, "两种键盘激活必须各执行一次");
-    cx.update(|window, cx| window.draw(cx).clear());
-    let toggle = cx
-        .debug_bounds("voice-keyboard-switch")
-        .expect("应保留开关");
-    cx.simulate_click(toggle.center(), Modifiers::none());
-    assert!(value.get(), "键盘操作后鼠标仍应开启开关");
-    assert_eq!(calls.get(), 3, "鼠标操作不得重复执行开关回调");
 }

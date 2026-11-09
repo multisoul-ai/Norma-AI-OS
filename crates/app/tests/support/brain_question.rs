@@ -15,6 +15,9 @@ pub(crate) fn make_question_from_raw(
     Vec<QuestionAnswer>,
 ) {
     app.enter_canvas_for_test(root, cx);
+    // Simulate the endpoint's live project identity, shared by host events and Hook input.
+    app.workspace_id = Some("w".into());
+    app.workspace_route_id = Some("route".into());
     app.shared_context_scope = Some(ContextScope {
         workspace_id: "w".into(),
         area_id: "a".into(),

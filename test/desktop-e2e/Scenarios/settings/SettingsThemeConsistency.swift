@@ -26,15 +26,8 @@ public enum SettingsThemeConsistency {
         }
         try await session.step("创建真实工作空间与项目夹具") {
             try session.launch(language: "zh-Hans")
-            _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
-            try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
-            let form = try await session.wait(Expectation(anyOf: ["工作空间名称", "Workspace name"]))
-            guard let input = form.pick(["网站改版", "Website redesign"], .bottom) else {
-                throw E2EError.product("创建表单缺少名称输入框：\(form.summary)")
-            }
-            try await session.click(local: input.center, on: form)
-            try await session.type("ThemeCheck")
-            try await session.shortcut(key: 36, modifiers: [])
+            // 入场动画会吞掉首次点击；用带重试的创建流程，与其他场景一致。
+            try await BrainSupport.createWorkspace(session, name: "ThemeCheck")
             _ = try await session.wait(Expectation(allOf: ["ThemeCheck"]))
             session.stop()
             guard let dataRoot = session.dataRoot else { throw E2EError.env("缺少隔离数据目录") }
@@ -48,53 +41,35 @@ public enum SettingsThemeConsistency {
         for (chinese, english, id, light) in themes {
             try await session.step("\(id)：起始页实时切换") {
                 try await session.shortcut(key: 40, modifiers: [0x37, 0x38])
-                _ = try await session.wait(Expectation(anyOf: ["搜索工作空间", "Search workspaces"]))
+                _ = try await session.wait(Expectation(anyOf: ["个工作空间", "workspaces"]))
                 try await session.shortcut(key: 43, modifiers: [0x37])
                 _ = try await SettingsSupport.select(session, labels: ["主题", "Themes"], content: ["Ink Black", "墨黑"])
                 try await chooseTheme(session, labels: [chinese, english], id: id)
                 try await SettingsSupport.prove(session, key: "appearance.theme.v1", value: id)
                 try await session.shortcut(key: 43, modifiers: [0x37])
-                let home = try await session.wait(Expectation(anyOf: ["搜索工作空间", "Search workspaces"], allOf: ["ThemeCheck"], absent: ["选择工作空间的外观", "选择工作空间外观"]))
+                let home = try await session.wait(Expectation(anyOf: ["个工作空间", "workspaces"], allOf: ["ThemeCheck"], absent: ["选择工作空间的外观", "选择工作空间外观"]))
                 try session.save(home, "\(id)-home.png")
                 return "同一进程切换主题，首页与保存值一致"
             }
-            try await session.step("\(id)：双抽屉及画布外框") {
-                try await session.click(matching: ["打开", "Open"], pick: .bottom)
-                _ = try await session.wait(Expectation(allOf: ["E2E Project"]))
+            try await session.step("\(id)：右抽屉及画布外框") {
+                // 启动页是工作空间卡片目录：点卡片进入工作空间，再等项目卡片出现。
+                try await session.click(matching: ["ThemeCheck"], pick: .bottom)
+                _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 15))
                 var frame = try await settled(session)
-                if !frame.contains("运行概览") {
-                    try await session.click(local: CGPoint(x: 98, y: 26), on: frame)
-                }
-                frame = try await settled(session)
                 if !frame.contains("更多工具") {
                     try await session.click(local: CGPoint(x: frame.windowFrame.width - 28, y: 26), on: frame)
                 }
-                _ = try await session.wait(Expectation(allOf: ["运行概览", "更多工具", "E2E Project"]))
+                _ = try await session.wait(Expectation(allOf: ["更多工具", "E2E Project"]))
                 frame = try await settled(session)
                 try assertSurfacePolarity(frame, light: light)
                 try session.save(frame, "\(id)-drawers.png")
                 try await session.click(matching: ["E2E Project"], pick: .bottom)
                 frame = try await settled(session)
                 try session.save(frame, "\(id)-project.png")
-                return "左右抽屉保持展开，项目外框仍可见；两侧背景明暗符合所选主题"
+                return "右抽屉保持展开，项目外框仍可见；抽屉背景明暗符合所选主题"
             }
-            try await session.step("\(id)：选中、焦点、悬停、按下与禁用状态") {
-                try await session.click(matching: ["待办"], pick: .left)
+            try await session.step("\(id)：右栏输入焦点") {
                 var frame = try await settled(session)
-                try session.save(frame, "\(id)-overview-selected.png")
-                guard let tab = frame.pick(["已指派"], .left) else {
-                    throw E2EError.product("缺少已指派分段：\(frame.summary)")
-                }
-                try await session.hover(local: tab.center, on: frame, dwell: 120_000_000)
-                try session.save(try await session.capture(), "\(id)-tab-hover.png")
-                frame = try await session.capture()
-                guard let target = frame.pick(["已指派"], .left) else { throw E2EError.product("已指派分段消失") }
-                try await session.press(local: target.center, on: frame) {
-                    try session.save(try await session.capture(), "\(id)-tab-pressed.png")
-                }
-                _ = try await session.wait(Expectation(allOf: ["已指派"]))
-                // 空输入的发送按钮保持禁用；点击地址栏验证组件前景和焦点随主题更新。
-                frame = try await session.capture()
                 guard let address = frame.pick(["搜索或输入网址"], .right) else { throw E2EError.product("右栏缺少地址输入") }
                 try await session.click(local: address.center, on: frame)
                 try await session.type("theme-check")
@@ -102,7 +77,7 @@ public enum SettingsThemeConsistency {
                 try session.save(frame, "\(id)-input-focus.png")
                 try await session.selectAll()
                 try await session.shortcut(key: 51, modifiers: [])
-                return "已指派分段选中，悬停/按下均有截图；输入未提交外部请求"
+                return "地址输入获得焦点并随主题着色；输入未提交外部请求"
             }
         }
         try await session.step("文件工作台：深色主题切换后编辑并保存") {
@@ -170,8 +145,8 @@ public enum SettingsThemeConsistency {
 
     private static func assertSurfacePolarity(_ frame: Frame, light: Bool) throws {
         let bitmap = NSBitmapImageRep(cgImage: frame.image)
-        // 面板下部靠边的空白取样，避开文字、滚动条、输入框及画布内容；截图可能是 2×。
-        for x in [0.012, 0.986] {
+        // 左抽屉已由岛取代，只取右抽屉靠边的空白；面板下部靠边的空白取样，避开文字、滚动条、输入框及画布内容；截图可能是 2×。
+        for x in [0.986] {
             let px = Int(Double(bitmap.pixelsWide) * x)
             let py = Int(Double(bitmap.pixelsHigh) * 0.65)
             guard let color = bitmap.colorAt(x: px, y: py)?.usingColorSpace(.deviceRGB) else {

@@ -118,7 +118,13 @@ impl DialogueControlState {
                 app.submit_project_agent(
                     agent::AgentCommand::UserTurn {
                         input: transcript,
-                        input_source: agent::AgentInputSource::Voice,
+                        input_source: if app.dialogue.reply_keeps_listening {
+                            agent::AgentInputSource::Voice
+                        } else {
+                            agent::AgentInputSource::SingleVoiceCommand {
+                                generation: app.dialogue.reply_generation,
+                            }
+                        },
                     },
                     window,
                     cx,
@@ -188,13 +194,9 @@ impl DialogueControlState {
         }
     }
 
-    pub(crate) fn last_reply_text(&self) -> Option<&str> {
-        self.last_reply_text.as_deref()
-    }
-
     #[cfg(test)]
     pub(crate) fn last_reply_text_for_tests(&self) -> Option<&str> {
-        self.last_reply_text()
+        self.last_reply_text.as_deref()
     }
 
     #[cfg(test)]

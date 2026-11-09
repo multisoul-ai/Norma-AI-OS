@@ -3,7 +3,6 @@
 //! 派发协议：先把想法 CAS 为“派发中”并写占位 task_ref，再走既有派发路径，
 //! 成功后用回执里的真实 task_ref 落库；失败回退到待办。重启对账见 `IdeasStore::reconcile_dispatching`。
 //! 单行 SQLite 读写与既有派发回执路径同在适配器更新内完成，不进入 PTY/渲染/鼠标热路径。
-
 use super::{adapter_task, commands};
 use crate::app::{AppScreen, MultisoulApp};
 use crate::motion::{DispatchReceiptVisualStatus, DispatchVisualOrigin};
@@ -12,7 +11,6 @@ use gpui::{Context, Window};
 use norma::protocol::{CardCommand, CardCommandResult};
 use serde_json::json;
 use storage::{IdeaSource, IdeasStore, StorageError, StoredIdea};
-
 pub(super) fn capture_idea(
     app: &mut MultisoulApp,
     cx: &mut Context<MultisoulApp>,
@@ -22,6 +20,7 @@ pub(super) fn capture_idea(
     let workspace_id = active_workspace_id(app, cx)?;
     let source = match input_source {
         AgentInputSource::Voice
+        | AgentInputSource::SingleVoiceCommand { .. }
         | AgentInputSource::DoubaoVoice
         | AgentInputSource::GptLiveVoice => IdeaSource::Voice,
         _ => IdeaSource::Chat,
@@ -29,7 +28,6 @@ pub(super) fn capture_idea(
     let idea = store(app)
         .capture(&workspace_id, body, source)
         .map_err(storage_error)?;
-    notify_host(app, cx);
     Ok(
         AdapterResult::succeeded(format!("已记下想法：{}", idea.body))
             .with_tasks(vec![idea_json(&idea)]),
@@ -63,19 +61,9 @@ pub(crate) struct IdeaFlight {
     pub(crate) user_initiated: bool,
 }
 
-/// 左抽屉里想法清单的出发点；对话、语音、键盘派发都从这里起飞，不再借用底部指令栏的飞行效果。
-pub(super) fn drawer_origin(
-    app: &MultisoulApp,
-    cx: &Context<MultisoulApp>,
-) -> DispatchVisualOrigin {
-    let (x, y) = app
-        .desktop_host
-        .as_ref()
-        .and_then(|host| host.upgrade())
-        .map_or((140, 240), |host| {
-            host.read(cx).desktop_workspace.idea_flight_anchor
-        });
-    DispatchVisualOrigin::IdeaRow { x, y }
+/// 想法派发的飞行起点；左抽屉已移除，使用固定的屏幕左侧位置。
+pub(super) fn drawer_origin() -> DispatchVisualOrigin {
+    DispatchVisualOrigin::IdeaRow { x: 140, y: 240 }
 }
 
 pub(crate) fn assign_idea(
@@ -103,7 +91,7 @@ pub(crate) struct IdeaDelivery<'a> {
 
 pub(crate) fn assign_idea_with_states(
     app: &mut MultisoulApp,
-    mut window: Option<&mut Window>,
+    window: Option<&mut Window>,
     cx: &mut Context<MultisoulApp>,
     idea_id: &str,
     input_source: AgentInputSource,
@@ -156,10 +144,11 @@ pub(crate) fn assign_idea_with_states(
         "[idea-dispatch] begin"
     );
     // 派发给智能体的文本 = 正文 + 附带图片的绝对路径。
-    let task_text = match (!states.is_empty())
-        .then(|| agent::context::context_task_handoff(&ideas.dispatch_text(&idea), states))
-        .unwrap_or_else(|| Ok(ideas.dispatch_text(&idea)))
-    {
+    let task_text = match if states.is_empty() {
+        Ok(ideas.dispatch_text(&idea))
+    } else {
+        agent::context::context_task_handoff(&ideas.dispatch_text(&idea), states)
+    } {
         Ok(text) => text,
         Err(error) => {
             if let Err(rollback) = ideas.fail_dispatch(&workspace_id, idea_id) {
@@ -198,7 +187,7 @@ pub(crate) fn assign_idea_with_states(
             } else {
                 create_agent_with_task(
                     app,
-                    window.as_deref_mut(),
+                    window,
                     cx,
                     profile,
                     task_text.clone(),
@@ -235,64 +224,16 @@ pub(crate) fn assign_idea_with_states(
                 tracing::warn!(%error, idea_id, "idea dispatched but assignment could not be recorded");
             }
             spawn_idea_flight(app, cx, idea_id, &result, origin);
-            notify_host(app, cx);
             Ok(result)
         }
         // 任务文本已经提交、只是没拿到任务编号：不回滚，保持派发中，交给后台对账按正文找回，避免重复派发。
-        Err(error @ AdapterError::AcceptedWithoutTaskId(_)) => {
-            notify_host(app, cx);
-            Err(error)
-        }
+        Err(error @ AdapterError::AcceptedWithoutTaskId(_)) => Err(error),
         Err(error) => {
             if let Err(rollback) = ideas.fail_dispatch(&workspace_id, idea_id) {
                 tracing::warn!(%rollback, idea_id, "idea dispatch failed and could not be rolled back");
             }
-            notify_host(app, cx);
             Err(error)
         }
-    }
-}
-
-/// 界面入口：来源按普通输入处理。
-pub(crate) fn assign_idea_for_ui(
-    app: &mut MultisoulApp,
-    window: &mut Window,
-    cx: &mut Context<MultisoulApp>,
-    idea_id: &str,
-    target: IdeaTarget,
-    from: Option<(f32, f32)>,
-) -> Result<AdapterResult, AdapterError> {
-    // 有具体行位置（拖拽、菜单点击）就从那里起飞；键盘等没有位置的，从左抽屉的出发点起飞。
-    let origin = from.map_or_else(
-        || drawer_origin(app, cx),
-        |(x, y)| DispatchVisualOrigin::IdeaRow {
-            x: x.round() as i32,
-            y: y.round() as i32,
-        },
-    );
-    let flight = IdeaFlight {
-        origin,
-        user_initiated: true,
-    };
-    assign_idea(
-        app,
-        Some(window),
-        cx,
-        idea_id,
-        target,
-        AgentInputSource::Other,
-        flight,
-    )
-}
-
-/// 清单缓存属于桌面宿主；项目会话写库后通知宿主刷新。
-/// 刷新要读取各项目会话，而当前会话正处于更新中，不能立刻读自己：放到下一轮再执行。
-fn notify_host(app: &MultisoulApp, cx: &mut Context<MultisoulApp>) {
-    if let Some(host) = app.desktop_host.clone() {
-        cx.spawn(async move |_, cx| {
-            let _ = host.update(cx, |host, cx| host.refresh_ideas(cx));
-        })
-        .detach();
     }
 }
 

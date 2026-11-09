@@ -45,12 +45,37 @@ class ReleaseMediaTests(unittest.TestCase):
     def write_manifest(self):
         self.manifest_path.write_text(json.dumps(self.manifest))
 
-    def prepare(self, profile):
+    def prepare(self, profile, *arguments):
         return subprocess.run(
             [sys.executable, str(SCRIPT), "--root", str(self.root),
-             "--output", str(self.output), "--profile", profile],
+             "--output", str(self.output), "--profile", profile, *arguments],
             capture_output=True, text=True, check=False,
         )
+
+    # 场景：预算只约束实际随包内容，外置视频不能挤占轻量包预算。
+    # 构造：70 KiB 可选视频，大于 64 KiB 预算；轻量核心仍只有 15 B。
+    # 执行：light 应通过；full 超限须拒绝提升，保留之前的 light 目录。
+    # 预期：预算含预览和清单，失败时原 catalog 与默认壁纸逐字节不变。
+    def test_budget_checks_staged_payload_and_preserves_previous_output(self):
+        video = self.root / "crates/app/assets/wallpapers/optional.mp4"
+        payload = b"v" * (70 * 1024)
+        video.write_bytes(payload)
+        entry = next(e for e in self.manifest["resources"]
+                     if e["path"] == "wallpapers/optional.mp4")
+        entry.update(bytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
+        self.write_manifest()
+        result = self.prepare("light", "--max-bytes", "65536")
+        self.assertEqual(result.returncode, 0, f"外置视频不应计入预算：{result.stderr}")
+        catalog = (self.output / "media-catalog.json").read_bytes()
+        self.assertFalse((self.output / "wallpapers/optional.mp4").exists(),
+                         "超大可选视频仍须外置")
+        result = self.prepare("full", "--max-bytes", "65536")
+        self.assertNotEqual(result.returncode, 0, "随包内容超过 64 KiB 必须失败")
+        self.assertIn("budget", result.stderr, "失败必须说明媒体预算超限")
+        self.assertEqual((self.output / "media-catalog.json").read_bytes(), catalog,
+                         "预算失败不能替换原目录及其可信清单")
+        self.assertEqual((self.output / "wallpapers/default.webp").read_bytes(),
+                         b"0123456789", "预算失败必须保留旧默认壁纸原字节")
 
     # 场景：仅动态壁纸外置。构造 46 字节媒体，其中动态视频 11、GIF 7。
     # 执行 wallpapers-on-demand；预期保留静态 10、封面 5、教程 13，共 28。

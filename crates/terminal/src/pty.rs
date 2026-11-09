@@ -23,6 +23,8 @@ pub struct PtyCommand {
     pub args: Vec<String>,
     pub cwd: Option<PathBuf>,
     pub env: Vec<(String, String)>,
+    /// 从子进程环境中删除的变量。portable-pty 会先复制父进程环境，再执行这些删除。
+    pub env_remove: Vec<String>,
 }
 
 impl PtyCommand {
@@ -32,6 +34,7 @@ impl PtyCommand {
             args: Vec::new(),
             cwd: None,
             env: Vec::new(),
+            env_remove: Vec::new(),
         }
     }
 
@@ -58,6 +61,11 @@ impl PtyCommand {
 
     pub fn env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.env.push((key.into(), value.into()));
+        self
+    }
+
+    pub fn env_remove(mut self, key: impl Into<String>) -> Self {
+        self.env_remove.push(key.into());
         self
     }
 
@@ -121,6 +129,10 @@ impl PtyHandle {
         }
         if let Some(cwd) = &command.cwd {
             cmd.cwd(cwd);
+        }
+        // 先删再写：同名变量若同时出现在 env，显式赋值覆盖继承值。
+        for key in &command.env_remove {
+            cmd.env_remove(OsStr::new(key));
         }
         for (key, value) in &command.env {
             cmd.env(OsStr::new(key), OsStr::new(value));

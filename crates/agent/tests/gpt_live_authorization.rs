@@ -28,6 +28,7 @@ fn context(input: &str) -> ToolContext {
         turn_id: "live:request-1:r1".into(),
         user_input: input.into(),
         input_source: AgentInputSource::GptLiveVoice,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "fixture-call".into(),
         operation_id: None,
@@ -85,7 +86,7 @@ fn legacy_correction_words_inside_payload_cannot_authorize_a_new_action() {
 
 /// AC07/AC08：稳定操作ID重放可复用回执，但换参数或授权原文时必须拒绝。
 ///
-/// 数据构造：step-1先创建终端，再以同ID改为创建浏览器，最后重放原终端请求。
+/// 数据构造：step-1先创建终端，再以同ID改为创建 Codex，最后重放原终端请求。
 /// 执行过程：通过共享工具运行时执行三次，核对错误、原回执与Adapter实际命令。
 /// 预期结果：冲突返回Rejected，原请求回执仍可用，只有一次终端副作用到达Adapter。
 #[tokio::test]
@@ -95,15 +96,15 @@ async fn operation_receipt_is_bound_to_the_original_command_and_user_authorizati
     let mut first = context("创建一个终端");
     first.operation_id = Some("live:request-1:r1:step-1".into());
     let original = runtime
-        .execute("create_terminal", json!({}), &first)
+        .execute("terminal_create", json!({}), &first)
         .await
         .expect("首操作");
-    let mut conflict = context("创建浏览器");
+    let mut conflict = context("创建一个 Codex");
     conflict.operation_id = first.operation_id.clone();
     let changed = runtime
         .execute(
-            "create_browser",
-            json!({"url":"https://example.com"}),
+            "agent_create",
+            json!({"profile":"codex","task":"打开示例"}),
             &conflict,
         )
         .await;
@@ -112,7 +113,7 @@ async fn operation_receipt_is_bound_to_the_original_command_and_user_authorizati
         "相同稳定ID不可借旧回执接受另一项操作"
     );
     let replay = runtime
-        .execute("create_terminal", json!({}), &first)
+        .execute("terminal_create", json!({}), &first)
         .await
         .expect("原请求重放");
     assert_eq!(replay, original, "冲突请求不能覆盖原回执");

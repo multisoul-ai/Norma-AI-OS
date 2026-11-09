@@ -41,7 +41,7 @@ func validateVisualResponse(_ response: VisualResponse, for request: VisualReque
         throw E2EError.driver("模型响应与当前截图不匹配（requestID / SHA256）")
     }
     let expected = request.criteria.map(\.id)
-    guard ["check", "locate"].contains(request.kind), !expected.isEmpty,
+    guard ["check", "locate", "snapshot"].contains(request.kind), !expected.isEmpty,
           Set(expected).count == expected.count,
           response.findings.map(\.id).sorted() == expected.sorted(),
           !response.reviewer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -73,6 +73,7 @@ func validateVisualResponse(_ response: VisualResponse, for request: VisualReque
 }
 
 func validateVisualWindow(id: CGWindowID, size: CGSize, expectedID: CGWindowID, request: VisualRequest) throws {
+    if request.kind == "snapshot" { return }
     guard id == expectedID, abs(size.width - request.width) <= 2, abs(size.height - request.height) <= 2 else {
         throw E2EError.driver("模型判断期间窗口已切换或改变尺寸，旧截图不能用于输入或验收")
     }

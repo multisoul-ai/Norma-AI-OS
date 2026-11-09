@@ -39,6 +39,7 @@ impl AgentHookServer {
                 apply_agent_hook_event_with_outcome(runtime, event);
             }
         }
+        report.changed |= runtime.settle_delivered_hook_answers();
         for question in self.questions.try_iter() {
             let Some(project_id) = project_id else {
                 question.cancel();
@@ -159,11 +160,13 @@ impl AgentHookServer {
             let _ = tap.try_send(event.clone());
         }
         let node_id = event.node_id;
-        let started_task =
-            (event.provider_event == "UserPromptSubmit").then(|| AgentHookStartedTask {
-                node_id,
-                task_title: norma::agent_hook::extract_prompt_text(&event.raw_json),
-            });
+        let prompt = norma::agent_hook::extract_prompt_text(&event.raw_json);
+        let started_task = (event.provider_event == "UserPromptSubmit"
+            && !norma::agent_hook::user_prompt_is_only_settled_task_notification(&event.raw_json))
+        .then_some(AgentHookStartedTask {
+            node_id,
+            task_title: prompt,
+        });
         let state = super::agent_task_state_from_hook_event(&event);
         let is_ready = matches!(state, Some(AgentTaskState::Ready));
         let terminal_task = match state.clone() {
@@ -179,17 +182,23 @@ impl AgentHookServer {
             _ => None,
         };
         report.events.push(event.clone());
+        if let Some(started_task) = started_task {
+            report
+                .queue_effects
+                .push(super::AgentHookQueueEffect::Started(started_task.clone()));
+            report.started_tasks.push(started_task);
+        }
         if outcome.changed() || force_changed {
             report.changed = true;
             report.session_binding_changed |= outcome.session_binding_changed;
             if outcome.task_state_changed {
-                if let Some(started_task) = started_task {
-                    report.started_tasks.push(started_task);
-                }
                 if is_ready {
                     report.ready_node_ids.push(node_id);
                 }
                 if let Some(terminal_task) = terminal_task {
+                    report
+                        .queue_effects
+                        .push(super::AgentHookQueueEffect::Terminal(terminal_task.clone()));
                     report.terminal_tasks.push(terminal_task);
                 }
             }

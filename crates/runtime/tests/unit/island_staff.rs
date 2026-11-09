@@ -1,0 +1,168 @@
+use super::{
+    ago, bounded_overview, caption_index, split_sentences, Ago, OverviewEntry, StaffChat,
+    StaffRole, REPORT_TTL_MS,
+};
+
+/// 场景：用户发话与幕僚回复进入同一份有界对话，汇报请求只放行一次强制朗读。
+///
+/// 数据构造：先发“补文档”和空白，再请求汇报两次，随后收到回复；再收一条无请求的回复。
+/// 预期结果：空白被丢弃；重复请求不叠加；第一条回复 speak=true 并消耗请求，第二条 false；
+/// 对话顺序为 用户→幕僚→幕僚。
+#[test]
+fn replies_are_ordered_and_a_report_request_forces_speech_exactly_once() {
+    let mut chat = StaffChat::default();
+    assert!(chat.push_user("   ").is_none(), "空白不应入对话");
+    chat.push_user(" 补文档 ").expect("有效输入应入对话");
+    let first = chat.request_report(0).expect("第一次汇报请求应被接受");
+    assert!(chat.request_report(0).is_none(), "等待回复期间不得叠加请求");
+    let first = chat
+        .push_reply("Alan 完成了登录。", Some(first), 0)
+        .expect("非空回复应入对话");
+    assert!(first.speak, "汇报请求后的回复必须朗读");
+    let second = chat
+        .push_reply("还有一件事", None, 0)
+        .expect("非空回复应入对话");
+    assert!(!second.speak, "请求已消耗，后续回复不强制朗读");
+    assert!(chat.push_reply("  ", None, 0).is_none(), "空回复不入对话");
+    let roles: Vec<_> = chat.lines().map(|line| line.role).collect();
+    assert_eq!(roles, [StaffRole::User, StaffRole::Staff, StaffRole::Staff]);
+    assert_eq!(
+        chat.lines().next().unwrap().text,
+        "补文档",
+        "用户文本应去掉首尾空白"
+    );
+}
+
+/// 场景：对话长度有上限，旧消息被丢弃但 id 单调递增。
+///
+/// 数据构造：连续 60 条用户消息，上限 40。
+/// 预期结果：保留最后 40 条，首条 id=20，末条 id=59。
+#[test]
+fn chat_keeps_only_the_latest_lines() {
+    let mut chat = StaffChat::default();
+    for index in 0..60 {
+        chat.push_user(&format!("m{index}"));
+    }
+    let ids: Vec<_> = chat.lines().map(|line| line.id).collect();
+    assert_eq!(
+        (ids.len(), ids[0], ids[39]),
+        (40, 20, 59),
+        "应只保留最近 40 条"
+    );
+}
+
+/// 场景：字幕按句切分，中英文句末标点与换行都分句，标点保留在句内。
+///
+/// 数据构造：“登录完成了。接下来测试！OK. Next?\n最后一句”。
+/// 预期结果：5 句，依次保留各自标点；纯空白返回空。
+#[test]
+fn sentences_split_on_cjk_and_ascii_terminators() {
+    assert_eq!(
+        split_sentences("登录完成了。接下来测试！OK. Next?\n最后一句"),
+        ["登录完成了。", "接下来测试！", "OK.", "Next?", "最后一句"]
+    );
+    assert!(split_sentences("  \n ").is_empty(), "纯空白没有字幕");
+    assert_eq!(
+        split_sentences("3.5 版本"),
+        ["3.5 版本"],
+        "数字中的小数点不分句"
+    );
+}
+
+/// 场景：字幕随朗读进度推进，按字数比例分配时长，结束后无字幕。
+///
+/// 数据构造：两句（含句号 5 字、9 字），每字 200ms，最短 800ms：时长 1000ms + 1800ms。
+/// 预期结果：0ms→第 0 句；999ms→第 0 句；1000ms→第 1 句；2999ms→第 1 句；2800ms→None。
+#[test]
+fn captions_advance_by_sentence_weight_and_end_with_the_speech() {
+    let sentences = vec!["一二三四。".to_string(), "一二三四五六七八。".to_string()];
+    assert_eq!(caption_index(&sentences, 0), Some(0));
+    assert_eq!(caption_index(&sentences, 999), Some(0));
+    assert_eq!(caption_index(&sentences, 1000), Some(1));
+    assert_eq!(caption_index(&sentences, 2799), Some(1));
+    assert_eq!(caption_index(&sentences, 2800), None, "朗读结束后字幕消失");
+    assert_eq!(caption_index(&[], 0), None);
+}
+
+/// 场景：汇报概览必须有界，超出预算时说明被省略的条数且不截断单条中间的字符。
+///
+/// 数据构造：30 条“工作空间/项目：状态”，预算 120 字符。
+/// 预期结果：总长不超过预算，含“还有 N 项”，列出的行均完整；预算足够时全部列出且无省略提示。
+#[test]
+fn overview_is_bounded_and_reports_omissions() {
+    let entries: Vec<_> = (0..30)
+        .map(|index| OverviewEntry {
+            workspace: format!("空间{index}"),
+            project: "项目".into(),
+            line: "运行中，等待审批".into(),
+        })
+        .collect();
+    let text = bounded_overview(&entries, 120);
+    assert!(
+        text.chars().count() <= 120,
+        "超出预算：{}",
+        text.chars().count()
+    );
+    assert!(text.contains("还有"), "应说明省略：{text}");
+    assert!(text.lines().next().unwrap().contains("空间0"), "{text}");
+    let all = bounded_overview(&entries[..2], 400);
+    assert!(!all.contains("还有"), "预算足够不应提示省略：{all}");
+    assert_eq!(all.lines().count(), 2);
+}
+
+/// 场景：活动与上次汇报按“多久以前”显示，不依赖时区。
+/// 预期：<1 分钟为刚刚；1–59 分钟按分钟；≥1 小时按小时（向下取整）；未来时间按刚刚处理。
+#[test]
+fn elapsed_time_is_bucketed_into_now_minutes_and_hours() {
+    assert_eq!(ago(0), Ago::Now);
+    assert_eq!(ago(59_999), Ago::Now);
+    assert_eq!(ago(60_000), Ago::Minutes(1));
+    assert_eq!(ago(59 * 60_000 + 59_999), Ago::Minutes(59));
+    assert_eq!(ago(3_600_000), Ago::Hours(1));
+    assert_eq!(ago(5 * 3_600_000 + 1), Ago::Hours(5));
+}
+
+/// 场景：大脑一直不回汇报时，按钮不能永久卡死：超过 TTL 后允许再次请求。
+/// 数据：t=0 请求，t=TTL-1 仍在等待，t=TTL 过期。
+/// 预期：过期前 `report_pending` 为真且不能再请求；过期后为假且可再次请求（新请求重新计时）。
+#[test]
+fn an_unanswered_report_request_expires() {
+    let mut chat = StaffChat::default();
+    assert!(chat.request_report(0).is_some());
+    assert!(chat.report_pending(REPORT_TTL_MS - 1));
+    assert!(
+        chat.request_report(REPORT_TTL_MS - 1).is_none(),
+        "未过期不得叠加"
+    );
+    assert!(!chat.report_pending(REPORT_TTL_MS), "到期后不再等待");
+    let renewed = chat
+        .request_report(REPORT_TTL_MS)
+        .expect("到期后可以重新请求");
+    let reply = chat
+        .push_reply("迟到的回复", Some(renewed), REPORT_TTL_MS)
+        .expect("回复入对话");
+    assert!(reply.speak, "新请求下的回复应朗读");
+}
+
+/// 场景：汇报等待期间插入的无关回复，不能抢走朗读标记；只有答这次请求的回复才朗读。
+/// 数据：t=0 发起汇报（得到请求 id）；先到一条不带 id 的普通回复，再到带该 id 的汇报回复；
+/// 另有一条带过期 id 的回复。
+/// 预期：普通回复 speak=false 且请求仍在等待；带正确 id 的回复 speak=true 并消耗请求；
+/// 带错误 id 的回复不朗读。
+#[test]
+fn only_the_reply_to_a_report_request_gets_spoken() {
+    let mut chat = StaffChat::default();
+    let id = chat.request_report(0).expect("首次请求应返回请求 id");
+    let chatter = chat.push_reply("顺便说一句", None, 10).expect("回复入对话");
+    assert!(!chatter.speak, "无关回复不得抢走朗读标记");
+    assert!(chat.report_pending(10), "无关回复不能消耗请求");
+    let wrong = chat
+        .push_reply("别的请求的回复", Some(id + 1), 20)
+        .expect("回复入对话");
+    assert!(!wrong.speak, "错误 id 不朗读");
+    let answer = chat
+        .push_reply("汇报结果", Some(id), 30)
+        .expect("回复入对话");
+    assert!(answer.speak, "带正确 id 的回复才朗读");
+    assert!(!chat.report_pending(30), "请求已被消耗");
+}

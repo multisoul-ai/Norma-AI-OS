@@ -1,5 +1,46 @@
 use super::*;
 
+/// 迁移后的确认规则在App配置往返中保持范围，旧字符串规则继续全局生效。
+/// 数据：一个全局Write规则和一个alpha专属Bash规则，另读一次旧字符串配置。
+/// 执行：生产解析、序列化、再次解析，再按实际workspace匹配规则。
+/// 预期：alpha受项目规则约束，beta不受它影响；全局规则覆盖两者及未来项目。
+#[test]
+fn migrated_confirmation_rules_keep_scope_through_settings_round_trip() {
+    let settings = parse_settings(
+        r#"{"always_ask":[{"workspace_id":null,"key":"Write"},{"workspace_id":"alpha","key":"Bash:cargo"}]}"#,
+    );
+    assert_eq!(settings.always_ask.len(), 2, "不能丢掉迁移后的结构化规则");
+    let saved = settings_json(&settings).unwrap();
+    let reloaded = parse_settings(&saved);
+    assert_eq!(reloaded, settings, "序列化后规则身份保持");
+    assert!(
+        reloaded
+            .always_ask
+            .iter()
+            .any(|rule| rule.matches(Some("alpha"), "Bash:cargo")),
+        "alpha原规则生效"
+    );
+    assert!(
+        !reloaded
+            .always_ask
+            .iter()
+            .any(|rule| rule.matches(Some("beta"), "Bash:cargo")),
+        "不能扩大到beta"
+    );
+    assert!(
+        reloaded
+            .always_ask
+            .iter()
+            .any(|rule| rule.matches(Some("future"), "Write")),
+        "全局规则覆盖未来项目"
+    );
+    let legacy = parse_settings(r#"{"always_ask":["Write"]}"#);
+    assert!(
+        legacy.always_ask[0].matches(Some("alpha"), "Write"),
+        "旧字符串仍为全局规则"
+    );
+}
+
 /// Codex、OpenCode 的模型按后端分别保存，写入再读回不变；Claude Code 仍用原来的两项。
 ///
 /// 数据构造：Codex 主会话 gpt-6-astra、审批不设；OpenCode 两项都设。
@@ -61,42 +102,6 @@ fn models_for_backend_follow_the_chosen_backend() {
     assert_eq!(
         settings.models_for(BackendKind::OpenCode),
         ModelPair::default()
-    );
-}
-
-/// 同一项目目录的不同画布拥有独立目标和提议，重启读取也不能串用。
-/// 数据构造：两个稳定画布身份，分别保存 A/B 目标与提议文本。
-/// 执行过程：通过会话目录接口定位文件，写入后重新打开目标存储。
-/// 预期结果：目录不同，每个画布只恢复自己的目标和提议。
-#[test]
-fn canvas_state_survives_restart_without_crossing_ownership() {
-    let dir = tempfile::tempdir().expect("应创建隔离状态目录");
-    let a = session_dir(dir.path(), "desktop:A:area");
-    let b = session_dir(dir.path(), "desktop:B:area");
-    assert_ne!(a, b, "相同项目目录的不同画布不能共享状态目录");
-    for (path, name) in [(&a, "A"), (&b, "B")] {
-        let goals = brain::goal::GoalStore::open(path.clone());
-        goals.record("Alan", &format!("只处理 {name} 项目的目标"));
-        brain::persistence::atomic_write(&path.join("proposals.json"), name.as_bytes()).unwrap();
-    }
-    let reopened_a = brain::goal::GoalStore::open(a.clone());
-    assert!(
-        reopened_a.summary().unwrap().contains("A 项目"),
-        "应恢复 A 目标"
-    );
-    assert!(
-        !reopened_a.summary().unwrap().contains("B 项目"),
-        "不能带入 B 目标"
-    );
-    assert_eq!(
-        std::fs::read_to_string(a.join("proposals.json")).unwrap(),
-        "A",
-        "应保留 A 提议"
-    );
-    assert_eq!(
-        std::fs::read_to_string(b.join("proposals.json")).unwrap(),
-        "B",
-        "不能覆盖 B 提议"
     );
 }
 

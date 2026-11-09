@@ -3,6 +3,35 @@ use gpui::Context;
 use storage::DesktopContentKind;
 
 impl MultisoulApp {
+    pub(crate) fn select_workbench_path(
+        &mut self,
+        path: String,
+        diff: bool,
+        staged: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.hide_desktop_content_browsers();
+        self.desktop_workspace.content_tab_generation = self
+            .desktop_workspace
+            .content_tab_generation
+            .wrapping_add(1);
+        let s = &mut self.desktop_workspace.workbench;
+        if s.pending_turn_review
+            .as_ref()
+            .is_some_and(|(_, _, _, target)| !diff || target.as_ref() != Some(&path))
+        {
+            s.pending_turn_review = None;
+            s.pending_turn_diff = None;
+        }
+        s.saved.selected = Some(path);
+        s.jump_line = None;
+        s.pending_scroll = None;
+        s.sidebar_open = false;
+        s.show_source = false;
+        self.load_workbench_file(diff, staged, cx);
+        self.persist_file_workbench(cx);
+    }
+
     pub(crate) fn route_workbench_navigation(
         &mut self,
         node_id: canvas::NodeId,

@@ -32,3 +32,11 @@
 复用现有场景动作与硬断言，在模块内用 `session.visualClick` 定位、`session.visualCheck` 检查真实后置状态。确定性输入可用 `capturePixels` 加原输入 API；它的 `texts` 为空，仅作为图像，不能做文字存在/缺失断言。模型模式调用旧 `capture()` 会立即拒绝，避免隐式 Vision。
 
 在所属模块的 `visualScenarioNames` 登记，不改中央 `Catalog.swift`。保留原验收项，CLI 身份、复用、文件与数据库精确值仍由程序断言。模型辅助验收需要当前 Agent 参与，不需要额外 API Key，也不等于无人值守脚本。仅对实际完成范围声明通过。
+
+## 短暂状态截图
+
+自动收回的成功提示或动画帧使用显式 session.visualSnapshotCheck，请求类型为 snapshot。
+它只证明捕获瞬间的 PNG；模型思考期间窗口变化不使该历史观察失效。
+仍须逐项实际读图、核验 requestID/SHA256，不允许返回坐标。原始截图和响应全部保留。
+产品最终状态（例如原 Hook 已消费、旧表单消失）另用精确回执或后续实时检查断言。
+普通 visualCheck / visualClick / visualLocate 继续校验当前窗口和尺寸，不得用短暂截图推导输入坐标。

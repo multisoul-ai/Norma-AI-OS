@@ -30,7 +30,7 @@ members = [
 [workspace.package]
 edition = "2021"
 version = "0.1.77"
-license = "MIT"
+license = "AGPL-3.0-only"
 
 # 版本钉死见 Global Constraints。gpui/alacritty_terminal 精确 pin。
 [workspace.dependencies]
@@ -92,10 +92,9 @@ voice_sherpa = { path = "crates/voice_sherpa" }
 ui = { path = "crates/ui" }
 norma = { path = "crates/norma" }
 
-# GPUI 0.2.2 intentionally leaks a stopped CVDisplayLink in Drop to avoid a
-# CoreVideo callback race. Norma's patch keeps that safety behavior but reuses
-# the same link across synchronous displayLayer paints instead of dropping and
-# recreating it on every repaint. See vendor/gpui-0.2.2/NORMA_PATCH.md.
+# GPUI shares one process-lifetime CVDisplayLink per display to avoid CoreVideo's
+# teardown race. Window subscriptions/sources are released; paints and occlusion
+# reuse the window source. See vendor/gpui-0.2.2/NORMA_PATCH.md.
 [patch.crates-io]
 gpui = { path = "vendor/gpui-0.2.2" }
 sherpa-onnx-sys = { path = "vendor/sherpa-onnx-sys-1.13.3" }

@@ -1,8 +1,7 @@
 use super::*;
+use crate::test_gpt_live_sse as sse;
 use agent::{MemoryScopeAlias, NormaSession, ProviderConfig, ProviderProtocol};
 use serde_json::json;
-#[path = "../support/gpt_live_sse.rs"]
-mod sse;
 
 struct NoTools;
 impl AgentCardAdapter for NoTools {
@@ -161,6 +160,7 @@ async fn warm_memory_revision_check_does_not_read_topic_bodies() {
         turn_id: "s:read".into(),
         user_input: "查偏好".into(),
         input_source: agent::AgentInputSource::Other,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "read".into(),
         operation_id: None,

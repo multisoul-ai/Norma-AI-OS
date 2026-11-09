@@ -18,7 +18,7 @@ use std::path::PathBuf;
 ///   - 正断言：placement 是 VisibleArea
 ///   - 负断言：不应生成 Agent 或 Preview
 #[test]
-fn test_parse_create_terminal_command() {
+fn test_parse_terminal_create_command() {
     let command = parse_command_from(["norma", "card", "create", "terminal"])
         .expect("terminal create CLI 应解析成功");
 

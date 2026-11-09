@@ -94,6 +94,8 @@ impl From<&str> for LoopError {
     }
 }
 
+const UPLOAD_OBSERVATION_ENDED: &str = "Live upload observation ended";
+
 fn local_call_error(
     result: Result<(), LoopError>,
     requested_close: bool,
@@ -109,6 +111,11 @@ fn local_call_error(
     {
         // A ready control branch can race the transport entering Closing on another thread.
         None
+    } else if outcome.error.is_some()
+        && matches!(&result, Err(LoopError::Other(m)) if m == UPLOAD_OBSERVATION_ENDED)
+    {
+        // The upload channel only closes because the transport task ended; report its real error.
+        None
     } else {
         result.err().map(LoopError::message)
     }
@@ -117,6 +124,31 @@ fn local_call_error(
 #[cfg(test)]
 #[path = "../../../tests/unit/gpt_live_audio_loop_tests.rs"]
 mod tests;
+
+fn drain_microphone(
+    control: &live_voice::LiveControl,
+    microphone: &mut std::collections::VecDeque<u8>,
+    retain_bytes: usize,
+    submitted_samples: &mut u64,
+    last_real_sample: &mut Option<u64>,
+) -> Result<(), LoopError> {
+    while microphone.len() > retain_bytes {
+        let mut bytes = vec![0; 640];
+        for byte in &mut bytes {
+            if let Some(sample_byte) = microphone.pop_front() {
+                *byte = sample_byte;
+            } else {
+                break;
+            }
+        }
+        let pcm = PcmAudioChunk::new(audio::PcmFormat::Pcm16, 16_000, 1, bytes)
+            .map_err(|error| format!("Invalid microphone frame: {error:?}"))?;
+        control.send_audio(pcm)?;
+        *submitted_samples += 320;
+        *last_real_sample = Some(*submitted_samples);
+    }
+    Ok(())
+}
 
 pub(super) async fn run_audio_loop(
     mut connection: live_voice::LiveConnection,
@@ -137,6 +169,7 @@ pub(super) async fn run_audio_loop(
     let uploaded = control.observe_uploaded_audio();
     let mut microphone = std::collections::VecDeque::new();
     let mut output_blocked = false;
+    let mut barge_in = super::output::BargeIn::default();
     let mut reports = super::native_report::NativeReports::default();
     let mut report_input_open = true;
     let mut mode = *capture_mode.borrow();
@@ -145,6 +178,7 @@ pub(super) async fn run_audio_loop(
     let mut draining_generations = std::collections::BTreeSet::new();
     let mut release_pending = None;
     let mut mute_sequence = 0_u64;
+    let mut dropped_output_bytes = 0_u64;
     let mut submitted_samples = 0_u64;
     let mut uploaded_samples = 0_u64;
     let mut last_real_sample = None;
@@ -210,22 +244,29 @@ pub(super) async fn run_audio_loop(
                 _ = clock.tick() => {
                     reports.pump(|command, scope| control.send_scoped_append(command, scope))?;
                     if user_muted || microphone.is_empty() { control.send_silence(320)?; submitted_samples += 320; }
+                    // Send at least one 20ms frame and catch up to at most 100ms of local backlog.
                     else {
-                        let mut bytes = vec![0;640];
-                        for byte in &mut bytes { if let Some(sample_byte) = microphone.pop_front() { *byte = sample_byte; } else { break; } }
-                        let pcm = PcmAudioChunk::new(audio::PcmFormat::Pcm16,16_000,1,bytes).map_err(|error| format!("Invalid microphone frame: {error:?}"))?;
-                        control.send_audio(pcm)?;
-                        submitted_samples += 320;
-                        last_real_sample = Some(submitted_samples);
+                        let retain_bytes = microphone.len().saturating_sub(640).min(3200);
+                        drain_microphone(&control, &mut microphone, retain_bytes, &mut submitted_samples, &mut last_real_sample)?;
                     }
                 },
                 observation = uploaded.recv() => {
-                    let observation = observation.ok_or("Live upload observation ended")?;
+                    let observation = observation.ok_or(UPLOAD_OBSERVATION_ENDED)?;
                     if observation.input_generation == mute_sequence {
                         uploaded_samples += observation.pcm.bytes.len() as u64 / 2;
                     }
                     if let Some(vad) = vad.as_mut() {
                         let observed = vad.observe_pcm(&observation.pcm).map_err(|error| error.to_string())?;
+                        if let Some(dropped) = barge_in.observe(observed.speech_active, &observation.pcm, &playback) {
+                            tracing::debug!(dropped_ms = dropped.as_millis(), "Live barge-in dropped stale playback");
+                            // Withheld audio stays in model context; tell it the user never heard it.
+                            control.send_command(&live_voice::LiveCommand::Append {
+                                event_id: uuid::Uuid::new_v4().to_string(),
+                                kind: live_voice::AppendKind::Instructions,
+                                delegation_id: None,
+                                content: format!("用户插话时，宿主丢弃了最多约{}毫秒尚未播出的语音；不要声称用户听到了这部分内容。", dropped.as_millis()),
+                            })?;
+                        }
                         if !observed.events.is_empty() || !observed.completed_spans.is_empty() {
                             send_event(CallEvent::SpeechActivity(observed))?;
                         }
@@ -238,7 +279,11 @@ pub(super) async fn run_audio_loop(
                             return Err("Microphone returned invalid PCM".into());
                         }
                         // 16000 samples/s × 2B × 0.2s = 6400B of local microphone backlog.
-                        if microphone.len() + chunk.bytes.len() > 6400 { return Err("Microphone audio exceeded the 200ms buffer".into()); }
+                        if chunk.bytes.len() > 6400 { return Err("Microphone audio exceeded the 200ms buffer".into()); }
+                        // Multiple capture blocks can already be ready after a scheduler stall.
+                        if microphone.len() + chunk.bytes.len() > 6400 {
+                            drain_microphone(&control, &mut microphone, 6400 - chunk.bytes.len(), &mut submitted_samples, &mut last_real_sample)?;
+                        }
                         microphone.extend(chunk.bytes);
                     }
                     CaptureEvent::Stopped { generation } => draining_generations.retain(|pending| *pending > generation),
@@ -250,6 +295,11 @@ pub(super) async fn run_audio_loop(
                     Some(live_voice::LiveEvent::OutputAudio(pcm)) => {
                         if !output_blocked { playback.enqueue_for(playback.generation(), pcm).map_err(|error| error.to_string())?; }
                         tracing::trace!(buffered_ms=playback.buffered_duration().as_millis(), "Live playback backlog");
+                        let dropped = control.dropped_output_audio_bytes();
+                        if dropped != dropped_output_bytes {
+                            dropped_output_bytes = dropped;
+                            tracing::warn!(target: "norma_voice", dropped_bytes = dropped, "GPT-Live dropped output audio because the consumer lagged");
+                        }
                     },
                     Some(live_voice::LiveEvent::Delegation(notice)) => send_event(CallEvent::Delegation(notice))?,
                     Some(live_voice::LiveEvent::Usage(usage)) => send_event(CallEvent::Usage(usage))?,
@@ -286,6 +336,9 @@ pub(super) async fn run_audio_loop(
     playback.end();
     control.close();
     let outcome = connection.finish().await;
+    if let Some(error) = &outcome.error {
+        tracing::warn!(target: "norma_voice", %error, reason = ?outcome.reason, "GPT-Live transport ended with error");
+    }
     playback.wait_stopped().await;
     let local_error = local_call_error(result, requested_close, &outcome);
     CallEnd {

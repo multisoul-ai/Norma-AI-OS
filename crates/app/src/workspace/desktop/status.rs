@@ -57,7 +57,7 @@ impl MultisoulApp {
             .get(&(workspace_id.to_owned(), area_id.to_owned()))
         {
             return DesktopAreaStatusView {
-                agents: live_agents(&session.read(cx)),
+                agents: live_agents(session.read(cx)),
                 live: true,
                 updated_at_unix_ms: None,
             };
@@ -89,7 +89,7 @@ impl MultisoulApp {
             else {
                 continue;
             };
-            let agents = live_agents(&session.read(cx));
+            let agents = live_agents(session.read(cx));
             let seen = self.desktop_workspace.status_live_seen.contains(&area.id);
             let old = self.desktop_workspace.status_cache.get(&area.id);
             if seen && old.is_some_and(|old| old.agents == agents) {

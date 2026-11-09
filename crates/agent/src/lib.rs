@@ -24,13 +24,15 @@ mod realtime_intent;
 mod reply_visibility;
 mod rig_tools;
 mod tool_policy;
+pub mod voice_command;
 
 pub use realtime_intent::realtime_command_authorized;
 pub use tool_policy::{ToolCallBudget, ToolCallPolicy, MAX_TOOL_CALLS_PER_TURN};
 
 pub use adapter::{
-    norma_tool_definitions, AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter,
-    IdeaTarget, NormaToolRuntime, ToolContext, ToolDefinition, WorkspaceSnapshotScope,
+    model_tool_visible, norma_tool_definitions, AdapterCommand, AdapterError, AdapterResult,
+    AgentCardAdapter, IdeaTarget, ModelToolScope, NormaToolRuntime, ToolContext, ToolDefinition,
+    WorkspaceSnapshotScope,
 };
 pub use conversation_tail::{
     compare_tails_for_context, render_conversation_tails, truncate_tail_message,
@@ -62,7 +64,7 @@ pub use master::{
 };
 pub use master_prompt::{
     norma_system_prompt, norma_system_prompt_base, norma_system_prompt_base_with_desktop,
-    NORMA_MEMORY_RULES,
+    trace_assembled_prompt, NORMA_MEMORY_RULES,
 };
 pub use memory::{
     MemoryCommitReceipt, MemoryEntry, MemoryEntryId, MemoryEntryIdError, MemoryKind,
@@ -82,3 +84,5 @@ pub use provider_catalog::{
     discover_provider_models, normalize_provider_models, validate_provider_model,
     ProviderCatalogError,
 };
+
+pub mod jev_choice;

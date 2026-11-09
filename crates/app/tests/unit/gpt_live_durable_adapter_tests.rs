@@ -35,6 +35,7 @@ fn context() -> ToolContext {
         turn_id: "stable-intent:gpt-live:r2".into(),
         user_input: "创建一个终端".into(),
         input_source: agent::AgentInputSource::GptLiveVoice,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "changing-model-call-id".into(),
         operation_id: Some("stable-intent:gpt-live:r2:step-1".into()),
@@ -219,12 +220,12 @@ async fn gpt_live_durable_unknown_stops_new_steps_after_partial_effect() {
     let policy = agent::ToolCallPolicy::default();
     let mut request = context();
     let first = policy
-        .execute(&runtime, "create_terminal", serde_json::json!({}), &request)
+        .execute(&runtime, "terminal_create", serde_json::json!({}), &request)
         .await;
     request.tool_call_id = "second-call".into();
     request.operation_id = Some(format!("{}:step-2", request.turn_id));
     let second = policy
-        .execute(&runtime, "create_terminal", serde_json::json!({}), &request)
+        .execute(&runtime, "terminal_create", serde_json::json!({}), &request)
         .await;
     assert!(
         first.is_err() && second.is_err(),

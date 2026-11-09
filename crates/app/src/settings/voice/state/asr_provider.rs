@@ -190,6 +190,7 @@ impl VoiceSettingsState {
         if !self.values.azure_asr_profile().is_ready() {
             return false;
         }
+        self.remember_local_provider(self.preferred_local_provider());
         self.invalidate_a1_preparation();
         self.saved.asr_provider = Some(asr::AsrProviderId::CloudAzure);
         self.persist_string(KEY_ASR_PROVIDER, asr::AsrProviderId::CloudAzure.as_str());
@@ -199,6 +200,7 @@ impl VoiceSettingsState {
 
     pub(crate) fn activate_local_sherpa_asr(&mut self) {
         self.invalidate_a1_preparation();
+        self.remember_local_provider(asr::AsrProviderId::LocalSherpa);
         self.saved.asr_provider = Some(asr::AsrProviderId::LocalSherpa);
         self.persist_string(KEY_ASR_PROVIDER, asr::AsrProviderId::LocalSherpa.as_str());
         self.refresh_values();

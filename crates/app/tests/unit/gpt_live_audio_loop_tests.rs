@@ -75,6 +75,39 @@ fn live_close_preserves_hardware_errors_and_only_suppresses_expected_not_ready()
         "未确认关闭不能掩盖错误"
     );
 }
+/// 传输任务先退出会让上传观察通道关闭，该派生错误不得盖住真正的连接错误。
+/// 数据构造：上传观察结束的本地错误，分别配有传输错误和无传输错误的终态。
+/// 预期结果：有传输错误时本地错误让位；没有时仍显示本地错误。
+#[test]
+fn upload_observation_ended_yields_to_transport_error() {
+    let mut outcome = live_voice::LiveOutcome {
+        usage: live_voice::LiveUsage {
+            seconds: 183.0,
+            finalized: false,
+        },
+        reason: None,
+        error: Some(live_voice::LiveError::Connection),
+    };
+    assert_eq!(
+        local_call_error(
+            Err(LoopError::Other(UPLOAD_OBSERVATION_ENDED.into())),
+            false,
+            &outcome
+        ),
+        None,
+        "传输错误存在时不得用派生的通道关闭错误覆盖它"
+    );
+    outcome.error = None;
+    assert_eq!(
+        local_call_error(
+            Err(LoopError::Other(UPLOAD_OBSERVATION_ENDED.into())),
+            false,
+            &outcome
+        ),
+        Some(UPLOAD_OBSERVATION_ENDED.into()),
+        "没有传输错误时仍要显示本地错误"
+    );
+}
 impl AssistantAudioSink for SignalingSink {
     fn write_chunk(&mut self, _: &PcmAudioChunk) -> Result<std::time::Duration, String> {
         let _ = self.written.try_send(());
@@ -166,12 +199,17 @@ async fn live_audio_loop_streams_both_directions_and_releases_playback() {
     }).await.expect("桌面音频集成测试有界");
 }
 
-/// AC02/AC03：已到期的20ms上传应先于普通输入突发，避免可排出的音频被误判为溢出。
-/// 数据构造：可控Tokio时钟；首个静音帧后放入200ms真PCM，下一tick同刻再到20ms。
+/// AC02/AC03：已到期的上传应先于输入突发，并追赶调度卡顿积压，避免可排出的音频被误判为溢出。
+/// 数据构造：可控时钟；200ms本地+1块或100ms本地+2块100ms采集，16kHz×2B/样本=32B/ms。
 /// 执行过程：等待首帧→填满200ms→在20ms到期时加入新包→检查服务端解码出的真PCM→挂断。
-/// 预期结果：先发送20ms腾出预算，再接收新包；无溢出；服务端收到0x33而非只有静音。
+/// 预期结果：积压与连续采集块按序完整上传，不能误判溢出、丢块或只上传首帧。
 #[tokio::test]
 async fn live_audio_due_tick_precedes_ready_capture_burst() {
+    assert_capture_burst(200, 1).await;
+    assert_capture_burst(100, 2).await;
+}
+
+async fn assert_capture_burst(initial_ms: usize, capture_blocks: usize) {
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("本地服务");
     let address = listener.local_addr().expect("地址");
     let (first_tx, first_rx) = tokio::sync::oneshot::channel();
@@ -190,18 +228,38 @@ async fn live_audio_due_tick_precedes_ready_capture_burst() {
             "上传时钟已启动"
         );
         first_tx.send(()).expect("首帧barrier");
-        let packet = socket.next().await.expect("真PCM").expect("完整PCM");
-        let packet: Value = serde_json::from_str(packet.to_text().expect("文本")).expect("JSON");
+        let expected: Vec<u8> = [
+            vec![0x33; initial_ms * 32],
+            vec![0x44; capture_blocks * 3200],
+        ]
+        .concat();
+        let mut received = Vec::new();
+        // A wall-clock tick can land before the client pauses time; skip those silence frames.
+        loop {
+            let packet = socket.next().await.expect("真PCM").expect("完整PCM");
+            let packet: Value =
+                serde_json::from_str(packet.to_text().expect("文本")).expect("JSON");
+            assert_eq!(
+                packet["type"], "session.input_audio.append",
+                "不能因为可排出的输入而提前关闭"
+            );
+            let bytes = base64::Engine::decode(
+                &base64::engine::general_purpose::STANDARD,
+                packet["audio"].as_str().expect("PCM base64"),
+            )
+            .expect("上行PCM");
+            if received.is_empty() && bytes.iter().all(|byte| *byte == 0) {
+                continue;
+            }
+            received.extend(bytes);
+            if received.len() >= expected.len() {
+                break;
+            }
+        }
         assert_eq!(
-            packet["type"], "session.input_audio.append",
-            "不能因为可排出的输入而提前关闭"
+            received, expected,
+            "全部真实PCM须按序上传，不能丢弃后续采集块"
         );
-        let bytes = base64::Engine::decode(
-            &base64::engine::general_purpose::STANDARD,
-            packet["audio"].as_str().expect("PCM base64"),
-        )
-        .expect("上行PCM");
-        assert_eq!(bytes, vec![0x33; 640], "下一到期帧是真实麦克风PCM");
         mic_tx.send(()).expect("PCM确认");
         while let Some(Ok(packet)) = socket.next().await {
             if packet.to_text().expect("文本").contains("session.close") {
@@ -260,7 +318,8 @@ async fn live_audio_due_tick_precedes_ready_capture_burst() {
     input
         .send(CaptureEvent::Pcm {
             generation: 0,
-            chunk: PcmAudioChunk::new(PcmFormat::Pcm16, 16000, 1, vec![0x33; 6400]).expect("200ms"),
+            chunk: PcmAudioChunk::new(PcmFormat::Pcm16, 16000, 1, vec![0x33; initial_ms * 32])
+                .expect("初始PCM"),
         })
         .await
         .expect("填满输入");
@@ -268,14 +327,17 @@ async fn live_audio_due_tick_precedes_ready_capture_burst() {
         futures::poll!(&mut worker).is_pending(),
         "填充PCM后等待下一tick"
     );
-    assert!(capture_observer.is_empty(), "200ms已进入媒体循环");
-    input
-        .send(CaptureEvent::Pcm {
-            generation: 0,
-            chunk: PcmAudioChunk::new(PcmFormat::Pcm16, 16000, 1, vec![0x44; 640]).expect("20ms"),
-        })
-        .await
-        .expect("新输入到达");
+    assert!(capture_observer.is_empty(), "初始PCM已进入媒体循环");
+    for _ in 0..capture_blocks {
+        input
+            .send(CaptureEvent::Pcm {
+                generation: 0,
+                chunk: PcmAudioChunk::new(PcmFormat::Pcm16, 16000, 1, vec![0x44; 3200])
+                    .expect("100ms"),
+            })
+            .await
+            .expect("新输入到达");
+    }
     tokio::time::advance(std::time::Duration::from_millis(20)).await;
     tokio::task::yield_now().await;
     assert!(
@@ -301,4 +363,106 @@ async fn live_audio_due_tick_precedes_ready_capture_burst() {
         .expect("真PCM在20ms后继续上传")
         .expect("服务端已解码确认");
     server.await.expect("服务端通过");
+}
+
+/// 单个采集块超过200ms时仍须拒绝，不能通过追赶逻辑放宽输入或网络预算。
+/// 数据构造：16kHz×2B×200ms=6400B，再加一个2B样本；本地WS不连接云端。
+/// 执行过程：送入6402B非零PCM，服务端区分静音保活与真PCM，再确认关闭。
+/// 预期结果：保留缓冲超限错误，服务端没有收到任何真实麦克风字节。
+#[tokio::test]
+async fn live_audio_rejects_a_capture_block_over_200ms() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("本地服务");
+    let address = listener.local_addr().expect("地址");
+    let server = tokio::spawn(async move {
+        let (tcp, _) = listener.accept().await.expect("客户端");
+        let mut socket = accept_async(tcp).await.expect("WS");
+        let _ = socket.next().await.expect("start").expect("完整start");
+        socket
+            .send(Message::Text(
+                json!({"type":"session.started","session":{"id":"oversize","model":"gpt-live-1"}})
+                    .to_string()
+                    .into(),
+            ))
+            .await
+            .expect("started");
+        while let Some(Ok(packet)) = socket.next().await {
+            let packet: Value =
+                serde_json::from_str(packet.to_text().expect("文本")).expect("JSON");
+            if packet["type"] == "session.close" {
+                break;
+            }
+            assert_eq!(
+                packet["type"], "session.input_audio.append",
+                "仅允许静音保活"
+            );
+            let bytes = base64::Engine::decode(
+                &base64::engine::general_purpose::STANDARD,
+                packet["audio"].as_str().expect("PCM"),
+            )
+            .expect("base64");
+            assert!(
+                bytes.iter().all(|byte| *byte == 0),
+                "超大真PCM不能进入传输队列"
+            );
+        }
+        socket.send(Message::Text(json!({"type":"session.closed","reason":"close_requested","session":{"id":"oversize","model":"gpt-live-1"},"usage":{"seconds":0.0}}).to_string().into())).await.expect("closed");
+    });
+    let connection = live_voice::connect_loopback(
+        address,
+        live_voice::LiveConfig::default(),
+        "fixture",
+        CancellationToken::new(),
+    )
+    .await
+    .expect("连接");
+    let (bus, _wake) = VoiceWindowInsetEventBus::new();
+    let (written, _played) = async_channel::bounded(1);
+    let playback = start_playback_with(
+        move || {
+            Box::new(SignalingSink {
+                written,
+                stopped: Arc::new(AtomicBool::new(false)),
+            })
+        },
+        bus.sink(TtsPlaybackSource::GptLive),
+    );
+    let (input, captured) = async_channel::bounded(1);
+    input
+        .send(CaptureEvent::Pcm {
+            generation: 0,
+            chunk: PcmAudioChunk::new(PcmFormat::Pcm16, 16_000, 1, vec![0x33; 6402])
+                .expect("超大合法PCM"),
+        })
+        .await
+        .expect("输入");
+    let (_commands, controls) = async_channel::bounded(1);
+    let (events, _visible) = async_channel::bounded(16);
+    let (capture_mode, _mode) = tokio::sync::watch::channel(CaptureMode {
+        generation: 0,
+        muted: false,
+    });
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        run_audio_loop(
+            connection,
+            CaptureInput {
+                captured,
+                capture_mode,
+                vad: None,
+            },
+            playback,
+            controls,
+            async_channel::bounded(1).1,
+            events,
+            CancellationToken::new(),
+        ),
+    )
+    .await
+    .expect("超限关闭有界");
+    assert_eq!(
+        result.error.as_deref(),
+        Some("Microphone audio exceeded the 200ms buffer"),
+        "保留单块输入上限"
+    );
+    server.await.expect("服务端未收到超大真PCM");
 }

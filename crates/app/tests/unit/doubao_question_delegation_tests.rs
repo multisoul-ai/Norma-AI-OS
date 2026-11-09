@@ -1,8 +1,7 @@
 use super::*;
 use crate::app::MultisoulApp;
+use crate::test_brain_question as support;
 use std::sync::atomic::{AtomicUsize, Ordering};
-#[path = "../support/brain_question.rs"]
-mod support;
 
 /// 场景：豆包完整转写的明确代答直接进入当前原题，失效通话不创建授权。
 /// 构造：隔离App/SQLite/Hook、生产context通道与ChatRuntime；本地代理阻断所有模型/TTS网络。

@@ -37,6 +37,7 @@ impl MultisoulApp {
         if self.voice_settings.values().desktop_mode() == mode {
             return;
         }
+        self.invalidate_single_voice_commands();
         self.stop_gpt_live_voice(cx);
         self.stop_doubao_voice(cx);
         self.stop_continuous_listening(cx);

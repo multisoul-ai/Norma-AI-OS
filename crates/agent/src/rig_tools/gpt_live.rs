@@ -21,7 +21,7 @@ impl Tool for GptLiveDeleteCanvasCardTool {
         // OpenAI rejects root oneOf; the original executor still enforces exactly one target.
         parameters
             .as_object_mut()
-            .expect("delete_canvas_card has an object schema")
+            .expect("card_delete has an object schema")
             .remove("oneOf");
         parameters
     }

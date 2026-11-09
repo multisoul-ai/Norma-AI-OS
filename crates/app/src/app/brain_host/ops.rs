@@ -1,6 +1,6 @@
 //! `norma brain …` 命令的执行：播报、审批、读 Agent、派任务。
 
-use super::{approvals, ask_key, AutoAction, AutoKind, BrainHostState, MultisoulApp, ASSIGN_KEY};
+use super::{approvals, ask_key, AutoAction, AutoKind, MultisoulApp, ASSIGN_KEY};
 use gpui::{Context, Window};
 use norma::mobile::ApprovalTarget;
 use norma::protocol::{
@@ -10,6 +10,10 @@ use norma::protocol::{
 use serde_json::json;
 
 type OpResult = Result<CardCommandResult, CardCommandError>;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/brain_approval_log_tests.rs"]
+mod audit_tests;
 
 pub(super) fn reject(message: &str) -> CardCommandError {
     CardCommandError::agent(AgentErrorCode::InternalError, message, false)
@@ -27,12 +31,12 @@ impl MultisoulApp {
         &mut self,
         request: String,
     ) -> Result<agent::AdapterResult, agent::AdapterError> {
-        if self.brain.host.is_none() {
+        if !self.brain.is_running() {
             return Err(agent::AdapterError::Rejected(
                 "幕僚没有运行，无法交接".into(),
             ));
         }
-        self.push_brain(brain::BrainEvent::UserRequest { text: request });
+        self.push_brain(brain::BrainEventKind::UserRequest { text: request });
         Ok(agent::AdapterResult::accepted("已交给幕僚，结果会稍后播报"))
     }
 
@@ -260,11 +264,12 @@ impl MultisoulApp {
         let autonomy = self.brain_autonomy();
         let permitted = approvals::autonomy_allows(&autonomy, &tracked.subject.tool_name);
         let key = ask_key(&tracked.subject);
-        let asked = self
-            .brain
-            .settings
-            .as_ref()
-            .is_some_and(|settings| settings.always_ask.contains(&key));
+        let asked = self.brain.settings.as_ref().is_some_and(|settings| {
+            settings
+                .always_ask
+                .iter()
+                .any(|rule| rule.matches(self.workspace_id.as_deref(), &key))
+        });
         let outcome = match decision {
             BrainDecision::Escalate => {
                 self.escalate(id, reason, cx);
@@ -309,8 +314,7 @@ impl MultisoulApp {
         }
         let removed = self.brain.tracked.remove(id);
         let summary = removed.as_ref().map(|t| approvals::summarize(&t.subject));
-        self.brain
-            .log_decision(id, decision, reason, summary.as_deref());
+        self.log_decision(id, decision, reason, summary.as_deref(), cx);
         if let Some(tracked) = removed {
             self.brain.record_action(AutoAction {
                 at: std::time::SystemTime::now(),
@@ -330,14 +334,23 @@ impl MultisoulApp {
     }
 }
 
-impl BrainHostState {
+impl MultisoulApp {
     /// 追加一条决策记录，用户可以据此追问“为什么放行”。
-    fn log_decision(&self, id: &str, decision: BrainDecision, reason: &str, summary: Option<&str>) {
-        let Some(dir) = self.proposals_path.as_ref().and_then(|path| path.parent()) else {
+    fn log_decision(
+        &self,
+        id: &str,
+        decision: BrainDecision,
+        reason: &str,
+        summary: Option<&str>,
+        cx: &mut Context<Self>,
+    ) {
+        let Some((dir, scope)) = super::owner::shared(cx).directory().zip(self.brain_scope())
+        else {
             return;
         };
-        let line = json!({"approval": id, "decision": format!("{decision:?}"), "reason": reason, "what": summary});
-        self.proposal_writer
-            .append(dir.join("approvals.jsonl"), line.to_string());
+        let line = json!({"workspace_id":scope.workspace_id,"route_id":scope.route_id,"approval": id, "decision": format!("{decision:?}"), "reason": reason, "what": summary});
+        self.brain
+            .proposal_writer
+            .append(dir.join("decisions.jsonl"), line.to_string());
     }
 }

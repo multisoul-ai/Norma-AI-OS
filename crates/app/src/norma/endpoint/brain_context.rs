@@ -11,11 +11,10 @@ pub(super) fn dispatch(
     cx: &mut App,
 ) {
     let id = request.request_id;
-    let CardCommand::Brain {
-        token,
-        op: BrainOp::Context { reference },
-    } = request.command.clone()
-    else {
+    let CardCommand::Brain { token, op } = request.command.clone() else {
+        return;
+    };
+    let BrainOp::Context { reference } = *op else {
         return;
     };
     let target = match resolve_targets(&request, cx) {
@@ -69,7 +68,7 @@ pub(super) fn dispatch_denied(
     let CardCommand::Brain { token, op } = &request.command else {
         return;
     };
-    let op = op.clone();
+    let op = (**op).clone();
     let target = match resolve_targets(&request, cx) {
         Ok(routed) => routed.target,
         Err(error) => {
@@ -109,7 +108,7 @@ pub(super) fn dispatch_guarded(
         return;
     };
     let token = token.clone();
-    let op = op.clone();
+    let op = (**op).clone();
     let target = match resolve_targets(&request, cx) {
         Ok(routed) => routed.target,
         Err(error) => {

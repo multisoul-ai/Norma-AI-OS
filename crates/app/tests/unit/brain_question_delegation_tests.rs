@@ -141,15 +141,15 @@ fn question_delegation_survives_brain_restart_with_consistent_prompt() {
     source.update(cx, |app, cx| {
         let (target, _, _) = super::tests::make_question(app, cx, dir.path());
         app.authorize_question_delegation(&target).unwrap();
-        app.brain.host = Some(super::super::BrainHost {service: None, status: std::sync::mpsc::channel().1, token: "first".into()});
+        app.install_brain_host_for_test(super::super::BrainHost {service: None, status: std::sync::mpsc::channel().1, token: "first".into()});
         for token in ["first", "replacement"] {
-            app.brain.host.as_mut().unwrap().token = token.into();
+            app.install_brain_host_for_test(super::super::BrainHost {service: None, status: std::sync::mpsc::channel().1, token: token.into()});
             app.brain.pending_events.borrow_mut().clear();
             app.poll_brain_questions();
             app.poll_brain_questions();
             let events = app.brain.pending_events.borrow();
             assert_eq!(events.len(), 1, "同一服务不能每帧重复播报原问题");
-            assert!(matches!(events.front(), Some(brain::BrainEvent::QuestionRequested {delegated:true, question, ..}) if question.target == target), "服务重启后提示必须携带仍有效的真实委托");
+            assert!(matches!(events.front().map(|event| &event.kind), Some(brain::BrainEventKind::QuestionRequested {delegated:true, question, ..}) if question.target == target), "服务重启后提示必须携带仍有效的真实委托");
             assert!(app.question_overview_rows("a")[0].delegated, "提示与概览委托状态一致");
         }
     });
@@ -177,7 +177,7 @@ fn question_explicit_text_and_voice_delegate_before_model_dispatch() {
         });
         source.update_in(cx,|app,window,cx| {
             let (target,ticket,_)=super::tests::make_question(app,cx,dir.path());
-            app.brain.host=Some(super::super::BrainHost {service:None,status:std::sync::mpsc::channel().1,token:"text-voice".into()});
+            app.install_brain_host_for_test(super::super::BrainHost {service:None,status:std::sync::mpsc::channel().1,token:"text-voice".into()});
             app.brain.pending_events.borrow_mut().clear();
             if input_source == agent::AgentInputSource::Voice {
                 app.dialogue.begin_single_voice_command("这题你直接回答。").unwrap();
@@ -194,7 +194,7 @@ fn question_explicit_text_and_voice_delegate_before_model_dispatch() {
             assert_eq!(ticket.status(Instant::now()),QuestionHookStatus::Pending,"委托本身不编造答案");
             let events=app.brain.pending_events.borrow();
             assert_eq!(events.len(),1,"只发送一次原题委托");
-            assert!(matches!(events.front(),Some(brain::BrainEvent::QuestionRequested {question,delegated:true,..}) if question.target==target),"明确目标交给幕僚答题通路");
+            assert!(matches!(events.front().map(|event| &event.kind),Some(brain::BrainEventKind::QuestionRequested {question,delegated:true,..}) if question.target==target),"明确目标交给幕僚答题通路");
         });
     }
 }

@@ -22,6 +22,8 @@ use tokio_util::sync::CancellationToken;
 
 // Each direction admits at most 16000 × 2 × 1 second of queued PCM.
 const AUDIO_QUEUE_BYTES: usize = 32_000;
+// Output audio may never take the last slots of the event queue; control events need them.
+const CONTROL_RESERVED_SLOTS: usize = 16;
 const START_TIMEOUT: Duration = Duration::from_secs(10);
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(5);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(1);
@@ -416,7 +418,17 @@ async fn run(
             let permit = match &event {
                 LiveEvent::OutputAudio(pcm) => {
                     validate_audio(pcm)?;
-                    Some(Arc::clone(&budget).try_acquire_many_owned(pcm.bytes.len() as u32).map_err(|_| LiveError::Capacity)?)
+                    // Speech is a lossy realtime stream: a lagging consumer loses audio instead of the call.
+                    let admitted = (output.capacity() > CONTROL_RESERVED_SLOTS)
+                        .then(|| Arc::clone(&budget).try_acquire_many_owned(pcm.bytes.len() as u32).ok())
+                        .flatten();
+                    match admitted {
+                        Some(permit) => Some(permit),
+                        None => {
+                            output_gate.record_drop(pcm.bytes.len());
+                            continue;
+                        }
+                    }
                 }
                 _ => None,
             };

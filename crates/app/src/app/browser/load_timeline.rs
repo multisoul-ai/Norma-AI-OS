@@ -47,6 +47,13 @@ impl LoadTimeline {
         })
     }
 
+    /// Still waiting for the first commit; past `limit` a failed load stops hiding the view.
+    pub(crate) fn is_loading_within(&self, now: Instant, limit: Duration) -> bool {
+        self.active
+            .as_ref()
+            .is_some_and(|active| now.saturating_duration_since(active.started_at) < limit)
+    }
+
     pub(crate) fn cancel(&mut self) {
         self.active = None;
     }

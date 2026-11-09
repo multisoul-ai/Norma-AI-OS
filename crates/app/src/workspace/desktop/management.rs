@@ -136,6 +136,7 @@ impl MultisoulApp {
                                 app.desktop_workspace.areas = areas;
                             }
                         }
+                        app.mark_workspace_activity_dirty(cx);
                         app.desktop_workspace.rename_target = None;
                         app.desktop_workspace.rename_input = None;
                         app.desktop_workspace.error = None;
@@ -324,6 +325,8 @@ impl MultisoulApp {
                                 }
                             }
                         }
+                        app.invalidate_workspace_activity();
+                        app.mark_workspace_activity_dirty(cx);
                         let store = app.desktop_workspace.store.clone();
                         cx.background_executor().spawn(async move {
                             for area_id in removed_areas {

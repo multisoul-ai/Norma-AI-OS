@@ -2,8 +2,40 @@
 
 use crate::runtime::Runtime;
 use canvas::{AgentProfile, NodeId};
+use norma::agent_hook::{
+    ENV_AGENT_PROFILE, ENV_CONTROL_RUN_ID, ENV_HOOK_ENDPOINT, ENV_HOOK_TOKEN, ENV_NODE_ID,
+    ENV_PATH_CONVENTION,
+};
 use std::sync::atomic::{AtomicBool, Ordering};
 use terminal::PtyCommand;
+
+/// 父进程若是另一张 Agent 卡片，这些变量会把本进程和它的子进程串成那张卡。
+/// `NORMA_CONTROL_RUN_ID` 由 `agent_hooks::question::attach` 注入。
+pub const INHERITED_AGENT_IDENTITY_ENV: &[&str] = &[
+    ENV_NODE_ID,
+    ENV_AGENT_PROFILE,
+    ENV_HOOK_ENDPOINT,
+    ENV_HOOK_TOKEN,
+    "NORMA_WORKSPACE_ID",
+    "NORMA_WORKSPACE_ROUTE_ID",
+    "NORMA_SOCKET",
+    ENV_PATH_CONVENTION,
+    ENV_CONTROL_RUN_ID,
+];
+
+/// 清掉从父进程继承的 Norma 卡片身份。必须在任何其他线程启动前调用。
+pub fn clear_inherited_agent_identity() {
+    for key in INHERITED_AGENT_IDENTITY_ENV {
+        std::env::remove_var(key);
+    }
+}
+
+pub(crate) fn without_inherited_agent_identity(mut command: PtyCommand) -> PtyCommand {
+    for key in INHERITED_AGENT_IDENTITY_ENV {
+        command = command.env_remove(*key);
+    }
+    command
+}
 mod question;
 
 /// 用户在“编排”设置里是否允许向 Agent 注入文件路径输出约定；默认开启。
@@ -265,5 +297,85 @@ mod tests {
             }),
             "开发版 Agent 不得回退到正式版 Norma socket"
         );
+    }
+
+    /// 启动时清掉继承身份后，普通子进程也不得再看到来源卡片的变量。
+    /// macOS 的 `ps eww` 仍显示 exec 时的环境，不能用来判断 `remove_var`。
+    ///
+    /// 数据构造：
+    ///   `INHERITED_AGENT_IDENTITY_ENV` 的每个键都写成哨兵 `900001`（9 个键）。
+    ///   探测命令是 `/bin/sh`，按同一顺序打印 `${KEY-unset}`。
+    ///
+    /// 执行过程：
+    ///   1. 写入哨兵，先 spawn 一次，确认子进程看得到 `900001`。
+    ///   2. 调用 `clear_inherited_agent_identity`。
+    ///   3. 再 spawn 一次，读取每个键。
+    ///   4. Drop 恢复测试前的环境。
+    ///
+    /// 预期结果：
+    ///   - 正断言：清除后 9 个键在子进程里都是 `unset`。
+    ///   - 负断言：清除前 `MULTISOUL_NODE_ID` 必须是 `900001`，否则没有证明清除生效。
+    #[test]
+    fn clear_inherited_agent_identity_hides_vars_from_child_processes() {
+        struct Restore(Vec<(String, Option<String>)>);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                for (key, previous) in &self.0 {
+                    match previous {
+                        Some(value) => std::env::set_var(key, value),
+                        None => std::env::remove_var(key),
+                    }
+                }
+            }
+        }
+        let _restore = Restore(
+            INHERITED_AGENT_IDENTITY_ENV
+                .iter()
+                .map(|key| ((*key).to_string(), std::env::var(key).ok()))
+                .collect(),
+        );
+        for key in INHERITED_AGENT_IDENTITY_ENV {
+            std::env::set_var(key, "900001");
+        }
+
+        let before = child_identity_env();
+        clear_inherited_agent_identity();
+        let after = child_identity_env();
+
+        assert_eq!(
+            before.first().map(String::as_str),
+            Some("900001"),
+            "清除前子进程必须看到 MULTISOUL_NODE_ID=900001，实际：{before:?}"
+        );
+        assert_eq!(
+            after.len(),
+            INHERITED_AGENT_IDENTITY_ENV.len(),
+            "子进程应回报全部身份变量，实际：{after:?}"
+        );
+        assert!(
+            after.iter().all(|value| value == "unset"),
+            "clear_inherited_agent_identity 后子进程不得再看到继承身份，实际：{after:?}"
+        );
+        assert_ne!(
+            before.first().map(String::as_str),
+            after.first().map(String::as_str),
+            "清除前后的 MULTISOUL_NODE_ID 必须不同"
+        );
+    }
+
+    fn child_identity_env() -> Vec<String> {
+        let script = INHERITED_AGENT_IDENTITY_ENV
+            .iter()
+            .map(|key| format!("printf '%s\\n' \"${{{key}-unset}}\""))
+            .collect::<Vec<_>>()
+            .join("; ");
+        let output = std::process::Command::new("/bin/sh")
+            .args(["-c", &script])
+            .output()
+            .expect("spawn identity env probe");
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::to_string)
+            .collect()
     }
 }

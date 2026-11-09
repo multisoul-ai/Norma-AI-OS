@@ -67,6 +67,7 @@ pub struct RunOverviewAgent {
     pub current: bool,
     pub node_id: u64,
     pub name: String,
+    pub profile: String,
     pub raw_state: String,
     pub presence: RunOverviewPresence,
     pub approval_count: u32,
@@ -76,6 +77,12 @@ pub struct RunOverviewAgent {
     pub action: Option<String>,
     pub progress: Option<TaskProgress>,
     pub started_at_unix_ms: Option<u64>,
+}
+
+impl RunOverviewAgent {
+    pub fn is_completed(&self) -> bool {
+        matches!(self.raw_state.as_str(), "done" | "ego_completed")
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -218,6 +225,7 @@ fn agent_row(
         current: false,
         node_id: agent.node_id,
         name: agent.name.clone(),
+        profile: agent.profile.clone(),
         raw_state: agent.raw_state.clone(),
         presence,
         approval_count: attention

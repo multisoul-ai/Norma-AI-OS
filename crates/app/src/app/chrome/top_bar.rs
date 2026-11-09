@@ -99,36 +99,21 @@ impl MultisoulApp {
                     .find(|area| area.id == id)
             })
             .map(|area| area.display_name.clone());
-        let beside_left_drawer = layout.left_space > 0.0;
-        // The prototype anchors the breadcrumb to the canvas edge while the chat drawer
-        // is open. Overlay drawers on narrow windows leave the title centered.
         let reserve = if wide { 220.0 } else { 104.0 };
-        // With the drawer collapsed the logo stays at its drawer-header x and the
-        // breadcrumb hugs it instead of centering.
-        let brand_anchored = !self.desktop_workspace.drawers.left_open;
-        let title_width = if beside_left_drawer {
-            (width - if wide { 250.0 } else { 74.0 }).max(1.0)
-        } else if brand_anchored {
-            (width - BRAND_BREADCRUMB_LEFT - reserve).max(1.0)
-        } else {
-            (width - reserve * 2.0).max(1.0)
-        };
+        // The logo sits at the canvas edge and the breadcrumb hugs it instead of centering.
+        let title_width = (width - BRAND_BREADCRUMB_LEFT - reserve).max(1.0);
         let title = desktop_top_bar_title(workspace, project, title_width, theme)
-            .when(beside_left_drawer, |title| title.absolute().left(px(14.0)))
-            .when(brand_anchored && !beside_left_drawer, |title| {
-                title.absolute().left(px(BRAND_BREADCRUMB_LEFT))
-            });
+            .absolute()
+            .left(px(BRAND_BREADCRUMB_LEFT));
         top_bar_frame("desktop-workspace-top-bar", theme)
-            .left(px(layout.left_space))
+            .left(px(0.0))
             .right(px(layout.right_space))
-            .when(brand_anchored, |bar| {
-                bar.child(
-                    brand_logo()
-                        .absolute()
-                        .left(px(BRAND_LOGO_LEFT))
-                        .top(px((TOP_BAR_HEIGHT - BRAND_LOGO_SIZE) / 2.0)),
-                )
-            })
+            .child(
+                brand_logo()
+                    .absolute()
+                    .left(px(BRAND_LOGO_LEFT))
+                    .top(px((TOP_BAR_HEIGHT - BRAND_LOGO_SIZE) / 2.0)),
+            )
             .child(title)
             .child(
                 div()
@@ -181,9 +166,6 @@ impl MultisoulApp {
                                     app.open_desktop_add_project(window, cx);
                                 })),
                         )
-                    })
-                    .when_some(self.render_status_capsule(window, cx), |row, capsule| {
-                        row.child(capsule)
                     }),
             )
     }

@@ -10,6 +10,7 @@ pub mod desktop_navigation;
 pub mod ego;
 pub mod events;
 pub mod focus;
+pub mod island;
 pub mod live;
 pub(crate) mod macos_proc;
 pub use agent_descendants::{agent_process_alive, has_agent_turn_descendant};
@@ -26,7 +27,8 @@ pub mod startup_watch;
 mod zcode_launch;
 
 pub use agent_hooks::{
-    path_convention_enabled, set_path_convention_enabled, AgentHookRuntimeConfig,
+    clear_inherited_agent_identity, path_convention_enabled, set_path_convention_enabled,
+    AgentHookRuntimeConfig, INHERITED_AGENT_IDENTITY_ENV,
 };
 pub use agent_session_bindings::AgentSessionHydrationReport;
 pub use ego::{EgoOwnership, EgoTaskCommand, EgoTaskError, EgoTaskState};

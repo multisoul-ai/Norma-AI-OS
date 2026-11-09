@@ -1,18 +1,61 @@
 use super::{AdapterCommand, ToolContext};
 use crate::AgentInputSource;
 
-const LEGACY_PREAMBLE: &str = concat!(
-    "Original user request (verbatim):\n",
-    "Use the full request below to preserve this assignment's background, requirements, ",
-    "examples and constraints. Do not take over work assigned to other agents.\n",
-);
-const SEPARATOR: &str = "\n\n---\n\n";
+// Phrases whose 不/别 is not a constraint: A-not-A questions, courtesy and common compounds.
+const NON_CONSTRAINTS: [&str; 29] = [
+    "能不能",
+    "要不要",
+    "是不是",
+    "可不可以",
+    "行不行",
+    "好不好",
+    "会不会",
+    "有没有",
+    "方不方便",
+    "需不需要",
+    "忙不忙",
+    "对不对",
+    "不对",
+    "不好意思",
+    "对不起",
+    "不错",
+    "不过",
+    "差不多",
+    "别人",
+    "别的",
+    "分别",
+    "特别",
+    "区别",
+    "识别",
+    "类别",
+    "级别",
+    "差别",
+    "个别",
+    "告别",
+];
+const CONSTRAINTS: [&str; 15] = [
+    "不",
+    "别",
+    "勿",
+    "禁",
+    "莫",
+    "无需",
+    "没必要",
+    "千万",
+    "只读",
+    "保持",
+    "not",
+    "n't",
+    "never",
+    "avoid",
+    "without",
+];
 
-/// Model-written task text may omit background. Carry the actual transcript at
-/// the typed dispatch boundary, after validation and without changing retry IDs.
-pub(super) fn preserve_doubao_request(command: &mut AdapterCommand, context: &ToolContext) {
-    if context.input_source != AgentInputSource::DoubaoVoice || context.user_input.trim().is_empty()
-    {
+/// The task text is the model's verbatim copy of the user's words. If that copy lost a
+/// negation ("别改数据库"), the receiving agent must still see the original constraint.
+pub(super) fn preserve_doubao_constraints(command: &mut AdapterCommand, context: &ToolContext) {
+    let original = context.user_input.trim();
+    if context.input_source != AgentInputSource::DoubaoVoice || original.is_empty() {
         return;
     }
     let text = match command {
@@ -25,58 +68,19 @@ pub(super) fn preserve_doubao_request(command: &mut AdapterCommand, context: &To
         AdapterCommand::HandoffToBrain { request } => request,
         _ => return,
     };
-    if text == context.user_input.trim() {
-        *text = context.user_input.clone();
-        return;
+    if !text.contains(original) && constraints(text) < constraints(original) {
+        text.push_str("\n\n用户原话（核对限制，只做派给你的部分）：");
+        text.push_str(original);
     }
-    // Flatten only generated handoff wrappers; never parse or rewrite the user's transcript.
-    let original = context.user_input.as_str();
-    let protected = text
-        .match_indices(original)
-        .map(|(start, _)| start..start + original.len())
-        .collect::<Vec<_>>();
-    let mut sections = Vec::new();
-    let mut start = 0;
-    for (offset, marker) in text.match_indices(LEGACY_PREAMBLE) {
-        if protected
-            .iter()
-            .any(|range| offset < range.end && offset + marker.len() > range.start)
-        {
-            continue;
-        }
-        append_section(&mut sections, &text[start..offset], original);
-        start = offset + marker.len();
-    }
-    append_section(&mut sections, &text[start..], original);
-    let mut readable = sections.join(SEPARATOR);
-    if !readable.contains(original) {
-        if !readable.is_empty() {
-            readable.push_str(SEPARATOR);
-        }
-        readable.push_str(original);
-    }
-    *text = readable;
 }
 
-fn append_section<'a>(sections: &mut Vec<&'a str>, section: &'a str, original: &str) {
-    let section = if let Some(offset) = section.find(original) {
-        let start = (section.len() - section.trim_start().len()).min(offset);
-        let end = section.trim_end().len().max(offset + original.len());
-        &section[start..end]
-    } else {
-        section.trim()
-    };
-    if section.is_empty() {
-        return;
+fn constraints(text: &str) -> usize {
+    let mut text = text.to_lowercase();
+    for phrase in NON_CONSTRAINTS {
+        text = text.replace(phrase, "");
     }
-    if let Some(index) = sections
+    CONSTRAINTS
         .iter()
-        .position(|existing| existing.trim() == section.trim())
-    {
-        if section.contains(original) {
-            sections[index] = section;
-        }
-    } else {
-        sections.push(section);
-    }
+        .map(|word| text.matches(word).count())
+        .sum()
 }

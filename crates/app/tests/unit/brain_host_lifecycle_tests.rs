@@ -1,6 +1,6 @@
 use super::super::{activity_sink, BrainHost, BrainHostState};
 use brain::acp::trace::{AcpTrace, TraceItem, TraceKind};
-use brain::{BrainStatus, Trigger};
+use brain::{BrainStatus, BrainStatusKind, Trigger};
 use std::sync::mpsc;
 use std::time::SystemTime;
 
@@ -12,7 +12,7 @@ use std::time::SystemTime;
 fn retired_quota_error_survives_storage_reopen_without_crossing_turns() {
     let mut state = BrainHostState::new();
     let (tx, status) = mpsc::channel();
-    state.host = Some(BrainHost {
+    state.install_brain_host_for_test(BrainHost {
         service: None,
         status,
         token: "old".into(),
@@ -46,9 +46,9 @@ fn retired_quota_error_survives_storage_reopen_without_crossing_turns() {
             state.activity_outbox.take(),
         ))
         .unwrap();
-    state.retire_host();
+    state.retire_brain_for_test();
     let (_new_tx, status) = mpsc::channel();
-    state.host = Some(BrainHost {
+    state.install_brain_host_for_test(BrainHost {
         service: None,
         status,
         token: "new".into(),
@@ -63,15 +63,15 @@ fn retired_quota_error_survives_storage_reopen_without_crossing_turns() {
         TraceItem::turn_end("error", 2500),
         TraceItem::new(TraceKind::Error, "本轮失败", format!("rate_limit: {body}")),
     ] {
-        tx.send(BrainStatus::Trace(trace(43, item)))
+        tx.send(scoped(BrainStatusKind::Trace(trace(43, item))))
             .expect("退休通道仍接收已发出的事件");
     }
-    tx.send(BrainStatus::BackendDown {
+    tx.send(scoped(BrainStatusKind::BackendDown {
         reason: "old quota".into(),
-    })
+    }))
     .unwrap();
     drop(tx);
-    state.drain_retired();
+    state.take_statuses();
     assert_eq!(state.last_turn["Main"], 44, "旧错误不能覆盖新轮来源");
     assert!(state.token_matches("new"), "新 host 保持有效");
     assert!(!state.token_matches("old"), "旧令牌无效");
@@ -105,7 +105,7 @@ fn retired_quota_error_survives_storage_reopen_without_crossing_turns() {
             "额度错误只属于原轮"
         );
     }
-    assert!(state.retiring.is_empty(), "通道排空后释放");
+    assert!(state.retired_brain_empty_for_test(), "通道排空后释放");
 }
 
 /// 场景：切换后端后，旧会话的权限拒绝和结束迟到，仍须持久化且不授权旧令牌。
@@ -116,7 +116,7 @@ fn retired_quota_error_survives_storage_reopen_without_crossing_turns() {
 fn retired_host_keeps_late_permission_and_end_in_activity() {
     let mut state = BrainHostState::new();
     let (tx, status) = mpsc::channel();
-    state.host = Some(BrainHost {
+    state.install_brain_host_for_test(BrainHost {
         service: None,
         status,
         token: "old".into(),
@@ -133,22 +133,22 @@ fn retired_host_keeps_late_permission_and_end_in_activity() {
         "发给大脑",
         "完整目标输入",
     )));
-    state.retire_host();
+    state.retire_brain_for_test();
     assert!(!state.token_matches("old"), "旧令牌必须立刻失效");
     state.last_turn.insert("Main".into(), 18);
-    tx.send(BrainStatus::Trace(trace(TraceItem::new(
+    tx.send(scoped(BrainStatusKind::Trace(trace(TraceItem::new(
         TraceKind::Permission,
         "权限请求：拒绝",
         "非允许程序",
-    ))))
+    )))))
     .expect("旧接收通道要活到后台停止完成");
-    tx.send(BrainStatus::Trace(trace(TraceItem::turn_end(
+    tx.send(scoped(BrainStatusKind::Trace(trace(TraceItem::turn_end(
         "cancelled",
         2500,
-    ))))
+    )))))
     .unwrap();
     drop(tx);
-    state.drain_retired();
+    state.take_statuses();
     assert_eq!(state.last_turn["Main"], 18, "旧轮次不能覆盖当前动作来源");
     let batch = activity_sink::build_batch(123, "area", state.activity_outbox.take());
     let dir = tempfile::tempdir().unwrap();
@@ -172,5 +172,18 @@ fn retired_host_keeps_late_permission_and_end_in_activity() {
         vec!["prompt", "permission", "turn"],
         "拒绝不能在接收或落库前消失"
     );
-    assert!(state.retiring.is_empty(), "后台通道断开且排空后必须释放");
+    assert!(
+        state.retired_brain_empty_for_test(),
+        "后台通道断开且排空后必须释放"
+    );
+}
+
+fn scoped(kind: BrainStatusKind) -> BrainStatus {
+    BrainStatus {
+        scope: norma::protocol::BrainScope {
+            workspace_id: "test".into(),
+            route_id: "route".into(),
+        },
+        kind,
+    }
 }

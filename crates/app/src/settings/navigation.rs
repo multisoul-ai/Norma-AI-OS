@@ -50,6 +50,7 @@ pub(crate) enum SettingsSection {
     NormaVoice,
     NormaPersona,
     NormaBrain,
+    NormaIsland,
     Agents,
     #[cfg(test)]
     Skills,
@@ -75,7 +76,11 @@ impl SettingsSection {
     pub(crate) fn is_norma(self) -> bool {
         matches!(
             self,
-            Self::NormaMemory | Self::NormaVoice | Self::NormaPersona | Self::NormaBrain
+            Self::NormaMemory
+                | Self::NormaVoice
+                | Self::NormaPersona
+                | Self::NormaBrain
+                | Self::NormaIsland
         )
     }
 
@@ -129,6 +134,12 @@ impl SettingsSection {
                 icon_asset: Some("icons/settings-nav-hooks.svg"),
                 index: 13,
                 debug_selector: "settings-section-norma-brain",
+            },
+            Self::NormaIsland => SettingsSectionMetadata {
+                title: ui::i18n::text("settings.island"),
+                icon_asset: Some("icons/settings-nav-hooks.svg"),
+                index: 15,
+                debug_selector: "settings-section-norma-island",
             },
             Self::Agents => SettingsSectionMetadata {
                 title: ui::i18n::text("settings.agents"),
@@ -189,6 +200,7 @@ const NORMA_SECTIONS: &[SettingsSection] = &[
     SettingsSection::NormaMemory,
     SettingsSection::NormaVoice,
     SettingsSection::NormaBrain,
+    SettingsSection::NormaIsland,
 ];
 
 const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 4] = [

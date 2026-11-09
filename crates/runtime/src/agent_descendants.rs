@@ -119,10 +119,7 @@ fn process_snapshot(pid: u32) -> Option<(String, u64)> {
     if info.pbi_pid != pid {
         return None;
     }
-    Some((
-        command_name(&info.pbi_comm),
-        u64::from(info.pbi_start_tvsec),
-    ))
+    Some((command_name(&info.pbi_comm), info.pbi_start_tvsec))
 }
 
 #[cfg(target_os = "macos")]

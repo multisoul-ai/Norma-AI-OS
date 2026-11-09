@@ -72,8 +72,10 @@ impl Render for KeyboardCardView {
                 app.desktop_home_card(
                     0,
                     workspace,
-                    canvas::Vec2::new(400., 250.),
-                    canvas::Vec2::new(1280., 800.),
+                    (
+                        canvas::Vec2::new(400., 250.),
+                        canvas::Vec2::new(1280., 800.),
+                    ),
                     1.,
                     window,
                     cx,

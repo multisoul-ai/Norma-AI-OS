@@ -48,7 +48,7 @@ impl MultisoulApp {
             {
                 return Err("本次语音已取消，未委托代答。".into());
             }
-            if self.brain.host.is_none() {
+            if !self.brain.is_running() {
                 return Err("幕僚没有运行，暂时无法代答；可以在原卡片回答。".into());
             }
             let chosen = match self.runtime.focus.mode() {
@@ -81,7 +81,7 @@ impl MultisoulApp {
                 {
                     grant.cancellation = cancellation;
                 }
-                self.push_brain(brain::BrainEvent::QuestionRequested {
+                self.push_brain(brain::BrainEventKind::QuestionRequested {
                     agent: self
                         .agent_announcement_name(question.target.node_id)
                         .unwrap_or_else(|| format!("{:?}", question.target.provider)),

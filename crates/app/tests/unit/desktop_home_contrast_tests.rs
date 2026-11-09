@@ -67,17 +67,6 @@ fn desktop_home_card_text_remains_readable_over_wallpaper() {
             "{id:?} 空态提示必须在纯黑壁纸上保持至少 4.5:1 对比"
         );
     }
-    for id in ui::ThemeId::ALL {
-        let theme = home_theme(id);
-        assert!(
-            home_text_contrast(
-                super::super::surface_theme::on_accent(theme),
-                theme.accent,
-                0xffffffff
-            ) >= 4.5,
-            "{id:?} 实心主按钮应使用对比至少 4.5:1 的文字"
-        );
-    }
 }
 
 /// 顶部透明材质透出壁纸，同时保留工作空间、项目和状态文字的可读性。

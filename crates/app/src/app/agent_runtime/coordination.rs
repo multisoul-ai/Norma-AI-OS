@@ -73,11 +73,13 @@ impl MultisoulApp {
             .definitions()
             .iter()
             .map(|definition| {
-                let active_node_id = self.runtime.document.nodes().iter().find_map(|node| {
-                    let CanvasNodeKind::Agent(spec) = &node.kind else {
-                        return None;
-                    };
-                    (spec.definition_id == Some(definition.id)).then_some(node.id)
+                let active_node_id = self.voice_bound_node(definition.id).or_else(|| {
+                    self.runtime.document.nodes().iter().find_map(|node| {
+                        let CanvasNodeKind::Agent(spec) = &node.kind else {
+                            return None;
+                        };
+                        (spec.definition_id == Some(definition.id)).then_some(node.id)
+                    })
                 });
                 let runtime_task_state =
                     active_node_id.and_then(|node_id| self.runtime.agent_task_state(node_id));
@@ -135,34 +137,69 @@ impl MultisoulApp {
             spec.definition_id
                 .map(|definition_id| (definition_id, norma_agent_profile(spec.profile)))
         }) else {
+            tracing::warn!(
+                node_id,
+                definition_id = tracing::field::Empty,
+                "register_external_agent_root skipped: node is not an agent with a definition"
+            );
             return false;
         };
         let roster = self.agent_roster_for_provider();
         let coordinator = match self.agent_task_coordinator.as_mut() {
             Some(coordinator) => {
                 if let Err(error) = coordinator.sync_roster(roster) {
-                    tracing::warn!(%error, node_id, "failed to sync external Agent root roster");
+                    tracing::warn!(
+                        %error,
+                        node_id,
+                        definition_id,
+                        "register_external_agent_root skipped: roster sync failed"
+                    );
                     return false;
                 }
                 coordinator
             }
             None => {
                 let Ok(coordinator) = agent::AgentTaskCoordinator::new(roster) else {
+                    tracing::warn!(
+                        node_id,
+                        definition_id,
+                        "register_external_agent_root skipped: coordinator init failed"
+                    );
                     return false;
                 };
                 self.agent_task_coordinator.insert(coordinator)
             }
         };
         let task_title = task_title.unwrap_or_else(|| "用户直接任务".to_string());
+        let previous_active_id = coordinator.tasks().into_iter().find_map(|task| {
+            (task.definition_id == definition_id
+                && task.target_node_id == node_id
+                && matches!(task.state, "running" | "cancel_requested"))
+            .then_some(task.task_id)
+        });
         let Ok((receipt, created)) =
             coordinator.register_external_root(definition_id, node_id, task_title)
         else {
+            tracing::warn!(
+                node_id,
+                definition_id,
+                "register_external_agent_root skipped: source agent unavailable"
+            );
             return false;
         };
         if !created {
+            tracing::debug!(
+                node_id,
+                definition_id,
+                "register_external_agent_root skipped: active task already exists"
+            );
             return false;
         }
         if let Some(writer) = self.persistence.agent_dispatch_writer() {
+            if let Some(task_id) = previous_active_id.filter(|task_id| *task_id != receipt.task_id)
+            {
+                writer.finish_task(task_id, storage::AgentDispatchTaskState::Done, None);
+            }
             let tracking = match receipt.state {
                 agent::AgentDispatchState::SubmittedUntracked => {
                     storage::AgentDispatchTracking::Untracked
@@ -210,7 +247,7 @@ impl MultisoulApp {
     }
 }
 
-fn agent_task_state_for_norma(
+pub(super) fn agent_task_state_for_norma(
     runtime_state: Option<&runtime::AgentTaskState>,
 ) -> agent::AgentTaskState {
     match runtime_state {

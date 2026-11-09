@@ -60,12 +60,12 @@ pub(crate) fn jump_index(line: usize, text: &str) -> usize {
     line.saturating_sub(1).min(last)
 }
 
+/// 各项目的 (ID, 根目录)，以及来源项目 ID。
+type AreaContext = (Vec<(String, PathBuf)>, Option<String>);
+
 impl MultisoulApp {
     /// 会话实体侧：读取宿主的项目根与来源项目，供后台判断路径归属。
-    pub(crate) fn desktop_area_context(
-        &self,
-        cx: &mut Context<Self>,
-    ) -> Option<(Vec<(String, PathBuf)>, Option<String>)> {
+    pub(crate) fn desktop_area_context(&self, cx: &mut Context<Self>) -> Option<AreaContext> {
         let host = self.desktop_host.as_ref().and_then(|h| h.upgrade())?;
         let source = cx.entity_id();
         Some(host.read_with(cx, |host, _| {
@@ -157,6 +157,7 @@ impl MultisoulApp {
         s.turn_paths = None;
         s.lock_area = false;
         s.pending_turn_diff = None;
+        s.pending_turn_review = None;
         s.followed_area = current;
         if s.saved.area_id.as_deref() != Some(area_id.as_str()) {
             s.saved.area_id = Some(area_id.clone());

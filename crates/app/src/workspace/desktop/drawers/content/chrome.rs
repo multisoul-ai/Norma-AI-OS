@@ -61,13 +61,9 @@ impl MultisoulApp {
             .custom(self.reader_control_variant(colors, cx))
             .tooltip(ui::i18n::text("drawers.new_webpage"))
             .on_click(cx.listener(|app, _, _, cx| {
-                app.open_desktop_content_tab(
-                    DesktopContentKind::Browser,
-                    "about:blank".into(),
-                    ui::i18n::text("drawers.browser").into(),
-                    None,
-                    cx,
-                )
+                app.hide_desktop_content_browsers();
+                app.desktop_workspace.content_browser.new_tab_page = true;
+                cx.notify();
             }))
     }
 

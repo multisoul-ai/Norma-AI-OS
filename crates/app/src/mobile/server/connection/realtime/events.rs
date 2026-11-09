@@ -183,6 +183,7 @@ impl Events {
                     turn_id: turn.id.clone(),
                     user_input: user_input.clone(),
                     input_source: AgentInputSource::Voice,
+                    voice_commit: None,
                     contextual_delete_targets: vec![],
                     tool_call_id: function.into(),
                     operation_id: Some(operation.clone()),

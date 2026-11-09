@@ -72,7 +72,7 @@ impl MultisoulApp {
             let cleanup = cx.background_executor().spawn(async move {
                 release.wait();
             });
-            async move { cleanup.await }
+            cleanup
         })
         .detach();
         let mobile = crate::mobile::controller::attach(app_store.clone(), cx);
@@ -228,6 +228,7 @@ impl MultisoulApp {
             presentation_notification: None,
             presentation_notification_generation: 0,
             agent_runtime: None,
+            voice_commit_target: None,
             agent_task_coordinator: None,
             agent_queue_ui: super::agent_queue::AgentQueueUiState::default(),
             orchestration_authorizations: storage::OrchestrationAuthorizationCache::default(),
@@ -274,12 +275,8 @@ impl MultisoulApp {
             desktop_embedded_layout_origin: None,
             desktop_presentation_bounds: std::collections::HashMap::new(),
             desktop_switcher_subscription: None,
-            desktop_ideas_input_subscription: None,
-            desktop_question_editor: None,
-            desktop_question_drafts: Vec::new(),
             background_restore: None,
             desktop_overview_scroll: std::collections::HashMap::new(),
-            ideas_scroll: gpui::ScrollHandle::new(),
             desktop_directory_scroll: gpui::ScrollHandle::new(),
             canvas_surface,
             working_snake_views: std::collections::HashMap::new(),

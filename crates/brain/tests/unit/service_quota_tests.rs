@@ -7,7 +7,7 @@ use super::*;
 #[test]
 fn quota_error_is_readable_finishes_once_and_does_not_poison_the_next_turn() {
     let h = start();
-    h.service.push(BrainEvent::UserRequest {
+    h.push(BrainEventKind::UserRequest {
         text: "FAKE_QUOTA".into(),
     });
     let mut traces = Vec::new();
@@ -16,9 +16,10 @@ fn quota_error_is_readable_finishes_once_and_does_not_poison_the_next_turn() {
             .status
             .recv_timeout(Duration::from_secs(5))
             .expect("额度错误必须返回")
+            .kind
         {
-            BrainStatus::Trace(t) => traces.push(t),
-            BrainStatus::BackendDown { reason } => {
+            BrainStatusKind::Trace(t) => traces.push(t),
+            BrainStatusKind::BackendDown { reason } => {
                 assert!(
                     reason.contains("rate_limit"),
                     "结构化错误类别不能丢失：{reason}"
@@ -57,12 +58,12 @@ fn quota_error_is_readable_finishes_once_and_does_not_poison_the_next_turn() {
         !traces.iter().any(|t| t.item.kind == TraceKind::Permission),
         "额度错误不伪造工具权限事件"
     );
-    h.service.push(BrainEvent::UserRequest {
+    h.push(BrainEventKind::UserRequest {
         text: "下一轮正常请求".into(),
     });
     let next =
-        h.wait_status(|s| matches!(s, BrainStatus::Trace(t) if t.item.kind == TraceKind::Turn));
-    let BrainStatus::Trace(next) = next else {
+        h.wait_status(|s| matches!(s, BrainStatusKind::Trace(t) if t.item.kind == TraceKind::Turn));
+    let BrainStatusKind::Trace(next) = next else {
         panic!("预期新轮结束")
     };
     assert_ne!(next.turn, turn, "恢复后的轮次不得覆盖额度错误");
@@ -85,14 +86,14 @@ fn quota_error_is_readable_finishes_once_and_does_not_poison_the_next_turn() {
 #[test]
 fn rate_limited_turn_is_retried_instead_of_dropped() {
     let h = start();
-    h.service.push(BrainEvent::UserRequest {
+    h.push(BrainEventKind::UserRequest {
         text: "FAKE_429_ONCE".into(),
     });
     let done = h.wait_status(|s| {
-        matches!(s, BrainStatus::Trace(t)
+        matches!(s, BrainStatusKind::Trace(t)
             if t.item.end.as_ref().is_some_and(|e| e.stop_reason == "end_turn"))
     });
-    assert!(matches!(done, BrainStatus::Trace(_)));
+    assert!(matches!(done, BrainStatusKind::Trace(_)));
     let log = h.log();
     assert_eq!(
         log.matches("prompt: ").count(),

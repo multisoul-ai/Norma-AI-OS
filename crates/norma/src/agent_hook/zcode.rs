@@ -75,6 +75,24 @@ pub(super) fn install_zcode_hooks(path: &Path, command_path: &Path) -> Result<()
             groups.push(json!({"hooks": [{"type": "command", "command": command, "timeout": 5}]}));
         }
     }
+    let question_command = format!("{command} --request-question");
+    let pre_tool = events.entry("PreToolUse").or_insert_with(|| json!([]));
+    let pre_tool = pre_tool
+        .as_array_mut()
+        .ok_or_else(|| invalid("an event is not an array"))?;
+    if !pre_tool
+        .iter()
+        .any(|group| group_commands(group).any(|existing| existing == question_command))
+    {
+        pre_tool.push(json!({
+            "matcher": "AskUserQuestion",
+            "hooks": [{
+                "type": "command",
+                "command": question_command,
+                "timeout": 125
+            }]
+        }));
+    }
     root["hooks"]["enabled"] = json!(true);
     atomic_file::replace(path, serde_json::to_string_pretty(&root)?.as_bytes())?;
     Ok(())

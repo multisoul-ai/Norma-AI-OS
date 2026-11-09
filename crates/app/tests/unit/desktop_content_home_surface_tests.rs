@@ -1,5 +1,4 @@
-#[path = "../support/drawer_locale.rs"]
-mod drawer_locale;
+use crate::test_drawer_locale as drawer_locale;
 use drawer_locale::expected_copy;
 
 use super::home_tools::HomeTool;
@@ -170,6 +169,47 @@ fn browser_tab_drops_tool_row_and_keeps_new_tab_button_in_strip() {
     assert!(
         cx.debug_bounds("desktop-content-tool-row").is_none(),
         "网页正文不应再叠“文件 / +”工具行"
+    );
+}
+
+/// “+” 应打开新标签页（工具选择页），而不是直接新建浏览器标签。
+///
+/// 数据构造：已有一个选中的网页标签，并置位 new_tab_page（与点击 “+” 等效）。
+/// 执行过程：重绘右侧抽屉。
+/// 预期结果：显示首页，不显示网页工具栏；选中标签后首页消失。
+#[test]
+fn new_tab_page_shows_home_over_existing_browser_tab() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let mut test = TestAppContext::single();
+    let (host, cx, workspace_id) = open_right_drawer(&mut test, temp.path(), "New Tab Page");
+    host.update_in(cx, |app, _, cx| {
+        app.browsers.disable_native_views();
+        app.desktop_workspace.content_tabs = vec![storage::DesktopContentTab {
+            instance_id: String::new(),
+            preview_type: None,
+            id: "example".into(),
+            workspace_id: workspace_id.clone(),
+            source_area_id: None,
+            source_project_name: "New Tab Page".into(),
+            kind: storage::DesktopContentKind::Browser,
+            resource: "https://example.com/".into(),
+            version: None,
+            title: "Example".into(),
+            position: 0,
+            selected: true,
+            source_removed: false,
+        }];
+        app.desktop_workspace.content_browser.new_tab_page = true;
+        cx.notify();
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("desktop-content-home").is_some(),
+        "new_tab_page 应在已有标签时显示首页"
+    );
+    assert!(
+        cx.debug_bounds("desktop-content-context").is_none(),
+        "显示首页时不应渲染选中标签的工具栏"
     );
 }
 

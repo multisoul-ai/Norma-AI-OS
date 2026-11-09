@@ -128,6 +128,7 @@ fn turn() -> ToolContext {
         turn_id: "session:turn-7".into(),
         user_input: "当前目标是什么".into(),
         input_source: agent::AgentInputSource::DoubaoVoice,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: String::new(),
         operation_id: None,
@@ -160,7 +161,7 @@ fn environment_at(desktop: Option<agent::DesktopContext>) -> ContextRequests {
 /// 场景：无项目与桌面总览中的豆包也能保存工作状态、按引用补读共享资料。
 /// 构造：真实请求装配入口、带共享快照的 adapter，两种无项目环境。
 /// 执行：生成实际请求 JSON，检查工具列表和资料消息。
-/// 预期：两种环境均保留 context_read/update；不因此开放单项目派工或终端工具。
+/// 预期：两种环境均保留 context_read/update；项目卡片工具仍关闭。没有桌面时不能派活，总览可以按快照 ID 派活。
 #[tokio::test]
 async fn doubao_personal_and_overview_keep_shared_context_tools() {
     for desktop in [
@@ -178,6 +179,7 @@ async fn doubao_personal_and_overview_keep_shared_context_tools() {
         }));
         let turn = turn();
         let mut history = vec![json!({"role":"user","content":turn.user_input})];
+        let on_desktop = desktop.is_some();
         let body = request_with_shared_context(
             &environment_at(desktop),
             "",
@@ -200,11 +202,26 @@ async fn doubao_personal_and_overview_keep_shared_context_tools() {
                 "共享资料必须配备可用工具 {name}：{names:?}"
             );
         }
-        for name in ["assign_agent_task", "send_terminal_input"] {
+        for name in [
+            "terminal_create",
+            "agent_reply",
+            "agent_create",
+            "card_delete",
+        ] {
             assert!(
                 !names.contains(&name),
                 "共享工具不能扩大项目执行权限：{name}"
             );
+        }
+        let assign = names.contains(&"agent_assign");
+        if on_desktop {
+            assert!(assign, "桌面总览应能按快照 ID 派活：{names:?}");
+            assert!(
+                names.contains(&"workspace_snapshot"),
+                "桌面总览应有工作空间快照：{names:?}"
+            );
+        } else {
+            assert!(!assign, "没有桌面时不能派活：{names:?}");
         }
         assert!(
             body["messages"][1]["content"]

@@ -96,6 +96,15 @@ pub fn task_state_for_provider_event(event: &AgentHookEvent) -> Option<AgentHook
             }
         }
         "Stop" => Some(AgentHookTaskState::Done),
+        // Grok 回合未完成（Ctrl+C、拒绝权限、max_turns 等）时发它，代替 Stop。
+        "StopCancelled" if event.profile == AgentProfile::Grok => Some(AgentHookTaskState::Ended),
+        // 完成判定只在开放回合且无 Stop 时放行它，作为漏报 Stop 的兜底。
+        "Notification"
+            if event.profile == AgentProfile::Grok
+                && event.raw_json["notificationType"].as_str() == Some("idle_prompt") =>
+        {
+            Some(AgentHookTaskState::Done)
+        }
         "SessionEnd" => Some(AgentHookTaskState::Ended),
         "SubagentStart" => Some(AgentHookTaskState::RunningTool {
             tool_name: Some("subagent".to_string()),
@@ -148,6 +157,7 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
             "Notification",
             "Stop",
             "StopFailure",
+            "StopCancelled",
             "SessionEnd",
             "SubagentStart",
             "SubagentStop",
@@ -233,20 +243,32 @@ fn normalize_provider_event(source: HookSource, provider_event: String) -> Strin
     .to_string()
 }
 
+/// Full user prompt. Title display uses [`extract_prompt_text`], which truncates at 60 chars.
+pub fn raw_prompt_text(raw_json: &Value) -> Option<String> {
+    ["prompt", "message", "user_message"]
+        .iter()
+        .find_map(|key| string_field(raw_json, key))
+        .or_else(|| super::kimi::kimi_prompt_text(raw_json))
+}
+
 /// Extract user prompt text from a UserPromptSubmit raw_json.
 /// Tries keys in order: "prompt", "message", "user_message".
 /// Truncates to 60 chars (by char count) and appends "…" if longer.
 pub fn extract_prompt_text(raw_json: &Value) -> Option<String> {
-    let text = ["prompt", "message", "user_message"]
-        .iter()
-        .find_map(|key| string_field(raw_json, key))
-        .or_else(|| super::kimi::kimi_prompt_text(raw_json))?;
+    let text = raw_prompt_text(raw_json)?;
     if text.chars().count() <= 60 {
         Some(text)
     } else {
         let truncated: String = text.chars().take(60).collect();
         Some(format!("{truncated}…"))
     }
+}
+
+/// 用未截断的 prompt 判断是不是纯已结清通知。60 字标题截断会吃掉闭合标签。
+pub fn user_prompt_is_only_settled_task_notification(raw_json: &Value) -> bool {
+    raw_prompt_text(raw_json)
+        .as_deref()
+        .is_some_and(super::prompt_is_only_settled_task_notification)
 }
 
 fn string_field(raw: &Value, field: &str) -> Option<String> {

@@ -58,6 +58,8 @@ impl Server {
                         continue;
                     }
                 };
+                // Poll accept, but let each HTTP read use its actual bounded timeout.
+                socket.set_nonblocking(false).unwrap();
                 socket
                     .set_read_timeout(Some(Duration::from_millis(200)))
                     .unwrap();

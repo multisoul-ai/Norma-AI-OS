@@ -1,6 +1,6 @@
 use agent::{
-    norma_system_prompt, norma_tool_definitions, AdapterCommand, AdapterError, AdapterResult,
-    AgentCardAdapter, AgentInputSource, CurrentCanvasContext, NormaToolRuntime, ToolContext,
+    norma_tool_definitions, AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter,
+    AgentInputSource, NormaToolRuntime, ToolContext,
 };
 use futures::future::BoxFuture;
 use serde_json::{json, Value};
@@ -36,6 +36,7 @@ async fn run(args: Value) -> (Result<AdapterResult, AdapterError>, Vec<AdapterCo
         turn_id: "turn-1".into(),
         user_input: "让 Codex 把 ACP 文档补上".into(),
         input_source: AgentInputSource::Other,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".into(),
         operation_id: Some("turn-1:call-1".into()),
@@ -95,17 +96,7 @@ fn the_tool_is_defined_once_and_described_in_the_prompt() {
         "request 必填"
     );
     assert!(
-        norma_system_prompt(
-            &CurrentCanvasContext {
-                project_name: "p".into(),
-                workspace_root: "/w".into(),
-                total_cards: 0,
-                cards: Vec::new(),
-                conversation_tails: Vec::new(),
-            },
-            &[],
-        )
-        .contains("handoff_to_brain"),
-        "系统提示要告诉模型何时交接"
+        matching[0].description.contains("后台大脑"),
+        "交接时机写在工具说明里，不再重复进系统提示"
     );
 }

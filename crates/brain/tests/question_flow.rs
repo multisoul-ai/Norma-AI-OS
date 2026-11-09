@@ -1,4 +1,4 @@
-use brain::{BrainEvent, Lane, Router, RouterConfig, TriggerKind};
+use brain::{BrainEventKind, Lane, Router, RouterConfig, TriggerKind};
 use norma::protocol::{
     AgentProfile, PendingQuestion, QuestionItem, QuestionOption, QuestionRef, QuestionRequestId,
 };
@@ -45,7 +45,7 @@ fn question_event_distinguishes_suggestion_from_one_question_delegation() {
     for delegated in [false, true] {
         let question = question();
         let actions = router.push(
-            BrainEvent::QuestionRequested {
+            BrainEventKind::QuestionRequested {
                 agent: "Claude".into(),
                 question: question.clone(),
                 delegated,
@@ -95,7 +95,7 @@ fn invalid_question_does_not_wake_a_lane() {
     assert!(
         router
             .push(
-                BrainEvent::QuestionRequested {
+                BrainEventKind::QuestionRequested {
                     agent: "Claude".into(),
                     question,
                     delegated: true

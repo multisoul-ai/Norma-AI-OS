@@ -130,7 +130,7 @@ impl MultisoulApp {
                     .iter()
                     .all(|r| r.status != AgentTaskReceiptStatus::Failed) =>
             {
-                self.push_brain(brain::BrainEvent::Goal {
+                self.push_brain(brain::BrainEventKind::Goal {
                     agent: name.clone(),
                     text: message.to_owned(),
                 });

@@ -110,6 +110,8 @@ pub fn session_meta(kind: BackendKind, model: Option<&str>) -> Option<Value> {
         "disallowedTools": DISALLOWED_TOOLS,
         "tools": ["Bash", "Read"],
         "strictMcpConfig": true,
+        // 大脑会话不写 ~/.claude/projects，避免挤进用户的 /resume 列表。
+        "persistSession": false,
         "allowDangerouslySkipPermissions": false,
         "settings": {"permissions": {
             "ask": ["Bash", "Read"],

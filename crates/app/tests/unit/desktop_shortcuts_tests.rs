@@ -193,143 +193,6 @@ fn desktop_creation_shortcuts_record_and_restore() {
     );
 }
 
-/// 切换运行概览默认是 ⌘⇧E，可录制成其他组合并恢复，且不改语音的 ⌘E。
-///
-/// 数据构造：空偏好；自定义键选未被占用的 Cmd+Shift+Y。
-/// 执行过程：核对默认分派，录制新键，JSON 重载，再恢复默认。
-/// 预期结果：默认 ⌘⇧E 命中切换运行概览，⌘E 始终是语音；恢复后自定义键消失。
-#[test]
-fn toggle_run_overview_records_and_restores_without_taking_voice() {
-    let mut state = ShortcutSettingsState::default();
-    let command = |state: &ShortcutSettingsState, key| {
-        state.command_for_keystroke(&Keystroke::parse(key).expect("测试键位合法"))
-    };
-    assert_eq!(
-        command(&state, "cmd-shift-e"),
-        Some(ShortcutCommandId::ToggleRunOverview),
-        "⌘⇧E 应切换运行概览"
-    );
-    assert_eq!(
-        command(&state, "cmd-e"),
-        Some(ShortcutCommandId::VoiceInteraction),
-        "⌘E 仍是语音，不能被运行概览占用"
-    );
-    state.begin_recording(ShortcutCommandId::ToggleRunOverview);
-    assert!(
-        state.record_keystroke(&Keystroke::parse("cmd-shift-y").unwrap()),
-        "应能把切换运行概览录制成 ⌘⇧Y"
-    );
-    let mut restored =
-        ShortcutSettingsState::new(ShortcutPreferences::from_json(&state.prefs.to_json()), None);
-    assert_eq!(
-        command(&restored, "cmd-shift-y"),
-        Some(ShortcutCommandId::ToggleRunOverview),
-        "重载后自定义键仍切换运行概览"
-    );
-    assert_eq!(
-        command(&restored, "cmd-shift-e"),
-        None,
-        "录制新键后默认 ⌘⇧E 应让出"
-    );
-    assert_eq!(
-        command(&restored, "cmd-e"),
-        Some(ShortcutCommandId::VoiceInteraction),
-        "改运行概览的键不应影响语音 ⌘E"
-    );
-    restored.restore_default(ShortcutCommandId::ToggleRunOverview);
-    assert_eq!(
-        command(&restored, "cmd-shift-e"),
-        Some(ShortcutCommandId::ToggleRunOverview),
-        "恢复默认后 ⌘⇧E 回到切换运行概览"
-    );
-    assert_eq!(
-        command(&restored, "cmd-shift-y"),
-        None,
-        "恢复默认后自定义键不再命中"
-    );
-    assert_eq!(
-        command(&restored, "cmd-e"),
-        Some(ShortcutCommandId::VoiceInteraction),
-        "恢复运行概览默认键后语音仍是 ⌘E"
-    );
-}
-
-/// 「想法」视图快捷键：默认 ⌘⇧I，可在 Settings 录制、保存重载并恢复，且不与既有键冲突。
-///
-/// 数据构造：空偏好；录制自定义键 ⌘⇧U；尝试把它录制成运行概览的 ⌘⇧E 与语音的 ⌘E。
-/// 执行过程：解析默认键；录制、序列化重载；尝试冲突键位；恢复默认。
-/// 预期结果：
-///   - 正断言：⌘⇧I 命中想法；录制 ⌘⇧U 后重载仍命中，默认键让出；恢复后 ⌘⇧I 回来；该条目可编辑。
-///   - 负断言：⌘⇧E 仍是运行概览、⌘E 仍是语音；想法不能被录制成这两个已占用的键，也不能是裸 I。
-#[test]
-fn toggle_ideas_shortcut_defaults_records_and_rejects_conflicts() {
-    let mut state = ShortcutSettingsState::default();
-    let command = |state: &ShortcutSettingsState, key| {
-        state.command_for_keystroke(&Keystroke::parse(key).expect("测试键位合法"))
-    };
-    assert_eq!(
-        command(&state, "cmd-shift-i"),
-        Some(ShortcutCommandId::ToggleIdeas),
-        "⌘⇧I 应切换想法视图"
-    );
-    assert_eq!(
-        command(&state, "cmd-shift-e"),
-        Some(ShortcutCommandId::ToggleRunOverview),
-        "⌘⇧E 仍是运行概览"
-    );
-    assert_eq!(
-        command(&state, "cmd-e"),
-        Some(ShortcutCommandId::VoiceInteraction),
-        "⌘E 仍是语音"
-    );
-    let effective = effective_shortcuts(&state.prefs);
-    assert!(
-        effective
-            .iter()
-            .find(|entry| entry.command == ShortcutCommandId::ToggleIdeas)
-            .is_some_and(|entry| entry.editable),
-        "想法快捷键必须出现在 Settings 且可编辑"
-    );
-    for taken in ["cmd-shift-e", "cmd-e", "i"] {
-        assert!(
-            validate_shortcut_change(ShortcutCommandId::ToggleIdeas, taken, &effective).is_err(),
-            "想法不能被改成已占用或裸键 {taken}"
-        );
-    }
-    assert!(
-        validate_shortcut_change(ShortcutCommandId::ToggleIdeas, "cmd-shift-u", &effective).is_ok(),
-        "想法应允许改成未被占用的 ⌘⇧U"
-    );
-    state.begin_recording(ShortcutCommandId::ToggleIdeas);
-    assert!(
-        state.record_keystroke(&Keystroke::parse("cmd-shift-u").unwrap()),
-        "应能录制成 ⌘⇧U"
-    );
-    let mut restored =
-        ShortcutSettingsState::new(ShortcutPreferences::from_json(&state.prefs.to_json()), None);
-    assert_eq!(
-        command(&restored, "cmd-shift-u"),
-        Some(ShortcutCommandId::ToggleIdeas),
-        "重载后自定义键仍切换想法"
-    );
-    assert_eq!(
-        command(&restored, "cmd-shift-i"),
-        None,
-        "录制新键后默认 ⌘⇧I 应让出"
-    );
-    restored.restore_default(ShortcutCommandId::ToggleIdeas);
-    assert_eq!(
-        command(&restored, "cmd-shift-i"),
-        Some(ShortcutCommandId::ToggleIdeas),
-        "恢复默认后 ⌘⇧I 回来"
-    );
-    assert_eq!(
-        command(&restored, "cmd-shift-u"),
-        None,
-        "恢复默认后自定义键不再命中"
-    );
-}
-
 /// ⌘⇧B 打开大脑活动窗口，可在 Settings 里录制和恢复，且不与已有键位冲突。
 ///
 /// 执行过程：解析默认键；检查条目可编辑；尝试已占用的键位。
@@ -346,19 +209,14 @@ fn toggle_brain_trace_shortcut_is_configurable_and_conflict_free() {
     );
     assert_eq!(
         command("cmd-shift-e"),
-        Some(ShortcutCommandId::ToggleRunOverview)
+        None,
+        "运行概览已由灵动岛取代，旧 ⌘⇧E 不应再绑定任何命令"
     );
     let effective = effective_shortcuts(&state.prefs);
     assert!(effective
         .iter()
         .find(|entry| entry.command == ShortcutCommandId::ToggleBrainTrace)
         .is_some_and(|entry| entry.editable));
-    assert!(validate_shortcut_change(
-        ShortcutCommandId::ToggleBrainTrace,
-        "cmd-shift-e",
-        &effective
-    )
-    .is_err());
     assert!(validate_shortcut_change(
         ShortcutCommandId::ToggleBrainTrace,
         "cmd-shift-u",

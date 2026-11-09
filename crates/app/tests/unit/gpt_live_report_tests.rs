@@ -7,7 +7,7 @@ use super::*;
 #[test]
 fn gpt_live_report_distinguishes_tool_schema_rejection_from_connectivity() {
     let failure = PlannerFailure::from(agent::NormaSessionError::Runtime(
-        r#"HTTP 400: {"error":{"code":"invalid_function_parameters","message":"Invalid schema for function 'delete_canvas_card'"}}"#.into(),
+        r#"HTTP 400: {"error":{"code":"invalid_function_parameters","message":"Invalid schema for function 'card_delete'"}}"#.into(),
     ));
     let message = DelegatedReport {
         planner: Err(failure),

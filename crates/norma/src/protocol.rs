@@ -9,7 +9,7 @@ mod errors;
 mod question;
 mod workspace;
 
-pub use brain::{BrainDecision, BrainOp, ReportPriority};
+pub use brain::{BrainDecision, BrainOp, BrainScope, ReportKind, ReportPriority};
 pub use brain_copy::{
     validate_decision_copy, validate_proposal_copy, DecisionCopyError, DecisionCopyIssue,
     DECISION_COPY_LIMIT,
@@ -129,8 +129,18 @@ pub enum CardCommand {
     /// 后台大脑的命令，用 App 下发的 token 鉴权。
     Brain {
         token: String,
-        op: BrainOp,
+        op: Box<BrainOp>,
     },
+}
+
+impl CardCommand {
+    /// 大脑命令的操作；其他命令返回 None。
+    pub fn brain_op(&self) -> Option<&BrainOp> {
+        match self {
+            Self::Brain { op, .. } => Some(op),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

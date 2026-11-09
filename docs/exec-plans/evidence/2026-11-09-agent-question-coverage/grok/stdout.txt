@@ -1,0 +1,1 @@
+I'll ask once which spike color you want, then print the choice on a single line.SPIKE_ANSWER=Blue

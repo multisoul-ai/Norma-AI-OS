@@ -65,8 +65,11 @@ impl MultisoulApp {
         {
             if let Some(result) = self.question_delegation_from_user(input) {
                 let text = result.unwrap_or_else(|reason| reason);
-                if *input_source == agent::AgentInputSource::Voice
-                    && self.dialogue.phase() == dialogue::DialoguePhase::Thinking
+                if matches!(
+                    input_source,
+                    agent::AgentInputSource::Voice
+                        | agent::AgentInputSource::SingleVoiceCommand { .. }
+                ) && self.dialogue.phase() == dialogue::DialoguePhase::Thinking
                 {
                     self.dialogue.begin_static_reply_stream(text.clone(), cx);
                 }
@@ -121,7 +124,17 @@ impl MultisoulApp {
                 .expect("Norma runtime should exist while switching models");
             let _ = runtime.submit(AgentCommand::SwitchModel(config));
         }
-        let roster = self.agent_roster_for_provider();
+        let roster = if matches!(
+            &command,
+            AgentCommand::UserTurn {
+                input_source: agent::AgentInputSource::SingleVoiceCommand { .. },
+                ..
+            }
+        ) {
+            self.single_voice_roster()
+        } else {
+            self.agent_roster_for_provider()
+        };
         let canvas = self.current_canvas_context_for_provider();
         let desktop = self.desktop_context_for_provider(cx);
         let mut commands = contextualized_agent_commands(roster, canvas, desktop, command);

@@ -1,0 +1,114 @@
+<title>角色剧场 多 Agent</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&display=swap">
+<style>
+/* 布局：角色头像放进岛里。收起时按优先级排序，最多露出 5 个，其余折成 +N；点击展开成网格，所有 Agent 都看得见 */
+:root{--bg:#0b0d12;--card:#12151c;--line:#222733;--fg:#e8eaf0;--mute:#8a91a3;--run:#5fd1c0;--ap:#f5b942;--ok:#4ade80;
+--ui:"Instrument Sans","PingFang SC","Hiragino Sans GB",system-ui,sans-serif;--spring:cubic-bezier(.34,1.56,.64,1);color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--ui);padding-inline:max(16px,4vw);padding-block:40px 64px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1{font-size:28px;margin:0}.lead{color:var(--mute);margin:6px 0 0;max-width:64ch;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card h2{font-size:14px;margin:0;font-weight:600}.card p{margin:0;color:var(--mute);font-size:12.5px;line-height:1.6}
+.stage{height:250px;border-radius:10px;display:flex;justify-content:center;align-items:flex-start;padding-top:36px;overflow:hidden;background:
+ linear-gradient(180deg,#05060a 0 22px,transparent 22px),radial-gradient(120% 140% at 70% 120%,#2b3a6b 0,#141a33 45%,#0a0c14 80%)}
+.zoom{width:340px;flex:none}@media (min-width:620px){.zoom{zoom:1.25}}
+
+.isl{--c:var(--run);width:340px;background:#000;border-radius:24px;overflow:hidden;color:#fff;font-size:12px;box-shadow:0 0 0 1px #ffffff14,0 10px 28px #0009;transition:box-shadow .4s,border-radius .45s var(--spring)}
+.isl[data-o=wait]{--c:var(--ap);box-shadow:0 0 0 1.5px var(--ap),0 0 22px #f5b94238,0 10px 28px #0009}
+.isl[data-o=done]{--c:var(--ok);box-shadow:0 0 0 1.5px var(--ok),0 0 22px #4ade8038,0 10px 28px #0009}
+.isl.open{border-radius:28px}
+.head{height:48px;display:flex;align-items:center;gap:10px;padding:0 14px 0 10px;cursor:pointer;outline:none}
+.head:focus-visible{box-shadow:inset 0 0 0 2px #ffffff66;border-radius:24px}
+.head:hover{background:#ffffff08}
+.strip{display:flex;align-items:center;flex:none}
+.strip .av{margin-left:-8px;filter:drop-shadow(0 0 0 #000) drop-shadow(0 0 1.2px #000)}.strip .av:first-child{margin-left:0}
+.strip.few .av{margin-left:4px}.strip.few .av:first-child{margin-left:0}
+.more-chip{margin-left:-8px;height:28px;min-width:28px;padding:0 7px;border-radius:14px;background:#2a2f3b;color:#fff;font-weight:600;font-size:11px;display:grid;place-items:center;order:99;box-shadow:0 0 0 2px #000}
+.sp{flex:1}
+.cnts{display:flex;gap:9px;font-variant-numeric:tabular-nums;font-weight:600;font-size:12px}
+.cnts span{display:flex;align-items:center;gap:4px;color:#ffffffd0}.cnts i{width:7px;height:7px;border-radius:50%}
+.cnts .r i{background:var(--run)}.cnts .w i{background:var(--ap)}.cnts .d i{background:var(--ok)}
+.cnts .w{color:var(--ap)}.cnts span.z{opacity:.28}
+.chev{width:14px;height:14px;stroke:#ffffffa0;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .4s var(--spring)}
+.isl.open .chev{transform:rotate(180deg)}
+
+.av{position:relative;width:28px;height:28px;flex:none}
+.av svg{width:100%;height:100%;overflow:visible;display:block}
+.bd{transform-box:fill-box;transform-origin:50% 100%}
+.eh{opacity:0}.pup{transition:transform .3s}
+.eyes{transform-box:fill-box;transform-origin:center;animation:blink 4.2s infinite;animation-delay:calc(var(--i)*.5s)}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+.av[data-s=run] .bd{animation:bob 1.3s ease-in-out infinite;animation-delay:calc(var(--i)*-.17s)}
+.av[data-s=run] .pup{animation:look 1.6s ease-in-out infinite alternate;animation-delay:calc(var(--i)*-.2s)}
+@keyframes bob{50%{transform:translateY(-2px) scale(1.03,.97)}}@keyframes look{from{transform:translateX(-.8px)}to{transform:translateX(.8px)}}
+.av[data-s=wait] .bd{animation:nudge .9s ease-in-out infinite}
+.av[data-s=wait] .pup{transform:translateY(-.6px)}
+@keyframes nudge{20%,60%{transform:rotate(-9deg)}40%,80%{transform:rotate(9deg)}100%{transform:none}}
+.av[data-s=done] .eo{opacity:0}.av[data-s=done] .eh{opacity:1}
+.av[data-s=done] .bd{animation:hop .6s var(--spring) 1}@keyframes hop{35%{transform:translateY(-6px) scale(.96,1.05)}}
+.bg{position:absolute;right:-3px;bottom:-3px;width:12px;height:12px;border-radius:50%;border:2px solid #000;display:grid;place-items:center;font-size:7px;font-weight:700;line-height:1;color:#000;box-sizing:content-box;width:8px;height:8px}
+.av[data-s=run] .bg{background:var(--run);animation:pulse 1.2s ease-in-out infinite}
+.av[data-s=wait] .bg{background:var(--ap)}.av[data-s=wait] .bg::after{content:"!"}
+.av[data-s=done] .bg{background:var(--ok)}.av[data-s=done] .bg::after{content:"✓"}
+@keyframes pulse{50%{opacity:.4;transform:scale(.8)}}
+
+.more{display:grid;grid-template-rows:0fr;transition:grid-template-rows .5s var(--spring)}
+.isl.open .more{grid-template-rows:1fr}
+.more>div{overflow:hidden;min-height:0}
+.cells{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:2px 10px 10px}
+.cell{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px 7px;border-radius:12px;background:#ffffff0a;min-width:0}
+.cell.w{background:#f5b9421f;box-shadow:inset 0 0 0 1px #f5b94266}
+.cell .av{width:34px;height:34px}.cell b{font-size:10.5px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cell small{font-size:9.5px;color:#ffffff90}.cell.w small{color:var(--ap)}.cell.d small{color:var(--ok)}
+.foot{display:flex;gap:8px;padding:0 10px 10px}
+.foot button{flex:1;font:600 12px var(--ui);border:0;border-radius:999px;padding:8px 0;cursor:pointer;color:#fff;background:#ffffff1c}
+.foot button:hover{background:#ffffff2e}.foot button:focus-visible{outline:2px solid #fff;outline-offset:1px}
+.foot .go{background:var(--ap);color:#000}.foot .go:hover{background:#ffcb5c}.foot .go[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+<div class="wrap">
+  <header><h1>角色剧场 · 多 Agent</h1><p class="lead">角色放进岛里。Agent 一多，收起状态只露出最需要你的几个：待批准排最前，其后是运行中，已完成排最后；放不下的折成 +N。点击岛展开，所有 Agent 排成网格，并有「全部批准」。各个 Agent 会各自在运行、待批准、完成之间模拟切换。</p></header>
+  <div class="grid" id="grid"></div>
+</div>
+<script>
+(function(){
+  var A=[['Claude','#5fd1c0','M4 22V11a8 8 0 0 1 16 0v11l-4-2.5-4 2.5-4-2.5Z',11],['Codex','#f08a5d','M12 3.5 21.5 20H2.5Z',14],['Cursor','#f472b6','M12 4a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z',13],['OpenCode','#facc15','M7 4h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4Z',12],
+    ['Grok','#a78bfa','M12 2.5C16 8 20 11 20 15.5a8 8 0 0 1-16 0C4 11 8 8 12 2.5Z',15],['Kimi','#60a5fa','M12 2.5 20 7v10l-8 4.5L4 17V7Z',12],['Pi','#a3e635','M12 2.5a6 6 0 0 1 6 6v9a6 6 0 0 1-12 0v-9a6 6 0 0 1 6-6Z',10],['Hermes','#e5e7eb','M7 21a5 5 0 0 1-.3-10A6 6 0 0 1 18.5 12.5 4.3 4.3 0 0 1 18 21Z',15]];
+  var LBL={run:'运行中',wait:'待批准',done:'已完成'},RANK={wait:0,run:1,done:2},PAT=['run','run','wait','done','run','wait'];
+  function avatar(a,i){var y=a[3];return '<div class="av" style="--i:'+i+'"><svg viewBox="0 0 24 24"><g class="bd"><path d="'+a[2]+'" fill="'+a[1]+'" stroke="'+a[1]+'" stroke-width="1.5" stroke-linejoin="round"/>'+
+    '<g class="eyes"><g class="eo"><circle cx="9" cy="'+y+'" r="2.7" fill="#fff"/><circle cx="15" cy="'+y+'" r="2.7" fill="#fff"/><g class="pup"><circle cx="9" cy="'+(y+.4)+'" r="1.3" fill="#111"/><circle cx="15" cy="'+(y+.4)+'" r="1.3" fill="#111"/></g></g>'+
+    '<path class="eh" d="M6.6 '+(y+1)+'q2.4-3.4 4.8 0M12.6 '+(y+1)+'q2.4-3.4 4.8 0" stroke="#111" fill="none" stroke-width="1.5" stroke-linecap="round"/></g></g></svg><i class="bg"></i></div>'}
+  var chev='<svg class="chev" viewBox="0 0 16 16"><path d="M3 6l5 5 5-5"/></svg>';
+  var grid=document.getElementById('grid'),panels=[];
+  [[2,0,'2 个 Agent','数量少时全部直接显示，不折叠。'],[5,0,'5 个 Agent','正好放满，仍然全部显示。'],[8,0,'8 个 Agent，收起','露出优先级最高的 4 个，其余折成 +4。右侧用三个计数概括整体。'],[8,1,'8 个 Agent，展开','点击岛展开。所有 Agent 都在网格里，待批准的高亮，可以一键全部批准。']].forEach(function(c,pi){
+    var N=c[0],list=A.slice(0,N),sec=document.createElement('section');sec.className='card';
+    sec.innerHTML='<h2>'+c[2]+'</h2><div class="stage" style="'+(c[1]?'height:390px':'')+'"><div class="zoom"><div class="isl'+(c[1]?' open':'')+'"><div class="head" role="button" tabindex="0" aria-expanded="'+(c[1]?'true':'false')+'"><div class="strip"></div><span class="sp"></span><div class="cnts"><span class="r"><i></i><b></b></span><span class="w"><i></i><b></b></span><span class="d"><i></i><b></b></span></div>'+chev+'</div>'+
+     '<div class="more"><div><div class="cells"></div><div class="foot"><button class="go">全部批准</button><button class="cl">收起</button></div></div></div></div></div></div><p>'+c[3]+'</p>';
+    grid.appendChild(sec);
+    var isl=sec.querySelector('.isl'),head=sec.querySelector('.head'),strip=sec.querySelector('.strip'),cells=sec.querySelector('.cells');
+    list.forEach(function(a,i){strip.insertAdjacentHTML('beforeend',avatar(a,i));cells.insertAdjacentHTML('beforeend','<div class="cell"><div class="avh">'+avatar(a,i)+'</div><b>'+a[0]+'</b><small></small></div>')});
+    strip.insertAdjacentHTML('beforeend','<span class="more-chip"></span>');
+    function toggle(){var o=isl.classList.toggle('open');head.setAttribute('aria-expanded',o)}
+    head.onclick=toggle;head.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle()}};
+    sec.querySelector('.cl').onclick=toggle;
+    var forced={};sec.querySelector('.go').onclick=function(){list.forEach(function(a,i){if(st(i)==='wait')forced[i]='run'});render()};
+    var tick=0;function st(i){return forced[i]||PAT[(tick+i*5)%6]}
+    function render(){
+      var s=list.map(function(a,i){return st(i)}),ord=list.map(function(a,i){return i}).sort(function(x,y){return RANK[s[x]]-RANK[s[y]]||x-y}),keep=N<=5?N:4,rank=[];
+      ord.forEach(function(i,r){rank[i]=r});
+      var avs=strip.querySelectorAll('.av'),cs=cells.querySelectorAll('.cell');
+      strip.className='strip'+(N<=3?' few':'');
+      list.forEach(function(a,i){avs[i].dataset.s=s[i];avs[i].style.order=rank[i];avs[i].style.display=rank[i]<keep?'':'none';
+        cs[i].querySelector('.av').dataset.s=s[i];cs[i].style.order=rank[i];cs[i].className='cell '+(s[i]==='wait'?'w':s[i]==='done'?'d':'');cs[i].querySelector('small').textContent=LBL[s[i]]});
+      var chip=strip.querySelector('.more-chip');chip.style.display=N>keep?'':'none';chip.textContent='+'+(N-keep);
+      var n={run:0,wait:0,done:0};s.forEach(function(x){n[x]++});
+      ['run','wait','done'].forEach(function(k,j){var e=sec.querySelectorAll('.cnts span')[j];e.querySelector('b').textContent=n[k];e.classList.toggle('z',!n[k])});
+      isl.dataset.o=n.wait?'wait':n.run?'run':'done';sec.querySelector('.go').hidden=!n.wait;sec.querySelector('.go').textContent='全部批准 ('+n.wait+')';
+    }
+    render();panels.push(function(){tick++;forced={};render()});
+  });
+  setInterval(function(){panels.forEach(function(f){f()})},2600);
+})();
+</script>

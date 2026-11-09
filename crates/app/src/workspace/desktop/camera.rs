@@ -345,12 +345,12 @@ impl MultisoulApp {
         );
         let scale = window.scale_factor();
         let snap = |value: f32| (value * scale).round() / scale;
-        let parent_x = snap(drawer.left_space);
+        let parent_x = snap(0.0);
         let layout = layout
             .into_iter()
             .map(|rect| {
-                let left = snap(drawer.left_space + rect.origin.x);
-                let right = snap(drawer.left_space + rect.origin.x + rect.size.x);
+                let left = snap(rect.origin.x);
+                let right = snap(rect.origin.x + rect.size.x);
                 let top = snap(rect.origin.y);
                 let bottom = snap(rect.origin.y + rect.size.y);
                 CanvasRect::new(left - parent_x, top, right - left, bottom - top)

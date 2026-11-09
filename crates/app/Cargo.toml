@@ -55,6 +55,7 @@ runtime.workspace = true
 canvas.workspace = true
 storage.workspace = true
 media_store.workspace = true
+model_store.workspace = true
 terminal.workspace = true
 workspace.workspace = true
 norma.workspace = true
@@ -100,11 +101,13 @@ base64 = "0.22"
 # Native file picker for wallpaper import (Task 8). AsyncFileDialog is awaited
 # inside a cx.spawn task so it never blocks the GPUI event loop.
 rfd = "0.16"
+objc2-user-notifications = { version = "0.3.2", default-features = false, features = ["std", "alloc", "block2", "UNUserNotificationCenter", "UNNotificationContent", "UNNotificationRequest", "UNNotificationResponse", "UNNotification", "UNNotificationSound", "UNNotificationTrigger", "UNNotificationSettings", "UNError"] }
 
 # Video wallpaper spike (Task 1): objc2 + AVAssetReader → 420f CVPixelBuffer.
 # All AVFoundation interop is macOS-only; on other targets these crates are
 # neither compiled against nor linked.
 [target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "=3.7.0"
 libc = "0.2"
 core-video = { version = "=0.4.3", features = ["metal"] }
 core-foundation = "0.10"
@@ -116,18 +119,19 @@ objc2-web-kit = { version = "0.3", default-features = false, features = [
     "WKWebViewConfiguration",
     "WKWebsiteDataStore",
 ] }
-objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView", "NSWindow", "NSEvent", "NSGraphicsContext", "NSResponder", "NSWorkspace", "NSAccessibility"] }
+objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView", "NSWindow", "NSEvent", "NSGraphicsContext", "NSResponder", "NSWorkspace", "NSAccessibility", "NSColor", "objc2-core-graphics"] }
 objc2-avf-audio = { version = "0.3.2", features = [
     "AVAudioBuffer",
     "AVAudioEngine",
     "AVAudioFormat",
     "AVAudioMixerNode",
     "AVAudioNode",
+    "AVAudioPlayer",
     "AVAudioPlayerNode",
     "AVAudioTypes",
     "block2",
 ] }
-objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
+objc2-quartz-core = { version = "0.3", features = ["CALayer", "CAAnimation", "CAMediaTiming", "CAMediaTimingFunction", "CATransaction", "objc2-core-graphics"] }
 screencapturekit = "0.2.8"
 objc2-av-foundation = { version = "0.3", features = [
     "AVAsset",

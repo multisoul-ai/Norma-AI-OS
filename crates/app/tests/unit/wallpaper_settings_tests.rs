@@ -65,20 +65,20 @@ impl Drop for TestRootGuard {
 ///   2. SavedWallpaper::load 读取两条 KEY → 均 None → 回退默认 selection
 ///
 /// 预期结果：
-///   - 正断言：默认 selection 是 Builtin{home/earth-horizon.png}
-///   - 正断言：current_kind() == Static（默认壁纸是 PNG）
+///   - 正断言：默认 selection 是 Builtin{wallpapers/norma-awake.mp4}（开机动画末帧起播的循环）
+///   - 正断言：current_kind() == Video（默认壁纸是 MP4）
 #[test]
 fn test_load_default_falls_back_to_default_wallpaper() {
     let _g = TestRootGuard::new();
     let s = WallpaperSettingsState::load_from_store(_g.settings_store());
     assert!(
-        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel == crate::assets::HOME_BACKGROUND_ASSET),
-        "default selection must be the earth wallpaper"
+        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel == "wallpapers/norma-awake.mp4"),
+        "default selection must be the Norma awake loop that continues the boot animation"
     );
     assert_eq!(
         s.current_kind(),
-        crate::app::wallpaper_resolvers::WallpaperKind::Static,
-        "default wallpaper kind must be Static"
+        crate::app::wallpaper_resolvers::WallpaperKind::Video,
+        "default wallpaper kind must be Video"
     );
 }
 
@@ -110,7 +110,7 @@ fn test_builtin_selection_round_trips_through_persistence() {
         "reloaded selection must be the gif builtin we just saved"
     );
     assert!(
-        !matches!(&s2.selection, WallpaperSelection::Builtin { rel } if *rel == crate::assets::HOME_BACKGROUND_ASSET),
+        !matches!(&s2.selection, WallpaperSelection::Builtin { rel } if *rel == "wallpapers/norma-awake.mp4"),
         "reloaded selection must NOT be the default after explicit select_builtin"
     );
 }
@@ -125,10 +125,10 @@ fn test_builtin_selection_round_trips_through_persistence() {
 /// 执行过程：
 ///   1. s.select_custom("mine.png") → selection=Custom 且两条 KEY 写盘
 ///   2. s.delete_custom("mine.png") → 删 tempdir/wallpapers/mine.png；因 custom 是当前选中
-///      → 回退默认 Builtin{home/earth-horizon.png} 并持久化
+///      → 回退默认 Builtin{wallpapers/norma-awake.mp4} 并持久化
 ///
 /// 预期结果：
-///   - 正断言：删后 selection 是 Builtin{home/earth-horizon.png}
+///   - 正断言：删后 selection 是 Builtin{wallpapers/norma-awake.mp4}
 ///   - 正断言：mine.png 文件已从磁盘移除
 ///   - 负断言：删后 selection 不应仍为 Custom
 #[test]
@@ -144,7 +144,7 @@ fn test_delete_custom_falls_back_to_default_and_removes_file() {
     s.delete_custom("mine.png");
 
     assert!(
-        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel == crate::assets::HOME_BACKGROUND_ASSET),
+        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel == "wallpapers/norma-awake.mp4"),
         "deleting the in-use custom must fall back to default"
     );
     assert!(
@@ -213,14 +213,14 @@ fn test_resolve_path_uses_disk_resources_for_builtin_and_custom_wallpapers() {
     fs::create_dir_all(&dir).expect("create custom wallpapers dir");
     fs::write(dir.join("mine.png"), b"fake").expect("write fake custom wallpaper");
 
-    // Default Static builtin.
+    // Default Video builtin.
     let s_default = WallpaperSettingsState::load_from_store(_g.settings_store());
     let default_path = s_default
         .resolve_path()
         .expect("default builtin must resolve to a real on-disk path in dev");
     assert!(
-        default_path.ends_with("home/earth-horizon.png"),
-        "default Static builtin must resolve to home/earth-horizon.png; got {default_path:?}"
+        default_path.ends_with("wallpapers/norma-awake.mp4"),
+        "default Video builtin must resolve to wallpapers/norma-awake.mp4; got {default_path:?}"
     );
 
     // Gif builtin.

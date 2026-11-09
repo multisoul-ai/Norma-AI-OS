@@ -198,11 +198,15 @@ impl MultisoulApp {
     pub(crate) fn open_ego_lite(&mut self) {
         std::thread::Builder::new()
             .name("open_ego_lite".to_string())
-            .spawn(|| {
-                if let Err(error) = Command::new("open").args(["-a", "ego lite"]).spawn() {
-                    tracing::warn!(%error, "failed to open Ego Lite");
-                }
-            })
+            .spawn(
+                || match Command::new("open").args(["-a", "ego lite"]).status() {
+                    Ok(status) if !status.success() => {
+                        tracing::warn!(%status, "failed to open Ego Lite")
+                    }
+                    Err(error) => tracing::warn!(%error, "failed to open Ego Lite"),
+                    Ok(_) => {}
+                },
+            )
             .ok();
     }
 

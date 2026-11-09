@@ -37,12 +37,12 @@ fn call(tool: &'static str, key: &str, text: &str) -> DirectPlan {
 ///
 /// 数据构造：名册含未激活的 Alan 与 Bella；转写“Alan，修复登录页的 bug”以 Alan 开头，
 ///   名字后的“，”是合法分隔符，正文自包含。
-/// 预期结果：恰好一次 assign_agent_task，参数 agent=Alan、task 为去掉称呼后的正文。
+/// 预期结果：恰好一次 agent_assign，参数 agent=Alan、task 为去掉称呼后的正文。
 #[test]
 fn card_name_assigns_task_in_code() {
     assert_eq!(
         plan("Alan，修复登录页的 bug", &roster(false), None),
-        call("assign_agent_task", "task", "修复登录页的 bug"),
+        call("agent_assign", "task", "修复登录页的 bug"),
         "卡片名开头的自包含请求必须由代码派发到该 Agent"
     );
 }
@@ -50,12 +50,12 @@ fn card_name_assigns_task_in_code() {
 /// 语音别名与卡片名等价，已激活卡片走会话回复而不是新任务。
 ///
 /// 数据构造：Alan 已激活（active_node_id=Some），别名“阿兰”；转写“阿兰，继续刚才的方案”。
-/// 预期结果：一次 reply_agent，agent 仍解析为规范名 Alan，message 为正文。
+/// 预期结果：一次 agent_reply，agent 仍解析为规范名 Alan，message 为正文。
 #[test]
 fn speech_alias_resolves_to_canonical_name_and_replies() {
     assert_eq!(
         plan("阿兰，继续刚才的方案", &roster(true), None),
-        call("reply_agent", "message", "继续刚才的方案"),
+        call("agent_reply", "message", "继续刚才的方案"),
         "别名必须映射到规范名，已激活卡片应续接会话"
     );
 }
@@ -114,7 +114,7 @@ fn overview_and_switching_never_use_direct_route() {
 /// 项目画布是桌面工作空间里用户实际说话的场景，必须走直呼。
 ///
 /// 数据构造：desktop 为 ProjectCanvas，Alan 未激活，转写“Alan，修复登录页的 bug”。
-/// 预期结果：由代码派发 assign_agent_task，而不是回落到模型。
+/// 预期结果：由代码派发 agent_assign，而不是回落到模型。
 #[test]
 fn project_canvas_uses_direct_route() {
     let desktop = DesktopContext::ProjectCanvas {
@@ -125,7 +125,7 @@ fn project_canvas_uses_direct_route() {
     };
     assert_eq!(
         plan("Alan，修复登录页的 bug", &roster(false), Some(&desktop)),
-        call("assign_agent_task", "task", "修复登录页的 bug"),
+        call("agent_assign", "task", "修复登录页的 bug"),
         "项目画布内的卡片名直呼必须由代码派发"
     );
 }

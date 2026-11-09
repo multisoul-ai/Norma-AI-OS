@@ -12,6 +12,7 @@ use workspace::ideas::IdeaState;
 ///   1. 从 A 会话把第一条派给 B 的 Agent；再次派发同一条。
 ///   2. 把第二条派给不存在的节点 9999；再派给错误的工作空间。
 ///   3. 把第二条以“新建智能体”派到非当前区域 B。
+///
 /// 预期结果：
 ///   - 正断言：第一次回执 accepted，想法变为已指派并记录 B 的区域与节点，task_ref 为协调器里的真实值；B 的 PTY 恰好收到一次正文。
 ///   - 负断言：重复派发被拒绝且 PTY 不再写入；无效节点与新建到非当前区域失败后第二条想法都回到待办且 task_ref 被清除；错误工作空间被拒绝且想法不进入派发中。
@@ -314,17 +315,6 @@ fn ideas_capture_assign_rollback_and_reject_duplicates() {
         (IdeaState::Todo, None),
         "被拒绝后想法应回到待办"
     );
-
-    // 从项目会话触发 ⌘⇧I：宿主刷新要读取各项目会话，不能与正在更新的会话冲突（曾会 panic）。
-    session_a.update_in(cx, |app, window, cx| app.toggle_ideas(window, cx));
-    cx.run_until_parked();
-    host.read_with(cx, |app, _| {
-        assert_eq!(
-            app.desktop_workspace.drawers.left_view,
-            runtime::desktop_drawers::DesktopLeftView::Overview,
-            "项目会话触发 ToggleIdeas 后宿主左栏应切到运行概览（想法栏在其中）"
-        );
-    });
 }
 
 /// 新建智能体来完成：新卡片的 CLI 还在启动，任务必须等它就绪再输入，不能一建好就往 PTY 里打字（会被吞掉）。

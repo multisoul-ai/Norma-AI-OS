@@ -4,7 +4,7 @@ use super::hermes::{
     hermes_plugin_installed_at, install_hermes_plugin, is_unmanaged as hermes_dir_unmanaged,
     spawn_disable_and_remove_hermes_plugin, spawn_enable_hermes_plugin, uninstall_hermes_plugin,
 };
-use super::json_config::add_command_hook;
+use super::json_config::{add_command_hook, add_matched_command_hook, question_hook_install};
 use super::kimi::{install_kimi_hooks, kimi_hooks_installed_at, uninstall_kimi_hooks};
 use super::opencode::{install_opencode_plugin, opencode_plugin_source, uninstall_opencode_plugin};
 use super::pi::{install_pi_extension, uninstall_pi_extension};
@@ -234,6 +234,15 @@ fn install_for_source(
     let command = build_hook_command(command_path, source);
     for event_name in hook_events_for_source(source) {
         add_command_hook(&mut root, event_name, &command, source);
+    }
+    if let Some((matcher, timeout)) = question_hook_install(source) {
+        add_matched_command_hook(
+            &mut root,
+            "PreToolUse",
+            &format!("{command} --request-question"),
+            matcher,
+            timeout,
+        );
     }
     atomic_file::replace(path, serde_json::to_string_pretty(&root)?.as_bytes())?;
     Ok(())

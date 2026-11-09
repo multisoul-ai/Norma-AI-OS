@@ -54,6 +54,7 @@ fn context(text: &str, call: &str) -> ToolContext {
         turn_id: "t1".into(),
         user_input: text.into(),
         input_source: agent::AgentInputSource::Voice,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: call.into(),
         operation_id: None,

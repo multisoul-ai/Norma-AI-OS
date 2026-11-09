@@ -35,14 +35,16 @@ fn fixture(speak: bool) -> Fixture {
         app.enter_canvas_for_test(dir.path(), cx);
         app.register_loaded_project_route(None, cx);
         let (_, status) = std::sync::mpsc::channel();
-        app.brain.host = Some(super::super::BrainHost {
+        app.install_brain_host_for_test(super::super::BrainHost {
             service: None,
             status,
             token: "report-token".into(),
         });
-        let mut settings = config::BrainSettings::default();
-        settings.enabled = true;
-        settings.speak = speak;
+        let settings = config::BrainSettings {
+            enabled: true,
+            speak,
+            ..Default::default()
+        };
         use crate::settings::voice::{
             DesktopVoiceMode, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsState,
         };
@@ -140,11 +142,13 @@ fn send_report(f: &mut Fixture) {
         target_workspace_id: None,
         command: CardCommand::Brain {
             token: "report-token".into(),
-            op: BrainOp::Report {
+            op: Box::new(BrainOp::Report {
                 text: "部署已完成".into(),
                 priority: ReportPriority::Normal,
+                kind: norma::protocol::ReportKind::Status,
+                reply_to: None,
                 sources: vec![],
-            },
+            }),
         },
     };
     f.cx.update(|_, cx| crate::norma::endpoint::dispatch_test_request(request, response, cx));

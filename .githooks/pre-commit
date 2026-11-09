@@ -12,16 +12,18 @@ bash scripts/check-agent-guide-lines.sh --staged
 bash scripts/check-performance-guardrails.sh
 bash scripts/check-codesign-readiness.sh
 python3 scripts/check-video-wallpaper-performance.py --staged
+python3 scripts/check-resource-lifecycle.py --staged
+python3 scripts/test-check-resource-lifecycle.py
 
 staged_rust=$(
   git diff --cached --name-only --diff-filter=ACMR |
-    grep -E '(^crates/.*\.rs$|^src/.*\.rs$|^Cargo\.toml$|^Cargo\.lock$|^rust-toolchain\.toml$)' ||
+    grep -E '(^crates/.*\.rs$|^src/.*\.rs$|^vendor/gpui-0.2.2/.*\.rs$|^Cargo\.toml$|^Cargo\.lock$|^rust-toolchain\.toml$|^\.cargo/config\.toml$)' ||
     true
 )
 
 if [ -n "$staged_rust" ]; then
-  echo "[pre-commit] running cargo check..."
-  cargo check --workspace --quiet
+  echo "[pre-commit] checking Rust resource ownership..."
+  cargo clippy --workspace --lib --bins --quiet -- -D clippy::zombie_processes -D clippy::mem_forget
 
   echo "[pre-commit] running cargo fmt --check..."
   cargo fmt --check

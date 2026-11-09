@@ -271,10 +271,6 @@ fn session_reply_input_ready(state: Option<&AgentTaskState>) -> bool {
 }
 
 #[cfg(test)]
-#[path = "../../../tests/unit/agent_manual_interrupt_reply_tests.rs"]
-mod manual_interrupt_reply_tests;
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use agent::AgentReplyStatus;

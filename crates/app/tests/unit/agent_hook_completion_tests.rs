@@ -222,3 +222,77 @@ fn drain_session_end_in_the_quiet_window_publishes_done_before_ended() {
         "成功已经在 SessionEnd 当帧发布，800ms 后不得再交一条 Done"
     );
 }
+
+/// 同一 drain 里先到的 Stop 必须排在后到的 UserPromptSubmit 前面。
+///
+/// 数据构造：
+///   Codex 卡 1 张。Codex 的 Stop 会立刻变成 Done，不进确认窗口。
+///   事件顺序：Stop，然后 UserPromptSubmit「下一句」。
+///
+/// 执行过程：两条事件放进同一条 hook channel，一次 drain。
+///
+/// 预期结果：
+///   - 正断言：queue_effects 先是 Terminal，再是 Started。
+///   - 负断言：不得把 Started 排到 Terminal 前面，否则新根会被这次 Stop 清掉。
+#[test]
+fn stop_before_next_prompt_keeps_arrival_order() {
+    let mut runtime = Runtime::new();
+    runtime.set_pty_factory(Box::new(|_, _, _, tx| {
+        Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+    }));
+    let node = runtime
+        .spawn_agent(
+            canvas::AgentProfile::Codex,
+            CanvasRect::new(0.0, 0.0, 640.0, 400.0),
+            80,
+            24,
+        )
+        .expect("测试应能创建 Codex 卡");
+    let (sender, receiver) = crossbeam_channel::unbounded();
+    let server = hook_server_for_test(receiver);
+    let hook = |raw| parse_hook_event(HookSource::Codex, node, raw).expect("hook 应可解析");
+    sender
+        .send(hook(json!({
+            "hook_event_name": "Stop",
+            "session_id": "session-codex",
+            "stop_hook_active": false
+        })))
+        .expect("Stop 应进入队列");
+    sender
+        .send(hook(json!({
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "session-codex",
+            "prompt": "下一句"
+        })))
+        .expect("UserPromptSubmit 应进入队列");
+
+    let report = server.drain_into_runtime_at(&mut runtime, None, 1_000);
+    assert!(
+        matches!(
+            report.queue_effects.as_slice(),
+            [
+                AgentHookQueueEffect::Terminal(_),
+                AgentHookQueueEffect::Started(_)
+            ]
+        ),
+        "先到的 Stop 必须先于后到的 UserPromptSubmit 进入结算队列，实际 {:?}",
+        report
+            .queue_effects
+            .iter()
+            .map(|effect| match effect {
+                AgentHookQueueEffect::Started(_) => "started",
+                AgentHookQueueEffect::Terminal(_) => "terminal",
+            })
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(report.started_tasks.len(), 1, "后到的用户回合仍要登记");
+    assert_eq!(report.terminal_tasks.len(), 1, "先到的 Stop 仍要结算");
+    assert_ne!(
+        report
+            .queue_effects
+            .first()
+            .map(|effect| matches!(effect, AgentHookQueueEffect::Started(_))),
+        Some(true),
+        "新根不得排在这次 Stop 前面"
+    );
+}

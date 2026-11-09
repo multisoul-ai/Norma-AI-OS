@@ -14,6 +14,7 @@ use tokio_util::sync::CancellationToken;
 /// 执行过程：
 ///   1. 第 1 次 Cmd+E（activate_ready_voice）→ 下发一次收音请求。
 ///   2. 第 2 次 Cmd+E → 停止本次收音。
+///
 /// 预期结果：第 1 次收到 id 1 的收音令牌，listening 存在；第 2 次令牌被取消、listening 清空；
 ///   两次操作后会话令牌未取消、报告通道仍在，通道 is_active 为真。
 #[test]

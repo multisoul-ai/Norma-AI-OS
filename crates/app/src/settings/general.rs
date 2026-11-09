@@ -170,7 +170,7 @@ pub(crate) fn quit_after_saving(cx: &mut App) {
         cx.update_global::<AppLanguage, _>(|state, _| state.quit_pending = true);
     }
     cx.spawn(async move |cx| {
-        if wait_for_latest_save(cx).await.is_err() {
+        if wait_for_all_settings(cx).await.is_err() {
             return;
         }
         let _ = cx.update(|cx| {
@@ -182,6 +182,25 @@ pub(crate) fn quit_after_saving(cx: &mut App) {
         });
     })
     .detach();
+}
+
+async fn wait_for_all_settings(cx: &mut gpui::AsyncApp) -> anyhow::Result<()> {
+    let revisions = |cx: &mut App| {
+        (
+            cx.try_global::<AppLanguage>()
+                .and_then(|language| language.latest_write),
+            crate::island::preferences::revision(cx),
+        )
+    };
+    loop {
+        let before = cx.update(revisions)?;
+        wait_for_latest_save(cx).await?;
+        crate::island::preferences::flush(cx).await?;
+        // Either setting may change while the other writer is blocked.
+        if cx.update(revisions)? == before {
+            return Ok(());
+        }
+    }
 }
 
 pub(crate) fn select_language(preference: LanguagePreference, cx: &mut App) {

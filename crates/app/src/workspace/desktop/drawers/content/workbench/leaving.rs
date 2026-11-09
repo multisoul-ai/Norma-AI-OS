@@ -33,9 +33,7 @@ impl MultisoulApp {
             self.select_desktop_content_tab(&id, cx);
         }
         self.desktop_workspace.drawers.right_open = true;
-        self.desktop_workspace
-            .drawer_motion
-            .retarget(self.desktop_workspace.drawers.left_open, true);
+        self.desktop_workspace.drawer_motion.retarget(true);
         self.wake_animation_frame_loop();
     }
 
@@ -52,7 +50,7 @@ impl MultisoulApp {
         }
         cx.spawn(async move |this, cx| match action {
             PendingWorkbenchAction::Quit => {
-                let _ = cx.update(|cx| crate::settings::general::quit_after_saving(cx));
+                let _ = cx.update(crate::settings::general::quit_after_saving);
             }
             PendingWorkbenchAction::CloseWindow(window) => {
                 let _ = window.update(cx, |_, window, _| window.remove_window());

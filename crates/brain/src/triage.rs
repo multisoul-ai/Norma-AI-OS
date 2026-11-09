@@ -3,7 +3,7 @@
 //! 只做能确定的判断：失败、结果里出现需要用户的词。更细的语义（结果存疑、有风险）
 //! 留给静默池里的大脑去扫，规则不假装看得懂。
 
-use crate::event::{BrainEvent, Outcome};
+use crate::event::{BrainEventKind, Outcome};
 
 /// 结果文字里出现这些词，就当作需要用户知道。全小写，匹配时统一转小写。
 const ATTENTION_WORDS: &[&str] = &[
@@ -39,8 +39,8 @@ pub enum Verdict {
     Quiet,
 }
 
-pub fn triage(event: &BrainEvent) -> Verdict {
-    let BrainEvent::AgentFinished {
+pub fn triage(event: &BrainEventKind) -> Verdict {
+    let BrainEventKind::AgentFinished {
         outcome,
         excerpt,
         from_result,

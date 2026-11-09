@@ -1,5 +1,5 @@
 #[path = "support/sse.rs"]
-mod sse;
+pub mod sse;
 
 use agent::{
     AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter, NormaDelegation, NormaSession,
@@ -46,8 +46,8 @@ async fn gpt_live_creates_codex_and_claude_with_openai_compatible_tools() {
     ] {
         let (endpoint, server) = sse::serve_openai(vec![
         json!({"role":"assistant","tool_calls":[
-            {"index":0,"id":"codex-card","type":"function","function":{"name":"create_agent","arguments":"{\"profile\":\"codex\"}"}},
-            {"index":1,"id":"claude-card","type":"function","function":{"name":"create_agent","arguments":"{\"profile\":\"claude\"}"}}
+            {"index":0,"id":"codex-card","type":"function","function":{"name":"agent_create","arguments":"{\"profile\":\"codex\"}"}},
+            {"index":1,"id":"claude-card","type":"function","function":{"name":"agent_create","arguments":"{\"profile\":\"claude\"}"}}
         ]}),
         json!({"role":"assistant","content":"已创建两张卡片"}),
     ]).await;
@@ -174,7 +174,7 @@ async fn gpt_live_creation_task_payload_does_not_block_model_tools() {
         "创建一个Codex卡片，任务是只读审查，别新建分支",
     ] {
         let (endpoint, server) = sse::serve_openai(vec![
-            json!({"role":"assistant","tool_calls":[{"index":0,"id":"task-card","type":"function","function":{"name":"create_agent","arguments":"{\"profile\":\"codex\",\"task\":\"解释给定术语\"}"}}]}),
+            json!({"role":"assistant","tool_calls":[{"index":0,"id":"task-card","type":"function","function":{"name":"agent_create","arguments":"{\"profile\":\"codex\",\"task\":\"解释给定术语\"}"}}]}),
             json!({"role":"assistant","content":"已创建卡片并附带任务"}),
         ]).await;
         let host = Arc::new(Host::default());
@@ -229,7 +229,7 @@ fn non_gpt_authorization_retains_original_strict_creation_requests() {
 /// 场景：既有普通语音、豆包来源和文字会话不得启用GPT的Schema适配。
 /// 构造：三种原有来源；每次让真实HTTP客户端完成一次Terminal工具往返。
 /// 执行：公开turn_streaming入口，逐项对比实际发送参数与未修改的公共注册表。
-/// 预期：原有16项工具定义逐项一致，另有后台大脑交接工具 handoff_to_brain 共17项，删除工具仍有oneOf，且Terminal正常执行。
+/// 预期：项目会话注册 13 项（4 个记忆 + handoff + 8 个项目工具），不含已删除的网页/预览/聚焦/终端输入；公共删除工具仍有 oneOf，Terminal 正常执行。
 #[tokio::test]
 async fn existing_voice_sources_keep_original_tool_definitions_and_execution() {
     for source in [
@@ -238,7 +238,7 @@ async fn existing_voice_sources_keep_original_tool_definitions_and_execution() {
         agent::AgentInputSource::Other,
     ] {
         let (endpoint, server) = sse::serve(vec![
-            json!({"role":"assistant","tool_calls":[{"index":0,"id":"legacy-terminal","type":"function","function":{"name":"create_terminal","arguments":"{}"}}]}),
+            json!({"role":"assistant","tool_calls":[{"index":0,"id":"legacy-terminal","type":"function","function":{"name":"terminal_create","arguments":"{}"}}]}),
             json!({"role":"assistant","content":"已创建终端"}),
         ]).await;
         let host = Arc::new(Host::default());
@@ -260,9 +260,21 @@ async fn existing_voice_sources_keep_original_tool_definitions_and_execution() {
         let definitions = agent::norma_tool_definitions();
         assert_eq!(
             tools.len(),
-            17,
-            "原有桌面来源工具集合除新增 handoff_to_brain 外不能增删；公共定义中workspace_memory仅手机使用"
+            13,
+            "项目会话是 4 个记忆 + handoff_to_brain + 8 个项目工具；workspace_memory 仅手机使用，桌面工具未开"
         );
+        for name in [
+            "create_browser",
+            "create_preview",
+            "focus_card",
+            "send_terminal_input",
+            "assign_idea",
+        ] {
+            assert!(
+                tools.iter().all(|tool| tool["function"]["name"] != name),
+                "{source:?} 不应再注册 {name}"
+            );
+        }
         for tool in tools {
             let name = tool["function"]["name"].as_str().expect("工具名称");
             let original = definitions
@@ -282,7 +294,7 @@ async fn existing_voice_sources_keep_original_tool_definitions_and_execution() {
         assert!(
             definitions
                 .iter()
-                .find(|definition| definition.name == "delete_canvas_card")
+                .find(|definition| definition.name == "card_delete")
                 .expect("公共删除工具")
                 .parameters
                 .get("oneOf")
@@ -305,7 +317,7 @@ async fn gpt_live_preserves_delete_target_validation_after_schema_adaptation() {
     ] {
         let valid = arguments == json!({"node_id":2});
         let (endpoint, server) = sse::serve_openai(vec![
-            json!({"role":"assistant","tool_calls":[{"index":0,"id":"delete-target","type":"function","function":{"name":"delete_canvas_card","arguments":arguments.to_string()}}]}),
+            json!({"role":"assistant","tool_calls":[{"index":0,"id":"delete-target","type":"function","function":{"name":"card_delete","arguments":arguments.to_string()}}]}),
             json!({"role":"assistant","content":"已核对工具回执"}),
         ]).await;
         let host = Arc::new(Host::default());

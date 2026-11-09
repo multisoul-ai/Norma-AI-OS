@@ -165,6 +165,7 @@ pub(crate) fn route_terminal_path(
                 TerminalPathRoute::System
             }
         }
+        local_content::Kind::Html if !in_project => TerminalPathRoute::PreviewTab,
         local_content::Kind::Text | local_content::Kind::Html => {
             if in_project && !facts.binary && facts.size <= MAX_TEXT_BYTES {
                 TerminalPathRoute::Workbench
@@ -174,7 +175,8 @@ pub(crate) fn route_terminal_path(
                 TerminalPathRoute::System
             }
         }
-        local_content::Kind::Video | local_content::Kind::Other => TerminalPathRoute::System,
+        local_content::Kind::Video => TerminalPathRoute::PreviewTab,
+        local_content::Kind::Other => TerminalPathRoute::System,
     }
 }
 

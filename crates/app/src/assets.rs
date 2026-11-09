@@ -9,7 +9,11 @@ mod orb_frames;
 pub const APP_ICON_ASSET: &str = "icons/app-icon.png";
 pub const APP_LOGO_ASSET: &str = "icons/logo.png";
 pub const HOME_BACKGROUND_ASSET: &str = "home/earth-horizon.png";
+/// Embedded still used whenever a wallpaper image is needed but the selection has none
+/// (video before its first frame, missing files, frosted-material fallback).
 pub const DEFAULT_WALLPAPER_ASSET: &str = HOME_BACKGROUND_ASSET;
+/// What a fresh install selects: the loop that starts on the boot animation's last frame.
+pub const DEFAULT_WALLPAPER_SELECTION: &str = "wallpapers/norma-awake.mp4";
 /// Toolbar SVG icon asset paths. These mirror `crate::ui::icons::ToolbarIcon::asset_path`
 /// exactly (icons/toolbar-<name>.svg) so GPUI `svg().path(...)` can resolve them.
 pub const TOOLBAR_SCROLL_ASSET: &str = "icons/toolbar-scroll.svg";
@@ -174,6 +178,15 @@ impl AssetSource for EmbeddedAssets {
             )))),
             "icons/copy.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/copy.svg"
+            )))),
+            "icons/key.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/key.svg"
+            )))),
+            "icons/refresh.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/refresh.svg"
+            )))),
+            "icons/external-link.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/external-link.svg"
             )))),
             "icons/triangle-alert.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/triangle-alert.svg"

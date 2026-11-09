@@ -15,6 +15,18 @@ fn start_adapter_pump(
             );
             let command = request.command.clone();
             let input_source = request.context.input_source;
+            let scope = this
+                .update_in(cx, |app, _, _| {
+                    if !is_current_runtime(app, runtime_id) {
+                        return Err(AdapterError::Cancelled);
+                    }
+                    voice_command::validate(app, &request.context, &command)
+                })
+                .unwrap_or(Err(AdapterError::Cancelled));
+            if let Err(error) = scope {
+                let _ = request.result_tx.send(Err(error));
+                continue;
+            }
             if let Err(error) = context_guard::prepare(&this, cx, &command, &request.context).await
             {
                 let _ = request.result_tx.send(Err(error));
@@ -30,13 +42,20 @@ fn start_adapter_pump(
                             "Norma Adapter 属于已失效项目".to_string(),
                         ));
                     }
-                    execute_norma_adapter_command_with_source(
+                    voice_command::validate(app, &request.context, &command)?;
+                    let receipt_command = command.clone();
+                    let result = voice_command::with_target(app, request.context.voice_commit.as_deref().and_then(|commit| commit.binding.as_ref()), |app| execute_norma_adapter_command_with_source(
                         app,
                         Some(window),
                         cx,
                         command,
                         input_source,
-                    )
+                    ))?;
+                    Ok(voice_command::localize_receipt(
+                        input_source,
+                        &receipt_command,
+                        result,
+                    ))
                 })
                 .unwrap_or_else(|_| {
                     Err(AdapterError::Failed(

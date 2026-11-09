@@ -1,5 +1,7 @@
 use super::operation::non_blank_task;
-use crate::protocol::{BrainDecision, BrainOp, CardCommand, ContextRef, ReportPriority};
+use crate::protocol::{
+    BrainDecision, BrainOp, BrainScope, CardCommand, ContextRef, ReportKind, ReportPriority,
+};
 use crate::protocol::{QuestionAnswer, QuestionRef};
 use clap::{Args, Subcommand, ValueEnum};
 
@@ -8,6 +10,12 @@ pub(super) struct BrainArgs {
     /// App 为大脑进程下发的一次性 token；缺省读环境变量 NORMA_BRAIN_TOKEN。
     #[arg(long)]
     token: Option<String>,
+    /// 事件所属工作空间；必须与当前 route 一起传入。
+    #[arg(long, global = true, value_parser = non_blank_identity)]
+    workspace: Option<String>,
+    /// 事件所属项目宿主的活跃 route，不能只凭项目名重新选择。
+    #[arg(long, global = true, value_parser = non_blank_identity)]
+    route: Option<String>,
     #[command(subcommand)]
     command: BrainCliCommand,
 }
@@ -43,6 +51,12 @@ enum BrainCliCommand {
         text: String,
         #[arg(long, value_enum, default_value_t = PriorityValue::Normal)]
         priority: PriorityValue,
+        /// reply：对用户请求的回复，岛内对话必显；status（默认）：主动进展播报。
+        #[arg(long, value_enum, default_value_t = KindValue::Status)]
+        kind: KindValue,
+        /// 汇报请求里给出的请求编号；带上它，这条回复才会被朗读。
+        #[arg(long)]
+        reply_to: Option<u64>,
         /// 宿主返回的来源 JSON 引用，可重复指定；不填表示来源关联不可用。
         #[arg(long = "context-ref", value_parser = parse_context_ref)]
         sources: Vec<ContextRef>,
@@ -97,6 +111,12 @@ enum PriorityValue {
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
+enum KindValue {
+    Status,
+    Reply,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
 enum DecisionValue {
     Allow,
     Deny,
@@ -104,7 +124,26 @@ enum DecisionValue {
 }
 
 impl BrainArgs {
-    pub(super) fn into_command(self) -> CardCommand {
+    pub(super) fn validate_scope(&self) -> Result<(), clap::Error> {
+        // clap validates `requires` at each subcommand level before global args merge.
+        // Check the assembled pair so arguments on either side of the subcommand work.
+        if self.workspace.is_some() != self.route.is_some() {
+            return Err(clap::Error::raw(
+                clap::error::ErrorKind::MissingRequiredArgument,
+                "--workspace and --route must be provided together",
+            ));
+        }
+        Ok(())
+    }
+
+    pub(super) fn into_command(self) -> (CardCommand, Option<BrainScope>) {
+        let scope = self
+            .workspace
+            .zip(self.route)
+            .map(|(workspace_id, route_id)| BrainScope {
+                workspace_id,
+                route_id,
+            });
         let op = match self.command {
             BrainCliCommand::Questions => BrainOp::Questions,
             BrainCliCommand::ProposeAnswer {
@@ -127,10 +166,17 @@ impl BrainArgs {
             BrainCliCommand::Report {
                 text,
                 priority,
+                kind,
+                reply_to,
                 sources,
             } => BrainOp::Report {
+                reply_to,
                 text,
                 sources,
+                kind: match kind {
+                    KindValue::Status => ReportKind::Status,
+                    KindValue::Reply => ReportKind::Reply,
+                },
                 priority: match priority {
                     PriorityValue::Normal => ReportPriority::Normal,
                     PriorityValue::Now => ReportPriority::Now,
@@ -171,7 +217,21 @@ impl BrainArgs {
             .token
             .or_else(|| std::env::var("NORMA_BRAIN_TOKEN").ok())
             .unwrap_or_default();
-        CardCommand::Brain { token, op }
+        (
+            CardCommand::Brain {
+                token,
+                op: Box::new(op),
+            },
+            scope,
+        )
+    }
+}
+
+fn non_blank_identity(value: &str) -> Result<String, String> {
+    if value.trim().is_empty() {
+        Err("workspace and route identities must not be blank".into())
+    } else {
+        Ok(value.to_owned())
     }
 }
 

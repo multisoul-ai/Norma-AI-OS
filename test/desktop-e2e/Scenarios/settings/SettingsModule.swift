@@ -12,7 +12,15 @@ public enum SettingsModule {
             SettingsSpaceWallpapers.name,
             SettingsGlobalAppearance.name,
             SettingsLiveConfiguration.name,
+            SettingsLiveI18n.name,
             SettingsA1Configuration.name,
+            SettingsA1RuntimeDownload.name,
+            SettingsVoiceCommandsPrototype.name,
+            SettingsVoiceCommandsPrototype.sectionsName,
+            SettingsVoiceCapabilities.a1Name,
+            SettingsA1InstalledActions.name,
+            SettingsVoiceCapabilities.jevName,
+            SettingsVoiceCapabilities.errorsName,
             SettingsShortcutCustomize.name,
             SettingsShortcutDefaults.name,
             SettingsOrchestrationPathConvention.name,
@@ -20,10 +28,21 @@ public enum SettingsModule {
             SettingsAgentsLibrary.name,
             SettingsDispatchEffects.name,
             SettingsRunEffects.name,
+            SettingsVoiceModePanelSize.name,
         ],
-        visualScenarioNames: [SettingsThemeConsistency.name],
+        visualScenarioNames: [SettingsVoiceModePanelSize.name, SettingsA1RuntimeDownload.name, SettingsThemeConsistency.name, SettingsLiveConfiguration.name, SettingsLiveI18n.name, SettingsA1Configuration.name, SettingsVoiceCommandsPrototype.name, SettingsVoiceCommandsPrototype.sectionsName, SettingsVoiceCapabilities.a1Name, SettingsA1InstalledActions.name, SettingsVoiceCapabilities.jevName, SettingsVoiceCapabilities.errorsName],
         run: { scenario, session in
             switch scenario {
+            case SettingsA1RuntimeDownload.name:
+                try await SettingsA1RuntimeDownload.run(session)
+            case SettingsA1InstalledActions.name:
+                try await SettingsA1InstalledActions.run(session)
+            case SettingsVoiceCapabilities.errorsName:
+                try await SettingsVoiceCapabilities.runEnglishErrors(session)
+            case SettingsVoiceCapabilities.a1Name:
+                try await SettingsVoiceCapabilities.runA1(session)
+            case SettingsVoiceCapabilities.jevName:
+                try await SettingsVoiceCapabilities.runJev(session)
             case SettingsThemeConsistency.name:
                 try await SettingsThemeConsistency.run(session)
             case SettingsNavigation.name:
@@ -38,8 +57,14 @@ public enum SettingsModule {
                 try await SettingsGlobalAppearance.run(session)
             case SettingsA1Configuration.name:
                 try await SettingsA1Configuration.run(session)
+            case SettingsVoiceCommandsPrototype.sectionsName:
+                try await SettingsVoiceCommandsPrototype.runSections(session)
+            case SettingsVoiceCommandsPrototype.name:
+                try await SettingsVoiceCommandsPrototype.run(session)
             case SettingsLiveConfiguration.name:
                 try await SettingsLiveConfiguration.run(session)
+            case SettingsLiveI18n.name:
+                try await SettingsLiveI18n.run(session)
             case SettingsShortcutCustomize.name:
                 try await SettingsShortcutCustomize.run(session)
             case SettingsShortcutDefaults.name:
@@ -54,6 +79,8 @@ public enum SettingsModule {
                 try await SettingsDispatchEffects.run(session)
             case SettingsRunEffects.name:
                 try await SettingsRunEffects.run(session)
+            case SettingsVoiceModePanelSize.name:
+                try await SettingsVoiceModePanelSize.run(session)
             default:
                 return false
             }

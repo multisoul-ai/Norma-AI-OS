@@ -33,6 +33,7 @@ async fn discussion_cannot_dispatch_but_explicit_execution_can() {
         turn_id: "turn".into(),
         user_input: "这个方案怎么样".into(),
         input_source: AgentInputSource::MobileDiscussion,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "call".into(),
         operation_id: None,
@@ -41,7 +42,7 @@ async fn discussion_cannot_dispatch_but_explicit_execution_can() {
     assert!(
         runtime
             .execute(
-                "assign_agent_task",
+                "agent_assign",
                 serde_json::json!({"agent":"Alan","task":"实现"}),
                 &context
             )
@@ -58,7 +59,7 @@ async fn discussion_cannot_dispatch_but_explicit_execution_can() {
     assert!(
         runtime
             .execute(
-                "assign_agent_task",
+                "agent_assign",
                 serde_json::json!({"agent":"Alan","task":"实现"}),
                 &context
             )
@@ -86,6 +87,7 @@ async fn scoped_memory_is_read_only_and_accepts_only_area_identity() {
         turn_id: "turn".into(),
         user_input: "查看API的约定".into(),
         input_source: AgentInputSource::MobileDiscussion,
+        voice_commit: None,
         contextual_delete_targets: vec![],
         tool_call_id: "memory".into(),
         operation_id: None,

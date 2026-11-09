@@ -1,5 +1,6 @@
 import SceneKit
 import SwiftUI
+import NormaCore
 
 final class AvatarScene: NSObject, SCNSceneRendererDelegate, @unchecked Sendable {
     enum Phase: String { case idle, listening, thinking, speaking }
@@ -131,7 +132,8 @@ final class AvatarScene: NSObject, SCNSceneRendererDelegate, @unchecked Sendable
         lock.lock()
         latestTime = time
         let phase = self.phase, level = self.level, gesture = self.gesture
-        let emotion = phase == .speaking || time < emotionUntil ? self.emotion : "neutral"
+        let emotion = self.emotion
+        let directed = phase == .speaking || time < emotionUntil
         let talkAge = time-talkStart, talkClip = self.talkClip, talkEnabled = self.talkEnabled
         let start = gestureStart, reduce = reducedMotion, degraded = self.degraded, userSpeaking = self.userSpeaking
         if lastTime > 0, time > lastTime {
@@ -174,15 +176,23 @@ final class AvatarScene: NSObject, SCNSceneRendererDelegate, @unchecked Sendable
             return expressive ? Float(enter*enter*(3-2*enter)*leave*leave*(3-2*leave)) : 0
         }
         let pat = gesture == "pat" ? envelope(2.4) : 0
-        // Facial meaning is independent of gesture cooldown; hold it through actual playback.
-        // Neutral speech still has a small engaged face; concern never receives the smile fallback.
-        let target = SIMD3<Float>(emotion == "happy" ? 1 : (emotion == "neutral" && phase == .speaking ? 0.25 : 0),
-                                 emotion == "curious" ? 1 : (phase == .thinking && emotion == "neutral" ? 0.35 : 0),
-                                 emotion == "concerned" ? 1 : 0) * (expressive ? 1 : 0)
+        // A directed face, speech, and thinking win. Otherwise she changes expression on her own.
+        // Neutral speech stays a small engaged face; concern never receives the smile fallback.
+        let gestureBusy = (gesture == "nod" && gestureAge >= 0 && gestureAge < 1.6) || touchActive
+        let companionPhase: CompanionPhase = switch phase {
+        case .idle: .idle
+        case .listening: .listening
+        case .thinking: .thinking
+        case .speaking: .speaking
+        }
+        let face = CompanionFace.resolve(phase: companionPhase, emotion: emotion, directed: directed,
+                                         userSpeaking: !expressive, reduceMotion: reduce, ornament: !gestureBusy, time: time)
+        let target = SIMD3<Float>(face.happy, face.curious, face.concern)
         expression += (target-expression)*min(1, dt*8)
         let happy = Double(expression.x), curious = Double(expression.y), concern = Double(expression.z)
         // An emotion arrives, settles, then lightly follows speech emphasis. Do not pin a
-        // maximal smile/raised brow for the entire reply or run a periodic facial oscillator.
+        // maximal smile or raised brow for the whole reply. Idle expressions are held for
+        // seconds in CompanionFace, not oscillated here.
         let onset = exp(-max(0, gestureAge-0.5)/1.4)
         let emphasis = phase == .speaking ? Double(mouth) : 0
         for (morpher, indices) in morphs {
@@ -208,7 +218,9 @@ final class AvatarScene: NSObject, SCNSceneRendererDelegate, @unchecked Sendable
         pitch += pat*0.07*idle
         if let node = bones["Head"] {
             let base = motion == nil ? rest["Head"]! : node.simdOrientation
-            node.simdOrientation = base * simd_quatf(angle: pitch, axis: [1,0,0]) * simd_quatf(angle: pat*0.14*idle, axis: [0,0,1])
+            node.simdOrientation = base * simd_quatf(angle: pitch + face.headPitch*idle, axis: [1,0,0])
+                * simd_quatf(angle: face.headYaw*idle, axis: [0,1,0])
+                * simd_quatf(angle: pat*0.14*idle, axis: [0,0,1])
         }
         if motion == nil, let node = bones["Chest"] {
             let base = rest["Chest"]!

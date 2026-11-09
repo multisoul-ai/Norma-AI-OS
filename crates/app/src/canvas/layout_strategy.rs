@@ -159,7 +159,7 @@ fn apply_workspace_reflow_for_ids(
     strategy: CanvasLayoutStrategy,
 ) {
     let assignments =
-        compute_configurable_grid_layout(&ordered_ids, area, strategy.grid_config_for_zoom(zoom));
+        compute_configurable_grid_layout(ordered_ids, area, strategy.grid_config_for_zoom(zoom));
     apply_layout_assignments(runtime, motion, assignments, zoom);
 }
 

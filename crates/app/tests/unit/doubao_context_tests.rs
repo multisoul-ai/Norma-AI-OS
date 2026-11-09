@@ -66,15 +66,26 @@ async fn doubao_model_request_uses_current_desktop_location() {
     assert!(
         tools
             .iter()
-            .any(|tool| tool["function"]["name"] == "create_browser"),
-        "桌面豆包应能在右侧打开网页标签"
+            .any(|tool| tool["function"]["name"] == "agent_assign"),
+        "个人桌面会话要用同一套 agent_assign，按快照 ID 派活"
     );
     assert!(
-        !tools
+        tools
             .iter()
-            .any(|tool| tool["function"]["name"] == "assign_agent_task"),
-        "尚未接通跨项目派活时，不应暴露无法正确路由的旧项目派活工具"
+            .any(|tool| tool["function"]["name"] == "file_open"),
+        "个人桌面会话应能打开快照里的任务成果"
     );
+    for name in [
+        "create_browser",
+        "create_preview",
+        "agent_create",
+        "terminal_create",
+    ] {
+        assert!(
+            !tools.iter().any(|tool| tool["function"]["name"] == name),
+            "个人桌面会话不应看到 {name}"
+        );
+    }
 }
 
 fn request(context: &ContextRequests, cx: &VisualTestContext) -> Result<Value, LocalizedText> {
@@ -144,7 +155,10 @@ fn voice_context_refreshes_cards_between_requests() {
     let first_system = first["messages"][0]["content"]
         .as_str()
         .expect("首轮应包含系统提示词");
-    assert!(first_system.contains("暂无卡片"), "首轮应如实报告空画布");
+    assert!(
+        first_system.contains("暂无 Agent"),
+        "首轮应如实报告没有 Agent"
+    );
     assert!(
         !first_system.contains("Chloe"),
         "尚未创建的 Chloe 不应提前出现"
@@ -166,12 +180,12 @@ fn voice_context_refreshes_cards_between_requests() {
         .as_str()
         .expect("下一轮应包含系统提示词");
     assert!(
-        second_system.contains("Chloe 的 AgentCard"),
-        "同一通话下一轮必须看到新卡片"
+        !second_system.contains("当前画布卡片") && !second_system.contains("Chloe 的 AgentCard"),
+        "画布卡片清单不再进入提示词"
     );
     assert!(
-        !second_system.contains("暂无卡片"),
-        "新卡片存在时不得沿用空画布快照"
+        second_system.contains("暂无 Agent") || second_system.contains("Chloe"),
+        "下一轮仍按名册描述 Agent，而不是旧的空卡片快照"
     );
     assert!(
         second_system.contains("本轮人设与记忆目录"),

@@ -42,6 +42,7 @@ async fn desktop_tools_bind_snapshot_scope_and_exact_task_target() {
         turn_id: "desktop-turn-1".into(),
         user_input: "看看进度，再让 Codex 检查登录方案".into(),
         input_source: agent::AgentInputSource::Voice,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".into(),
         operation_id: None,
@@ -54,7 +55,7 @@ async fn desktop_tools_bind_snapshot_scope_and_exact_task_target() {
         .expect("只读查询应形成命令");
     runtime
         .execute(
-            "assign_workspace_task",
+            "agent_assign",
             json!({
                 "workspace_id":"dw-42",
                 "area_id":"area-7",
@@ -65,14 +66,17 @@ async fn desktop_tools_bind_snapshot_scope_and_exact_task_target() {
         )
         .await
         .expect("稳定目标派活应形成命令");
-    let invalid = runtime
-        .execute(
-            "assign_workspace_task",
-            json!({"workspace_id":"dw-42","node_id":21,"task":"检查登录方案"}),
-            &context,
-        )
-        .await;
-    assert!(invalid.is_err(), "缺少项目 ID 的派活不得到达 App");
+    for bad in [
+        json!({"workspace_id":"dw-42","node_id":21,"task":"检查登录方案"}),
+        json!({"agent":"Codex","workspace_id":"dw-42","area_id":"area-7","node_id":21,"task":"检查登录方案"}),
+        json!({"task":"检查登录方案"}),
+    ] {
+        let invalid = runtime.execute("agent_assign", bad.clone(), &context).await;
+        assert!(
+            matches!(invalid, Err(AdapterError::InvalidArguments(_))),
+            "地址不完整、两种地址一起填、或只填 task 都应拒绝：{bad} {invalid:?}"
+        );
+    }
 
     let commands = adapter.commands.lock().expect("应读取工具命令");
     assert_eq!(commands.len(), 2, "无效调用不得产生第三条 Adapter 命令");
@@ -102,7 +106,7 @@ async fn desktop_tools_bind_snapshot_scope_and_exact_task_target() {
 /// 执行过程：提交完整成果引用，再提交缺少版本的调用。
 /// 预期结果：完整引用形成一条 typed command；不完整引用在 Adapter 前被拒绝。
 #[tokio::test]
-async fn open_workspace_artifact_requires_exact_task_bound_version() {
+async fn file_open_requires_exact_task_bound_version() {
     let adapter = Arc::new(RecordingAdapter::default());
     let runtime = NormaToolRuntime::new(adapter.clone());
     let context = ToolContext {
@@ -110,6 +114,7 @@ async fn open_workspace_artifact_requires_exact_task_bound_version() {
         turn_id: "desktop-turn-2".into(),
         user_input: "打开 plan.md".into(),
         input_source: agent::AgentInputSource::Voice,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-2".into(),
         operation_id: None,
@@ -117,7 +122,7 @@ async fn open_workspace_artifact_requires_exact_task_bound_version() {
     };
     runtime
         .execute(
-            "open_workspace_artifact",
+            "file_open",
             json!({
                 "workspace_id":"dw-42",
                 "area_id":"area-7",
@@ -132,7 +137,7 @@ async fn open_workspace_artifact_requires_exact_task_bound_version() {
         .expect("完整的任务产物引用应形成命令");
     let invalid = runtime
         .execute(
-            "open_workspace_artifact",
+            "file_open",
             json!({"workspace_id":"dw-42","area_id":"area-7","node_id":21,
                 "turn_id":"turn-9","source_path":"plan.md"}),
             &context,
@@ -161,7 +166,7 @@ async fn open_workspace_artifact_requires_exact_task_bound_version() {
 /// 执行过程：提交普通定位和完整审批定位，再提交只带 run_id 的无效审批定位。
 /// 预期结果：前两次形成 typed command；不完整审批引用在 Adapter 前被拒绝。
 #[tokio::test]
-async fn locate_workspace_agent_requires_complete_approval_reference() {
+async fn agent_show_requires_complete_approval_reference() {
     let adapter = Arc::new(RecordingAdapter::default());
     let runtime = NormaToolRuntime::new(adapter.clone());
     let context = ToolContext {
@@ -169,6 +174,7 @@ async fn locate_workspace_agent_requires_complete_approval_reference() {
         turn_id: "desktop-turn-3".into(),
         user_input: "定位 Codex 的审批".into(),
         input_source: agent::AgentInputSource::Voice,
+        voice_commit: None,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-3".into(),
         operation_id: None,
@@ -176,7 +182,7 @@ async fn locate_workspace_agent_requires_complete_approval_reference() {
     };
     runtime
         .execute(
-            "locate_workspace_agent",
+            "agent_show",
             json!({"workspace_id":"dw-42","area_id":"area-7","node_id":21}),
             &context,
         )
@@ -184,7 +190,7 @@ async fn locate_workspace_agent_requires_complete_approval_reference() {
         .expect("普通 Agent 定位应形成命令");
     runtime
         .execute(
-            "locate_workspace_agent",
+            "agent_show",
             json!({"workspace_id":"dw-42","area_id":"area-7","node_id":21,
                 "approval_run_id":"run-3","approval_turn_id":"turn-9"}),
             &context,
@@ -193,7 +199,7 @@ async fn locate_workspace_agent_requires_complete_approval_reference() {
         .expect("完整审批引用应形成命令");
     let invalid = runtime
         .execute(
-            "locate_workspace_agent",
+            "agent_show",
             json!({"workspace_id":"dw-42","area_id":"area-7","node_id":21,
                 "approval_run_id":"run-3"}),
             &context,

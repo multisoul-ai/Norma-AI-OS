@@ -3,8 +3,6 @@ use canvas::AgentProfile as CanvasAgentProfile;
 use canvas::CanvasNodeKind;
 #[cfg(test)]
 use crossbeam_channel::unbounded;
-#[cfg(feature = "e2e-test-support")]
-use crossbeam_channel::Sender;
 use crossbeam_channel::{Receiver, Sender};
 use gpui::App;
 use norma::agent_hook::{
@@ -54,16 +52,24 @@ pub(crate) struct AgentHookDrainReport {
     pub(crate) started_tasks: Vec<AgentHookStartedTask>,
     pub(crate) ready_node_ids: Vec<u64>,
     pub(crate) terminal_tasks: Vec<AgentHookTerminalTask>,
+    /// 与 hook 到达顺序一致。帧循环必须按这个顺序登记和结算，不能先处理完全部开始再处理结束。
+    pub(crate) queue_effects: Vec<AgentHookQueueEffect>,
     pub(crate) events: Vec<AgentHookEvent>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
+pub(crate) enum AgentHookQueueEffect {
+    Started(AgentHookStartedTask),
+    Terminal(AgentHookTerminalTask),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct AgentHookStartedTask {
     pub(crate) node_id: u64,
     pub(crate) task_title: Option<String>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct AgentHookTerminalTask {
     pub(crate) node_id: u64,
     /// 发布这条终态时的状态。同一 drain 里随后的 SessionEnd 会把实时状态改成 Ended，

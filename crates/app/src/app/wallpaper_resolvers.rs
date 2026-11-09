@@ -80,9 +80,14 @@ impl WallpaperKind {
 /// 素材布局：
 ///   - 15 张静态图（地球背景、既有 9 张与静谧宇宙 5 张）
 ///   - 2 张 GIF
-///   - 5 段 MP4
+///   - 6 段 MP4（含默认的 Norma Awake：开机动画末帧起播的循环）
 pub(crate) fn builtin_wallpapers() -> &'static [(&'static str, &'static str, WallpaperKind)] {
     &[
+        (
+            crate::assets::DEFAULT_WALLPAPER_SELECTION,
+            "Norma Awake",
+            WallpaperKind::Video,
+        ),
         (
             crate::assets::HOME_BACKGROUND_ASSET,
             "Earth Horizon",

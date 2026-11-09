@@ -5,6 +5,7 @@ mod appearance;
 mod brain;
 pub(crate) mod effects;
 pub(crate) mod general;
+mod island;
 pub(crate) mod orchestration;
 pub(crate) mod panel;
 mod panel_lifecycle;

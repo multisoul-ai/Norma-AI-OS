@@ -49,21 +49,28 @@ pub(crate) enum ShortcutCommandId {
     ToggleMasterLayout,
     ExitFocus,
     ToggleSettings,
-    ToggleRunOverview,
-    ToggleIdeas,
     /// `⌘⇧B`：弹出或关闭大脑活动窗口。
     ToggleBrainTrace,
-    /// `⌃1…9`：把想法派给当前展开项目的第 N 张智能体卡片。
-    AssignIdeaToCard(u8),
-    /// `⌃0`（默认类型）与 `⌃⇧2…9`：新建智能体并派发，数字沿用 `⌘2…9` 的创建顺序。
-    AssignIdeaToNewAgent(u8),
+    /// 系统级全局热键：任何 App 在前台时展开或收起灵动岛（Carbon 注册，见 `island::hotkey`）。
+    ToggleIsland,
     VoiceInteraction,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct ShortcutPreferences {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_overrides")]
     overrides: Vec<ShortcutOverride>,
+}
+
+/// Overrides for commands removed in later versions are dropped instead of failing the whole list.
+fn lenient_overrides<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<ShortcutOverride>, D::Error> {
+    let raw = Vec::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(raw
+        .into_iter()
+        .filter_map(|value| serde_json::from_value(value).ok())
+        .collect())
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -125,6 +132,7 @@ pub(crate) enum ShortcutValidationError {
     ReservedInput(&'static str),
     DuplicateCommand(&'static str),
     BarePrintable,
+    GlobalNeedsModifier,
 }
 
 impl ShortcutPreferences {
@@ -340,6 +348,9 @@ impl fmt::Display for ShortcutValidationError {
             Self::BarePrintable => f.write_str(ui::i18n::text(
                 "shortcuts.use_a_modifier_key_for_text_shortcuts",
             )),
+            Self::GlobalNeedsModifier => {
+                f.write_str(ui::i18n::text("shortcuts.global_shortcut_needs_modifier"))
+            }
         }
     }
 }
@@ -385,6 +396,11 @@ pub(crate) fn validate_shortcut_change(
     }
     if is_bare_printable(&parsed) {
         return Err(ShortcutValidationError::BarePrintable);
+    }
+    if command == ShortcutCommandId::ToggleIsland
+        && crate::island::hotkey::Chord::parse(&normalized).is_err()
+    {
+        return Err(ShortcutValidationError::GlobalNeedsModifier);
     }
     if let Some(behavior) = reserved_behavior_for(&normalized) {
         return Err(ShortcutValidationError::ReservedInput(behavior.title));

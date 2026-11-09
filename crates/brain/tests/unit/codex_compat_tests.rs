@@ -18,7 +18,7 @@ fn loader_failure_is_visible_on_the_acp_channel() {
     let entry = dir.path().join("dist/index.js");
     std::fs::write(
         &entry,
-        "// command: stripShellPrefix(params.command)\nthrow new Error('probe-load-failure');",
+        "// command: stripShellPrefix(params.command)\n// method: \"thread/start\", params }\nthrow new Error('probe-load-failure');",
     )
     .unwrap();
     let adapter = Adapter::prepare(&entry, &[]).unwrap();
@@ -66,7 +66,8 @@ fn loader_preserves_authoritative_command_and_module_location() {
     let entry = dir.path().join("dist/index.js");
     let source = r#"const params = {command: process.argv[2]};
 function stripShellPrefix() { return "lossy"; }
-console.log(JSON.stringify({command: stripShellPrefix(params.command), url: import.meta.url}));"#;
+function threadStart(params) { return { method: "thread/start", params }; }
+console.log(JSON.stringify({command: stripShellPrefix(params.command), thread: threadStart({cwd: "/p"}), url: import.meta.url}));"#;
     std::fs::write(&entry, source).expect("写适配器");
     let command = r#"/bin/zsh -lc "/opt/norma/bin/norma brain report --text '完成'""#;
     let adapter = Adapter::prepare(&entry, &[command.into()]).expect("准备兼容加载器");
@@ -83,6 +84,11 @@ console.log(JSON.stringify({command: stripShellPrefix(params.command), url: impo
     assert_eq!(
         result["command"]["normaShellCommand"], command,
         "原始权限命令须逐字保留"
+    );
+    assert_eq!(
+        result["thread"]["params"],
+        serde_json::json!({"cwd": "/p", "ephemeral": true}),
+        "大脑线程不能落盘进用户的 Codex 会话列表"
     );
     assert!(
         result["url"].as_str().unwrap().ends_with("/dist/index.js"),
@@ -151,10 +157,8 @@ fn pinned_bundle_permission_round_trip() {
         .map(str::to_owned)
         .collect();
     assert_eq!(lines.len(), 2, "启动前后的两类请求都要覆盖");
-    let gate = crate::acp::gate::Gate {
-        norma_bin: "/opt/norma/bin/norma".into(),
-        project_root: dir.path().into(),
-    };
+    let gate =
+        crate::acp::gate::Gate::for_project("/opt/norma/bin/norma".into(), dir.path().into());
     for line in lines {
         let call: serde_json::Value = serde_json::from_str(&line).unwrap();
         assert_eq!(
