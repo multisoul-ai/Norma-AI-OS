@@ -342,3 +342,159 @@ fn cancel_requested_task_maps_late_done_hook_to_interrupted() {
         "取消请求后的 Done Hook 不得误报成功"
     );
 }
+
+/// 新的用户直接回合必须接替仍挂着的手动根任务，否则来源 Agent 没有可委派的 active。
+///
+/// 数据构造：
+///   Alan definition_id=1，node=101。
+///   第一条手动根 = "旧回合"；第二条 = "新回合"。
+///   手动根的 source 是 Manual，且没有 parent。
+///
+/// 执行过程：
+///   1. 连续两次 register_external_root。
+///   2. 用第二次的根向 Bella 派发。
+///
+/// 预期结果：
+///   - 正断言：第二次仍 created=true；旧回合状态为 succeeded；新回合为 running。
+///   - 正断言：派发成功，parent 指向新回合。
+///   - 负断言：旧回合不得仍是 running。
+#[test]
+fn new_user_prompt_replaces_manual_external_root() {
+    let mut coordinator = AgentTaskCoordinator::new_with_runtime_id(
+        "runtime-replace-manual-root",
+        vec![
+            roster(1, "Alan", AgentProfile::Claude, AgentTrackingMode::Managed),
+            roster(2, "Bella", AgentProfile::Codex, AgentTrackingMode::Managed),
+        ],
+    )
+    .expect("双 Agent roster 应建立协调器");
+    let (first, first_created) = coordinator
+        .register_external_root(1, 101, "旧回合")
+        .expect("第一条用户回合应登记为根");
+    let (second, second_created) = coordinator
+        .register_external_root(1, 101, "新回合")
+        .expect("下一条用户回合仍应能登记");
+    let child = coordinator
+        .dispatch_from(
+            vec![AgentAssignment::new("Bella", "接着做")],
+            false,
+            AgentDispatchSource::agent(1, 101),
+        )
+        .expect("新用户根必须能作为派发父任务");
+
+    assert!(first_created, "第一条用户回合必须新建根任务");
+    assert!(second_created, "已有手动根时，新的用户回合仍必须新建根任务");
+    assert_eq!(
+        task_state(&coordinator, &first.task_ref),
+        "succeeded",
+        "被接替的手动根必须以 succeeded 结束"
+    );
+    assert_eq!(
+        task_state(&coordinator, &second.task_ref),
+        "running",
+        "新用户回合必须成为当前 active"
+    );
+    assert_ne!(
+        task_state(&coordinator, &first.task_ref),
+        "running",
+        "旧手动根不得继续占据 active"
+    );
+    assert_eq!(
+        child[0].parent_task_ref.as_deref(),
+        Some(second.task_ref.as_str()),
+        "派发父任务必须是新回合，而不是已经结束的旧根"
+    );
+}
+
+/// Norma 派发或已有父任务的 active 不能被下一条用户 prompt 覆盖。
+///
+/// 数据构造：
+///   Alan(id=1,node=101) 的 active 来自 Norma，parent 为空，source 不是 Manual。
+///   Bella(id=2,node=102) 的 active 是 Alan 委派的子任务，带 parent。
+///
+/// 执行过程：
+///   1. Norma 向 Alan 派发一项任务。
+///   2. 对 Alan 再调用 register_external_root。
+///   3. 给 Alan 登记手动根后委派 Bella，再对 Bella 调用 register_external_root。
+///
+/// 预期结果：
+///   - 正断言：两次 register 都返回 created=false。
+///   - 正断言：Norma 任务和 Bella 的子任务都保持 running。
+///   - 负断言：这两项都不得变成 succeeded。
+#[test]
+fn user_prompt_does_not_replace_dispatched_active_task() {
+    let mut coordinator = AgentTaskCoordinator::new_with_runtime_id(
+        "runtime-keep-dispatched",
+        vec![
+            roster(1, "Alan", AgentProfile::Claude, AgentTrackingMode::Managed),
+            roster(2, "Bella", AgentProfile::Codex, AgentTrackingMode::Managed),
+        ],
+    )
+    .expect("双 Agent roster 应建立协调器");
+    let norma = coordinator
+        .dispatch_from(
+            vec![AgentAssignment::new("Alan", "Norma 派发")],
+            false,
+            AgentDispatchSource::norma(),
+        )
+        .expect("Norma 直派应成功")
+        .remove(0);
+    let (replaced_norma, created_norma) = coordinator
+        .register_external_root(1, 101, "用户回合")
+        .expect("查询已有 Norma 任务不应失败");
+
+    assert!(!created_norma, "Norma 派发的 active 不得被用户回合覆盖");
+    assert_eq!(
+        replaced_norma.task_ref, norma.task_ref,
+        "拒绝覆盖时必须返回仍在运行的 Norma 任务"
+    );
+    assert_eq!(
+        task_state(&coordinator, &norma.task_ref),
+        "running",
+        "Norma 任务必须继续 running"
+    );
+
+    coordinator.finish_current(1);
+    let _ = coordinator
+        .register_external_root(1, 101, "Alan 手动根")
+        .expect("清掉 Norma 任务后应能登记手动根");
+    let delegated = coordinator
+        .dispatch_from(
+            vec![AgentAssignment::new("Bella", "子任务")],
+            false,
+            AgentDispatchSource::agent(1, 101),
+        )
+        .expect("手动根上的委派应成功")
+        .remove(0);
+    let (kept, created_child) = coordinator
+        .register_external_root(2, 102, "Bella 的自动回合")
+        .expect("查询 Bella 的委派任务不应失败");
+
+    assert!(!created_child, "带 parent 的委派任务不得被用户回合覆盖");
+    assert_eq!(
+        kept.task_ref, delegated.task_ref,
+        "拒绝覆盖时必须返回 Bella 正在执行的子任务"
+    );
+    assert_eq!(
+        task_state(&coordinator, &delegated.task_ref),
+        "running",
+        "委派子任务必须继续 running"
+    );
+    assert_ne!(
+        task_state(&coordinator, &delegated.task_ref),
+        "succeeded",
+        "委派子任务不得被标成 succeeded"
+    );
+    assert_ne!(
+        task_state(&coordinator, &norma.task_ref),
+        "running",
+        "为腾出 Alan 而结束的 Norma 任务不得仍是 running"
+    );
+}
+
+fn task_state(coordinator: &AgentTaskCoordinator, task_ref: &str) -> String {
+    coordinator
+        .task_by_ref(task_ref)
+        .map(|task| task.state.to_string())
+        .unwrap_or_else(|_| "missing".to_string())
+}

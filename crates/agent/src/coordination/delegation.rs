@@ -75,6 +75,7 @@ impl AgentTaskCoordinator {
                 source_definition_id: source.definition_id,
                 source_node_id: source.node_id,
                 source: source.queue_source,
+                external_root: false,
                 target_node_id: node_id,
                 task: assignment.task.clone(),
                 cancel_requested: false,
@@ -141,8 +142,12 @@ impl AgentTaskCoordinator {
                     && agent.roster.active_node_id == Some(node_id)
             })
             .ok_or(AgentCoordinationError::SourceAgentUnavailable)?;
-        if let Some(active) = self.agents[index].active.as_ref() {
-            return Ok((receipt_for_active(&self.agents[index], active), false));
+        if let Some(active) = self.agents[index].active.clone() {
+            if !active.external_root {
+                return Ok((receipt_for_active(&self.agents[index], &active), false));
+            }
+            self.agents[index].active = None;
+            self.retain_terminal_task(index, active, "succeeded");
         }
         let task_id = self.next_task_id;
         self.next_task_id = self.next_task_id.saturating_add(1);
@@ -161,6 +166,7 @@ impl AgentTaskCoordinator {
             source_definition_id: None,
             source_node_id: None,
             source: AgentQueueTaskSource::Manual,
+            external_root: true,
             target_node_id: node_id,
             task: task.clone(),
             cancel_requested: false,
