@@ -1,6 +1,6 @@
 //! 大脑提议的落地：接收、保存、用户点“派发”或“忽略”。
 
-use super::proposals::{check_target, Draft, ProposalBlock, Proposals, RosterLite};
+use super::proposals::{check_target, Draft, Proposal, ProposalBlock, Proposals, RosterLite};
 use crate::app::MultisoulApp;
 use gpui::Context;
 use norma::protocol::ReportPriority;
@@ -8,7 +8,7 @@ use std::time::SystemTime;
 
 impl MultisoulApp {
     /// 第一次需要时读本项目的提议文件；之后只在内存里改，并在后台写回。
-    pub(super) fn load_brain_proposals(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn load_brain_proposals(&mut self, cx: &mut Context<Self>) {
         if self.brain.proposals_ready
             || self.brain.proposals_loading
             || std::time::Instant::now() < self.brain.proposals_retry_at
@@ -58,6 +58,7 @@ impl MultisoulApp {
                     Ok(proposals) => {
                         app.brain.proposals = proposals;
                         app.brain.proposals_ready = true;
+                        app.note_workspace_activity_changed(cx);
                     }
                     Err(error) => {
                         tracing::warn!(%error, "读取幕僚提议失败，保留原文件");
@@ -153,12 +154,9 @@ impl MultisoulApp {
     pub(super) fn proposal_dispatch_block(&self, agent: &str) -> Option<ProposalBlock> {
         let roster = self.agent_roster_for_provider();
         let Some(target) = roster.iter().find(|entry| entry.name == agent) else {
-            return Some(ProposalBlock::Unavailable(format!("未找到 Agent：{agent}")));
+            return classify_dispatch_block(false, false, false, false);
         };
-        if !target.enabled {
-            return Some(ProposalBlock::Unavailable(format!("Agent {agent} 已停用")));
-        }
-        if target.active_node_id.is_some_and(|node| {
+        let waiting = target.active_node_id.is_some_and(|node| {
             matches!(
                 self.runtime.agent_task_state(node),
                 Some(
@@ -166,10 +164,8 @@ impl MultisoulApp {
                         | runtime::AgentTaskState::WaitingQuestion
                 )
             )
-        }) {
-            return Some(ProposalBlock::WaitingConfirmation);
-        }
-        target.busy.then_some(ProposalBlock::Busy)
+        });
+        classify_dispatch_block(true, target.enabled, waiting, target.busy)
     }
 
     /// 大脑交来一条提议：校验目标后放进“需要你处理”，并提醒用户一句。
@@ -188,8 +184,145 @@ impl MultisoulApp {
         let title = draft.title.clone();
         let id = self.brain.proposals.add(draft, SystemTime::now())?;
         self.save_brain_proposals();
+        self.note_workspace_activity_changed(cx);
         let text = ui::i18n::format("chrome.brain_proposal_spoken", &[("title", title)]);
         self.speak_brain_report(text, ReportPriority::Normal, cx);
         Ok(id)
+    }
+
+    /// 把当前内存里的提议投影成岛卡片。阻断在会话上算好，后台投影不再碰 App。
+    pub(crate) fn proposal_snapshot(&self, area_id: &str) -> Vec<crate::island::IslandProposal> {
+        self.brain
+            .proposals
+            .items()
+            .iter()
+            .map(|proposal| crate::island::IslandProposal {
+                id: proposal.id,
+                area_id: area_id.to_owned(),
+                agent: proposal.agent.clone(),
+                title: proposal.title.clone(),
+                task: proposal.task.clone(),
+                why: proposal.why.clone(),
+                block: self
+                    .proposal_dispatch_block(&proposal.agent)
+                    .map(island_block),
+                creates_card: self.proposal_needs_card(&proposal.agent),
+            })
+            .collect()
+    }
+
+    /// 用户在岛上点“派发”。阻断或找不到时不删除提议，也不打开共享上下文。
+    pub(crate) fn dispatch_brain_proposal(
+        &mut self,
+        id: u64,
+    ) -> Result<(), crate::island::ProposalDispatchError> {
+        self.proposal_ready_to_dispatch(id)?;
+        let service = self
+            .shared_context_service()
+            .map_err(|error| crate::island::ProposalDispatchError::Failed(error.to_string()))?;
+        service
+            .execute_with_state(
+                agent::context::ContextOperation::DispatchTask,
+                None,
+                |state| Ok(self.dispatch_brain_proposal_checked(id, state)),
+            )
+            .map_err(|error| crate::island::ProposalDispatchError::Failed(error.to_string()))?
+    }
+
+    /// 锁内再查一次：点下去之后目标可能变成正忙或正在等确认。
+    fn dispatch_brain_proposal_checked(
+        &mut self,
+        id: u64,
+        state: &agent::context::WorkingState,
+    ) -> Result<(), crate::island::ProposalDispatchError> {
+        let proposal = self.proposal_ready_to_dispatch(id)?;
+        self.dispatch_ready_proposal(proposal, state)
+    }
+
+    fn proposal_ready_to_dispatch(
+        &self,
+        id: u64,
+    ) -> Result<Proposal, crate::island::ProposalDispatchError> {
+        let Some(proposal) = self
+            .brain
+            .proposals
+            .items()
+            .iter()
+            .find(|proposal| proposal.id == id)
+            .cloned()
+        else {
+            return Err(crate::island::ProposalDispatchError::Missing);
+        };
+        if let Some(block) = self.proposal_dispatch_block(&proposal.agent) {
+            return Err(crate::island::ProposalDispatchError::Blocked {
+                block: island_block(block),
+                agent: proposal.agent,
+            });
+        }
+        Ok(proposal)
+    }
+
+    fn dispatch_ready_proposal(
+        &mut self,
+        proposal: Proposal,
+        state: &agent::context::WorkingState,
+    ) -> Result<(), crate::island::ProposalDispatchError> {
+        let id = proposal.id;
+        self.assign_task(
+            proposal.agent,
+            proposal.task,
+            None,
+            super::AutoKind::UserDispatched,
+            state,
+        )
+        .map_err(|error| crate::island::ProposalDispatchError::Failed(error.to_string()))?;
+        if self.brain.proposals.take(id).is_none() {
+            return Err(crate::island::ProposalDispatchError::Missing);
+        }
+        self.save_brain_proposals();
+        Ok(())
+    }
+
+    /// 用户点“忽略”。取走成功才记一条拒绝，并写回提议文件。
+    pub(crate) fn decline_brain_proposal(&mut self, id: u64) -> bool {
+        let Some(proposal) = self.brain.proposals.take(id) else {
+            return false;
+        };
+        self.save_brain_proposals();
+        self.push_brain(brain::BrainEventKind::ProposalDeclined {
+            agent: proposal.agent,
+            title: proposal.title,
+        });
+        true
+    }
+}
+
+/// 派发阻断的优先级：不在名册、已停用、正在等确认、正忙。空闲则可以派发。
+pub(super) fn classify_dispatch_block(
+    found: bool,
+    enabled: bool,
+    waiting_confirmation: bool,
+    busy: bool,
+) -> Option<ProposalBlock> {
+    if !found {
+        return Some(ProposalBlock::Missing);
+    }
+    if !enabled {
+        return Some(ProposalBlock::Disabled);
+    }
+    if waiting_confirmation {
+        return Some(ProposalBlock::WaitingConfirmation);
+    }
+    busy.then_some(ProposalBlock::Busy)
+}
+
+fn island_block(block: ProposalBlock) -> crate::island::IslandProposalBlock {
+    match block {
+        ProposalBlock::WaitingConfirmation => {
+            crate::island::IslandProposalBlock::WaitingConfirmation
+        }
+        ProposalBlock::Busy => crate::island::IslandProposalBlock::Busy,
+        ProposalBlock::Missing => crate::island::IslandProposalBlock::Missing,
+        ProposalBlock::Disabled => crate::island::IslandProposalBlock::Disabled,
     }
 }

@@ -255,6 +255,7 @@ impl IslandView {
             ));
         }
         if !alert_only {
+            rows.extend(self.render_proposals(workspace, project, cx));
             rows.extend(self.render_artifacts(workspace, project, None, cx));
         }
         rows

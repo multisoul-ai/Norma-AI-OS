@@ -33,6 +33,8 @@ pub(super) struct QueueItem {
     pub provider: String,
     pub workspace: String,
     pub review: bool,
+    /// 提议留在队列里可见，但不参与提醒继承。
+    pub proposal: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -135,6 +137,33 @@ pub(super) fn collect(workspaces: &[IslandWorkspace]) -> Vec<Face> {
                     false,
                 );
             }
+            for proposal in &project.proposals {
+                if let Some(slot) = faces.iter().position(|face| {
+                    face.source == project.source
+                        && face.area_id == project.area_id
+                        && face.name == proposal.agent
+                }) {
+                    let face = &mut faces[slot];
+                    face.slot = SlotKind::Pending;
+                    face.activity = AgentActivity::Waiting;
+                    face.completed = false;
+                    continue;
+                }
+                let node = proposal_node(proposal.id);
+                ensure_face(
+                    &mut faces,
+                    &mut index,
+                    workspace,
+                    project,
+                    SyntheticFace {
+                        node,
+                        name: &proposal.agent,
+                        provider: &proposal.agent,
+                        completed: false,
+                    },
+                );
+                mark(&mut faces, &index, project, node, false);
+            }
             for row in &project.overview.attention {
                 if !is_result(row.kind) {
                     continue;
@@ -215,6 +244,7 @@ pub(super) fn queue_items(workspaces: &[IslandWorkspace]) -> Vec<QueueItem> {
                     provider: approval.target.profile.clone(),
                     workspace: workspace.name.clone(),
                     review: false,
+                    proposal: false,
                 });
             }
             for question in &project.questions {
@@ -229,6 +259,22 @@ pub(super) fn queue_items(workspaces: &[IslandWorkspace]) -> Vec<QueueItem> {
                     provider: format!("{:?}", question.snapshot.question.target.provider),
                     workspace: workspace.name.clone(),
                     review: false,
+                    proposal: false,
+                });
+            }
+            for proposal in &project.proposals {
+                items.push(QueueItem {
+                    id: super::controller::proposal_key(
+                        project.source,
+                        &workspace.id,
+                        &project.area_id,
+                        proposal.id,
+                    ),
+                    name: proposal.agent.clone(),
+                    provider: proposal.agent.clone(),
+                    workspace: workspace.name.clone(),
+                    review: false,
+                    proposal: true,
                 });
             }
             for row in result_cards(&project.overview.attention) {
@@ -244,6 +290,7 @@ pub(super) fn queue_items(workspaces: &[IslandWorkspace]) -> Vec<QueueItem> {
                     provider: row.agent.clone(),
                     workspace: workspace.name.clone(),
                     review: true,
+                    proposal: false,
                 });
             }
         }
@@ -264,7 +311,11 @@ pub(super) fn queue_step(
             hold_review: false,
         };
     };
-    let ids: Vec<String> = remaining.iter().map(|item| item.id.clone()).collect();
+    let ids: Vec<String> = remaining
+        .iter()
+        .filter(|item| !item.proposal)
+        .map(|item| item.id.clone())
+        .collect();
     let Some(next) = pending_successor(previous, &ids, current) else {
         return QueueStep {
             focused_review: None,
@@ -306,6 +357,11 @@ pub(super) fn queue_step(
                 .any(|item| item.id == current && item.review),
         }
     }
+}
+
+/// 合成节点占用高 16 位，低 48 位才是提议编号，避免和画布节点号相撞。
+fn proposal_node(id: u64) -> u64 {
+    (1u64 << 48) | (id & ((1u64 << 48) - 1))
 }
 
 fn is_result(kind: RunOverviewAttentionKind) -> bool {

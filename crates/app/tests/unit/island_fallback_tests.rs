@@ -37,6 +37,7 @@ fn workspace_with_approval() -> IslandWorkspace {
             overview,
             approvals: vec![approval],
             questions: vec![],
+            proposals: vec![],
         }],
     }
 }

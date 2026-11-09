@@ -113,6 +113,7 @@ pub(super) fn overview_areas_from_activity(
 struct ActivityInput {
     database: std::path::PathBuf,
     questions: Vec<crate::app::OverviewQuestion>,
+    proposals: Vec<crate::island::IslandProposal>,
     facts: WorkspaceActivityFacts,
     cached_facts: Option<WorkspaceActivityFacts>,
     area_ids: Vec<String>,
@@ -283,10 +284,18 @@ impl MultisoulApp {
         }
     }
 
+    fn ensure_proposal_snapshots(&mut self, cx: &mut Context<Self>) {
+        let sessions: Vec<_> = self.desktop_workspace.sessions.values().cloned().collect();
+        for session in sessions {
+            session.update(cx, |app, cx| app.load_brain_proposals(cx));
+        }
+    }
+
     fn spawn_workspace_activity_refresh(&mut self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             let Ok(input) = this.update(cx, |app, cx| {
                 app.desktop_workspace.activity_gate.begin();
+                app.ensure_proposal_snapshots(cx);
                 app.capture_activity_input(cx)
             }) else {
                 return;

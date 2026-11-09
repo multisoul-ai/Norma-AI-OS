@@ -8,6 +8,7 @@ mod chrome;
 mod controller;
 mod faces;
 mod fallback;
+mod focus;
 pub(crate) mod hotkey;
 mod model;
 #[cfg(target_os = "macos")]
@@ -17,6 +18,7 @@ mod navigation;
 mod notify;
 mod pending;
 pub(crate) mod preferences;
+mod proposals;
 mod question;
 mod question_editor;
 mod queue_view;
@@ -34,7 +36,10 @@ pub(crate) use preferences::install;
 pub(crate) use windows::has_workspace_windows;
 
 use gpui::{App, AppContext, Entity, Global};
-pub(crate) use model::{IslandModel, IslandProject, IslandWorkspace};
+pub(crate) use model::{
+    IslandModel, IslandProject, IslandProposal, IslandProposalBlock, IslandWorkspace,
+};
+pub(crate) use proposals::ProposalDispatchError;
 
 struct IslandGlobal(Entity<IslandModel>);
 impl Global for IslandGlobal {}

@@ -261,9 +261,8 @@ impl IslandView {
                             .min_w(px(0.))
                             .on_mouse_down(
                                 gpui::MouseButton::Left,
-                                cx.listener(|_, _, window, cx| {
-                                    cx.activate(true);
-                                    window.activate_window();
+                                cx.listener(|_, _, window, _| {
+                                    super::focus::focus_panel_input(window);
                                 }),
                             )
                             .child(

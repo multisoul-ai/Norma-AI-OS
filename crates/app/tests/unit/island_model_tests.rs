@@ -80,6 +80,7 @@ fn workspace(id: &str, name: &str, loaded: bool) -> IslandWorkspace {
             },
             approvals: Vec::new(),
             questions: Vec::new(),
+            proposals: Vec::new(),
         }],
     }
 }
@@ -266,6 +267,137 @@ fn island_model_separates_database_scopes() {
     publish(&mut model, 1, Vec::new());
     assert_eq!(model.workspaces.len(), 1, "只删除第一库的目录");
     assert_eq!(model.workspaces[0].name, "Isolated", "第二库必须保留");
+}
+
+/// 场景：已加载项目带着本空间的提议；未加载目录、别的空间和后来拿掉提议的投影都不能留下它。
+///
+/// 数据构造：
+///   提议 7：agent Ada，title 整理日志，挂在已加载的 Alpha/area-1
+///   提议 9：只写在最新目录里 Alpha 的未加载副本上。实时宿主还在时不能盖掉 7；宿主释放后也不能留下
+///   Beta 全程没有提议
+///
+/// 执行过程：
+///   1. 宿主 1 发布已加载 Alpha（提议 7）和未加载 Beta
+///   2. 原样再发布一次
+///   3. 宿主 1 再发布一份没有提议的已加载 Alpha
+///   4. 重新放回提议 7，然后宿主 2 用更新的目录发布未加载 Alpha（7 和 9）与已加载 Beta
+///   5. 释放宿主 1。Alpha 不再有实时宿主，只能走这份未加载目录
+///
+/// 预期结果：
+///   - 第 1 步 Alpha 只有提议 7，Beta 没有提议
+///   - 第 2 步不通知
+///   - 第 3 步提议 7 消失，提议 9 也不存在
+///   - 第 4 步已加载 Alpha 仍只有 7，Beta 没有提议
+///   - 第 5 步未加载 Alpha 的提议被清空，不能留下 7 或 9
+#[test]
+fn island_model_keeps_loaded_proposals_and_drops_cached_or_removed_ones() {
+    let mut model = IslandModel::default();
+    let mut loaded = workspace("a", "Alpha", true);
+    loaded.projects[0].proposals.push(proposal(7));
+    let unloaded_beta = workspace("b", "Beta", false);
+    assert!(
+        publish(&mut model, 1, vec![loaded.clone(), unloaded_beta.clone()]),
+        "首次带提议的投影必须通知"
+    );
+    let shown: Vec<u64> = model.workspaces[0].projects[0]
+        .proposals
+        .iter()
+        .map(|item| item.id)
+        .collect();
+    assert_eq!(shown, vec![7], "已加载 Alpha 必须带着提议 7");
+    assert!(
+        model.workspaces[1].projects[0].proposals.is_empty(),
+        "未加载 Beta 不能凭空出现提议"
+    );
+    assert!(
+        !publish(&mut model, 1, vec![loaded, unloaded_beta]),
+        "相同提议不能重复通知"
+    );
+
+    let cleared = workspace("a", "Alpha", true);
+    assert!(
+        publish(&mut model, 1, vec![cleared, workspace("b", "Beta", false)]),
+        "拿掉提议必须通知"
+    );
+    assert!(
+        model.workspaces[0].projects[0].proposals.is_empty(),
+        "新的已加载投影没有提议时，旧的 7 必须消失"
+    );
+    assert!(
+        model.workspaces.iter().all(|workspace| {
+            workspace
+                .projects
+                .iter()
+                .all(|project| project.proposals.iter().all(|item| item.id != 9))
+        }),
+        "提议 9 这时还没有发布"
+    );
+
+    let mut loaded = workspace("a", "Alpha", true);
+    loaded.projects[0].proposals.push(proposal(7));
+    publish(&mut model, 1, vec![loaded, workspace("b", "Beta", false)]);
+    let mut stale = workspace("a", "Alpha", false);
+    stale.projects[0].proposals.push(proposal(7));
+    stale.projects[0].proposals.push(proposal(9));
+    assert!(
+        publish(&mut model, 2, vec![stale, workspace("b", "Beta", true)]),
+        "第二个宿主必须加入，并让未加载目录带上提议 9"
+    );
+    let kept: Vec<u64> = model.workspaces[0].projects[0]
+        .proposals
+        .iter()
+        .map(|item| item.id)
+        .collect();
+    assert_eq!(
+        kept,
+        vec![7],
+        "已加载宿主的提议 7 必须留下，不能被目录里的 9 替换"
+    );
+    assert!(
+        model.workspaces[0].projects[0].loaded,
+        "Alpha 仍由宿主 1 加载"
+    );
+    assert_eq!(
+        model.workspaces[0].projects[0].source, 1,
+        "Alpha 必须路由到宿主 1"
+    );
+    assert!(
+        model.workspaces[1].projects[0].proposals.is_empty(),
+        "Beta 没有提议"
+    );
+    assert_eq!(
+        model.workspaces[1].projects[0].source, 2,
+        "Beta 必须路由到宿主 2"
+    );
+
+    assert!(model.remove_source(1), "释放宿主 1 必须刷新");
+    let cached = &model.workspaces[0].projects[0];
+    assert!(!cached.loaded, "释放后 Alpha 只剩未加载目录");
+    assert!(
+        cached.proposals.is_empty(),
+        "未加载目录必须清掉提议，不能留下 7 或 9"
+    );
+    assert!(
+        model.workspaces[1].projects[0].loaded,
+        "释放 Alpha 的宿主不得卸下 Beta"
+    );
+    assert!(
+        model.workspaces[1].projects[0].proposals.is_empty(),
+        "Beta 仍然没有提议"
+    );
+}
+
+fn proposal(id: u64) -> IslandProposal {
+    IslandProposal {
+        id,
+        area_id: "area-1".into(),
+        agent: "Ada".into(),
+        title: "整理日志".into(),
+        task: "把今天的日志收成三条".into(),
+        why: "日志已经散在三处".into(),
+        block: None,
+        creates_card: false,
+    }
 }
 
 fn publish(model: &mut IslandModel, source: u64, workspaces: Vec<IslandWorkspace>) -> bool {

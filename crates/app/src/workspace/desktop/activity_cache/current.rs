@@ -83,6 +83,7 @@ impl MultisoulApp {
             database: self.database_paths.app_db_path().to_owned(),
             cached_facts: None,
             questions: self.brain_overview().questions.clone(),
+            proposals: Vec::new(),
             area_ids,
             presentation,
             current_area_id,
