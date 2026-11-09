@@ -160,6 +160,15 @@ fn test_manual_minimax_voice_id_cannot_apply_until_validated() {
         Some(true),
         "当前草稿代际的验证结果必须被接受"
     );
+    assert!(
+        !state.minimax_preview_should_reconfigure_active(),
+        "选择器仍打开时，试听验证不得重配正在使用的 MiniMax 声音"
+    );
+    assert_eq!(
+        state.values().minimax_tts_voice_id(),
+        Some(&saved_voice),
+        "只验证草稿时不得替换已保存的 Voice ID"
+    );
     assert_eq!(
         state.tts_picker_minimax_readiness(),
         tts::RemoteTtsReadiness::Ready,

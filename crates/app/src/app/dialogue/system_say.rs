@@ -137,11 +137,8 @@ fn synthesize_with_say(voice: &str, text: &str) -> Result<Vec<u8>, String> {
     let _ = std::fs::remove_file(&path);
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(if stderr.trim().is_empty() {
-            "macOS say failed".to_string()
-        } else {
-            stderr.trim().to_string()
-        });
+        tracing::warn!(error = %stderr.trim(), "system voice synthesis failed");
+        return Err(ui::i18n::text("voice.system_voice_synthesis_failed").to_string());
     }
     wav
 }
@@ -202,24 +199,30 @@ impl tts::TtsClient for SystemSayClient {
         let wav = match (self.synthesize)(&self.voice, text) {
             Ok(wav) => wav,
             Err(error) => {
-                let failure = tts::TtsError::new(tts::TtsErrorKind::Transport, error);
+                let failure = tts::TtsError::new(
+                    tts::TtsErrorKind::Transport,
+                    ui::i18n::text("voice.system_voice_synthesis_failed"),
+                );
+                tracing::warn!(error = %error, "system voice synthesis failed");
                 sink.finish(Err(failure));
                 return Err(tts::TtsError::new(
                     tts::TtsErrorKind::Transport,
-                    "system voice synthesis failed",
+                    ui::i18n::text("voice.system_voice_synthesis_failed"),
                 ));
             }
         };
         let pcm = match pcm16_mono_16k_from_wav(&wav) {
             Ok(pcm) => pcm,
             Err(error) => {
-                sink.finish(Err(tts::TtsError::new(
+                tracing::warn!(error = %error, "system voice audio rejected");
+                let failure = tts::TtsError::new(
                     tts::TtsErrorKind::AudioDecode,
-                    error,
-                )));
+                    ui::i18n::text("voice.system_voice_audio_invalid"),
+                );
+                sink.finish(Err(failure));
                 return Err(tts::TtsError::new(
                     tts::TtsErrorKind::AudioDecode,
-                    "system voice audio could not be decoded",
+                    ui::i18n::text("voice.system_voice_audio_invalid"),
                 ));
             }
         };
@@ -309,7 +312,15 @@ mod tests {
         Ok(fixture_wav(&[0x01, 0x00, 0x02, 0x00]))
     }
 
-    /// SAY-1：`say -v '?'` 的名单只保留声音名，带空格的名字不能被语言列切开。
+    /// SAY-1：`say -v '?'` 的名单只保留声音名。
+    ///
+    /// 数据构造：两行「名字 + 语言 + 注释」，其中 Bad News 含空格；另有一行没有两个空格列。
+    ///
+    /// 执行过程：解析整段名单。
+    ///
+    /// 预期结果：
+    ///   - 正断言：得到 Tingting 与 Bad News。
+    ///   - 负断言：没有两个空格列的行不得进入名单。
     #[test]
     fn test_say_listing_keeps_spaced_voice_names() {
         let listing = "\
@@ -322,9 +333,23 @@ Not a voice line
             vec!["Tingting".to_string(), "Bad News".to_string()],
             "应解析出 Tingting 与 Bad News"
         );
+        assert!(
+            !parse_say_voice_listing(listing)
+                .iter()
+                .any(|name| name == "Not a voice line"),
+            "缺少语言列的行不得进入系统声音名单"
+        );
     }
 
     /// SAY-2：系统旁白把 16 kHz WAV 的 data 块交给回复播放，不经过本机模型目录。
+    ///
+    /// 数据构造：夹具 WAV 为 16 kHz、单声道、16 bit，PCM 为 01 00 02 00。文本是 hello。
+    ///
+    /// 执行过程：开始流、推入文本、完成合成。
+    ///
+    /// 预期结果：
+    ///   - 正断言：播放端拿到 4 字节 PCM，完成摘要字节数为 4。
+    ///   - 负断言：本测试不读模型目录；采样不是 16 kHz 时由 SAY-3 拒绝。
     #[test]
     fn test_system_client_sends_pcm_from_wav_fixture() {
         let sink = Arc::new(MemorySink {
@@ -346,6 +371,28 @@ Not a voice line
             sink.done.lock().expect("done").as_deref(),
             Some("ok:4"),
             "完成摘要的字节数必须等于 PCM 长度"
+        );
+    }
+
+    /// SAY-3：不是 16 kHz 单声道 PCM16 的 WAV 不得送出 PCM。
+    ///
+    /// 数据构造：与 SAY-2 相同的 data，但 fmt 采样率写成 8_000。
+    ///
+    /// 执行过程：调用 pcm16_mono_16k_from_wav。
+    ///
+    /// 预期结果：
+    ///   - 正断言：返回错误。
+    ///   - 负断言：不得返回 SAY-2 的 4 字节 PCM。
+    #[test]
+    fn test_system_wav_rejects_non_16k_audio() {
+        let mut wav = fixture_wav(&[0x01, 0x00, 0x02, 0x00]);
+        wav[24..28].copy_from_slice(&8_000u32.to_le_bytes());
+        let decoded = pcm16_mono_16k_from_wav(&wav);
+        assert!(decoded.is_err(), "8 kHz WAV 必须被拒绝");
+        assert_ne!(
+            decoded.ok().as_deref(),
+            Some(&[0x01, 0x00, 0x02, 0x00][..]),
+            "被拒绝的 WAV 不得把采样交给播放"
         );
     }
 }

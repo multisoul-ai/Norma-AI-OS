@@ -5,7 +5,7 @@ use super::{ready::voice_status_overview, setup::recognition, with_alpha, VoiceS
 use crate::app::MultisoulApp;
 use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::VoiceRequirement;
-use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
+use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful, Window};
 use ui::Theme;
 
 pub(super) fn grouped_settings(
@@ -108,8 +108,20 @@ fn advanced_rows(
         .py(px(12.0))
         .rounded(px(12.0))
         .cursor_pointer()
+        .border_1()
+        .border_color(rgba(0x00000000))
         .hover(|row| row.bg(rgba(with_alpha(theme.text_primary, 0x10))))
+        .active(|row| row.bg(rgba(with_alpha(theme.text_primary, 0x1c))))
+        .tab_index(0)
+        .focus(move |row| row.border_color(rgba(theme.accent_blue)))
         .on_click(cx.listener(MultisoulApp::on_voice_settings_toggle_advanced))
+        .on_key_down(cx.listener(|app, event: &KeyDownEvent, _, cx| {
+            if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                app.voice_settings.toggle_advanced_expanded();
+                cx.notify();
+                cx.stop_propagation();
+            }
+        }))
         .child(
             div()
                 .flex_1()
@@ -151,17 +163,20 @@ fn advanced_rows(
                 .settings_text(TextRole::Helper, theme)
                 .child(ui::i18n::text("voice.command_session_hint")),
         )
-        .child(detail_row(
-            theme,
-            "voice.command_model",
-            "voice.command_model_hint",
-            component_action(
-                theme,
-                "voice-command-model-details",
-                ui::i18n::text("mobile.configure"),
-                cx,
-                cx.listener(MultisoulApp::on_voice_manage_provider),
-            ),
+        .child(
+            div()
+                .px(px(12.0))
+                .settings_text(TextRole::RowTitle, theme)
+                .child(ui::i18n::text("voice.command_model")),
+        )
+        .child(
+            div()
+                .px(px(12.0))
+                .settings_text(TextRole::Helper, theme)
+                .child(ui::i18n::text("voice.command_model_hint")),
+        )
+        .child(super::provider::agent_provider_setup_group(
+            theme, state, inputs, cx,
         ))
         .child(value_row(
             theme,

@@ -22,6 +22,8 @@ pub(super) fn voice_sheet(
         .debug_selector(|| "settings-tts-picker".to_string())
         .track_focus(&inputs.tts_sheet_focus)
         .tab_index(0)
+        .tab_stop(false)
+        .tab_group()
         .w_full()
         .flex()
         .flex_col()
@@ -103,8 +105,11 @@ fn engine_choice(
     listener: fn(&mut MultisoulApp, &gpui::ClickEvent, &mut Window, &mut Context<MultisoulApp>),
     cx: &mut Context<MultisoulApp>,
 ) -> Stateful<Div> {
-    let hover = with_alpha(theme.text_primary, 0x10);
+    let idle_hover = with_alpha(theme.text_primary, 0x10);
+    let selected_fill = with_alpha(theme.accent_blue, 0x18);
+    let selected_hover = with_alpha(theme.accent_blue, 0x2c);
     let pressed = with_alpha(theme.text_primary, 0x1c);
+    let focus_border = theme.text_primary;
     div()
         .id(selector)
         .debug_selector(move || selector.to_string())
@@ -119,18 +124,22 @@ fn engine_choice(
         } else {
             with_alpha(theme.edge_highlight, 0x55)
         }))
-        .bg(rgba(if selected {
-            with_alpha(theme.accent_blue, 0x18)
-        } else {
-            0x00000000
-        }))
+        .bg(rgba(if selected { selected_fill } else { 0x00000000 }))
         .cursor_pointer()
         .tab_index(0)
-        .hover(move |row| row.bg(rgba(hover)))
+        .hover(move |row| row.bg(rgba(if selected { selected_hover } else { idle_hover })))
         .active(move |row| row.bg(rgba(pressed)))
-        .focus(move |row| row.border_color(rgba(theme.accent_blue)))
-        .child(div().settings_text(TextRole::RowTitle, theme).child(label))
+        .focus(move |row| row.border_color(rgba(focus_border)))
         .on_click(cx.listener(listener))
+        .on_key_down(
+            cx.listener(move |app, event: &gpui::KeyDownEvent, window, cx| {
+                if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                    listener(app, &gpui::ClickEvent::default(), window, cx);
+                    cx.stop_propagation();
+                }
+            }),
+        )
+        .child(div().settings_text(TextRole::RowTitle, theme).child(label))
 }
 
 fn engine_body(
@@ -303,8 +312,11 @@ fn system_voices(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<Mult
         let voice_name = name.clone();
         let preview_name = name.clone();
         let chosen = selected == Some(name.as_str());
-        let hover = with_alpha(theme.text_primary, 0x10);
+        let idle_hover = with_alpha(theme.text_primary, 0x10);
+        let selected_fill = with_alpha(theme.accent_blue, 0x18);
+        let selected_hover = with_alpha(theme.accent_blue, 0x2c);
         let pressed = with_alpha(theme.text_primary, 0x1c);
+        let focus_border = theme.text_primary;
         rows = rows.child(
             div()
                 .id(("settings-tts-picker-system-voice", index))
@@ -322,14 +334,27 @@ fn system_voices(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<Mult
                 } else {
                     with_alpha(theme.edge_highlight, 0x32)
                 }))
+                .bg(rgba(if chosen { selected_fill } else { 0x00000000 }))
                 .cursor_pointer()
                 .tab_index(0)
-                .hover(move |row| row.bg(rgba(hover)))
+                .hover(move |row| row.bg(rgba(if chosen { selected_hover } else { idle_hover })))
                 .active(move |row| row.bg(rgba(pressed)))
-                .focus(move |row| row.border_color(rgba(theme.accent_blue)))
-                .on_click(cx.listener(move |app, _, _, cx| {
-                    app.on_voice_pick_system_voice(voice_name.clone(), cx)
-                }))
+                .focus(move |row| row.border_color(rgba(focus_border)))
+                .on_click({
+                    let voice_name = voice_name.clone();
+                    cx.listener(move |app, _, _, cx| {
+                        app.on_voice_pick_system_voice(voice_name.clone(), cx)
+                    })
+                })
+                .on_key_down({
+                    let voice_name = voice_name.clone();
+                    cx.listener(move |app, event: &gpui::KeyDownEvent, _, cx| {
+                        if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                            app.on_voice_pick_system_voice(voice_name.clone(), cx);
+                            cx.stop_propagation();
+                        }
+                    })
+                })
                 .child(
                     div()
                         .flex_1()
@@ -378,7 +403,14 @@ fn footer(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<MultisoulAp
                 .id("settings-tts-picker-cancel")
                 .debug_selector(|| "settings-tts-picker-cancel".to_string())
                 .tab_index(0)
-                .on_click(cx.listener(MultisoulApp::on_voice_cancel_tts_picker)),
+                .active(|button| button.opacity(0.72))
+                .on_click(cx.listener(MultisoulApp::on_voice_cancel_tts_picker))
+                .on_key_down(cx.listener(|app, event: &gpui::KeyDownEvent, window, cx| {
+                    if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                        app.on_voice_cancel_tts_picker(&gpui::ClickEvent::default(), window, cx);
+                        cx.stop_propagation();
+                    }
+                })),
         )
         .child({
             action_button(
@@ -396,9 +428,18 @@ fn footer(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<MultisoulAp
             )
             .id("settings-tts-picker-apply")
             .debug_selector(|| "settings-tts-picker-apply".to_string())
-            .tab_index(0)
             .when(ready, |button| {
-                button.on_click(cx.listener(MultisoulApp::on_voice_apply_tts_picker))
+                button
+                    .tab_index(0)
+                    .active(|button| button.opacity(0.72))
+                    .on_click(cx.listener(MultisoulApp::on_voice_apply_tts_picker))
+                    .on_key_down(cx.listener(|app, event: &gpui::KeyDownEvent, window, cx| {
+                        if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                            app.on_voice_apply_tts_picker(&gpui::ClickEvent::default(), window, cx);
+                            cx.stop_propagation();
+                        }
+                    }))
             })
+            .when(!ready, |button| button.opacity(0.45).cursor_default())
         })
 }

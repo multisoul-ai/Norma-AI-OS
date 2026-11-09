@@ -238,6 +238,12 @@ impl VoiceSettingsState {
         Some(true)
     }
 
+    /// Preview validation may refresh the live MiniMax voice only after the picker
+    /// has committed or was never open, and only when no save is still queued.
+    pub(crate) fn minimax_preview_should_reconfigure_active(&self) -> bool {
+        !self.tts_picker_open() && !self.settings_persistence_pending()
+    }
+
     pub(crate) fn set_tts_picker_local_selection(
         &mut self,
         model_id: tts::TtsModelId,

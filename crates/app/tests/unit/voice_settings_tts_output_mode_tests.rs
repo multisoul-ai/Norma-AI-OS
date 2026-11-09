@@ -105,6 +105,113 @@ fn test_off_commit_is_ready_for_text_and_keeps_the_local_voice() {
     assert!(!state.tts_picker_open(), "提交后选择器必须关闭");
 }
 
+/// TTS-OUTPUT-4：关闭与系统旁白的提交只进入待写队列，执行后重载才保留。
+///
+/// 数据构造：隔离 SQLite。先把 Kokoro + af_bella + local 写完并清空队列，
+/// 再分别提交 off，以及名单内的系统声音 Bad News。
+///
+/// 执行过程：
+///   1. 提交后、执行队列前读取数据库；
+///   2. 执行待写并重载。
+///
+/// 预期结果：
+///   - 正断言：执行后重载得到 off，或 system + Bad News。
+///   - 负断言：提交当下数据库仍是 local；本机 Bella 不被清掉。
+///     应用路径必须调用 persist_voice_settings_in_background，否则队列不会执行。
+#[test]
+fn test_output_mode_commit_waits_for_the_background_flush() {
+    let temp = tempfile::tempdir().expect("应创建输出模式持久化目录");
+    let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
+    let mut state = VoiceSettingsState::load_from_store(store.clone());
+    flush_voice_writes(&mut state);
+    let voice = tts::TtsVoiceId::parse("af_bella").expect("Bella Voice ID 必须有效");
+    let model =
+        tts::TtsModelId::parse(tts::KOKORO_MULTI_LANG_MODEL_ID).expect("Kokoro 模型 ID 必须有效");
+    state.select_tts_model_and_voice(Some(model), Some(voice.clone()));
+    state.select_tts_provider(Some(
+        tts::TtsProviderId::parse(tts::LOCAL_TTS_PROVIDER_ID).expect("本机 Provider ID 必须有效"),
+    ));
+    flush_voice_writes(&mut state);
+
+    state.open_tts_picker();
+    state.select_tts_picker_provider(tts::OFF_TTS_PROVIDER_ID);
+    assert!(state.commit_tts_picker_output_mode(), "关闭草稿应能提交");
+    assert!(
+        state.settings_persistence_pending(),
+        "有存储时提交关闭必须留下待写，不能只改内存"
+    );
+    assert_ne!(
+        store
+            .get_string("voice.tts.active_provider_id")
+            .expect("提交后应能读取 Provider 键")
+            .as_deref(),
+        Some("off"),
+        "提交关闭不得在前台同步写入 SQLite"
+    );
+    flush_voice_writes(&mut state);
+    let reloaded = VoiceSettingsState::load_from_store(store.clone());
+    assert_eq!(
+        reloaded
+            .values()
+            .active_tts_provider_id()
+            .map(tts::TtsProviderId::as_str),
+        Some(tts::OFF_TTS_PROVIDER_ID),
+        "执行待写后重载必须仍是关闭"
+    );
+    assert_eq!(
+        reloaded.values().tts_voice_id(),
+        Some(&voice),
+        "关闭的待写不得清掉本机 Bella"
+    );
+
+    let mut state = reloaded;
+    flush_voice_writes(&mut state);
+    state.set_system_voice_names(vec!["Bad News".to_string()]);
+    state.open_tts_picker();
+    state.select_tts_picker_provider(tts::SYSTEM_TTS_PROVIDER_ID);
+    assert!(
+        state.set_tts_picker_system_voice("Bad News"),
+        "名单内的 Bad News 必须可以选中"
+    );
+    assert!(
+        state.commit_tts_picker_output_mode(),
+        "已枚举的系统声音应能提交"
+    );
+    assert_ne!(
+        store
+            .get_string("voice.tts.system_voice")
+            .expect("提交后应能读取系统声音键")
+            .as_deref(),
+        Some("Bad News"),
+        "提交系统旁白不得在前台同步写入 SQLite"
+    );
+    flush_voice_writes(&mut state);
+    let reloaded = VoiceSettingsState::load_from_store(store);
+    assert_eq!(
+        reloaded
+            .values()
+            .active_tts_provider_id()
+            .map(tts::TtsProviderId::as_str),
+        Some(tts::SYSTEM_TTS_PROVIDER_ID),
+        "执行待写后重载必须是系统旁白"
+    );
+    assert_eq!(
+        reloaded
+            .values()
+            .system_tts_voice()
+            .map(tts::TtsVoiceId::as_str),
+        Some("Bad News"),
+        "执行待写后必须保留系统声音名"
+    );
+}
+
+fn flush_voice_writes(state: &mut VoiceSettingsState) {
+    for write in state.take_pending_writes() {
+        write.execute().expect("输出模式待写应能执行");
+    }
+    state.record_persistence_result(Ok(()));
+}
+
 /// TTS-OUTPUT-3：系统旁白只能提交已枚举的 macOS 声音，且不覆盖本机音色。
 ///
 /// 数据构造：当前生效 = Kokoro + af_bella。枚举名单只有 Tingting 与 Bad News。

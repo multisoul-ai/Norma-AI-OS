@@ -70,6 +70,10 @@ impl MultisoulApp {
             cx.notify();
             return;
         }
+        self.cancel_agent_announcements();
+        self.clear_agent_announcement_audio_for_voice_change();
+        self.tts_preview.cancel();
+        self.invalidate_tts_for_configuration_change(cx);
         self.dialogue.selected_tts_model = match provider.as_deref() {
             Some(tts::SYSTEM_TTS_PROVIDER_ID) => {
                 voice.map(crate::app::dialogue::SelectedTtsModel::system)
@@ -77,6 +81,7 @@ impl MultisoulApp {
             _ => None,
         };
         self.complete_voice_setup_if_ready(cx);
+        self.persist_voice_settings_in_background(cx);
         cx.notify();
     }
 

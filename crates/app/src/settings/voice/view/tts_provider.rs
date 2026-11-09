@@ -86,7 +86,7 @@ pub(super) fn minimax_configuration(
                     action_button(
                         theme,
                         if connection_expanded {
-                            "Done"
+                            ui::i18n::text("voice.connection_done")
                         } else {
                             ui::i18n::text("voice.manage")
                         },

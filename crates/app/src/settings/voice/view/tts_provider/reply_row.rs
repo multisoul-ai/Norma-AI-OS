@@ -36,12 +36,9 @@ pub(in crate::settings::voice::view) fn spoken_reply_row(
         .track_focus(&inputs.tts_row_focus)
         .focus(move |row| row.border_color(rgba(theme.accent_blue)))
         .on_click(cx.listener(MultisoulApp::on_voice_open_tts_picker))
-        .on_key_down(cx.listener(|app, event: &gpui::KeyDownEvent, _, cx| {
+        .on_key_down(cx.listener(|app, event: &gpui::KeyDownEvent, window, cx| {
             if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                app.voice_settings.open_tts_picker();
-                app.voice_settings_inputs
-                    .sync_from_state(&app.voice_settings, cx);
-                cx.notify();
+                app.on_voice_open_tts_picker(&gpui::ClickEvent::default(), window, cx);
                 cx.stop_propagation();
             }
         }))

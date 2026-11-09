@@ -3,6 +3,7 @@ use crate::app::MultisoulApp;
 use gpui::{ClickEvent, Context, Window};
 
 mod activation;
+mod sheet_focus;
 mod work;
 use work::{minimax_turbo_model_id, query_minimax_voice_catalog, selected_minimax_tts};
 
@@ -30,18 +31,6 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.dismiss_tts_picker(window, cx);
-    }
-
-    pub(crate) fn on_voice_sheet_key(
-        &mut self,
-        event: &gpui::KeyDownEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if event.keystroke.key == "escape" {
-            self.dismiss_tts_picker(window, cx);
-            cx.stop_propagation();
-        }
     }
 
     fn dismiss_tts_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
