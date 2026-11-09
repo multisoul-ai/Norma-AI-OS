@@ -3,7 +3,7 @@ use super::{
     parse_hook_event, AgentHookError, ClaudeQuestion, HookForwardEnv, HookQuestionRequest,
     HookSource, QUESTION_TIMEOUT,
 };
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
@@ -14,16 +14,31 @@ pub fn forward_question(
     env: HookForwardEnv,
     run_id: String,
 ) -> Result<Option<Value>, AgentHookError> {
-    if source != HookSource::Claude || run_id.is_empty() || run_id.len() > 128 {
+    if !matches!(
+        source,
+        HookSource::Claude
+            | HookSource::Grok
+            | HookSource::Kimi
+            | HookSource::ZCode
+            | HookSource::InfCode
+    ) || run_id.is_empty()
+        || run_id.len() > 128
+    {
         return Err(invalid("unsupported question bridge"));
     }
-    let shape = ClaudeQuestion::from_hook(&raw);
-    let original = raw["tool_input"].clone();
+    let shape = ClaudeQuestion::from_profile(super::profile_for_source(source), &raw);
+    let unsupported = shape.as_ref().err().copied();
     let mut event = parse_hook_event(source, env.node_id, raw)?;
     event.control_run_id = Some(run_id.clone());
-    exchange_question(&env, &HookQuestionRequest { run_id, event }, shape.err())?
-        .map(|output| validate_output(original, output))
-        .transpose()
+    let output = exchange_question(&env, &HookQuestionRequest { run_id, event }, unsupported)?;
+    match (output, shape) {
+        (None, _) => Ok(None),
+        (Some(output), Ok(question)) => question
+            .sanitize_hook_response(output)
+            .map(Some)
+            .map_err(invalid),
+        (Some(_), Err(reason)) => Err(invalid(reason)),
+    }
 }
 
 /// Background-only request from a native transport. Return data, never an executable RPC.
@@ -134,47 +149,6 @@ fn exchange_question(
         Some("200") => Ok(Some(serde_json::from_slice(body)?)),
         _ => Err(invalid("question request rejected")),
     }
-}
-
-fn validate_output(mut original: Value, output: Value) -> Result<Value, AgentHookError> {
-    let specific = &output["hookSpecificOutput"];
-    if specific["hookEventName"] != "PreToolUse" || specific["permissionDecision"] != "allow" {
-        return Err(invalid("invalid question response"));
-    }
-    let mut updated = specific["updatedInput"].clone();
-    let answers = updated
-        .as_object_mut()
-        .and_then(|input| input.remove("answers"))
-        .ok_or_else(|| invalid("missing question answers"))?;
-    let mapped = answers
-        .as_object()
-        .ok_or_else(|| invalid("invalid question answers"))?;
-    original
-        .as_object_mut()
-        .ok_or_else(|| invalid("invalid original input"))?
-        .remove("answers");
-    if original != updated {
-        return Err(invalid("question input changed"));
-    }
-    let questions = original["questions"]
-        .as_array()
-        .ok_or_else(|| invalid("invalid original questions"))?;
-    if mapped.len() != questions.len()
-        || !questions.iter().all(|question| {
-            question["question"]
-                .as_str()
-                .and_then(|prompt| mapped.get(prompt))
-                .and_then(Value::as_str)
-                .is_some_and(|answer| !answer.trim().is_empty() && answer.len() <= 32768)
-        })
-    {
-        return Err(invalid("incomplete question answers"));
-    }
-    // Only the original input and answers cross stdout; ignore server permission/config fields.
-    original["answers"] = answers;
-    Ok(
-        json!({"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":original}}),
-    )
 }
 
 fn invalid(message: &str) -> AgentHookError {

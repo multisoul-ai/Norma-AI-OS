@@ -3,6 +3,8 @@ pub mod cli;
 mod approval;
 mod question;
 pub use question::ClaudeQuestion;
+mod question_reply;
+pub use question_reply::{hook_invocation_id, is_hook_ask_tool, HookAskReply};
 mod native_question;
 pub use native_question::{NativeQuestion, NativeQuestionReply};
 mod question_ticket;

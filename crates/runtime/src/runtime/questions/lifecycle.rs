@@ -2,6 +2,35 @@
 use super::*;
 use norma::agent_hook::AgentHookEvent;
 
+/// Desktop cards that own a blocking question hook. Canvas and protocol lists stay the same.
+pub(in crate::runtime) fn reserves_native_question_run(profile: canvas::AgentProfile) -> bool {
+    matches!(
+        profile,
+        canvas::AgentProfile::Claude
+            | canvas::AgentProfile::Codex
+            | canvas::AgentProfile::Cursor
+            | canvas::AgentProfile::OpenCode
+            | canvas::AgentProfile::Grok
+            | canvas::AgentProfile::Kimi
+            | canvas::AgentProfile::ZCode
+            | canvas::AgentProfile::InfCode
+    )
+}
+
+pub(in crate::runtime) fn accepts_question_profile(profile: norma::protocol::AgentProfile) -> bool {
+    matches!(
+        profile,
+        norma::protocol::AgentProfile::Claude
+            | norma::protocol::AgentProfile::Codex
+            | norma::protocol::AgentProfile::Cursor
+            | norma::protocol::AgentProfile::OpenCode
+            | norma::protocol::AgentProfile::Grok
+            | norma::protocol::AgentProfile::Kimi
+            | norma::protocol::AgentProfile::ZCode
+            | norma::protocol::AgentProfile::InfCode
+    )
+}
+
 impl Runtime {
     pub(in crate::runtime) fn prepare_question_restore(&mut self) -> Vec<NodeId> {
         let nodes: Vec<_> = self
@@ -15,13 +44,7 @@ impl Runtime {
                 (!spec.mobile_control
                     && !self.live.contains_key(&node.id)
                     && !self.mobile_runs.contains_key(&node.id)
-                    && matches!(
-                        spec.profile,
-                        canvas::AgentProfile::Claude
-                            | canvas::AgentProfile::Codex
-                            | canvas::AgentProfile::Cursor
-                            | canvas::AgentProfile::OpenCode
-                    ))
+                    && reserves_native_question_run(spec.profile))
                 .then_some(node.id)
             })
             .collect();
@@ -89,15 +112,7 @@ impl Runtime {
         {
             return false;
         }
-        if event.control_run_id.is_none()
-            || !matches!(
-                event.profile,
-                norma::protocol::AgentProfile::Claude
-                    | norma::protocol::AgentProfile::Codex
-                    | norma::protocol::AgentProfile::OpenCode
-                    | norma::protocol::AgentProfile::Cursor
-            )
-        {
+        if event.control_run_id.is_none() || !accepts_question_profile(event.profile) {
             return true;
         }
         let Some(session) = event.session_id.as_deref() else {

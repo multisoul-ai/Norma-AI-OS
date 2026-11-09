@@ -25,9 +25,8 @@ impl FallbackQuestions {
 
 impl Runtime {
     pub(in crate::runtime) fn retain_claude_question_blocker(&mut self, event: &AgentHookEvent) {
-        if event.profile != norma::protocol::AgentProfile::Claude
+        if !norma::agent_hook::is_hook_ask_tool(event.profile, event.tool_name.as_deref())
             || event.provider_event != "PreToolUse"
-            || event.tool_name.as_deref() != Some("AskUserQuestion")
             || event.control_run_id.is_none()
             || self.native_question_process_id(event.node_id) != event.control_run_id.as_deref()
             || self.agent_session_id(event.node_id) != event.session_id
@@ -43,7 +42,9 @@ impl Runtime {
                     && Some(&target.session_id) == event.session_id.as_ref()
                     && target.request_id
                         == norma::protocol::QuestionRequestId::String(
-                            event.raw_json["tool_use_id"].as_str().unwrap_or("").into(),
+                            norma::agent_hook::hook_invocation_id(&event.raw_json)
+                                .unwrap_or("")
+                                .into(),
                         )
                     && matches!(
                         entry.snapshot.state,
@@ -66,9 +67,7 @@ impl Runtime {
         }
         if pending.len() >= 32
             || event.raw_json.to_string().len() > 65536
-            || event.raw_json["tool_use_id"]
-                .as_str()
-                .is_none_or(str::is_empty)
+            || norma::agent_hook::hook_invocation_id(&event.raw_json).is_none()
         {
             self.questions.fallback.saturated.insert(event.node_id);
         } else {
@@ -112,19 +111,58 @@ fn same_call(pre: &AgentHookEvent, post: &AgentHookEvent) -> bool {
             .turn_id
             .as_ref()
             .is_none_or(|turn| post.turn_id.as_ref() == Some(turn))
-        && pre.raw_json["tool_use_id"].as_str().is_some()
-        && pre.raw_json["tool_use_id"] == post.raw_json["tool_use_id"]
+        && norma::agent_hook::hook_invocation_id(&pre.raw_json).is_some()
+        && norma::agent_hook::hook_invocation_id(&pre.raw_json)
+            == norma::agent_hook::hook_invocation_id(&post.raw_json)
 }
 
 fn matches_result(pre: &AgentHookEvent, post: &AgentHookEvent) -> bool {
-    same_call(pre, post)
-        && post.profile == norma::protocol::AgentProfile::Claude
-        && post.tool_name.as_deref() == Some("AskUserQuestion")
-        && !pre.raw_json["tool_input"]["questions"].is_null()
-        && pre.raw_json["tool_input"]["questions"] == post.raw_json["tool_input"]["questions"]
-        && match post.provider_event.as_str() {
-            "PostToolUse" => post.raw_json["tool_response"]["answers"].is_object(),
-            "PostToolUseFailure" => post.raw_json["error"].is_string(),
-            _ => false,
-        }
+    if !same_call(pre, post)
+        || !norma::agent_hook::is_hook_ask_tool(post.profile, post.tool_name.as_deref())
+    {
+        return false;
+    }
+    // Ambiguous labels cannot be answered from the island, but the same call still ends the block.
+    if let Ok(question) =
+        norma::agent_hook::ClaudeQuestion::from_profile(pre.profile, &pre.raw_json)
+    {
+        return question.confirms_consumption(&post.raw_json)
+            || question.confirms_failure(&post.raw_json);
+    }
+    let Some(questions) = input_questions(&pre.raw_json) else {
+        return false;
+    };
+    if input_questions(&post.raw_json) != Some(questions) {
+        return false;
+    }
+    match post.provider_event.as_str() {
+        "PostToolUse" => response_answers(&post.raw_json),
+        "PostToolUseFailure" => failure_error(&post.raw_json),
+        _ => false,
+    }
+}
+
+fn input_questions(raw: &serde_json::Value) -> Option<&serde_json::Value> {
+    raw.get("tool_input")
+        .or_else(|| raw.get("toolInput"))
+        .and_then(|input| input.get("questions"))
+        .filter(|questions| !questions.is_null())
+}
+
+fn response_answers(raw: &serde_json::Value) -> bool {
+    raw.get("tool_response")
+        .or_else(|| raw.get("toolResponse"))
+        .and_then(|body| body.get("answers"))
+        .is_some_and(|answers| answers.is_object())
+}
+
+fn failure_error(raw: &serde_json::Value) -> bool {
+    match raw.get("error") {
+        Some(value) if value.as_str().is_some_and(|text| !text.is_empty()) => true,
+        Some(value) => value
+            .get("message")
+            .and_then(|message| message.as_str())
+            .is_some_and(|text| !text.is_empty()),
+        None => false,
+    }
 }
