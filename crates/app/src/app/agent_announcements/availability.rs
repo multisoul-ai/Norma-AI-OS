@@ -86,6 +86,9 @@ impl MultisoulApp {
         let Some(provider) = self.voice_settings.values().active_tts_provider_id() else {
             return AgentAnnouncementTtsAvailability::Unavailable;
         };
+        if provider.as_str() == tts::OFF_TTS_PROVIDER_ID {
+            return AgentAnnouncementTtsAvailability::Unavailable;
+        }
         if provider.as_str() == tts::MINIMAX_TTS_PROVIDER_ID {
             return match self.voice_settings.minimax_readiness() {
                 tts::RemoteTtsReadiness::Configured

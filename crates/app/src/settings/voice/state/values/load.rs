@@ -68,6 +68,8 @@ impl SavedVoiceSettings {
                 .and_then(|value| TtsVoiceId::parse(value).ok()),
             active_tts_provider_id: non_empty_option(store.get_string(KEY_TTS_ACTIVE_PROVIDER_ID)?)
                 .and_then(|value| tts::TtsProviderId::parse(value).ok()),
+            system_tts_voice: non_empty_option(store.get_string(KEY_TTS_SYSTEM_VOICE)?)
+                .and_then(|value| TtsVoiceId::parse(value).ok()),
             minimax_tts_model_id: non_empty_option(store.get_string(KEY_TTS_MINIMAX_MODEL_ID)?)
                 .and_then(|value| TtsModelId::parse(value).ok()),
             minimax_tts_voice_id: non_empty_option(store.get_string(KEY_TTS_MINIMAX_VOICE_ID)?)

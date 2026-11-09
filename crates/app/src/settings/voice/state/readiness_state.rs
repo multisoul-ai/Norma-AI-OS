@@ -147,6 +147,16 @@ impl VoiceSettingsState {
         let Some(provider_id) = self.values.active_tts_provider_id() else {
             return VoiceRequirementState::Missing;
         };
+        if provider_id.as_str() == tts::OFF_TTS_PROVIDER_ID {
+            return VoiceRequirementState::Ready;
+        }
+        if provider_id.as_str() == tts::SYSTEM_TTS_PROVIDER_ID {
+            return if self.values.system_tts_voice().is_some() {
+                VoiceRequirementState::Ready
+            } else {
+                VoiceRequirementState::Missing
+            };
+        }
         if provider_id.as_str() == tts::MINIMAX_TTS_PROVIDER_ID {
             return match self.minimax_readiness() {
                 tts::RemoteTtsReadiness::Ready => VoiceRequirementState::Ready,

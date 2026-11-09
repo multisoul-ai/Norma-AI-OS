@@ -19,7 +19,7 @@ struct ReferenceFieldState {
     _subscription: Subscription,
 }
 
-pub(super) fn zipvoice_reference_controls(
+pub(in crate::settings::voice::view) fn zipvoice_reference_controls(
     theme: Theme,
     state: &VoiceSettingsState,
     descriptor: &tts::TtsModelDescriptor,

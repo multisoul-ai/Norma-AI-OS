@@ -2,7 +2,7 @@ use super::tts_provider::tts_provider_settings;
 use super::{setting_label, settings_group, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
 use crate::settings::voice::VoiceSettingsState;
-use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent};
+use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Window};
 use std::rc::Rc;
 use ui::component::{switch::Switch, Sizable};
 use ui::Theme;
@@ -11,10 +11,11 @@ pub(super) fn spoken_reply_group(
     theme: Theme,
     state: &VoiceSettingsState,
     inputs: &VoiceSettingsInputs,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     settings_group(theme, ui::i18n::text("voice.spoken_replies"))
-        .child(tts_provider_settings(theme, state, inputs, cx))
+        .child(tts_provider_settings(theme, state, inputs, window, cx))
         .child(reply_preferences(theme, state, cx))
 }
 

@@ -28,6 +28,7 @@ pub(super) struct TtsPickerDraft {
     applying: bool,
     models_expanded: bool,
     connection_expanded: bool,
+    system_voice: Option<tts::TtsVoiceId>,
 }
 
 impl VoiceSettingsState {
@@ -50,6 +51,7 @@ impl VoiceSettingsState {
             applying: false,
             models_expanded: false,
             connection_expanded,
+            system_voice: self.values.system_tts_voice().cloned(),
         });
     }
 
@@ -72,7 +74,10 @@ impl VoiceSettingsState {
         }
         let supported = matches!(
             provider_id,
-            tts::LOCAL_TTS_PROVIDER_ID | tts::MINIMAX_TTS_PROVIDER_ID
+            tts::LOCAL_TTS_PROVIDER_ID
+                | tts::MINIMAX_TTS_PROVIDER_ID
+                | tts::OFF_TTS_PROVIDER_ID
+                | tts::SYSTEM_TTS_PROVIDER_ID
         );
         if !supported {
             return;
@@ -233,6 +238,12 @@ impl VoiceSettingsState {
         Some(true)
     }
 
+    /// Preview validation may refresh the live MiniMax voice only after the picker
+    /// has committed or was never open, and only when no save is still queued.
+    pub(crate) fn minimax_preview_should_reconfigure_active(&self) -> bool {
+        !self.tts_picker_open() && !self.settings_persistence_pending()
+    }
+
     pub(crate) fn set_tts_picker_local_selection(
         &mut self,
         model_id: tts::TtsModelId,
@@ -323,6 +334,68 @@ impl VoiceSettingsState {
             }
             Some(tts::MINIMAX_TTS_PROVIDER_ID) => {
                 self.tts_picker_minimax_readiness() == tts::RemoteTtsReadiness::Ready
+            }
+            Some(tts::OFF_TTS_PROVIDER_ID) => true,
+            Some(tts::SYSTEM_TTS_PROVIDER_ID) => self.tts_picker.as_ref().is_some_and(|draft| {
+                draft.system_voice.as_ref().is_some_and(|voice| {
+                    self.system_voice_names()
+                        .iter()
+                        .any(|name| name == voice.as_str())
+                })
+            }),
+            _ => false,
+        }
+    }
+
+    pub(crate) fn tts_picker_system_voice(&self) -> Option<&tts::TtsVoiceId> {
+        self.tts_picker
+            .as_ref()
+            .and_then(|draft| draft.system_voice.as_ref())
+    }
+
+    pub(crate) fn set_tts_picker_system_voice(&mut self, name: &str) -> bool {
+        let Ok(voice) = tts::TtsVoiceId::parse(name.trim()) else {
+            return false;
+        };
+        if !self
+            .system_voice_names()
+            .iter()
+            .any(|known| known == voice.as_str())
+        {
+            return false;
+        }
+        let Some(draft) = self.tts_picker.as_mut() else {
+            return false;
+        };
+        if draft.applying || draft.provider_id.as_str() != tts::SYSTEM_TTS_PROVIDER_ID {
+            return false;
+        }
+        draft.system_voice = Some(voice);
+        true
+    }
+
+    pub(crate) fn commit_tts_picker_output_mode(&mut self) -> bool {
+        let Some(draft) = self.tts_picker.clone() else {
+            return false;
+        };
+        if draft.applying || !self.tts_picker_ready() {
+            return false;
+        }
+        match draft.provider_id.as_str() {
+            tts::OFF_TTS_PROVIDER_ID => {
+                self.select_tts_provider(Some(draft.provider_id));
+                self.finish_tts_picker();
+                true
+            }
+            tts::SYSTEM_TTS_PROVIDER_ID => {
+                let Some(voice) = draft.system_voice else {
+                    return false;
+                };
+                self.saved.system_tts_voice = Some(voice.clone());
+                self.persist_string(super::values::KEY_TTS_SYSTEM_VOICE, voice.as_str());
+                self.select_tts_provider(Some(draft.provider_id));
+                self.finish_tts_picker();
+                true
             }
             _ => false,
         }

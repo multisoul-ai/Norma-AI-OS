@@ -379,3 +379,73 @@ fn test_model_switch_falls_back_to_recommended_voice() {
         "切换模型后不得保留新模型不存在的旧 Voice"
     );
 }
+
+/// TTS-CATALOG-4：语音设置只能展示已核对的本机模型与音色。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   catalog models = 3
+///   Matcha zh-en voices = 1（default / Default Bilingual Voice）
+///   Kokoro voices = 2（af_heart / Heart，af_bella / Bella）
+///   ZipVoice voices = 1（cloned_reference / Cloned Reference Voice）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取内置目录的模型 ID 与每个模型的 Voice ID、显示名；
+///   2. 对照设置页允许展示的精确映射；
+///   3. 检查原型里未进目录的模型与音色。
+///
+/// 预期结果：
+///   - 正断言：三套模型的 Voice ID 与显示名与包内契约一致；
+///   - 负断言：不得出现 matcha-icefall-zh-baker，Kokoro 不得有 default，ZipVoice 不得有独立预设音色。
+#[test]
+fn test_settings_surface_uses_only_verified_local_voices() {
+    let catalog = builtin_model_catalog();
+    let ids: Vec<&str> = catalog
+        .entries()
+        .iter()
+        .map(|model| model.id().as_str())
+        .collect();
+    assert_eq!(
+        ids,
+        vec![
+            "matcha-icefall-zh-en",
+            "kokoro-int8-multi-lang-v1_1",
+            "zipvoice-distill-int8-zh-en-emilia",
+        ],
+        "设置页本机模型必须按目录顺序只含已核对的三项"
+    );
+
+    let voices = |id: &str| -> Vec<(&str, &str)> {
+        catalog
+            .find_by_str(id)
+            .expect("已核对模型必须存在")
+            .voices()
+            .iter()
+            .map(|voice| (voice.id().as_str(), voice.display_name()))
+            .collect()
+    };
+    assert_eq!(
+        voices("matcha-icefall-zh-en"),
+        vec![("default", "Default Bilingual Voice")],
+        "Matcha 中英只公开 default 音色"
+    );
+    assert_eq!(
+        voices("kokoro-int8-multi-lang-v1_1"),
+        vec![("af_heart", "Heart"), ("af_bella", "Bella")],
+        "Kokoro 只公开 Heart 与 Bella"
+    );
+    assert_eq!(
+        voices("zipvoice-distill-int8-zh-en-emilia"),
+        vec![("cloned_reference", "Cloned Reference Voice")],
+        "ZipVoice 只公开克隆参考占位，具体音色来自参考 WAV"
+    );
+    assert!(
+        catalog.find_by_str("matcha-icefall-zh-baker").is_none(),
+        "未进目录的 Matcha 中文模型不得出现在设置页"
+    );
+    assert!(
+        !voices("kokoro-int8-multi-lang-v1_1")
+            .iter()
+            .any(|(id, _)| *id == "default"),
+        "Kokoro 没有 default 音色，不能照原型补一个"
+    );
+}

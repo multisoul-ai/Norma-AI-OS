@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Norma · 语音设置原型（精简版）</title>
+<style>
+:root{--bg:#0f141b;--surface:#171d26;--surface-2:#1e2632;--surface-3:#263040;--outline:#2f3a4b;--outline-soft:#232c39;--text:#e6ebf3;--text-2:#a5b1c4;--text-3:#7a879b;--primary:#8ab4f8;--on-primary:#0b2a57;--primary-container:#1f3a63;--on-primary-container:#d6e4ff;--ok:#81c995;--ok-container:#173a26;--warn:#f2b8a2;--warn-container:#3d2420;--shadow:0 8px 28px rgba(0,0,0,.45);--state-hover:rgba(230,235,243,.08);--state-press:rgba(230,235,243,.14)}
+[data-theme=light]{--bg:#e9eef6;--surface:#fbfcff;--surface-2:#f1f4fa;--surface-3:#e4e9f2;--outline:#c3cbd8;--outline-soft:#dde3ed;--text:#1b2330;--text-2:#4b5a70;--text-3:#6b778b;--primary:#1a56d6;--on-primary:#fff;--primary-container:#d9e5ff;--on-primary-container:#0b2a57;--ok:#16784b;--ok-container:#d8f1e2;--warn:#a1352a;--warn-container:#fde4de;--shadow:0 8px 28px rgba(30,45,70,.18);--state-hover:rgba(27,35,48,.07);--state-press:rgba(27,35,48,.13)}
+*{box-sizing:border-box;margin:0}
+body{font:14px/1.45 -apple-system,"SF Pro Text","PingFang SC",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;justify-content:center;padding:56px 16px 40px;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+.stagebar{position:fixed;top:12px;right:16px;display:flex;gap:8px;font-size:12px}
+.stagebar button{background:var(--surface-2);color:var(--text-2);border:1px solid var(--outline);border-radius:16px;padding:6px 12px;cursor:pointer;font-size:12px}
+.win{width:640px;max-width:100%;height:fit-content;background:var(--surface);border:1px solid var(--outline);border-radius:20px;box-shadow:var(--shadow);padding-bottom:20px}
+header{padding:20px 24px 12px;display:flex;justify-content:space-between;align-items:flex-start}
+header small{color:var(--text-3);font-size:11px;letter-spacing:.04em}
+header h1{font-size:22px;font-weight:600;line-height:1.3}
+header p{color:var(--text-2);font-size:13px}
+kbd{font:inherit;font-size:12px;color:var(--text-2);border:1px solid var(--outline);border-radius:6px;padding:0 5px}
+.icon-btn{width:40px;height:40px;border-radius:50%;border:0;background:none;color:var(--text-2);cursor:pointer;display:grid;place-items:center}
+.icon-btn:hover,.row:hover{background:var(--state-hover)}
+.icon-btn:active,.row:active{background:var(--state-press)}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+svg{width:20px;height:20px;fill:currentColor;flex:none}
+section{padding:0 24px}
+.seg{display:inline-flex;border:1px solid var(--outline);border-radius:20px;overflow:hidden;height:36px;max-width:100%}
+.seg.full{display:flex;height:40px}
+.seg button{flex:1;border:0;background:none;color:var(--text-2);font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 14px;border-left:1px solid var(--outline);white-space:nowrap;font-size:13px}
+.seg button:first-child{border-left:0}
+.seg button:hover{background:var(--state-hover)}
+.seg button[aria-checked=true]{background:var(--primary-container);color:var(--on-primary-container)}
+.seg button .chk{width:16px;height:16px;display:none}
+.seg button[aria-checked=true] .chk{display:block}
+.mode-hint{color:var(--text-2);font-size:13px;margin:10px 4px 16px}
+.status{border-radius:16px;padding:16px;display:flex;gap:14px;align-items:center;margin-bottom:8px}
+.status.todo{background:var(--warn-container)}.status.ready{background:var(--ok-container)}
+.status .dot{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.08);flex:none}
+.status.todo .dot{color:var(--warn)}.status.ready .dot{color:var(--ok)}
+.status b{display:block;font-size:15px;font-weight:600}
+.status .s{color:var(--text-2);font-size:13px}
+.steps{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.chip{height:28px;border-radius:8px;border:1px solid var(--outline);padding:0 10px;display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);background:none}
+.chip svg{width:16px;height:16px}
+.chip.done{color:var(--ok);border-color:transparent;background:rgba(129,201,149,.14)}
+.grow{flex:1;min-width:0}
+.btn{height:40px;border-radius:20px;border:0;padding:0 22px;font-weight:600;cursor:pointer;background:var(--primary);color:var(--on-primary);white-space:nowrap}
+.btn:hover{filter:brightness(1.1)}
+.btn.tonal{background:var(--primary-container);color:var(--on-primary-container)}
+.btn.text{background:none;color:var(--primary);padding:0 12px}.btn.text:hover{background:var(--state-hover)}
+.btn.sm{height:32px;font-size:13px;padding:0 14px}
+.btn[disabled]{opacity:.5;cursor:default;filter:none}
+.grp{font-size:12px;font-weight:600;color:var(--primary);letter-spacing:.04em;padding:18px 12px 4px}
+.row{display:flex;align-items:center;gap:14px;min-height:60px;padding:8px 12px;border-radius:12px;border:0;background:none;width:100%;text-align:left;color:inherit}
+.row.link{cursor:pointer}.row.link:hover{background:var(--state-hover)}.row.link:active{background:var(--state-press)}
+.row .ic{width:40px;height:40px;border-radius:50%;background:var(--surface-3);display:grid;place-items:center;color:var(--text-2);flex:none}
+.row .t{flex:1;min-width:0}
+.row .t b{display:block;font-weight:500;font-size:15px}
+.row .t span{color:var(--text-2);font-size:13px}
+.row .v{color:var(--text-2);font-size:13px;display:flex;align-items:center;gap:4px;flex:none}
+.row .v svg{width:18px;height:18px}
+.sw{width:52px;height:32px;border-radius:16px;border:2px solid var(--outline);background:var(--surface-3);position:relative;cursor:pointer;flex:none;padding:0}
+.sw::after{content:"";position:absolute;top:6px;left:6px;width:16px;height:16px;border-radius:50%;background:var(--text-3);transition:.15s}
+.sw[aria-checked=true]{background:var(--primary);border-color:var(--primary)}
+.sw[aria-checked=true]::after{left:22px;top:4px;width:20px;height:20px;background:var(--on-primary)}
+.adv-toggle .chev{transition:.15s}
+.adv.open .chev{transform:rotate(180deg)}
+.adv-body{display:none;margin-top:4px;padding:4px 0 8px;border-top:1px solid var(--outline-soft)}
+.adv.open .adv-body{display:block}
+.sub{padding:10px 12px 4px;color:var(--text-3);font-size:12px}
+.try{margin:20px 24px 0;background:var(--surface-2);border-radius:16px;padding:16px}
+.try h3{font-size:15px;font-weight:600}.try p{color:var(--text-2);font-size:13px;margin:2px 0 12px}
+.field{display:flex;align-items:center;gap:8px;border:1px solid var(--outline);border-radius:12px;padding:0 6px 0 14px;height:48px;background:var(--surface)}
+.field:focus-within{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
+.field input{flex:1;background:none;border:0;color:var(--text);font:inherit;outline:0;min-width:0}
+.field input::placeholder{color:var(--text-3)}
+.eg{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.eg .chip{cursor:pointer;background:var(--surface)}
+.eg .chip:hover{background:var(--state-hover)}
+.result{margin-top:12px;border-radius:12px;background:var(--surface);border:1px solid var(--outline-soft);padding:12px 14px;font-size:13px}
+.result .k{color:var(--text-3);font-size:11px;letter-spacing:.04em}
+.result .route{display:flex;gap:8px;align-items:center;margin-top:4px;font-weight:600;flex-wrap:wrap}
+.tag{font-size:11px;border-radius:6px;padding:1px 8px;font-weight:500}
+.tag.local{background:rgba(129,201,149,.16);color:var(--ok)}.tag.llm{background:var(--primary-container);color:var(--on-primary-container)}
+.note{color:var(--text-3);font-size:12px;margin-top:8px}
+.menu{position:absolute;z-index:20;width:300px;background:var(--surface-2);border:1px solid var(--outline);border-radius:12px;box-shadow:var(--shadow);padding:8px 0;display:none}
+.menu.open{display:block}
+.mi{display:flex;align-items:center;gap:12px;min-height:48px;padding:6px 12px 6px 16px;cursor:pointer;border:0;background:none;color:var(--text);width:100%;text-align:left}
+.mi:hover{background:var(--state-hover)}.mi:active{background:var(--state-press)}
+.mi .l{flex:1}.mi .l small{display:block;color:var(--text-3);font-size:12px;line-height:1.2}
+.mi svg{color:var(--primary);visibility:hidden;width:18px;height:18px}.mi[aria-checked=true] svg{visibility:visible}
+.mi[disabled]{opacity:.45;cursor:default}
+.mh{padding:8px 16px 4px;font-size:11px;color:var(--text-3);letter-spacing:.04em}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:.2s;pointer-events:none}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.cred{padding:6px 12px 10px}
+.cred .lbl{display:flex;justify-content:space-between;align-items:baseline;margin:6px 0 6px;font-size:13px;color:var(--text-2)}
+.cred .lbl b{font-weight:500;color:var(--text);font-size:14px}
+.cred .lbl em{font-style:normal;font-size:12px;color:var(--text-3)}
+.cred .hint{font-size:12px;color:var(--text-3);margin-top:6px}
+.field.sm{height:40px;border-radius:10px;padding:0 4px 0 12px}
+.field .ctl{background:none;border:0;color:var(--primary);cursor:pointer;padding:0 8px;font-size:13px;height:32px;border-radius:16px}
+.field .ctl:hover{background:var(--state-hover)}
+.field .ctl[disabled]{opacity:.4;cursor:default}
+.pill-ok{color:var(--ok);font-size:12px}
+.scrim{position:fixed;inset:0;background:rgba(5,8,12,.55);display:none;align-items:center;justify-content:center;z-index:40;padding:16px}
+.scrim.open{display:flex}
+.sheet{width:540px;max-width:100%;max-height:88vh;overflow:auto;background:var(--surface);border:1px solid var(--outline);border-radius:20px;box-shadow:var(--shadow);padding:20px 20px 16px}
+.sheet h2{font-size:18px;font-weight:600;margin-bottom:2px}
+.sheet .lead{color:var(--text-2);font-size:13px;margin-bottom:6px}
+.opt{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;min-height:52px;cursor:pointer}
+.opt:hover{background:var(--state-hover)}
+.opt .t{flex:1;min-width:0}.opt .t b{display:block;font-weight:500;font-size:14px}.opt .t span{color:var(--text-2);font-size:12px}
+.opt .radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--outline);flex:none;display:grid;place-items:center}
+.opt[aria-checked=true] .radio{border-color:var(--primary)}
+.opt[aria-checked=true] .radio::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--primary)}
+.opt[aria-checked=true]{background:var(--primary-container)}
+.sheet .foot{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--outline-soft)}
+.sheet .foot .grow{color:var(--text-2);font-size:13px;flex:1}
+.sheet .sub2{font-size:12px;color:var(--text-3);margin:14px 4px 6px;letter-spacing:.03em}
+.minibtn{height:30px;border-radius:15px;border:1px solid var(--outline);background:none;color:var(--primary);font-size:12px;padding:0 12px;cursor:pointer}
+.minibtn:hover{background:var(--state-hover)}
+.cred{padding:6px 12px 10px}
+.cred .lbl{display:flex;justify-content:space-between;align-items:baseline;margin:6px 0 6px;font-size:13px;color:var(--text-2)}
+.cred .lbl b{font-weight:500;color:var(--text);font-size:14px}
+.cred .lbl em{font-style:normal;font-size:12px;color:var(--text-3)}
+.cred .hint{font-size:12px;color:var(--text-3);margin-top:6px}
+.field.sm{height:40px;border-radius:10px;padding:0 4px 0 12px}
+.field .ctl{background:none;border:0;color:var(--primary);cursor:pointer;padding:0 8px;font-size:13px;height:32px;border-radius:16px}
+.field .ctl:hover{background:var(--state-hover)}
+.pill-ok{color:var(--ok);font-size:12px}
+.sub{padding:10px 12px 4px;color:var(--text-3);font-size:12px}
+.grp{font-size:12px;font-weight:600;color:var(--primary);letter-spacing:.04em;padding:18px 12px 4px}
+.adv.open .chev{transform:rotate(180deg)}
+.chev{transition:.15s}
+.adv-body{display:none;margin-top:4px;padding:4px 0 8px;border-top:1px solid var(--outline-soft)}
+.adv.open .adv-body{display:block}
+.field input{flex:1;background:none;border:0;color:var(--text);font:inherit;outline:0;min-width:0}
+.field input::placeholder{color:var(--text-3)}
+.field{display:flex;align-items:center;gap:8px;border:1px solid var(--outline);border-radius:12px;padding:0 6px 0 14px;height:48px;background:var(--surface)}
+.field:focus-within{border-color:var(--primary)}
+.btn.sm{height:32px;font-size:13px;padding:0 14px}
+.btn.text{background:none;color:var(--primary);padding:0 12px}
+</style>
+</head>
+<body>
+<div class="stagebar"><button id="theme">浅色 / 深色</button><button id="reset">重置演示</button></div>
+
+<main class="win" role="dialog" aria-label="语音设置">
+  <header>
+    <div><small>Norma</small><h1>语音</h1><p>让 Norma 听见你，也回应你 · <kbd>⌘E</kbd></p></div>
+    <button class="icon-btn" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg></button>
+  </header>
+  <section>
+    <div class="seg full" role="radiogroup" aria-label="对话模式" id="mode"></div>
+    <p class="mode-hint" id="modeHint"></p>
+    <div class="status" id="status"></div>
+    <div id="body"></div>
+  </section>
+  <div style="height:20px"></div>
+</main>
+
+<div class="menu" id="menu" role="menu"></div>
+<div class="scrim" id="scrim"><div class="sheet" id="sheet" role="dialog" aria-label="选择语音回复声音"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const ICON={
+ mic:'<svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11z"/></svg>',
+ key:'<svg viewBox="0 0 24 24"><path d="M12.65 10A6 6 0 1 0 7 16a6 6 0 0 0 5.65-6H16v4h4v-4h2v-4z"/></svg>',
+ wave:'<svg viewBox="0 0 24 24"><path d="M3 10v4h2v-4zm4-4v12h2V6zm4-3v18h2V3zm4 5v8h2V8zm4 2v4h2v-4z"/></svg>',
+ ai:'<svg viewBox="0 0 24 24"><path d="M12 2l2.4 5.6L20 10l-5.6 2.4L12 18l-2.4-5.6L4 10l5.6-2.4zM19 16l1 2.5 2.5 1L19 21.5 18 24l-1-2.5L14.5 20l2.5-1z"/></svg>',
+ spk:'<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>',
+ chev:'<svg class="chev" viewBox="0 0 24 24"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>',
+ check:'<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>',
+ warn:'<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2zm12-3h-2v-2h2zm0-4h-2v-4h2z"/></svg>',
+ ok:'<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-2 15-5-5 1.4-1.4L10 14.2l7.6-7.6L19 8z"/></svg>'
+};
+const MODES=[['cmd','语音指令'],['doubao','豆包 2.0'],['live','GPT-Live']];
+const HINTS={
+ cmd:'按 ⌘E 说一句指令，Norma 在本机理解；复杂语义交给主模型。',
+ doubao:'与豆包实时语音对话，识别、对话与合成都走火山方舟。',
+ live:'与 GPT-Live 实时对话，可以边说话边操作当前项目。'
+};
+const RECOG=[['sherpa','本地 Sherpa','离线，模型需先安装'],['a1','本地精准 A1','离线，仅用于单次指令'],['azure','云端 Azure','音频发送到 Azure Speech']];
+const ASR_LOCAL=[['paraformer','Paraformer Bilingual','中英双语'],['zipformer','Zipformer Bilingual','中英双语，流式']];
+const LANGS={'zh-CN':'中文（zh-CN）','en-US':'English（en-US）'};
+const AI_PROV=[['ollama','Ollama','本地运行的模型，基础地址指向 Ollama 服务'],['openai','OpenAI 兼容','需要 API Key；默认 https://api.openai.com/v1']];
+const DOUBAO_VOICES=['Vivi 2.0','小何 2.0','云舟 2.0','小天 2.0','刘飞 2.0'];
+// 本机 TTS 模型与音色（名称取自 crates/tts/src/catalog.rs；模型与音色的对应关系待核对）
+const LOCAL_MODELS=[['matcha-zh','Matcha 中文'],['matcha-zh-en','Matcha 中英'],['kokoro','Kokoro 多语'],['zipvoice','ZipVoice 克隆']];
+const LOCAL_VOICES={'matcha-zh':[['default','默认音色']],'matcha-zh-en':[['default','默认音色']],'kokoro':[['default','Default Bilingual Voice'],['af_heart','Heart'],['af_bella','Bella']],'zipvoice':[['cloned','克隆参考音频']]};
+const MM_MODELS=[['turbo','Speech 2.8 Turbo','互动回复推荐'],['hd','Speech 2.8 HD','优先音质']];
+const CANVAS=[['Grace','#422'],['Henry','#420'],['Iris','#424']];
+
+const init=()=>({jev:{key:false,connected:false},
+ mode:'cmd', mic:false,
+ keys:{azure:false,minimax:false,ark:false,openai:false,agent:false},
+ cmd:{recog:'sherpa',sherpaReady:false,a1Ready:false,lang:'zh-CN',asr:'paraformer',
+      inter:'single',trig:'toggle',device:'系统默认',
+      tts:{prov:'local',model:'matcha-zh',voice:'default',mmModel:'turbo',mmVoiceId:'',mmVerified:false,zipRef:false,zipText:''},
+      models:{'matcha-zh':true,'matcha-zh-en':false,'kokoro':false,'zipvoice':false},
+      aiProv:'ollama',aiBase:'',aiModel:'',aiListed:false,aiConnected:false,
+      mmConnected:false,azRegion:'',azVerified:false,
+      announce:true,glow:true,installing:false,adv:false},
+ doubao:{trig:'realtime',device:'系统默认',voice:'Vivi 2.0'},
+ live:{trig:'realtime',device:'系统默认',voice:'marin'},
+ sheet:null
+});
+let S=init();
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const recogReady=c=>c.recog==='azure'?S.keys.azure:c.recog==='a1'?c.a1Ready:c.sherpaReady;
+const grp=t=>`<div class="grp">${t}</div>`;
+const sw=(k,on,label)=>`<button class="sw" role="switch" data-act="switch" data-k="${k}" aria-checked="${on}" aria-label="${label}"></button>`;
+const valTxt=v=>`${esc(v)}${ICON.chev}`;
+const tag=t=>`<span class="pill-ok">${t}</span>`;
+const btn=(a,t,cls='tonal',extra='')=>`<button class="btn sm ${cls}" data-act="${a}" ${extra}>${t}</button>`;
+const seg=(items,cur,act)=>`<div class="seg" role="radiogroup" data-act="${act}">${items.map(([v,l,dis])=>`<button role="radio" data-v="${v}" aria-checked="${cur===v}" ${dis?'disabled':''}><svg class="chk" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>${l}</button>`).join('')}</div>`;
+function row(ic,t,sub,ctl,link){
+ return `<div class="row${link?' link':''}" ${link?`data-menu="${link}"`:''}><div class="ic">${ICON[ic]}</div><div class="t"><b>${t}</b>${sub?`<span>${esc(sub)}</span>`:''}</div><div class="v">${ctl}</div></div>`;
+}
+function keyField(k,label,hint){
+ const saved=S.keys[k];
+ return `<div class="cred"><div class="lbl"><b>${label}</b>${saved?tag('已保存'):'<em>未配置</em>'}</div>
+  <div class="field sm"><input type="password" autocomplete="off" placeholder="${saved?'已保存，输入新值可替换':'输入 API Key'}" data-keyinput="${k}">
+  ${saved?`<button class="ctl" data-act="clearkey" data-k="${k}">清除</button>`:''}<button class="btn sm tonal" data-act="savekey" data-k="${k}">保存</button></div>
+  <div class="hint">${hint}</div></div>`;
+}
+function textField(id,label,ph,val,hint){
+ return `<div class="cred"><div class="lbl"><b>${label}</b>${hint?`<em>${hint}</em>`:''}</div><div class="field sm"><input placeholder="${ph}" value="${esc(val||'')}" data-field="${id}"></div></div>`;
+}
+
+// 当前生效的语音回复描述
+function ttsName(t){
+ if(t.prov==='off') return '关闭语音回复';
+ if(t.prov==='sys') return '系统旁白';
+ if(t.prov==='mm') return `MiniMax · ${MM_MODELS.find(x=>x[0]===t.mmModel)[1]}`;
+ const v=(LOCAL_VOICES[t.model]||[]).find(x=>x[0]===t.voice);
+ return `${LOCAL_MODELS.find(x=>x[0]===t.model)[1]} · ${v?v[1]:'默认音色'}`;
+}
+function ttsSub(t){
+ if(t.prov==='off') return '只显示文字，不出声';
+ if(t.prov==='sys') return '使用系统旁白，无需下载或连接';
+ if(t.prov==='mm') return t.mmVerified?'云端合成 · Voice ID 已验证':'云端合成 · Voice ID 需验证';
+ return '本机合成，可离线';
+}
+
+function a1Block(){
+  const c=S.cmd;
+  if(c.recog!=='a1') return '';
+  const ok=c.a1Ready, inst=c.installing;
+  return `<div class="sub">本地精准 A1 · 仅单次指令</div>
+  <div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>运行环境与模型</b><span>${ok?'已安装并校验，可离线使用':inst?'正在下载 语音运行环境：260.4 / 408.6 MB':'自动下载运行环境与模型，无需配置 Python'}</span></div>
+    <div class="v">${ok?'<span class="pill-ok">已就绪</span>':inst?btn('a1cancel','取消安装','text'):btn('install','下载安装')}</div></div>
+  <div class="row"><div class="ic">${ICON.check}</div><div class="t"><b>文件校验与启用</b><span>完全离线，中英文混合。单次最长 60 秒</span></div><div class="v">${ok?'<span class="pill-ok">已启用</span>':'<span>未启用</span>'}</div></div>`;
+}
+function jevBlock(){
+  const j=S.jev;
+  return `<div class="sub">Jev 快速判断 · 配置与连接测试</div>
+  <div class="cred"><div class="hint" style="margin-top:0">保存凭据并用合成请求测试连接。不会发送录音、转写或画布内容。</div>
+    <div class="hint">固定服务端点：https://api.typesafe.ai/v1/systemone</div>
+    <div class="hint">请求模型：jev-latest</div>
+    <div class="lbl" style="margin-top:10px"><b>Jev API Key</b>${j.key?tag('已保存'):'<em>未配置</em>'}</div>
+    <div class="field sm"><input type="password" placeholder="输入 API Key；留空使用已保存的凭据" data-keyinput="jev"></div>
+    <div class="jevbtns" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      ${btn('jevsave','保存凭据',j.key?'tonal':'tonal','')}${btn('jevverify','验证连接','tonal','')}${btn('jevclear','清除凭据','text','')}${btn('jevenv','从环境变量导入','tonal','')}
+    </div>
+    <div class="hint">${j.connected?'已连接':'未配置'}。生产语音入口保持禁用，配置保存或连接测试通过不会启用语音派发。</div></div>`;
+}
+function cmdBody(){
+ const c=S.cmd, rec=RECOG.find(x=>x[0]===c.recog);
+ const recSub=c.recog==='azure'?`音频发送到 Azure Speech · ${LANGS[c.lang]}`:c.recog==='sherpa'?(c.sherpaReady?`${ASR_LOCAL.find(x=>x[0]===c.asr)[1]} · 已安装`:'未安装，首次使用需要下载'):(c.a1Ready?'已安装，可离线使用':'未安装 · 无需配置 Python');
+ const out=[];
+ out.push(grp('语音输入'));
+ out.push(row('wave','语音识别',recSub,valTxt(rec[1]),'recog'));
+ out.push(`<div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>唤起方式</b><span>${c.inter==='single'?'按 ⌘E 说一句，结束后执行':'一直收音，无需快捷键'}</span></div>${seg([['single','单次指令'],['continuous','持续聆听']],c.inter,'inter')}</div>`);
+ out.push(`<div class="row"><div class="ic">${ICON.key}</div><div class="t"><b>快捷键 ⌘E</b><span>${c.trig==='hold'?'按住说话，松开结束':'按一次开始，再按一次结束'}</span></div>${seg([['hold','按住'],['toggle','切换']],c.trig,'trig')}</div>`);
+ out.push(row('mic','麦克风','语音输入使用的设备',valTxt(c.device),'mic'));
+ out.push(grp('语音输出'));
+ out.push(row('spk','语音回复',ttsSub(c.tts),valTxt(ttsName(c.tts)),'voice'));
+ out.push(`<div style="height:1px;background:var(--outline-soft);margin:10px 12px"></div>`);
+ out.push(`<div class="adv ${c.adv?'open':''}"><button class="row link adv-toggle" data-act="adv" aria-expanded="${c.adv}" style="border:0;background:none;width:100%"><div class="t"><b>更多设置</b><span>理解模型、语音服务与凭据、回复偏好、诊断</span></div>${ICON.chev}</button><div class="adv-body">
+  <div class="sub">理解模型（对话与卡片子智能体共用）</div>
+  <div class="row"><div class="ic">${ICON.ai}</div><div class="t"><b>供应商</b><span>${AI_PROV.find(x=>x[0]===c.aiProv)[2]}</span></div>${seg(AI_PROV.map(([v,l])=>[v,l]),c.aiProv,'aiprov')}</div>
+  ${textField('aiBase','基础地址',c.aiProv==='ollama'?'Ollama 服务地址':'https://api.openai.com/v1',c.aiBase,'')}
+  ${keyField('agent',c.aiProv==='ollama'?'API Key（可选）':'API Key','保存在此 Mac 的本地数据库中，不写入日志；清除后移除。')}
+  <div class="cred"><div class="lbl"><b>连接并加载模型</b>${c.aiConnected?tag('已连接'):'<em>未连接</em>'}</div>
+    <div class="field sm"><span style="flex:1;color:var(--text-3);font-size:13px">${c.aiListed?'从供应商返回的列表选择，或手动输入':'连接后加载可用模型列表'}</span>${btn('aiconn',c.aiConnected?'重新连接':'连接')}</div>
+    ${c.aiConnected?textField('aiModel','模型',c.aiListed?'从列表选择':'列表不可用时输入准确模型 ID',c.aiModel,c.aiListed?'':'手动输入需验证'):''}
+    ${c.aiConnected&&!c.aiListed?`<div class="hint"><button class="btn sm text" data-act="aivalidate">验证手动输入的模型</button></div>`:''}
+  </div>
+  ${c.recog==='sherpa'?`<div class="sub">本地语音</div>${row('wave','本地识别模型',ASR_LOCAL.find(x=>x[0]===c.asr)[1],valTxt(ASR_LOCAL.find(x=>x[0]===c.asr)[1]),'asr')}`:''}
+  ${c.recog==='azure'?`<div class="sub">Azure Speech</div>
+    ${textField('azRegion','Azure 区域','例如 eastus',c.azRegion,'资源所在区域')}
+    ${row('wave','识别语言','默认 zh-CN',valTxt(LANGS[c.lang]),'lang')}
+    ${keyField('azure','Azure API Key','保存在此 Mac 的本地数据库中，不写入日志。')}
+    <div class="cred"><div class="lbl"><b>验证</b>${c.azVerified?tag('✓ 已验证'):'<em>未验证</em>'}</div><div class="field sm"><span style="flex:1;color:var(--text-3);font-size:13px">检查区域与凭据，不切换当前识别来源</span>${btn('azverify','验证配置')}${btn('aztest','测试 3 秒','text')}</div></div>`:''}
+  ${a1Block()}
+  ${jevBlock()}
+  <div class="sub">回复偏好</div>
+  <div class="row"><div class="ic">${ICON.spk}</div><div class="t"><b>智能体任务播报</b><span>任务完成或需要处理时播报</span></div>${sw('announce',c.announce,'智能体任务播报')}</div>
+  <div class="row"><div class="ic">${ICON.spk}</div><div class="t"><b>语音光晕</b><span>Norma 说话时显示柔和的窗口光晕</span></div>${sw('glow',c.glow,'语音光晕')}</div>
+  <div class="sub">诊断</div>
+  <div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>本地引擎</b><span>Sherpa 模型与 A1 运行环境 · 校验与重装</span></div>${btn('diag','查看','text')}</div>
+ </div></div>`);
+ return out.join('');
+}
+function doubaoBody(){
+ const d=S.doubao;
+ return grp('对话输入')+
+  `<div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>对话方式</b><span>${d.trig==='realtime'?'按 ⌘E 开始或结束，停顿后自动发送，可打断播报':'按住 ⌘E 录音，松开发送给豆包'}</span></div>${seg([['realtime','实时对话'],['hold','按住说话']],d.trig,'dtrig')}</div>`+
+  row('mic','麦克风','语音输入使用的设备',valTxt(d.device),'mic')+
+  keyField('ark','火山方舟 API Key','用于 ASR 2.0、对话与 TTS 2.0，保存在此 Mac 的本地数据库中。')+
+  grp('语音输出')+
+  row('spk','音色','豆包 2.0 音色目录',valTxt(d.voice),'dvoice');
+}
+function liveBody(){
+ const l=S.live;
+ return grp('对话输入')+
+  `<div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>对话方式</b><span>${l.trig==='realtime'?'按 ⌘E 开始或结束，可随时插话':'按住 ⌘E 说话，松开后回复'}</span></div>${seg([['realtime','实时对话'],['hold','按住说话']],l.trig,'ltrig')}</div>`+
+  row('mic','麦克风','使用系统声音设置中的输入设备',valTxt('系统默认'),'mic')+
+  keyField('openai','OpenAI API Key','同一个 Key 用于实时对话和项目操作，保存后自动生效。')+
+  grp('语音输出')+
+  `<div class="row"><div class="ic">${ICON.spk}</div><div class="t"><b>音色</b><span>音色更改在下次通话生效</span></div>${seg([['marin','Marin'],['cedar','Cedar']],l.voice,'lvoice')}</div>`;
+}
+
+// 语音回复声音面板：先选引擎，再选模型/音色，最后「使用此声音」才生效
+function sheetBody(){
+ const d=S.sheet, c=S.cmd;
+ const provs=[['off','关闭'],['local','本机'],['mm','MiniMax'],['sys','系统旁白']];
+ let body='';
+ if(d.prov==='off') body='<p class="lead">回复只显示文字，不出声。</p>';
+ else if(d.prov==='sys') body=`<p class="lead">使用系统旁白朗读回复，无需下载或连接。</p><div class="opt" aria-checked="true"><span class="radio"></span><div class="t"><b>系统旁白</b><span>macOS 系统声音</span></div><button class="minibtn" data-act="preview" data-v="系统旁白">试听</button></div>`;
+ else if(d.prov==='local'){
+   body+='<div class="sub2">本机模型</div>'+LOCAL_MODELS.map(([v,l])=>{
+     const ready=c.models[v];
+     return `<div class="opt" ${ready?`data-act="smodel" data-v="${v}" aria-checked="${d.model===v}" role="radio"`:''}><span class="radio"></span><div class="t"><b>${l}</b><span>${ready?'已就绪 · 可离线使用':v==='zipvoice'?'需要参考音频':'未下载'}</span></div>${ready?'':`<button class="minibtn" data-act="dlmodel" data-v="${v}">下载</button>`}</div>`;
+   }).join('');
+   body+='<div class="sub2">音色</div>'+(LOCAL_VOICES[d.model]||[]).map(([v,l])=>`<div class="opt" data-act="svoice" data-v="${v}" aria-checked="${d.voice===v}" role="radio"><span class="radio"></span><div class="t"><b>${l}</b></div><button class="minibtn" data-act="preview" data-v="${l}">试听</button></div>`).join('');
+   if(d.model==='zipvoice'){
+     body+=`<div class="sub2">克隆参考音频 · 16 kHz 单声道 PCM WAV · 3–15 秒</div>
+     <div class="cred"><div class="lbl"><b>参考 WAV</b>${d.zipRef?tag('参考音频已就绪'):'<em>未导入</em>'}</div><div class="field sm"><span style="flex:1;color:var(--text-3);font-size:13px">${d.zipRef?'已导入':'选择本地 WAV 文件'}</span><button class="btn sm tonal" data-act="zipref">${d.zipRef?'替换':'选择 WAV…'}</button></div></div>
+     <div class="cred"><div class="lbl"><b>准确转写</b><em>必填</em></div><div class="field sm"><input placeholder="输入 WAV 中所说的准确内容" value="${esc(d.zipText)}" data-draft="zipText"></div></div>`;
+   }
+ }
+ else if(d.prov==='mm'){
+   body+=`<p class="lead">${c.mmConnected?'账户已连接，从账户选择音色或输入 Voice ID。':'先保存 MiniMax Key 并连接，才能选择账户音色。'}</p>`;
+   body+=`<div class="cred"><div class="lbl"><b>账户连接</b>${c.mmConnected?tag('账户已连接'):'<em>未连接</em>'}</div><div class="field sm"><span style="flex:1;color:var(--text-3);font-size:13px">${S.keys.minimax?'Key 已保存':'需要先在更多设置中保存 MiniMax Key'}</span>${btn('mmconn',c.mmConnected?'重新连接':'连接')}</div></div>`;
+   body+='<div class="sub2">合成模型</div>'+MM_MODELS.map(([v,l,s])=>`<div class="opt" data-act="mmmodel" data-v="${v}" aria-checked="${d.mmModel===v}" role="radio"><span class="radio"></span><div class="t"><b>${l}</b><span>${s}</span></div></div>`).join('');
+   body+=`<div class="sub2">音色</div>${textField('mmSearch','搜索账户音色','按名称或 Voice ID 搜索','',c.mmConnected?'':'需先连接')}`;
+   body+=c.mmConnected?'':'<div class="hint" style="color:var(--text-3);font-size:12px;margin:0 4px 8px">连接后显示账户音色列表。</div>';
+   body+=`<div class="cred"><div class="lbl"><b>Voice ID</b>${d.mmVerified?tag('已验证'):'<em>使用前需验证并试听</em>'}</div><div class="field sm"><input placeholder="输入未列在上方的 Voice ID" value="${esc(d.mmVoiceId)}" data-draft="mmVoiceId"><button class="btn sm tonal" data-act="mmverify">验证并试听</button></div></div>`;
+ }
+ return `<h2>语音回复</h2><p class="lead">选择引擎与声音。「使用此声音」之前，仍使用当前声音。</p>
+   <div class="seg full" role="radiogroup" data-act="sprov">${provs.map(([v,l])=>`<button role="radio" data-v="${v}" aria-checked="${d.prov===v}">${l}</button>`).join('')}</div>
+   <div style="margin-top:12px">${body}</div>
+   <div class="foot"><div class="grow">当前：${esc(ttsName(c.tts))}</div><button class="btn text" data-act="sheetclose">取消</button><button class="btn sm tonal" data-act="apply" style="height:36px;padding:0 18px">使用此声音</button></div>`;
+}
+function openSheet(){ S.sheet={...S.cmd.tts}; render(); $('#scrim').classList.add('open'); }
+function closeSheet(){ S.sheet=null; $('#scrim').classList.remove('open'); }
+
+function readiness(){
+ if(S.mode==='cmd') return [['麦克风权限',S.mic],[S.cmd.recog==='azure'?'Azure 凭据':S.cmd.recog==='a1'?'本地精准 A1':'本地 Sherpa 模型',recogReady(S.cmd)]];
+ if(S.mode==='doubao') return [['麦克风权限',S.mic],['火山方舟 API Key',S.keys.ark]];
+ return [['麦克风权限',S.mic],['OpenAI API Key',S.keys.openai]];
+}
+function nextAction(){
+ if(!S.mic) return ['授权麦克风','mic'];
+ if(S.mode==='doubao') return ['填写方舟 API Key','key:ark'];
+ if(S.mode==='live') return ['填写 OpenAI API Key','key:openai'];
+ const c=S.cmd;
+ if(c.recog==='azure') return ['填写 Azure Key','key:azure'];
+ if(c.installing) return ['安装中…','none'];
+ return [c.recog==='a1'?'下载安装 A1':'安装本地模型','install'];
+}
+
+function render(){
+ $('#mode').innerHTML=MODES.map(([v,l])=>`<button role="radio" data-mode="${v}" aria-checked="${S.mode===v}"><svg class="chk" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>${l}</button>`).join('');
+ $('#modeHint').textContent=HINTS[S.mode];
+ const r=readiness(), ok=r.every(([,d])=>d), [na,nk]=nextAction();
+ $('#status').className='status '+(ok?'ready':'todo');
+ $('#status').innerHTML=`<div class="dot">${ok?ICON.ok:ICON.warn}</div><div class="grow"><b>${ok?'已就绪':'还差一步就能开始'}</b>
+   <span class="s">${ok?(S.mode==='cmd'?(S.cmd.inter==='single'?'按 ⌘E 说一句指令':'一直收音，无需快捷键'):'按 ⌘E 开始对话'):'完成下面的必要项即可使用语音'}</span>
+   ${ok?'':`<div class="steps">${r.map(([n,d])=>`<span class="chip ${d?'done':''}">${d?ICON.check:''}${n}</span>`).join('')}</div>`}</div>
+   ${ok?'':`<button class="btn" data-act="${nk}" ${nk==='none'?'disabled':''}>${na}</button>`}`;
+ $('#body').innerHTML=S.mode==='cmd'?cmdBody():S.mode==='doubao'?doubaoBody():liveBody();
+ if(S.sheet) $('#sheet').innerHTML=sheetBody();
+}
+
+const MENUS={
+ recog:{title:'语音识别',items:()=>RECOG,get:()=>S.cmd.recog,
+   set:v=>{ if(v==='a1'&&S.cmd.inter==='continuous'){toast('本地精准 A1 仅用于单次指令');return false} S.cmd.recog=v; return true }},
+ asr:{title:'本地识别模型',items:()=>ASR_LOCAL,get:()=>S.cmd.asr,set:v=>{S.cmd.asr=v;return true}},
+ lang:{title:'识别语言',items:()=>Object.entries(LANGS).map(([v,l])=>[v,l,v==='zh-CN'?'默认':'']),get:()=>S.cmd.lang,set:v=>{S.cmd.lang=v;return true}},
+ mic:{title:'麦克风',items:()=>[['系统默认','系统默认',''],['MacBook Pro 麦克风','MacBook Pro 麦克风',''],['AirPods Pro','AirPods Pro','']],
+   get:()=>S.mode==='cmd'?S.cmd.device:S.mode==='doubao'?S.doubao.device:S.live.device,
+   set:v=>{ if(S.mode==='cmd')S.cmd.device=v; else if(S.mode==='doubao')S.doubao.device=v; else S.live.device=v; return true }},
+ dvoice:{title:'豆包 2.0 音色',items:()=>DOUBAO_VOICES.map(v=>[v,v,'']),get:()=>S.doubao.voice,set:v=>{S.doubao.voice=v;return true}}
+};
+const menu=$('#menu');
+function openMenu(anchor,key){
+ const m=MENUS[key], cur=m.get();
+ menu.innerHTML=`<div class="mh">${m.title}</div>`+m.items().map(([v,l,s])=>`<button class="mi" role="menuitemradio" aria-checked="${v===cur}" data-v="${v}"><span class="l">${l}${s?`<small>${s}</small>`:''}</span>${ICON.check}</button>`).join('');
+ const a=anchor.getBoundingClientRect();
+ menu.style.left=Math.max(8,Math.min(a.right-300,innerWidth-308))+'px';
+ menu.style.top=(a.bottom+scrollY-6)+'px';
+ menu.classList.add('open'); menu.dataset.key=key;
+}
+const closeMenu=()=>menu.classList.remove('open');
+menu.addEventListener('click',e=>{
+ const b=e.target.closest('.mi'); if(!b) return;
+ if(MENUS[menu.dataset.key].set(b.dataset.v)){ closeMenu(); render(); }
+});
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),1800)}
+function install(){
+ const c=S.cmd; if(c.installing) return; c.installing=true; render();
+ setTimeout(()=>{ c.installing=false; if(c.recog==='a1') c.a1Ready=true; else c.sherpaReady=true; render(); toast('本地模型已就绪') },1600);
+}
+const KEY_TOAST={azure:'Azure Key 已保存',minimax:'MiniMax Key 已保存',ark:'方舟 API Key 已保存',openai:'OpenAI API Key 已保存',agent:'API Key 已保存'};
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeMenu(); if(S.sheet) closeSheet(); } });
+document.addEventListener('input',e=>{
+ const f=e.target.dataset.field, dr=e.target.dataset.draft;
+ if(f) S.cmd[f]=e.target.value;
+ if(dr&&S.sheet){ S.sheet[dr]=e.target.value; if(dr==='mmVoiceId') S.sheet.mmVerified=false; }
+});
+$('#scrim').addEventListener('click',e=>{ if(e.target.id==='scrim') closeSheet(); });
+
+document.addEventListener('click',e=>{
+ const t=e.target;
+ if(!t.closest('.menu')&&!t.closest('[data-menu]')) closeMenu();
+ const md=t.closest('[data-mode]'); if(md){ S.mode=md.dataset.mode; closeMenu(); render(); return }
+ const mr=t.closest('[data-menu]');
+ if(mr){ if(mr.dataset.menu==='voice'){ openSheet(); return } openMenu(mr,mr.dataset.menu); return }
+ const b=t.closest('[data-act]'); if(!b||b.disabled) return;
+ const c=S.cmd, a=b.dataset.act, v=b.dataset.v||t.closest('[data-v]')?.dataset.v;
+ // 面板内操作
+ if(S.sheet && t.closest('#sheet')){
+   const d=S.sheet;
+   if(a==='sprov'&&v){ d.prov=v; if(v==='local'&&!c.models[d.model]) d.model='matcha-zh'; d.voice=(LOCAL_VOICES[d.model]||[['default']])[0][0]; }
+   else if(a==='smodel'&&v){ d.model=v; d.voice=(LOCAL_VOICES[v]||[['default']])[0][0]; }
+   else if(a==='svoice'&&v){ d.voice=v; }
+   else if(a==='dlmodel'){ c.models[v]=true; toast('模型已下载并校验'); }
+   else if(a==='mmmodel'&&v){ d.mmModel=v; }
+   else if(a==='mmconn'){ if(!S.keys.minimax){toast('请先在更多设置中保存 MiniMax Key');} else { c.mmConnected=true; toast('MiniMax 已连接'); } }
+   else if(a==='mmverify'){ if(!c.mmConnected){toast('请先连接 MiniMax');} else if(!d.mmVoiceId){toast('请输入 Voice ID');} else { d.mmVerified=true; toast('已验证并试听'); } }
+   else if(a==='zipref'){ d.zipRef=true; toast('参考音频已导入'); }
+   else if(a==='preview'){ toast(`▶ ${b.dataset.v}：试听`); }
+   else if(a==='sheetclose'){ closeSheet(); render(); return }
+   else if(a==='apply'){
+     if(d.prov==='local'&&d.model==='zipvoice'&&(!d.zipRef||!d.zipText.trim())){ toast('克隆需要参考 WAV 与准确转写'); return }
+     if(d.prov==='mm'&&!d.mmVerified){ toast('请先验证 Voice ID'); return }
+     c.tts={...d}; closeSheet(); toast('已切换语音回复'); render(); return;
+   }
+   render(); return;
+ }
+ if(a==='switch'){ const k=b.dataset.k; c[k]=!c[k]; }
+ else if(a==='inter'&&v){ c.inter=v; if(v==='continuous'&&c.recog==='a1'){ c.recog='sherpa'; toast('已切换为本地 Sherpa，持续聆听不支持 A1'); } }
+ else if(a==='trig'&&v) c.trig=v;
+ else if(a==='aiprov'&&v){ c.aiProv=v; c.aiConnected=false; c.aiListed=false; }
+ else if(a==='dtrig'&&v) S.doubao.trig=v;
+ else if(a==='ltrig'&&v) S.live.trig=v;
+ else if(a==='lvoice'&&v) S.live.voice=v;
+ else if(a==='adv') c.adv=!c.adv;
+ else if(a==='install') install();
+ else if(a==='mic'){ S.mic=true; toast('已授权麦克风'); }
+ else if(a==='savekey'){ const k=b.dataset.k; const inp=document.querySelector(`[data-keyinput="${k}"]`); if(!inp||(!inp.value.trim()&&!S.keys[k])){toast('请先输入 API Key');return} S.keys[k]=true; if(inp) inp.value=''; toast(KEY_TOAST[k]); }
+ else if(a==='clearkey'){ const k=b.dataset.k; S.keys[k]=false; if(k==='minimax') c.mmConnected=false; if(k==='agent') c.aiConnected=false; toast('已清除'); }
+ else if(a==='aiconn'){ if(c.aiProv==='openai'&&!S.keys.agent){toast('请先保存 API Key');return} c.aiConnected=true; c.aiListed=true; toast('已加载模型列表'); }
+ else if(a==='aivalidate'){ c.aiListed=false; toast('已验证模型 ID'); }
+ else if(a==='azverify'){ if(!S.keys.azure){toast('请先保存 Azure Key');return} c.azVerified=true; toast('Azure 配置已通过验证'); }
+ else if(a==='aztest'){ if(!S.keys.azure){toast('请先保存 Azure Key');return} toast('测试：请说话（3 秒），不改变当前来源'); }
+ else if(a==='a1cancel'){ c.installing=false; toast('已取消安装，原配置未替换'); }
+ else if(a==='jevsave'){ S.jev.key=true; toast('Jev 凭据已保存'); }
+ else if(a==='jevverify'){ if(!S.jev.key){toast('请先保存 Jev API Key');} else { S.jev.connected=true; toast('Jev 连接测试通过'); } }
+ else if(a==='jevclear'){ S.jev.key=false; S.jev.connected=false; toast('已清除 Jev 凭据'); }
+ else if(a==='jevenv'){ toast('环境变量中未找到 Jev 凭据'); }
+ else if(a==='diag'){ toast(c.sherpaReady||c.a1Ready?'本地模型已安装，校验通过':'尚未安装本地模型'); }
+ render();
+});
+
+$('#theme').onclick=()=>{const d=document.documentElement;d.dataset.theme=d.dataset.theme==='dark'?'light':'dark'};
+$('#reset').onclick=()=>{S=init();closeSheet();render()};
+render();
+</script>
+</body>
+</html>

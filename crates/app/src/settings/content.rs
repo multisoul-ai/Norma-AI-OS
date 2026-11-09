@@ -149,7 +149,6 @@ pub(super) fn settings_content(
                     SettingsSection::NormaPersona => div().h_full().min_h(px(0.0)).child(persona),
                     SettingsSection::NormaVoice => voice_settings(
                         crate::settings::voice::VoiceSettingsView {
-                            available_width: width - padding * 2.0,
                             theme,
                             state: voice.state,
                             live_call: voice.live_call,

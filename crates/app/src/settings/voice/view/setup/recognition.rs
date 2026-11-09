@@ -1,5 +1,6 @@
 use super::super::asr_provider::locale_catalog;
-use super::super::{setting_row, text_setting_row, with_alpha, VoiceSettingsInputs};
+use super::super::credential_row::{credential_row, CredentialRowSpec};
+use super::super::{text_setting_row, with_alpha, VoiceSettingsInputs};
 use super::components::{compact_setup_row, setup_action_button, SetupButtonTone};
 use super::models::alternative_models_detail;
 use crate::app::MultisoulApp;
@@ -286,32 +287,24 @@ pub(in crate::settings::voice::view) fn azure_detail(
             cx,
         ))
         .child(locale_catalog(theme, state, cx))
-        .child(
-            setting_row(
-                theme,
-                ui::i18n::text("voice.azure_api_key"),
-                ui::i18n::text("voice.stored_in_this_mac_s_local_database_never_written_to_logs"),
-            )
-            .child(
-                div()
-                    .w_full()
-                    .flex()
-                    .flex_wrap()
-                    .items_center()
-                    .gap(px(10.0))
-                    .child(inputs.input(VoiceSettingsField::AzureApiKey))
-                    .when(credential_configured, |row| {
-                        row.child(setup_action_button(
-                            theme,
-                            "settings-asr-azure-key-remove",
-                            ui::i18n::text("common.remove"),
-                            SetupButtonTone::Destructive,
-                            cx,
-                            cx.listener(MultisoulApp::on_voice_settings_remove_azure_key),
-                        ))
-                    }),
-            ),
-        )
+        .child(credential_row(
+            theme,
+            CredentialRowSpec {
+                label: "voice.azure_api_key",
+                hint: "voice.stored_in_this_mac_s_local_database_never_written_to_logs",
+                field: VoiceSettingsField::AzureApiKey,
+                configured: credential_configured,
+                pending: state.credential_persistence_pending(),
+                status_id: "settings-asr-azure-key-status",
+                save_id: "settings-asr-azure-key-save",
+                clear_id: "settings-asr-azure-key-remove",
+            },
+            inputs,
+            cx,
+            |app, window, cx| {
+                app.on_voice_settings_remove_azure_key(&gpui::ClickEvent::default(), window, cx);
+            },
+        ))
         .child(compact_setup_row(
             theme,
             ui::i18n::text("voice.validate_configuration"),

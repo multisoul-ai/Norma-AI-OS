@@ -138,6 +138,25 @@ impl MultisoulApp {
                 .is_some_and(|provider| provider.as_str() == tts::MINIMAX_TTS_PROVIDER_ID);
             if minimax_active {
                 self.configure_active_minimax_tts_if_ready(cx);
+            } else if self
+                .voice_settings
+                .values()
+                .active_tts_provider_id()
+                .is_some_and(|provider| provider.as_str() == tts::SYSTEM_TTS_PROVIDER_ID)
+            {
+                self.dialogue.selected_tts_model = self
+                    .voice_settings
+                    .values()
+                    .system_tts_voice()
+                    .cloned()
+                    .map(crate::app::dialogue::SelectedTtsModel::system);
+            } else if self
+                .voice_settings
+                .values()
+                .active_tts_provider_id()
+                .is_some_and(|provider| provider.as_str() == tts::OFF_TTS_PROVIDER_ID)
+            {
+                self.dialogue.selected_tts_model = None;
             } else {
                 self.refresh_tts_model_states(cx);
             }

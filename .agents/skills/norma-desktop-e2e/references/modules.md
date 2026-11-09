@@ -7,3 +7,9 @@
 `island-redesign` 验收灵动岛 2.0 的收起宽度、完成通知、审批队列、运行中筛选和幕僚页。几何看原生窗口，画面对照 `docs/prototypes/island-2/reference/`。
 
 `island-proposals` 验收幕僚提议出现在「需要你处理」：计数为 2、未知 Agent 禁用派发并给出原因、派发进入目标卡片且提议消失、忽略后重启不再出现。中文深色与英文浅色各跑一次，岛本身保持深色。
+
+## voice
+
+场景：`voice-live-call`、`voice-live-acoustic`、`voice-doubao-direct`、`voice-command-budget`、`voice-settings-modes`。
+
+`voice-settings-modes` 用 `--visual` 看语音指令、豆包 2.0、GPT-Live 在蓝宝石之夜和墨黑下的设置页。现行目录没有浅色主题。凭据行不回显 Key。通话场景不走模型看图。

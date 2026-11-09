@@ -2,28 +2,31 @@ use super::super::{action_button, setting_row, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
 use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::VoiceSettingsState;
-use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
 use ui::Theme;
-
-mod provider_list;
-use provider_list::provider_list;
 
 pub(super) fn tts_provider_settings(
     theme: Theme,
     state: &VoiceSettingsState,
     inputs: &VoiceSettingsInputs,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     if state.tts_picker_open() {
-        div().w_full().child(picker(theme, state, inputs, cx))
+        div().w_full().child(super::super::voice_sheet::voice_sheet(
+            theme, state, inputs, window, cx,
+        ))
     } else {
-        div().w_full().child(current_voice(theme, state, cx))
+        div()
+            .w_full()
+            .child(current_voice(theme, state, inputs, cx))
     }
 }
 
 fn current_voice(
     theme: Theme,
     state: &VoiceSettingsState,
+    inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Stateful<Div> {
     let active = state
@@ -134,103 +137,13 @@ fn current_voice(
                 )
                 .id("settings-tts-change-voice")
                 .debug_selector(|| "settings-tts-change-voice".to_string())
+                .track_focus(&inputs.tts_row_focus)
                 .on_click(cx.listener(MultisoulApp::on_voice_open_tts_picker)),
             ),
         )
 }
 
-fn picker(
-    theme: Theme,
-    state: &VoiceSettingsState,
-    inputs: &VoiceSettingsInputs,
-    cx: &mut Context<MultisoulApp>,
-) -> Stateful<Div> {
-    let provider = state
-        .tts_picker_provider_id()
-        .unwrap_or(tts::LOCAL_TTS_PROVIDER_ID);
-    div()
-        .id("settings-tts-picker")
-        .debug_selector(|| "settings-tts-picker".to_string())
-        .w_full()
-        .flex()
-        .flex_col()
-        .gap(px(12.0))
-        .p(px(14.0))
-        .rounded(px(14.0))
-        .border_1()
-        .border_color(rgba(with_alpha(theme.text_primary, 0x2e)))
-        .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
-        .child(
-            div()
-                .settings_text(TextRole::Headline, theme)
-                .child(ui::i18n::text("voice.choose_a_voice")),
-        )
-        .child(
-            div()
-                .id("settings-tts-picker-current-notice")
-                .debug_selector(|| "settings-tts-picker-current-notice".to_string())
-                .w_full()
-                .px(px(10.0))
-                .py(px(8.0))
-                .rounded(px(8.0))
-                .bg(rgba(with_alpha(theme.accent_blue, 0x12)))
-                .settings_text(TextRole::Helper, theme)
-                .child(ui::i18n::text(
-                    "voice.your_current_voice_stays_active_until_you_choose_use_this_voice",
-                )),
-        )
-        .child(
-            div()
-                .w_full()
-                .flex()
-                .gap(px(12.0))
-                .child(provider_list(theme, state, provider, cx))
-                .child(div().min_w(px(0.0)).flex_1().flex().flex_col().child(
-                    if provider == tts::MINIMAX_TTS_PROVIDER_ID {
-                        super::minimax_configuration(theme, state, inputs, cx)
-                    } else {
-                        local_voice_picker(theme, state, cx)
-                    },
-                )),
-        )
-        .child(
-            div()
-                .w_full()
-                .flex()
-                .items_center()
-                .justify_end()
-                .gap(px(8.0))
-                .child(
-                    action_button(theme, ui::i18n::text("common.cancel"), theme.text_secondary)
-                        .id("settings-tts-picker-cancel")
-                        .debug_selector(|| "settings-tts-picker-cancel".to_string())
-                        .on_click(cx.listener(MultisoulApp::on_voice_cancel_tts_picker)),
-                )
-                .child({
-                    let ready = state.tts_picker_ready();
-                    action_button(
-                        theme,
-                        if ready {
-                            ui::i18n::text("voice.use_this_voice")
-                        } else {
-                            ui::i18n::text("voice.choose_a_ready_voice")
-                        },
-                        if ready {
-                            theme.accent_blue
-                        } else {
-                            theme.text_tertiary
-                        },
-                    )
-                    .id("settings-tts-picker-apply")
-                    .debug_selector(|| "settings-tts-picker-apply".to_string())
-                    .when(ready, |button| {
-                        button.on_click(cx.listener(MultisoulApp::on_voice_apply_tts_picker))
-                    })
-                }),
-        )
-}
-
-fn local_voice_picker(
+pub(in crate::settings::voice::view) fn local_voice_picker(
     theme: Theme,
     state: &VoiceSettingsState,
     cx: &mut Context<MultisoulApp>,
@@ -371,7 +284,9 @@ pub(super) fn status_badge(label: &'static str, color: u32) -> Div {
         .child(label)
 }
 
-fn active_voice_summary(state: &VoiceSettingsState) -> (&'static str, String, String) {
+pub(in crate::settings::voice::view) fn active_voice_summary(
+    state: &VoiceSettingsState,
+) -> (&'static str, String, String) {
     match state
         .values()
         .active_tts_provider_id()
@@ -416,6 +331,24 @@ fn active_voice_summary(state: &VoiceSettingsState) -> (&'static str, String, St
                 "MiniMax",
                 voice,
                 ui::i18n::format("voice.model_cloud_voice", &[("model", (model).to_string())]),
+            )
+        }
+        Some(tts::OFF_TTS_PROVIDER_ID) => (
+            ui::i18n::text("voice.tts_engine_off"),
+            ui::i18n::text("voice.tts_off_detail").to_string(),
+            ui::i18n::text("voice.tts_off_detail").to_string(),
+        ),
+        Some(tts::SYSTEM_TTS_PROVIDER_ID) => {
+            let voice = state
+                .values()
+                .system_tts_voice()
+                .map(tts::TtsVoiceId::as_str)
+                .unwrap_or(ui::i18n::text("voice.no_voice_selected"))
+                .to_string();
+            (
+                ui::i18n::text("voice.system_narrator"),
+                voice,
+                ui::i18n::text("voice.tts_system_detail").to_string(),
             )
         }
         _ => (

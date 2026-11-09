@@ -10,6 +10,7 @@ mod reply;
 mod reply_loop;
 mod reply_stream;
 mod shell;
+mod system_say;
 mod tts_runtime;
 use crate::app::voice::control::VoiceVisual;
 use crate::app::voice_window_inset::{TtsPlaybackEvent, VoiceWindowInsetEventSink};
@@ -34,6 +35,7 @@ use reply_stream::StreamPlaybackBuffer;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+pub(crate) use system_say::list_system_voices;
 pub(crate) use tts_runtime::SharedTtsRuntime;
 #[cfg(test)]
 use voice_sherpa::SherpaProvider;

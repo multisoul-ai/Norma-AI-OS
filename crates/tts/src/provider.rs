@@ -6,8 +6,18 @@ use serde::{Deserialize, Serialize};
 
 pub const LOCAL_TTS_PROVIDER_ID: &str = "local";
 pub const MINIMAX_TTS_PROVIDER_ID: &str = "minimax";
+pub const OFF_TTS_PROVIDER_ID: &str = "off";
+pub const SYSTEM_TTS_PROVIDER_ID: &str = "system";
+pub const SYSTEM_TTS_MODEL_ID: &str = "system-narrator";
 pub const MINIMAX_SPEECH_TURBO_MODEL_ID: &str = "speech-2.8-turbo";
 pub const MINIMAX_SPEECH_HD_MODEL_ID: &str = "speech-2.8-hd";
+
+pub fn system_tts_model_id() -> &'static TtsModelId {
+    static ID: std::sync::OnceLock<TtsModelId> = std::sync::OnceLock::new();
+    ID.get_or_init(|| {
+        TtsModelId::parse(SYSTEM_TTS_MODEL_ID).expect("system TTS model id must be non-blank")
+    })
+}
 
 /// Stable identity for one built-in TTS provider.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]

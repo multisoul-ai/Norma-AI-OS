@@ -40,7 +40,7 @@ fn norma_voice_settings_scrolls_to_spoken_replies() {
         .debug_bounds("settings-content-scroll")
         .expect("应有内容视口");
     let before = cx
-        .debug_bounds("voice-command-group-reply")
+        .debug_bounds("voice-command-group-speak")
         .expect("应渲染声音配置");
     assert!(
         before.top() >= viewport.bottom(),
@@ -60,7 +60,7 @@ fn norma_voice_settings_scrolls_to_spoken_replies() {
     });
     cx.update(|window, cx| window.draw(cx).clear());
     let after = cx
-        .debug_bounds("voice-command-group-reply")
+        .debug_bounds("voice-command-group-speak")
         .expect("滚动后应保留声音配置");
     assert!(
         scroll.offset().y < px(0.0),

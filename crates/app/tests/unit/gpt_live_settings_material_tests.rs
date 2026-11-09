@@ -1,10 +1,10 @@
 use crate::app::MultisoulApp;
 use gpui::{px, size, AppContext, Modifiers, TestAppContext};
 
-/// 已配置的 GPT-Live 只展示日常偏好，密钥编辑与诊断按需展开。
+/// 已配置的 GPT-Live 用统一凭据行展示空密码框、已保存状态和清除/保存。
 /// 数据构造：隔离 SQLite 预置 GPT 专属引用与 cedar，无真实 Key；窗口 1280×900。
-/// 执行过程：打开真实渲染入口，检查默认内容，依次点击更换 Key、收起和诊断。
-/// 预期结果：Key 不回填、不常驻编辑；离线无静音/停播按钮；诊断展开后才能核对。
+/// 执行过程：打开真实渲染入口，检查凭据行不回显引用，再展开诊断。
+/// 预期结果：密码框可见但没有凭据引用；离线无静音/停播按钮；诊断展开后才能核对。
 #[test]
 fn gpt_live_material_settings_progressively_disclose_key_and_diagnostics() {
     let temp = tempfile::tempdir().expect("隔离数据目录");
@@ -48,18 +48,20 @@ fn gpt_live_material_settings_progressively_disclose_key_and_diagnostics() {
     );
     assert!(
         cx.debug_bounds("settings-voice-field-gpt-live-api-key")
-            .is_none(),
-        "已保存 Key 默认不展示编辑框"
-    );
-    let edit = cx
-        .debug_bounds("settings-live-key-edit")
-        .expect("保留可发现的更换 Key 入口");
-    cx.simulate_click(edit.center(), Modifiers::none());
-    cx.update(|window, cx| window.draw(cx).clear());
-    assert!(
-        cx.debug_bounds("settings-voice-field-gpt-live-api-key")
             .is_some(),
-        "更换时展开 Key 编辑框"
+        "已保存时仍显示空密码框，便于替换"
+    );
+    assert!(
+        cx.debug_bounds("settings-live-key-status").is_some(),
+        "已保存状态可见"
+    );
+    assert!(
+        cx.debug_bounds("settings-live-key-save").is_some(),
+        "保存按钮可见"
+    );
+    assert!(
+        cx.debug_bounds("settings-live-key-clear").is_some(),
+        "清除按钮可见"
     );
     assert!(
         !host
@@ -73,11 +75,6 @@ fn gpt_live_material_settings_progressively_disclose_key_and_diagnostics() {
             .contains("fixture-ref"),
         "界面不能显示凭据引用或真实 Key"
     );
-    let collapse = cx
-        .debug_bounds("settings-live-key-edit")
-        .expect("可收起 Key 编辑器");
-    cx.simulate_click(collapse.center(), Modifiers::none());
-    cx.update(|window, cx| window.draw(cx).clear());
     assert!(
         cx.debug_bounds("settings-voice-input-device-picker")
             .is_none(),
@@ -123,9 +120,9 @@ fn gpt_live_material_settings_progressively_disclose_key_and_diagnostics() {
 }
 
 /// 首次配置 Key 时，分两次原生文本输入不能被自动保存引起的重绘打断。
-/// 数据构造：隔离空 Key 配置；先输入一个字符，再补齐本地无效夹具，不连接云端；分别用 Enter、鼠标完成、移除与 Tab 失焦结束。
-/// 执行过程：点击 Key 输入框→输入首字符→等待后台保存→继续输入→Enter 或 MouseDown/重绘/MouseUp→等待保存。
-/// 预期结果：首次输入期间字段持续存在；提交后收起，凭据存储中保存的是完整值。
+/// 数据构造：隔离空 Key 配置；先输入一个字符，再补齐本地无效夹具，不连接云端；分别用 Enter、保存、移除与 Tab 失焦结束。
+/// 执行过程：点击 Key 输入框→输入首字符→等待后台保存→继续输入→Enter、保存、移除或 Tab。
+/// 预期结果：字段持续存在；提交后不回显 Key，凭据存储中保存的是完整值。
 #[test]
 fn gpt_live_material_first_key_stays_visible_until_editing_finishes() {
     use gpui::{EntityInputHandler, Focusable};
@@ -234,7 +231,7 @@ fn gpt_live_material_first_key_stays_visible_until_editing_finishes() {
                 .debug_bounds(if finish == "remove" {
                     "settings-live-key-clear"
                 } else {
-                    "settings-live-key-edit"
+                    "settings-live-key-save"
                 })
                 .unwrap_or_else(|| {
                     let snapshot = host.read_with(cx, |app, _| (
@@ -278,17 +275,21 @@ fn gpt_live_material_first_key_stays_visible_until_editing_finishes() {
         }
         assert!(
             cx.debug_bounds("settings-voice-field-gpt-live-api-key")
-                .is_none(),
-            "提交或隐藏后收起首次 Key 编辑器，finish={finish}, state={:?}",
-            host.read_with(cx, |app, _| (
-                app.voice_settings.editing_field(),
-                app.voice_settings.gpt_live_key_expanded(),
-                app.voice_settings
-                    .values()
-                    .gpt_live_profile()
-                    .credential_ref()
-                    .is_some()
-            ))
+                .is_some(),
+            "提交后密码框仍在，finish={finish}"
+        );
+        let shown = host.read_with(cx, |app, cx| {
+            app.voice_settings_inputs
+                .rendered_text(
+                    crate::settings::voice::VoiceSettingsField::GptLiveApiKey,
+                    cx,
+                )
+                .unwrap_or_default()
+        });
+        assert!(
+            !shown.contains("fixture-only"),
+            "提交后界面不得回显 Key，finish={finish}, shown_chars={}",
+            shown.chars().count()
         );
         let account = settings
             .get_string("voice.gpt_live.credential_ref")

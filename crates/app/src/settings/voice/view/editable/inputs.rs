@@ -43,8 +43,6 @@ pub(crate) struct VoiceSettingsInputs {
         Option<Entity<super::super::capabilities::A1Panel>>,
     pub(in crate::settings::voice::view) jev_panel:
         Option<Entity<super::super::capabilities::JevPanel>>,
-    pub(in crate::settings::voice::view) command_preview:
-        Option<Entity<super::super::command_preview::CommandPreview>>,
     base_url: Entity<VoiceTextInput>,
     model: Entity<VoiceTextInput>,
     pub(super) api_key: Entity<VoiceTextInput>,
@@ -57,6 +55,8 @@ pub(crate) struct VoiceSettingsInputs {
     doubao_api_key: Entity<VoiceTextInput>,
     gpt_live_api_key: Entity<VoiceTextInput>,
     doubao_voice_search: Entity<VoiceTextInput>,
+    pub(crate) tts_sheet_focus: FocusHandle,
+    pub(crate) tts_row_focus: FocusHandle,
 }
 
 impl VoiceSettingsInputs {
@@ -214,7 +214,6 @@ impl VoiceSettingsInputs {
         Self {
             a1_panel: None,
             jev_panel: None,
-            command_preview: None,
             base_url,
             model,
             api_key,
@@ -227,7 +226,19 @@ impl VoiceSettingsInputs {
             doubao_api_key,
             gpt_live_api_key,
             doubao_voice_search,
+            tts_sheet_focus: cx.focus_handle().tab_stop(true),
+            tts_row_focus: cx.focus_handle().tab_stop(true),
         }
+    }
+
+    pub(crate) fn focus_tts_sheet_later(&self, window: &mut Window, cx: &mut gpui::App) {
+        let focus = self.tts_sheet_focus.clone();
+        window.defer(cx, move |window, _| focus.focus(window));
+    }
+
+    pub(crate) fn focus_tts_row_later(&self, window: &mut Window, cx: &mut gpui::App) {
+        let focus = self.tts_row_focus.clone();
+        window.defer(cx, move |window, _| focus.focus(window));
     }
 
     pub(crate) fn input(&self, field: VoiceSettingsField) -> Entity<VoiceTextInput> {
@@ -321,6 +332,11 @@ impl VoiceSettingsInputs {
             let height = (bounds.size.height / gpui::px(1.0)).max(0.0).round() as u32;
             (width, height)
         })
+    }
+
+    /// Current editor text. Callers that save a key must not log or display this value.
+    pub(crate) fn draft_text(&self, field: VoiceSettingsField, cx: &App) -> String {
+        self.input(field).read(cx).content.to_string()
     }
 
     pub(crate) fn rendered_text(&self, field: VoiceSettingsField, cx: &App) -> Option<String> {
