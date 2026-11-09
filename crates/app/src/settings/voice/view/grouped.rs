@@ -4,7 +4,7 @@ use super::{
 use super::{ready::voice_status_overview, setup::recognition, with_alpha, VoiceSettingsView};
 use crate::app::MultisoulApp;
 use crate::settings::typography::{SettingsText, TextRole};
-use crate::settings::voice::VoiceRequirement;
+use crate::settings::voice::{VoiceRequirement, VoiceRequirementState};
 use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful, Window};
 use ui::Theme;
 
@@ -21,28 +21,30 @@ pub(super) fn grouped_settings(
         "listen",
         "voice.command_input",
         div()
-            .child(recognition::source_selector(
-                theme,
-                state,
-                state.setup_asr_source(),
-                cx,
-            ))
+            .child(
+                div()
+                    .w_full()
+                    .flex()
+                    .items_center()
+                    .gap(px(16.0))
+                    .child(super::interaction::row_icon(
+                        theme,
+                        crate::assets::SETTINGS_NAV_VOICE_ASSET,
+                    ))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .child(recognition::source_selector(theme, state, cx)),
+                    ),
+            )
             .child(interaction_rows(
                 theme,
                 state,
                 view.voice_shortcut_label,
                 cx,
             ))
-            .child(super::input_device::input_device_row(theme, state, cx))
-            .child(recognition::microphone_detail(
-                theme,
-                state.requirement_state(VoiceRequirement::Microphone),
-                cx,
-            ))
-            .when(
-                state.setup_asr_source() != asr::AsrProviderId::CloudAzure,
-                |rows| rows.child(super::setup::a1::a1_status_row(theme, state, cx)),
-            ),
+            .child(super::input_device::input_device_row(theme, state, cx)),
     );
     let speak = section(
         theme,
@@ -77,7 +79,12 @@ pub(super) fn grouped_settings(
         .flex()
         .flex_col()
         .gap(px(20.0))
-        .child(desktop_mode_picker(theme, state, cx))
+        .child(desktop_mode_picker(
+            theme,
+            state,
+            view.voice_shortcut_label,
+            cx,
+        ))
         .child(voice_status_overview(
             theme,
             state,
@@ -152,6 +159,19 @@ fn advanced_rows(
         .min_w(px(0.0))
         .flex()
         .flex_col()
+        .when(
+            state.requirement_state(VoiceRequirement::Microphone) != VoiceRequirementState::Ready,
+            |rows| {
+                rows.child(recognition::microphone_detail(
+                    theme,
+                    state.requirement_state(VoiceRequirement::Microphone),
+                    cx,
+                ))
+            },
+        )
+        .when(source != asr::AsrProviderId::CloudAzure, |rows| {
+            rows.child(super::setup::a1::a1_status_row(theme, state, cx))
+        })
         .when(source == asr::AsrProviderId::CloudAzure, |rows| {
             rows.child(recognition::azure_detail(theme, state, inputs, cx))
         })

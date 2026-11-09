@@ -54,8 +54,12 @@ fn voice_settings_match_grouped_prototype_before_setup() {
         "主界面不应再展示当前声音大卡片"
     );
     assert!(
-        cx.debug_bounds("voice-a1-status-row").is_some(),
-        "主界面应保留一行 A1 状态入口"
+        cx.debug_bounds("voice-a1-status-row").is_none(),
+        "A1 状态行已并入更多设置，主界面不再单列"
+    );
+    assert!(
+        cx.debug_bounds("voice-status-next").is_some(),
+        "缺项由顶部横幅给出授权入口"
     );
     assert!(
         cx.debug_bounds("voice-a1-download-install").is_none(),
@@ -119,7 +123,7 @@ fn voice_settings_match_grouped_prototype_before_setup() {
     );
 }
 
-/// 场景：主界面只留 A1 状态行；展开更多设置后才出现完整安装和 Jev 配置。
+/// 场景：A1 状态行与安装面板都收进更多设置；展开更多设置后才出现完整安装和 Jev 配置。
 /// 构造：隔离 App 与默认语音模式，1280×850 采用原有桌面验收基准。
 /// 执行：从公开语音设置入口绘制，确认安装按钮未展开；再展开更多设置并查找安装与 Jev 操作。
 /// 预期：折叠时没有安装按钮和 Python 输入；展开后安装与 Jev 入口存在，不能虚构已连接或生产已启用。
@@ -141,8 +145,8 @@ fn voice_settings_expose_a1_install_and_jev_configuration() {
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
     assert!(
-        cx.debug_bounds("voice-a1-status-row").is_some(),
-        "主界面应有 A1 状态行"
+        cx.debug_bounds("voice-a1-status-row").is_none(),
+        "A1 状态行收进更多设置，折叠时不应出现"
     );
     assert!(
         cx.debug_bounds("voice-a1-download-install").is_none(),
@@ -188,6 +192,7 @@ fn voice_settings_expose_a1_install_and_jev_configuration() {
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
     for selector in [
+        "voice-a1-status-row",
         "voice-a1-download-install",
         "voice-jev-api-key",
         "voice-jev-save",
@@ -210,5 +215,39 @@ fn voice_settings_expose_a1_install_and_jev_configuration() {
     assert!(
         cx.debug_bounds("voice-jev-production-enabled").is_none(),
         "配置页不能开启生产入口"
+    );
+}
+
+/// 场景：豆包模式下顶部分段条必须与内容区同宽，不能按文字内容收缩。
+/// 构造：隔离 App，切到豆包模式，957 宽窗口（接近用户截图）。
+/// 执行：绘制后读取 GPT-Live 分段与内容视口的右边界。
+/// 预期：最右一格贴近内容视口右侧（差距小于 48px 内边距）。
+#[test]
+fn doubao_mode_tabs_fill_content_width() {
+    let temp = tempfile::tempdir().expect("隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(temp.path());
+    let store = storage::AppStore::initialize(&paths).expect("隔离设置");
+    let mut test = TestAppContext::single();
+    let mut host = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        host = Some(entity.clone());
+        ui::component::Root::new(entity, window, cx)
+    });
+    cx.simulate_resize(size(px(957.0), px(600.0)));
+    let host = host.expect("宿主");
+    host.update_in(cx, |app, window, cx| {
+        app.open_voice_settings(window, cx);
+        app.select_desktop_voice_mode(crate::settings::voice::DesktopVoiceMode::Doubao, cx);
+    });
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+    let viewport = cx.debug_bounds("settings-content-scroll").expect("视口");
+    let tab = cx
+        .debug_bounds("settings-voice-desktop-mode-gpt-live")
+        .expect("分段");
+    assert!(
+        viewport.right() - tab.right() < px(48.0),
+        "分段条应撑满内容宽度：{tab:?} vs {viewport:?}"
     );
 }
