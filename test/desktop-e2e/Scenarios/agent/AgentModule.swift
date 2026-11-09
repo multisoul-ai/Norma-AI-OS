@@ -12,6 +12,7 @@ public enum AgentModule {
             AgentAskReady.name,
             AgentVoiceResume.name,
             AgentCodexWaitCompletion.name,
+            AgentGrokTurnSettle.name,
         ],
         run: { scenario, session in
             switch scenario {
@@ -35,6 +36,9 @@ public enum AgentModule {
                 return true
             case AgentCodexWaitCompletion.name:
                 try await AgentCodexWaitCompletion.run(session)
+                return true
+            case AgentGrokTurnSettle.name:
+                try await AgentGrokTurnSettle.run(session)
                 return true
             default:
                 return false

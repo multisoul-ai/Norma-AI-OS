@@ -76,6 +76,8 @@ hook 由脚本经 HTTP 异步转发,`PostToolUse(run_in_background)` 可能晚�
 
 Done 为可撤销状态:Done 后收到活动事件 → 回 Thinking(外部副作用已发出的情形只在确认窗口过短时出现,窗口值需实测)。
 
+发布层不对称:`KeepThinking` 直接写卡片,不经 `observe_mobile_hook`;`Confirm` 要过该门禁,被拒即丢弃。所以 `KeepThinking` 只维持进行中的回合(Thinking / RunningTool / WaitingApproval / WaitingQuestion),不能把 Done、Ready 等卡片拉回运行中,否则被拒收的 Stop(如 /clear 后旧会话迟到的 Stop)会把卡片永久钉在运行中(PR #218)。
+
 ### 3.4 进程层(辅助,不当权威)
 
 只在 `TurnEnded` 时做一次查询,用于发现账本漏登记的后台工作:
@@ -120,6 +122,7 @@ Done 为可撤销状态:Done 后收到活动事件 → 回 Thinking(外部副作
   - 前台工具、其他节点、`PostToolUseFailure` 不登记。
 - 集成:`crates/app/tests/unit/agent_hook_completion_tests.rs`。账本非空时 `terminal_tasks` 为空,事件列表没有 `Stop`,卡片保持 Thinking。播报和任务结算都只消费 `terminal_tasks`。
 - 真实 App:`bash scripts/desktop-e2e.sh agent-background-completion`。假 Claude 发 `PostToolUse(run_in_background)` → 非空 `Stop` → 结清 → 空 `Stop`。持有期是「运行中」且没有 Done;窗口结束后才是 Done。语音默认关,完成播报不在这条场景里验收。
+- 真实 App(Grok,PR #218):`bash scripts/desktop-e2e.sh agent-grok-turn-settle`。脚本 Grok 经生产 hook 二进制发真实形状事件:问答回合(等待回答 → 终端作答 → Stop)与 hi 回合都应为 Done;/clear 后旧会话迟到的 Stop 后 4s 内不得出现「运行中」。2026-11-09 验收:修复构建 3/3 通过;撤掉修复的对照构建在最后一步失败,卡片回到「运行中」,即用户报告的症状。
 
 ## 7. 风险
 
