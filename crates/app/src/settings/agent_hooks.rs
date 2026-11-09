@@ -462,3 +462,7 @@ mod completion_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/agent_hook_codex_turn_tests.rs"]
 mod codex_turn_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_hook_grok_pipeline_tests.rs"]
+mod grok_pipeline_tests;
