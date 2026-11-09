@@ -115,6 +115,19 @@ impl AgentHookServer {
         runtime: &mut Runtime,
         event: &norma::agent_hook::AgentHookEvent,
     ) {
+        // KeepThinking 不经 observe_mobile_hook，对应的 Confirm 若被门禁拒收会静默丢弃。
+        // 所以它只能保持进行中的回合，不能把已结束或已换会话的卡片拉回运行中。
+        if !matches!(
+            runtime.agent_task_state(event.node_id),
+            Some(
+                AgentTaskState::Thinking
+                    | AgentTaskState::RunningTool { .. }
+                    | AgentTaskState::WaitingApproval { .. }
+                    | AgentTaskState::WaitingQuestion
+            )
+        ) {
+            return;
+        }
         let outcome = runtime.apply_agent_task_update_with_outcome(AgentTaskUpdate {
             node_id: event.node_id,
             profile: canvas_profile(event.profile),
