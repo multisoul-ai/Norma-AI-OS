@@ -42,6 +42,10 @@ pub(in crate::settings::voice::view) fn spoken_reply_row(
                 cx.stop_propagation();
             }
         }))
+        .child(super::super::interaction::row_icon(
+            theme,
+            crate::assets::SETTINGS_NAV_VOICE_ASSET,
+        ))
         .child(
             div()
                 .flex_1()
@@ -66,8 +70,7 @@ pub(in crate::settings::voice::view) fn spoken_reply_row(
                 .child(
                     div()
                         .settings_text(TextRole::Helper, theme)
-                        .text_color(rgba(theme.accent_blue))
-                        .child(voice),
+                        .child(format!("{voice} ⌄")),
                 )
                 .child(
                     div()

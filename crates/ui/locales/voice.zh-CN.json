@@ -477,5 +477,11 @@
   "voice.live_interaction": "交互方式",
   "voice.live_reply_voice": "回复音色",
   "voice.live_refresh_microphone": "刷新麦克风",
-  "voice.advanced_settings_summary": "理解模型、语音服务与凭据、回复偏好、诊断"
+  "voice.advanced_settings_summary": "理解模型、语音服务与凭据、回复偏好、诊断",
+  "voice.mode_hint_command": "按 %{shortcut} 说一句指令，Norma 在本机理解；复杂语义交给主模型。",
+  "voice.almost_ready": "还差一步就能开始",
+  "voice.finish_required_items": "完成下面的必要项即可使用语音",
+  "voice.grant_microphone": "授权麦克风",
+  "voice.wake_mode": "唤起方式",
+  "voice.wake_mode_hint": "按 %{shortcut} 说一句，结束后执行"
 }
