@@ -128,9 +128,27 @@ pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
     let Ok(root) = read_json_or_empty(path) else {
         return false;
     };
-    hook_events_for_source(source)
-        .iter()
-        .all(|event_name| event_has_multisoul_hook(&root, event_name, source))
+    // Configs from before question hooks read as stale, so the Settings toggle upgrades them.
+    let question_ready = question_hook_install(source).is_none_or(|(matcher, _)| {
+        root.pointer("/hooks/PreToolUse")
+            .and_then(Value::as_array)
+            .is_some_and(|groups| {
+                groups
+                    .iter()
+                    .filter(|group| group.get("matcher").and_then(Value::as_str) == Some(matcher))
+                    .filter_map(|group| group.get("hooks").and_then(Value::as_array))
+                    .flatten()
+                    .filter_map(|handler| handler.get("command").and_then(Value::as_str))
+                    .any(|command| {
+                        is_multisoul_hook_command(command, source)
+                            && command.ends_with("--request-question")
+                    })
+            })
+    });
+    question_ready
+        && hook_events_for_source(source)
+            .iter()
+            .all(|event_name| event_has_multisoul_hook(&root, event_name, source))
 }
 
 pub fn uninstall_hook_config(
