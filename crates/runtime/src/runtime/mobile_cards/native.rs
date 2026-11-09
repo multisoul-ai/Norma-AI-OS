@@ -114,7 +114,7 @@ impl Runtime {
     pub(crate) fn track_native_agent(&mut self, node: NodeId) {
         if self.mobile_runs.contains_key(&node)
             || !self.live.contains_key(&node)
-            || !matches!(self.document.node(node).map(|node| &node.kind), Some(CanvasNodeKind::Agent(spec)) if matches!(spec.profile, AgentProfile::Claude | AgentProfile::Codex | AgentProfile::Cursor))
+            || !matches!(self.document.node(node).map(|node| &node.kind), Some(CanvasNodeKind::Agent(spec)) if super::super::questions::reserves_native_question_run(spec.profile))
         {
             return;
         }

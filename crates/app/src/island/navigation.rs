@@ -42,6 +42,23 @@ impl IslandController {
         self.navigate(target, Destination::Agent(node), cx);
     }
 
+    /// "查看成果" uses the same card jump as 定位.
+    pub fn open_completed(&mut self, cx: &mut Context<Self>) {
+        let Some(route) = self.completion_route.clone() else {
+            self.location_failed(cx);
+            return;
+        };
+        self.locate(
+            IslandTarget {
+                source: route.source,
+                workspace: route.workspace,
+                area: route.area,
+            },
+            route.node,
+            cx,
+        );
+    }
+
     pub fn open_artifact(
         &mut self,
         target: IslandTarget,

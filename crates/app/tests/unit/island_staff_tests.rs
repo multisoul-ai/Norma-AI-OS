@@ -39,6 +39,7 @@ fn workspace(overview: RunOverview) -> IslandWorkspace {
             overview,
             approvals: Vec::new(),
             questions: Vec::new(),
+            proposals: Vec::new(),
         }],
     }
 }

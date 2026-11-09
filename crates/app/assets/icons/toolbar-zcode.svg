@@ -1,18 +1,3 @@
 <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
-  <!-- 骨架占位：首字母像素字，待该 CLI 负责人替换为官方图标的像素版 -->
-  <rect x="7" y="5" width="2" height="2"/>
-  <rect x="9" y="5" width="2" height="2"/>
-  <rect x="11" y="5" width="2" height="2"/>
-  <rect x="13" y="5" width="2" height="2"/>
-  <rect x="15" y="5" width="2" height="2"/>
-  <rect x="15" y="7" width="2" height="2"/>
-  <rect x="13" y="9" width="2" height="2"/>
-  <rect x="11" y="11" width="2" height="2"/>
-  <rect x="9" y="13" width="2" height="2"/>
-  <rect x="7" y="15" width="2" height="2"/>
-  <rect x="7" y="17" width="2" height="2"/>
-  <rect x="9" y="17" width="2" height="2"/>
-  <rect x="11" y="17" width="2" height="2"/>
-  <rect x="13" y="17" width="2" height="2"/>
-  <rect x="15" y="17" width="2" height="2"/>
+  <path d="M3.5 5.5h8.2L10.2 8H6.2L3.5 5.5zm8.8 0H20.5l-1.5 2.5h-5.4l-1.3-2.5zM5.2 15.2 13.2 7.6h2.6L7.8 15.2h5.2l1.6 3.2H4.2l1-3.2zm9 0H20.5l-1.4 3.2h-6.5l1.6-3.2z"/>
 </svg>

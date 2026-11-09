@@ -42,6 +42,7 @@ fn project_islands(capture: ActivityCapture) -> storage::StorageResult<Vec<Islan
         let mut presence = Vec::new();
         let mut approvals = Vec::new();
         let mut questions = Vec::new();
+        let mut proposals = Vec::new();
         for area in &areas {
             let live = capture.live.get(&(workspace.id.clone(), area.id.clone()));
             let status = statuses.iter().find(|status| status.area_id == area.id);
@@ -63,6 +64,7 @@ fn project_islands(capture: ActivityCapture) -> storage::StorageResult<Vec<Islan
                     approval: approval.clone(),
                 }));
                 questions.extend(live.questions.clone());
+                proposals.extend(live.proposals.clone());
                 presentation.extend(live.agents.iter().map(|agent| agent.presentation.clone()));
                 live.agents
                     .iter()
@@ -107,6 +109,7 @@ fn project_islands(capture: ActivityCapture) -> storage::StorageResult<Vec<Islan
             files,
             presence,
             questions,
+            proposals,
             cached_facts: Some(WorkspaceActivityFacts {
                 workspace: DesktopChatWorkspace {
                     id: workspace.id.clone(),
@@ -198,6 +201,12 @@ pub(super) fn island_workspace(
                     .questions
                     .iter()
                     .filter(|question| question.area_id == project.area_id)
+                    .cloned()
+                    .collect(),
+                proposals: input
+                    .proposals
+                    .iter()
+                    .filter(|proposal| proposal.area_id == project.area_id)
                     .cloned()
                     .collect(),
             }

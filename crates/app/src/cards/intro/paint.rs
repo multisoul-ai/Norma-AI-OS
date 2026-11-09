@@ -19,6 +19,13 @@ const GHOSTTY_ACCENT: u32 = 0x3551f3ff;
 const CODEX_ACCENT: u32 = 0x7f94ffff;
 const CLAUDE_CODE_ACCENT: u32 = 0xdf7858ff;
 const CURSOR_ACCENT: u32 = 0x9b8cff;
+const GROK_ACCENT: u32 = 0xf4f4f5ff;
+const OPENCODE_ACCENT: u32 = 0xffffffff;
+const INFCODE_ACCENT: u32 = 0xf4d04aff;
+const KIMI_ACCENT: u32 = 0x2f6bffff;
+const ZCODE_ACCENT: u32 = 0xffffffff;
+const PI_ACCENT: u32 = 0xf4f4f5ff;
+const HERMES_ACCENT: u32 = 0xf4f4f5ff;
 const NEUTRAL_GLYPH: u32 = 0xc3c3c4ff;
 const INTRO_BACKGROUND: u32 = 0x0f0f11ff;
 
@@ -183,7 +190,7 @@ fn paint_intro_layout(
     }
 }
 
-fn intro_text_color(kind: InitializationAnimationKind, accent: bool, theme: Theme) -> Hsla {
+fn intro_text_color(kind: InitializationAnimationKind, accent: bool, _theme: Theme) -> Hsla {
     if !accent {
         return rgba(NEUTRAL_GLYPH).into();
     }
@@ -192,13 +199,13 @@ fn intro_text_color(kind: InitializationAnimationKind, accent: bool, theme: Them
         InitializationAnimationKind::Codex => rgba(CODEX_ACCENT).into(),
         InitializationAnimationKind::Claude => rgba(CLAUDE_CODE_ACCENT).into(),
         InitializationAnimationKind::Cursor => rgba(CURSOR_ACCENT).into(),
-        InitializationAnimationKind::Grok => rgba(theme.accent_violet).into(),
-        InitializationAnimationKind::OpenCode => rgba(theme.accent_violet).into(),
-        InitializationAnimationKind::InfCode => rgba(theme.accent_violet).into(),
-        InitializationAnimationKind::Kimi => rgba(theme.accent_violet).into(),
-        InitializationAnimationKind::ZCode => rgba(theme.accent_violet).into(),
-        InitializationAnimationKind::Pi => rgba(theme.accent_violet).into(),
-        InitializationAnimationKind::Hermes => rgba(theme.accent_violet).into(),
+        InitializationAnimationKind::Grok => rgba(GROK_ACCENT).into(),
+        InitializationAnimationKind::OpenCode => rgba(OPENCODE_ACCENT).into(),
+        InitializationAnimationKind::InfCode => rgba(INFCODE_ACCENT).into(),
+        InitializationAnimationKind::Kimi => rgba(KIMI_ACCENT).into(),
+        InitializationAnimationKind::ZCode => rgba(ZCODE_ACCENT).into(),
+        InitializationAnimationKind::Pi => rgba(PI_ACCENT).into(),
+        InitializationAnimationKind::Hermes => rgba(HERMES_ACCENT).into(),
     }
 }
 

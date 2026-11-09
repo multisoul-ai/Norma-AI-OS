@@ -88,6 +88,7 @@ fn workspace(
             },
             approvals,
             questions: vec![],
+            proposals: vec![],
         }],
     }
 }
@@ -229,6 +230,7 @@ fn the_queue_advances_into_a_review_before_the_later_alert() {
         provider: "OpenCode".into(),
         workspace: "norma-cloud".into(),
         review: true,
+        proposal: false,
     };
     let alert = |id: &str| QueueItem {
         id: id.into(),
@@ -236,6 +238,7 @@ fn the_queue_advances_into_a_review_before_the_later_alert() {
         provider: "Claude".into(),
         workspace: "Norma".into(),
         review: false,
+        proposal: false,
     };
     let previous = ["a".to_owned(), "r".to_owned(), "q".to_owned()];
     let remaining = vec![review, alert("q")];
@@ -252,4 +255,136 @@ fn the_queue_advances_into_a_review_before_the_later_alert() {
     let gone = queue_step(&previous, &[], Some("a"));
     assert_eq!(gone.focused_review, None, "空队列没有下一张");
     assert!(!gone.hold_review, "空队列松开按住");
+}
+
+/// 场景：两个项目各有一张节点号同为 42 的卡片，只有其中一个刚完成。
+/// 数据：同一宿主来源 7。area-a 的 Ada 仍在运行，area-b 的 Bea 也在运行。完成身份是 7:area-b:42。
+/// 执行：收集脸，再用完成身份匹配。
+/// 预期：命中 Bea；只用来源和节点号的 7:42 匹配不到任何人，也不能落到 Ada。
+#[test]
+fn completion_face_keeps_the_project_when_node_ids_collide() {
+    let project = |area: &str, name: &str| {
+        let mut person = agent(name, 42, RunOverviewPresence::Running, "thinking");
+        person.area_id = area.into();
+        super::super::IslandProject {
+            source: 7,
+            area_id: area.into(),
+            name: area.into(),
+            root: format!("/{area}").into(),
+            loaded: true,
+            overview: RunOverview {
+                attention: vec![],
+                running: vec![person],
+                idle: vec![],
+                unloaded_projects: vec![],
+            },
+            cached_overview: RunOverview {
+                attention: vec![],
+                running: vec![],
+                idle: vec![],
+                unloaded_projects: vec![],
+            },
+            approvals: vec![],
+            questions: vec![],
+            proposals: vec![],
+        }
+    };
+    let space = IslandWorkspace {
+        database: "db".into(),
+        id: "ws".into(),
+        name: "Norma".into(),
+        projects: vec![project("area-a", "Ada"), project("area-b", "Bea")],
+    };
+    let faces = collect(std::slice::from_ref(&space));
+    let matched =
+        matching_completion_face(&faces, &agent_id(7, "area-b", 42)).expect("完成身份必须命中 Bea");
+    assert_eq!(matched.name, "Bea", "同号节点必须留在自己的项目");
+    assert_eq!(matched.area_id, "area-b", "命中的项目是 area-b");
+    assert!(
+        matching_completion_face(&faces, "7:42").is_none(),
+        "丢掉项目后不能绑到 Ada"
+    );
+}
+
+fn proposal(id: u64, agent: &str) -> super::super::IslandProposal {
+    super::super::IslandProposal {
+        id,
+        area_id: "area".into(),
+        agent: agent.into(),
+        title: "下一步".into(),
+        task: "去做".into(),
+        why: "因为空着".into(),
+        block: None,
+        creates_card: false,
+    }
+}
+
+/// 场景：提议要改头像槽，但没有卡片的 Agent 不能占用画布节点号。
+/// 数据：Iris 已在跑，节点 2。提议 3 指向 Iris，提议 9 指向还没有脸的 Nova。
+/// 执行：收集脸和队列，再用队列步进从审批跳过提议去成果。
+/// 预期：Iris 离开运行槽并等待，节点仍是 2；Nova 的节点是高位合成号；队列步进选中成果而不是提议。
+#[test]
+fn proposal_moves_a_known_agent_and_synthesizes_an_unknown_one() {
+    let mut space = workspace(
+        vec![
+            agent("Grace", 1, RunOverviewPresence::Running, "thinking"),
+            agent("Iris", 2, RunOverviewPresence::Running, "thinking"),
+        ],
+        vec![],
+        vec![review(4, "Leo", "turn-leo")],
+        vec![],
+    );
+    space.projects[0].proposals = vec![proposal(3, "Iris"), proposal(9, "Nova")];
+    let faces = collect(std::slice::from_ref(&space));
+    let iris = faces
+        .iter()
+        .find(|face| face.name == "Iris")
+        .expect("Iris 的脸必须在");
+    assert_eq!(iris.node_id, 2, "已有卡片的人继续用画布节点 2");
+    assert_eq!(iris.activity, AgentActivity::Waiting, "Iris 在等你处理提议");
+    assert_eq!(iris.slot, SlotKind::Pending, "Iris 要从运行侧挪到待处理");
+    // 高 16 位留给合成节点。9 只占低 48 位：(1 << 48) | 9。
+    let synthetic = (1u64 << 48) | 9;
+    let nova = faces
+        .iter()
+        .find(|face| face.name == "Nova")
+        .expect("没有卡片时要合成 Nova");
+    assert_eq!(nova.node_id, synthetic, "未知 Agent 不能占用画布节点号");
+    assert_eq!(nova.activity, AgentActivity::Waiting, "合成的脸也是在等你");
+    assert_ne!(nova.node_id, 2, "Nova 不能撞上 Iris 的节点");
+    let grace = faces
+        .iter()
+        .find(|face| face.name == "Grace")
+        .expect("Grace 仍在");
+    assert_eq!(grace.activity, AgentActivity::Running, "没有提议的人继续跑");
+    let items = queue_items(std::slice::from_ref(&space));
+    assert!(
+        items
+            .iter()
+            .any(|item| item.proposal && item.name == "Iris"),
+        "队列要看得见 Iris 的提议"
+    );
+    assert!(
+        items.iter().any(|item| item.review && !item.proposal),
+        "成果仍是成果，不是提议"
+    );
+    let proposal_id = super::super::controller::proposal_key(7, "ws", "area", 3);
+    let review_id = items
+        .iter()
+        .find(|item| item.review)
+        .expect("队列里要有成果")
+        .id
+        .clone();
+    let step = queue_step(
+        &["approval".into(), proposal_id, review_id.clone()],
+        &items,
+        Some("approval"),
+    );
+    assert_eq!(
+        step.focused_review.as_deref(),
+        Some(review_id.as_str()),
+        "下一步是成果"
+    );
+    assert!(step.select_alert.is_none(), "提议编号不能拿去选提醒");
+    assert!(step.hold_review, "成果要按住提醒形态");
 }

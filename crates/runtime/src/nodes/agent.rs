@@ -144,7 +144,7 @@ pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEn
     };
     match hook_env {
         Some(hook_env) => hook_env.apply_to_command(command),
-        None => command,
+        None => crate::agent_hooks::without_inherited_agent_identity(command),
     }
 }
 
@@ -169,7 +169,7 @@ pub(crate) fn mobile_agent_command(
     let command = PtyCommand::new("/bin/zsh").args(["-lic", &command]);
     Ok(match hook {
         Some(hook) => hook.apply_to_command(command),
-        None => command,
+        None => crate::agent_hooks::without_inherited_agent_identity(command),
     })
 }
 
@@ -396,6 +396,82 @@ mod tests {
             !claude_with_hook_env.args[1].contains("--dangerously-bypass-hook-trust"),
             "Claude CLI 没有该参数，命令中不应出现，实际: {:?}",
             claude_with_hook_env.args
+        );
+    }
+
+    /// 没有本 App 的 hook config 时，Agent 命令必须显式移除从父进程继承的卡片身份。
+    ///
+    /// 数据构造：
+    ///   hook env = None，对应 Workspace 路由注册失败后 `set_agent_hook_config(None)`。
+    ///   身份名单来自 `INHERITED_AGENT_IDENTITY_ENV`，含 `MULTISOUL_NODE_ID` 与
+    ///   question attach 注入的 `NORMA_CONTROL_RUN_ID`。
+    ///   对照：同一 profile 带 hook env 时仍写入 `MULTISOUL_NODE_ID=42`。
+    ///
+    /// 执行过程：
+    ///   1. `agent_command(Claude, None)`。
+    ///   2. `terminal_shell_command("/bin/zsh")`。
+    ///   3. `agent_command(Claude, Some(hook))`。
+    ///
+    /// 预期结果：
+    ///   - 正断言：无 hook 的 Agent 与 Terminal 命令的 `env_remove` 含全部身份变量。
+    ///   - 负断言：这两条命令的 `env` 不得再写入 `MULTISOUL_NODE_ID`。
+    ///   - 负断言：有 hook 时仍注入本卡 node id，且不把该变量放进 `env_remove`。
+    #[test]
+    fn test_agent_command_without_hook_env_removes_inherited_identity() {
+        let claude = agent_command(AgentProfile::Claude, None);
+        let terminal = crate::runtime_support::terminal_shell_command("/bin/zsh");
+        let hook_env = AgentHookEnv {
+            control_run_id: None,
+            node_id: 42,
+            profile: AgentProfile::Claude,
+            endpoint: "http://127.0.0.1:49152/agent-hooks".to_string(),
+            token: "tok_123".to_string(),
+            workspace_id: "workspace-alpha".to_string(),
+            workspace_route_id: "route-alpha-7".to_string(),
+            norma_socket: "/tmp/multisoul-norma-dev.sock".to_string(),
+        };
+        let with_hook = agent_command(AgentProfile::Claude, Some(&hook_env));
+
+        for key in crate::agent_hooks::INHERITED_AGENT_IDENTITY_ENV {
+            assert!(
+                claude.env_remove.iter().any(|removed| removed == key),
+                "无 hook 的 Claude 命令应移除继承的 {key}，实际 env_remove: {:?}",
+                claude.env_remove
+            );
+            assert!(
+                terminal.env_remove.iter().any(|removed| removed == key),
+                "Terminal 命令应移除继承的 {key}，实际 env_remove: {:?}",
+                terminal.env_remove
+            );
+        }
+        assert!(
+            claude.env.iter().all(|(key, _)| key != "MULTISOUL_NODE_ID"),
+            "无 hook 时不得注入 MULTISOUL_NODE_ID，实际 env: {:?}",
+            claude.env
+        );
+        assert!(
+            terminal
+                .env
+                .iter()
+                .all(|(key, _)| key != "MULTISOUL_NODE_ID"),
+            "Terminal 不得注入 MULTISOUL_NODE_ID，实际 env: {:?}",
+            terminal.env
+        );
+        assert!(
+            with_hook
+                .env
+                .iter()
+                .any(|(key, value)| key == "MULTISOUL_NODE_ID" && value == "42"),
+            "有 hook 时仍应注入本卡 MULTISOUL_NODE_ID=42，实际 env: {:?}",
+            with_hook.env
+        );
+        assert!(
+            with_hook
+                .env_remove
+                .iter()
+                .all(|key| key != "MULTISOUL_NODE_ID"),
+            "有 hook 时不得移除即将注入的 MULTISOUL_NODE_ID，实际 env_remove: {:?}",
+            with_hook.env_remove
         );
     }
 }

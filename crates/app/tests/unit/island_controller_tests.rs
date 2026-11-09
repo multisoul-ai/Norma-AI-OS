@@ -66,6 +66,7 @@ fn island_pending_count_matches_rows_that_pending_tab_renders() {
                 overview,
                 approvals: vec![],
                 questions: vec![],
+                proposals: vec![],
             }],
         };
         assert_eq!(
@@ -145,6 +146,7 @@ fn island_confirmed_approval_is_hidden_from_stale_expanded_projection() {
             overview,
             approvals: vec![approval],
             questions: vec![],
+            proposals: vec![],
         }],
     };
     let mut cx = TestAppContext::single();
@@ -225,4 +227,121 @@ fn island_action_feedback_ends_on_collapse_or_new_alert() {
             assert!(state.message.is_none(), "旧成功文案不能跨越确认生命周期");
         });
     }
+}
+
+fn proposal_workspace() -> IslandWorkspace {
+    let mut overview = rows::sample(2_000_000);
+    overview.running.clear();
+    overview.idle.clear();
+    overview.attention.clear();
+    overview.unloaded_projects.clear();
+    IslandWorkspace {
+        database: "db.sqlite".into(),
+        id: "w".into(),
+        name: "Workspace".into(),
+        projects: vec![super::super::IslandProject {
+            source: 1,
+            area_id: "a".into(),
+            name: "Project".into(),
+            root: "/project".into(),
+            loaded: true,
+            cached_overview: overview.clone(),
+            overview,
+            approvals: vec![],
+            questions: vec![],
+            proposals: vec![super::super::IslandProposal {
+                id: 7,
+                area_id: "a".into(),
+                agent: "Ada".into(),
+                title: "下一步".into(),
+                task: "去做".into(),
+                why: "因为空着".into(),
+                block: None,
+                creates_card: false,
+            }],
+        }],
+    }
+}
+
+/// 场景：岛上只有一条幕僚提议，没有审批、提问或成果。
+/// 数据：已加载项目带着提议 7。控制器没有注册宿主。
+/// 执行：刷新后看模式和徽标，展开，再手动切回运行页并再次刷新；然后对未注册宿主派发和忽略。
+/// 预期：不进 Alert；徽标计 1；展开落在待办；手动切回运行页后刷新不抢回去；两次动作都提示失效且不记为已处理。
+#[test]
+fn island_proposals_open_pending_without_an_alert_and_expire_without_a_host() {
+    let mut cx = TestAppContext::single();
+    let model = cx.new(|_| {
+        let mut model = IslandModel::default();
+        model.workspaces = vec![proposal_workspace()];
+        model
+    });
+    let controller = cx.new(|cx| IslandController::new(model, cx));
+    controller.update(&mut cx, |state, cx| {
+        assert_ne!(
+            state.displays.state.mode(),
+            runtime::island::IslandMode::Alert,
+            "只有提议不能主动弹出"
+        );
+        assert!(
+            state.displays.state.alert_id().is_none(),
+            "提议不能占提醒身份"
+        );
+        assert_eq!(
+            counts(&state.visible_workspaces(cx)),
+            (0, 1),
+            "待办徽标要算上这条提议"
+        );
+        state.event(1, IslandEvent::Expand, cx);
+        assert_eq!(
+            state.displays.state.mode(),
+            runtime::island::IslandMode::Expanded,
+            "展开后停在展开态"
+        );
+        assert_eq!(
+            state.displays.state.tab(),
+            runtime::island::IslandTab::Pending,
+            "只有提议时展开应落在需要你处理"
+        );
+        state.event(
+            1,
+            IslandEvent::SelectTab(runtime::island::IslandTab::Running),
+            cx,
+        );
+        state.refresh(cx);
+        assert_eq!(
+            state.displays.state.tab(),
+            runtime::island::IslandTab::Running,
+            "用户切回运行页后，刷新不能再抢回待办"
+        );
+        let route = super::super::actions::IslandTarget {
+            source: 99,
+            workspace: "w".into(),
+            area: "a".into(),
+        };
+        state.dispatch_proposal(route.clone(), 7, cx);
+        assert_eq!(
+            state.message.as_ref(),
+            Some(&ui::i18n::LocalizedText::new("island.expired")),
+            "没有项目会话时派发应提示失效"
+        );
+        assert!(
+            state.resolved_proposals.is_empty(),
+            "失效的派发不能把提议标成已处理"
+        );
+        state.dismiss_proposal(route, 7, cx);
+        assert_eq!(
+            state.message.as_ref(),
+            Some(&ui::i18n::LocalizedText::new("island.expired")),
+            "没有项目会话时忽略也应提示失效"
+        );
+        assert!(
+            state.resolved_proposals.is_empty(),
+            "失效的忽略不能把提议标成已处理"
+        );
+        assert_eq!(
+            counts(&state.visible_workspaces(cx)),
+            (0, 1),
+            "没处理成的提议仍留在待办"
+        );
+    });
 }

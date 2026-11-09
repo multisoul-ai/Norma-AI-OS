@@ -177,6 +177,7 @@ fn island_activity_keeps_current_projection_when_global_storage_fails() {
             facts,
             cached_facts: None,
             questions: Vec::new(),
+            proposals: Vec::new(),
             area_ids: Vec::new(),
             presentation: Vec::new(),
             current_area_id: String::new(),
@@ -188,5 +189,91 @@ fn island_activity_keeps_current_projection_when_global_storage_fails() {
     assert!(
         projection.current.is_some(),
         "全局读取错误不能丢掉当前窗口的内存投影"
+    );
+}
+
+/// 场景：同一个工作空间有两个项目，提议只属于其中一个。
+/// 数据：项目 a 带着提议 7，项目 b 没有；另有一条 area 不匹配的提议 9。
+/// 执行：用生产的岛投影按 area 过滤。
+/// 预期：a 只有 7；b 为空；9 不会出现在任何一个项目上。
+#[test]
+fn island_workspace_keeps_each_proposal_on_its_own_area() {
+    use norma::mobile::{
+        DesktopChatProject, DesktopChatWorkspace, RunOverviewProjectPresence,
+        WorkspaceActivityFacts, WorkspaceActivityView,
+    };
+    let project = |area: &str| DesktopChatProject {
+        area_id: area.into(),
+        project_id: area.into(),
+        name: area.into(),
+        root: format!("/{area}"),
+        agents: Vec::new(),
+        definitions: Vec::new(),
+    };
+    let facts = WorkspaceActivityFacts {
+        workspace: DesktopChatWorkspace {
+            id: "ws".into(),
+            name: "Norma".into(),
+            revision: 0,
+            projects: vec![project("a"), project("b")],
+        },
+        observed: true,
+        approvals: Vec::new(),
+        reviews: Vec::new(),
+    };
+    let proposal = |id: u64, area: &str| crate::island::IslandProposal {
+        id,
+        area_id: area.into(),
+        agent: "Ada".into(),
+        title: "下一步".into(),
+        task: "去做".into(),
+        why: "因为空着".into(),
+        block: None,
+        creates_card: false,
+    };
+    let input = super::ActivityInput {
+        database: "db.sqlite".into(),
+        questions: Vec::new(),
+        proposals: vec![proposal(7, "a"), proposal(9, "gone")],
+        facts: facts.clone(),
+        cached_facts: None,
+        area_ids: vec!["a".into(), "b".into()],
+        presentation: Vec::new(),
+        current_area_id: String::new(),
+        files: Vec::new(),
+        presence: vec![
+            RunOverviewProjectPresence {
+                area_id: "a".into(),
+                loaded: true,
+                updated_at_unix_ms: None,
+            },
+            RunOverviewProjectPresence {
+                area_id: "b".into(),
+                loaded: true,
+                updated_at_unix_ms: None,
+            },
+        ],
+    };
+    let view = WorkspaceActivityView::from_facts(&facts);
+    let island = super::project::island_workspace(&input, &view);
+    let alpha = island
+        .projects
+        .iter()
+        .find(|project| project.area_id == "a")
+        .expect("项目 a 必须在");
+    let beta = island
+        .projects
+        .iter()
+        .find(|project| project.area_id == "b")
+        .expect("项目 b 必须在");
+    assert_eq!(alpha.proposals.len(), 1, "a 只有自己的一条提议");
+    assert_eq!(alpha.proposals[0].id, 7, "a 上的提议是 7");
+    assert!(beta.proposals.is_empty(), "b 不能看到 a 的提议");
+    assert!(
+        island
+            .projects
+            .iter()
+            .all(|project| project.proposals.iter().all(|item| item.id != 9)),
+        "对不上项目的提议 9 不能出现"
     );
 }

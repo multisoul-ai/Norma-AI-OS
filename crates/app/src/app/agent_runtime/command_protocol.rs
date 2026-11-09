@@ -26,6 +26,29 @@ pub(super) fn internal_agent_error(message: String) -> CardCommandError {
     CardCommandError::agent(AgentErrorCode::InternalError, message, false)
 }
 
+pub(super) fn dispatch_assignments(
+    coordinator: &mut agent::AgentTaskCoordinator,
+    assignments: Vec<agent::AgentAssignment>,
+    force_untracked: bool,
+    source: agent::AgentDispatchSource,
+    identity: Option<&super::AgentIdentitySnapshot>,
+) -> Result<Vec<agent::AgentDispatchReceipt>, norma::protocol::CardCommandError> {
+    let has_active = coordinator.active_task_ref_for_source(source).is_some();
+    coordinator
+        .dispatch_from(assignments, force_untracked, source)
+        .map_err(|error| {
+            if matches!(error, agent::AgentCoordinationError::SourceAgentUnavailable) {
+                tracing::warn!(
+                    definition_id = source.definition_id,
+                    node_id = source.node_id,
+                    has_active,
+                    "resolve_dispatch_parent failed"
+                );
+            }
+            coordination_error(error, identity)
+        })
+}
+
 pub(super) fn coordination_error(
     error: agent::AgentCoordinationError,
     identity: Option<&super::AgentIdentitySnapshot>,

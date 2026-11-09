@@ -245,7 +245,9 @@ fn encode_uri_component(value: &str) -> String {
 
 /// Build a PtyCommand for a terminal node that opens in the saved cwd.
 pub fn build_terminal_restore_command(shell: &str, cwd: &str) -> PtyCommand {
-    PtyCommand::new(shell).args(["-l"]).cwd(PathBuf::from(cwd))
+    crate::agent_hooks::without_inherited_agent_identity(
+        PtyCommand::new(shell).args(["-l"]).cwd(PathBuf::from(cwd)),
+    )
 }
 
 /// Build a PtyCommand for an agent that resumes a saved CLI session.
@@ -323,7 +325,7 @@ pub(crate) fn build_agent_resume_command(
     cmd = cmd.with_cwd(workspace_root);
     match hook_env {
         Some(env) => env.apply_to_command(cmd),
-        None => cmd,
+        None => crate::agent_hooks::without_inherited_agent_identity(cmd),
     }
 }
 

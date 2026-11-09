@@ -8,6 +8,7 @@ mod chrome;
 mod controller;
 mod faces;
 mod fallback;
+mod focus;
 pub(crate) mod hotkey;
 mod model;
 #[cfg(target_os = "macos")]
@@ -17,6 +18,7 @@ mod navigation;
 mod notify;
 mod pending;
 pub(crate) mod preferences;
+mod proposals;
 mod question;
 mod question_editor;
 mod queue_view;
@@ -34,7 +36,10 @@ pub(crate) use preferences::install;
 pub(crate) use windows::has_workspace_windows;
 
 use gpui::{App, AppContext, Entity, Global};
-pub(crate) use model::{IslandModel, IslandProject, IslandWorkspace};
+pub(crate) use model::{
+    IslandModel, IslandProject, IslandProposal, IslandProposalBlock, IslandWorkspace,
+};
+pub(crate) use proposals::ProposalDispatchError;
 
 struct IslandGlobal(Entity<IslandModel>);
 impl Global for IslandGlobal {}
@@ -81,18 +86,34 @@ pub(crate) fn remove_source(source: u64, cx: &mut App) {
     });
 }
 
+/// Host source plus the workspace, project and card that just finished.
+/// The session entity id is not a locate source.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct CompletionRoute {
+    pub source: u64,
+    pub workspace: String,
+    pub area: String,
+    pub node: u64,
+}
+
 #[derive(Clone)]
 pub(super) struct CompletionNotice {
     pub id: String,
     pub label: String,
+    pub route: Option<CompletionRoute>,
 }
 impl gpui::EventEmitter<CompletionNotice> for IslandModel {}
 
-pub(crate) fn task_completed(source: u64, node: u64, label: String, cx: &mut App) {
+pub(crate) fn task_completed(route: Option<CompletionRoute>, label: String, cx: &mut App) {
+    let Some(route) = route else {
+        return;
+    };
+    let id = faces::agent_id(route.source, &route.area, route.node);
     model(cx).update(cx, |_, cx| {
         cx.emit(CompletionNotice {
-            id: format!("{source}:{node}"),
+            id,
             label,
+            route: Some(route),
         })
     });
 }

@@ -8,7 +8,9 @@ pub(super) struct IslandController {
     pub model: Entity<IslandModel>,
     pub message: Option<ui::i18n::LocalizedText>,
     pub completion_label: Option<String>,
+    pub completion_route: Option<super::CompletionRoute>,
     pub pending: std::collections::BTreeSet<String>,
+    pub(super) resolved_proposals: std::collections::BTreeSet<String>,
     pub checked_grants: std::collections::BTreeSet<String>,
     pub navigation: u64,
     pub instant_revision: u64,
@@ -36,6 +38,7 @@ impl IslandController {
         let completion_subscription =
             cx.subscribe(&model, |this, _, notice: &super::CompletionNotice, cx| {
                 this.completion_label = Some(notice.label.clone());
+                this.completion_route = notice.route.clone();
                 this.notify_completed(&notice.label, cx);
                 this.event(
                     this.displays.active_display().unwrap_or_default(),
@@ -59,7 +62,9 @@ impl IslandController {
             model,
             message: None,
             completion_label: None,
+            completion_route: None,
             pending: Default::default(),
+            resolved_proposals: Default::default(),
             checked_grants: Default::default(),
             navigation: 0,
             instant_revision: 0,
@@ -101,7 +106,24 @@ impl IslandController {
         let previous_display = self.displays.active_display();
         let previous_mode = self.displays.state.mode();
         let previous_alert = self.displays.state.alert_id().map(str::to_owned);
-        let changed = self.displays.apply(display, event, now);
+        let mut changed = self.displays.apply(display, event, now);
+        // 只有提议时，展开会先落在运行页。进展开的这一次改到待办，之后手动切回仍然有效。
+        if previous_mode != runtime::island::IslandMode::Expanded
+            && self.displays.state.mode() == runtime::island::IslandMode::Expanded
+            && self.displays.state.tab() == runtime::island::IslandTab::Running
+            && self.visible_workspaces(cx).iter().any(|workspace| {
+                workspace
+                    .projects
+                    .iter()
+                    .any(|project| !project.proposals.is_empty())
+            })
+        {
+            changed |= self.displays.apply(
+                display,
+                IslandEvent::SelectTab(runtime::island::IslandTab::Pending),
+                now,
+            );
+        }
         let collapsed = self.displays.state.mode() == runtime::island::IslandMode::Compact
             && previous_mode != runtime::island::IslandMode::Compact;
         let new_alert = self.displays.state.alert_id().is_some()
@@ -173,12 +195,21 @@ impl IslandController {
                         &row.snapshot.question.target,
                     ))
                 });
+                project.proposals.retain(|proposal| {
+                    !self.resolved_proposals.contains(&proposal_key(
+                        source,
+                        &workspace.id,
+                        area,
+                        proposal.id,
+                    ))
+                });
             }
         }
         workspaces
     }
 
     pub(super) fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.prune_resolved_proposals(cx);
         self.check_remembered(cx);
         let mut overview = IslandOverview {
             alerts: self.current_alerts(cx),
@@ -247,6 +278,23 @@ impl IslandController {
         }
     }
 
+    fn prune_resolved_proposals(&mut self, cx: &gpui::App) {
+        let live: std::collections::BTreeSet<String> = self
+            .model
+            .read(cx)
+            .workspaces
+            .iter()
+            .flat_map(|workspace| {
+                workspace.projects.iter().flat_map(|project| {
+                    project.proposals.iter().map(|proposal| {
+                        proposal_key(project.source, &workspace.id, &project.area_id, proposal.id)
+                    })
+                })
+            })
+            .collect();
+        self.resolved_proposals.retain(|key| live.contains(key));
+    }
+
     fn clock_visible(&self, cx: &gpui::App) -> bool {
         self.displays.state.mode() == runtime::island::IslandMode::Expanded
             && self.displays.state.tab() == runtime::island::IslandTab::Running
@@ -288,6 +336,10 @@ impl IslandController {
     }
 }
 
+pub(super) fn proposal_key(source: u64, workspace: &str, area: &str, id: u64) -> String {
+    format!("proposal:{source}:{workspace}:{area}:{id}")
+}
+
 pub(super) fn alert_key(
     source: u64,
     workspace: &str,
@@ -312,6 +364,7 @@ pub(super) fn counts(workspaces: &[IslandWorkspace]) -> (usize, usize) {
             pending
                 + project.approvals.len()
                 + project.questions.len()
+                + project.proposals.len()
                 + super::faces::result_cards(&project.overview.attention).len()
         });
     (running, pending)
@@ -320,3 +373,7 @@ pub(super) fn counts(workspaces: &[IslandWorkspace]) -> (usize, usize) {
 #[cfg(test)]
 #[path = "../../tests/unit/island_controller_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/island_proposal_controller_tests.rs"]
+mod proposal_controller_tests;

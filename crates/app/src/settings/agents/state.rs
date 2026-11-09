@@ -103,6 +103,12 @@ impl AgentDefinitionsState {
         definition
     }
 
+    #[cfg(test)]
+    pub(crate) fn replace_definitions_for_test(&mut self, definitions: Vec<AgentDefinition>) {
+        self.definitions = definitions;
+        self.store = None;
+    }
+
     pub(crate) fn bind_project_store(&mut self, store: AgentDefinitionStore) {
         self.store = Some(store);
         self.reset_draft();

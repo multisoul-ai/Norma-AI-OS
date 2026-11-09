@@ -100,8 +100,8 @@ fn delegation_prompt_requires_verbatim_task_text() {
         &[],
     );
     assert!(
-        prompt.contains("正文用用户原话，只去掉称呼和派活用语。"),
-        "派发正文用用户原话，只去掉称呼和派活用语"
+        prompt.contains("正文只放要做的事：去掉称呼和派活用语"),
+        "派发正文只放要做的事，去掉称呼和派活用语"
     );
     assert!(!prompt.contains("润色只调整表达"), "不得再指示润色任务正文");
 }

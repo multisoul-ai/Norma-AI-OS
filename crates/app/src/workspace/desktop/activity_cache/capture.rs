@@ -35,6 +35,7 @@ pub(super) struct LiveProject {
     pub agents: Vec<LiveAgent>,
     pub approvals: Vec<ApprovalSnapshot>,
     pub questions: Vec<OverviewQuestion>,
+    pub proposals: Vec<crate::island::IslandProposal>,
 }
 
 #[derive(Default)]
@@ -88,6 +89,7 @@ impl MultisoulApp {
         if self.desktop_workspace.activity_monitor.stopped || self.desktop_host.is_some() {
             return;
         }
+        self.ensure_proposal_snapshots(cx);
         let live = self.capture_activity_sessions(cx);
         let revision = crate::mobile::project_events::revision();
         let monitor = &mut self.desktop_workspace.activity_monitor;
@@ -145,6 +147,7 @@ impl MultisoulApp {
                         agents,
                         approvals,
                         questions: app.question_overview_rows(&key.1),
+                        proposals: app.proposal_snapshot(&key.1),
                     }
                 });
                 (key.clone(), project)

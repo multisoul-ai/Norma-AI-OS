@@ -12,14 +12,7 @@ use ui::i18n::text;
 
 impl IslandView {
     pub(super) fn completion_face<'a>(faces: &'a [Face], completion_id: &str) -> Option<&'a Face> {
-        faces
-            .iter()
-            .find(|face| format!("{}:{}", face.source, face.node_id) == completion_id)
-            .or_else(|| {
-                faces
-                    .iter()
-                    .find(|face| face.activity == AgentActivity::Done)
-            })
+        super::faces::matching_completion_face(faces, completion_id)
     }
 
     pub(super) fn completion_notice(
@@ -74,7 +67,7 @@ impl IslandView {
                     .flex_col()
                     .gap(px(2.))
                     .text_size(px(13.))
-                    .child(line)
+                    .child(div().min_w(px(0.)).truncate().child(line))
                     .when_some(detail, |column, detail| {
                         column.child(
                             div()
@@ -86,22 +79,20 @@ impl IslandView {
                     }),
             )
             .child(
-                style::action(
-                    "island-view-result",
-                    text("island.view_result"),
-                    Tone::Primary,
-                    cx,
-                )
-                .on_click(cx.listener(|view, _, _, cx| {
-                    cx.stop_propagation();
-                    view.event(runtime::island::IslandEvent::Expand, cx);
-                    view.event(
-                        runtime::island::IslandEvent::SelectTab(
-                            runtime::island::IslandTab::Pending,
-                        ),
+                div().flex_none().child(
+                    style::action(
+                        "island-view-result",
+                        text("island.view_result"),
+                        Tone::Primary,
                         cx,
-                    );
-                })),
+                    )
+                    .on_click(cx.listener(|view, _, _, cx| {
+                        cx.stop_propagation();
+                        view.controller.update(cx, |controller, cx| {
+                            controller.open_completed(cx);
+                        });
+                    })),
+                ),
             )
     }
 }

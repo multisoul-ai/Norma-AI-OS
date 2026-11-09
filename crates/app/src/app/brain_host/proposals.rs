@@ -6,11 +6,13 @@ use std::time::{Duration, SystemTime};
 
 pub(crate) const MAX_PROPOSALS: usize = 5;
 
-#[derive(Clone, Debug, PartialEq)]
+/// 派发被挡住的原因。文案在岛的展示边界翻译，这里不带句子。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ProposalBlock {
     WaitingConfirmation,
     Busy,
-    Unavailable(String),
+    Missing,
+    Disabled,
 }
 
 /// 大脑交来的提议内容。
@@ -88,6 +90,12 @@ impl Proposals {
 
     pub(crate) fn items(&self) -> &[Proposal] {
         &self.items
+    }
+
+    /// 派发或忽略时取走这一条。不存在则不动其余提议。
+    pub(crate) fn take(&mut self, id: u64) -> Option<Proposal> {
+        let index = self.items.iter().position(|proposal| proposal.id == id)?;
+        Some(self.items.remove(index))
     }
 
     pub(crate) fn to_json(&self) -> String {
