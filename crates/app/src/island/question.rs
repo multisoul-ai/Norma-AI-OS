@@ -100,8 +100,7 @@ impl IslandView {
                                         editing.prepare(cx);
                                     }
                                 });
-                                cx.activate(true);
-                                window.activate_window();
+                                super::focus::focus_panel_input(window);
                             }),
                         )
                         .child(

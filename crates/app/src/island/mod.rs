@@ -8,6 +8,7 @@ mod chrome;
 mod controller;
 mod faces;
 mod fallback;
+mod focus;
 pub(crate) mod hotkey;
 mod model;
 #[cfg(target_os = "macos")]
