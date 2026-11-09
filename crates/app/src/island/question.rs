@@ -19,15 +19,23 @@ impl IslandView {
         context: String,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let native = self.answer_on_card_button(&route, row, &id, !row.available, cx);
         let waiting = self.controller.read(cx).pending.contains(&id);
         let editing = self.controller.read(cx).editing.get(&id);
-        let mut card = style::card().child(style::card_heading(
+        let mut card = style::card().child(style::card_heading_with(
             &row.agent,
             &format!("{:?}", row.snapshot.question.target.provider),
             context,
             text("island.question_title"),
-            text("island.question_label"),
-            style::ATTENTION,
+            div()
+                .flex()
+                .items_center()
+                .gap(px(6.))
+                .child(native)
+                .child(style::chip(
+                    text("island.question_label").to_owned(),
+                    style::ATTENTION,
+                )),
             runtime::island::bloub::Mood::Waiting,
         ));
         if !row.available {
@@ -36,14 +44,7 @@ impl IslandView {
             for item in &row.snapshot.question.items {
                 card = card.child(div().text_size(px(13.5)).child(item.prompt.clone()));
             }
-            return card
-                .child(
-                    div()
-                        .flex()
-                        .justify_end()
-                        .child(self.answer_on_card_button(&route, row, &id, true, cx)),
-                )
-                .into_any_element();
+            return card.into_any_element();
         }
         let Some(editing) = editing else {
             return card.into_any_element();
@@ -119,14 +120,7 @@ impl IslandView {
                 card = card.child(reply);
             }
         }
-        card = card.child(
-            div()
-                .flex()
-                .justify_end()
-                .gap(px(6.))
-                .child(self.answer_on_card_button(&route, row, &id, false, cx))
-                .children(submit),
-        );
+        card = card.child(div().flex().justify_end().children(submit));
         card.into_any_element()
     }
 
