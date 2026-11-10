@@ -356,7 +356,9 @@ impl MultisoulApp {
                                 );
                             app.persist_voice_settings_in_background(cx);
                             if validation_recorded
-                                && !app.voice_settings.settings_persistence_pending()
+                                && app
+                                    .voice_settings
+                                    .minimax_preview_should_reconfigure_active()
                             {
                                 app.configure_active_minimax_tts_if_ready(cx);
                             }

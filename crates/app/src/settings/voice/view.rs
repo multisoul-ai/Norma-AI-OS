@@ -20,8 +20,8 @@ use ui::Theme;
 mod asr_provider;
 pub(crate) mod capabilities;
 mod command_policy;
-pub(crate) mod command_preview;
 mod components;
+mod credential_row;
 mod doubao;
 mod editable;
 mod gpt_live;
@@ -37,6 +37,7 @@ mod spoken_reply;
 mod status;
 mod tts_catalog;
 mod tts_provider;
+mod voice_sheet;
 
 pub(super) use components::{action_button, text_setting_row};
 pub(crate) use options::VoiceSettingsView;
@@ -49,7 +50,7 @@ pub(crate) fn voice_settings(
     if view.state.values().desktop_mode() == super::DesktopVoiceMode::Legacy
         && !view.state.reviewing_setup()
     {
-        return grouped::grouped_settings(view, cx);
+        return grouped::grouped_settings(view, window, cx);
     }
     let VoiceSettingsView {
         live_call,
@@ -59,7 +60,6 @@ pub(crate) fn voice_settings(
         content_scroll,
         setup_scroll_target,
         voice_shortcut_label,
-        available_width: _,
     } = view;
     let page = div()
         .w_full()
@@ -68,7 +68,7 @@ pub(crate) fn voice_settings(
         .flex()
         .flex_col()
         .gap(px(SECTION_GAP))
-        .child(desktop_mode_picker(theme, state, cx));
+        .child(desktop_mode_picker(theme, state, voice_shortcut_label, cx));
     if state.values().desktop_mode() == super::DesktopVoiceMode::GptLive {
         return page
             .child(gpt_live::gpt_live_settings(
@@ -86,12 +86,6 @@ pub(crate) fn voice_settings(
                     .filter(|_| state.status().is_some_and(|(_, error)| error)),
             );
     }
-    let page = page.child(voice_status_overview(
-        theme,
-        state,
-        voice_shortcut_label,
-        cx,
-    ));
     if state.values().desktop_mode() == super::DesktopVoiceMode::Doubao {
         return page
             .child(doubao_interaction_group(
@@ -103,6 +97,12 @@ pub(crate) fn voice_settings(
             .child(doubao_settings(theme, state, inputs, window, cx))
             .children(status_message(theme, state));
     }
+    let page = page.child(voice_status_overview(
+        theme,
+        state,
+        voice_shortcut_label,
+        cx,
+    ));
     if !matches!(state.readiness(), super::VoiceEntryState::Ready) || state.reviewing_setup() {
         return page
             .child(interaction_group(theme, state, voice_shortcut_label, cx))
@@ -121,7 +121,7 @@ pub(crate) fn voice_settings(
         .child(interaction_group(theme, state, voice_shortcut_label, cx))
         .child(asr_provider_group(theme, state, inputs, cx))
         .child(command_policy::command_policy_group(theme))
-        .child(spoken_reply_group(theme, state, inputs, cx))
+        .child(spoken_reply_group(theme, state, inputs, window, cx))
         .child(advanced_group(theme, state, inputs, cx))
         .children(status_message(theme, state))
 }
@@ -301,6 +301,16 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(crate) fn on_voice_settings_show_advanced(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.expand_advanced();
+        cx.notify();
+    }
+
     pub(crate) fn persist_voice_settings_in_background(&mut self, cx: &mut Context<Self>) {
         let tts_activation_batch = self.pending_tts_activation.is_some();
         let writes = self.voice_settings.take_pending_writes();
@@ -430,7 +440,6 @@ fn advanced_group(
 
 pub(super) fn settings_group(theme: Theme, title: &'static str) -> Div {
     div()
-        .w_full()
         .min_w(px(0.0))
         .flex()
         .flex_col()

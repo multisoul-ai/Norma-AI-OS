@@ -38,6 +38,7 @@ pub(super) const KEY_ASR_AZURE_READY: &str = "voice.asr.azure.ready";
 pub(super) const KEY_TTS_MODEL_ID: &str = "voice.tts.model_id";
 pub(super) const KEY_TTS_VOICE_ID: &str = "voice.tts.voice_id";
 pub(super) const KEY_TTS_ACTIVE_PROVIDER_ID: &str = "voice.tts.active_provider_id";
+pub(super) const KEY_TTS_SYSTEM_VOICE: &str = "voice.tts.system_voice";
 pub(super) const KEY_TTS_MINIMAX_MODEL_ID: &str = "voice.tts.minimax.model_id";
 pub(super) const KEY_TTS_MINIMAX_VOICE_ID: &str = "voice.tts.minimax.voice_id";
 pub(super) const KEY_TTS_MINIMAX_VOICE_PROVENANCE: &str = "voice.tts.minimax.voice_provenance";
@@ -74,6 +75,7 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) tts_model_id: Option<TtsModelId>,
     pub(crate) tts_voice_id: Option<TtsVoiceId>,
     pub(crate) active_tts_provider_id: Option<tts::TtsProviderId>,
+    pub(crate) system_tts_voice: Option<TtsVoiceId>,
     pub(crate) minimax_tts_model_id: Option<TtsModelId>,
     pub(crate) minimax_tts_voice_id: Option<TtsVoiceId>,
     pub(crate) minimax_tts_voice_provenance: Option<tts::VoiceSelectionProvenance>,
@@ -149,6 +151,7 @@ pub(crate) struct VoiceSettingsValues {
     pub(crate) tts_model_id: Option<TtsModelId>,
     pub(crate) tts_voice_id: Option<TtsVoiceId>,
     pub(crate) active_tts_provider_id: Option<tts::TtsProviderId>,
+    system_tts_voice: Option<TtsVoiceId>,
     pub(crate) minimax_tts_model_id: Option<TtsModelId>,
     pub(crate) minimax_tts_voice_id: Option<TtsVoiceId>,
     pub(crate) minimax_tts_voice_provenance: tts::VoiceSelectionProvenance,
@@ -327,6 +330,7 @@ impl VoiceSettingsValues {
             tts_model_id,
             tts_voice_id,
             active_tts_provider_id,
+            system_tts_voice: saved.system_tts_voice.clone(),
             minimax_tts_model_id: saved.minimax_tts_model_id.clone(),
             minimax_tts_voice_id: saved.minimax_tts_voice_id.clone(),
             minimax_tts_voice_provenance: saved
@@ -387,6 +391,10 @@ impl VoiceSettingsValues {
         self.active_tts_provider_id.as_ref()
     }
 
+    pub(crate) fn system_tts_voice(&self) -> Option<&TtsVoiceId> {
+        self.system_tts_voice.as_ref()
+    }
+
     pub(crate) fn minimax_tts_model_id(&self) -> Option<&TtsModelId> {
         self.minimax_tts_model_id.as_ref()
     }
@@ -411,6 +419,7 @@ impl VoiceSettingsValues {
         match self.active_tts_provider_id.as_ref()?.as_str() {
             tts::LOCAL_TTS_PROVIDER_ID => self.tts_model_id(),
             tts::MINIMAX_TTS_PROVIDER_ID => self.minimax_tts_model_id(),
+            tts::SYSTEM_TTS_PROVIDER_ID => Some(tts::system_tts_model_id()),
             _ => None,
         }
     }
@@ -419,6 +428,7 @@ impl VoiceSettingsValues {
         match self.active_tts_provider_id.as_ref()?.as_str() {
             tts::LOCAL_TTS_PROVIDER_ID => self.tts_voice_id(),
             tts::MINIMAX_TTS_PROVIDER_ID => self.minimax_tts_voice_id(),
+            tts::SYSTEM_TTS_PROVIDER_ID => self.system_tts_voice(),
             _ => None,
         }
     }

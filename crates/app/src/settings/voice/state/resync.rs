@@ -47,6 +47,7 @@ pub(crate) fn tts_configuration_differs(a: &SavedVoiceSettings, b: &SavedVoiceSe
     a.tts_model_id != b.tts_model_id
         || a.tts_voice_id != b.tts_voice_id
         || a.active_tts_provider_id != b.active_tts_provider_id
+        || a.system_tts_voice != b.system_tts_voice
         || a.minimax_tts_model_id != b.minimax_tts_model_id
         || a.minimax_tts_voice_id != b.minimax_tts_voice_id
         || a.minimax_tts_voice_provenance != b.minimax_tts_voice_provenance

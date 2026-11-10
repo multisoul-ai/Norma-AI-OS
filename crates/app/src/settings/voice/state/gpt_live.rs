@@ -49,14 +49,6 @@ impl GptLiveProfile {
 }
 
 impl super::VoiceSettingsState {
-    pub(crate) fn gpt_live_key_expanded(&self) -> bool {
-        self.gpt_live_key_expanded
-    }
-
-    pub(crate) fn set_gpt_live_key_expanded(&mut self, expanded: bool) {
-        self.gpt_live_key_expanded = expanded;
-    }
-
     pub(crate) fn gpt_live_diagnostics_expanded(&self) -> bool {
         self.gpt_live_diagnostics_expanded
     }

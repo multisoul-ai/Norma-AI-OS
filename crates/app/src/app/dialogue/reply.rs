@@ -77,11 +77,28 @@ impl SelectedTtsModel {
             api_key: Some(api_key),
         }
     }
+
+    pub(crate) fn system(voice_id: tts::TtsVoiceId) -> Self {
+        Self {
+            provider_id: tts::TtsProviderId::parse(tts::SYSTEM_TTS_PROVIDER_ID)
+                .expect("system TTS Provider ID must be valid"),
+            root: std::path::PathBuf::new(),
+            model_id: tts::system_tts_model_id().clone(),
+            voice_id,
+            credential_ref: None,
+            api_key: None,
+        }
+    }
 }
 
 pub(crate) fn create_tts_client_for_selected(
     selected: &SelectedTtsModel,
 ) -> Result<TtsClientBox, SpeechError> {
+    if selected.provider_id.as_str() == tts::SYSTEM_TTS_PROVIDER_ID {
+        return Ok(Box::new(super::system_say::SystemSayClient::new(
+            selected.voice_id.as_str(),
+        )));
+    }
     let registry = tts::builtin_provider_registry();
     let provider = registry
         .provider(selected.provider_id.as_str())

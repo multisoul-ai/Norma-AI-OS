@@ -40,23 +40,8 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
-                let imported = app
-                    .voice_settings
+                app.voice_settings
                     .finish_zipvoice_reference_import(generation, result);
-                if imported
-                    && app
-                        .voice_settings
-                        .values()
-                        .tts_model_id()
-                        .is_some_and(|id| id.as_str() == tts::ZIPVOICE_DISTILL_INT8_MODEL_ID)
-                {
-                    app.cancel_agent_announcements();
-                    app.clear_agent_announcement_audio_for_voice_change();
-                    app.tts_preview.cancel();
-                    app.invalidate_tts_for_configuration_change(cx);
-                    app.stop_continuous_listening(cx);
-                    app.voice.stop_for_model_switch();
-                }
                 cx.notify();
             });
         })
@@ -75,26 +60,8 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
-                let removed = app
-                    .voice_settings
+                app.voice_settings
                     .finish_zipvoice_reference_remove(generation, result);
-                if removed
-                    && app
-                        .voice_settings
-                        .values()
-                        .tts_model_id()
-                        .is_some_and(|id| id.as_str() == tts::ZIPVOICE_DISTILL_INT8_MODEL_ID)
-                {
-                    app.cancel_agent_announcements();
-                    app.clear_agent_announcement_audio_for_voice_change();
-                    app.tts_preview.cancel();
-                    app.invalidate_tts_for_configuration_change(cx);
-                    app.stop_continuous_listening(cx);
-                    app.voice.stop_for_model_switch();
-                    app.voice_settings.select_tts_model_and_voice(None, None);
-                    app.dialogue.selected_tts_model = None;
-                    app.persist_voice_settings_in_background(cx);
-                }
                 cx.notify();
             });
         })

@@ -1,7 +1,7 @@
 use super::components::VoiceAction;
+use super::credential_row::{credential_row, CredentialRowSpec};
 use super::{settings_group, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
-use crate::settings::spacing::CARD_PADDING_COMPACT;
 use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::{
     DesktopVoiceMode, VoiceRequirement, VoiceRequirementState, VoiceSettingsField,
@@ -15,114 +15,101 @@ mod item;
 mod menu_state;
 mod voices;
 
-#[cfg(test)]
-#[path = "../../../../tests/unit/voice_mode_layout_tests.rs"]
-mod mode_layout_tests;
-
 pub(super) fn desktop_mode_picker(
     theme: Theme,
     state: &VoiceSettingsState,
+    shortcut: &str,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let mode = state.values().desktop_mode();
+    let hint = match mode {
+        DesktopVoiceMode::Legacy => ui::i18n::format(
+            "voice.mode_hint_command",
+            &[("shortcut", shortcut.to_string())],
+        ),
+        _ => ui::i18n::text("voice.have_a_real_time_conversation_with_norma").to_string(),
+    };
     div()
-        .w_full()
+        .min_w(px(0.0))
         .flex()
         .flex_col()
         .gap(px(10.0))
         .child(
             div()
-                .settings_text(TextRole::Headline, theme)
-                .child(ui::i18n::text("voice.conversation_mode")),
+                .min_w(px(0.0))
+                .flex()
+                .p(px(2.0))
+                .rounded(px(22.0))
+                .border_1()
+                .border_color(rgba(with_alpha(theme.text_primary, 0x24)))
+                .children(
+                    [
+                        DesktopVoiceMode::Legacy,
+                        DesktopVoiceMode::Doubao,
+                        DesktopVoiceMode::GptLive,
+                    ]
+                    .map(|candidate| mode_tab(theme, candidate, mode == candidate, cx)),
+                ),
         )
         .child(
             div()
-                .w_full()
-                .flex()
-                .flex_wrap()
-                .gap(px(12.0))
-                .child(mode_card(
-                    theme,
-                    DesktopVoiceMode::Legacy,
-                    mode == DesktopVoiceMode::Legacy,
-                    cx,
-                ))
-                .child(mode_card(
-                    theme,
-                    DesktopVoiceMode::Doubao,
-                    mode == DesktopVoiceMode::Doubao,
-                    cx,
-                ))
-                .child(mode_card(
-                    theme,
-                    DesktopVoiceMode::GptLive,
-                    mode == DesktopVoiceMode::GptLive,
-                    cx,
-                )),
+                .px(px(4.0))
+                .settings_text(TextRole::Helper, theme)
+                .child(hint),
         )
 }
 
-fn mode_card(
+fn mode_tab(
     theme: Theme,
     mode: DesktopVoiceMode,
     selected: bool,
     cx: &Context<MultisoulApp>,
 ) -> Stateful<Div> {
-    let (selector, title, hint) = match mode {
+    let (selector, title) = match mode {
         DesktopVoiceMode::Legacy => (
             "settings-voice-desktop-mode-legacy",
             ui::i18n::text("voice.voice_commands"),
-            ui::i18n::text("voice.give_a_voice_command_or_listen_continuously"),
         ),
         DesktopVoiceMode::Doubao => (
             "settings-voice-desktop-mode-doubao",
             ui::i18n::text("voice.doubao_2_0_voice"),
-            ui::i18n::text("voice.have_a_real_time_conversation_with_norma"),
         ),
         DesktopVoiceMode::GptLive => (
             "settings-voice-desktop-mode-gpt-live",
             ui::i18n::text("voice.live_name"),
-            ui::i18n::text("voice.have_a_real_time_conversation_with_norma"),
         ),
     };
     let variant = ButtonCustomVariant::new(cx)
         .color(
             rgba(if selected {
-                with_alpha(theme.accent_blue, 0x16)
+                with_alpha(theme.accent_blue, 0x38)
             } else {
-                theme.panel_high
+                0x00000000
             })
             .into(),
         )
         .foreground(rgba(theme.text_primary).into())
-        .border(
-            rgba(with_alpha(
-                if selected {
-                    theme.accent_blue
-                } else {
-                    theme.text_secondary
-                },
-                if selected { 0x80 } else { 0x25 },
-            ))
-            .into(),
-        )
+        .border(rgba(0x00000000).into())
         .hover(rgba(with_alpha(theme.accent_blue, 0x25)).into())
         .active(rgba(with_alpha(theme.accent_blue, 0x38)).into());
     div()
         .id(selector)
         .debug_selector(move || selector.to_string())
         .relative()
-        .flex_1()
-        .min_w(px(160.0))
-        .min_h(px(88.0))
+        .flex_auto()
+        .min_w(px(0.0))
+        .px(px(14.0))
+        .h(px(40.0))
         .flex()
-        .flex_col()
+        .items_center()
+        .justify_center()
         .child(
             Button::new(selector)
                 .debug_selector(move || format!("{selector}-button"))
                 .absolute()
                 .inset_0()
                 .size_full()
+                .rounded(px(18.0))
                 .custom(variant)
                 .tooltip(title)
                 .on_activate(cx.listener(move |app, _, _, cx| {
@@ -130,36 +117,14 @@ fn mode_card(
                 })),
         )
         .child(
-            // Button's intrinsic label row does not constrain wrapping children.
             div()
                 .relative()
-                .min_w(px(0.0))
-                .p(px(CARD_PADDING_COMPACT))
-                .flex()
-                .flex_col()
-                .gap(px(6.0))
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .justify_between()
-                        .settings_font(TextRole::RowTitle)
-                        .child(title)
-                        .child(
-                            div()
-                                .text_color(rgba(theme.accent_blue))
-                                .child(if selected { "✓" } else { "" }),
-                        ),
-                )
-                .child(
-                    div()
-                        .debug_selector(move || format!("{selector}-hint"))
-                        .w_full()
-                        .min_w(px(0.0))
-                        .whitespace_normal()
-                        .settings_text(TextRole::Helper, theme)
-                        .child(hint),
-                ),
+                .settings_font(TextRole::RowTitle)
+                .child(if selected {
+                    format!("✓ {title}")
+                } else {
+                    title.to_string()
+                }),
         )
 }
 
@@ -200,40 +165,28 @@ pub(super) fn doubao_settings(
                 )
                 .child(
                     div()
-                        .settings_text(TextRole::Helper, theme)
-                        .child(if configured {
-                            ui::i18n::text("voice.api_key_saved_in_this_mac_s_local_database")
-                        } else {
-                            ui::i18n::text(
-                                "voice.enter_your_volcengine_ark_api_key_for_asr_2_0_chat",
-                            )
-                        }),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(px(10.0))
-                        .child(inputs.input(VoiceSettingsField::DoubaoApiKey))
-                        .when(configured, |row| {
-                            row.child(
-                                super::action_button(
-                                    theme,
-                                    ui::i18n::text("common.remove"),
-                                    theme.destructive,
-                                )
-                                .id("settings-doubao-api-key-clear")
-                                .debug_selector(|| "settings-doubao-api-key-clear".to_string())
-                                .on_click(cx.listener(
-                                    |app, _, _, cx| {
-                                        app.stop_doubao_voice(cx);
-                                        app.voice_settings.clear_doubao_credential();
-                                        app.persist_voice_settings_in_background(cx);
-                                        cx.notify();
-                                    },
-                                )),
-                            )
-                        }),
+                        .id("settings-doubao-api-key")
+                        .debug_selector(|| "settings-doubao-api-key".to_string())
+                        .child(credential_row(
+                            theme,
+                            CredentialRowSpec {
+                                label: "voice.ark_api_key",
+                                hint: "voice.stored_in_this_mac_s_local_database_never_written_to_logs",
+                                field: VoiceSettingsField::DoubaoApiKey,
+                                configured,
+                                pending: state.credential_persistence_pending(),
+                                status_id: "settings-doubao-api-key-status",
+                                save_id: "settings-doubao-api-key-save",
+                                clear_id: "settings-doubao-api-key-clear",
+                            },
+                            inputs,
+                            cx,
+                            |app, _, cx| {
+                                app.stop_doubao_voice(cx);
+                                app.voice_settings.clear_doubao_credential();
+                                app.persist_voice_settings_in_background(cx);
+                            },
+                        )),
                 ),
         )
         .child(

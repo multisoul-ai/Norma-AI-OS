@@ -226,10 +226,6 @@ impl MultisoulApp {
             && self.voice_settings.values().desktop_mode()
                 == crate::settings::voice::DesktopVoiceMode::Legacy
         {
-            let roster = self.single_voice_roster();
-            let project = self.workspace_state.current_root.clone();
-            self.voice_settings_inputs
-                .prepare_command_preview(self.theme, project, roster, window, cx);
             self.voice_settings_inputs.prepare_capabilities(
                 &self.voice_settings,
                 self.theme,

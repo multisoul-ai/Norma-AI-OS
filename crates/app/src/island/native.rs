@@ -3,7 +3,7 @@ use gpui::Window;
 use objc2::{
     rc::Retained,
     runtime::{AnyObject, ProtocolObject},
-    MainThreadMarker,
+    MainThreadMarker, Message,
 };
 use objc2_app_kit::{
     NSColor, NSEvent, NSEventMask, NSScreen, NSView, NSWindow, NSWindowAnimationBehavior,
@@ -77,12 +77,22 @@ pub(super) fn panel(window: &Window) -> Option<Retained<NSWindow>> {
 }
 
 pub(super) fn configure(window: &Window, cx: &gpui::App) {
-    let Some(panel) = panel(window) else { return };
+    let Ok(RawWindowHandle::AppKit(handle)) =
+        HasWindowHandle::window_handle(window).map(|handle| handle.as_raw())
+    else {
+        return;
+    };
+    // SAFETY: GPUI owns this live NSView; callers are on the AppKit thread.
+    let view = unsafe { &*handle.ns_view.as_ptr().cast::<NSView>() }.retain();
+    let Some(panel) = view.window() else { return };
     // AppKit can recreate the titlebar controls while the initial window is shown.
     // Remove the titlebar itself after GPUI releases its construction lease.
     cx.foreground_executor()
         .spawn(async move {
             panel.setStyleMask(NSWindowStyleMask::NonactivatingPanel);
+            // Dropping the titled style rebuilds the frame view and makes the panel its own first
+            // responder; keys then only arrive as key equivalents and never reach text input.
+            panel.makeFirstResponder(Some(&view));
             panel.setCollectionBehavior(
                 NSWindowCollectionBehavior::CanJoinAllSpaces
                     | NSWindowCollectionBehavior::FullScreenAuxiliary

@@ -1,5 +1,8 @@
 use super::super::asr_provider::locale_catalog;
-use super::super::{setting_row, text_setting_row, with_alpha, VoiceSettingsInputs};
+use super::super::components::VoiceAction;
+use super::super::credential_row::{credential_row, CredentialRowSpec};
+use super::super::interaction::mode_option;
+use super::super::{text_setting_row, with_alpha, VoiceSettingsInputs};
 use super::components::{compact_setup_row, setup_action_button, SetupButtonTone};
 use super::models::alternative_models_detail;
 use crate::app::MultisoulApp;
@@ -28,7 +31,7 @@ pub(crate) fn recognition_detail(
             theme, state, cx,
         ))
         .child(microphone_detail(theme, microphone, cx))
-        .child(source_selector(theme, state, source, cx))
+        .child(source_selector(theme, state, cx))
         .when(source == asr::AsrProviderId::LocalSherpa, |detail| {
             detail.child(local_detail(theme, state, cx))
         })
@@ -96,48 +99,34 @@ pub(in crate::settings::voice::view) fn microphone_detail(
 pub(in crate::settings::voice::view) fn source_selector(
     theme: Theme,
     state: &VoiceSettingsState,
-    source: asr::AsrProviderId,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let active = state.values().asr_provider();
+    let cloud = state.values().asr_provider() == asr::AsrProviderId::CloudAzure;
     compact_setup_row(
         theme,
         ui::i18n::text("voice.recognition_source"),
         ui::i18n::text("voice.choose_where_speech_is_processed"),
-        div()
-            .flex_none()
-            .flex()
-            .gap(px(8.0))
-            .child(setup_action_button(
-                theme,
-                "voice-setup-asr-source-local",
-                if active != asr::AsrProviderId::CloudAzure {
-                    ui::i18n::text("voice.local_recognition_selected")
-                } else {
-                    ui::i18n::text("voice.local_recognition")
-                },
-                source_tone(
-                    active != asr::AsrProviderId::CloudAzure,
-                    source != asr::AsrProviderId::CloudAzure,
-                ),
-                cx,
-                cx.listener(MultisoulApp::on_voice_setup_show_local_asr),
-            ))
-            .child(setup_action_button(
-                theme,
-                "voice-setup-asr-source-azure",
-                if active == asr::AsrProviderId::CloudAzure {
-                    ui::i18n::text("voice.cloud_recognition_selected")
-                } else {
-                    ui::i18n::text("voice.cloud_recognition")
-                },
-                source_tone(
-                    active == asr::AsrProviderId::CloudAzure,
-                    source == asr::AsrProviderId::CloudAzure,
-                ),
-                cx,
-                cx.listener(MultisoulApp::on_voice_setup_show_azure_asr),
-            )),
+        super::super::interaction::segmented(theme)
+            .child(
+                mode_option(
+                    theme,
+                    "voice-setup-asr-source-local",
+                    ui::i18n::text("voice.local_recognition"),
+                    !cloud,
+                    cx,
+                )
+                .on_activate(cx.listener(MultisoulApp::on_voice_setup_show_local_asr)),
+            )
+            .child(
+                mode_option(
+                    theme,
+                    "voice-setup-asr-source-azure",
+                    ui::i18n::text("voice.cloud_recognition"),
+                    cloud,
+                    cx,
+                )
+                .on_activate(cx.listener(MultisoulApp::on_voice_setup_show_azure_asr)),
+            ),
     )
 }
 
@@ -286,32 +275,24 @@ pub(in crate::settings::voice::view) fn azure_detail(
             cx,
         ))
         .child(locale_catalog(theme, state, cx))
-        .child(
-            setting_row(
-                theme,
-                ui::i18n::text("voice.azure_api_key"),
-                ui::i18n::text("voice.stored_in_this_mac_s_local_database_never_written_to_logs"),
-            )
-            .child(
-                div()
-                    .w_full()
-                    .flex()
-                    .flex_wrap()
-                    .items_center()
-                    .gap(px(10.0))
-                    .child(inputs.input(VoiceSettingsField::AzureApiKey))
-                    .when(credential_configured, |row| {
-                        row.child(setup_action_button(
-                            theme,
-                            "settings-asr-azure-key-remove",
-                            ui::i18n::text("common.remove"),
-                            SetupButtonTone::Destructive,
-                            cx,
-                            cx.listener(MultisoulApp::on_voice_settings_remove_azure_key),
-                        ))
-                    }),
-            ),
-        )
+        .child(credential_row(
+            theme,
+            CredentialRowSpec {
+                label: "voice.azure_api_key",
+                hint: "voice.stored_in_this_mac_s_local_database_never_written_to_logs",
+                field: VoiceSettingsField::AzureApiKey,
+                configured: credential_configured,
+                pending: state.credential_persistence_pending(),
+                status_id: "settings-asr-azure-key-status",
+                save_id: "settings-asr-azure-key-save",
+                clear_id: "settings-asr-azure-key-remove",
+            },
+            inputs,
+            cx,
+            |app, window, cx| {
+                app.on_voice_settings_remove_azure_key(&gpui::ClickEvent::default(), window, cx);
+            },
+        ))
         .child(compact_setup_row(
             theme,
             ui::i18n::text("voice.validate_configuration"),

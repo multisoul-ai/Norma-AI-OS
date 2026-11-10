@@ -252,6 +252,11 @@ pub(crate) fn replace_video_wallpaper(
         path: path.clone(),
     });
 
+    // GPUI TestAppContext 不释放实体，Drop 里的取消永远不会触发；单测若起线程，每个测试都会
+    // 泄漏一条持续解码的线程，全量运行时累积数百条，AVAssetReader 全部阻塞、测试挂死。
+    if cfg!(test) {
+        return mailbox;
+    }
     let decode_mailbox = mailbox.clone();
     if let Err(error) = std::thread::Builder::new()
         .name("multisoul-video-wallpaper-decoder".to_string())

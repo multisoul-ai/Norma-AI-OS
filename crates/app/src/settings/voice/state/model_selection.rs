@@ -25,6 +25,10 @@ impl VoiceSettingsState {
         self.advanced_expanded = !self.advanced_expanded;
     }
 
+    pub(crate) fn expand_advanced(&mut self) {
+        self.advanced_expanded = true;
+    }
+
     pub(crate) fn setup_models_expanded(&self) -> bool {
         self.setup_destination == VoiceSetupDestination::AsrModels
     }
