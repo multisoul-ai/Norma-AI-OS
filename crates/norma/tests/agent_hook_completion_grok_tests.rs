@@ -41,7 +41,7 @@ fn grok_stop(tasks: Value) -> AgentHookEvent {
 
 /// Grok 回合结束时仍有后台任务：保持运行；任务清空后的 Stop 过确认窗口才完成。
 ///
-/// 数据构造：node=318。第一次 Stop 含一个 running monitor，第二次 backgroundTasks=[]。
+/// 数据构造：node=318。第一次 Stop 含一个 running shell，第二次 backgroundTasks=[]。
 ///
 /// 执行过程：非空 Stop → poll(30 分钟内) → 空 Stop → 窗口。
 ///
@@ -52,7 +52,7 @@ fn grok_stop(tasks: Value) -> AgentHookEvent {
 fn grok_stop_with_background_tasks_keeps_thinking() {
     let mut judge = judge();
     let held = judge.observe(
-        &grok_stop(json!([{"id": "m1", "type": "monitor", "status": "running"}])),
+        &grok_stop(json!([{"id": "s1", "type": "shell", "status": "running"}])),
         0,
     );
     assert!(
@@ -280,10 +280,52 @@ fn grok_idle_prompt_ignored_outside_open_quiet_turn() {
     let mut background = judge();
     background.observe(&grok_prompt("p1"), 0);
     background.observe(
-        &grok_stop(json!([{"id": "m1", "type": "monitor", "status": "running"}])),
+        &grok_stop(json!([{"id": "s1", "type": "shell", "status": "running"}])),
         10,
     );
     assert!(background.observe(&grok_idle(), 60_000).is_empty());
+}
+
+/// Grok 回合结束时只剩 monitor：monitor 是常驻监视，有事件才唤醒新回合，不是本回合未结清的工作。
+///
+/// 数据构造：node=318。prompt(p1) → Stop 含 running monitor（取证：打包监视器 timeout 3 小时）
+/// 和一个 running shell；另一张卡只含 running monitor。
+///
+/// 执行过程：observe Stop，等确认窗口。
+///
+/// 预期结果：
+///   - 正断言：只剩 monitor 的 Stop 过窗口后 Confirm(unsettled=false)。
+///   - 负断言：monitor + shell 的 Stop 仍只 KeepThinking，窗口到点也不 Confirm。
+#[test]
+fn grok_stop_with_only_monitor_completes() {
+    let mut monitor_only = judge();
+    monitor_only.observe(&grok_prompt("p1"), 0);
+    monitor_only.observe(
+        &grok(
+            json!({"hook_event_name": "Stop", "reason": "end_turn", "promptId": "p1",
+            "backgroundTasks": [{"id": "m1", "type": "monitor", "status": "running"}]}),
+        ),
+        10,
+    );
+    assert_eq!(
+        quiet_until_confirm(&mut monitor_only, 10),
+        vec![false],
+        "只剩 monitor 时卡片必须完成，不能停在运行中"
+    );
+
+    let mut mixed = judge();
+    mixed.observe(&grok_prompt("p1"), 0);
+    mixed.observe(
+        &grok_stop(json!([
+            {"id": "m1", "type": "monitor", "status": "running"},
+            {"id": "s1", "type": "shell", "status": "running"}
+        ])),
+        10,
+    );
+    assert!(
+        confirm_flags(&mixed.poll(10 + CONFIRMATION_WINDOW_MS)).is_empty(),
+        "还有后台 shell 时不得完成"
+    );
 }
 
 /// 上一回合的结束报告晚于下一回合 UserPromptSubmit 到达时按 promptId 丢弃。
