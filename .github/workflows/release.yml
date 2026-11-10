@@ -16,7 +16,7 @@ env:
 
 jobs:
   release:
-    runs-on: macos-15
+    runs-on: macos-26
     environment: release
     timeout-minutes: 180
     steps:
