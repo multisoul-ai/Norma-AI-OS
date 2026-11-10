@@ -352,3 +352,55 @@ fn rejected_late_stop_must_not_pin_card_to_running() {
         "旧会话的 Stop 不得交出新会话的终态任务"
     );
 }
+
+/// Grok 兼容读取 ~/.claude/settings.json 和 ~/.cursor/hooks.json，同一事件会以 claude 等
+/// 来源多转发几次，卡片却是 Grok：多余来源不得进入判定账本，否则 Stop 永远确认不了。
+///
+/// 数据构造（取自真实抓包 node=55：每个事件 App 侧收到 3 份）：
+///   SessionStart → UserPromptSubmit(promptId=p1) → Stop(end_turn)，
+///   每个事件依次以 Grok、Grok、Claude 投递（Claude 那份最后到），间隔数十毫秒。
+///
+/// 执行过程：逐事件 drain，Stop 之后再过 800ms（CONFIRMATION_WINDOW_MS）drain。
+///
+/// 预期结果：
+///   - 正断言：卡片 Done，且恰好交出一条终态任务。
+///   - 负断言：Stop 当帧不交终态任务（仍只开窗）。
+#[test]
+fn grok_card_ignores_duplicate_claude_and_cursor_hook_copies() {
+    let (mut runtime, node, run_id) = grok_runtime();
+    let (sender, receiver) = crossbeam_channel::unbounded();
+    let server = hook_server_for_test(receiver);
+    let mut now = 0_u64;
+    for (name, extra) in [
+        ("SessionStart", json!({"source": "new"})),
+        (
+            "UserPromptSubmit",
+            json!({"prompt": "hi", "promptId": "p1"}),
+        ),
+        (
+            "Stop",
+            json!({"promptId": "p1", "reason": "end_turn", "stopHookActive": false,
+                "backgroundTasks": [], "sessionCrons": []}),
+        ),
+    ] {
+        for source in [HookSource::Grok, HookSource::Grok, HookSource::Claude] {
+            let mut raw = grok_hook(node, &run_id, name, extra.clone()).raw_json;
+            raw["_norma_control_run_id"] = json!(run_id);
+            sender
+                .send(parse_hook_event(source, node, raw).expect("hook 应可解析"))
+                .expect("hook 应进入队列");
+        }
+        now += 1_000;
+        let report = server.drain_into_runtime_at(&mut runtime, None, now);
+        if name == "Stop" {
+            assert!(report.terminal_tasks.is_empty(), "Stop 当帧只开窗");
+        }
+    }
+    let done = server.drain_into_runtime_at(&mut runtime, None, now + 800);
+    assert_eq!(
+        runtime.agent_task_state(node),
+        Some(AgentTaskState::Done),
+        "多余来源的重复事件不得把 Grok 卡片钉在运行中"
+    );
+    assert_eq!(done.terminal_tasks.len(), 1, "确认后应恰好交出一条终态任务");
+}

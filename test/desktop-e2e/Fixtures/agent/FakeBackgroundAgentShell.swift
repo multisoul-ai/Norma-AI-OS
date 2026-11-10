@@ -4,12 +4,13 @@ import Foundation
 /// 登录 shell 读取 ZDOTDIR 下的 .zshrc，把假 `claude` 放到 PATH 最前。
 /// 假 HOME 里放着 Claude 的「已安装 hook」配置，App 才会把该 profile 当成已武装。
 /// 脚本自己向 hook 端点上报，不调用真实 CLI：
-/// SessionStart → PostToolUse(run_in_background) → Stop(background_tasks 非空) →
+/// SessionStart → UserPromptSubmit → PostToolUse(run_in_background) → Stop(background_tasks 非空) →
 /// 等到 `settle` 文件 → task-notification → Stop(background_tasks 为空) → `sleep 3600`。
 /// 窗口结束前不发 SessionEnd，否则会取消待定的 Done。
 public enum FakeBackgroundAgentShell {
     public static let holdBanner = "BG HOLD"
     public static let settledBanner = "BG SETTLED"
+    public static let monitorBanner = "GROK MONITOR IDLE"
 
     public struct Install {
         public let root: URL
@@ -36,17 +37,24 @@ public enum FakeBackgroundAgentShell {
                 "SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse",
                 "PermissionRequest", "PostToolUseFailure", "StopFailure", "Stop",
                 "SessionEnd", "SubagentStart", "SubagentStop",
-            ]
+            ],
+            source: "claude"
+        )
+        try writeHookConfig(
+            to: install.home.appendingPathComponent(".grok/hooks/multisoul-agent-hook.json"),
+            events: ["SessionStart", "UserPromptSubmit", "Notification", "Stop", "StopCancelled", "SessionEnd"],
+            source: "grok"
         )
         try write(claude, to: bin.appendingPathComponent("claude"))
+        try write(grok, to: bin.appendingPathComponent("grok"))
         return install
     }
 
-    private static func writeHookConfig(to url: URL, events: [String]) throws {
+    private static func writeHookConfig(to url: URL, events: [String], source: String) throws {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true
         )
-        let command = "/usr/local/bin/multisoul-agent-hook forward --source claude"
+        let command = "/usr/local/bin/multisoul-agent-hook forward --source \(source)"
         var hooks: [String: Any] = [:]
         for event in events {
             hooks[event] = [["hooks": [["type": "command", "command": command]]]]
@@ -78,6 +86,7 @@ public enum FakeBackgroundAgentShell {
 
     print("BG HOLD", flush=True)
     post("SessionStart", None, {"source": "startup"})
+    post("UserPromptSubmit", None, {"prompt": "run tests in background"})
     post("PostToolUse", "Bash", {
         "tool_name": "Bash",
         "tool_use_id": "toolu_bg",
@@ -105,6 +114,36 @@ public enum FakeBackgroundAgentShell {
         "session_crons": [],
     })
     print("BG SETTLED", flush=True)
+    time.sleep(3600)
+    """
+
+    /// 假 Grok：回合结束前启动常驻 monitor（取证：打包监视器 timeout 3 小时），
+    /// Stop 的 backgroundTasks 里只有这个 running monitor，之后进程保持 sleep、不发 SessionEnd。
+    private static let grok = """
+    #!/usr/bin/env python3
+    import json, os, time, urllib.request
+    node = int(os.environ["MULTISOUL_NODE_ID"])
+
+    def post(event, raw):
+        raw = dict(raw, hook_event_name=event, sessionId="e2e-grok", session_id="e2e-grok")
+        body = {"node_id": node, "profile": "Grok", "provider_event": event,
+                "session_id": "e2e-grok", "turn_id": None, "tool_name": None,
+                "message": None, "raw_json": raw}
+        request = urllib.request.Request(
+            os.environ["MULTISOUL_HOOK_ENDPOINT"], json.dumps(body).encode(),
+            {"Authorization": "Bearer " + os.environ["MULTISOUL_HOOK_TOKEN"], "Content-Type": "application/json"})
+        urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=3).read()
+
+    post("SessionStart", {"source": "new"})
+    post("UserPromptSubmit", {"prompt": "package and watch", "promptId": "p1"})
+    time.sleep(1.5)
+    post("Stop", {
+        "reason": "end_turn", "promptId": "p1", "stopHookActive": False,
+        "backgroundTasks": [{"id": "m1", "type": "monitor", "status": "running",
+                             "description": "watch packaging log"}],
+        "sessionCrons": [],
+    })
+    print("GROK MONITOR IDLE", flush=True)
     time.sleep(3600)
     """
 }
