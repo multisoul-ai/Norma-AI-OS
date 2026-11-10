@@ -401,6 +401,7 @@ fn group(
                     task_title: Some("实现功能".into()),
                     latest_prompt: None,
                     task_summary: None,
+                    last_tool: None,
                     progress: None,
                     started_at_unix_ms: None,
                     run_id: Some("run-1".into()),

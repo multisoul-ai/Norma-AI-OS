@@ -187,6 +187,7 @@ fn entry(
         task_title: task.map(str::to_string),
         latest_prompt: None,
         task_summary: None,
+        last_tool: None,
         progress: None,
         started_at_unix_ms: None,
         run_id: run_id.map(str::to_string),
