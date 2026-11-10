@@ -256,3 +256,81 @@ fn stardust_pool_is_bounded_and_quiet_when_silent() {
     }
     assert!(reduced.is_empty(), "减少动态效果不生成粒子");
 }
+
+/// 场景：设置页预览的自动轮播时间轴（聆听 2.6s → 思考 1.8s → 回复 4.8s → 静默 0.9s）。
+/// 数据构造：取聆听开始后 60ms、静默段开始后 110ms 两个时刻。
+/// 执行过程：preview::timeline(None, t)。
+/// 预期结果：60ms 为聆听、强度 60/120 = 0.5（淡入）；静默段 110ms 仍显示回复相位，强度 1 − 110/220 = 0.5（淡出）。
+#[test]
+fn preview_auto_timeline_fades_in_and_out() {
+    use super::preview::timeline;
+    let (phase, intensity) = timeline(None, 60.0);
+    assert_eq!(phase, VoiceGlowPhase::Listening, "自动轮播从聆听开始");
+    assert!(
+        (intensity - 0.5).abs() < 1e-3,
+        "淡入 60/120=0.5，实际 {intensity}"
+    );
+    let (phase, intensity) = timeline(None, 2600.0 + 1800.0 + 4800.0 + 110.0);
+    assert_eq!(phase, VoiceGlowPhase::Speaking, "淡出期间保持回复相位");
+    assert!(
+        (intensity - 0.5).abs() < 1e-3,
+        "淡出 1-110/220=0.5，实际 {intensity}"
+    );
+}
+
+/// 场景：模拟语音包络必须确定（截图稳定）、落在 0..1 且有起伏。
+/// 数据构造：0–10s 每 17ms 采样。
+/// 执行过程：sim_energy 两次采样比较，统计最值。
+/// 预期结果：两次完全相同；全部在 [0,1]；最大与最小相差超过 0.3。
+#[test]
+fn preview_energy_is_deterministic_bounded_and_varies() {
+    use super::preview::sim_energy;
+    let samples: Vec<f32> = (0..600).map(|i| sim_energy(i as f32 * 17.0)).collect();
+    let again: Vec<f32> = (0..600).map(|i| sim_energy(i as f32 * 17.0)).collect();
+    assert_eq!(samples, again, "包络必须确定");
+    assert!(
+        samples.iter().all(|e| (0.0..=1.0).contains(e)),
+        "能量应在 0..1"
+    );
+    let (min, max) = samples
+        .iter()
+        .fold((1.0f32, 0.0f32), |(lo, hi), e| (lo.min(*e), hi.max(*e)));
+    assert!(max - min > 0.3, "包络应有起伏：{min}..{max}");
+}
+
+/// 场景：预览中关闭与经典的边界。
+/// 数据构造：风格关闭、经典 × 固定聆听 / 回复。
+/// 执行过程：preview::prims。
+/// 预期结果：关闭为空；经典聆听为空（只在回复时出现）；经典回复为四条边的柔光。
+#[test]
+fn preview_off_and_classic_follow_product_rules() {
+    use super::preview::{prims, PreviewPin};
+    let listening = Some(PreviewPin::Phase(VoiceGlowPhase::Listening));
+    let speaking = Some(PreviewPin::Phase(VoiceGlowPhase::Speaking));
+    assert!(
+        prims(VoiceGlowStyle::Off, speaking, 800.0, false, 1.0).is_empty(),
+        "关闭不出图"
+    );
+    assert!(
+        prims(VoiceGlowStyle::Classic, listening, 800.0, false, 1.0).is_empty(),
+        "经典聆听不出图"
+    );
+    assert_eq!(
+        prims(VoiceGlowStyle::Classic, speaking, 800.0, false, 1.0).len(),
+        4,
+        "经典回复四条边"
+    );
+}
+
+/// 场景：打断预览——80ms 内收回，之后保持静默直到下一轮。
+/// 数据构造：固定「打断」，取 1.4s 打断瞬间之后 0ms、80ms、200ms。
+/// 执行过程：timeline(Some(Interrupt), t)。
+/// 预期结果：刚打断时强度为 1；80ms 时降为 0；200ms 保持 0。
+#[test]
+fn preview_interrupt_retracts_within_80ms() {
+    use super::preview::{timeline, PreviewPin};
+    let pin = Some(PreviewPin::Interrupt);
+    assert!(timeline(pin, 1400.0).1 > 0.99, "打断瞬间仍为满强度");
+    assert!(timeline(pin, 1480.0).1 < 0.01, "80ms 后收回");
+    assert!(timeline(pin, 1600.0).1 < 0.01, "之后保持静默");
+}

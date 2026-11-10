@@ -25,4 +25,7 @@ pub(crate) fn effects_settings(
         .child(super::sources::sources_section(theme, data, window, cx))
         .child(super::playback::playback_section(theme, data, cx))
         .child(super::run_section::run_section(theme, data, &layout, cx))
+        .child(super::voice_glow_section::voice_glow_section(
+            theme, data, &layout, cx,
+        ))
 }

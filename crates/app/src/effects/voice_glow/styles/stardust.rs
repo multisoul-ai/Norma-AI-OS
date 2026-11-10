@@ -42,6 +42,7 @@ impl Default for StardustPool {
 }
 
 impl StardustPool {
+    #[cfg(test)]
     pub(crate) fn len(&self) -> usize {
         self.items.len()
     }
@@ -50,6 +51,7 @@ impl StardustPool {
         self.items.is_empty()
     }
 
+    #[cfg(test)]
     pub(crate) fn capacity(&self) -> usize {
         self.items.capacity()
     }

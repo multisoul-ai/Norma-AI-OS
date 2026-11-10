@@ -3,7 +3,10 @@ use std::time::{Duration, Instant};
 use gpui::{div, prelude::*, Context, Task, Window};
 
 use super::channel::{VoiceWindowInsetEventBus, VoiceWindowInsetSnapshot};
-use super::{VoiceWindowInset, VoiceWindowInsetVisual};
+use super::glow::GlowDriver;
+use super::{paint, VoiceWindowInset, VoiceWindowInsetVisual};
+use crate::effects::voice_glow::scene::Rect;
+use crate::effects::voice_glow::{VoiceGlowPrefs, VoiceGlowStyle};
 
 pub(crate) const VOICE_ANIMATION_INTERVAL: Duration = Duration::from_millis(12);
 
@@ -24,6 +27,9 @@ impl VoiceVisualKey {
 
 pub(crate) struct VoiceWindowInsetView {
     inset: VoiceWindowInset,
+    glow: GlowDriver,
+    prefs: VoiceGlowPrefs,
+    viewport: (f32, f32),
     events: VoiceWindowInsetEventBus,
     frame_pending: bool,
     last_tick: Instant,
@@ -57,6 +63,9 @@ impl VoiceWindowInsetView {
         });
         Self {
             inset: VoiceWindowInset::default(),
+            glow: GlowDriver::default(),
+            prefs: VoiceGlowPrefs::default(),
+            viewport: (1280.0, 800.0),
             events,
             frame_pending: false,
             last_tick: cx.background_executor().now(),
@@ -65,8 +74,50 @@ impl VoiceWindowInsetView {
         }
     }
 
+    fn uses_glow(&self) -> bool {
+        matches!(
+            self.prefs.style,
+            VoiceGlowStyle::Halo | VoiceGlowStyle::Ribbon | VoiceGlowStyle::Stardust
+        )
+    }
+
+    fn animation_active(&self) -> bool {
+        self.inset.is_animation_active() || (self.uses_glow() && self.glow.is_active())
+    }
+
+    fn tick_glow(&mut self, elapsed: Duration) {
+        if !self.uses_glow() {
+            return;
+        }
+        let (width, height) = self.viewport;
+        // Dock 探针还没写入时按默认布局估算：底部居中，高 52、距底 22。
+        let dock = self.events.dock().unwrap_or_else(|| {
+            let w = (width - 36.0).clamp(0.0, 640.0);
+            Rect {
+                x: (width - w) / 2.0,
+                y: height - 74.0,
+                w,
+                h: 52.0,
+            }
+        });
+        self.glow.tick(
+            elapsed,
+            self.inset.glow_speaking(),
+            self.prefs,
+            self.viewport,
+            dock,
+        );
+    }
+
     fn drain_events(&mut self) {
         self.inset.set_enabled(self.events.enabled());
+        let prefs = self.events.prefs();
+        if prefs.style != self.prefs.style {
+            self.glow.reset();
+        }
+        self.prefs = prefs;
+        self.glow
+            .set_phase(prefs.effective_phase(self.events.phase()));
         for (source, event) in self.events.drain() {
             self.inset.apply_playback_event(source, event);
         }
@@ -74,8 +125,7 @@ impl VoiceWindowInsetView {
     }
 
     fn publish_state(&self) {
-        self.events
-            .set_animation_active(self.inset.is_animation_active());
+        self.events.set_animation_active(self.animation_active());
         self.events.publish_snapshot(VoiceWindowInsetSnapshot {
             visual: self.inset.visual(),
             corner_seam_guard_alpha: self.inset.corner_seam_guard_alpha(),
@@ -87,7 +137,7 @@ impl VoiceWindowInsetView {
     }
 
     fn start_frame_driver_if_needed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.frame_pending || !self.inset.is_animation_active() {
+        if self.frame_pending || !self.animation_active() {
             return;
         }
         self.last_tick = cx.background_executor().now();
@@ -103,8 +153,12 @@ impl VoiceWindowInsetView {
 
     fn on_animation_frame(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.frame_pending = false;
+        self.viewport = (
+            f32::from(window.viewport_size().width),
+            f32::from(window.viewport_size().height),
+        );
         self.drain_events();
-        if !self.inset.is_animation_active() {
+        if !self.animation_active() {
             return;
         }
         let now = cx.background_executor().now();
@@ -115,13 +169,18 @@ impl VoiceWindowInsetView {
         }
         self.last_tick = now;
         self.inset.tick(elapsed);
+        self.tick_glow(elapsed);
         self.publish_state();
-        let next_key = self.current_key();
-        if next_key != self.last_presented_key {
-            self.last_presented_key = next_key;
+        if self.uses_glow() {
             cx.notify();
+        } else {
+            let next_key = self.current_key();
+            if next_key != self.last_presented_key {
+                self.last_presented_key = next_key;
+                cx.notify();
+            }
         }
-        if self.inset.is_animation_active() {
+        if self.animation_active() {
             self.schedule_next_frame(window, cx);
         }
     }
@@ -174,10 +233,18 @@ impl VoiceWindowInsetView {
 
 impl gpui::Render for VoiceWindowInsetView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.viewport = (
+            f32::from(window.viewport_size().width),
+            f32::from(window.viewport_size().height),
+        );
         self.start_frame_driver_if_needed(window, cx);
-        match self.inset.visual() {
-            Some(visual) => super::render(visual),
-            None => div().id("voice-window-inset-idle").absolute().size_full(),
+        match self.prefs.style {
+            VoiceGlowStyle::Off => div().id("voice-window-inset-idle").absolute().size_full(),
+            VoiceGlowStyle::Classic => match self.inset.visual() {
+                Some(visual) => super::render(visual),
+                None => div().id("voice-window-inset-idle").absolute().size_full(),
+            },
+            _ => paint::render(self.glow.prims()),
         }
     }
 }

@@ -7,7 +7,9 @@ use std::time::Duration;
 mod channel;
 mod classic;
 mod events;
+mod glow;
 mod meter;
+mod paint;
 mod seam;
 mod view;
 
@@ -18,6 +20,7 @@ pub(crate) use classic::render;
 pub(crate) use events::{TtsPlaybackEvent, TtsPlaybackSource};
 use meter::PcmEnergyFrame;
 pub(crate) use meter::PcmEnergyTimeline;
+pub(crate) use paint::paint_prims;
 use seam::corner_seam_compensation_alpha;
 pub(crate) use view::VoiceWindowInsetView;
 
@@ -134,6 +137,12 @@ impl VoiceWindowInset {
             opacity: lerp(QUIET_OPACITY, PEAK_OPACITY, self.smoothed_energy) * self.intensity,
             inset_px: lerp(QUIET_INSET_PX, PEAK_INSET_PX, self.smoothed_energy) * self.intensity,
         })
+    }
+
+    /// 回复中的强度与平滑能量，供非经典风格使用；未回复时为 `None`。
+    pub(crate) fn glow_speaking(&self) -> Option<(f32, f32)> {
+        (!self.disabled && self.intensity > EPSILON)
+            .then_some((self.intensity, self.smoothed_energy))
     }
 
     pub(crate) fn corner_seam_guard_alpha(&self) -> f32 {

@@ -134,7 +134,6 @@
   "voice.agent_task_announcements": "Agent task announcements",
   "voice.announce_when_an_agent_task_finishes_or_needs_attention": "Announce when an agent task finishes or needs attention",
   "voice.speech_glow": "Speech glow",
-  "voice.show_a_subtle_window_glow_while_norma_speaks": "Show a subtle window glow while Norma speaks",
   "voice.press_voice_shortcut_label_to_talk_changes_below_are_saved_automatically": "Press %{voice_shortcut_label} to talk. Changes below are saved automatically.",
   "voice.ready_to_talk": "Ready to talk",
   "voice.press_voice_shortcut_label_to": "Press %{voice_shortcut_label} to %{arg0}.",
@@ -218,7 +217,6 @@
   "voice.speak_after_the_tone_testing_never_changes_the_active_source": "Speak after the tone; testing never changes the active source",
   "voice.use_azure_speech": "Use Azure Speech",
   "voice.azure_speech_is_the_active_recognition_source": "Azure Speech is the active recognition source.",
-
   "voice.wait_for_the_selected_voice_to_finish_saving_before_closing": "Wait for the selected Voice to finish saving before closing.",
   "voice.choose_a_minimax_model_before_preview": "Choose a MiniMax model before Preview.",
   "voice.connect_minimax_before_preview": "Connect MiniMax before Preview.",
@@ -477,5 +475,7 @@
   "voice.live_interaction": "Interaction mode",
   "voice.live_reply_voice": "Reply voice",
   "voice.live_refresh_microphone": "Refresh microphone",
-  "voice.advanced_settings_summary": "Understanding model, speech services and credentials, reply preferences, diagnostics"
+  "voice.advanced_settings_summary": "Understanding model, speech services and credentials, reply preferences, diagnostics",
+  "voice.speech_glow_moved_hint": "Style, intensity and preview moved to Settings → Effects",
+  "voice.speech_glow_open_effects": "Open in Effects"
 }

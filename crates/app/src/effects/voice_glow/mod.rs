@@ -1,5 +1,6 @@
 //! 语音光晕：风格、相位与偏好。纯逻辑，风格只产出图元，由 `app::voice_window_inset` 负责绘制。
 
+pub(crate) mod preview;
 pub(crate) mod scene;
 pub(crate) mod styles;
 
@@ -7,6 +8,8 @@ pub(crate) mod styles;
 pub(crate) const KEY_STYLE: &str = "effects.voice_glow.style";
 pub(crate) const KEY_GAIN: &str = "effects.voice_glow.gain";
 pub(crate) const KEY_PHASES: &str = "effects.voice_glow.phases";
+/// 旧「说话光晕」开关，仅用于首次迁移。
+pub(crate) const KEY_LEGACY_ENABLED: &str = "voice.window_inset_enabled";
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum VoiceGlowStyle {
