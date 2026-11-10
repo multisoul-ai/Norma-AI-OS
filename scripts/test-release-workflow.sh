@@ -20,7 +20,7 @@
 #   6. Verify draft recovery, conflict refusal, remote readback, publish, provenance, and bump PR guards.
 #
 # Expected result:
-#   - Positive: main/manual/macos-15/Rust 1.91.1/cargo-packager 0.11.8 are exact.
+#   - Positive: main/manual/macos-26/Rust 1.91.1/cargo-packager 0.11.8 are exact.
 #   - Positive: public release metadata is read with the job-scoped GitHub token.
 #   - Positive: GitHub App token is created after notarized local assets pass.
 #   - Positive: draft is published only after three downloaded assets match.
@@ -51,7 +51,7 @@ fi
 grep -Fq 'cancel-in-progress: false' "$workflow" || fail "release concurrency must preserve in-flight jobs"
 grep -Fq 'DISPATCH_REF: ${{ github.ref }}' "$workflow" || fail "workflow must inspect the dispatched ref at runtime"
 grep -Fq '[ "$DISPATCH_REF" = "refs/heads/main" ]' "$workflow" || fail "workflow must fail non-main dispatches"
-grep -Fq 'runs-on: macos-15' "$workflow" || fail "release runner must be macos-15"
+grep -Fq 'runs-on: macos-26' "$workflow" || fail "release runner must be macos-26"
 grep -Fq 'environment: release' "$workflow" || fail "release job must use the protected release Environment"
 grep -Fq 'RUST_TOOLCHAIN: 1.91.1' "$workflow" || fail "Rust must be pinned to 1.91.1"
 grep -Fq 'CARGO_PACKAGER_VERSION: 0.11.8' "$workflow" || fail "cargo-packager must be pinned to 0.11.8"

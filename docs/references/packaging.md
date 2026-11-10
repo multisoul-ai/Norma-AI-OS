@@ -212,8 +212,10 @@ codesign、Gatekeeper、stapler、DMG、SHA-256、bundle short/build version、�
 
 `.github/workflows/release.yml` 只有 `workflow_dispatch`，并在运行时拒绝非 `main`。
 同一 release concurrency 不会取消进行中的任务。Runner、工具链固定为
-`macos-15`、Rust `1.91.1`、cargo-packager `0.11.8`；第三方 Actions 使用完整 commit
-SHA。手动触发不接收版本输入；workflow 直接以 `scripts/release-version.sh` 的同步
+`macos-26`、Rust `1.91.1`、cargo-packager `0.11.8`；第三方 Actions 使用完整 commit
+SHA。`macos-26` 是因为 `scripts/prepare-app-icon.sh` 要调用能编译 Icon Composer
+`.icon` 的 `actool`；`macos-15` 只会写出 plist，不会生成 `Assets.car`。
+手动触发不接收版本输入；workflow 直接以 `scripts/release-version.sh` 的同步
 manifest 输出作为唯一版本来源。
 
 优先在仓库 Settings → Environments 新建受保护的 `release` Environment，设置 required
