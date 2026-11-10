@@ -80,34 +80,34 @@ pub(crate) fn build(frame: &GlowFrame) -> Vec<GlowPrim> {
 
 /// 贴着窗口外沿的细条：阴影向内渗入，窗口外的部分被内容遮罩裁掉。
 fn segment(edge: usize, index: usize, w: f32, h: f32, blur: f32) -> Rect {
-    let (length, depth) = if edge % 2 == 0 { (w, h) } else { (h, w) };
+    let length = if edge % 2 == 0 { w } else { h };
     let step = length / SEGMENTS as f32;
     let start = index as f32 * step - step * 0.15;
     let span = step * 1.3;
-    let _ = depth;
+    // 每条都向窗口内侵入 1px：GPUI 按未外扩的 bounds 与窗口求交，完全在窗口外会被整条丢弃。
     match edge {
         0 => Rect {
             x: start,
             y: -blur,
             w: span,
-            h: blur,
+            h: blur + 1.0,
         },
         1 => Rect {
-            x: w,
+            x: w - 1.0,
             y: start,
-            w: blur,
+            w: blur + 1.0,
             h: span,
         },
         2 => Rect {
             x: start,
-            y: h,
+            y: h - 1.0,
             w: span,
-            h: blur,
+            h: blur + 1.0,
         },
         _ => Rect {
             x: -blur,
             y: start,
-            w: blur,
+            w: blur + 1.0,
             h: span,
         },
     }

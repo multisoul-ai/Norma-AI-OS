@@ -334,3 +334,24 @@ fn preview_interrupt_retracts_within_80ms() {
     assert!(timeline(pin, 1480.0).1 < 0.01, "80ms 后收回");
     assert!(timeline(pin, 1600.0).1 < 0.01, "之后保持静默");
 }
+
+/// 场景：光环的每个光段必须与窗口相交，否则 GPUI 按未外扩 bounds 裁剪后整圈光不可见（审查发现的回归）。
+/// 数据构造：1200×700 窗口，回复相位、能量 1。
+/// 执行过程：halo::build 后检查全部 Glow 矩形与窗口的相交面积。
+/// 预期结果：每个矩形与 [0,1200]×[0,700] 相交面积大于 0。
+#[test]
+fn halo_segments_intersect_the_window() {
+    let prims = halo::build(&frame(VoiceGlowPhase::Speaking, 1.0));
+    let glows = prims
+        .iter()
+        .filter(|p| matches!(p, GlowPrim::Glow { .. }))
+        .count();
+    assert_eq!(glows, 96, "两层 × 四边 × 12 段");
+    for prim in &prims {
+        if let GlowPrim::Glow { rect, .. } = prim {
+            let w = (rect.x + rect.w).min(1200.0) - rect.x.max(0.0);
+            let h = (rect.y + rect.h).min(700.0) - rect.y.max(0.0);
+            assert!(w > 0.0 && h > 0.0, "光段 {rect:?} 完全在窗口外，会被裁剪掉");
+        }
+    }
+}

@@ -69,6 +69,10 @@ impl GlowDriver {
     ) {
         let dt_ms = delta.as_secs_f32() * 1000.0;
         self.t_ms += dt_ms;
+        // 系统「减少动态效果」可能在回复中途改变：每 0.5s 重读一次，开销很小。
+        if (self.t_ms / 500.0).floor() != ((self.t_ms - dt_ms) / 500.0).floor() {
+            self.reduce_motion = crate::motion::system_reduce_motion();
+        }
         let target = if self.ext_phase == VoiceGlowPhase::Idle {
             0.0
         } else {
