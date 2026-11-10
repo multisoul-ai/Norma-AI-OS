@@ -13,6 +13,7 @@ pub(crate) fn embedded_presentation_layout(
     area: CanvasRect,
     zoom: f32,
     strategy: crate::canvas::layout_strategy::CanvasLayoutStrategy,
+    master: Option<NodeId>,
 ) -> HashMap<NodeId, CanvasRect> {
     let visible: Vec<_> = nodes
         .iter()
@@ -27,6 +28,19 @@ pub(crate) fn embedded_presentation_layout(
     });
     if !narrow && !overflow {
         return HashMap::new();
+    }
+    // Cmd+M 主从布局下，抽屉变窄只缩放展示区，不得退化成等大单列。
+    if let Some(master_id) = master {
+        let ids: Vec<_> = visible.iter().map(|node| node.id).collect();
+        let mut config = crate::canvas::master_layout::workspace_reflow_config_for_zoom(zoom);
+        config.safe_area = crate::canvas::layout_strategy::workspace_safe_area_for_zoom(zoom, true);
+        let assignments = canvas::compute_master_detail_layout(&ids, master_id, area, config);
+        if !assignments.is_empty() {
+            return assignments
+                .into_iter()
+                .map(|a| (a.node_id, a.bounds))
+                .collect();
+        }
     }
     if narrow {
         let gap = 12.0 / zoom.max(0.001);
@@ -213,6 +227,7 @@ impl MultisoulApp {
             anchored_area,
             zoom,
             self.layout_strategy,
+            self.master_layout.master_id(),
         );
         // A layout that fits the slot must start at the slot's top-left. A pan left over
         // from a narrower (scrolling) presentation would otherwise clip the first row.
@@ -246,3 +261,7 @@ impl MultisoulApp {
         self.desktop_presentation_bounds = next;
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/embedded_master_presentation_tests.rs"]
+mod embedded_master_presentation_tests;
