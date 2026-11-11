@@ -80,7 +80,7 @@ pub(crate) fn build(frame: &GlowFrame) -> Vec<GlowPrim> {
 
 /// 贴着窗口外沿的细条：阴影向内渗入，窗口外的部分被内容遮罩裁掉。
 fn segment(edge: usize, index: usize, w: f32, h: f32, blur: f32) -> Rect {
-    let length = if edge % 2 == 0 { w } else { h };
+    let length = if edge.is_multiple_of(2) { w } else { h };
     let step = length / SEGMENTS as f32;
     let start = index as f32 * step - step * 0.15;
     let span = step * 1.3;
