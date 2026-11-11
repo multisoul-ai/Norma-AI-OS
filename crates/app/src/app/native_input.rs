@@ -72,3 +72,21 @@ pub(crate) fn focus_host(view: &objc2_app_kit::NSView, reason: &'static str) {
             "native input focus recovery failed");
     }
 }
+
+/// Sends `copy:` down the AppKit responder chain; a focused WKWebView copies its selection.
+/// No-op when the first responder (e.g. the GPUI view) does not implement `copy:`.
+#[cfg(target_os = "macos")]
+pub(crate) fn send_native_copy() {
+    use objc2::runtime::{AnyObject, Bool};
+    use objc2::{class, msg_send, sel};
+    let none = std::ptr::null_mut::<AnyObject>();
+    // SAFETY: called on the GPUI main thread; NSApplication is a process-wide singleton and
+    // `sendAction:to:from:` with nil target only walks the responder chain.
+    unsafe {
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let _handled: Bool = msg_send![app, sendAction: sel!(copy:), to: none, from: none];
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn send_native_copy() {}

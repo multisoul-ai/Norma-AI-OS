@@ -100,6 +100,10 @@ pub(crate) struct WorkbenchState {
     pub pending_open: Option<open_path::PendingOpen>,
     /// 待滚动并高亮的 0 起始行号；`pending_scroll` 在文件加载完成时消费一次。
     pub jump_line: Option<usize>,
+    /// 只读文件视图（可选中复制）及其对应的文件版本；版本变化时重建。
+    pub read_input: Option<(String, Entity<InputState>)>,
+    /// 文件就绪后待由只读视图消费一次的 0 起始跳转行。
+    pub read_jump: Option<usize>,
     pub pending_scroll: Option<usize>,
     /// 成果行打开右栏时只显示这些路径；用户改选项目后清空。
     pub turn_paths: Option<Vec<String>>,

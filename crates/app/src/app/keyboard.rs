@@ -245,14 +245,18 @@ impl MultisoulApp {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if !matches!(self.screen, AppScreen::Canvas) {
-            return;
+        if matches!(self.screen, AppScreen::Canvas) {
+            if let Some(text) = copy_text_for_active_selection(
+                &self.runtime,
+                self.interaction.active_text_selection,
+            ) {
+                cx.write_to_clipboard(ClipboardItem::new_string(text));
+                return;
+            }
         }
-        if let Some(text) =
-            copy_text_for_active_selection(&self.runtime, self.interaction.active_text_selection)
-        {
-            cx.write_to_clipboard(ClipboardItem::new_string(text));
-        }
+        // The menu/key binding swallows Cmd+C before it reaches a focused native WebView
+        // (drawer or canvas browser), so hand it back through the responder chain.
+        crate::app::native_input::send_native_copy();
     }
 
     fn on_delete_card_shortcut(&mut self, window: &mut Window, cx: &mut Context<Self>) {
