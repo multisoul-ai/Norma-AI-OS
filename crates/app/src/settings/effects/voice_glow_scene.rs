@@ -38,17 +38,22 @@ pub(super) fn glow_scene(scene: GlowScene) -> Div {
         .flex_none()
         .w(px(width))
         .h(px(height))
+        .overflow_hidden()
+        .rounded(px(10.0))
         .child(
             img(ImageSource::from(DEFAULT_WALLPAPER_ASSET))
-                .size_full()
+                .w(px(width))
+                .h(px(height))
                 .rounded(px(10.0))
                 .object_fit(ObjectFit::Cover),
         )
         .child(
             div()
                 .absolute()
-                .size_full()
-                .rounded(px(10.0))
+                .top(px(0.0))
+                .left(px(0.0))
+                .w(px(width))
+                .h(px(height))
                 .bg(rgba(0x05050799)),
         )
         .child(
@@ -77,6 +82,9 @@ pub(super) fn glow_scene(scene: GlowScene) -> Div {
                 },
             )
             .absolute()
-            .size_full(),
+            .top(px(0.0))
+            .left(px(0.0))
+            .w(px(width))
+            .h(px(height)),
         )
 }

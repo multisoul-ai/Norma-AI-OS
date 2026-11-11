@@ -31,7 +31,7 @@ public enum SettingsModule {
             SettingsVoiceGlow.name,
             SettingsVoiceModePanelSize.name,
         ],
-        visualScenarioNames: [SettingsVoiceModePanelSize.name, SettingsA1RuntimeDownload.name, SettingsThemeConsistency.name, SettingsLiveConfiguration.name, SettingsLiveI18n.name, SettingsA1Configuration.name, SettingsVoiceCommandsPrototype.name, SettingsVoiceCommandsPrototype.sectionsName, SettingsVoiceCapabilities.a1Name, SettingsA1InstalledActions.name, SettingsVoiceCapabilities.jevName, SettingsVoiceCapabilities.errorsName],
+        visualScenarioNames: [SettingsVoiceGlow.name, SettingsVoiceModePanelSize.name, SettingsA1RuntimeDownload.name, SettingsThemeConsistency.name, SettingsLiveConfiguration.name, SettingsLiveI18n.name, SettingsA1Configuration.name, SettingsVoiceCommandsPrototype.name, SettingsVoiceCommandsPrototype.sectionsName, SettingsVoiceCapabilities.a1Name, SettingsA1InstalledActions.name, SettingsVoiceCapabilities.jevName, SettingsVoiceCapabilities.errorsName],
         run: { scenario, session in
             switch scenario {
             case SettingsA1RuntimeDownload.name:
