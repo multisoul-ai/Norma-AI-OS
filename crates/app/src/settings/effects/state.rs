@@ -90,11 +90,31 @@ pub(crate) struct EffectsSettingsState {
     pub glow_saved: VoiceGlowPrefs,
     pub glow_saved_generation: u64,
     pub glow_generation: u64,
+    /// 库里的偏好已读入缓存。读入前的修改会按默认值覆盖库里的真实值，所以一律忽略。
+    pub glow_loaded: bool,
 }
 
 impl gpui::Global for EffectsSettingsState {}
 
 impl EffectsSettingsState {
+    /// 应用一次语音光晕修改；偏好尚未读入时拒绝并返回 `false`。
+    pub(crate) fn apply_glow_edit(
+        &mut self,
+        next: VoiceGlowPrefs,
+        undo: Option<VoiceGlowPrefs>,
+        label: String,
+        generation: u64,
+    ) -> bool {
+        if !self.glow_loaded {
+            return false;
+        }
+        self.glow_generation = generation;
+        self.voice_glow = next;
+        self.glow_undo = undo;
+        self.glow_status = Some(label);
+        true
+    }
+
     pub(crate) fn selection(&self) -> StyleSelection {
         self.global
             .as_ref()

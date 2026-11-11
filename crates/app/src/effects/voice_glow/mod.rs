@@ -58,6 +58,18 @@ impl VoiceGlowStyle {
     }
 }
 
+/// 偏好对应的三个设置键值，供一次事务写入。
+pub(crate) fn prefs_changes(prefs: VoiceGlowPrefs) -> Vec<(String, Option<String>)> {
+    vec![
+        (KEY_STYLE.to_owned(), Some(prefs.style.id().to_owned())),
+        (KEY_GAIN.to_owned(), Some(prefs.gain.key().to_owned())),
+        (
+            KEY_PHASES.to_owned(),
+            Some(prefs.show_listening_thinking.to_string()),
+        ),
+    ]
+}
+
 /// 读取偏好；风格键缺失时按旧开关迁移并写回。读库出错时不迁移、不写回：
 /// 否则数据库暂时繁忙会把用户已选的风格覆盖成默认值。
 pub(crate) fn load_prefs<E>(

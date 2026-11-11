@@ -73,3 +73,14 @@ fn glow_driver_goes_inactive_after_fade_out() {
     }
     assert!(!driver.is_active(), "淡出 320ms 后应停止活动");
 }
+
+/// 场景：只有回复、没有聆听/思考时，首次 tick 也必须读取系统「减少动态效果」。
+/// 数据构造：全新驱动，外部相位始终为空闲；第一帧 tick。
+/// 预期结果：tick 后已读取过系统设置。
+#[test]
+fn first_tick_reads_system_reduce_motion() {
+    let mut driver = GlowDriver::default();
+    assert!(!driver.reduce_motion_read, "新驱动尚未读取");
+    tick(&mut driver, Some((1.0, 0.5)));
+    assert!(driver.reduce_motion_read, "首帧应读取系统减少动态效果");
+}
