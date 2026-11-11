@@ -2,7 +2,7 @@
 
 use super::page::EffectsPageData;
 use super::voice_glow_scene::{glow_scene, GlowScene};
-use crate::app::voice_glow_actions::{style_line, style_name};
+use crate::app::voice_glow_actions::{style_line, style_name, style_sub};
 use crate::app::MultisoulApp;
 use crate::effects::voice_glow::preview::{self, PreviewPin, PINNED_LOOP_MS, STILL_MS};
 use crate::effects::voice_glow::{VoiceGlowPhase, VoiceGlowStyle};
@@ -460,5 +460,12 @@ fn tile(
                             .child(ui::i18n::text("effects.run_default")),
                     )
                 }),
+        )
+        .child(
+            div()
+                .px(px(4.0))
+                .settings_text(TextRole::Caption, theme)
+                .truncate()
+                .child(style_sub(style)),
         )
 }

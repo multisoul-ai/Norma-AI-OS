@@ -122,5 +122,10 @@
   "effects.glow_phases_hint": "关闭后只在 Norma 回复时出现",
   "effects.glow_phases_classic_hint": "经典风格只在回复时出现，此项不影响它",
   "effects.glow_saved": "语音光晕已切换为「%{style}」",
-  "effects.glow_options_saved": "语音光晕选项已保存"
+  "effects.glow_options_saved": "语音光晕选项已保存",
+  "effects.glow_sub_off": "不显示",
+  "effects.glow_sub_classic": "四边内晕 · 仅回复",
+  "effects.glow_sub_halo": "全窗彩色边光",
+  "effects.glow_sub_ribbon": "Dock 上方声波",
+  "effects.glow_sub_stardust": "上浮发光颗粒"
 }

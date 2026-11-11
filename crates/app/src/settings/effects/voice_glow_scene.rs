@@ -1,7 +1,7 @@
 //! 语音光晕的迷你预览：默认壁纸静帧 + 示意 Dock + 与真实窗口同一套图元。
 
 use crate::app::voice_window_inset::paint_prims;
-use crate::assets::DEFAULT_WALLPAPER_ASSET;
+use crate::assets::DEFAULT_WALLPAPER_STILL_ASSET;
 use crate::effects::voice_glow::preview::{self, PreviewPin, VIRTUAL_H, VIRTUAL_W};
 use crate::effects::voice_glow::VoiceGlowStyle;
 use gpui::{canvas, div, img, prelude::*, px, rgba, ContentMask, Div, ImageSource, ObjectFit};
@@ -41,7 +41,7 @@ pub(super) fn glow_scene(scene: GlowScene) -> Div {
         .overflow_hidden()
         .rounded(px(10.0))
         .child(
-            img(ImageSource::from(DEFAULT_WALLPAPER_ASSET))
+            img(ImageSource::from(DEFAULT_WALLPAPER_STILL_ASSET))
                 .w(px(width))
                 .h(px(height))
                 .rounded(px(10.0))
@@ -54,7 +54,7 @@ pub(super) fn glow_scene(scene: GlowScene) -> Div {
                 .left(px(0.0))
                 .w(px(width))
                 .h(px(height))
-                .bg(rgba(0x05050799)),
+                .bg(rgba(0x05050722)),
         )
         .child(
             div()

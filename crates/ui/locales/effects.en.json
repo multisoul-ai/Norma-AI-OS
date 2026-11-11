@@ -122,5 +122,10 @@
   "effects.glow_phases_hint": "When off, the glow only appears while Norma replies",
   "effects.glow_phases_classic_hint": "Classic only appears while Norma replies, so this does not affect it",
   "effects.glow_saved": "Voice glow changed to \"%{style}\"",
-  "effects.glow_options_saved": "Voice glow options saved"
+  "effects.glow_options_saved": "Voice glow options saved",
+  "effects.glow_sub_off": "Hidden",
+  "effects.glow_sub_classic": "Edge glow · reply only",
+  "effects.glow_sub_halo": "Full-window color ring",
+  "effects.glow_sub_ribbon": "Waves above the Dock",
+  "effects.glow_sub_stardust": "Rising glow particles"
 }

@@ -35,6 +35,16 @@ pub(crate) fn style_line(style: VoiceGlowStyle) -> &'static str {
     })
 }
 
+pub(crate) fn style_sub(style: VoiceGlowStyle) -> &'static str {
+    ui::i18n::text(match style {
+        VoiceGlowStyle::Off => "effects.glow_sub_off",
+        VoiceGlowStyle::Classic => "effects.glow_sub_classic",
+        VoiceGlowStyle::Halo => "effects.glow_sub_halo",
+        VoiceGlowStyle::Ribbon => "effects.glow_sub_ribbon",
+        VoiceGlowStyle::Stardust => "effects.glow_sub_stardust",
+    })
+}
+
 impl MultisoulApp {
     pub(crate) fn pick_voice_glow_style(&mut self, style: VoiceGlowStyle, cx: &mut Context<Self>) {
         let previous = voice_glow_prefs(cx);
