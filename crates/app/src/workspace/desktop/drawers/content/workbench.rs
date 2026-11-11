@@ -77,7 +77,8 @@ pub(crate) struct WorkbenchState {
     pub show_source: bool,
     pub sidebar_open: bool,
     pub changes_section_closed: bool,
-    pub files_section_closed: bool,
+    /// 「所有文件」是否展开；默认 false，任何 `Default::default()` 重置后都保持折叠。
+    pub files_section_open: bool,
     pub changes_dirs_closed: BTreeSet<String>,
     pub ops_open: bool,
     pub commit_open: bool,

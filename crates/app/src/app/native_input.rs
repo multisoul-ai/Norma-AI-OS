@@ -73,18 +73,43 @@ pub(crate) fn focus_host(view: &objc2_app_kit::NSView, reason: &'static str) {
     }
 }
 
-/// Sends `copy:` down the AppKit responder chain; a focused WKWebView copies its selection.
-/// No-op when the first responder (e.g. the GPUI view) does not implement `copy:`.
+/// Copies the selection of a focused native WKWebView.
+///
+/// Never send `copy:` with a nil target: GPUI's app delegate implements `copy:` as its menu
+/// handler, so an unhandled action falls back to it with a nil item and crashes. Only message a
+/// WKWebView that is (or contains) the first responder.
 #[cfg(target_os = "macos")]
 pub(crate) fn send_native_copy() {
-    use objc2::runtime::{AnyObject, Bool};
+    use objc2::runtime::{AnyClass, AnyObject, Bool};
     use objc2::{class, msg_send, sel};
-    let none = std::ptr::null_mut::<AnyObject>();
-    // SAFETY: called on the GPUI main thread; NSApplication is a process-wide singleton and
-    // `sendAction:to:from:` with nil target only walks the responder chain.
+    let Some(web_view) = AnyClass::get(c"WKWebView") else {
+        return;
+    };
+    // SAFETY: called on the GPUI main thread. Every receiver below is either the process-wide
+    // NSApplication or a live responder returned by AppKit during this call; `copy:` is only sent
+    // after `respondsToSelector:` confirms the WKWebView implements it.
     unsafe {
         let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-        let _handled: Bool = msg_send![app, sendAction: sel!(copy:), to: none, from: none];
+        let window: *mut AnyObject = msg_send![app, keyWindow];
+        if window.is_null() {
+            return;
+        }
+        let mut responder: *mut AnyObject = msg_send![window, firstResponder];
+        // The responder chain is short (view -> superviews -> window); bound the walk anyway.
+        for _ in 0..32 {
+            if responder.is_null() {
+                return;
+            }
+            let is_web_view: Bool = msg_send![responder, isKindOfClass: web_view];
+            if is_web_view.as_bool() {
+                let can_copy: Bool = msg_send![responder, respondsToSelector: sel!(copy:)];
+                if can_copy.as_bool() {
+                    let _: () = msg_send![responder, copy: std::ptr::null_mut::<AnyObject>()];
+                }
+                return;
+            }
+            responder = msg_send![responder, nextResponder];
+        }
     }
 }
 

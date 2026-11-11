@@ -1,3 +1,4 @@
+import AppKit
 import E2EKit
 import Fixtures
 import Foundation
@@ -16,21 +17,30 @@ public enum ContentWorkbench {
             // 避免重复覆盖 workspace 模块的创建弹窗流程及其 OCR 依赖。
             let database = try session.databaseURL()
             _ = try await session.waitCatalog(timeout: 15) { _ in FileManager.default.fileExists(atPath: database.path) }
+            try await session.waitContentSchema(timeout: 15)
             session.stop()
             guard let data = session.dataRoot else { throw E2EError.env("隔离目录丢失") }
             try Catalog.seedWorkspace(database: data.appendingPathComponent("app.sqlite"), name: workspace)
             root = try ContentFixture.install(dataRoot: data, workspace: workspace)
             try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
-            let frame = try await session.capture()
-            // 新建隔离库没有上次打开空间；卡片打开按钮的位置由失败截图核对。
-            let open = frame.pick(["打开", "Open"], .bottom)?.center
-                ?? CGPoint(x: frame.windowFrame.width - 112, y: 540)
-            try await session.click(local: open, on: frame)
-            try await Task.sleep(nanoseconds: 950_000_000)
-            _ = try await session.act("展开文件工作台", expect: Expectation(allOf: ["ClipE2E.mp4", "NoteE2E.txt", "PlanE2E.md"], timeout: 6)) {
+            // 首页卡片没有「打开」按钮，直接点工作空间名称进入（与其他内容场景一致）。
+            // 「所有文件」默认折叠：先确认分区标题在、整棵树没渲染，再手动展开。
+            _ = try await session.act("打开右抽屉", expect: Expectation(allOf: ["所有文件"], absent: ["ClipE2E.mp4"], timeout: 6)) {
                 let frame = try await session.capture()
-                try await session.click(local: CGPoint(x: Double(frame.windowFrame.width) - 28, y: 26), on: frame)
+                if frame.contains("创建工作空间") {
+                    // 上一轮误开了新建对话框：先取消，下一轮重试。
+                    try await session.click(matching: ["取消"], pick: .bottom)
+                } else if frame.contains("回来了") || frame.contains("最近") {
+                    // 仍在首页：右上角是「新建工作空间」，不能点；OCR 会把名称读错，用短片段匹配卡片。
+                    try await session.click(matching: [workspace, "ContentWork", "WorkbenchCheck", "个项目"], pick: .bottom)
+                    try await Task.sleep(nanoseconds: 950_000_000)
+                } else {
+                    try await session.click(local: CGPoint(x: Double(frame.windowFrame.width) - 28, y: 26), on: frame)
+                }
+            }
+            _ = try await session.act("展开所有文件", expect: Expectation(allOf: ["ClipE2E.mp4", "NoteE2E.txt", "PlanE2E.md"], timeout: 6)) {
+                try await session.click(matching: ["所有文件"], pick: .top)
             }
             // 动画期间文字已出现，但仍需等抽屉到位再保存视觉证据。
             try await Task.sleep(nanoseconds: 450_000_000)
@@ -42,6 +52,10 @@ public enum ContentWorkbench {
             try await session.click(matching: ["NoteE2E.txt"], pick: .bottom)
             let text = try await session.wait(Expectation(allOf: ["LOCAL CHANGE E2E"], timeout: 10))
             try session.save(text, "02-text-preview.png")
+            // 只读文件视图必须可选中并 Cmd+C：点正文、全选、复制，再读系统剪贴板。
+            guard let body = text.pick(["LOCAL CHANGE E2E"], .top) else { throw E2EError.product("文件正文不可见") }
+            let copied = try await copySelection(session, text: body, on: text)
+            guard copied.contains("LOCAL CHANGE E2E") else { throw E2EError.product("文件预览 Cmd+C 未复制到正文，剪贴板：\(copied.prefix(80))") }
             // 路径条右侧是编辑/复制/系统打开三个图标按钮（OCR 不识别图标）；
             // 已看图核对：编辑图标位于右栏右缘向内 245px，与路径文字同一水平线。
             guard let title = text.pick(["NoteE2E.txt"], .top) else { throw E2EError.product("文件标题不可见") }
@@ -72,7 +86,7 @@ public enum ContentWorkbench {
             try await showDirectory(session)
             // 批量暂存与提交收在「已更改的文件」标题尾部的 ⋯ 面板里，按需展开。
             let tree = try await session.capture()
-            guard let changes = tree.pick(["已更改的文件"], .top) else { throw E2EError.product("已更改的文件分区不可见") }
+            guard let changes = tree.pick(["已更改的文件", "已更改文件"], .top) else { throw E2EError.product("已更改的文件分区不可见") }
             try await session.click(local: CGPoint(x: Double(tree.windowFrame.width) - 29, y: changes.center.y), on: tree)
             _ = try await session.wait(Expectation(allOf: ["全部暂存", "提交"], timeout: 8))
             try await session.click(matching: ["全部暂存"], pick: .top)
@@ -102,7 +116,7 @@ public enum ContentWorkbench {
         }
         try await session.step("预览图片与视频") {
             try await openFile(session, "PatternE2E.png")
-            let image = try await session.wait(Expectation(allOf: ["放大", "缩小"], timeout: 12))
+            let image = try await session.wait(Expectation(allOf: ["放大"], timeout: 12))
             try session.save(image, "06-image-preview.png")
             try await session.click(matching: ["放大"], pick: .top)
             try session.save(try await session.capture(), "07-image-zoom.png")
@@ -120,6 +134,31 @@ public enum ContentWorkbench {
         }
         try await browser(session, workspace: workspace)
     }
+    /// 选中文字后 Cmd+C 并读取系统剪贴板；结束时恢复原内容。
+    /// 点击文字后 Cmd+A 全选。原生 WebView 的选区无法由驱动的合成鼠标事件建立，故不在此覆盖。
+    static func copySelection(_ session: Session, text: VisibleText, on frame: Frame) async throws -> String {
+        let board = NSPasteboard.general
+        let saved = (board.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
+            return copy
+        }
+        defer { board.clearContents(); if !saved.isEmpty { board.writeObjects(saved) } }
+        board.clearContents()
+        try await session.click(local: text.center, on: frame)
+        try await session.shortcut(key: 0, modifiers: [0x37])
+        try session.save(try await session.capture(), "02a-text-selected.png")
+        try await session.shortcut(key: 8, modifiers: [0x37])
+        let deadline = Date().addingTimeInterval(4)
+        var copied = ""
+        repeat {
+            copied = board.string(forType: .string) ?? ""
+            if !copied.isEmpty { break }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        } while Date() < deadline
+        return copied
+    }
+
     private static func waitUntil(_ message: String, ready: () throws -> Bool) async throws {
         let deadline = Date().addingTimeInterval(12)
         while Date() < deadline {

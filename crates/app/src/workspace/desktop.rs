@@ -210,11 +210,7 @@ impl DesktopWorkspaceUiState {
             drawer_resize: None,
             frosted_wallpaper: drawers::material::FrostedWallpaperState::default(),
             content_tabs: Vec::new(),
-            // 「所有文件」默认折叠，只在用户展开后才显示整棵树。
-            workbench: drawers::content::workbench::WorkbenchState {
-                files_section_closed: true,
-                ..Default::default()
-            },
+            workbench: Default::default(),
             content_browser: Default::default(),
             content_tab_task: None,
             content_tab_generation: 0,

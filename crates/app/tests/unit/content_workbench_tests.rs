@@ -309,10 +309,11 @@ fn assistant_file_tab_uses_shared_rich_preview() {
 ///
 /// 执行过程：
 ///   1. new_with_database_context 构造桌面工作区 → workbench 取 desktop.rs 中的初始值
-///   2. 读取 files_section_closed 与 changes_section_closed
+///   2. 读取 files_section_open 与 changes_section_closed；再模拟切换项目/关标签时的 `Default::default()` 重置
 ///
 /// 预期结果：
-///   - files_section_closed 为 true：整棵文件树首次打开时不展开
+///   - files_section_open 为 false：整棵文件树首次打开时不展开
+///   - 重置后的 WorkbenchState 仍折叠：controller/tabs 里都会整体重建状态，默认值必须天然折叠
 ///   - changes_section_closed 为 false：本次需求只要求折叠「所有文件」，不改动已更改区
 #[test]
 fn files_section_is_collapsed_by_default_and_changes_section_is_not() {
@@ -324,8 +325,12 @@ fn files_section_is_collapsed_by_default_and_changes_section_is_not() {
         test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
     app.read_with(cx, |app, _| {
         let s = &app.desktop_workspace.workbench;
-        assert!(s.files_section_closed, "「所有文件」默认必须折叠");
+        assert!(!s.files_section_open, "「所有文件」默认必须折叠");
         assert!(!s.changes_section_closed, "「已更改的文件」不应被顺带折叠");
+        assert!(
+            !super::WorkbenchState::default().files_section_open,
+            "重置工作台状态后「所有文件」仍必须折叠，否则真机切项目后树又展开"
+        );
     });
 }
 
