@@ -277,7 +277,7 @@ mod tests {
     ///   3. 读取 command.env
     ///
     /// 预期结果：
-    ///   - 正断言：四个 MULTISOUL_* 环境变量都存在且值精确
+    ///   - 正断言：四个 NORMA_* hook 环境变量都存在且值精确
     ///   - 负断言：profile 不应误写为 claude
     #[test]
     fn test_agent_command_injects_norma_hook_environment() {

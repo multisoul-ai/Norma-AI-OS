@@ -53,7 +53,7 @@ public final class CodexWaitFixture {
                 ($0, [["hooks": [["type": "command", "command": command]]]])
             })
         try JSONSerialization.data(withJSONObject: ["hooks": hooks]).write(to: config.appendingPathComponent("hooks.json"))
-        for key in ProcessInfo.processInfo.environment.keys where key.hasPrefix("MULTISOUL_") || key.hasPrefix("CODEX_") || key.hasPrefix("OPENAI_") { unsetenv(key) }
+        for key in ProcessInfo.processInfo.environment.keys where key.hasPrefix("MULTISOUL_") || key.hasPrefix("NORMA_HOOK_") || key == "NORMA_NODE_ID" || key == "NORMA_AGENT_PROFILE" || key.hasPrefix("CODEX_") || key.hasPrefix("OPENAI_") { unsetenv(key) }
         setenv("CODEX_HOME", config.path, 1)
         setenv("ZDOTDIR", root.path, 1)
         setenv("NORMA_BRAIN_DIR", root.path, 1)
