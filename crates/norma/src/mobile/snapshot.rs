@@ -26,6 +26,16 @@ pub struct CardSnapshot {
     /// Bounded excerpt from this turn's observed activity/reply. Not a full conversation body.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub task_summary: Option<String>,
+    /// Most recent tool of the current turn: name plus a human description or file basename, never a command body.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_tool: Option<RecentTool>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct RecentTool {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arg: Option<String>,
 }
 
 impl PartialEq for CardSnapshot {

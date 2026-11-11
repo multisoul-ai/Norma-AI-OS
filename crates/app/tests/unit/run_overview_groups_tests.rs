@@ -277,6 +277,7 @@ fn agent(
         task: Some("整理色板".into()),
         latest_prompt: None,
         action: None,
+        last_tool: None,
         progress: None,
         started_at_unix_ms: None,
     }
