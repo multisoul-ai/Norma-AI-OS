@@ -29,6 +29,8 @@ pub(crate) struct VoiceWindowInsetView {
     inset: VoiceWindowInset,
     glow: GlowDriver,
     prefs: VoiceGlowPrefs,
+    /// 风格切换后必须再画一帧：旧风格的最后一帧图元否则会一直留在屏幕上。
+    needs_repaint: bool,
     viewport: (f32, f32),
     events: VoiceWindowInsetEventBus,
     frame_pending: bool,
@@ -48,7 +50,8 @@ impl VoiceWindowInsetView {
                 let update = this.update(&mut *cx, |view, cx| {
                     view.drain_events();
                     let next_key = view.current_key();
-                    let presentation_changed = next_key != view.last_presented_key;
+                    let style_changed = std::mem::take(&mut view.needs_repaint);
+                    let presentation_changed = style_changed || next_key != view.last_presented_key;
                     // 活跃动画已经持有下一帧回调；PCM 分片只需入队，避免在两帧之间
                     // 额外触发一次窗口绘制。静止状态则通知一次以启动 Voice driver。
                     if presentation_changed || !view.frame_pending {
@@ -65,6 +68,7 @@ impl VoiceWindowInsetView {
             inset: VoiceWindowInset::default(),
             glow: GlowDriver::default(),
             prefs: VoiceGlowPrefs::default(),
+            needs_repaint: false,
             viewport: (1280.0, 800.0),
             events,
             frame_pending: false,
@@ -114,6 +118,7 @@ impl VoiceWindowInsetView {
         let prefs = self.events.prefs();
         if prefs.style != self.prefs.style {
             self.glow.reset();
+            self.needs_repaint = true;
         }
         self.prefs = prefs;
         self.glow
@@ -158,6 +163,9 @@ impl VoiceWindowInsetView {
             f32::from(window.viewport_size().height),
         );
         self.drain_events();
+        if std::mem::take(&mut self.needs_repaint) {
+            cx.notify();
+        }
         if !self.animation_active() {
             return;
         }

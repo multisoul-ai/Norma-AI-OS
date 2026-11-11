@@ -58,6 +58,41 @@ impl VoiceGlowStyle {
     }
 }
 
+/// 读取偏好；风格键缺失时按旧开关迁移并写回。读库出错时不迁移、不写回：
+/// 否则数据库暂时繁忙会把用户已选的风格覆盖成默认值。
+pub(crate) fn load_prefs<E>(
+    get: impl Fn(&str) -> Result<Option<String>, E>,
+    mut set: impl FnMut(&str, &str) -> Result<(), E>,
+) -> VoiceGlowPrefs {
+    let read = |key: &str| get(key).ok().flatten();
+    let style = match get(KEY_STYLE) {
+        Ok(Some(id)) => VoiceGlowStyle::from_id(Some(&id)),
+        Ok(None) => {
+            let legacy = match get(KEY_LEGACY_ENABLED) {
+                Ok(value) => {
+                    value.and_then(|value| match value.trim().to_ascii_lowercase().as_str() {
+                        "1" | "true" | "yes" | "on" => Some(true),
+                        "0" | "false" | "no" | "off" => Some(false),
+                        _ => None,
+                    })
+                }
+                Err(_) => return VoiceGlowPrefs::default(),
+            };
+            let style = VoiceGlowStyle::migrate_legacy(legacy);
+            if set(KEY_STYLE, style.id()).is_err() {
+                tracing::warn!("voice glow style migration write failed");
+            }
+            style
+        }
+        Err(_) => return VoiceGlowPrefs::default(),
+    };
+    VoiceGlowPrefs {
+        style,
+        gain: Gain::from_key(read(KEY_GAIN).as_deref()),
+        show_listening_thinking: read(KEY_PHASES).as_deref() != Some("false"),
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum Gain {
     Soft,

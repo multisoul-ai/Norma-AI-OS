@@ -2,7 +2,7 @@
 //! 派发路径只读各窗口 `MotionStore` 里已解析好的选择，不碰 SQLite。
 
 use crate::app::MultisoulApp;
-use crate::effects::voice_glow::{self, Gain, VoiceGlowPrefs, VoiceGlowStyle};
+use crate::effects::voice_glow::{self, VoiceGlowPrefs};
 use crate::motion::run_style::RunStyle;
 use crate::settings::effects::page::EffectsPageData;
 use crate::settings::effects::state::{
@@ -20,29 +20,10 @@ pub(crate) fn with_effects<R>(cx: &mut App, f: impl FnOnce(&mut EffectsSettingsS
 
 /// 读取语音光晕偏好；风格键缺失时按旧开关 `voice.window_inset_enabled` 迁移并写回。
 fn load_voice_glow(settings: &storage::SettingsStore) -> VoiceGlowPrefs {
-    let get = |key: &str| settings.get_string(key).ok().flatten();
-    let style = match get(voice_glow::KEY_STYLE) {
-        Some(id) => VoiceGlowStyle::from_id(Some(&id)),
-        None => {
-            let legacy = get(voice_glow::KEY_LEGACY_ENABLED).and_then(|value| {
-                match value.trim().to_ascii_lowercase().as_str() {
-                    "1" | "true" | "yes" | "on" => Some(true),
-                    "0" | "false" | "no" | "off" => Some(false),
-                    _ => None,
-                }
-            });
-            let style = VoiceGlowStyle::migrate_legacy(legacy);
-            if let Err(error) = settings.set_string(voice_glow::KEY_STYLE, style.id()) {
-                tracing::warn!(%error, "voice glow style migration write failed");
-            }
-            style
-        }
-    };
-    VoiceGlowPrefs {
-        style,
-        gain: Gain::from_key(get(voice_glow::KEY_GAIN).as_deref()),
-        show_listening_thinking: get(voice_glow::KEY_PHASES).as_deref() != Some("false"),
-    }
+    voice_glow::load_prefs(
+        |key| settings.get_string(key),
+        |key, value| settings.set_string(key, value),
+    )
 }
 
 pub(crate) fn effects_snapshot(cx: &App) -> EffectsSettingsState {

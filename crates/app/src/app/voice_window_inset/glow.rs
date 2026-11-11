@@ -45,6 +45,11 @@ impl GlowDriver {
         }
     }
 
+    #[cfg(test)]
+    fn shown_phase(&self) -> VoiceGlowPhase {
+        self.shown_phase
+    }
+
     pub(super) fn reset(&mut self) {
         *self = Self::default();
     }
@@ -88,6 +93,8 @@ impl GlowDriver {
 
         let speaking_intensity = speaking.map_or(0.0, |(intensity, _)| intensity);
         let phase = if speaking_intensity > EPSILON {
+            // 回复结束淡出时要保持回复形态，不能退回上一个聆听/思考相位。
+            self.shown_phase = VoiceGlowPhase::Speaking;
             VoiceGlowPhase::Speaking
         } else if self.ext_phase != VoiceGlowPhase::Idle {
             self.shown_phase = self.ext_phase;
@@ -123,3 +130,7 @@ impl GlowDriver {
         self.prims = Arc::new(prims);
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_glow_driver_tests.rs"]
+mod tests;

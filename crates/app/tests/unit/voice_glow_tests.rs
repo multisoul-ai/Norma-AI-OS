@@ -355,3 +355,46 @@ fn halo_segments_intersect_the_window() {
         }
     }
 }
+
+/// 场景：偏好读取在读库出错时不得迁移或写回（交叉审查发现：数据库繁忙会覆盖用户已选风格）。
+/// 数据构造：风格键读取返回 Err；另一组为键缺失且旧开关为 "false"；再一组为已有 "halo"。
+/// 执行过程：load_prefs 并记录写入。
+/// 预期结果：Err 时不写库、返回默认；缺失且旧开关关 → off 并写回一次；已有 halo 不写库。
+#[test]
+fn load_prefs_never_overwrites_on_read_error() {
+    let mut writes: Vec<(String, String)> = Vec::new();
+    let prefs = load_prefs(
+        |_| Err::<Option<String>, ()>(()),
+        |k, v| {
+            writes.push((k.into(), v.into()));
+            Ok(())
+        },
+    );
+    assert_eq!(prefs, VoiceGlowPrefs::default(), "读库出错回落默认");
+    assert!(writes.is_empty(), "读库出错不得写库：{writes:?}");
+
+    let prefs = load_prefs(
+        |k| Ok::<_, ()>((k == KEY_LEGACY_ENABLED).then(|| "false".to_owned())),
+        |k, v| {
+            writes.push((k.into(), v.into()));
+            Ok(())
+        },
+    );
+    assert_eq!(prefs.style, VoiceGlowStyle::Off, "旧开关关闭 → 关闭");
+    assert_eq!(
+        writes,
+        vec![(KEY_STYLE.to_owned(), "off".to_owned())],
+        "迁移只写回风格键一次"
+    );
+
+    writes.clear();
+    let prefs = load_prefs(
+        |k| Ok::<_, ()>((k == KEY_STYLE).then(|| "halo".to_owned())),
+        |k, v| {
+            writes.push((k.into(), v.into()));
+            Ok(())
+        },
+    );
+    assert_eq!(prefs.style, VoiceGlowStyle::Halo, "已有风格原样读取");
+    assert!(writes.is_empty(), "已有风格不应写库");
+}
