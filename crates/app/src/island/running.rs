@@ -38,11 +38,7 @@ impl IslandView {
                     .size(px(12.))
                     .text_color(rgb(style::FAINT)),
             )
-            .child(div().truncate().child(if face.last_input.is_empty() {
-                text("island.not_started").to_string()
-            } else {
-                face.last_input.clone()
-            }));
+            .child(div().truncate().child(input_text(face)));
         let running = face.activity == AgentActivity::Running;
         let queued = face.activity == AgentActivity::Queued;
         div()
@@ -83,7 +79,11 @@ impl IslandView {
                                     .text_color(rgb(style::FAINT))
                                     .child(face.provider.clone()),
                             )
-                            .child(div().truncate().child(face.session.clone())),
+                            .child(div().truncate().child(if face.session.is_empty() {
+                                face.task.clone()
+                            } else {
+                                face.session.clone()
+                            })),
                     )
                     .child(input)
                     .when(face.tool.is_some() || running, |column| {
@@ -196,6 +196,20 @@ impl IslandView {
 
 pub(super) fn matches_filter(filter: RunFilter, face: &Face) -> bool {
     accepts(filter, face.activity)
+}
+
+/// Second row: the latest user input. Without one, say why instead of claiming "not started"
+/// for a session that is already running, waiting or done.
+fn input_text(face: &Face) -> String {
+    if !face.last_input.is_empty() {
+        return face.last_input.clone();
+    }
+    match face.activity {
+        AgentActivity::Queued => text("island.not_started").to_string(),
+        AgentActivity::Waiting => text("island.awaiting_reply").to_string(),
+        AgentActivity::Done if !face.detail.is_empty() => face.detail.clone(),
+        _ => face.task.clone(),
+    }
 }
 
 /// Third row: the latest tool (or just "running" before the first one). Mono, one line;

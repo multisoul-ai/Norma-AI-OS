@@ -11,10 +11,10 @@ pub(super) fn recent_tool(raw: &Value) -> Option<RecentTool> {
         .as_str()
         .and_then(bounded_excerpt)
         .or_else(|| {
-            ["file_path", "path", "notebook_path"]
+            ["file_path", "notebook_path"]
                 .iter()
                 .find_map(|key| input[*key].as_str())
-                .and_then(|path| path.rsplit('/').next())
+                .and_then(|path| path.rsplit(['/', '\\']).find(|part| !part.is_empty()))
                 .and_then(bounded_excerpt)
         });
     Some(RecentTool { name, arg })

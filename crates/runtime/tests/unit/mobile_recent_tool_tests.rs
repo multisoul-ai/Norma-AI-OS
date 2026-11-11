@@ -44,6 +44,16 @@ fn recent_tool_keeps_name_and_a_safe_argument_only() {
     summary.observe_hook(&hook(
         "PreToolUse",
         "a",
+        json!({"tool_name":"Read","tool_input":{"file_path":"C:\\Users\\x\\secret-proj\\a.rs"}}),
+    ));
+    assert_eq!(
+        summary.last_tool(),
+        tool("Read", Some("a.rs")),
+        "Windows 路径也只留文件名"
+    );
+    summary.observe_hook(&hook(
+        "PreToolUse",
+        "a",
         json!({"tool_name":"Bash","tool_input":{"command":"SECRET_COMMAND_BODY"}}),
     ));
     assert_eq!(

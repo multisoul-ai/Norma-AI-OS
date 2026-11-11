@@ -9,6 +9,7 @@
 - `05-alert.png`：540 宽。需要你、3 件待处理、待处理队列。选中等待表情，未选中平静且全不透明。
 - `06-alert-switch.png`：点击队列后当前卡换人。
 - `07-expanded-running.png`：660 宽，头 52。筛选全部/运行中/等你/完成，右侧 20pt 一览。Daisy 待开始且无定位。
+  每行三层：会话名 · provider；人形图标 + 最近输入；等宽最近工具（运行中圈 / 其余灰点，运行中带耗时）。Daisy 第二行尚未开始、无第三行。
 - `08-filter-waiting.png`：等你筛选后只剩等你的行。
 - `09-filter-hover.png` / `10-filter-pressed.png`：全部按钮的悬停与按下能和选中态分开。
 - `11-expanded-pending.png`：三张待处理卡。
