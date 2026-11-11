@@ -337,7 +337,6 @@ fn test_advanced_group_status_and_summary_follow_settings() {
         state.advanced_group_summary(AdvancedGroup::Reply),
         AdvancedSummary::Reply {
             announcements: false,
-            glow: state.values().voice_window_inset_enabled(),
         }
     );
 }
