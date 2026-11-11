@@ -25,6 +25,9 @@ impl AgentHookServer {
         self.abandon_dead_agents(runtime);
         self.ingest_process_probes(runtime, now_ms, &mut report);
         for event in self.receiver.try_iter() {
+            if !event_matches_card_profile(runtime, &event) {
+                continue;
+            }
             let actions = self.completion.borrow_mut().observe(&event, now_ms);
             self.apply_completion_actions(&mut report, runtime, actions, now_ms);
         }
@@ -232,6 +235,18 @@ impl AgentHookServer {
         if started.is_err() {
             tracing::debug!(node_id, "agent descendant probe thread did not start");
         }
+    }
+}
+
+/// Grok 会兼容读取 ~/.claude/settings.json、~/.cursor/hooks.json，同一事件以其他来源多转发几次。
+/// 它们共用 node 的判定账本，必须在入口丢弃，否则后到的副本会覆盖暂存的 Stop。
+fn event_matches_card_profile(
+    runtime: &Runtime,
+    event: &norma::agent_hook::AgentHookEvent,
+) -> bool {
+    match runtime.document.node(event.node_id).map(|node| &node.kind) {
+        Some(canvas::CanvasNodeKind::Agent(spec)) => spec.profile == canvas_profile(event.profile),
+        _ => true,
     }
 }
 

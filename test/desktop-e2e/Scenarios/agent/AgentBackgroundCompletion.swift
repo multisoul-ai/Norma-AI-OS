@@ -5,6 +5,7 @@ import Foundation
 /// 后台 Bash 未结清时，Claude 卡片不得显示 Done。
 /// 假 CLI 先发 run_in_background 与非空 background_tasks 的 Stop，停在 settle 文件出现之前。
 /// 结清通知和空 Stop 之后，确认窗口结束才出现 Done。进程保持 sleep，窗口内不发 SessionEnd。
+/// 随后新建的 Grok 卡片在 Stop 时只剩 running monitor，过确认窗口后不得停在运行中。
 /// 语音默认关闭，完成播报由 drain 单测覆盖：未确认的 Stop 不进 terminal_tasks。
 @MainActor
 public enum AgentBackgroundCompletion {
@@ -18,7 +19,7 @@ public enum AgentBackgroundCompletion {
             if let projectRoot { try? FileManager.default.removeItem(at: projectRoot) }
             if let fake { try? FileManager.default.removeItem(at: fake.root) }
         }
-        let workspace = "BackgroundCompletionCheck"
+        let workspace = "BgCompletionCheck"
 
         try await session.step("建立隔离工作空间与项目") {
             let install = try FakeBackgroundAgentShell.install()
@@ -40,6 +41,7 @@ public enum AgentBackgroundCompletion {
             session.stop()
             guard let dataRoot = session.dataRoot else { throw E2EError.env("隔离数据目录丢失") }
             projectRoot = try CanvasProjectFixture.install(dataRoot: dataRoot, workspaceName: workspace)
+            try Catalog.suppressFeatureGuide(database: try session.databaseURL())
             try session.launch(homeDirectory: install.home)
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
             return try session.prove(names: [workspace], areaCount: 1, linkedTo: workspace).summary
@@ -47,12 +49,9 @@ public enum AgentBackgroundCompletion {
 
         try await session.step("进入项目") {
             let launch = try await session.capture()
-            if launch.contains("搜索工作空间") || launch.contains("Search workspaces") {
-                try await session.click(
-                    local: CGPoint(x: Double(launch.windowFrame.width) - 111, y: 540),
-                    on: launch
-                )
-                _ = try await session.wait(Expectation(absent: ["搜索工作空间", "Search workspaces"], timeout: 12))
+            if launch.contains("最近访问") || launch.contains("Recent") {
+                try await session.click(matching: [workspace], pick: .bottom)
+                _ = try await session.wait(Expectation(absent: ["最近访问", "Recent"], timeout: 12))
             }
             _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 12))
             try await session.click(matching: ["E2E Project"], pick: .bottom)
@@ -88,6 +87,17 @@ public enum AgentBackgroundCompletion {
                 throw E2EError.product("确认完成后卡片仍显示运行中：\(done.summary)")
             }
             return done.summary
+        }
+
+        try await session.step("Grok 回合结束时只剩常驻 monitor，卡片完成而非停在运行中") {
+            try await newAgent("/new grok", session)
+            let settled = try await session.wait(Expectation(
+                allOf: [FakeBackgroundAgentShell.monitorBanner],
+                absent: ["运行中"],
+                timeout: 15
+            ))
+            try session.save(settled, "03-grok-monitor-done.png")
+            return settled.summary
         }
     }
 

@@ -477,5 +477,11 @@
   "voice.live_refresh_microphone": "Refresh microphone",
   "voice.advanced_settings_summary": "Understanding model, speech services and credentials, reply preferences, diagnostics",
   "voice.speech_glow_moved_hint": "Style, intensity and preview moved to Settings → Effects",
-  "voice.speech_glow_open_effects": "Open in Effects"
+  "voice.speech_glow_open_effects": "Open in Effects",
+  "voice.mode_hint_command": "Press %{shortcut} to say a command. Norma understands it on this Mac and hands complex requests to the main model.",
+  "voice.almost_ready": "One step left to get started",
+  "voice.finish_required_items": "Finish the required items below to use voice",
+  "voice.grant_microphone": "Allow microphone",
+  "voice.wake_mode": "Activation",
+  "voice.wake_mode_hint": "Press %{shortcut} to say one command; it runs when you finish"
 }
