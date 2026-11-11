@@ -398,3 +398,53 @@ fn load_prefs_never_overwrites_on_read_error() {
     assert_eq!(prefs.style, VoiceGlowStyle::Halo, "已有风格原样读取");
     assert!(writes.is_empty(), "已有风格不应写库");
 }
+
+/// 场景：偏好写库的键值必须是三个键、取值精确，并能被 load_prefs 原样读回（事务写入的内容）。
+/// 数据构造：风格声纹、强度鲜明、聆听/思考显示关闭。
+/// 执行过程：prefs_changes 得到键值，再把它们作为库内容喂给 load_prefs。
+/// 预期结果：恰好三项且全为 Some；读回的偏好与原偏好相等。
+#[test]
+fn prefs_changes_round_trip_through_load_prefs() {
+    let prefs = VoiceGlowPrefs {
+        style: VoiceGlowStyle::Ribbon,
+        gain: Gain::Vivid,
+        show_listening_thinking: false,
+    };
+    let changes = prefs_changes(prefs);
+    assert_eq!(changes.len(), 3, "应写入风格、强度、开关三个键");
+    assert!(changes.iter().all(|(_, v)| v.is_some()), "三项都应有值");
+    let stored: std::collections::HashMap<_, _> = changes.into_iter().collect();
+    let loaded = load_prefs(
+        |k| Ok::<_, ()>(stored.get(k).cloned().flatten()),
+        |_, _| Ok(()),
+    );
+    assert_eq!(loaded, prefs, "写入的键值应能原样读回");
+}
+
+/// 场景：星尘淡出时粒子随整体强度渐隐，不能以固定透明度突然消失。
+/// 数据构造：强度 1.0 回复帧步进 2s 生成粒子；再用强度 0.2 与 1.0 各构建一帧。
+/// 执行过程：取全部 Glow 图元的最大 alpha。
+/// 预期结果：强度 0.2 的最大 alpha 严格小于强度 1.0。
+#[test]
+fn stardust_particles_fade_with_intensity() {
+    let max_alpha = |pool: &StardustPool, intensity: f32| {
+        let mut f = frame(VoiceGlowPhase::Speaking, 1.0);
+        f.intensity = intensity;
+        pool.build(&f)
+            .iter()
+            .filter_map(|p| match p {
+                GlowPrim::Glow { rgba, blur, .. } if *blur < 10.0 => Some(rgba & 0xff),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0)
+    };
+    let mut pool = StardustPool::default();
+    for _ in 0..120 {
+        pool.step(16.0, &frame(VoiceGlowPhase::Speaking, 1.0));
+    }
+    let full = max_alpha(&pool, 1.0);
+    let faded = max_alpha(&pool, 0.2);
+    assert!(full > 0, "满强度应有可见粒子");
+    assert!(faded < full, "强度 0.2 时粒子应更淡：{faded} 应小于 {full}");
+}

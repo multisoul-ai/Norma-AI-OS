@@ -155,7 +155,7 @@ impl StardustPool {
             let alpha = (std::f32::consts::PI * particle.age / particle.life)
                 .sin()
                 .max(0.0)
-                * intensity.max(0.3)
+                * intensity
                 * frame.gain;
             let rgb = PALETTE[particle.color];
             let halo = particle.size * 2.6;

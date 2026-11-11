@@ -74,7 +74,8 @@ impl MultisoulApp {
                         state.run_style = RunStyle::from_id(loaded.run_style.as_deref());
                         state.run_saved = state.run_style;
                     }
-                    if state.glow_generation == 0 {
+                    if !state.glow_loaded {
+                        state.glow_loaded = true;
                         state.voice_glow = loaded.voice_glow;
                         state.glow_saved = loaded.voice_glow;
                     }

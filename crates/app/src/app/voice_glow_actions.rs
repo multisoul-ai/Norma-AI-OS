@@ -7,6 +7,7 @@ use crate::effects::voice_glow::preview::PreviewPin;
 use crate::effects::voice_glow::{self, Gain, VoiceGlowPrefs, VoiceGlowStyle};
 use crate::settings::effects::state::EffectsSettingsState;
 use gpui::{App, Context};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 pub(crate) fn voice_glow_prefs(cx: &App) -> VoiceGlowPrefs {
@@ -133,13 +134,12 @@ impl MultisoulApp {
         label: String,
         cx: &mut Context<Self>,
     ) {
-        let generation = with_effects(cx, |state| {
-            state.glow_generation += 1;
-            state.voice_glow = next;
-            state.glow_undo = undo;
-            state.glow_status = Some(label);
-            state.glow_generation
-        });
+        let generation = NEXT_GENERATION.fetch_add(1, Ordering::Relaxed) + 1;
+        if !with_effects(cx, |state| {
+            state.apply_glow_edit(next, undo, label, generation)
+        }) {
+            return;
+        }
         self.notify_run_style_hosts(cx);
         let settings = storage::SettingsStore::new(self.database_paths.app_db_path().to_owned());
         let work = cx
@@ -175,6 +175,9 @@ impl MultisoulApp {
     }
 }
 
+/// 进程级单调递增的保存序号：状态重建或多个实例都不会让序号回退。
+static NEXT_GENERATION: AtomicU64 = AtomicU64::new(0);
+
 /// 进程内最后一次写入的序号；写入在锁内串行，较旧的写入直接跳过。
 static LAST_WRITTEN: std::sync::Mutex<u64> = std::sync::Mutex::new(0);
 
@@ -189,16 +192,8 @@ fn write_latest(
     if generation < *last {
         return Ok(false);
     }
-    settings.set_string(voice_glow::KEY_STYLE, prefs.style.id())?;
-    settings.set_string(voice_glow::KEY_GAIN, prefs.gain.key())?;
-    settings.set_string(
-        voice_glow::KEY_PHASES,
-        if prefs.show_listening_thinking {
-            "true"
-        } else {
-            "false"
-        },
-    )?;
+    // 三个键放进同一个事务：中途失败不会留下一半新状态。
+    settings.apply_string_changes(&voice_glow::prefs_changes(prefs))?;
     *last = generation;
     Ok(true)
 }
