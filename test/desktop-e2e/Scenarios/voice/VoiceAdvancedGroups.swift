@@ -54,7 +54,7 @@ public enum VoiceAdvancedGroups {
                 VisualCriterion(id: "swap", text: "能看到「语音识别服务」行，它是收起的（没有「识别模型」内容），说明同一时刻只展开一组")
             ])
             try session.save(swapped, "03-recognition-closed.png")
-            try await session.scroll(xFraction: 0.62, yFraction: 0.55, deltaY: 900)
+            try await session.scroll(xFraction: 0.62, yFraction: 0.55, deltaY: 250)
             try await session.visualClick("再次点击已展开的「理解模型」分组标题行，把它收起")
             let closed = try await session.visualCheck([
                 VisualCriterion(id: "closed", text: "所有分组都已收起，列表回到只有标题行和摘要的状态")
