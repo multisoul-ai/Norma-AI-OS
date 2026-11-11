@@ -68,8 +68,26 @@ pub(super) fn mouse(
     let Some(event) = event else {
         return Response::error("NSEvent mouse creation failed");
     };
+    if matches!(phase, MousePhase::Down) {
+        focus_native_hit_view(native, x, y);
+    }
     native.sendEvent(&event);
     Response::ok()
+}
+
+/// 真实点击会让命中的 WKWebView 成为第一响应者；隔离窗口常常不是 key window，
+/// 此时 `sendEvent` 不会移交响应者，网页就收不到后续的选择和按键。这里显式补上。
+fn focus_native_hit_view(native: &NSWindow, x: f32, y: f32) {
+    let Some(hit) = native
+        .contentView()
+        .and_then(|view| view.hitTest(location(native, x, y)))
+    else {
+        return;
+    };
+    let is_gpui = hit.class().name().to_string_lossy().contains("GPUIView");
+    if !is_gpui && hit.acceptsFirstResponder() {
+        native.makeFirstResponder(Some(&hit));
+    }
 }
 
 pub(super) fn text(native: &NSWindow, text: &str) -> Response {
@@ -135,10 +153,26 @@ pub(super) fn key(native: &NSWindow, key_code: u16, chars: &str, modifiers: &[St
         };
         let equivalent = matches!(kind, NSEventType::KeyDown)
             && flags.intersects(NSEventModifierFlags::Command | NSEventModifierFlags::Control);
-        if equivalent && native.performKeyEquivalent(&event) {
+        // NSApplication.sendEvent 先让窗口、再让主菜单处理 Cmd/Ctrl 组合键；这里照做，
+        // 否则菜单里的快捷键（如复制）在 E2E 里永远到不了。
+        if equivalent && (native.performKeyEquivalent(&event) || main_menu_handles(&event)) {
             continue;
         }
         native.sendEvent(&event);
     }
     Response::ok()
+}
+
+/// 与真实按键一致：窗口不处理的 Cmd/Ctrl 组合键交给 App 主菜单。
+fn main_menu_handles(event: &NSEvent) -> bool {
+    use objc2::runtime::{AnyObject, Bool};
+    use objc2::{class, msg_send};
+    // SAFETY: 控制通道在 AppKit 主线程执行；NSApplication 是进程级单例，
+    // mainMenu 为空时向 nil 发消息返回 NO。
+    unsafe {
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let menu: *mut AnyObject = msg_send![app, mainMenu];
+        let handled: Bool = msg_send![menu, performKeyEquivalent: event];
+        handled.as_bool()
+    }
 }

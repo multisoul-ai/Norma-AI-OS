@@ -1,4 +1,5 @@
 import AppKit
+import AppKit
 import E2EKit
 import Fixtures
 import Foundation
@@ -156,6 +157,50 @@ public enum ContentWorkbench {
             if !copied.isEmpty { break }
             try await Task.sleep(nanoseconds: 100_000_000)
         } while Date() < deadline
+        return copied
+    }
+
+    /// 在网页里拖选标题后 Cmd+C 并读取系统剪贴板；结束时恢复原内容。
+    /// 抽屉宽度动画期间标题位置会漂移，所以每次尝试都重新截图定位，位置稳定后才拖选，最多三次。
+    static func copyWebHeading(_ session: Session, candidates: [String]) async throws -> String {
+        let board = NSPasteboard.general
+        let saved = (board.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
+            return copy
+        }
+        defer { board.clearContents(); if !saved.isEmpty { board.writeObjects(saved) } }
+        var copied = ""
+        for attempt in 1...3 {
+            board.clearContents()
+            var frame = try await session.capture()
+            var heading = frame.pick(candidates, .top)
+            for _ in 0..<4 {
+                try await Task.sleep(nanoseconds: 400_000_000)
+                let next = try await session.capture()
+                let moved = heading.map { old in next.pick(candidates, .top).map { abs($0.rect.minX - old.rect.minX) > 2 || abs($0.rect.midY - old.rect.midY) > 2 } ?? true } ?? true
+                frame = next
+                heading = next.pick(candidates, .top)
+                if !moved { break }
+            }
+            guard let text = heading else { throw E2EError.product("网页标题不可见") }
+            try await session.click(local: text.center, on: frame)
+            try await Task.sleep(nanoseconds: 300_000_000)
+            if attempt == 2 {
+                let y = text.rect.midY
+                try await session.drag(local: CGPoint(x: text.rect.minX + 3, y: y), to: CGPoint(x: text.rect.maxX - 3, y: y), on: frame)
+            } else {
+                try await session.nativeMultiClick(local: text.center, on: frame, count: 3)
+            }
+            try session.save(try await session.capture(), "09a-web-selected-\(attempt).png")
+            try await session.shortcut(key: 8, modifiers: [0x37])
+            let deadline = Date().addingTimeInterval(2)
+            repeat {
+                copied = board.string(forType: .string) ?? ""
+                if !copied.isEmpty { return copied }
+                try await Task.sleep(nanoseconds: 100_000_000)
+            } while Date() < deadline
+        }
         return copied
     }
 
