@@ -493,5 +493,11 @@
   "voice.group_jev": "Jev 快速判断",
   "voice.group_jev_summary": "配置与连接测试",
   "voice.group_reply": "回复偏好",
-  "voice.group_reply_summary": "任务播报与语音光晕"
+  "voice.group_reply_summary": "任务播报与语音光晕",
+  "voice.mode_hint_command": "按 %{shortcut} 说一句指令，Norma 在本机理解；复杂语义交给主模型。",
+  "voice.almost_ready": "还差一步就能开始",
+  "voice.finish_required_items": "完成下面的必要项即可使用语音",
+  "voice.grant_microphone": "授权麦克风",
+  "voice.wake_mode": "唤起方式",
+  "voice.wake_mode_hint": "按 %{shortcut} 说一句，结束后执行"
 }

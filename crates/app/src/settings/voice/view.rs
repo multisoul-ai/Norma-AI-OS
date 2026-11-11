@@ -69,7 +69,7 @@ pub(crate) fn voice_settings(
         .flex()
         .flex_col()
         .gap(px(SECTION_GAP))
-        .child(desktop_mode_picker(theme, state, cx));
+        .child(desktop_mode_picker(theme, state, voice_shortcut_label, cx));
     if state.values().desktop_mode() == super::DesktopVoiceMode::GptLive {
         return page
             .child(gpt_live::gpt_live_settings(
@@ -441,7 +441,6 @@ fn advanced_group(
 
 pub(super) fn settings_group(theme: Theme, title: &'static str) -> Div {
     div()
-        .w_full()
         .min_w(px(0.0))
         .flex()
         .flex_col()

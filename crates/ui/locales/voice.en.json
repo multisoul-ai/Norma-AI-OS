@@ -493,5 +493,11 @@
   "voice.group_jev": "Jev quick decision",
   "voice.group_jev_summary": "Configuration and connection test",
   "voice.group_reply": "Reply preferences",
-  "voice.group_reply_summary": "Task announcements and speech glow"
+  "voice.group_reply_summary": "Task announcements and speech glow",
+  "voice.mode_hint_command": "Press %{shortcut} to say a command. Norma understands it on this Mac and hands complex requests to the main model.",
+  "voice.almost_ready": "One step left to get started",
+  "voice.finish_required_items": "Finish the required items below to use voice",
+  "voice.grant_microphone": "Allow microphone",
+  "voice.wake_mode": "Activation",
+  "voice.wake_mode_hint": "Press %{shortcut} to say one command; it runs when you finish"
 }

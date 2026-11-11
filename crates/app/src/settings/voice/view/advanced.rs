@@ -20,6 +20,9 @@ pub(super) fn advanced_groups(
         .when(source == asr::AsrProviderId::CloudAzure, |rows| {
             rows.child(recognition::azure_detail(theme, state, inputs, cx))
         })
+        .when(source != asr::AsrProviderId::CloudAzure, |rows| {
+            rows.child(super::setup::a1::a1_status_row(theme, state, cx))
+        })
         .when(source == asr::AsrProviderId::LocalA1, |rows| {
             rows.child(super::setup::a1::a1_detail(theme, state, inputs, cx))
         })

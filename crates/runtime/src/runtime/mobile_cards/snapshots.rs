@@ -70,6 +70,13 @@ impl Runtime {
                             .unwrap_or(&run.task_summary)
                             .snapshot()
                     }),
+                    last_tool: self.mobile_runs.get(&node.id).and_then(|run| {
+                        run.codex
+                            .as_ref()
+                            .map(|host| &host.task_summary)
+                            .unwrap_or(&run.task_summary)
+                            .last_tool()
+                    }),
                     state: state.into(),
                     run_id: self.mobile_agent_run_id(node.id).map(str::to_owned),
                     session_id: self.agent_session_id(node.id),
