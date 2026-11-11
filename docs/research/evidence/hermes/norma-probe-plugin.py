@@ -10,7 +10,7 @@ KEEP = ("tool_name", "session_id", "completed", "failed", "interrupted", "turn_e
         "status_code", "reason", "kind", "outcome", "status")
 
 def _post(name, payload):
-    ep, tok, node = (os.environ.get(k) for k in ("MULTISOUL_HOOK_ENDPOINT", "MULTISOUL_HOOK_TOKEN", "MULTISOUL_NODE_ID"))
+    ep, tok, node = (os.environ.get(k) for k in ("NORMA_HOOK_ENDPOINT", "NORMA_HOOK_TOKEN", "NORMA_NODE_ID"))
     if not (ep and tok and node):
         return
     body = json.dumps(dict(payload, hook_event_name=name)).encode()

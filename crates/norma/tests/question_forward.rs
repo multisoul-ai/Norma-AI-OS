@@ -92,11 +92,11 @@ fn real_question_bridge_returns_answer_to_native_stdout() {
         .answer_output(&answers)
         .unwrap();
     let (env, worker) = respond(output.to_string(), "200 OK");
-    let mut child = Command::new(env!("CARGO_BIN_EXE_multisoul-agent-hook"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_norma-hook"))
         .args(["forward", "--source", "claude", "--request-question"])
-        .env("MULTISOUL_NODE_ID", "7")
-        .env("MULTISOUL_HOOK_TOKEN", &env.token)
-        .env("MULTISOUL_HOOK_ENDPOINT", &env.endpoint)
+        .env("NORMA_NODE_ID", "7")
+        .env("NORMA_HOOK_TOKEN", &env.token)
+        .env("NORMA_HOOK_ENDPOINT", &env.endpoint)
         .env("NORMA_CONTROL_RUN_ID", "run")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

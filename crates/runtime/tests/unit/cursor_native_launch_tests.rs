@@ -37,8 +37,8 @@ while IFS= read -r line; do printf '%s\r\n' "$line"; done
         std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
         let command = agent_command(AgentProfile::Cursor, None)
             .cwd(directory.path())
-            .env("MULTISOUL_AGENT_PROFILE", "cursor")
-            .env("MULTISOUL_NODE_ID", "7")
+            .env("NORMA_AGENT_PROFILE", "cursor")
+            .env("NORMA_NODE_ID", "7")
             .env(norma::agent_hook::ENV_CONTROL_RUN_ID, "cursor-owned")
             .env("CURSOR_AGENT_BIN", binary.to_string_lossy())
             .env("NORMA_CURSOR_TEST_LOG", log.to_string_lossy())
@@ -111,8 +111,8 @@ fn native_cursor_real_launch_and_cleanup() {
     let workspace = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let command = agent_command(AgentProfile::Cursor, None)
         .cwd(workspace)
-        .env("MULTISOUL_AGENT_PROFILE", "cursor")
-        .env("MULTISOUL_NODE_ID", "7")
+        .env("NORMA_AGENT_PROFILE", "cursor")
+        .env("NORMA_NODE_ID", "7")
         .env(norma::agent_hook::ENV_CONTROL_RUN_ID, "cursor-real-owned");
     let control = Arc::new(crate::runtime::LaunchControl::default());
     let mut live = prepare_agent_command(1, command, 120, 42, control.clone())

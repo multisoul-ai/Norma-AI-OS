@@ -46,16 +46,16 @@ fn test_paths(root: &std::path::Path) -> InstallPaths {
     InstallPaths {
         managed_root: root.join("managed"),
         bundled_cli: root.join("bundle/norma"),
-        bundled_hook: root.join("bundle/multisoul-agent-hook"),
+        bundled_hook: root.join("bundle/norma-hook"),
         hook_paths: HookInstallPaths {
             claude_settings: root.join(".claude/settings.json"),
             codex_hooks: root.join(".codex/hooks.json"),
             cursor_hooks: root.join(".cursor/hooks.json"),
             grok_hooks: root.join(".grok/hooks.json"),
             pi_extension: root.join("norma-agent-hook.ts"),
-            opencode_plugin: root.join(".config/opencode/plugins/multisoul-agent-hook.js"),
+            opencode_plugin: root.join(".config/opencode/plugins/norma-hook.js"),
             infcode_settings: root.join(".infcode/settings.json"),
-            kimi_config: (root.join(".config/opencode/plugins/multisoul-agent-hook.js"))
+            kimi_config: (root.join(".config/opencode/plugins/norma-hook.js"))
                 .with_file_name("kimi-config.toml"),
             hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
             zcode_config: root.join(".zcode/cli/config.json"),

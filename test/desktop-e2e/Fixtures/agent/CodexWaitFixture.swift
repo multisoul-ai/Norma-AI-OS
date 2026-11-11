@@ -118,8 +118,8 @@ public final class CodexWaitFixture {
             if time.time()>end or (root/'stop-watchers').exists():sys.exit(0)
             time.sleep(.05)
         raw.update(hook_event_name='Stop',last_assistant_message='PREMATURE_STOP_SENTINEL',_norma_control_run_id=os.environ.get('NORMA_CONTROL_RUN_ID'))
-        body=dict(node_id=int(os.environ['MULTISOUL_NODE_ID']),profile='Codex',provider_event='Stop',session_id=raw.get('session_id'),turn_id=raw.get('turn_id'),control_run_id=os.environ.get('NORMA_CONTROL_RUN_ID'),tool_name=None,message=None,raw_json=raw)
-        req=urllib.request.Request(os.environ['MULTISOUL_HOOK_ENDPOINT'],json.dumps(body).encode(),{'Authorization':'Bearer '+os.environ['MULTISOUL_HOOK_TOKEN'],'Content-Type':'application/json'})
+        body=dict(node_id=int(os.environ['NORMA_NODE_ID']),profile='Codex',provider_event='Stop',session_id=raw.get('session_id'),turn_id=raw.get('turn_id'),control_run_id=os.environ.get('NORMA_CONTROL_RUN_ID'),tool_name=None,message=None,raw_json=raw)
+        req=urllib.request.Request(os.environ['NORMA_HOOK_ENDPOINT'],json.dumps(body).encode(),{'Authorization':'Bearer '+os.environ['NORMA_HOOK_TOKEN'],'Content-Type':'application/json'})
         with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req,timeout=5) as response:
             (root/'injected.json').write_text(json.dumps(dict(status=response.status,test_injection=True,session_id=raw.get('session_id'),turn_id=raw.get('turn_id'))))
         sys.exit(0)

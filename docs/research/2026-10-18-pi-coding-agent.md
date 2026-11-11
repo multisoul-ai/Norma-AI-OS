@@ -293,7 +293,7 @@ blue  .     .     yellow
 - 最近会话手动续接：`pi -c`（已验证）；Norma 自动恢复不使用它，避免串卡。
 - 按缓存 ID 自动恢复：`/bin/zsh -lic "exec pi --session-id '<完整 UUID>'"`，复用 `shell_quote`，cwd 使用 checkpoint 保存值。该参数恢复已有记录、空 ID 文件缺失则同 ID 创建（均已验证）；不扫描会话目录。
 - 扩展：管理 `~/.pi/agent/extensions/norma-agent-hook.ts`，支持可检测的 `PI_CODING_AGENT_DIR`；只写自身 marker 文件，冲突拒绝覆盖，卸载不碰其他扩展。
-- 传输：参照 OpenCode 插件，以继承的 `MULTISOUL_NODE_ID/HOOK_ENDPOINT/HOOK_TOKEN` 转发到本机 Norma ingress，profile 精确为 Pi；缺少环境变量就不发，网络失败 fail-open，短超时并保持事件顺序。生产转发尚未验证，不能声称已接通。
+- 传输：参照 OpenCode 插件，以继承的 `NORMA_NODE_ID/HOOK_ENDPOINT/HOOK_TOKEN` 转发到本机 Norma ingress，profile 精确为 Pi；缺少环境变量就不发，网络失败 fail-open，短超时并保持事件顺序。生产转发尚未验证，不能声称已接通。
 - 状态：采用第 8 节映射；缓存完整 session ID、本轮 ID、末次 assistant 和错误，不从会话存储读取当前 ID/回复。
 - 编排：复用现有 provider authorization、Workspace route 和 ask-norma 技能。**已验证** 把最小技能放 `$PI_CODING_AGENT_DIR/skills/norma-probe/SKILL.md`，Pi 首屏实际列出 `norma-probe`（[skill-discovery.txt](assets/2026-10-18-pi/skill-discovery.txt)）。据此采用 Pi 专属 `~/.pi/agent/skills/<managed-skill>/SKILL.md`；**未验证** 真正向其他 Agent 委派与可信结果回收，未通过前保持不支持该能力并展示集成未就绪。
 

@@ -1,4 +1,4 @@
-use super::{atomic_file, AgentHookError, PI_EXTENSION_MARKER};
+use super::{atomic_file, has_pi_marker, AgentHookError};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -17,7 +17,7 @@ pub(super) fn pi_extension_path(home: &Path, agent_dir_env: Option<&str>) -> Pat
 
 pub(super) fn install_pi_extension(path: &Path) -> Result<(), AgentHookError> {
     match fs::read_to_string(path) {
-        Ok(source) if !source.contains(PI_EXTENSION_MARKER) => {
+        Ok(source) if !has_pi_marker(&source) => {
             return Err(AgentHookError::Io(std::io::Error::new(
                 std::io::ErrorKind::AlreadyExists,
                 format!(
@@ -42,7 +42,7 @@ pub(super) fn uninstall_pi_extension(path: &Path) -> Result<(), AgentHookError> 
         return Ok(());
     }
     let source = fs::read_to_string(path)?;
-    if source.contains(PI_EXTENSION_MARKER) {
+    if has_pi_marker(&source) {
         fs::remove_file(path)?;
     }
     Ok(())

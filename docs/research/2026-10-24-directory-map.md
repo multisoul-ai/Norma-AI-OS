@@ -331,7 +331,7 @@ Rust 源码目录共 170 个，其中 58 个目录的整个子树只有 1–2 �
 | `crates/live_voice/src/session/` | `crates/live_voice/src/session/command.rs` | 312 | 409 |
 | `crates/mobile_pairing/src/` | `crates/mobile_pairing/src/ffi.rs`、`crates/mobile_pairing/src/lib.rs` | — | 195 |
 | `crates/model_store/src/` | `crates/model_store/src/installation.rs`、`crates/model_store/src/lib.rs` | — | 408 |
-| `crates/norma/src/bin/` | `crates/norma/src/bin/multisoul_agent_hook.rs`、`crates/norma/src/bin/norma.rs` | — | 23 |
+| `crates/norma/src/bin/` | `crates/norma/src/bin/norma_hook.rs`、`crates/norma/src/bin/norma.rs` | — | 23 |
 | `crates/norma/src/codex/` | `crates/norma/src/codex/approvals.rs` | 260 | 578 |
 | `crates/norma/src/orchestration/installer/` | `crates/norma/src/orchestration/installer/reconcile.rs`、`crates/norma/src/orchestration/installer/skill_component.rs` | 479 | 760 |
 | `crates/runtime/src/ego/` | `crates/runtime/src/ego/transition.rs` | 402 | 591 |

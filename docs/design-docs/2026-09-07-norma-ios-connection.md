@@ -143,7 +143,7 @@ Codex 每页 20 回合，完整页中回合顺序转为正序，稳定 ID 为 tu
 
 ```sh
 swift build --package-path ios --product PairingProbe
-cargo build -p norma --bin multisoul-agent-hook
+cargo build -p norma --bin norma-hook
 # macOS 原生 Swift；以下两个测试分别验证 Claude 与 Codex。
 env PATH="$PWD/target/debug:$PATH" NORMA_SWIFT_PROBE="$PWD/ios/.build/debug/PairingProbe" \
   cargo test -p e2e --lib e2e_mobile_claude_conversation_native_transport -- --ignored --nocapture
@@ -172,7 +172,7 @@ SwiftUI 底部 safeAreaInset 放系统多行 TextField 与 44pt 发送按钮，�
 
 ```sh
 swift build --package-path ios --product PairingProbe
-cargo build -p norma --bin multisoul-agent-hook
+cargo build -p norma --bin norma-hook
 # macOS 原生 Swift，两个 Provider 顺序执行。
 env PATH="$PWD/target/debug:$PATH" NORMA_SWIFT_PROBE="$PWD/ios/.build/debug/PairingProbe" \
   cargo test -p e2e --lib _messages_native -- --ignored --nocapture --test-threads=1
@@ -211,7 +211,7 @@ Codex 等待实际 turn/completed；Claude 复用后台捕获 EOF、前台一次
 
 ~~~sh
 swift build --package-path ios --product PairingProbe
-cargo build -p norma --bin multisoul-agent-hook
+cargo build -p norma --bin norma-hook
 env PATH="$PWD/target/debug:$PATH" NORMA_SWIFT_PROBE="$PWD/ios/.build/debug/PairingProbe" \
   cargo test -p e2e --lib interrupts_native -- --ignored --nocapture --test-threads=1
 # 换为原生 iOS simulator XCTest host：
@@ -245,7 +245,7 @@ SwiftUI 输入框在忙碌或有未完成队列时使用「加入队列」；收
 
 ~~~sh
 swift build --package-path ios --product PairingProbe
-cargo build -p norma --bin multisoul-agent-hook
+cargo build -p norma --bin norma-hook
 env PATH="$PWD/target/debug:$PATH" NORMA_SWIFT_PROBE="$PWD/ios/.build/debug/PairingProbe" \
   cargo test -p e2e --lib queues_native -- --ignored --nocapture --test-threads=1
 env PATH="$PWD/target/debug:$PATH" NORMA_SWIFT_PROBE="$PWD/scripts/check-norma-ios-transport.sh" \
@@ -392,7 +392,7 @@ cargo test -p agent -p storage
 cargo test -p e2e --test 'mobile_*'
 swift test --package-path ios
 swift build --package-path ios --product PairingProbe
-cargo build -p norma --bin multisoul-agent-hook
+cargo build -p norma --bin norma-hook
 PATH="$PWD/target/debug:$PATH" NORMA_SWIFT_PROBE="$PWD/ios/.build/debug/PairingProbe" \
   cargo test -p e2e --lib todos_native -- --ignored --nocapture --test-threads=1
 xcodegen generate --spec ios/project.yml
@@ -468,7 +468,7 @@ SwiftUI继续使用已有原生发送与回查协议。Mac在所有实际SendMes
 重跑真实发送检查（只在命令进程补PATH，不改变全局Hook配置）：
 
 ```sh
-cargo build -p norma --bin multisoul-agent-hook
+cargo build -p norma --bin norma-hook
 swift build --package-path ios --product PairingProbe
 PATH="$PWD/target/debug:$PATH" cargo test -p e2e --lib e2e_mobile_real_task_baselines_bind_exact_sends -- --ignored --nocapture
 PATH="$PWD/target/debug:$PATH" NORMA_SWIFT_PROBE="$PWD/ios/.build/debug/PairingProbe" cargo test -p e2e --lib _messages_native -- --ignored --nocapture --test-threads=1
@@ -718,7 +718,7 @@ v60的原生测量命令现在还断言空闲窗口的`content_updates == 0`，�
 
 ```bash
 swift build --package-path ios --product PairingProbe
-cargo build -p norma --bin multisoul-agent-hook
+cargo build -p norma --bin norma-hook
 PATH="$PWD/target/debug:$PATH" NORMA_SWIFT_PROBE="$PWD/ios/.build/debug/PairingProbe" \
   cargo test -p e2e --lib todos_native -- --ignored --nocapture --test-threads=1
 PATH="$PWD/target/debug:$PATH" NORMA_IOS_SIMULATOR=5265591D-704C-4515-868D-C2D64F94A7FA \

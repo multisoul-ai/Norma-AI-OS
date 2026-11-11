@@ -13,8 +13,8 @@ name = "norma"
 path = "src/bin/norma.rs"
 
 [[bin]]
-name = "multisoul-agent-hook"
-path = "src/bin/multisoul_agent_hook.rs"
+name = "norma-hook"
+path = "src/bin/norma_hook.rs"
 
 [dependencies]
 mobile_pairing = { path = "../mobile_pairing" }

@@ -255,14 +255,14 @@ impl InstallPaths {
         Self {
             managed_root: home.join("Library/Application Support/Norma OS"),
             bundled_cli: bundle_bin.join("norma"),
-            bundled_hook: bundle_bin.join("multisoul-agent-hook"),
+            bundled_hook: bundle_bin.join("norma-hook"),
             hook_paths: HookInstallPaths {
                 claude_settings: home.join(".claude/settings.json"),
                 codex_hooks: home.join(".codex/hooks.json"),
                 cursor_hooks: home.join(".cursor/hooks.json"),
                 grok_hooks: grok_config_root_for(home, overrides.grok_home.clone())
-                    .join("hooks/multisoul-agent-hook.json"),
-                opencode_plugin: home.join(".config/opencode/plugins/multisoul-agent-hook.js"),
+                    .join("hooks/norma-hook.json"),
+                opencode_plugin: home.join(".config/opencode/plugins/norma-hook.js"),
                 infcode_settings: home.join(".infcode/settings.json"),
                 pi_extension: pi_agent_dir
                     .join("extensions")
@@ -306,7 +306,7 @@ impl InstallPaths {
     }
 
     pub fn managed_hook_path(&self) -> PathBuf {
-        self.managed_root.join("bin").join("multisoul-agent-hook")
+        self.managed_root.join("bin").join("norma-hook")
     }
 
     pub fn credential_path(&self, provider: OrchestrationProvider) -> PathBuf {
@@ -321,7 +321,7 @@ impl InstallPaths {
     /// - ZCode：`~/.zcode/cli/config.json` 上两级，即 `~/.zcode`。
     /// - Pi：`<agent_dir>/extensions/<file>` 上两级，即 `$PI_CODING_AGENT_DIR` 或 `~/.pi/agent`。
     /// - Hermes：`<HERMES_HOME>/plugins/<name>` 上两级，即 `$HERMES_HOME` 或 `~/.hermes`。
-    /// - Grok：`<grok_home>/hooks/multisoul-agent-hook.json` 上两级，即 `$GROK_HOME` 或 `~/.grok`。
+    /// - Grok：`<grok_home>/hooks/norma-hook.json` 上两级，即 `$GROK_HOME` 或 `~/.grok`。
     fn derived_skills_root(&self, provider: OrchestrationProvider) -> Option<PathBuf> {
         let base = match provider {
             OrchestrationProvider::Grok => self.hook_paths.grok_hooks.parent()?.parent()?,

@@ -30,7 +30,7 @@ public enum IslandNavigationFixture {
     hook('UserPromptSubmit', {'prompt':'Keep the island navigation task running'})
     hook('PreToolUse', {'tool_name':'Bash','tool_use_id':'island-live-tool',
         'tool_input':{'command':'sleep 3600','description':'Island navigation live task'}})
-    identity = {'pid':os.getpid(), 'node':os.environ['MULTISOUL_NODE_ID'], 'session':sid}
+    identity = {'pid':os.getpid(), 'node':os.environ['NORMA_NODE_ID'], 'session':sid}
     with open(root + '/starts.jsonl', 'a') as f: f.write(json.dumps(identity) + '\n')
     print('ISLAND LIVE ' + str(identity['pid']) + ' NODE ' + identity['node'], flush=True)
     while True: time.sleep(1)

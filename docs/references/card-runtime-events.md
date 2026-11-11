@@ -124,17 +124,17 @@ Claude、Codex、Cursor、Grok 与 OpenCode hooks 会在 session、用户输入�
 推荐命令：
 
 ```bash
-multisoul-agent-hook --source claude
-multisoul-agent-hook --source codex
-multisoul-agent-hook --source cursor
-multisoul-agent-hook --source grok
-multisoul-agent-hook --source opencode
+norma-hook --source claude
+norma-hook --source codex
+norma-hook --source cursor
+norma-hook --source grok
+norma-hook --source opencode
 ```
 
 bridge 行为：
 
 - 从 `stdin` 读取 provider 原始 hook JSON。
-- 从 env 读取 `MULTISOUL_NODE_ID`、`MULTISOUL_AGENT_PROFILE`、`MULTISOUL_HOOK_ENDPOINT`、`MULTISOUL_HOOK_TOKEN`。
+- 从 env 读取 `NORMA_NODE_ID`、`NORMA_AGENT_PROFILE`、`NORMA_HOOK_ENDPOINT`、`NORMA_HOOK_TOKEN`。
 - 缺少 Norma OS env 时直接 `exit 0`，避免影响普通 Agent CLI 会话。
 - POST 到本地 app ingest endpoint，例如 `http://127.0.0.1:<port>/agent-hooks`。
 - endpoint 不可达或解析失败时也 `exit 0`，避免阻塞 Agent CLI。
@@ -143,10 +143,10 @@ bridge 行为：
 Agent PTY 启动时注入 per-node env：
 
 ```text
-MULTISOUL_NODE_ID=<node_id>
-MULTISOUL_AGENT_PROFILE=claude|codex|cursor|grok|opencode
-MULTISOUL_HOOK_ENDPOINT=http://127.0.0.1:<port>/agent-hooks
-MULTISOUL_HOOK_TOKEN=<random-token>
+NORMA_NODE_ID=<node_id>
+NORMA_AGENT_PROFILE=claude|codex|cursor|grok|opencode
+NORMA_HOOK_ENDPOINT=http://127.0.0.1:<port>/agent-hooks
+NORMA_HOOK_TOKEN=<random-token>
 ```
 
 统一 hook payload：
@@ -190,7 +190,7 @@ hook ingest 属于 app 层，因为它涉及本地 HTTP、token 校验和 UI 通
 ```mermaid
 flowchart LR
   Agent["Agent CLI PTY process"] --> Hook["provider hook/plugin"]
-  Hook --> Bridge["multisoul-agent-hook"]
+  Hook --> Bridge["norma-hook"]
   Bridge --> Ingest["app local ingest"]
   Ingest --> Store["AgentTaskStateStore"]
   Store --> Events["RuntimeEvent::AgentTaskStateChanged"]

@@ -7,13 +7,13 @@ public enum BudgetAgentShell {
         let script = #"""
         #!/usr/bin/env python3
         import json, os, time, urllib.request
-        node = int(os.environ["MULTISOUL_NODE_ID"])
+        node = int(os.environ["NORMA_NODE_ID"])
         def post(event, extra):
             raw = dict(extra, hook_event_name=event, session_id="budget-session")
             body = {"node_id": node, "profile": "Claude", "provider_event": event,
                     "session_id": "budget-session", "turn_id": "budget-turn", "raw_json": raw}
-            request = urllib.request.Request(os.environ["MULTISOUL_HOOK_ENDPOINT"],
-                json.dumps(body).encode(), {"Authorization": "Bearer " + os.environ["MULTISOUL_HOOK_TOKEN"],
+            request = urllib.request.Request(os.environ["NORMA_HOOK_ENDPOINT"],
+                json.dumps(body).encode(), {"Authorization": "Bearer " + os.environ["NORMA_HOOK_TOKEN"],
                 "Content-Type": "application/json"})
             urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=3).read()
         time.sleep(2)

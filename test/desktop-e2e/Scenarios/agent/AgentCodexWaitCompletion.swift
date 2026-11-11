@@ -20,7 +20,7 @@ public enum AgentCodexWaitCompletion {
         let workspace = "CodexWaitCheck"
         try await session.step("启动隔离真实 App，创建 Codex 验收项目") {
             guard let output = session.output else { throw E2EError.env("缺少证据目录") }
-            let hook = URL(fileURLWithPath: session.appPath).deletingLastPathComponent().appendingPathComponent("multisoul-agent-hook")
+            let hook = URL(fileURLWithPath: session.appPath).deletingLastPathComponent().appendingPathComponent("norma-hook")
             let install = try await CodexWaitFixture(root: output.appendingPathComponent("fixture"), hookBinary: hook.path)
             fixture = install
             try session.launch(homeDirectory: install.home)

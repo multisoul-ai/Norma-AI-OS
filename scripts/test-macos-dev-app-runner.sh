@@ -11,7 +11,7 @@
 #   dev plist      = packaging/macos/DevInfo.plist
 #   bundle layout  = <target-dir>/Norma OS Dev.app/Contents/{MacOS,Info.plist}
 #   orchestration CLI = <target-dir>/norma, built by the norma crate
-#   hook helper    = <target-dir>/multisoul-agent-hook, built by the app crate
+#   hook helper    = <target-dir>/norma-hook, built by the app crate
 #   auth helper    = <target-dir>/norma-browser-auth-host, built by the app crate
 #   auth extension = crates/app/assets/browser-auth-extension → bundle Resources
 #   wallpaper      = crates/app/assets/wallpapers/1407174.mp4 → bundle Resources
@@ -40,7 +40,7 @@
 #   - Positive: the runner copies DevInfo.plist into Contents/Info.plist.
 #   - Positive: the runner executes Contents/MacOS/<binary>.
 #   - Positive: the bundle contains executable Contents/MacOS/norma.
-#   - Positive: the bundle contains Contents/MacOS/multisoul-agent-hook.
+#   - Positive: the bundle contains Contents/MacOS/norma-hook.
 #   - Positive: the bundle contains Contents/MacOS/norma-browser-auth-host.
 #   - Positive: the bundle contains Contents/Resources/browser-auth-extension/manifest.json.
 #   - Positive: the bundle contains Contents/Resources/wallpapers/1407174.mp4.
@@ -186,8 +186,8 @@ fixture_runner="$fixture_root/scripts/run-macos-dev-app.sh"
 fixture_input="$tmp_dir/norma-os"
 fixture_cli_source="$tmp_dir/norma-source"
 fixture_cli="$tmp_dir/norma"
-fixture_hook_source="$tmp_dir/multisoul-agent-hook-source"
-fixture_hook="$tmp_dir/multisoul-agent-hook"
+fixture_hook_source="$tmp_dir/norma-hook-source"
+fixture_hook="$tmp_dir/norma-hook"
 fixture_auth_host_source="$tmp_dir/norma-browser-auth-host-source"
 fixture_auth_host="$tmp_dir/norma-browser-auth-host"
 app_pid_file="$tmp_dir/app.pid"
@@ -290,7 +290,7 @@ case "$*" in
     ;;
 esac
 case "$*" in
-  *"--bin multisoul-agent-hook --bin norma-browser-auth-host"*)
+  *"--bin norma-hook --bin norma-browser-auth-host"*)
     cp "$FAKE_HOOK_SOURCE" "$FAKE_HOOK_DEST"
     chmod +x "$FAKE_HOOK_DEST"
     cp "$FAKE_AUTH_HOST_SOURCE" "$FAKE_AUTH_HOST_DEST"
@@ -388,19 +388,19 @@ if ! cmp -s "$fixture_cli_source" "$bundle_cli"; then
   fail "development bundle orchestration CLI must match the sibling Cargo-built norma"
 fi
 
-bundle_hook="$tmp_dir/Norma OS Dev.app/Contents/MacOS/multisoul-agent-hook"
+bundle_hook="$tmp_dir/Norma OS Dev.app/Contents/MacOS/norma-hook"
 if [ ! -x "$fixture_hook" ]; then
   cat "$tmp_dir/runner.log" >&2
-  fail "runner must build multisoul-agent-hook when cargo run selected only norma-os"
+  fail "runner must build norma-hook when cargo run selected only norma-os"
 fi
 
 if [ ! -x "$bundle_hook" ]; then
   cat "$tmp_dir/runner.log" >&2
-  fail "cargo run development bundle must include executable multisoul-agent-hook beside norma-os"
+  fail "cargo run development bundle must include executable norma-hook beside norma-os"
 fi
 
 if ! cmp -s "$fixture_hook_source" "$bundle_hook"; then
-  fail "development bundle hook helper must match the sibling Cargo-built multisoul-agent-hook"
+  fail "development bundle hook helper must match the sibling Cargo-built norma-hook"
 fi
 
 bundle_auth_host="$tmp_dir/Norma OS Dev.app/Contents/MacOS/norma-browser-auth-host"

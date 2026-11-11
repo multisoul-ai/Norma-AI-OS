@@ -40,7 +40,7 @@ path = "target/release/norma-os"
 main = true
 
 [[binaries]]
-path = "target/release/multisoul-agent-hook"
+path = "target/release/norma-hook"
 main = false
 
 [[binaries]]

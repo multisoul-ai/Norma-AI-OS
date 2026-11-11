@@ -152,7 +152,7 @@ cargo test -p runtime --lib runtime::mobile_cards::codex::interrupt_tests
 cargo test -p norma --test claude_transcript
 cargo test -p runtime --lib claude_history_binds_verified_hook_and_revokes_inflight_read
 cargo test -p runtime --lib real_codex_runtime_approval_audit_and_cancel -- --ignored --nocapture
-cargo build -p norma --bin multisoul-agent-hook
+cargo build -p norma --bin norma-hook
 env PATH="$PWD/target/debug:$PATH" cargo test -p e2e e2e_mobile_claude_permission_executes_only -- --ignored --nocapture
 ```
 
@@ -212,7 +212,7 @@ v10 最终回归：`cargo test -p norma -p runtime` 为 **232 通过、2 忽略�
 ```sh
 cargo test -p norma --test claude_transcript
 cargo test -p runtime --lib claude_interrupt_tests
-# target/debug 中须有已编译的 multisoul-agent-hook；不修改用户全局配置。
+# target/debug 中须有已编译的 norma-hook；不修改用户全局配置。
 env PATH="$PWD/target/debug:$PATH" cargo test -p e2e --lib e2e_mobile_claude_interrupt -- --ignored --nocapture --test-threads=1
 ```
 

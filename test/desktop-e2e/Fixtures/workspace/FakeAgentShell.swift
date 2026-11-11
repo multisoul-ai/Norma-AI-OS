@@ -22,15 +22,15 @@ public enum FakeAgentShell {
     private static let claude = """
     #!/usr/bin/env python3
     import json, os, time, urllib.request
-    node = int(os.environ["MULTISOUL_NODE_ID"])
+    node = int(os.environ["NORMA_NODE_ID"])
     def post(event, tool, raw):
         raw = dict(raw, hook_event_name=event, session_id="e2e-session", prompt_id="e2e-turn")
         body = {"node_id": node, "profile": "Claude", "provider_event": event,
                 "session_id": "e2e-session", "turn_id": "e2e-turn", "tool_name": tool,
                 "message": None, "raw_json": raw}
         request = urllib.request.Request(
-            os.environ["MULTISOUL_HOOK_ENDPOINT"], json.dumps(body).encode(),
-            {"Authorization": "Bearer " + os.environ["MULTISOUL_HOOK_TOKEN"], "Content-Type": "application/json"})
+            os.environ["NORMA_HOOK_ENDPOINT"], json.dumps(body).encode(),
+            {"Authorization": "Bearer " + os.environ["NORMA_HOOK_TOKEN"], "Content-Type": "application/json"})
         urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=3).read()
     def create(i, title):
         post("PostToolUse", "TaskCreate", {"tool_name": "TaskCreate", "tool_use_id": "c" + i,

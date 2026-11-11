@@ -75,7 +75,7 @@ fn stale_config_without_question_hook_is_upgraded_once() {
     ] {
         let dir = tempfile::tempdir().unwrap();
         let paths = paths_in(dir.path());
-        let bin = Path::new("/opt/norma/multisoul-agent-hook");
+        let bin = Path::new("/opt/norma/norma-hook");
         let file = match source {
             HookSource::Grok => paths.grok_hooks.clone(),
             _ => paths.infcode_settings.clone(),
