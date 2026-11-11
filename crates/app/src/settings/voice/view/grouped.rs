@@ -1,10 +1,7 @@
-use super::{
-    components::component_action, doubao::desktop_mode_picker, interaction::interaction_rows,
-};
+use super::{doubao::desktop_mode_picker, interaction::interaction_rows};
 use super::{ready::voice_status_overview, setup::recognition, with_alpha, VoiceSettingsView};
 use crate::app::MultisoulApp;
 use crate::settings::typography::{SettingsText, TextRole};
-use crate::settings::voice::VoiceRequirement;
 use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful, Window};
 use ui::Theme;
 
@@ -34,11 +31,6 @@ pub(super) fn grouped_settings(
                 cx,
             ))
             .child(super::input_device::input_device_row(theme, state, cx))
-            .child(recognition::microphone_detail(
-                theme,
-                state.requirement_state(VoiceRequirement::Microphone),
-                cx,
-            ))
             .when(
                 state.setup_asr_source() != asr::AsrProviderId::CloudAzure,
                 |rows| rows.child(super::setup::a1::a1_status_row(theme, state, cx)),
@@ -146,57 +138,7 @@ fn advanced_rows(
                 .text_color(rgba(theme.text_secondary))
                 .child(if expanded { "⌃" } else { "⌄" }),
         );
-    let source = state.setup_asr_source();
-    let body = div()
-        .w_full()
-        .min_w(px(0.0))
-        .flex()
-        .flex_col()
-        .when(source == asr::AsrProviderId::CloudAzure, |rows| {
-            rows.child(recognition::azure_detail(theme, state, inputs, cx))
-        })
-        .when(source != asr::AsrProviderId::CloudAzure, |rows| {
-            rows.child(super::setup::a1::a1_detail(theme, state, inputs, cx))
-        })
-        .child(
-            div()
-                .settings_text(TextRole::Helper, theme)
-                .child(ui::i18n::text("voice.command_session_hint")),
-        )
-        .child(
-            div()
-                .px(px(12.0))
-                .settings_text(TextRole::RowTitle, theme)
-                .child(ui::i18n::text("voice.command_model")),
-        )
-        .child(
-            div()
-                .px(px(12.0))
-                .settings_text(TextRole::Helper, theme)
-                .child(ui::i18n::text("voice.command_model_hint")),
-        )
-        .child(super::provider::agent_provider_setup_group(
-            theme, state, inputs, cx,
-        ))
-        .child(value_row(
-            theme,
-            "voice.command_current_model",
-            state.values().active_provider_profile().model().to_string(),
-        ))
-        .when_some(inputs.jev_panel.clone(), |rows, panel| rows.child(panel))
-        .child(detail_row(
-            theme,
-            "voice.local_engine_details",
-            "voice.command_engine_managed",
-            component_action(
-                theme,
-                "voice-command-recognition-details",
-                ui::i18n::text("voice.show"),
-                cx,
-                cx.listener(MultisoulApp::on_voice_manage_asr_models),
-            ),
-        ))
-        .child(super::spoken_reply::reply_preferences(theme, state, cx));
+    let body = super::advanced::advanced_groups(theme, state, inputs, cx);
     div()
         .w_full()
         .min_w(px(0.0))
@@ -224,55 +166,4 @@ fn section(theme: Theme, id: &'static str, title: &'static str, rows: Div) -> St
                 .child(ui::i18n::text(title)),
         )
         .child(div().w_full().min_w(px(0.0)).child(rows))
-}
-
-fn value_row(theme: Theme, title: &'static str, value: String) -> Div {
-    let value = if value.trim().is_empty() {
-        ui::i18n::text("voice.not_configured").to_string()
-    } else {
-        value
-    };
-    div()
-        .w_full()
-        .min_w(px(0.0))
-        .flex()
-        .flex_wrap()
-        .items_center()
-        .justify_between()
-        .gap(px(12.0))
-        .py(px(12.0))
-        .border_b_1()
-        .border_color(rgba(with_alpha(theme.text_primary, 0x10)))
-        .child(
-            div()
-                .flex_1()
-                .min_w(px(120.0))
-                .settings_text(TextRole::RowTitle, theme)
-                .child(ui::i18n::text(title)),
-        )
-        .child(
-            div()
-                .flex_none()
-                .max_w(px(280.0))
-                .debug_selector(move || format!("voice-command-value-{title}"))
-                .settings_text(TextRole::Helper, theme)
-                .child(value),
-        )
-}
-
-fn detail_row(theme: Theme, title: &'static str, hint: &'static str, action: Stateful<Div>) -> Div {
-    div()
-        .w_full()
-        .min_w(px(0.0))
-        .flex()
-        .flex_wrap()
-        .items_center()
-        .gap(px(12.0))
-        .py(px(10.0))
-        .child(div().flex_1().min_w(px(140.0)).child(super::setting_label(
-            theme,
-            ui::i18n::text(title),
-            ui::i18n::text(hint),
-        )))
-        .child(action)
 }

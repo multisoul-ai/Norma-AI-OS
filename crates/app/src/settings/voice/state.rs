@@ -6,6 +6,7 @@ use storage::SettingsStore;
 use tts::{TtsModelId, TtsVoiceId};
 use voice_sherpa::{AudioInputDevice, SpeechError};
 mod a1;
+mod advanced_summary;
 mod announcements;
 mod asr_provider;
 mod builders;
@@ -36,6 +37,7 @@ mod tts_provider;
 mod tts_provider_persistence;
 mod values;
 mod zipvoice_reference;
+pub(crate) use advanced_summary::{AdvancedGroup, AdvancedStatus, AdvancedSummary};
 pub(crate) use asr_provider::resolve_builtin_asr_profile;
 use asr_provider::AzureCredentialWriteRollback;
 use credentials::CredentialWriteRollback;
@@ -122,6 +124,7 @@ pub(crate) struct VoiceSettingsState {
     input_device_picker_expanded: bool,
     setup_destination: VoiceSetupDestination,
     advanced_expanded: bool,
+    advanced_group: Option<AdvancedGroup>,
 }
 impl VoiceSettingsState {
     pub(crate) fn load_from_store(store: SettingsStore) -> Self {
@@ -220,6 +223,7 @@ impl VoiceSettingsState {
             input_device_picker_expanded: false,
             setup_destination: VoiceSetupDestination::Overview,
             advanced_expanded: false,
+            advanced_group: None,
         }
     }
     pub(crate) fn values(&self) -> &VoiceSettingsValues {

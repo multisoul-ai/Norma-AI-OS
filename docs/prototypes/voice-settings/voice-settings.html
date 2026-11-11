@@ -142,6 +142,11 @@ section{padding:0 24px}
 .field:focus-within{border-color:var(--primary)}
 .btn.sm{height:32px;font-size:13px;padding:0 14px}
 .btn.text{background:none;color:var(--primary);padding:0 12px}
+.ag{border-radius:14px}.ag.open{background:var(--surface-2)}
+.gp{font-size:12px;border-radius:10px;padding:2px 10px;flex:none;background:var(--surface-3);color:var(--text-2)}
+.gp.ok{background:var(--ok-container);color:var(--ok)}.gp.todo{background:var(--warn-container);color:var(--warn)}
+.chev2{display:grid;color:var(--text-2);transition:transform .15s}.ag.open .chev2{transform:rotate(180deg)}
+.gbody{padding:0 8px 12px 66px}.gbody .row .ic{width:32px;height:32px}
 </style>
 </head>
 <body>
@@ -192,6 +197,7 @@ const DOUBAO_VOICES=['Vivi 2.0','小何 2.0','云舟 2.0','小天 2.0','刘飞 2
 const LOCAL_MODELS=[['matcha-zh','Matcha 中文'],['matcha-zh-en','Matcha 中英'],['kokoro','Kokoro 多语'],['zipvoice','ZipVoice 克隆']];
 const LOCAL_VOICES={'matcha-zh':[['default','默认音色']],'matcha-zh-en':[['default','默认音色']],'kokoro':[['default','Default Bilingual Voice'],['af_heart','Heart'],['af_bella','Bella']],'zipvoice':[['cloned','克隆参考音频']]};
 const MM_MODELS=[['turbo','Speech 2.8 Turbo','互动回复推荐'],['hd','Speech 2.8 HD','优先音质']];
+const AI_MODELS={ollama:['qwen3:8b','llama3.2:3b','gemma3:12b'],openai:['deepseek-v4.1-flash','deepseek-v4.1-pro','gpt-5.1-mini','qwen3-max']};
 const CANVAS=[['Grace','#422'],['Henry','#420'],['Iris','#424']];
 
 const init=()=>({jev:{key:false,connected:false},
@@ -203,7 +209,7 @@ const init=()=>({jev:{key:false,connected:false},
       models:{'matcha-zh':true,'matcha-zh-en':false,'kokoro':false,'zipvoice':false},
       aiProv:'ollama',aiBase:'',aiModel:'',aiListed:false,aiConnected:false,
       mmConnected:false,azRegion:'',azVerified:false,
-      announce:true,glow:true,installing:false,adv:false},
+      announce:true,glow:true,trace:false,advOpen:null,a1Checked:false,installing:false,adv:false},
  doubao:{trig:'realtime',device:'系统默认',voice:'Vivi 2.0'},
  live:{trig:'realtime',device:'系统默认',voice:'marin'},
  sheet:null
@@ -248,26 +254,24 @@ function ttsSub(t){
 }
 
 function a1Block(){
-  const c=S.cmd;
-  if(c.recog!=='a1') return '';
-  const ok=c.a1Ready, inst=c.installing;
-  return `<div class="sub">本地精准 A1 · 仅单次指令</div>
-  <div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>运行环境与模型</b><span>${ok?'已安装并校验，可离线使用':inst?'正在下载 语音运行环境：260.4 / 408.6 MB':'自动下载运行环境与模型，无需配置 Python'}</span></div>
+  const c=S.cmd, ok=c.a1Ready, inst=c.installing;
+  const step=(done,t,sub)=>`<div class="row" style="min-height:48px"><div class="ic" style="width:28px;height:28px;margin-left:6px;${done?'background:var(--ok-container);color:var(--ok)':''}">${done?ICON.check:'<span style="font-size:12px">·</span>'}</div><div class="t"><b style="font-weight:400;font-size:14px">${t}</b><span>${sub}</span></div></div>`;
+  return `<div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>运行环境与模型</b><span>${ok?'已安装并校验，可离线使用':inst?'正在下载 语音运行环境：260.4 / 408.6 MB':'自动下载运行环境与模型，无需配置 Python'}</span></div>
     <div class="v">${ok?'<span class="pill-ok">已就绪</span>':inst?btn('a1cancel','取消安装','text'):btn('install','下载安装')}</div></div>
-  <div class="row"><div class="ic">${ICON.check}</div><div class="t"><b>文件校验与启用</b><span>完全离线，中英文混合。单次最长 60 秒</span></div><div class="v">${ok?'<span class="pill-ok">已启用</span>':'<span>未启用</span>'}</div></div>`;
+  ${inst?'<div style="margin:0 12px 8px;height:4px;border-radius:2px;background:var(--surface-3);overflow:hidden"><i style="display:block;width:64%;height:100%;background:var(--primary)"></i></div>':''}
+  ${step(ok,'语音运行环境',ok?'已校验':'未安装')}${step(ok,'识别模型文件',ok?'已校验 · 中英文混合':'未下载')}${step(ok&&c.a1Checked,'文件校验与启用',ok?(c.a1Checked?'完全离线 · 单次最长 60 秒 · 已启用':'点“检查本地文件”验证可用性'):'完成安装后可校验')}
+  <div class="row"><div class="t"><span>${ok?'已找到保存的 A1 配置。':'尚未找到 A1 配置。'}</span></div><div class="v">${btn('a1check','检查本地文件','tonal',ok?'':'disabled')}${btn('a1reinstall','重新安装','text',inst?'disabled':'')}</div></div>`;
 }
 function jevBlock(){
-  const j=S.jev;
-  return `<div class="sub">Jev 快速判断 · 配置与连接测试</div>
-  <div class="cred"><div class="hint" style="margin-top:0">保存凭据并用合成请求测试连接。不会发送录音、转写或画布内容。</div>
-    <div class="hint">固定服务端点：https://api.typesafe.ai/v1/systemone</div>
-    <div class="hint">请求模型：jev-latest</div>
-    <div class="lbl" style="margin-top:10px"><b>Jev API Key</b>${j.key?tag('已保存'):'<em>未配置</em>'}</div>
+  const j=S.jev, st=j.connected?'连接测试通过':j.key?'已保存 · 未验证':'未配置';
+  return `<div class="row"><div class="t"><b>服务端点</b><span>https://api.typesafe.ai/v1/systemone · 固定</span></div></div>
+  <div class="row"><div class="t"><b>请求模型</b><span>jev-latest</span></div><div class="v">${j.connected?'<span class="pill-ok">'+st+'</span>':st}</div></div>
+  <div class="cred"><div class="lbl"><b>Jev API Key</b>${j.key?tag('已保存'):'<em>未配置</em>'}</div>
     <div class="field sm"><input type="password" placeholder="输入 API Key；留空使用已保存的凭据" data-keyinput="jev"></div>
-    <div class="jevbtns" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-      ${btn('jevsave','保存凭据',j.key?'tonal':'tonal','')}${btn('jevverify','验证连接','tonal','')}${btn('jevclear','清除凭据','text','')}${btn('jevenv','从环境变量导入','tonal','')}
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+      ${btn('jevsave','保存凭据','tonal')}${btn('jevverify','验证连接','tonal',j.key?'':'disabled')}${btn('jevclear','清除凭据','text',j.key?'':'disabled')}<span style="flex:1"></span>${btn('jevenv','从环境变量导入','text')}
     </div>
-    <div class="hint">${j.connected?'已连接':'未配置'}。生产语音入口保持禁用，配置保存或连接测试通过不会启用语音派发。</div></div>`;
+    <div class="hint">用合成请求测试，不会发送录音、转写或画布内容。生产语音入口保持禁用，配置保存或连接测试通过不会启用语音派发。</div></div>`;
 }
 function cmdBody(){
  const c=S.cmd, rec=RECOG.find(x=>x[0]===c.recog);
@@ -281,30 +285,35 @@ function cmdBody(){
  out.push(grp('语音输出'));
  out.push(row('spk','语音回复',ttsSub(c.tts),valTxt(ttsName(c.tts)),'voice'));
  out.push(`<div style="height:1px;background:var(--outline-soft);margin:10px 12px"></div>`);
- out.push(`<div class="adv ${c.adv?'open':''}"><button class="row link adv-toggle" data-act="adv" aria-expanded="${c.adv}" style="border:0;background:none;width:100%"><div class="t"><b>更多设置</b><span>理解模型、语音服务与凭据、回复偏好、诊断</span></div>${ICON.chev}</button><div class="adv-body">
-  <div class="sub">理解模型（对话与卡片子智能体共用）</div>
-  <div class="row"><div class="ic">${ICON.ai}</div><div class="t"><b>供应商</b><span>${AI_PROV.find(x=>x[0]===c.aiProv)[2]}</span></div>${seg(AI_PROV.map(([v,l])=>[v,l]),c.aiProv,'aiprov')}</div>
-  ${textField('aiBase','基础地址',c.aiProv==='ollama'?'Ollama 服务地址':'https://api.openai.com/v1',c.aiBase,'')}
-  ${keyField('agent',c.aiProv==='ollama'?'API Key（可选）':'API Key','保存在此 Mac 的本地数据库中，不写入日志；清除后移除。')}
-  <div class="cred"><div class="lbl"><b>连接并加载模型</b>${c.aiConnected?tag('已连接'):'<em>未连接</em>'}</div>
-    <div class="field sm"><span style="flex:1;color:var(--text-3);font-size:13px">${c.aiListed?'从供应商返回的列表选择，或手动输入':'连接后加载可用模型列表'}</span>${btn('aiconn',c.aiConnected?'重新连接':'连接')}</div>
-    ${c.aiConnected?textField('aiModel','模型',c.aiListed?'从列表选择':'列表不可用时输入准确模型 ID',c.aiModel,c.aiListed?'':'手动输入需验证'):''}
-    ${c.aiConnected&&!c.aiListed?`<div class="hint"><button class="btn sm text" data-act="aivalidate">验证手动输入的模型</button></div>`:''}
-  </div>
-  ${c.recog==='sherpa'?`<div class="sub">本地语音</div>${row('wave','本地识别模型',ASR_LOCAL.find(x=>x[0]===c.asr)[1],valTxt(ASR_LOCAL.find(x=>x[0]===c.asr)[1]),'asr')}`:''}
-  ${c.recog==='azure'?`<div class="sub">Azure Speech</div>
-    ${textField('azRegion','Azure 区域','例如 eastus',c.azRegion,'资源所在区域')}
-    ${row('wave','识别语言','默认 zh-CN',valTxt(LANGS[c.lang]),'lang')}
-    ${keyField('azure','Azure API Key','保存在此 Mac 的本地数据库中，不写入日志。')}
-    <div class="cred"><div class="lbl"><b>验证</b>${c.azVerified?tag('✓ 已验证'):'<em>未验证</em>'}</div><div class="field sm"><span style="flex:1;color:var(--text-3);font-size:13px">检查区域与凭据，不切换当前识别来源</span>${btn('azverify','验证配置')}${btn('aztest','测试 3 秒','text')}</div></div>`:''}
-  ${a1Block()}
-  ${jevBlock()}
-  <div class="sub">回复偏好</div>
-  <div class="row"><div class="ic">${ICON.spk}</div><div class="t"><b>智能体任务播报</b><span>任务完成或需要处理时播报</span></div>${sw('announce',c.announce,'智能体任务播报')}</div>
-  <div class="row"><div class="ic">${ICON.spk}</div><div class="t"><b>语音光晕</b><span>Norma 说话时显示柔和的窗口光晕</span></div>${sw('glow',c.glow,'语音光晕')}</div>
-  <div class="sub">诊断</div>
-  <div class="row"><div class="ic">${ICON.wave}</div><div class="t"><b>本地引擎</b><span>Sherpa 模型与 A1 运行环境 · 校验与重装</span></div>${btn('diag','查看','text')}</div>
- </div></div>`);
+ const prov=AI_PROV.find(x=>x[0]===c.aiProv), j=S.jev;
+ const a1sum=c.a1Ready?'已安装':'待安装', rsum=c.recog==='azure'?(c.azVerified?'已验证':S.keys.azure?'待验证':'待配置 Key'):c.recog==='a1'?a1sum:(c.sherpaReady?'已安装':'待安装');
+ const G=[
+  ['llm','ai','理解模型',c.aiConnected?`${prov[1]} · ${c.aiModel||'未选模型'}`:`${prov[1]} · 未连接`,c.aiConnected?'ok':'todo',c.aiConnected?'已连接':'待连接',
+    `${row('ai','供应商','对话与卡片子智能体共用','','')}`.replace(/<div class="v">.*?<\/div>/,seg(AI_PROV.map(([v,l])=>[v,l]),c.aiProv,'aiprov'))+
+    textField('aiBase','基础地址',c.aiProv==='ollama'?'Ollama 服务地址':'https://api.openai.com/v1',c.aiBase,'')+
+    keyField('agent',c.aiProv==='ollama'?'API Key（可选）':'API Key','保存在此 Mac 的本地数据库中，不写入日志；清除后移除。')+
+    `<div class="cred"><div class="lbl"><b>连接并加载模型</b>${c.aiConnected?tag('已连接'):'<em>未连接</em>'}</div>
+     <div class="field sm"><span style="flex:1;color:var(--text-3);font-size:13px">${c.aiListed?'从供应商返回的列表选择':'连接后加载可用模型列表'}</span>${btn('aiconn',c.aiConnected?'重新连接':'连接')}</div></div>`+
+    (c.aiConnected&&c.aiListed?row('ai','当前模型','已验证',valTxt(c.aiModel||'选择模型'),'aimodel'):'')+
+    (c.aiConnected&&!c.aiListed?textField('aiModel','模型','列表不可用时输入准确模型 ID',c.aiModel,'手动输入需验证')+`<div class="cred"><button class="btn sm text" data-act="aivalidate">验证手动输入的模型</button></div>`:'')],
+  ['asr','wave','语音识别服务',`${rec[1]} · ${rsum}`,/待/.test(rsum)?'todo':'ok',rsum,
+    (c.recog==='sherpa'?row('wave','本地识别模型',ASR_LOCAL.find(x=>x[0]===c.asr)[1],valTxt(ASR_LOCAL.find(x=>x[0]===c.asr)[1]),'asr'):'')+
+    (c.recog==='azure'?textField('azRegion','Azure 区域','例如 eastus',c.azRegion,'资源所在区域')+row('wave','识别语言','默认 zh-CN',valTxt(LANGS[c.lang]),'lang')+keyField('azure','Azure API Key','保存在此 Mac 的本地数据库中，不写入日志。')+
+      `<div class="cred"><div class="lbl"><b>验证</b>${c.azVerified?tag('✓ 已验证'):'<em>未验证</em>'}</div><div class="field sm"><span style="flex:1;color:var(--text-3);font-size:13px">检查区域与凭据，不切换当前识别来源</span>${btn('azverify','验证配置')}${btn('aztest','测试 3 秒','text')}</div></div>`:'')+
+    (c.recog==='a1'?a1Block():'')+
+    (c.recog==='sherpa'&&!c.sherpaReady?`<div class="row"><div class="t"><b>模型文件</b><span>首次使用需要下载</span></div><div class="v">${c.installing?'下载中…':btn('install','下载安装')}</div></div>`:'')],
+  ['jev','ai','Jev 快速判断',j.connected?'连接测试通过':j.key?'已保存 · 未验证':'未配置',j.connected?'ok':'',j.connected?'已通过':j.key?'待验证':'未配置',jevBlock()],
+  ['reply','spk','回复偏好',`任务播报${c.announce?'开':'关'} · 语音光晕${c.glow?'开':'关'}`,'','',
+    `<div class="row"><div class="t"><b>智能体任务播报</b><span>任务完成或需要处理时播报</span></div>${sw('announce',c.announce,'智能体任务播报')}</div>
+     <div class="row"><div class="t"><b>语音光晕</b><span>Norma 说话时显示柔和的窗口光晕</span></div>${sw('glow',c.glow,'语音光晕')}</div>`],
+  ['diag','wave','诊断与引擎',c.sherpaReady||c.a1Ready?'本地引擎已安装':'本地引擎未安装','','',
+    `<div class="row"><div class="t"><b>Local Sherpa</b><span>${ASR_LOCAL.find(x=>x[0]===c.asr)[1]}</span></div><div class="v">${c.sherpaReady?'<span class="pill-ok">已安装</span>':'未安装'}</div></div>
+     <div class="row"><div class="t"><b>本地精准 A1</b><span>运行环境与模型</span></div><div class="v">${c.a1Ready?'<span class="pill-ok">已安装</span>':'未安装'}</div></div>
+     <div class="row"><div class="t"><b>本机语音合成</b><span>${LOCAL_MODELS.filter(m=>c.models[m[0]]).map(m=>m[1]).join('、')||'无'}</span></div><div class="v"><span class="pill-ok">可用</span></div></div>
+     <div class="row"><div class="t"><b>完整提示与回复记录</b><span>可能包含语音内容，仅排查问题时开启</span></div>${sw('trace',c.trace,'完整提示与回复记录')}</div>`]
+ ];
+ out.push(`<div class="grp">更多设置</div>`+G.map(([k,ic,t,sum,cls,pill,body])=>{const o=c.advOpen===k;
+  return `<div class="ag ${o?'open':''}"><button class="row link" data-act="gopen" data-v="${k}" aria-expanded="${o}" style="border:0;background:none;width:100%"><div class="ic">${ICON[ic]}</div><div class="t"><b>${t}</b><span>${esc(sum)}</span></div>${pill?`<span class="gp ${cls}">${pill}</span>`:''}<span class="chev2">${ICON.chev}</span></button>${o?`<div class="gbody">${body}</div>`:''}</div>`}).join(''));
  return out.join('');
 }
 function doubaoBody(){
@@ -397,6 +406,7 @@ const MENUS={
  mic:{title:'麦克风',items:()=>[['系统默认','系统默认',''],['MacBook Pro 麦克风','MacBook Pro 麦克风',''],['AirPods Pro','AirPods Pro','']],
    get:()=>S.mode==='cmd'?S.cmd.device:S.mode==='doubao'?S.doubao.device:S.live.device,
    set:v=>{ if(S.mode==='cmd')S.cmd.device=v; else if(S.mode==='doubao')S.doubao.device=v; else S.live.device=v; return true }},
+ aimodel:{title:'理解模型',items:()=>AI_MODELS[S.cmd.aiProv].map(v=>[v,v,'']),get:()=>S.cmd.aiModel,set:v=>{S.cmd.aiModel=v;return true}},
  dvoice:{title:'豆包 2.0 音色',items:()=>DOUBAO_VOICES.map(v=>[v,v,'']),get:()=>S.doubao.voice,set:v=>{S.doubao.voice=v;return true}}
 };
 const menu=$('#menu');
@@ -416,7 +426,7 @@ menu.addEventListener('click',e=>{
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),1800)}
 function install(){
  const c=S.cmd; if(c.installing) return; c.installing=true; render();
- setTimeout(()=>{ c.installing=false; if(c.recog==='a1') c.a1Ready=true; else c.sherpaReady=true; render(); toast('本地模型已就绪') },1600);
+ setTimeout(()=>{ c.installing=false; if(c.recog==='a1'||c.a1Want) c.a1Ready=true; else c.sherpaReady=true; c.a1Want=false; render(); toast('本地模型已就绪') },1600);
 }
 const KEY_TOAST={azure:'Azure Key 已保存',minimax:'MiniMax Key 已保存',ark:'方舟 API Key 已保存',openai:'OpenAI API Key 已保存',agent:'API Key 已保存'};
 
@@ -463,12 +473,11 @@ document.addEventListener('click',e=>{
  else if(a==='dtrig'&&v) S.doubao.trig=v;
  else if(a==='ltrig'&&v) S.live.trig=v;
  else if(a==='lvoice'&&v) S.live.voice=v;
- else if(a==='adv') c.adv=!c.adv;
- else if(a==='install') install();
+ else if(a==='install'){ if(b.closest('.adv')&&c.recog!=='a1') c.a1Want=true; install(); }
  else if(a==='mic'){ S.mic=true; toast('已授权麦克风'); }
  else if(a==='savekey'){ const k=b.dataset.k; const inp=document.querySelector(`[data-keyinput="${k}"]`); if(!inp||(!inp.value.trim()&&!S.keys[k])){toast('请先输入 API Key');return} S.keys[k]=true; if(inp) inp.value=''; toast(KEY_TOAST[k]); }
  else if(a==='clearkey'){ const k=b.dataset.k; S.keys[k]=false; if(k==='minimax') c.mmConnected=false; if(k==='agent') c.aiConnected=false; toast('已清除'); }
- else if(a==='aiconn'){ if(c.aiProv==='openai'&&!S.keys.agent){toast('请先保存 API Key');return} c.aiConnected=true; c.aiListed=true; toast('已加载模型列表'); }
+ else if(a==='aiconn'){ if(c.aiProv==='openai'&&!S.keys.agent){toast('请先保存 API Key');return} c.aiConnected=true; c.aiListed=true; c.aiModel=c.aiModel||AI_MODELS[c.aiProv][0]; toast('已加载模型列表'); }
  else if(a==='aivalidate'){ c.aiListed=false; toast('已验证模型 ID'); }
  else if(a==='azverify'){ if(!S.keys.azure){toast('请先保存 Azure Key');return} c.azVerified=true; toast('Azure 配置已通过验证'); }
  else if(a==='aztest'){ if(!S.keys.azure){toast('请先保存 Azure Key');return} toast('测试：请说话（3 秒），不改变当前来源'); }
@@ -477,7 +486,9 @@ document.addEventListener('click',e=>{
  else if(a==='jevverify'){ if(!S.jev.key){toast('请先保存 Jev API Key');} else { S.jev.connected=true; toast('Jev 连接测试通过'); } }
  else if(a==='jevclear'){ S.jev.key=false; S.jev.connected=false; toast('已清除 Jev 凭据'); }
  else if(a==='jevenv'){ toast('环境变量中未找到 Jev 凭据'); }
- else if(a==='diag'){ toast(c.sherpaReady||c.a1Ready?'本地模型已安装，校验通过':'尚未安装本地模型'); }
+ else if(a==='gopen') c.advOpen=c.advOpen===v?null:v;
+ else if(a==='a1check'){ c.a1Checked=true; toast('本地文件校验通过'); }
+ else if(a==='a1reinstall'){ c.a1Ready=false; c.a1Checked=false; c.a1Want=true; install(); }
  render();
 });
 

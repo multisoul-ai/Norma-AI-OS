@@ -24,6 +24,7 @@ pub(crate) use state::{
     TtsActivationRollback, VoiceInteractionMode, VoiceSettingsField, VoiceSettingsState,
     VoiceSettingsValues, VoiceSetupDestination,
 };
+pub(crate) use state::{AdvancedGroup, AdvancedStatus, AdvancedSummary};
 pub(crate) use tts_models::{TtsModelInstallState, TtsModelManagerState};
 pub(crate) use view::{VoiceSettingsInputs, VoiceSettingsView};
 

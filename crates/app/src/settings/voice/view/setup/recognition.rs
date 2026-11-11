@@ -218,7 +218,7 @@ fn source_tone(active: bool, viewed: bool) -> SetupButtonTone {
     }
 }
 
-fn local_detail(
+pub(in crate::settings::voice::view) fn local_detail(
     theme: Theme,
     state: &VoiceSettingsState,
     cx: &mut Context<MultisoulApp>,
