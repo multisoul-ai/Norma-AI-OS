@@ -17,6 +17,7 @@ use diagnostics::trace_row;
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Window};
 use ui::Theme;
 
+mod advanced;
 mod asr_provider;
 pub(crate) mod capabilities;
 mod command_policy;
