@@ -4,7 +4,7 @@ use crate::app::MultisoulApp;
 use crate::settings::voice::VoiceSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Window};
 use std::rc::Rc;
-use ui::component::{switch::Switch, Sizable};
+use ui::component::{button::Button, switch::Switch, Sizable};
 use ui::Theme;
 
 pub(super) fn spoken_reply_group(
@@ -37,14 +37,28 @@ pub(super) fn reply_preferences(
             "settings-agent-task-announcements-toggle",
             cx.listener(MultisoulApp::on_voice_settings_toggle_agent_task_announcements),
         ))
-        .child(toggle_row(
+        .child(glow_link_row(theme, cx))
+}
+
+/// 语音光晕的风格、强度与预览在 设置 → 特效；这里只给入口，避免两处开关。
+fn glow_link_row(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
+    div()
+        .w_full()
+        .flex()
+        .items_center()
+        .gap(px(16.0))
+        .py(px(6.0))
+        .child(div().flex_1().min_w(px(0.0)).child(setting_label(
             theme,
             ui::i18n::text("voice.speech_glow"),
-            ui::i18n::text("voice.show_a_subtle_window_glow_while_norma_speaks"),
-            state.values().voice_window_inset_enabled(),
-            "settings-voice-window-inset-toggle",
-            cx.listener(MultisoulApp::on_voice_settings_toggle_window_inset),
-        ))
+            ui::i18n::text("voice.speech_glow_moved_hint"),
+        )))
+        .child(
+            Button::new("settings-voice-glow-open-effects")
+                .small()
+                .child(ui::i18n::text("voice.speech_glow_open_effects"))
+                .on_click(cx.listener(MultisoulApp::on_voice_glow_open_effects)),
+        )
 }
 
 pub(super) fn toggle_row(

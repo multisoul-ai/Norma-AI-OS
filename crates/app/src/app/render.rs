@@ -18,7 +18,7 @@ impl Render for MultisoulApp {
         self.sync_feature_guide_blockers(cx);
         self.sync_command_drawer(window);
         self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
-        self.sync_voice_window_inset_enabled();
+        self.sync_voice_glow(cx);
         let performance_state = self.performance_state(cx);
         self.performance.set_state(performance_state);
         self.performance.record_repaint();

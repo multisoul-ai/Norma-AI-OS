@@ -25,7 +25,7 @@ pub(crate) enum AdvancedStatus {
 pub(crate) enum AdvancedSummary {
     Model(Option<String>),
     Source(asr::AsrProviderId),
-    Reply { announcements: bool, glow: bool },
+    Reply { announcements: bool },
     Default,
 }
 
@@ -45,7 +45,6 @@ impl VoiceSettingsState {
             AdvancedGroup::Recognition => AdvancedSummary::Source(self.values.asr_provider()),
             AdvancedGroup::Reply => AdvancedSummary::Reply {
                 announcements: self.values.agent_task_announcements_enabled(),
-                glow: self.values.voice_window_inset_enabled(),
             },
             AdvancedGroup::Jev | AdvancedGroup::Diagnostics => AdvancedSummary::Default,
         }

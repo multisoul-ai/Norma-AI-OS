@@ -173,15 +173,9 @@ fn summary_text(which: AdvancedGroup, summary: &AdvancedSummary) -> String {
                 ui::i18n::text(source_name_key(*source)).to_string(),
             )],
         ),
-        AdvancedSummary::Reply {
-            announcements,
-            glow,
-        } => ui::i18n::format(
+        AdvancedSummary::Reply { announcements } => ui::i18n::format(
             "voice.group_reply_summary_state",
-            &[
-                ("announcements", on_off(*announcements)),
-                ("glow", on_off(*glow)),
-            ],
+            &[("announcements", on_off(*announcements))],
         ),
         AdvancedSummary::Default => ui::i18n::text(if which == AdvancedGroup::Jev {
             "voice.group_jev_summary"

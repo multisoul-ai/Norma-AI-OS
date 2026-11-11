@@ -133,7 +133,8 @@ mod optional_media;
 pub(crate) mod run_effects_actions;
 #[cfg(all(debug_assertions, not(feature = "production-data")))]
 pub(crate) mod run_effects_fixture;
-mod voice_window_inset;
+pub(crate) mod voice_glow_actions;
+pub(crate) mod voice_window_inset;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
 pub use actions::*;

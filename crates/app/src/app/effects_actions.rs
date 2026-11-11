@@ -2,6 +2,7 @@
 //! 派发路径只读各窗口 `MotionStore` 里已解析好的选择，不碰 SQLite。
 
 use crate::app::MultisoulApp;
+use crate::effects::voice_glow::{self, VoiceGlowPrefs};
 use crate::motion::run_style::RunStyle;
 use crate::settings::effects::page::EffectsPageData;
 use crate::settings::effects::state::{
@@ -17,6 +18,14 @@ pub(crate) fn with_effects<R>(cx: &mut App, f: impl FnOnce(&mut EffectsSettingsS
     f(cx.global_mut::<EffectsSettingsState>())
 }
 
+/// 读取语音光晕偏好；风格键缺失时按旧开关 `voice.window_inset_enabled` 迁移并写回。
+fn load_voice_glow(settings: &storage::SettingsStore) -> VoiceGlowPrefs {
+    voice_glow::load_prefs(
+        |key| settings.get_string(key),
+        |key, value| settings.set_string(key, value),
+    )
+}
+
 pub(crate) fn effects_snapshot(cx: &App) -> EffectsSettingsState {
     cx.try_global::<EffectsSettingsState>()
         .cloned()
@@ -27,6 +36,7 @@ struct LoadedEffects {
     preference: Option<Pref>,
     speed: PlaybackSpeed,
     run_style: Option<String>,
+    voice_glow: VoiceGlowPrefs,
 }
 
 impl MultisoulApp {
@@ -46,6 +56,7 @@ impl MultisoulApp {
                     settings.get_string(KEY_SPEED).ok().flatten().as_deref(),
                 ),
                 run_style: settings.get_string(KEY_RUN_STYLE).ok().flatten(),
+                voice_glow: load_voice_glow(&settings),
             }
         });
         cx.spawn(async move |this, cx| {
@@ -62,6 +73,10 @@ impl MultisoulApp {
                     if state.run_generation == 0 {
                         state.run_style = RunStyle::from_id(loaded.run_style.as_deref());
                         state.run_saved = state.run_style;
+                    }
+                    if state.glow_generation == 0 {
+                        state.voice_glow = loaded.voice_glow;
+                        state.glow_saved = loaded.voice_glow;
                     }
                 });
                 app.notify_run_style_hosts(cx);
@@ -286,6 +301,7 @@ impl MultisoulApp {
             menu_cursor: self.effects_ui.menu_cursor,
             replay_started: self.effects_ui.replay_started,
             run: self.effects_ui.run,
+            glow: self.effects_ui.glow,
             state,
         }
     }

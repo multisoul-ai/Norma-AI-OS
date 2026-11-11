@@ -1,8 +1,10 @@
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use super::{TtsPlaybackEvent, TtsPlaybackSource, VoiceWindowInsetVisual};
+use crate::effects::voice_glow::scene::Rect;
+use crate::effects::voice_glow::{VoiceGlowPhase, VoiceGlowPrefs};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) struct VoiceWindowInsetSnapshot {
@@ -23,6 +25,9 @@ struct SharedVoiceWindowInsetEvents {
     enabled: AtomicBool,
     animation_active: AtomicBool,
     snapshot: Mutex<VoiceWindowInsetSnapshot>,
+    prefs: Mutex<VoiceGlowPrefs>,
+    phase: AtomicU8,
+    dock: Mutex<Option<Rect>>,
     wake_tx: async_channel::Sender<()>,
 }
 
@@ -48,6 +53,9 @@ impl VoiceWindowInsetEventBus {
                     enabled: AtomicBool::new(true),
                     animation_active: AtomicBool::new(false),
                     snapshot: Mutex::new(VoiceWindowInsetSnapshot::default()),
+                    prefs: Mutex::new(VoiceGlowPrefs::default()),
+                    phase: AtomicU8::new(0),
+                    dock: Mutex::new(None),
                     wake_tx,
                 }),
             },
@@ -95,6 +103,74 @@ impl VoiceWindowInsetEventBus {
             let _ = self.shared.wake_tx.try_send(());
         }
         changed
+    }
+
+    /// 偏好变化时唤醒视图；返回是否真的变了。
+    pub(crate) fn set_prefs(&self, prefs: VoiceGlowPrefs) -> bool {
+        let mut current = self
+            .shared
+            .prefs
+            .lock()
+            .expect("Voice glow prefs lock should not be poisoned");
+        let changed = *current != prefs;
+        *current = prefs;
+        drop(current);
+        if changed {
+            let _ = self.shared.wake_tx.try_send(());
+        }
+        changed
+    }
+
+    pub(crate) fn prefs(&self) -> VoiceGlowPrefs {
+        *self
+            .shared
+            .prefs
+            .lock()
+            .expect("Voice glow prefs lock should not be poisoned")
+    }
+
+    /// 聆听/思考由各语音源汇总后写入；回复由 TTS 事件驱动，不走这里。
+    pub(crate) fn set_phase(&self, phase: VoiceGlowPhase) -> bool {
+        let code = match phase {
+            VoiceGlowPhase::Idle => 0,
+            VoiceGlowPhase::Listening => 1,
+            VoiceGlowPhase::Thinking => 2,
+            VoiceGlowPhase::Speaking => 3,
+        };
+        let changed = self.shared.phase.swap(code, Ordering::AcqRel) != code;
+        if changed {
+            let _ = self.shared.wake_tx.try_send(());
+        }
+        changed
+    }
+
+    pub(crate) fn phase(&self) -> VoiceGlowPhase {
+        match self.shared.phase.load(Ordering::Acquire) {
+            1 => VoiceGlowPhase::Listening,
+            2 => VoiceGlowPhase::Thinking,
+            3 => VoiceGlowPhase::Speaking,
+            _ => VoiceGlowPhase::Idle,
+        }
+    }
+
+    /// Dock 在窗口坐标里的矩形，由 Dock 的 canvas 探针写入；相同值不重复写。
+    pub(crate) fn set_dock(&self, rect: Rect) {
+        let mut dock = self
+            .shared
+            .dock
+            .lock()
+            .expect("Voice glow dock lock should not be poisoned");
+        if *dock != Some(rect) {
+            *dock = Some(rect);
+        }
+    }
+
+    pub(crate) fn dock(&self) -> Option<Rect> {
+        *self
+            .shared
+            .dock
+            .lock()
+            .expect("Voice glow dock lock should not be poisoned")
     }
 
     pub(crate) fn enabled(&self) -> bool {
