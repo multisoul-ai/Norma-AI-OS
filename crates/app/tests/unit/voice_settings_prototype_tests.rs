@@ -97,12 +97,17 @@ fn voice_settings_match_grouped_prototype_before_setup() {
     });
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
+    open_group(
+        &host.clone().expect("宿主"),
+        cx,
+        crate::settings::voice::AdvancedGroup::Model,
+    );
     let model = cx
-        .debug_bounds("voice-command-value-voice.command_current_model")
-        .expect("展开后应显示当前模型状态");
+        .debug_bounds("voice-advanced-status-Model")
+        .expect("模型分组标题应显示状态标签");
     assert!(
         model.size.width > px(0.0) && model.size.height > px(0.0),
-        "未配置模型也必须显示明确状态，不能留空白行"
+        "未配置模型也必须显示明确状态标签，不能留空白"
     );
     cx.simulate_resize(size(px(640.0), px(700.0)));
     cx.update(|window, cx| window.draw(cx).clear());
@@ -140,8 +145,8 @@ fn voice_settings_expose_a1_install_and_jev_configuration() {
         ui::component::Root::new(entity, window, cx)
     });
     cx.simulate_resize(size(px(1280.0), px(850.0)));
-    host.expect("宿主")
-        .update_in(cx, |app, window, cx| app.open_voice_settings(window, cx));
+    let host = host.expect("宿主");
+    host.update_in(cx, |app, window, cx| app.open_voice_settings(window, cx));
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
     assert!(
@@ -191,9 +196,23 @@ fn voice_settings_expose_a1_install_and_jev_configuration() {
     });
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
+    // 只显示当前来源的设置：先切到 A1 来源再找安装入口。
+    host.update(cx, |app, cx| {
+        app.voice_settings
+            .open_setup_destination(crate::settings::voice::VoiceSetupDestination::AsrA1);
+        cx.notify();
+    });
+    open_group(
+        &host,
+        cx,
+        crate::settings::voice::AdvancedGroup::Recognition,
+    );
+    assert!(
+        cx.debug_bounds("voice-a1-download-install").is_some(),
+        "A1 来源下应能找到安装入口"
+    );
+    open_group(&host, cx, crate::settings::voice::AdvancedGroup::Jev);
     for selector in [
-        "voice-a1-status-row",
-        "voice-a1-download-install",
         "voice-jev-api-key",
         "voice-jev-save",
         "voice-jev-verify",
@@ -216,6 +235,20 @@ fn voice_settings_expose_a1_install_and_jev_configuration() {
         cx.debug_bounds("voice-jev-production-enabled").is_none(),
         "配置页不能开启生产入口"
     );
+}
+
+/// 手风琴同一时刻只展开一组：测试需要哪组内容就打开哪组。
+fn open_group(
+    host: &gpui::Entity<MultisoulApp>,
+    cx: &mut gpui::VisualTestContext,
+    group: crate::settings::voice::AdvancedGroup,
+) {
+    host.update(cx, |app, cx| {
+        app.voice_settings.open_advanced_group(group);
+        cx.notify();
+    });
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
 }
 
 /// 场景：豆包模式下顶部分段条必须与内容区同宽，不能按文字内容收缩。

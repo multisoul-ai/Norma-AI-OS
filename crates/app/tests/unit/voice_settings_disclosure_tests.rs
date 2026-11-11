@@ -258,3 +258,86 @@ fn test_only_latest_asr_model_selection_generation_is_accepted() {
         "the latest model selection validation must remain eligible to commit"
     );
 }
+
+/// VS-D2：更多设置的分组按手风琴展开，同一时刻最多展开一组。
+///
+/// 数据构造：默认状态（无展开分组）→ 点 Model → 点 Jev → 再点 Jev。
+///
+/// 预期结果：
+///   - 正断言：点击某组后该组展开；点另一组后只剩另一组展开
+///   - 负断言：再次点击已展开的组会收起，不得残留旧分组
+#[test]
+fn test_advanced_groups_open_one_at_a_time() {
+    let mut state = VoiceSettingsState::from_sources(
+        SavedVoiceSettings::default(),
+        EnvVoiceSettings::default(),
+    );
+    assert_eq!(state.advanced_group(), None, "默认所有分组折叠");
+
+    state.toggle_advanced_group(AdvancedGroup::Model);
+    assert_eq!(state.advanced_group(), Some(AdvancedGroup::Model));
+
+    state.toggle_advanced_group(AdvancedGroup::Jev);
+    assert_eq!(
+        state.advanced_group(),
+        Some(AdvancedGroup::Jev),
+        "只保留最后点击的分组"
+    );
+
+    state.toggle_advanced_group(AdvancedGroup::Jev);
+    assert_eq!(state.advanced_group(), None, "再次点击应收起");
+}
+
+/// VS-D2：分组标题的状态标签与摘要由设置推导，且只覆盖有明确就绪语义的分组。
+///
+/// 数据构造：
+///   默认状态 = Sherpa 来源 + 无模型 + 任务播报开 + 语音光晕默认值
+///   变体 = 切到 Azure 来源（无凭据）/ 提供商需求 Ready / 关闭任务播报
+///
+/// 预期结果：
+///   - 正断言：Recognition 随来源与就绪度变化，Reply 摘要反映两个开关
+///   - 负断言：Jev 与 Diagnostics 没有标签，避免伪造就绪状态
+#[test]
+fn test_advanced_group_status_and_summary_follow_settings() {
+    let mut state = VoiceSettingsState::from_sources(
+        SavedVoiceSettings::default(),
+        EnvVoiceSettings::default(),
+    );
+    assert_eq!(state.advanced_group_status(AdvancedGroup::Jev), None);
+    assert_eq!(
+        state.advanced_group_status(AdvancedGroup::Diagnostics),
+        None
+    );
+    assert_eq!(
+        state.advanced_group_status(AdvancedGroup::Model),
+        Some(AdvancedStatus::Unconfigured),
+        "未选模型时为未配置"
+    );
+    assert_eq!(
+        state.advanced_group_status(AdvancedGroup::Recognition),
+        Some(AdvancedStatus::Pending),
+        "本地模型未安装时待设置"
+    );
+
+    state.open_setup_destination(VoiceSetupDestination::AsrAzure);
+    assert_eq!(
+        state.advanced_group_summary(AdvancedGroup::Recognition),
+        AdvancedSummary::Source(asr::AsrProviderId::LocalSherpa),
+        "摘要显示当前生效的识别来源，而非正在浏览的来源"
+    );
+
+    state.set_provider_requirement(crate::settings::voice::VoiceRequirementState::Ready);
+    assert_eq!(
+        state.advanced_group_status(AdvancedGroup::Model),
+        Some(AdvancedStatus::Ready)
+    );
+
+    state.toggle_agent_task_announcements();
+    assert_eq!(
+        state.advanced_group_summary(AdvancedGroup::Reply),
+        AdvancedSummary::Reply {
+            announcements: false,
+            glow: state.values().voice_window_inset_enabled(),
+        }
+    );
+}

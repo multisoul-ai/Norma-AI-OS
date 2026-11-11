@@ -186,32 +186,30 @@ fn voice_jev_retired_credential_cleanup_is_recoverable() {
     );
 }
 
-/// 场景：本机Keychain与真实Jev服务均须实际工作，错误凭据须被服务拒绝。
+/// 场景：本机SQLite凭据与真实Jev服务均须实际工作，错误凭据须被服务拒绝。
 /// 构造：隔离SQLite，从已授权环境读取测试凭据，只发送固定的人工合成Choice请求。
-/// 执行：写入/读取Keychain、调用真实验证；再用人工无效Key验证失败，并清除本测试凭据。
+/// 执行：写入/读取SQLite凭据、调用真实验证；再用人工无效Key验证失败，并清除本测试凭据。
 /// 预期：实际返回固定模型版本与正耗时，错误Key为401或403；生产入口仍禁用。
 #[test]
-#[ignore = "Requires authorized TYPESAFE_API_KEY, macOS Keychain and network"]
-fn voice_jev_real_configuration_keychain_and_connection() {
+#[ignore = "Requires authorized TYPESAFE_API_KEY and network"]
+fn voice_jev_real_configuration_sqlite_and_connection() {
     let key = std::env::var("TYPESAFE_API_KEY").expect("需要已授权的本机环境凭据");
     let temp = tempfile::tempdir().expect("隔离目录");
     let paths = storage::DatabasePaths::isolated_test(temp.path());
-    let settings = JevSettings::new(
-        storage::AppStore::initialize(&paths)
-            .expect("隔离库")
-            .settings_store(),
-    );
-    struct Cleanup(JevSettings);
+    let store = storage::AppStore::initialize(&paths)
+        .expect("隔离库")
+        .settings_store();
+    let vault = SqliteVault::new(store.clone());
+    let settings = JevSettings::new(store);
+    struct Cleanup(JevSettings, SqliteVault);
     impl Drop for Cleanup {
         fn drop(&mut self) {
-            let _ = self.0.clear(&KeychainVault);
+            let _ = self.0.clear(&self.1);
         }
     }
-    let _cleanup = Cleanup(settings.clone());
-    settings
-        .save_key(&key, &KeychainVault)
-        .expect("真实Keychain保存");
-    let loaded = settings.load_key(&KeychainVault).expect("真实Keychain重读");
+    let _cleanup = Cleanup(settings.clone(), vault.clone());
+    settings.save_key(&key, &vault).expect("真实SQLite保存");
+    let loaded = settings.load_key(&vault).expect("真实SQLite重读");
     assert!(
         loaded.as_deref() == Some(key.trim()),
         "真实安全存储重读必须一致，失败也不能打印密钥"
@@ -234,5 +232,95 @@ fn voice_jev_real_configuration_keychain_and_connection() {
     assert!(
         !settings.production_enabled(),
         "真实配置验证不得开启生产入口"
+    );
+}
+
+fn isolated_store() -> (tempfile::TempDir, storage::SettingsStore) {
+    let temp = tempfile::tempdir().expect("隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(temp.path());
+    let store = storage::AppStore::initialize(&paths)
+        .expect("隔离数据库")
+        .settings_store();
+    (temp, store)
+}
+
+/// 场景：Jev密钥改存本地SQLite，经SecretVault接口存取删。
+/// 构造：隔离SQLite；人工字符串作密钥。
+/// 执行：set/get/delete，并保存后检查键名前缀。
+/// 预期：读回一致、删除后为空，且落库键使用credential.jev.前缀。
+#[test]
+fn voice_jev_sqlite_vault_roundtrip_and_settings_atomicity() {
+    let (_temp, store) = isolated_store();
+    let vault = SqliteVault::new(store.clone());
+    vault.set("acct", "fixture-key").expect("写入");
+    assert_eq!(
+        store
+            .get_string("credential.jev.acct")
+            .expect("读键")
+            .as_deref(),
+        Some("fixture-key"),
+        "SQLite键必须使用credential.jev.前缀"
+    );
+    assert_eq!(
+        vault.get("acct").expect("读取").as_deref(),
+        Some("fixture-key")
+    );
+    vault.delete("acct").expect("删除");
+    assert_eq!(vault.get("acct").expect("读取"), None, "删除后不得残留");
+    let settings = JevSettings::new(store);
+    settings.save_key("fixture-key-a", &vault).expect("保存");
+    settings.save_key("fixture-key-b", &vault).expect("替换");
+    assert_eq!(
+        settings.load_key(&vault).expect("读取").as_deref(),
+        Some("fixture-key-b")
+    );
+    settings.clear(&vault).expect("清除");
+    assert_eq!(
+        settings.load_key(&vault).expect("读取"),
+        None,
+        "清除后无可用凭据"
+    );
+}
+
+/// 场景：旧版本把Key存在钥匙串，升级后须迁入SQLite。
+/// 构造：引用指向仅旧vault持有的账号；另一例旧vault存在但SQLite写入被拒。
+/// 执行：调用migrate_legacy_key。
+/// 预期：成功时SQLite有值且旧条目被删；SQLite写入失败时旧条目保留，凭据不丢。
+#[test]
+fn voice_jev_legacy_keychain_migrates_without_losing_credential() {
+    let (_temp, store) = isolated_store();
+    let sqlite = SqliteVault::new(store.clone());
+    let legacy = Vault::default();
+    legacy.set("jev-old", "fixture-legacy").expect("旧凭据");
+    store
+        .set_string(JEV_CREDENTIAL_REF, "jev-old")
+        .expect("引用");
+    let settings = JevSettings::new(store.clone());
+    settings.migrate_legacy_key(&sqlite, &legacy);
+    assert_eq!(
+        settings.load_key(&sqlite).expect("读取").as_deref(),
+        Some("fixture-legacy")
+    );
+    assert_eq!(
+        legacy.get("jev-old").expect("旧vault"),
+        None,
+        "迁移成功后删除钥匙串条目"
+    );
+
+    let (_temp2, store2) = isolated_store();
+    let legacy2 = Vault::default();
+    legacy2.set("jev-old", "fixture-legacy").expect("旧凭据");
+    store2
+        .set_string(JEV_CREDENTIAL_REF, "jev-old")
+        .expect("引用");
+    let denied = Vault {
+        deny: true,
+        ..Vault::default()
+    };
+    JevSettings::new(store2).migrate_legacy_key(&denied, &legacy2);
+    assert_eq!(
+        legacy2.get("jev-old").expect("旧vault").as_deref(),
+        Some("fixture-legacy"),
+        "迁移写入失败时必须保留钥匙串中的可用凭据"
     );
 }
