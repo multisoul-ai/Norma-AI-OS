@@ -102,6 +102,9 @@ public enum HookQuestionFixture {
     def send_post(body, stdout_obj):
         forward([], post_for(body, stdout_obj), 20)
 
+    # 真实 Agent 先发 SessionStart，App 才会把 session 绑到这张卡；缺这一步 App 会判 question_session_changed。
+    forward([], {'hook_event_name': 'SessionStart', 'session_id': sid, 'source': 'startup'}, 20)
+
     cycle = 0
     while True:
         cycle += 1
