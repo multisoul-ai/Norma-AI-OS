@@ -31,7 +31,7 @@ fn tick(source: &Entity<MultisoulApp>, cx: &mut VisualTestContext) {
 /// 预期：原session/call被消费、原模型输出NATIVE_REPLY、SQLite Answered；无新派发且回收自有PTY。
 /// 此测试没有真实Norma窗口，只作为生产传输/模型纵向证据，不替代desktop-e2e。
 #[test]
-#[ignore = "requires configured Claude 2.1.296 and freshly built sibling multisoul-agent-hook"]
+#[ignore = "requires configured Claude 2.1.296 and freshly built sibling norma-hook"]
 fn question_default_native_claude_consumes_authorized_original_answer() {
     let dir = tempfile::tempdir().unwrap();
     let paths = storage::DatabasePaths::isolated_test(&dir.path().join("data"));

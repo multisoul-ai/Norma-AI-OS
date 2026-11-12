@@ -201,8 +201,8 @@ impl ClientRequestContext {
                 false,
             ))
         })?;
-        let provider = env::var("MULTISOUL_AGENT_PROFILE").ok();
-        let source_node_id = env::var("MULTISOUL_NODE_ID").ok();
+        let provider = crate::agent_hook::env_var_with_legacy("NORMA_AGENT_PROFILE");
+        let source_node_id = crate::agent_hook::env_var_with_legacy("NORMA_NODE_ID");
         let source_workspace_id = env::var(WORKSPACE_ID_ENV).ok();
         let source_workspace_route_id = env::var(WORKSPACE_ROUTE_ID_ENV).ok();
         Self::from_values_with_workspace(

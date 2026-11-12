@@ -132,16 +132,16 @@ fn pi_extension_install_upgrade_uninstall_respects_ownership() {
     install_hook_config(HookTarget::Pi, Path::new("unused"), &paths).expect("安装应成功");
     let installed = std::fs::read_to_string(&ext).unwrap();
     assert!(
-        installed.contains("multisoul-pi-extension-marker"),
+        installed.contains("norma-pi-extension-marker"),
         "应含 marker"
     );
     assert!(
-        installed.contains("MULTISOUL_HOOK_ENDPOINT"),
+        installed.contains("NORMA_HOOK_ENDPOINT"),
         "应读取 Norma endpoint env"
     );
     assert!(agent_hooks_installed_for_source(HookSource::Pi, &paths));
 
-    std::fs::write(&ext, "// multisoul-pi-extension-marker\n// old").unwrap();
+    std::fs::write(&ext, "// norma-pi-extension-marker\n// old").unwrap();
     install_hook_config(HookTarget::Pi, Path::new("unused"), &paths).expect("升级应成功");
     assert_eq!(
         std::fs::read_to_string(&ext).unwrap(),
@@ -265,17 +265,17 @@ fn run_extension(scenario: &str, with_env: bool) -> Vec<serde_json::Value> {
     command.arg(&harness).arg(&ext_mjs).arg(scenario);
     if with_env {
         command
-            .env("MULTISOUL_NODE_ID", "77")
+            .env("NORMA_NODE_ID", "77")
             .env(
-                "MULTISOUL_HOOK_ENDPOINT",
+                "NORMA_HOOK_ENDPOINT",
                 format!("http://127.0.0.1:{port}/hook"),
             )
-            .env("MULTISOUL_HOOK_TOKEN", "tok-1");
+            .env("NORMA_HOOK_TOKEN", "tok-1");
     } else {
         command
-            .env_remove("MULTISOUL_NODE_ID")
-            .env_remove("MULTISOUL_HOOK_ENDPOINT")
-            .env_remove("MULTISOUL_HOOK_TOKEN");
+            .env_remove("NORMA_NODE_ID")
+            .env_remove("NORMA_HOOK_ENDPOINT")
+            .env_remove("NORMA_HOOK_TOKEN");
     }
     let status = command.status().expect("node 应可运行");
     assert!(status.success(), "扩展加载与回调不得抛错（失败开放）");

@@ -364,7 +364,7 @@ fn opencode_plugin_conflict_does_not_block_shared_hook_upgrade() {
         "自动 reconcile 不得覆盖无 Norma marker 的用户 OpenCode 插件"
     );
     assert!(
-        !preserved.contains("multisoul-agent-hook"),
+        !preserved.contains("norma-hook"),
         "用户 OpenCode 插件不得被静默替换成 Norma 受管插件"
     );
 }

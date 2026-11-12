@@ -21,7 +21,7 @@ pub fn forward_hook(
     match forward_event(&env.endpoint, &env.token, &event) {
         Ok(()) => HookForwardOutcome::Posted,
         Err(error) => {
-            eprintln!("multisoul-agent-hook: ignored forward failure: {error}");
+            eprintln!("norma-hook: ignored forward failure: {error}");
             HookForwardOutcome::FailedButIgnored
         }
     }

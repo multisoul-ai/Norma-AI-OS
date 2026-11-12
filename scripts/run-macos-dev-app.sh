@@ -33,8 +33,8 @@ plist="$bundle/Contents/Info.plist"
 entitlements="$repo_root/packaging/macos/NormaOS.entitlements"
 cli_binary="$binary_dir/norma"
 bundle_cli="$bundle/Contents/MacOS/norma"
-hook_binary="$binary_dir/multisoul-agent-hook"
-bundle_hook="$bundle/Contents/MacOS/multisoul-agent-hook"
+hook_binary="$binary_dir/norma-hook"
+bundle_hook="$bundle/Contents/MacOS/norma-hook"
 auth_host_binary="$binary_dir/norma-browser-auth-host"
 bundle_auth_host="$bundle/Contents/MacOS/norma-browser-auth-host"
 media_resources="$repo_root/build/release-media"
@@ -125,7 +125,7 @@ fi
 
 if [ "$binary_name" = "norma-os" ] && { [ ! -x "$hook_binary" ] || [ ! -x "$auth_host_binary" ]; }; then
   cargo build --quiet --manifest-path "$repo_root/crates/app/Cargo.toml" \
-    --bin multisoul-agent-hook --bin norma-browser-auth-host
+    --bin norma-hook --bin norma-browser-auth-host
 fi
 
 # A new worktree can contain LFS pointer files even when their objects already
@@ -175,7 +175,7 @@ if [ "$binary_name" = "norma-os" ]; then
   cp "$cli_binary" "$bundle_cli"
   chmod u+x "$bundle_cli"
   if [ ! -x "$hook_binary" ]; then
-    echo "multisoul-agent-hook build did not produce $hook_binary" >&2
+    echo "norma-hook build did not produce $hook_binary" >&2
     exit 1
   fi
   cp "$hook_binary" "$bundle_hook"

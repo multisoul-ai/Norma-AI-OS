@@ -359,7 +359,7 @@
       "group": "other_bundle_metadata"
     },
     {
-      "path": "Contents/MacOS/multisoul-agent-hook",
+      "path": "Contents/MacOS/norma-hook",
       "bytes": 1106608,
       "group": "companion_binaries"
     },

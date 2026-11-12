@@ -27,8 +27,8 @@ name = "norma-os"
 path = "src/main.rs"
 
 [[bin]]
-name = "multisoul-agent-hook"
-path = "src/bin/multisoul_agent_hook.rs"
+name = "norma-hook"
+path = "src/bin/norma_hook.rs"
 
 [[bin]]
 name = "norma-browser-auth-host"

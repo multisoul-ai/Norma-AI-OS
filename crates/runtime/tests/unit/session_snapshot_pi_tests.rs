@@ -82,12 +82,12 @@ fn pi_resume_quotes_hostile_session_id() {
 
 /// Pi 恢复命令仍注入 Norma hook 环境，扩展才能回传事件。
 ///
-/// 数据构造：node_id=9，profile=Pi，endpoint/token 为测试值；期望 env 含 MULTISOUL_AGENT_PROFILE=pi。
+/// 数据构造：node_id=9，profile=Pi，endpoint/token 为测试值；期望 env 含 NORMA_AGENT_PROFILE=pi。
 ///
 /// 执行过程：构造 AgentHookEnv 后调用恢复命令构造器。
 ///
 /// 预期结果：
-///   - 正断言：env 含 `MULTISOUL_AGENT_PROFILE=pi` 与 `MULTISOUL_NODE_ID=9`。
+///   - 正断言：env 含 `NORMA_AGENT_PROFILE=pi` 与 `NORMA_NODE_ID=9`。
 ///   - 负断言：不得出现 `claude` 作为 profile 值。
 #[test]
 fn pi_resume_carries_hook_env_with_pi_profile() {
@@ -105,10 +105,10 @@ fn pi_resume_carries_hook_env_with_pi_profile() {
     let cmd = build_agent_resume_command(AgentProfile::Pi, "/bin/zsh", "id-1", Some(&env), None);
 
     let has = |k: &str, v: &str| cmd.env.iter().any(|(ek, ev)| ek == k && ev == v);
-    assert!(has("MULTISOUL_AGENT_PROFILE", "pi"), "env 应含 profile=pi");
-    assert!(has("MULTISOUL_NODE_ID", "9"), "env 应含 node id");
+    assert!(has("NORMA_AGENT_PROFILE", "pi"), "env 应含 profile=pi");
+    assert!(has("NORMA_NODE_ID", "9"), "env 应含 node id");
     assert!(
-        !has("MULTISOUL_AGENT_PROFILE", "claude"),
+        !has("NORMA_AGENT_PROFILE", "claude"),
         "profile 不得是 claude"
     );
 }
