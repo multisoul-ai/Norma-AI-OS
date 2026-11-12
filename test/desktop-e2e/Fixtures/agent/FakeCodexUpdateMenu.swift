@@ -28,7 +28,7 @@ public enum FakeCodexUpdateMenu {
         try install.setMode("menu")
         let hooks = install.home.appendingPathComponent(".codex/hooks.json")
         try FileManager.default.createDirectory(at: hooks.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let command = "/usr/local/bin/multisoul-agent-hook forward --source codex"
+        let command = "/usr/local/bin/norma-hook forward --source codex"
         let events = ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Stop"]
         var map: [String: Any] = [:]
         for event in events { map[event] = [["hooks": [["type": "command", "command": command]]]] }

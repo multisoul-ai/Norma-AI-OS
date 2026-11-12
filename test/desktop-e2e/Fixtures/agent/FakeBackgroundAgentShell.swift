@@ -41,7 +41,7 @@ public enum FakeBackgroundAgentShell {
             source: "claude"
         )
         try writeHookConfig(
-            to: install.home.appendingPathComponent(".grok/hooks/multisoul-agent-hook.json"),
+            to: install.home.appendingPathComponent(".grok/hooks/norma-hook.json"),
             events: ["SessionStart", "UserPromptSubmit", "Notification", "Stop", "StopCancelled", "SessionEnd"],
             source: "grok"
         )
@@ -54,7 +54,7 @@ public enum FakeBackgroundAgentShell {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true
         )
-        let command = "/usr/local/bin/multisoul-agent-hook forward --source \(source)"
+        let command = "/usr/local/bin/norma-hook forward --source \(source)"
         var hooks: [String: Any] = [:]
         for event in events {
             hooks[event] = [["hooks": [["type": "command", "command": command]]]]
@@ -71,7 +71,7 @@ public enum FakeBackgroundAgentShell {
     private static let claude = """
     #!/usr/bin/env python3
     import json, os, time, urllib.request
-    node = int(os.environ["MULTISOUL_NODE_ID"])
+    node = int(os.environ["NORMA_NODE_ID"])
     root = os.environ["NORMA_FAKE_ROOT"]
 
     def post(event, tool, raw):
@@ -80,8 +80,8 @@ public enum FakeBackgroundAgentShell {
                 "session_id": "e2e-bg", "turn_id": "e2e-turn", "tool_name": tool,
                 "message": None, "raw_json": raw}
         request = urllib.request.Request(
-            os.environ["MULTISOUL_HOOK_ENDPOINT"], json.dumps(body).encode(),
-            {"Authorization": "Bearer " + os.environ["MULTISOUL_HOOK_TOKEN"], "Content-Type": "application/json"})
+            os.environ["NORMA_HOOK_ENDPOINT"], json.dumps(body).encode(),
+            {"Authorization": "Bearer " + os.environ["NORMA_HOOK_TOKEN"], "Content-Type": "application/json"})
         urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=3).read()
 
     print("BG HOLD", flush=True)
@@ -122,7 +122,7 @@ public enum FakeBackgroundAgentShell {
     private static let grok = """
     #!/usr/bin/env python3
     import json, os, time, urllib.request
-    node = int(os.environ["MULTISOUL_NODE_ID"])
+    node = int(os.environ["NORMA_NODE_ID"])
 
     def post(event, raw):
         raw = dict(raw, hook_event_name=event, sessionId="e2e-grok", session_id="e2e-grok")
@@ -130,8 +130,8 @@ public enum FakeBackgroundAgentShell {
                 "session_id": "e2e-grok", "turn_id": None, "tool_name": None,
                 "message": None, "raw_json": raw}
         request = urllib.request.Request(
-            os.environ["MULTISOUL_HOOK_ENDPOINT"], json.dumps(body).encode(),
-            {"Authorization": "Bearer " + os.environ["MULTISOUL_HOOK_TOKEN"], "Content-Type": "application/json"})
+            os.environ["NORMA_HOOK_ENDPOINT"], json.dumps(body).encode(),
+            {"Authorization": "Bearer " + os.environ["NORMA_HOOK_TOKEN"], "Content-Type": "application/json"})
         urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=3).read()
 
     post("SessionStart", {"source": "new"})

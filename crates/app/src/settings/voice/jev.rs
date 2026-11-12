@@ -75,6 +75,40 @@ impl SecretVault for KeychainVault {
     }
 }
 
+/// Local SQLite credential store, same namespace style as agent-provider credentials.
+#[derive(Clone)]
+pub(crate) struct SqliteVault {
+    store: SettingsStore,
+}
+
+impl SqliteVault {
+    pub(crate) fn new(store: SettingsStore) -> Self {
+        Self { store }
+    }
+
+    fn key(account: &str) -> String {
+        format!("credential.jev.{account}")
+    }
+}
+
+impl SecretVault for SqliteVault {
+    fn set(&self, account: &str, secret: &str) -> Result<(), JevConfigurationError> {
+        self.store
+            .set_string(&Self::key(account), secret)
+            .map_err(|_| JevConfigurationError::SecureStorage)
+    }
+    fn get(&self, account: &str) -> Result<Option<String>, JevConfigurationError> {
+        self.store
+            .get_string(&Self::key(account))
+            .map_err(|_| JevConfigurationError::SecureStorage)
+    }
+    fn delete(&self, account: &str) -> Result<(), JevConfigurationError> {
+        self.store
+            .delete_string(&Self::key(account))
+            .map_err(|_| JevConfigurationError::SecureStorage)
+    }
+}
+
 /// No Debug or serialization: secret values only cross the secure-store boundary in memory.
 #[derive(Clone)]
 pub(crate) struct JevSettings {
@@ -86,8 +120,32 @@ impl JevSettings {
         Self { store }
     }
 
+    pub(crate) fn store(&self) -> &SettingsStore {
+        &self.store
+    }
+
     pub(crate) fn production_enabled(&self) -> bool {
         false
+    }
+
+    /// Copies a pre-SQLite Keychain credential into `vault`, then drops the Keychain entry.
+    /// Best effort: any failure leaves the legacy entry intact. Blocking IO; background only.
+    pub(crate) fn migrate_legacy_key(&self, vault: &dyn SecretVault, legacy: &dyn SecretVault) {
+        let Ok(_operation) = CONFIGURATION_LOCK.lock() else {
+            return;
+        };
+        let Ok(Some(account)) = self.store.get_string(JEV_CREDENTIAL_REF) else {
+            return;
+        };
+        if !matches!(vault.get(&account), Ok(None)) {
+            return;
+        }
+        let Ok(Some(secret)) = legacy.get(&account) else {
+            return;
+        };
+        if vault.set(&account, &secret).is_ok() {
+            let _ = legacy.delete(&account);
+        }
     }
 
     /// Blocking IO; call only on the background executor.

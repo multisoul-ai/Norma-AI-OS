@@ -19,6 +19,7 @@ fn agent(name: &str, action: &str) -> RunOverviewAgent {
         task: Some("重构登录".into()),
         latest_prompt: None,
         action: Some(action.into()),
+        last_tool: None,
         progress: None,
         started_at_unix_ms: None,
     }

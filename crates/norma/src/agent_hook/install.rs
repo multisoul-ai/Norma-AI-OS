@@ -10,8 +10,10 @@ use super::opencode::{install_opencode_plugin, opencode_plugin_source, uninstall
 use super::pi::{install_pi_extension, uninstall_pi_extension};
 use super::zcode::{install_zcode_hooks, uninstall_zcode_hooks, zcode_hooks_installed_at};
 use super::{
-    build_hook_command, hook_events_for_source, hook_source_arg, AgentHookError, HookInstallPaths,
-    HookSource, HookTarget, AGENT_HOOK_BINARY_NAME, PI_EXTENSION_MARKER,
+    build_hook_command, has_pi_marker, hook_events_for_source, hook_source_arg, AgentHookError,
+    HookInstallPaths, HookSource, HookTarget, AGENT_HOOK_BINARY_NAME,
+    LEGACY_AGENT_HOOK_BINARY_NAME, LEGACY_GROK_HOOK_FILE_NAME, LEGACY_OPENCODE_PLUGIN_FILE_NAME,
+    PI_EXTENSION_MARKER,
 };
 use super::{default_install_paths, resolve_agent_hook_command_path};
 use serde_json::{json, Value};
@@ -96,7 +98,7 @@ pub fn agent_hooks_installed_for_source(source: HookSource, paths: &HookInstallP
 pub fn unmanaged_hook_path(source: HookSource, paths: &HookInstallPaths) -> Option<PathBuf> {
     match source {
         HookSource::Pi => fs::read_to_string(&paths.pi_extension)
-            .is_ok_and(|text| !text.contains(PI_EXTENSION_MARKER))
+            .is_ok_and(|text| !has_pi_marker(&text))
             .then(|| paths.pi_extension.clone()),
         HookSource::Hermes => hermes_dir_unmanaged(&paths.hermes_plugin_dir)
             .unwrap_or(false)
@@ -140,7 +142,7 @@ pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
                     .flatten()
                     .filter_map(|handler| handler.get("command").and_then(Value::as_str))
                     .any(|command| {
-                        is_multisoul_hook_command(command, source)
+                        is_norma_hook_command(command, source)
                             && command.ends_with("--request-question")
                     })
             })
@@ -148,7 +150,7 @@ pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
     question_ready
         && hook_events_for_source(source)
             .iter()
-            .all(|event_name| event_has_multisoul_hook(&root, event_name, source))
+            .all(|event_name| event_has_norma_hook(&root, event_name, source))
 }
 
 pub fn uninstall_hook_config(
@@ -167,6 +169,7 @@ pub fn uninstall_hook_config_except_hermes(
     target: HookTarget,
     paths: &HookInstallPaths,
 ) -> Result<(), AgentHookError> {
+    remove_legacy_hook_files(paths)?;
     if matches!(target, HookTarget::Claude | HookTarget::All) {
         uninstall_for_source(paths.claude_settings.as_path(), HookSource::Claude)?;
     }
@@ -202,6 +205,7 @@ pub fn install_hook_config(
     command_path: &Path,
     paths: &HookInstallPaths,
 ) -> Result<(), AgentHookError> {
+    remove_legacy_hook_files(paths)?;
     if matches!(target, HookTarget::Claude | HookTarget::All) {
         install_for_source(
             paths.claude_settings.as_path(),
@@ -250,6 +254,12 @@ fn install_for_source(
 ) -> Result<(), AgentHookError> {
     let mut root = read_json_or_empty(path)?;
     let command = build_hook_command(command_path, source);
+    // 存量配置里改名前的旧命令先清掉，否则同一事件会新旧各触发一次。
+    if serde_json::to_string(&root)?.contains(LEGACY_AGENT_HOOK_BINARY_NAME) {
+        for event_name in hook_events_for_source(source) {
+            remove_norma_hooks_for_event(&mut root, event_name, source);
+        }
+    }
     for event_name in hook_events_for_source(source) {
         add_command_hook(&mut root, event_name, &command, source);
     }
@@ -273,7 +283,7 @@ fn uninstall_for_source(path: &Path, source: HookSource) -> Result<(), AgentHook
     let mut root = read_json_or_empty(path)?;
     let mut changed = false;
     for event_name in hook_events_for_source(source) {
-        if remove_multisoul_hooks_for_event(&mut root, event_name, source) {
+        if remove_norma_hooks_for_event(&mut root, event_name, source) {
             changed = true;
         }
     }
@@ -299,18 +309,18 @@ fn config_path_for_source(source: HookSource, paths: &HookInstallPaths) -> &Path
     }
 }
 
-fn event_has_multisoul_hook(root: &Value, event_name: &str, source: HookSource) -> bool {
+fn event_has_norma_hook(root: &Value, event_name: &str, source: HookSource) -> bool {
     root.get("hooks")
         .and_then(|hooks| hooks.get(event_name))
         .and_then(Value::as_array)
         .is_some_and(|groups| {
             groups
                 .iter()
-                .any(|group| group_has_multisoul_hook(group, source))
+                .any(|group| group_has_norma_hook(group, source))
         })
 }
 
-fn group_has_multisoul_hook(group: &Value, source: HookSource) -> bool {
+fn group_has_norma_hook(group: &Value, source: HookSource) -> bool {
     group
         .get("hooks")
         .and_then(Value::as_array)
@@ -319,21 +329,40 @@ fn group_has_multisoul_hook(group: &Value, source: HookSource) -> bool {
                 handler
                     .get("command")
                     .and_then(Value::as_str)
-                    .is_some_and(|command| is_multisoul_hook_command(command, source))
+                    .is_some_and(|command| is_norma_hook_command(command, source))
             })
         })
 }
 
-pub(super) fn is_multisoul_hook_command(command: &str, source: HookSource) -> bool {
+pub(super) fn is_norma_hook_command(command: &str, source: HookSource) -> bool {
     command.contains(AGENT_HOOK_BINARY_NAME)
         && command.contains(&format!("forward --source {}", hook_source_arg(source)))
 }
 
-fn remove_multisoul_hooks_for_event(
-    root: &mut Value,
-    event_name: &str,
-    source: HookSource,
-) -> bool {
+/// 当前或改名前旧名字的 Norma hook 命令；只用于清理，"已安装"判断仍用严格版本，
+/// 这样存量用户的旧配置会被判为过期并由 reconcile 换成新名字。
+pub(super) fn is_managed_hook_command(command: &str, source: HookSource) -> bool {
+    is_norma_hook_command(command, source)
+        || (command.contains(LEGACY_AGENT_HOOK_BINARY_NAME)
+            && command.contains(&format!("forward --source {}", hook_source_arg(source))))
+}
+
+/// 清掉改名前遗留的 Grok hooks 文件条目与 OpenCode 插件文件，避免新旧同时触发。
+fn remove_legacy_hook_files(paths: &HookInstallPaths) -> Result<(), AgentHookError> {
+    let grok_legacy = paths.grok_hooks.with_file_name(LEGACY_GROK_HOOK_FILE_NAME);
+    if grok_legacy != paths.grok_hooks {
+        uninstall_for_source(&grok_legacy, HookSource::Grok)?;
+    }
+    let opencode_legacy = paths
+        .opencode_plugin
+        .with_file_name(LEGACY_OPENCODE_PLUGIN_FILE_NAME);
+    if opencode_legacy != paths.opencode_plugin {
+        uninstall_opencode_plugin(&opencode_legacy)?;
+    }
+    Ok(())
+}
+
+fn remove_norma_hooks_for_event(root: &mut Value, event_name: &str, source: HookSource) -> bool {
     ensure_object(root);
     let hooks = match root.get_mut("hooks") {
         Some(value) => value,
@@ -356,7 +385,7 @@ fn remove_multisoul_hooks_for_event(
                 !handler
                     .get("command")
                     .and_then(Value::as_str)
-                    .is_some_and(|command| is_multisoul_hook_command(command, source))
+                    .is_some_and(|command| is_managed_hook_command(command, source))
             });
             if handlers.len() != before {
                 changed = true;

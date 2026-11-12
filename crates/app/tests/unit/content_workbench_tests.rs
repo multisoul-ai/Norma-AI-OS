@@ -302,3 +302,119 @@ fn assistant_file_tab_uses_shared_rich_preview() {
         );
     });
 }
+
+/// 场景：右侧抽屉的「所有文件」树默认折叠，「已更改的文件」保持原默认（展开）。
+///
+/// 数据构造：隔离数据库启动一个全新 MultisoulApp，不做任何点击。
+///
+/// 执行过程：
+///   1. new_with_database_context 构造桌面工作区 → workbench 取 desktop.rs 中的初始值
+///   2. 读取 files_section_open 与 changes_section_closed；再模拟切换项目/关标签时的 `Default::default()` 重置
+///
+/// 预期结果：
+///   - files_section_open 为 false：整棵文件树首次打开时不展开
+///   - 重置后的 WorkbenchState 仍折叠：controller/tabs 里都会整体重建状态，默认值必须天然折叠
+///   - changes_section_closed 为 false：本次需求只要求折叠「所有文件」，不改动已更改区
+#[test]
+fn files_section_is_collapsed_by_default_and_changes_section_is_not() {
+    let temp = tempfile::tempdir().expect("目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("存储");
+    let mut test = TestAppContext::single();
+    let (app, cx) =
+        test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
+    app.read_with(cx, |app, _| {
+        let s = &app.desktop_workspace.workbench;
+        assert!(!s.files_section_open, "「所有文件」默认必须折叠");
+        assert!(!s.changes_section_closed, "「已更改的文件」不应被顺带折叠");
+        assert!(
+            !super::WorkbenchState::default().files_section_open,
+            "重置工作台状态后「所有文件」仍必须折叠，否则真机切项目后树又展开"
+        );
+    });
+}
+
+/// 场景：文件正文通过禁用的 Input 渲染，因此可以鼠标选中并 Cmd+C。
+///
+/// 数据构造：file = "alpha\nbeta"（版本 v1），随后换成 "gamma"（版本 v2）。
+///
+/// 执行过程：
+///   1. 无文件时同步 → read_input 为空
+///   2. 设置 v1 文件并同步 → 创建只读 Input，内容等于文件正文
+///   3. 同版本再次同步 → 复用同一个 Input 实体（不重建，保留选区）
+///   4. 换成 v2 并同步 → 重建，内容变为新正文
+///
+/// 预期结果：
+///   - 步骤 1 无 Input；步骤 2 内容为 "alpha\nbeta"
+///   - 步骤 3 实体 id 不变；步骤 4 内容为 "gamma" 且版本为 v2
+#[test]
+fn read_input_tracks_file_version_and_keeps_selection_between_renders() {
+    let temp = tempfile::tempdir().expect("目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("存储");
+    let mut test = TestAppContext::single();
+    let (app, cx) =
+        test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
+    let file = |text: &str, version: &str| workspace::content::TextFile {
+        text: text.into(),
+        version: version.into(),
+    };
+    app.update_in(cx, |app, window, cx| {
+        app.sync_workbench_read_input(window, cx);
+        assert!(
+            app.desktop_workspace.workbench.read_input.is_none(),
+            "没有打开文件时不应存在只读 Input"
+        );
+        app.desktop_workspace.workbench.file = Some(file("alpha\nbeta", "v1"));
+        app.sync_workbench_read_input(window, cx);
+    });
+    let first = app.read_with(cx, |app, cx| {
+        let (version, input) = app
+            .desktop_workspace
+            .workbench
+            .read_input
+            .clone()
+            .expect("v1 Input");
+        assert_eq!(version, "v1", "Input 应绑定当前文件版本");
+        assert_eq!(
+            input.read(cx).value().as_ref(),
+            "alpha\nbeta",
+            "Input 内容应等于文件正文"
+        );
+        input.entity_id()
+    });
+    app.update_in(cx, |app, window, cx| {
+        app.sync_workbench_read_input(window, cx)
+    });
+    app.read_with(cx, |app, _| {
+        let (_, input) = app
+            .desktop_workspace
+            .workbench
+            .read_input
+            .as_ref()
+            .expect("Input");
+        assert_eq!(
+            input.entity_id(),
+            first,
+            "同版本重复渲染不得重建 Input，否则选区会丢"
+        );
+    });
+    app.update_in(cx, |app, window, cx| {
+        app.desktop_workspace.workbench.file = Some(file("gamma", "v2"));
+        app.sync_workbench_read_input(window, cx);
+    });
+    app.read_with(cx, |app, cx| {
+        let (version, input) = app
+            .desktop_workspace
+            .workbench
+            .read_input
+            .as_ref()
+            .expect("v2 Input");
+        assert_eq!(version, "v2", "版本变化后应重建 Input");
+        assert_eq!(
+            input.read(cx).value().as_ref(),
+            "gamma",
+            "重建后内容应为新正文"
+        );
+    });
+}

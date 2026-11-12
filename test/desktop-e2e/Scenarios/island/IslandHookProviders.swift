@@ -8,7 +8,7 @@ public enum IslandHookProviders {
     public nonisolated static let name = "island-hook-providers"
 
     public static func run(_ session: Session) async throws {
-        let hook = URL(fileURLWithPath: session.appPath).deletingLastPathComponent().appendingPathComponent("multisoul-agent-hook").path
+        let hook = URL(fileURLWithPath: session.appPath).deletingLastPathComponent().appendingPathComponent("norma-hook").path
         let fixture = try HookQuestionFixture.install(hookBinary: hook)
         var project: URL?
         let previous = ProcessInfo.processInfo.environment["ZDOTDIR"]

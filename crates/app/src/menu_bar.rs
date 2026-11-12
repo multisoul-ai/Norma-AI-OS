@@ -6,7 +6,7 @@ use crate::app::{
     NewPiAgent, NewTerminal, NewWindow, NewZCodeAgent, OpenFeatureGuide, OpenPreviewFile,
     OpenProject, QuitNormaOs, ReflowLayout, ToggleMasterLayout, ToggleSettings,
 };
-use gpui::{Menu, MenuItem, SystemMenuType};
+use gpui::{Menu, MenuItem, OsAction, SystemMenuType};
 
 pub(crate) struct MenuSpec {
     pub(crate) label: &'static str,
@@ -239,7 +239,9 @@ fn action_item(label: &'static str, action: MenuAction) -> MenuItem {
         MenuAction::NewHermesAgent => MenuItem::action(label, NewHermesAgent),
         MenuAction::OpenProject => MenuItem::action(label, OpenProject),
         MenuAction::CloneProject => MenuItem::action(label, CloneProject),
-        MenuAction::CopyCardContent => MenuItem::action(label, CopyCardContent),
+        // 标准 Copy 菜单项：焦点在原生 WKWebView 时，⌘C 经响应链由它自己复制选区；
+        // 焦点在 GPUI 时由 delegate 转成 CopyCardContent 动作。
+        MenuAction::CopyCardContent => MenuItem::os_action(label, CopyCardContent, OsAction::Copy),
         MenuAction::ReflowLayout => MenuItem::action(label, ReflowLayout),
         MenuAction::ToggleMasterLayout => MenuItem::action(label, ToggleMasterLayout),
         MenuAction::OpenFeatureGuide => MenuItem::action(label, OpenFeatureGuide),

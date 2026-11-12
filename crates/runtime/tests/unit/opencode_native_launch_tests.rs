@@ -33,8 +33,8 @@ while IFS= read -r line; do printf '%s\r\n' "$line"; done
         std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
         let mut command = agent_command(AgentProfile::OpenCode, None)
             .cwd(dir.path())
-            .env("MULTISOUL_AGENT_PROFILE", "opencode")
-            .env("MULTISOUL_NODE_ID", "7")
+            .env("NORMA_AGENT_PROFILE", "opencode")
+            .env("NORMA_NODE_ID", "7")
             .env(norma::agent_hook::ENV_CONTROL_RUN_ID, "unknown-owned")
             .env("OPENCODE_BIN", binary.to_string_lossy())
             .env(
@@ -100,8 +100,8 @@ fn native_opencode_real_launch_and_cleanup() {
     let directory = tempfile::tempdir().unwrap();
     let command = agent_command(AgentProfile::OpenCode, None)
         .cwd(directory.path())
-        .env("MULTISOUL_AGENT_PROFILE", "opencode")
-        .env("MULTISOUL_NODE_ID", "7")
+        .env("NORMA_AGENT_PROFILE", "opencode")
+        .env("NORMA_NODE_ID", "7")
         .env(norma::agent_hook::ENV_CONTROL_RUN_ID, "isolated-native-run")
         .env(
             "OPENCODE_DB",

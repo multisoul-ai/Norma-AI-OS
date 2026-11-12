@@ -46,6 +46,10 @@ pub use native_launch::NativeAgentLaunch;
 mod native_approval;
 mod native_approval_action;
 mod progress;
+mod recent_tool;
+#[cfg(test)]
+#[path = "../../tests/unit/mobile_recent_tool_tests.rs"]
+mod recent_tool_tests;
 mod snapshots;
 mod summary;
 #[cfg(test)]

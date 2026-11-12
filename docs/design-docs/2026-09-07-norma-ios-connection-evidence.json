@@ -924,7 +924,7 @@
     },
     "setup_repairs": [
       {
-        "issue": "Claude startup receipt dropped; test PATH lacked multisoul-agent-hook",
+        "issue": "Claude startup receipt dropped; test PATH lacked norma-hook",
         "failed_log": "/tmp/norma-ios-chat-claude-real-v19.log",
         "fix": "keep/check launch receipt and prepend target/debug to this isolated test PATH"
       },

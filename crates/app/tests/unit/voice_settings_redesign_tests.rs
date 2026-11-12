@@ -56,6 +56,11 @@ fn voice_redesign_task_layout_and_mode_persistence() {
         "未就绪时不能展示没有操作的完成按钮"
     );
     expand_advanced_settings(&host, cx);
+    open_group(
+        &host,
+        cx,
+        crate::settings::voice::AdvancedGroup::Diagnostics,
+    );
     // 从分组列表的真实配置入口进入详情编辑器，再验证既有配置控件。
     let details = cx
         .debug_bounds("voice-command-recognition-details")
@@ -395,6 +400,7 @@ fn voice_redesign_ready_voice_change_cancel_and_preferences() {
             .agent_task_announcements_enabled()
     });
     expand_advanced_settings(&host, cx);
+    open_group(&host, cx, crate::settings::voice::AdvancedGroup::Reply);
     let toggle = cx
         .debug_bounds("settings-agent-task-announcements-toggle")
         .expect("设置期间也应保留播报开关");
@@ -443,6 +449,20 @@ fn scroll_settings_to_bottom(cx: &mut gpui::VisualTestContext) {
         delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.0), -px(4000.0))),
         modifiers: Modifiers::none(),
         touch_phase: gpui::TouchPhase::Moved,
+    });
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+}
+
+/// 手风琴同一时刻只展开一组：测试需要哪组内容就打开哪组。
+fn open_group(
+    host: &gpui::Entity<MultisoulApp>,
+    cx: &mut gpui::VisualTestContext,
+    group: crate::settings::voice::AdvancedGroup,
+) {
+    host.update(cx, |app, cx| {
+        app.voice_settings.open_advanced_group(group);
+        cx.notify();
     });
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());

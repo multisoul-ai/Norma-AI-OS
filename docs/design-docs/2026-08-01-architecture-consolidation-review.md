@@ -394,7 +394,7 @@ Deletion test：删除第二套 Store 后，复杂度集中到一个 session per
 当前候选包括：
 
 - 未被 `settings/mod.rs` 声明的 `settings/hooks.rs` 及其孤立状态。
-- `app` 与 `norma` 中内容完全相同的 `multisoul-agent-hook` 二进制包装入口。
+- `app` 与 `norma` 中内容完全相同的 `norma-hook` 二进制包装入口。
 - 空占位公开 module：`canvas/commands.rs`、`canvas/history.rs`、`runtime/snapshot.rs`。
 
 这些项的 deletion test 是复杂度直接消失。是否删除仍需在实施前验证打包目标、测试引用和文档引用。

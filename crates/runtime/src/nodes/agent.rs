@@ -194,7 +194,7 @@ mod tests {
     /// 预期结果：
     ///   - 正断言：三个 profile 都通过 /bin/zsh -lic 启动
     ///   - 正断言：Claude/Codex 分别包含对应 CLI 名称
-    ///   - 负断言：Claude/Codex 命令不应带 MULTISOUL_NODE_ID
+    ///   - 负断言：Claude/Codex 命令不应带 NORMA_NODE_ID
     #[test]
     fn test_agent_command_maps_profile_to_expected_cli() {
         let claude = agent_command(AgentProfile::Claude, None);
@@ -250,16 +250,16 @@ mod tests {
             "Cursor Agent 命令不应误用 codex CLI"
         );
         assert!(
-            claude.env.iter().all(|(key, _)| key != "MULTISOUL_NODE_ID"),
-            "未传 hook env 时 Claude 命令不应注入 MULTISOUL_NODE_ID"
+            claude.env.iter().all(|(key, _)| key != "NORMA_NODE_ID"),
+            "未传 hook env 时 Claude 命令不应注入 NORMA_NODE_ID"
         );
         assert!(
-            codex.env.iter().all(|(key, _)| key != "MULTISOUL_NODE_ID"),
-            "未传 hook env 时 Codex 命令不应注入 MULTISOUL_NODE_ID"
+            codex.env.iter().all(|(key, _)| key != "NORMA_NODE_ID"),
+            "未传 hook env 时 Codex 命令不应注入 NORMA_NODE_ID"
         );
         assert!(
-            cursor.env.iter().all(|(key, _)| key != "MULTISOUL_NODE_ID"),
-            "未传 hook env 时 Cursor 命令不应注入 MULTISOUL_NODE_ID"
+            cursor.env.iter().all(|(key, _)| key != "NORMA_NODE_ID"),
+            "未传 hook env 时 Cursor 命令不应注入 NORMA_NODE_ID"
         );
     }
 
@@ -267,7 +267,7 @@ mod tests {
     ///
     /// 数据构造（含关键数值推导）：
     ///   node_id=42
-    ///   profile=Codex → MULTISOUL_AGENT_PROFILE="codex"
+    ///   profile=Codex → NORMA_AGENT_PROFILE="codex"
     ///   endpoint="http://127.0.0.1:49152/agent-hooks"
     ///   token="tok_123"
     ///
@@ -277,10 +277,10 @@ mod tests {
     ///   3. 读取 command.env
     ///
     /// 预期结果：
-    ///   - 正断言：四个 MULTISOUL_* 环境变量都存在且值精确
+    ///   - 正断言：四个 NORMA_* hook 环境变量都存在且值精确
     ///   - 负断言：profile 不应误写为 claude
     #[test]
-    fn test_agent_command_injects_multisoul_hook_environment() {
+    fn test_agent_command_injects_norma_hook_environment() {
         let hook_env = AgentHookEnv {
             control_run_id: None,
             node_id: 42,
@@ -298,23 +298,23 @@ mod tests {
             command
                 .env
                 .iter()
-                .any(|(key, value)| key == "MULTISOUL_NODE_ID" && value == "42"),
-            "hook env 应注入 MULTISOUL_NODE_ID=42，实际: {:?}",
+                .any(|(key, value)| key == "NORMA_NODE_ID" && value == "42"),
+            "hook env 应注入 NORMA_NODE_ID=42，实际: {:?}",
             command.env
         );
         assert!(
             command
                 .env
                 .iter()
-                .any(|(key, value)| key == "MULTISOUL_AGENT_PROFILE" && value == "codex"),
-            "hook env 应注入 MULTISOUL_AGENT_PROFILE=codex，实际: {:?}",
+                .any(|(key, value)| key == "NORMA_AGENT_PROFILE" && value == "codex"),
+            "hook env 应注入 NORMA_AGENT_PROFILE=codex，实际: {:?}",
             command.env
         );
         assert!(
             command
                 .env
                 .iter()
-                .any(|(key, value)| key == "MULTISOUL_HOOK_ENDPOINT"
+                .any(|(key, value)| key == "NORMA_HOOK_ENDPOINT"
                     && value == "http://127.0.0.1:49152/agent-hooks"),
             "hook env 应注入 endpoint，实际: {:?}",
             command.env
@@ -323,7 +323,7 @@ mod tests {
             command
                 .env
                 .iter()
-                .any(|(key, value)| key == "MULTISOUL_HOOK_TOKEN" && value == "tok_123"),
+                .any(|(key, value)| key == "NORMA_HOOK_TOKEN" && value == "tok_123"),
             "hook env 应注入 token，实际: {:?}",
             command.env
         );
@@ -331,7 +331,7 @@ mod tests {
             command
                 .env
                 .iter()
-                .all(|(key, value)| key != "MULTISOUL_AGENT_PROFILE" || value != "claude"),
+                .all(|(key, value)| key != "NORMA_AGENT_PROFILE" || value != "claude"),
             "Codex hook env 不应误写 profile=claude"
         );
     }
@@ -403,9 +403,9 @@ mod tests {
     ///
     /// 数据构造：
     ///   hook env = None，对应 Workspace 路由注册失败后 `set_agent_hook_config(None)`。
-    ///   身份名单来自 `INHERITED_AGENT_IDENTITY_ENV`，含 `MULTISOUL_NODE_ID` 与
+    ///   身份名单来自 `INHERITED_AGENT_IDENTITY_ENV`，含 `NORMA_NODE_ID` 与
     ///   question attach 注入的 `NORMA_CONTROL_RUN_ID`。
-    ///   对照：同一 profile 带 hook env 时仍写入 `MULTISOUL_NODE_ID=42`。
+    ///   对照：同一 profile 带 hook env 时仍写入 `NORMA_NODE_ID=42`。
     ///
     /// 执行过程：
     ///   1. `agent_command(Claude, None)`。
@@ -414,7 +414,7 @@ mod tests {
     ///
     /// 预期结果：
     ///   - 正断言：无 hook 的 Agent 与 Terminal 命令的 `env_remove` 含全部身份变量。
-    ///   - 负断言：这两条命令的 `env` 不得再写入 `MULTISOUL_NODE_ID`。
+    ///   - 负断言：这两条命令的 `env` 不得再写入 `NORMA_NODE_ID`。
     ///   - 负断言：有 hook 时仍注入本卡 node id，且不把该变量放进 `env_remove`。
     #[test]
     fn test_agent_command_without_hook_env_removes_inherited_identity() {
@@ -445,32 +445,29 @@ mod tests {
             );
         }
         assert!(
-            claude.env.iter().all(|(key, _)| key != "MULTISOUL_NODE_ID"),
-            "无 hook 时不得注入 MULTISOUL_NODE_ID，实际 env: {:?}",
+            claude.env.iter().all(|(key, _)| key != "NORMA_NODE_ID"),
+            "无 hook 时不得注入 NORMA_NODE_ID，实际 env: {:?}",
             claude.env
         );
         assert!(
-            terminal
-                .env
-                .iter()
-                .all(|(key, _)| key != "MULTISOUL_NODE_ID"),
-            "Terminal 不得注入 MULTISOUL_NODE_ID，实际 env: {:?}",
+            terminal.env.iter().all(|(key, _)| key != "NORMA_NODE_ID"),
+            "Terminal 不得注入 NORMA_NODE_ID，实际 env: {:?}",
             terminal.env
         );
         assert!(
             with_hook
                 .env
                 .iter()
-                .any(|(key, value)| key == "MULTISOUL_NODE_ID" && value == "42"),
-            "有 hook 时仍应注入本卡 MULTISOUL_NODE_ID=42，实际 env: {:?}",
+                .any(|(key, value)| key == "NORMA_NODE_ID" && value == "42"),
+            "有 hook 时仍应注入本卡 NORMA_NODE_ID=42，实际 env: {:?}",
             with_hook.env
         );
         assert!(
             with_hook
                 .env_remove
                 .iter()
-                .all(|key| key != "MULTISOUL_NODE_ID"),
-            "有 hook 时不得移除即将注入的 MULTISOUL_NODE_ID，实际 env_remove: {:?}",
+                .all(|key| key != "NORMA_NODE_ID"),
+            "有 hook 时不得移除即将注入的 NORMA_NODE_ID，实际 env_remove: {:?}",
             with_hook.env_remove
         );
     }

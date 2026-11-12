@@ -452,7 +452,7 @@ NORMA_MOBILE_MEASURE=1 PATH="$PWD/target/debug:$PATH" NORMA_IOS_SIMULATOR=526559
 NORMA_MOBILE_MEASURE=1 NORMA_IOS_SIMULATOR=5265591D-704C-4515-868D-C2D64F94A7FA bash scripts/check-norma-mobile-approvals.sh ios
 ```
 
-消息命令前需按原验证流程构建`multisoul-agent-hook`。审批脚本沿用已授权的隔离Hook方式，不改正式配置。每种Provider保留20次审批/聊天读取、原两次实际决定的接收与持久化回执、一次含模型生成的回复等待、6s聊天订阅客户端CPU；不增加模型任务。日志中的`NATIVE_LATENCY`/`NATIVE_IDLE`不包含正文或凭据。
+消息命令前需按原验证流程构建`norma-hook`。审批脚本沿用已授权的隔离Hook方式，不改正式配置。每种Provider保留20次审批/聊天读取、原两次实际决定的接收与持久化回执、一次含模型生成的回复等待、6s聊天订阅客户端CPU；不增加模型任务。日志中的`NATIVE_LATENCY`/`NATIVE_IDLE`不包含正文或凭据。
 
 iOS模拟器：Codex/Claude审批列表p95为29.23/31.68ms，已完成短聊天页p95为78.12/36.23ms；8个macOS/iOS真实原生场景通过。整页读取含新建连接与解码，不能作为首分片、纯TLS或物理跨网数据。2次决定和1次生成不足以宣称稳定分位数；客户端CPU也不代表完整产品或服务端。原始结果见`../target/norma-ios-evidence/v57/summary.json`，完整限制见Goal v57，实时指挥台已在下述v58接入。
 

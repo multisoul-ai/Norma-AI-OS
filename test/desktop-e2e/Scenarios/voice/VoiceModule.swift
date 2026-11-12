@@ -4,8 +4,8 @@ import E2EKit
 public enum VoiceModule {
     public static let manifest = DesktopModule(
         name: "voice",
-        scenarioNames: [VoiceLiveCall.name, VoiceLiveAcoustic.name, VoiceDoubaoDirect.name, VoiceCommandBudget.name, VoiceSettingsModes.name],
-        visualScenarioNames: [VoiceSettingsModes.name],
+        scenarioNames: [VoiceLiveCall.name, VoiceLiveAcoustic.name, VoiceDoubaoDirect.name, VoiceCommandBudget.name, VoiceSettingsModes.name, VoiceAdvancedGroups.name],
+        visualScenarioNames: [VoiceSettingsModes.name, VoiceAdvancedGroups.name],
         run: { name, session in
             switch name {
             case VoiceLiveCall.name: try await VoiceLiveCall.run(session)
@@ -13,6 +13,7 @@ public enum VoiceModule {
             case VoiceDoubaoDirect.name: try await VoiceDoubaoDirect.run(session)
             case VoiceCommandBudget.name: try await VoiceCommandBudget.run(session)
             case VoiceSettingsModes.name: try await VoiceSettingsModes.run(session)
+            case VoiceAdvancedGroups.name: try await VoiceAdvancedGroups.run(session)
             default: return false
             }
             return true

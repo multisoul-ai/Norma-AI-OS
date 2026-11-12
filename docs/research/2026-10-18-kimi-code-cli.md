@@ -116,7 +116,7 @@ $KIMI_CODE_HOME/
 
 - Kimi Code 2.2.0 有原生 hooks：在**用户级** `~/.kimi-code/config.toml` 里写 `[[hooks]]` 表数组。官方文档说明且已用源码核对（`packages/agent-core-v2/src/features/externalHooks/configSection.ts`）：schema 为 `.strict()`，**只允许** `event`、`matcher`、`command`、`timeout`（1–600 秒，默认 30）四个字段，多余字段会让配置加载失败。
 - 官方文档明确：**没有项目级配置文件**（“The CLI currently reads a single user-level config file and has no project-level config file mechanism”）。因此 Norma 无法做到像 Claude 的项目级 hook，只能修改用户级 `config.toml`（或使用插件机制，见 §6.5）。
-- hook 以 `shell: true` 子进程运行，stdin 收到一行 JSON，cwd 为会话工作目录。已验证：hook 子进程**继承 Kimi 的环境变量**，包括 Norma 注入的 `MULTISOUL_NODE_ID`/`MULTISOUL_HOOK_TOKEN` 等（在 `tmux new-session -e MULTISOUL_NODE_ID=7 -e MULTISOUL_HOOK_TOKEN=tok` 下，探针脚本 [`hook-probe.sh`](evidence/kimi/hook-probe.sh) 记录到 `MULTISOUL_NODE_ID=7`、`MULTISOUL_HOOK_TOKEN=tok`）。所以 Norma 现有的 `multisoul-agent-hook forward --source kimi` 模式可以原样工作。
+- hook 以 `shell: true` 子进程运行，stdin 收到一行 JSON，cwd 为会话工作目录。已验证：hook 子进程**继承 Kimi 的环境变量**，包括 Norma 注入的 `NORMA_NODE_ID`/`NORMA_HOOK_TOKEN` 等（在 `tmux new-session -e NORMA_NODE_ID=7 -e NORMA_HOOK_TOKEN=tok` 下，探针脚本 [`hook-probe.sh`](evidence/kimi/hook-probe.sh) 记录到 `NORMA_NODE_ID=7`、`NORMA_HOOK_TOKEN=tok`）。所以 Norma 现有的 `norma-hook forward --source kimi` 模式可以原样工作。
 - 退出码 0 放行；2 阻断（仅 `PreToolUse`/`Stop`/`UserPromptSubmit`）；其余 fail-open。Norma 的转发器应始终 `exit 0`。
 
 ### 6.2 事件名与实测载荷
@@ -151,13 +151,13 @@ $KIMI_CODE_HOME/
 - 方案：在 `config.toml` 末尾追加一个带标记注释的区块，卸载时按标记删除整块：
 
   ```toml
-  # >>> multisoul-agent-hook managed (do not edit) >>>
+  # >>> norma-hook managed (do not edit) >>>
   [[hooks]]
   event = "SessionStart"
-  command = "'/path/to/multisoul-agent-hook' forward --source kimi"
+  command = "'/path/to/norma-hook' forward --source kimi"
   timeout = 10
   ...（每个事件一条）
-  # <<< multisoul-agent-hook managed <<<
+  # <<< norma-hook managed <<<
   ```
 
 - 已验证：在含这种标记区块、含一个无关的 `[tui_user_section]`、含一行自定义注释的 `config.toml` 上，让 Kimi 自己改写配置（TUI `/model` 切换 Thinking 开关），结果只在文件末尾追加了 `[thinking]\nenabled = false`，**注释、标记、`[[hooks]]` 全部原样保留**（`diff` 仅 2 行，见 [`config-after-rewrite.toml`](evidence/kimi/config-after-rewrite.toml)）。

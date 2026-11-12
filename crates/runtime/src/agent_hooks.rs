@@ -88,10 +88,10 @@ impl AgentHookEnv {
                 "NORMA_PATH_CONVENTION",
                 if path_convention { "1" } else { "0" },
             )
-            .env("MULTISOUL_NODE_ID", self.node_id.to_string())
-            .env("MULTISOUL_AGENT_PROFILE", agent_profile_env(self.profile))
-            .env("MULTISOUL_HOOK_ENDPOINT", self.endpoint.clone())
-            .env("MULTISOUL_HOOK_TOKEN", self.token.clone())
+            .env("NORMA_NODE_ID", self.node_id.to_string())
+            .env("NORMA_AGENT_PROFILE", agent_profile_env(self.profile))
+            .env("NORMA_HOOK_ENDPOINT", self.endpoint.clone())
+            .env("NORMA_HOOK_TOKEN", self.token.clone())
             .env("NORMA_WORKSPACE_ID", self.workspace_id.clone())
             .env("NORMA_WORKSPACE_ROUTE_ID", self.workspace_route_id.clone())
             .env("NORMA_SOCKET", self.norma_socket.clone())
@@ -148,7 +148,7 @@ mod tests {
     ///
     /// Data setup:
     ///   node_id = 77, representing one OpenCode Agent card.
-    ///   profile = OpenCode, so MULTISOUL_AGENT_PROFILE should be "opencode".
+    ///   profile = OpenCode, so NORMA_AGENT_PROFILE should be "opencode".
     ///   endpoint/token come from AgentHookRuntimeConfig started by the app-local hook server.
     ///
     /// Execution:
@@ -211,7 +211,7 @@ mod tests {
     ///
     /// 数据构造：Codex/42 + 任意 hook 配置。
     /// 执行过程：用显式开关参数各应用一次（不触碰全局状态，避免同进程测试互相干扰）。
-    /// 预期结果：开启时命令含 `NORMA_PATH_CONVENTION=1`，关闭时含 `=0`，且 hook 环境（MULTISOUL_NODE_ID）都在。
+    /// 预期结果：开启时命令含 `NORMA_PATH_CONVENTION=1`，关闭时含 `=0`，且 hook 环境（NORMA_NODE_ID）都在。
     #[test]
     fn path_convention_switch_reaches_agent_environment() {
         let mut runtime = Runtime::new();
@@ -227,7 +227,7 @@ mod tests {
             command.env.iter().any(|(k, v)| k == key && v == value)
         };
         let on = env.apply_to_command_with(PtyCommand::new("/bin/zsh"), true);
-        assert!(has(&on, "MULTISOUL_NODE_ID", "42"), "hook 环境仍应注入");
+        assert!(has(&on, "NORMA_NODE_ID", "42"), "hook 环境仍应注入");
         assert!(
             has(&on, "NORMA_PATH_CONVENTION", "1"),
             "开启时显式传 1，覆盖 shell 残留值"
@@ -314,7 +314,7 @@ mod tests {
     ///
     /// 预期结果：
     ///   - 正断言：清除后 9 个键在子进程里都是 `unset`。
-    ///   - 负断言：清除前 `MULTISOUL_NODE_ID` 必须是 `900001`，否则没有证明清除生效。
+    ///   - 负断言：清除前 `NORMA_NODE_ID` 必须是 `900001`，否则没有证明清除生效。
     #[test]
     fn clear_inherited_agent_identity_hides_vars_from_child_processes() {
         struct Restore(Vec<(String, Option<String>)>);
@@ -345,7 +345,7 @@ mod tests {
         assert_eq!(
             before.first().map(String::as_str),
             Some("900001"),
-            "清除前子进程必须看到 MULTISOUL_NODE_ID=900001，实际：{before:?}"
+            "清除前子进程必须看到 NORMA_NODE_ID=900001，实际：{before:?}"
         );
         assert_eq!(
             after.len(),
@@ -359,7 +359,7 @@ mod tests {
         assert_ne!(
             before.first().map(String::as_str),
             after.first().map(String::as_str),
-            "清除前后的 MULTISOUL_NODE_ID 必须不同"
+            "清除前后的 NORMA_NODE_ID 必须不同"
         );
     }
 

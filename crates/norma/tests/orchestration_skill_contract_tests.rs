@@ -45,7 +45,7 @@ fn install_paths(root: &Path) -> InstallPaths {
     InstallPaths {
         managed_root: root.join("managed"),
         bundled_cli: root.join("bundle").join("norma"),
-        bundled_hook: root.join("bundle").join("multisoul-agent-hook"),
+        bundled_hook: root.join("bundle").join("norma-hook"),
         hook_paths: HookInstallPaths {
             claude_settings: root.join(".claude").join("settings.json"),
             codex_hooks: root.join(".codex").join("hooks.json"),
@@ -56,7 +56,7 @@ fn install_paths(root: &Path) -> InstallPaths {
                 .join(".config")
                 .join("opencode")
                 .join("plugins")
-                .join("multisoul-agent-hook.js"),
+                .join("norma-hook.js"),
             infcode_settings: root.join(".infcode/settings.json"),
             kimi_config: root.join(".kimi-code").join("config.toml"),
             hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),

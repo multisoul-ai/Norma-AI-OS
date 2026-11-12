@@ -40,25 +40,14 @@ fn test_agent_task_announcements_default_on_and_toggle_independently() {
     );
 }
 
-/// 窗口内缘视觉设置默认开启，并且与 Agent 音频播报开关相互独立。
+/// 旧「窗口内缘视觉」值仍作为光晕迁移来源读取，默认开启，且与 Agent 音频播报相互独立。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   saved.voice_window_inset_enabled = None → 产品默认 true
-///   toggle count = 1 → true 反转为 false
-///   Agent announcements default = true，用于验证视觉开关不关闭音频功能
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 用空 saved/env 构造 VoiceSettingsState。
-///   2. 读取窗口内缘视觉与 Agent 播报的默认值。
-///   3. 仅切换一次窗口内缘视觉并再次读取两个设置。
-///
-/// 预期结果：
-///   - 正断言：缺少保存值时窗口内缘视觉默认开启。
-///   - 负断言：切换一次后窗口内缘视觉关闭。
-///   - 正断言：Agent 音频播报仍保持开启，不受视觉偏好影响。
+/// 数据构造：saved.voice_window_inset_enabled = None → 产品默认 true；Agent 播报默认 true。
+/// 执行过程：用空 saved/env 构造 VoiceSettingsState，读取两个设置。
+/// 预期结果：两项都默认开启（开关本身已移到 设置 → 特效，不再在语音页切换）。
 #[test]
 fn test_voice_window_inset_default_on_and_independent_from_audio_announcements() {
-    let mut state = VoiceSettingsState::from_sources(
+    let state = VoiceSettingsState::from_sources(
         SavedVoiceSettings::default(),
         EnvVoiceSettings::default(),
     );
@@ -70,16 +59,5 @@ fn test_voice_window_inset_default_on_and_independent_from_audio_announcements()
     assert!(
         state.values().agent_task_announcements_enabled(),
         "视觉设置测试的 Agent 音频播报基线必须保持默认开启"
-    );
-
-    state.toggle_voice_window_inset();
-
-    assert!(
-        !state.values().voice_window_inset_enabled(),
-        "窗口内缘视觉切换一次后必须关闭"
-    );
-    assert!(
-        state.values().agent_task_announcements_enabled(),
-        "关闭窗口内缘视觉不得连带关闭 Agent 音频播报"
     );
 }
