@@ -22,6 +22,9 @@ impl MultisoulApp {
             .items_center()
             .justify_between()
             .px_4()
+            .when(self.staff.fullscreen, |header| {
+                header.pl(px(crate::app::chrome::BRAND_TOGGLE_LEFT))
+            })
             .h(px(44.0))
             .border_b_1()
             .border_color(rgba(self.theme.node_stroke))
@@ -356,11 +359,14 @@ impl MultisoulApp {
             return;
         }
         let input = cx.new(|cx| {
-            InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
-                "staff.message_placeholder",
-                window,
-                cx,
-            ))
+            InputState::new(window, cx)
+                .placeholder(ui::i18n::input_placeholder(
+                    "staff.message_placeholder",
+                    window,
+                    cx,
+                ))
+                // Match the command dock: Enter sends; single-line layout rejects newlines.
+                .validate(|value, _| !value.contains(['\n', '\r']))
         });
         cx.subscribe_in(&input, window, |app, _, event, window, cx| match event {
             InputEvent::PressEnter { .. } => app.send_staff_message(window, cx),

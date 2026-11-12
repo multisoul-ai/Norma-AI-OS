@@ -1,6 +1,6 @@
 # Goal：幕僚模式 M1
 
-状态：M1 实现已落地；真实 App 视觉验收受锁屏阻塞，尚未完成验收。基线：`dev@e555367e2`。分支：`feat/staff-m1-20261112`。
+状态：M1 实现、独立审查和真实 App 中英文视觉验收均完成（2/2）；交付 PR #235，未合并。基线：`dev@e555367e2`。分支：`feat/staff-m1-20261112`。
 
 ## 目标与边界
 
@@ -54,12 +54,16 @@ M1 包含 Task/Worker、原子快照、任务对话、采用后分派、hook 结
 - `rtk cargo test -p runtime -p ui -- --test-threads=1`：422 通过，11 忽略；含 Worker 身份和提前 Ready 回归。
 - `rtk cargo test -p app --lib disabled_brain_preserves_worker_completion_for_background_persistence`：1 通过，1785 过滤；覆盖存活服务入队后立即停用、终态落盘且模型不唤醒。
 - 最新 `rtk cargo check -p app`、debug build、SwiftPM staff 场景编译通过。i18n 2258 双语键、行数/allow/资源生命周期/存储边界/性能/指南行数/SOCKS 静态护栏通过；`rtk cargo lint-resources` 通过。
-- 独立对抗式审查完成两轮以上，已核验并处理发现；最后复核未发现 M1 核心阻塞，视觉结论仍待实际执行。
-- release 构建与 PR 链接待补；由于真实 UI 未验收，PR 保留 Draft，不能宣称 M1 验收完成。
+- 独立对抗式审查完成两轮以上，已核验并处理发现；最后复核未发现 M1 核心阻塞。验收发现的输入校验、主题反馈和全屏避让修复也经过独立复核。
+- 最终 app check、debug/release 构建、资源 clippy 与相关静态护栏通过；PR：https://github.com/multisoul-ai/Norma-AI-OS/pull/235。
+- 解锁后保留的失败证据：`2026-11-12T15-05-06Z` / `15-08-18Z` 场景遗漏默认收起的右抽屉前置操作，已显式展开。`15-11-28Z` 首条任务 Enter 触发 GPUI 单行换行断言；复用命令 Dock 的 validation 修复，`15-20-28Z` 已成功落盘用户消息。后者又暴露 ACP 夹具错误读取 CLI envelope，已按真实 `result.Brain.output` 解包。
+- `2026-11-12T15-25-36Z` 中文和 `15-32-50Z` 英文的空态、提议、采用前未派活、Task report 闸门均通过；两主题采用按钮 hover 变化过弱，模型判定失败。已增强共同组件主题 token，六主题反馈回归先红后绿；`rtk cargo test -p ui` 最终 23 通过。场景新增按下态看图检查。
+- 后续失败证据保留：`15-54-40Z` 视觉响应点格式错误（驱动 ENV）；`16-01-22Z` 场景遗漏展开默认折叠的 All files，已补显式前置操作；`16-08-31Z` 全屏 Tasks 标题与红黄绿按钮重叠，已复用顶栏既有安全边距修复。
+- 最终 `bash scripts/desktop-e2e.sh staff --visual` 通过 2/2：中文 InkBlack 的 `2026-11-12T16-29-57Z`、英文 SapphireNight 的 `2026-11-12T16-51-41Z`，各 6 个步骤、11 项模型看图检查全部通过。证据位于 `artifacts/desktop-workspace-e2e/`，包含 report.json、原 PNG、匹配 SHA 的逐图观察、Task 快照和 CLI/ACP/Worker 日志。
+- 两套场景均确认采用前不执行、Task report 被拒、采用后创建新卡且精确 dispatch 仅送达一次、结果回原任务并推进待验收、右侧读取真实产物、自动完成和新消息重开、手动阶段保护、全屏安全区域/Escape/画布切回且不创建第三张卡。测试仅替换外部模型与 Agent 进程，实际 App、CLI、权限闸门、PTY、hook 和 TaskStore 均走生产路径；不将此证据宣称为真实模型服务验收。
 
-## 解锁后的收尾
+## 交付边界
 
-1. 确认 Mac 屏幕解锁，运行 `bash scripts/desktop-e2e.sh staff --visual`。
-2. 当前 Agent 逐一读取 visual request 与原 PNG，写匹配 SHA 的观察结果；不可预填通过。
-3. 修复真实流程/看图发现，复验受影响部分，保留两种语言和两个当前主题的证据。
-4. 更新本计划与 PR，全部验收通过后再取消 Draft；是否合并仍服从 dev 最新提交 CI 门禁。
+- 当前 Agent 逐一读取 visual request 与原 PNG 后写观察结果；未预填通过，失败证据保留。
+- PR 交付经正常 hook 提交与推送；合并仍须最新提交 CI 全绿，本任务不自动合并。
+- M2/M3 仍按既定拆分后置；一任务一会话未获完整验证，M1 使用共享主会话＋Task.messages 重放。

@@ -39,6 +39,7 @@ public enum StaffWorkflow {
         try await session.step("进入项目并准备一个可派活的 Agent 名称") {
             try await session.visualClick("点击 Staff M1 工作空间卡片进入")
             try await session.visualClick("点击 E2E Project 项目进入画布")
+            try await session.visualClick("点击右上角侧栏图标，展开原有右侧内容抽屉")
             try await session.visualClick("点击底部命令输入框")
             try await session.type("/new claude")
             try await session.shortcut(key: 36, modifiers: [])
@@ -71,7 +72,10 @@ public enum StaffWorkflow {
             let target = try await session.visualLocate("定位提议卡的采用并派发/Adopt and dispatch 按钮中心")
             try await session.hover(local: target.point, on: target.frame)
             try session.save(try await session.visualCheck([VisualCriterion(id: "hover", text: "提议采用按钮悬停反馈清楚可辨，文字与边框清晰，布局未跳动。")]), "03-hover.png")
-            try await session.visualClick("点击提议卡的采用并派发/Adopt and dispatch 按钮")
+            let adopt = try await session.visualLocate("定位提议卡的采用并派发/Adopt and dispatch 按钮，准备按下")
+            try await session.press(local: adopt.point, on: adopt.frame) {
+                try session.save(try await session.visualCheck([VisualCriterion(id: "pressed", text: "采用按钮按下状态比悬停状态更明显，文字可读，位置和尺寸未改变；尚未显示已派发。")]), "03-pressed.png")
+            }
             try await waitFor("Worker 返回可信结果") {
                 let task = try first(root)
                 return task["phase"] as? String == "Merging" && messages(task).contains("STAFF REVIEW")
@@ -95,7 +99,8 @@ public enum StaffWorkflow {
 
         try await session.step("右侧复用文件抽屉打开 Worker 产物") {
             try await session.visualClick("点击右侧内容抽屉中的文件/Files工具；不要点击任务里的路径文字")
-            try await session.visualClick("点击右侧文件树中的 STAFF-RESULT.md 文件；若需要先展开 E2E Project 文件树")
+            try await session.visualClick("点击右侧文件树的所有文件/All files分区标题，展开默认折叠的目录树")
+            try await session.visualClick("点击右侧已展开文件树中的 STAFF-RESULT.md 文件")
             try session.save(try await session.visualCheck([VisualCriterion(id: "artifact", text: "右侧文件标签与正文打开 STAFF-RESULT.md，正文包含 STAFF RESULT；左侧任务列表和中央任务对话仍在同一个幕僚页面。")]), "05-artifact.png")
             return "原文件抽屉可读取真实 Worker 文件"
         }
@@ -116,7 +121,7 @@ public enum StaffWorkflow {
 
         try await session.step("全屏、Escape 恢复与画布切换") {
             try await session.visualClick("点击幕僚标题栏中的全屏/Full screen按钮")
-            try session.save(try await session.visualCheck([VisualCriterion(id: "full", text: "幕僚任务界面填满窗口，顶部原工作空间工具栏收起，出现退出全屏/Exit full screen按钮，任务内容与右侧文件仍在。")]), "07-fullscreen.png")
+            try session.save(try await session.visualCheck([VisualCriterion(id: "full", text: "幕僚任务界面填满窗口，顶部原工作空间工具栏收起，出现退出全屏/Exit full screen按钮，任务内容与右侧文件仍在；左上任务/Tasks标题完整可读，不与 macOS 红黄绿窗口按钮重叠。")]), "07-fullscreen.png")
             try await session.shortcut(key: 53, modifiers: [])
             _ = try await session.visualCheck([VisualCriterion(id: "escape", text: "Escape 已退出幕僚全屏，原工作空间顶栏恢复，任务和打开的文件保留。")])
             try await session.visualClick("点击幕僚标题栏中的画布/Canvas按钮返回画布")
