@@ -28,6 +28,7 @@ mod proposal_actions;
 pub(crate) mod proposals;
 mod questions;
 mod settings;
+mod staff;
 mod startup;
 mod trace_state;
 
@@ -214,6 +215,7 @@ impl MultisoulApp {
         excerpts: &[(u64, Option<String>)],
         cx: &mut Context<Self>,
     ) {
+        self.flush_staff_events(cx);
         self.sync_brain_client(cx);
         self.flush_question_receipts(cx);
         self.poll_brain_questions();
@@ -291,8 +293,19 @@ impl MultisoulApp {
         let Some(agent) = self.agent_announcement_name(*node_id) else {
             return;
         };
+        if let Some(dispatch_id) = self.runtime.staff_dispatch_id(*node_id) {
+            self.push_brain(BrainEventKind::WorkerAttention {
+                node_id: *node_id,
+                dispatch_id: dispatch_id.to_owned(),
+                waiting: matches!(
+                    to,
+                    AgentTaskState::WaitingApproval { .. } | AgentTaskState::WaitingQuestion
+                ),
+            });
+        }
         let outcome = match to {
             AgentTaskState::Done => Outcome::Succeeded,
+            AgentTaskState::Ended => Outcome::Interrupted,
             AgentTaskState::Failed { .. } => Outcome::Failed,
             AgentTaskState::Thinking => {
                 let prompt = self.runtime.agent_latest_prompt(*node_id);
@@ -322,6 +335,8 @@ impl MultisoulApp {
             .or_else(|| self.runtime.agent_latest_prompt(*node_id))
             .unwrap_or_default();
         self.push_brain(BrainEventKind::AgentFinished {
+            node_id: *node_id,
+            dispatch_id: self.runtime.staff_dispatch_id(*node_id).map(str::to_owned),
             agent,
             outcome,
             excerpt,

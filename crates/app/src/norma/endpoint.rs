@@ -18,6 +18,7 @@ mod brain_history;
 mod brain_report;
 pub(crate) mod presentation;
 mod routing;
+mod staff;
 mod task_control;
 mod task_dispatch;
 
@@ -354,6 +355,13 @@ fn dispatch_request(server_request: NormaServerRequest, cx: &mut App) {
             "App 全局编排健康检查尚未完成",
             true,
         ));
+        return;
+    }
+    if matches!(
+        request.command.brain_op(),
+        Some(norma::protocol::BrainOp::Task { .. })
+    ) {
+        staff::dispatch(request, response, cx);
         return;
     }
     if matches!(

@@ -25,7 +25,7 @@ impl AgentHookServer {
         self.abandon_dead_agents(runtime);
         self.ingest_process_probes(runtime, now_ms, &mut report);
         for event in self.receiver.try_iter() {
-            if !event_matches_card_profile(runtime, &event) {
+            if !event_matches_card_profile(runtime, &event) || !runtime.accepts_staff_hook(&event) {
                 continue;
             }
             let actions = self.completion.borrow_mut().observe(&event, now_ms);
@@ -153,6 +153,9 @@ impl AgentHookServer {
         background_unsettled: bool,
         force_changed: bool,
     ) {
+        if !runtime.accepts_staff_hook(&event) {
+            return;
+        }
         report.changed |= runtime.observe_native_question_result(&event);
         let previous_progress = runtime.mobile_task_progress(event.node_id);
         if !runtime.observe_mobile_hook(&event) {

@@ -43,6 +43,17 @@ impl MultisoulApp {
         if self.brain_scope().as_ref() != Some(&event.scope) {
             return;
         }
+        // Worker settlement outlives the model service. Persist before handing it to Router.
+        if matches!(
+            &event.kind,
+            BrainEventKind::AgentFinished {
+                dispatch_id: Some(_),
+                ..
+            } | BrainEventKind::WorkerAttention { .. }
+        ) {
+            self.staff.events.borrow_mut().push_back(event);
+            return;
+        }
         let event = match self.brain.client.as_ref() {
             Some(client) => match client.push(event) {
                 None => return,
@@ -70,6 +81,11 @@ impl MultisoulApp {
                 continue;
             }
             match status.kind {
+                BrainStatusKind::TaskChanged(task) => self.receive_staff_tasks(vec![task], cx),
+                BrainStatusKind::TaskError { reason } => {
+                    self.staff.error = Some(crate::app::staff::error_message(reason));
+                    self.notify_staff(cx);
+                }
                 BrainStatusKind::Ready => tracing::info!("大脑会话就绪"),
                 BrainStatusKind::BackendDown { reason } => {
                     tracing::warn!(%reason, "大脑后端不可用");

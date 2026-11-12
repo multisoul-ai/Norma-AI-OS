@@ -10,6 +10,7 @@ public enum ScenarioCatalog {
         SettingsModule.manifest,
         VoiceModule.manifest,
         BrainModule.manifest,
+        StaffModule.manifest,
         AgentModule.manifest,
         BootModule.manifest,
         IslandModule.manifest,

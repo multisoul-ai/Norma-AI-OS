@@ -22,6 +22,7 @@ const MAX_BACKOFF: Duration = Duration::from_secs(60);
 const MAX_TRANSIENT_RETRIES: u32 = 3;
 
 pub struct Job {
+    pub task_id: Option<String>,
     pub cancelled: Arc<AtomicBool>,
     pub scope: BrainScope,
     pub text: String,
@@ -36,6 +37,7 @@ pub struct LaneEnv {
     pub effort: Option<String>,
     pub gate: Gate,
     pub goal: Arc<GoalStore>,
+    pub tasks: Arc<crate::staff::TaskStore>,
     pub status: Sender<BrainStatus>,
     pub open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
     pub stop: Arc<AtomicBool>,
@@ -197,7 +199,21 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             session = None;
             continue;
         }
-        let text = if primed {
+        let task = match super::staff::load(&env.tasks, &job.scope, job.task_id.as_deref()) {
+            Ok(task) => task,
+            Err(error) => {
+                env.send(
+                    &job.scope,
+                    BrainStatusKind::TaskError {
+                        reason: error.to_string(),
+                    },
+                );
+                continue;
+            }
+        };
+        let text = if let Some(task) = &task {
+            super::staff::prompt(task, &job.scope, &env.gate.norma_bin)
+        } else if primed {
             job.text.clone()
         } else {
             let bin = env.gate.norma_bin.display().to_string();
@@ -206,7 +222,12 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 primer(
                     env.role,
                     &bin,
-                    env.goal.summary_for(&job.scope.workspace_id).as_deref()
+                    env.tasks
+                        .summary_for(&job.scope.workspace_id)
+                        .ok()
+                        .flatten()
+                        .or_else(|| env.goal.summary_for(&job.scope.workspace_id))
+                        .as_deref()
                 ),
                 job.text
             )
@@ -232,17 +253,43 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             TraceItem::new(TraceKind::Prompt, "发给大脑", text.clone()),
         );
         let this_turn = turn_no;
-        let result = active.prompt(
-            &text,
-            &env.gate,
-            &cancelled,
-            env.prompt_timeout,
-            &mut |item| env.trace(&job.scope, this_turn, &job.trigger, item),
-        );
+        let gate = match &job.task_id {
+            Some(id) => env.gate.clone().for_task(job.scope.clone(), id.clone()),
+            None => env.gate.clone(),
+        };
+        let result = active.prompt(&text, &gate, &cancelled, env.prompt_timeout, &mut |item| {
+            env.trace(&job.scope, this_turn, &job.trigger, item)
+        });
         match result {
             Ok(reply) => {
+                if let Some(task) = &task {
+                    // Keep the already-computed reply until it is durable; never rerun model effects.
+                    loop {
+                        match super::staff::save_reply(
+                            &env.tasks,
+                            task,
+                            &reply,
+                            active.session_id(),
+                        ) {
+                            Ok(task) => {
+                                env.send(&job.scope, BrainStatusKind::TaskChanged(task));
+                                break;
+                            }
+                            Err(error) => env.send(
+                                &job.scope,
+                                BrainStatusKind::TaskError {
+                                    reason: error.to_string(),
+                                },
+                            ),
+                        }
+                        if env.stop.load(Ordering::Relaxed) || cancelled.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        env.sleep(env.retry_backoff, &cancelled);
+                    }
+                }
                 turns += 1;
-                primed = true;
+                primed = task.is_none();
                 failures = 0;
                 env.goal.append_decision(
                     &serde_json::json!({"workspace_id": job.scope.workspace_id, "route_id": job.scope.route_id, "lane": format!("{:?}", env.role), "reply": reply})

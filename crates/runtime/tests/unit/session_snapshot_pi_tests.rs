@@ -93,6 +93,7 @@ fn pi_resume_quotes_hostile_session_id() {
 fn pi_resume_carries_hook_env_with_pi_profile() {
     let env = AgentHookEnv {
         control_run_id: None,
+        dispatch_id: None,
         node_id: 9,
         profile: AgentProfile::Pi,
         endpoint: "http://127.0.0.1:1/hook".to_string(),

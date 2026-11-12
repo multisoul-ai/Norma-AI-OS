@@ -34,6 +34,7 @@ impl MultisoulApp {
                 global_dir,
                 directory,
             );
+            config.tasks_dir = state_dir;
             config.read_roots = read_roots;
             config.strategy = settings.strategy;
             config.main_model = models.main;

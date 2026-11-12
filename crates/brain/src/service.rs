@@ -8,6 +8,7 @@ use crate::lane::prompt::{self, Role};
 use crate::lane::worker::{self, Job, LaneEnv};
 use crate::router::{Action, Lane, RouterConfig};
 use crate::scoped_router::{ScopedAction, ScopedRouter};
+use crate::staff::TaskStore;
 use norma::protocol::BrainScope;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -30,6 +31,7 @@ pub struct BrainConfig {
     pub project_root: PathBuf,
     pub read_roots: ReadRoots,
     pub state_dir: PathBuf,
+    pub tasks_dir: PathBuf,
     pub router: RouterConfig,
     /// 传给适配器进程的环境变量，例如让 `norma` CLI 找到 App 的 socket。
     pub env: Vec<(String, String)>,
@@ -54,6 +56,7 @@ impl BrainConfig {
             norma_bin,
             read_roots: ReadRoots::new(vec![project_root.clone()]),
             project_root,
+            tasks_dir: state_dir.clone(),
             state_dir,
             router: RouterConfig::default(),
             env: Vec::new(),
@@ -65,10 +68,12 @@ impl BrainConfig {
 }
 
 mod scopes;
+mod staff;
 use scopes::Scopes;
 
 enum Command {
     Event(Box<BrainEvent>),
+    Recorded(Box<BrainEvent>, crate::staff::TaskEventResult),
     Release(BrainScope),
 }
 
@@ -77,6 +82,7 @@ pub struct BrainService {
     scopes: Scopes,
     threads: Vec<JoinHandle<()>>,
     read_roots: ReadRoots,
+    tasks: Arc<TaskStore>,
 }
 
 impl BrainService {
@@ -87,6 +93,7 @@ impl BrainService {
         let scopes = Scopes::new(stop.clone());
         let open = Arc::new(Mutex::new(HashSet::new()));
         let goal = Arc::new(GoalStore::open(config.state_dir.clone()));
+        let tasks = TaskStore::shared(config.tasks_dir.clone());
         let mut models = backend::models_for(config.backend.kind, config.strategy);
         models.main = config.main_model.clone().or(models.main);
         models.approval = config.approval_model.clone().or(models.approval);
@@ -103,6 +110,7 @@ impl BrainService {
                 .map(str::to_string),
             gate: gate.clone(),
             goal: goal.clone(),
+            tasks: tasks.clone(),
             status: status_tx.clone(),
             open: open.clone(),
             stop: stop.clone(),
@@ -129,6 +137,10 @@ impl BrainService {
                 ..config.router
             }),
             goal,
+            tasks: tasks.clone(),
+            status: status_tx,
+            retry_events: Vec::new(),
+            retry_at: Instant::now(),
             open,
             main: main_tx,
             approval: approval_tx,
@@ -141,6 +153,7 @@ impl BrainService {
                 scopes,
                 threads,
                 read_roots: config.read_roots,
+                tasks,
             },
             status_rx,
         )
@@ -151,6 +164,20 @@ impl BrainService {
         if !self.scopes.token(&event.scope).load(Ordering::Relaxed) {
             let _ = self.events.send(Command::Event(Box::new(event)));
         }
+    }
+
+    /// Host has already atomically stored this Worker event; only notification remains.
+    pub fn push_recorded(&self, event: BrainEvent, recorded: crate::staff::TaskEventResult) {
+        if !self.scopes.token(&event.scope).load(Ordering::Relaxed) {
+            let _ = self
+                .events
+                .send(Command::Recorded(Box::new(event), recorded));
+        }
+    }
+
+    /// 只获取句柄；磁盘操作须由后台调用，不能从 GPUI render 读取。
+    pub fn tasks(&self) -> Arc<TaskStore> {
+        self.tasks.clone()
     }
 
     /// Cancel queued and in-flight work for this exact route without stopping other projects.
@@ -177,6 +204,10 @@ struct Dispatcher {
     scopes: Scopes,
     router: ScopedRouter,
     goal: Arc<GoalStore>,
+    tasks: Arc<TaskStore>,
+    status: Sender<BrainStatus>,
+    retry_events: Vec<BrainEvent>,
+    retry_at: Instant,
     open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
     main: Sender<Job>,
     approval: Sender<Job>,
@@ -195,7 +226,8 @@ impl Dispatcher {
                 })
                 .min(Duration::from_millis(200));
             match inbox.recv_timeout(wait) {
-                Ok(Command::Event(event)) => self.handle(*event),
+                Ok(Command::Event(event)) => self.handle(*event, None),
+                Ok(Command::Recorded(event, result)) => self.handle(*event, Some(result)),
                 Ok(Command::Release(scope)) => {
                     self.router.remove(&scope);
                     self.open
@@ -208,12 +240,21 @@ impl Dispatcher {
             }
             let due = self.router.poll(Instant::now());
             self.dispatch(due);
+            if Instant::now() >= self.retry_at {
+                self.retry_at = Instant::now() + Duration::from_secs(1);
+                for event in std::mem::take(&mut self.retry_events) {
+                    self.handle(event, None);
+                }
+            }
         }
     }
 
-    fn handle(&mut self, event: BrainEvent) {
+    fn handle(&mut self, event: BrainEvent, recorded: Option<crate::staff::TaskEventResult>) {
         let BrainEvent { scope, kind: event } = event;
         if self.scopes.token(&scope).load(Ordering::Relaxed) {
+            return;
+        }
+        if !self.record_task(&scope, &event, recorded) {
             return;
         }
         let approval_id = match &event {
@@ -258,21 +299,32 @@ impl Dispatcher {
             if cancelled.load(Ordering::Relaxed) {
                 continue;
             }
-            let tx = if lane == Lane::Main {
-                &self.main
-            } else {
+            let tx = if lane == Lane::Approval {
                 &self.approval
+            } else {
+                &self.main
             };
             // 主会话的每条提示都带上当前目标，不只在首条说明里说一次。
-            let text = match (lane, self.goal.summary_for(&scope.workspace_id)) {
+            let text = match (
+                &lane,
+                self.tasks
+                    .summary_for(&scope.workspace_id)
+                    .ok()
+                    .flatten()
+                    .or_else(|| self.goal.summary_for(&scope.workspace_id)),
+            ) {
                 (Lane::Main, Some(goals)) => prompt::with_goals(&text, &goals),
                 _ => text,
             };
-            let text = match (lane, self.goal.declined_summary_for(&scope.workspace_id)) {
+            let text = match (&lane, self.goal.declined_summary_for(&scope.workspace_id)) {
                 (Lane::Main, Some(declined)) => prompt::with_declined(&text, &declined),
                 _ => text,
             };
             let _ = tx.send(Job {
+                task_id: match lane {
+                    Lane::Task(id) => Some(id),
+                    _ => None,
+                },
                 cancelled,
                 scope,
                 text,

@@ -22,6 +22,9 @@ def _post(name, payload):
         return
     body = dict(payload)
     body["hook_event_name"] = name
+    dispatch = os.environ.get("NORMA_DISPATCH_ID")
+    if dispatch:
+        body["_norma_dispatch_id"] = dispatch
     try:
         request = urllib.request.Request(
             endpoint,

@@ -3,6 +3,8 @@ use crate::event::Outcome;
 
 fn finished(outcome: Outcome, excerpt: &str, from_result: bool) -> BrainEventKind {
     BrainEventKind::AgentFinished {
+        node_id: 0,
+        dispatch_id: None,
         agent: "Alan".into(),
         outcome,
         excerpt: excerpt.into(),

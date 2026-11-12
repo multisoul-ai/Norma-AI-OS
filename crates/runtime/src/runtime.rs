@@ -32,6 +32,7 @@ pub use questions::{QuestionSubmission, QuestionTerminalGuard};
 mod mobile_cards;
 pub(crate) use mobile_cards::launch::{ControlledPty, LaunchControl};
 mod restore;
+mod staff;
 mod startup;
 pub use mobile_cards::{
     CodexExternalApproval, MobileAgentLaunch, MobileArchiveRead, MobileClaudeHistoryRead,
@@ -49,6 +50,7 @@ pub struct Runtime {
     pub focus: FocusState,
     live: HashMap<NodeId, Box<dyn LiveNode>>,
     mobile_runs: HashMap<NodeId, mobile_cards::MobileRun>,
+    staff_dispatches: HashMap<NodeId, String>,
     archive_reads: mobile_cards::ArchiveReads,
     questions: questions::Questions,
     pub(crate) events: RuntimeEvents,
@@ -80,6 +82,7 @@ impl Runtime {
             focus: FocusState::new(),
             live: HashMap::new(),
             mobile_runs: HashMap::new(),
+            staff_dispatches: HashMap::new(),
             archive_reads: mobile_cards::ArchiveReads::default(),
             questions: questions::Questions::default(),
             events: RuntimeEvents::default(),
@@ -133,6 +136,7 @@ impl Runtime {
     pub fn restore_canvas_snapshot(&mut self, snapshot: DocumentSnapshot) {
         self.kill_all();
         self.questions.reset();
+        self.staff_dispatches.clear();
         self.events.remove_all();
         self.document = Document::from_snapshot(snapshot);
         self.selection.clear();
@@ -268,6 +272,7 @@ impl Runtime {
             .inspect_err(|error| {
                 self.document.remove_node(node_id);
                 self.mobile_runs.remove(&node_id);
+                self.staff_dispatches.remove(&node_id);
                 self.events
                     .operation_failed(None, "spawn_agent", error.to_string());
             })?;
@@ -425,6 +430,7 @@ impl Runtime {
         }
 
         self.mobile_runs.remove(&node_id);
+        self.staff_dispatches.remove(&node_id);
         self.remove_node_questions(node_id);
         if let Some(mut node) = self.live.remove(&node_id) {
             node.kill();

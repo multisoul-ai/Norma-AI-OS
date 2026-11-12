@@ -300,9 +300,11 @@ impl MultisoulApp {
                     }
                     for node_id in agent_hook_report.ready_node_ids {
                         tracing::info!(node_id, "[ask-diag] hook reported card ready");
+                        app.submit_staff_ready_worker(node_id, cx);
                         queue_changed |= app.submit_pending_agent_task_for_ready_node(node_id, cx);
                     }
                     queue_changed |= app.submit_due_pending_agent_tasks(Instant::now(), cx);
+                    app.expire_staff_workers(cx);
                     app.advance_session_reply_queue();
                     let runtime_events = app.runtime.take_events();
                     app.reconcile_doubao_channel(cx);

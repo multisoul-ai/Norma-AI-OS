@@ -99,7 +99,7 @@ impl MultisoulApp {
                     .find(|area| area.id == id)
             })
             .map(|area| area.display_name.clone());
-        let reserve = if wide { 220.0 } else { 104.0 };
+        let reserve = if wide { 380.0 } else { 250.0 };
         // The logo sits at the canvas edge and the breadcrumb hugs it instead of centering.
         let title_width = (width - BRAND_BREADCRUMB_LEFT - reserve).max(1.0);
         let title = desktop_top_bar_title(workspace, project, title_width, theme)
@@ -134,6 +134,20 @@ impl MultisoulApp {
                     .flex()
                     .items_center()
                     .gap(px(8.0))
+                    .child(
+                        Button::new("desktop-staff-toggle")
+                            .debug_selector(|| "desktop-staff-toggle".to_owned())
+                            .outline()
+                            .label(ui::i18n::text(if self.staff.enabled {
+                                "staff.canvas"
+                            } else {
+                                "staff.mode"
+                            }))
+                            .disabled(self.expanded_desktop_project().is_none())
+                            .on_click(cx.listener(|app, _, window, cx| {
+                                app.set_staff_mode(!app.staff.enabled, window, cx)
+                            })),
+                    )
                     .child(
                         launchpad_button(theme, cx)
                             .tooltip(ui::i18n::text("chrome.all_workspaces"))

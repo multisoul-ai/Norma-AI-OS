@@ -276,6 +276,14 @@ impl Owner {
 }
 
 impl BrainClient {
+    pub(super) fn tasks(&self) -> Option<std::sync::Arc<brain::staff::TaskStore>> {
+        let owner = self.owner.0.borrow();
+        if !self.live(&owner) {
+            return None;
+        }
+        Some(owner.host.as_ref()?.service.as_ref()?.tasks())
+    }
+
     fn live(&self, owner: &Owner) -> bool {
         owner
             .members
@@ -313,6 +321,21 @@ impl BrainClient {
             }
         }
         Some(event)
+    }
+
+    pub(super) fn push_recorded(
+        &self,
+        event: BrainEvent,
+        recorded: brain::staff::TaskEventResult,
+    ) -> Option<(BrainEvent, brain::staff::TaskEventResult)> {
+        let owner = self.owner.0.borrow();
+        if self.live(&owner) && self.scope == event.scope {
+            if let Some(service) = owner.host.as_ref().and_then(|host| host.service.as_ref()) {
+                service.push_recorded(event, recorded);
+                return None;
+            }
+        }
+        Some((event, recorded))
     }
 
     pub(super) fn try_recv(&self) -> Option<ClientStatus> {

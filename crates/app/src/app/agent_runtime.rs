@@ -14,7 +14,7 @@ use turn_events::RuntimeEvent;
 mod adapter_task;
 mod artifacts;
 mod command_protocol;
-mod command_support;
+pub(in crate::app) mod command_support;
 mod commands;
 mod context_commands;
 mod context_guard;

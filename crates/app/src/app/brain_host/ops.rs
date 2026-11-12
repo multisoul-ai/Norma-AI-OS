@@ -91,6 +91,7 @@ impl MultisoulApp {
         state: Option<&agent::context::WorkingState>,
     ) -> OpResult {
         match op {
+            BrainOp::Task { .. } => Err(reject(ui::i18n::text("staff.invalid_source"))),
             BrainOp::Questions => {
                 output(serde_json::json!({"questions": self.runtime.questions()}))
             }

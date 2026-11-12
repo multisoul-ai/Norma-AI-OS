@@ -13,3 +13,7 @@
 场景：`voice-live-call`、`voice-live-acoustic`、`voice-doubao-direct`、`voice-command-budget`、`voice-settings-modes`。
 
 `voice-settings-modes` 用 `--visual` 看语音指令、豆包 2.0、GPT-Live 在蓝宝石之夜和墨黑下的设置页。现行目录没有浅色主题。凭据行不回显 Key。通话场景不走模型看图。
+
+## staff
+
+场景：`staff-workflow`、`staff-workflow-en`，均通过 `--visual`。真实 App 中新建任务、ACP 提议、用户采用、CLI 新建独立 Worker、生产 hook 结果落盘、自动阶段、手动保护、完成重开、右侧文件、全屏/Escape 与画布切换。脚本只替代外部模型与 Agent；不得预写 TaskStore 或注入 App 内部任务状态。
