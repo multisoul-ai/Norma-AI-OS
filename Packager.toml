@@ -3,7 +3,7 @@
 # 若 schema 不符按 https://docs.crabnebula.dev/packager/ 校准。
 name = "app"
 product-name = "Norma OS"
-version = "0.1.85"
+version = "0.1.86"
 identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
@@ -40,7 +40,7 @@ path = "target/release/norma-os"
 main = true
 
 [[binaries]]
-path = "target/release/multisoul-agent-hook"
+path = "target/release/norma-hook"
 main = false
 
 [[binaries]]

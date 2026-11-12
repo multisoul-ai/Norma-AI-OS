@@ -106,7 +106,7 @@ Hermes 有**两套**可用机制，均在 `HERMES_HOME` 下，均实测通过。
   `hermes plugins enable <name>` → `✓ Plugin <name> enabled. Takes effect on next session.`，`config.yaml` 变为 `plugins: {enabled: [<name>], disabled: []}`；`hermes plugins disable <name>` → 从 `enabled` 移除并加入 `disabled`；再次 `enable` 会清除 `disabled`。每条命令约 3 秒（实测 `time` 3.0 s），须在后台线程执行。`hermes plugins remove <name>` 会删除插件目录并清理列表（对象是目录名，不看标记）。
 - 插件内回调是同进程调用，**无逐事件同意提示**（已验证：整个交互过程无任何弹窗）；回调拿到的是结构化关键字参数，而不是 shell hook 的信封；能读到进程环境变量。
 - `register()` 在 Hermes 启动阶段就被调用（启动、尚未提问时即向本地端点 POST 成功，`ev/norma-env-sink.jsonl` 第一行 `PluginLoaded`），可用作“进程已启动 = Ready”。
-- 实测 Norma 的现有环境变量协议在插件里可用：`MULTISOUL_NODE_ID / MULTISOUL_HOOK_ENDPOINT / MULTISOUL_HOOK_TOKEN` 由 PTY 继承，插件用 `urllib` POST `Authorization: Bearer <token>` 成功（`ev/norma-env-sink.jsonl`，`ev/http_sink.py` 为接收端，`ev/norma-probe-plugin.py` 为插件原型）。
+- 实测 Norma 的现有环境变量协议在插件里可用：`NORMA_NODE_ID / NORMA_HOOK_ENDPOINT / NORMA_HOOK_TOKEN` 由 PTY 继承，插件用 `urllib` POST `Authorization: Bearer <token>` 成功（`ev/norma-env-sink.jsonl`，`ev/http_sink.py` 为接收端，`ev/norma-probe-plugin.py` 为插件原型）。
 - 本机 `plugins.enabled` 机制要求 `config.yaml` 有 `_config_version`；缺失时 Hermes 记录 `config migration skipped`，而 `hermes plugins enable` 能在已有合法配置上写入。**对用户真实 `config.yaml` 的行为（包括是否丢失注释）未验证**（实测只在 `home2` 的无注释文件上执行；官方 CLI 会重写该文件，注释保留情况未验证）。
 
 ### 6.3 实测事件与完整载荷样例
@@ -226,7 +226,7 @@ pre_tool_call -> pre_approval_request(surface="smart") -> pre_approval_request(s
 
 采用 §6.2 目录插件，理由：无逐事件同意弹窗；回调为结构化参数；不用手写 YAML；可复用 Norma 现有 `MULTISOUL_*` 环境协议和 OpenCode 插件的“受管文件 + 标记”模式。
 
-- 插件目录：`<HERMES_HOME 或 ~/.hermes>/plugins/norma-agent-hook/`，文件 `plugin.yaml` + `__init__.py`；`__init__.py` 首行写标记 `# multisoul-hermes-plugin-marker`。
+- 插件目录：`<HERMES_HOME 或 ~/.hermes>/plugins/norma-agent-hook/`，文件 `plugin.yaml` + `__init__.py`；`__init__.py` 首行写标记 `# norma-hermes-plugin-marker`。
 - 安装：
   1. 目录已存在且 `__init__.py` 不含标记 → 拒绝覆盖，返回错误（同 `install_opencode_plugin`）。
   2. 原子写入两个文件（复用 `atomic_file::replace`）。

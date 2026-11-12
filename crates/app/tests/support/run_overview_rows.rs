@@ -132,6 +132,7 @@ fn agent(
         task: task.map(str::to_string),
         latest_prompt: None,
         action: task.map(str::to_string),
+        last_tool: None,
         progress,
         started_at_unix_ms: started,
     }

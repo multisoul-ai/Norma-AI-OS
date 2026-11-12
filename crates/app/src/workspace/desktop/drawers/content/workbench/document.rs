@@ -276,6 +276,19 @@ impl MultisoulApp {
                 ))
                 .into_any_element();
         }
+        if let Some((_, input)) = &s.read_input {
+            return div()
+                .flex_1()
+                .min_h(px(0.0))
+                .child(
+                    Input::new(input)
+                        .disabled(true)
+                        .appearance(false)
+                        .h_full()
+                        .w_full(),
+                )
+                .into_any_element();
+        }
         if s.file.is_some() {
             return self.render_text_lines(cx);
         }

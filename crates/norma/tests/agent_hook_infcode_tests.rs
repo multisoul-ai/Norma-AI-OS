@@ -21,7 +21,7 @@ fn paths_in(dir: &Path) -> HookInstallPaths {
 }
 
 /// 场景：全新环境安装 InfCode hooks。
-/// 数据构造：临时目录；command = `<tmp>/multisoul-agent-hook`；
+/// 数据构造：临时目录；command = `<tmp>/norma-hook`；
 /// 事件列表 = InfCode settings.json 文档事件（含 PermissionRequest / Subagent* / Turn*）。
 /// 过程：install_hook_config(InfCode) → 读 settings.json → uninstall。
 /// 预期：正断言每个事件各有 1 条 Norma forward --source infcode 命令，且检测为已安装；
@@ -30,7 +30,7 @@ fn paths_in(dir: &Path) -> HookInstallPaths {
 fn infcode_installs_claude_style_command_hooks_into_settings_json() {
     let temp = tempfile::tempdir().expect("应创建临时目录");
     let paths = paths_in(temp.path());
-    let bin = temp.path().join("multisoul-agent-hook");
+    let bin = temp.path().join("norma-hook");
     std::fs::write(&bin, b"hook").expect("应写入 hook 二进制占位");
 
     install_hook_config(HookTarget::InfCode, &bin, &paths).expect("InfCode 安装应成功");
@@ -69,8 +69,7 @@ fn infcode_installs_claude_style_command_hooks_into_settings_json() {
             .as_str()
             .expect("应有 command");
         assert!(
-            command.contains("multisoul-agent-hook")
-                && command.contains("forward --source infcode"),
+            command.contains("norma-hook") && command.contains("forward --source infcode"),
             "{event} 应含 Norma InfCode hook 命令，实际={command}"
         );
     }
@@ -90,7 +89,7 @@ fn infcode_installs_claude_style_command_hooks_into_settings_json() {
 fn infcode_install_and_uninstall_preserve_user_settings_fields() {
     let temp = tempfile::tempdir().expect("应创建临时目录");
     let paths = paths_in(temp.path());
-    let bin = temp.path().join("multisoul-agent-hook");
+    let bin = temp.path().join("norma-hook");
     std::fs::write(&bin, b"hook").expect("应写入 hook 二进制占位");
     std::fs::create_dir_all(paths.infcode_settings.parent().expect("父目录")).expect("建目录");
     std::fs::write(

@@ -173,7 +173,11 @@ pub fn run_norma_os() {
             not(feature = "production-data")
         ))]
         e2e_control::install(cx);
-        cx.bind_keys([KeyBinding::new("cmd-q", QuitNormaOs, None)]);
+        cx.bind_keys([
+            KeyBinding::new("cmd-q", QuitNormaOs, None),
+            // 让「编辑 → 复制」菜单项带上 ⌘C：原生网页获得焦点时按键才会被菜单接住。
+            KeyBinding::new("cmd-c", CopyCardContent, None),
+        ]);
         cx.set_menus(menu_bar::menu_bar());
 
         cx.on_window_closed(|cx| {

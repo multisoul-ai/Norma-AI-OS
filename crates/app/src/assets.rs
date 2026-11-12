@@ -9,6 +9,8 @@ mod orb_frames;
 pub const APP_ICON_ASSET: &str = "icons/app-icon.png";
 pub const APP_LOGO_ASSET: &str = "icons/logo.png";
 pub const HOME_BACKGROUND_ASSET: &str = "home/earth-horizon.png";
+/// 默认动态壁纸 `norma-awake.mp4` 的静帧，仅供设置页的语音光晕预览使用。
+pub const DEFAULT_WALLPAPER_STILL_ASSET: &str = "home/voice-glow-wallpaper.jpg";
 /// Embedded still used whenever a wallpaper image is needed but the selection has none
 /// (video before its first frame, missing files, frosted-material fallback).
 pub const DEFAULT_WALLPAPER_ASSET: &str = HOME_BACKGROUND_ASSET;
@@ -47,6 +49,7 @@ pub const NORMA_CALM_ASSET: &str = "icons/norma-calm.png";
 
 const APP_LOGO_BYTES: &[u8] = include_bytes!("../assets/icons/logo.png");
 const HOME_BACKGROUND_BYTES: &[u8] = include_bytes!("../assets/home/earth-horizon.png");
+const WALLPAPER_STILL_BYTES: &[u8] = include_bytes!("../assets/home/voice-glow-wallpaper.jpg");
 const TOOLBAR_SCROLL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-scroll.svg");
 const TOOLBAR_LAYOUT_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-layout.svg");
 const TOOLBAR_PLUS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-plus.svg");
@@ -197,6 +200,7 @@ impl AssetSource for EmbeddedAssets {
             )))),
             APP_LOGO_ASSET => Ok(Some(Cow::Borrowed(APP_LOGO_BYTES))),
             HOME_BACKGROUND_ASSET => Ok(Some(Cow::Borrowed(HOME_BACKGROUND_BYTES))),
+            DEFAULT_WALLPAPER_STILL_ASSET => Ok(Some(Cow::Borrowed(WALLPAPER_STILL_BYTES))),
             TOOLBAR_SCROLL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SCROLL_BYTES))),
             TOOLBAR_LAYOUT_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_LAYOUT_BYTES))),
             TOOLBAR_PLUS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PLUS_BYTES))),

@@ -218,6 +218,7 @@ impl MultisoulApp {
         };
         let index = jump_index(line + 1, &file.text);
         s.jump_line = Some(index);
+        s.read_jump = Some(index);
         self.workbench_text_scroll
             .scroll_to_item_strict(index, ScrollStrategy::Center);
     }

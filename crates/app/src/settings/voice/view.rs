@@ -17,6 +17,7 @@ use diagnostics::trace_row;
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Window};
 use ui::Theme;
 
+mod advanced;
 mod asr_provider;
 pub(crate) mod capabilities;
 mod command_policy;
@@ -279,15 +280,14 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(crate) fn on_voice_settings_toggle_window_inset(
+    /// 「语音光晕」已移到 设置 → 特效；语音页只保留跳转入口。
+    pub(crate) fn on_voice_glow_open_effects(
         &mut self,
-        _: &bool,
-        _window: &mut Window,
+        _: &ClickEvent,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.voice_settings.toggle_voice_window_inset();
-        self.sync_voice_window_inset_enabled();
-        self.persist_voice_settings_in_background(cx);
+        self.select_settings_section(crate::settings::panel::SettingsSection::Effects, window, cx);
         cx.notify();
     }
 

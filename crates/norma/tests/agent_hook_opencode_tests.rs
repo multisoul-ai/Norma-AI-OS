@@ -61,8 +61,8 @@ fn test_opencode_pre_tool_use_maps_to_running_tool() {
 /// OpenCode install writes a Norma-owned plugin file and uninstall removes only that plugin.
 ///
 /// Data setup:
-///   command_path=/tmp/multisoul-agent-hook
-///   opencode_plugin=<temp>/multisoul-agent-hook.js
+///   command_path=/tmp/norma-hook
+///   opencode_plugin=<temp>/norma-hook.js
 ///   target=OpenCode, represented by one standalone JS plugin file.
 ///
 /// Execution:
@@ -78,7 +78,7 @@ fn test_opencode_pre_tool_use_maps_to_running_tool() {
 #[test]
 fn test_opencode_install_writes_and_removes_plugin_file() {
     let temp = tempfile::tempdir().expect("应能创建临时目录");
-    let plugin_path = temp.path().join("multisoul-agent-hook.js");
+    let plugin_path = temp.path().join("norma-hook.js");
     let paths = HookInstallPaths {
         claude_settings: temp.path().join("claude-settings.json"),
         codex_hooks: temp.path().join("codex-hooks.json"),
@@ -91,7 +91,7 @@ fn test_opencode_install_writes_and_removes_plugin_file() {
         hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
         zcode_config: plugin_path.with_file_name("zcode-config.json"),
     };
-    let command_path = temp.path().join("multisoul-agent-hook");
+    let command_path = temp.path().join("norma-hook");
 
     assert!(
         !agent_hooks_installed_for_source(HookSource::OpenCode, &paths),
@@ -110,11 +110,11 @@ fn test_opencode_install_writes_and_removes_plugin_file() {
 
     let plugin = std::fs::read_to_string(&plugin_path).expect("应能读取 OpenCode plugin");
     assert!(
-        plugin.contains("multisoul-opencode-plugin-marker"),
+        plugin.contains("norma-opencode-plugin-marker"),
         "OpenCode plugin 应包含 Norma marker 以便安全检测和卸载"
     );
     assert!(
-        plugin.contains("MULTISOUL_HOOK_ENDPOINT"),
+        plugin.contains("NORMA_HOOK_ENDPOINT"),
         "OpenCode plugin 应读取 Norma endpoint env 并转发事件"
     );
     assert!(
@@ -151,7 +151,7 @@ fn test_opencode_install_writes_and_removes_plugin_file() {
 #[test]
 fn test_opencode_install_rejects_unmanaged_same_path_plugin() {
     let temp = tempfile::tempdir().expect("OpenCode 冲突测试必须创建临时目录");
-    let plugin_path = temp.path().join("multisoul-agent-hook.js");
+    let plugin_path = temp.path().join("norma-hook.js");
     let paths = HookInstallPaths {
         claude_settings: temp.path().join("claude-settings.json"),
         codex_hooks: temp.path().join("codex-hooks.json"),
@@ -169,7 +169,7 @@ fn test_opencode_install_rejects_unmanaged_same_path_plugin() {
 
     let result = install_hook_config(
         HookTarget::OpenCode,
-        &temp.path().join("multisoul-agent-hook"),
+        &temp.path().join("norma-hook"),
         &paths,
     );
     let preserved =

@@ -5,7 +5,7 @@ use gpui::{point, px, size, AppContext, TestAppContext};
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   1 个空间 Studio，2 个空目录 project-alpha/project-beta；不创建 PTY 或 Agent。
-///   窗口 1280×800；手动展开左栏后目标宽 1280×0.31−150=246.8px，绘制取整为 247px；中央为 1033px。
+///   窗口 1280×800；左抽屉已移除，右抽屉关闭时顶栏宽 = 窗口宽 1280px。
 ///   栏高 = 按钮 36px + 上下各 8px = 52px；标题纵向中心 = 52 / 2 = 26px。
 ///   旧悬浮栏原点 = (18, 8)，中心 y = 8 + 44 / 2 = 30；新标题上移 30 - 26 = 4px。
 ///   窄窗 640×800，左栏收起时面包屑起点 = logo 右边 146 + 12 = 158px；容差 1px 覆盖像素取整。
@@ -127,10 +127,10 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
         cx.notify();
     });
     cx.update(|window, cx| window.draw(cx).clear());
-    // 场景：同时展开两侧抽屉后，窄中央顶栏采用原型的左对齐面包屑。
-    // 数据构造：1280px 窗口、左栏 246.8px、右栏 473.6px，中央 559.6px。
+    // 场景：左抽屉已移除，打开右抽屉后顶栏缩窄，面包屑仍紧贴 logo 右侧左对齐。
+    // 数据构造：1280px 窗口；标题起点 = logo 右边 146 + 12 = 158px（与右栏是否打开无关）。
     // 执行过程：打开右侧内容抽屉，绘制后读取标题与顶栏边界，再关闭右栏。
-    // 预期结果：标题距中央左边 14px；右栏收起后恢复原有宽栏布局。
+    // 预期结果：顶栏变窄但标题起点仍为 158px；右栏收起后恢复原有宽栏布局。
     host.update_in(cx, |app, _, cx| {
         app.desktop_workspace.drawers.right_open = true;
         cx.notify();
@@ -144,8 +144,8 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
         .expect("双抽屉下应保留项目面包屑");
     assert!(dual_bar.size.width < bar.size.width, "右抽屉应缩窄中央画布");
     assert!(
-        (dual_title.left() - dual_bar.left() - px(14.0)).abs() <= px(1.0),
-        "双抽屉下标题应像原型一样靠中央左侧"
+        (dual_title.left() - px(158.0)).abs() <= px(1.0),
+        "右抽屉打开时标题仍应紧贴 logo 右侧左对齐"
     );
     host.update_in(cx, |app, _, cx| {
         app.desktop_workspace.workspaces[0].name = "Studio with a very long workspace name".into();
@@ -185,13 +185,13 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
         .expect("alpha 项目画布必须保留顶部栏");
     assert_eq!(
         project_bar.origin,
-        point(px(247.0), px(0.0)),
-        "进入项目不得强制收起左栏，顶部栏应继续贴合左抽屉右边"
+        point(px(0.0), px(0.0)),
+        "左抽屉已移除，项目顶部栏应贴合窗口左上角"
     );
     assert_eq!(
         project_bar.size,
-        size(px(1033.0), px(52.0)),
-        "左栏保持展开时，项目顶部栏应铺满抽屉之间的 1033px 画布"
+        size(px(1280.0), px(52.0)),
+        "右抽屉关闭时，项目顶部栏应铺满 1280px 窗口"
     );
     assert!(
         cx.debug_bounds("workspace-topbar-project-project-alpha")

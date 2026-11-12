@@ -56,12 +56,12 @@ fn real_bridge_returns_only_the_bound_permission_response() {
             socket.write_all(&[byte]).expect("分包响应应可写入");
         }
     });
-    let mut child = Command::new(env!("CARGO_BIN_EXE_multisoul-agent-hook"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_norma-hook"))
         .args(["forward", "--source", "claude", "--request-approval"])
-        .env("MULTISOUL_NODE_ID", "7")
-        .env("MULTISOUL_HOOK_TOKEN", "test-token")
+        .env("NORMA_NODE_ID", "7")
+        .env("NORMA_HOOK_TOKEN", "test-token")
         .env(
-            "MULTISOUL_HOOK_ENDPOINT",
+            "NORMA_HOOK_ENDPOINT",
             format!("http://{address}/agent-hooks"),
         )
         .env("NORMA_CONTROL_RUN_ID", "run-a")

@@ -1,6 +1,8 @@
 //! 只属于某个窗口的临时界面状态：悬停预览、打开的菜单、重播计时。
 
 use super::state::Source;
+use crate::effects::voice_glow::preview::PreviewPin;
+use crate::effects::voice_glow::VoiceGlowStyle;
 use crate::motion::run_style::{RunState, RunStyle};
 use std::time::Instant;
 
@@ -15,6 +17,7 @@ pub(crate) struct EffectsUiState {
     /// 减少动态效果时，大预览只在点击“重播”后播放一次。
     pub replay_started: Option<Instant>,
     pub run: RunPreviewUi,
+    pub glow: GlowPreviewUi,
 }
 
 /// 运行特效分区的预览：大预览自动轮播或固定某个状态；网格悬停的格子循环播放。
@@ -27,4 +30,14 @@ pub(crate) struct RunPreviewUi {
     /// 点击大预览卡片 = 标记完成提示已查看。
     pub viewed_at: Option<Instant>,
     pub hover: Option<(RunStyle, Instant)>,
+}
+
+/// 语音光晕分区的预览：大预览自动轮播或固定某个状态；网格悬停的格子循环播放。
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct GlowPreviewUi {
+    /// `None` = 自动轮播。
+    pub pin: Option<PreviewPin>,
+    /// 当前轮播或固定状态从何时开始计时。
+    pub since: Option<Instant>,
+    pub hover: Option<(VoiceGlowStyle, Instant)>,
 }

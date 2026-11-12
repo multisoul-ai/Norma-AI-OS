@@ -176,13 +176,26 @@ extension Session {
     }
 
     /// Spike: NORMA_E2E_INPUT=ns routes mouse/text through AppKit NSWindow.sendEvent.
-    private var appKitInput: Bool { ProcessInfo.processInfo.environment["NORMA_E2E_INPUT"] == "ns" }
+    private var appKitInput: Bool { appKitInputOverride || ProcessInfo.processInfo.environment["NORMA_E2E_INPUT"] == "ns" }
 
     private func mouse(_ phase: String, _ point: CGPoint, pressed: Bool = false) async throws {
         try await control([
             "op": appKitInput ? "ns_mouse" : "mouse", "phase": phase,
             "x": Double(point.x), "y": Double(point.y), "pressed": pressed,
         ])
+    }
+
+    /// AppKit 级多击（双击选词、三击选行），用于原生 WebView 内的文字选择。
+    public func nativeMultiClick(local point: CGPoint, on frame: Frame, count: Int) async throws {
+        _ = try await clickPoint(local: point, on: frame, requery: nil, pick: nil)
+        try await control(["op": "ns_mouse", "phase": "move", "x": Double(point.x), "y": Double(point.y), "pressed": false])
+        for index in 1...count {
+            for phase in ["down", "up"] {
+                try await control(["op": "ns_mouse", "phase": phase, "x": Double(point.x), "y": Double(point.y), "click_count": index, "pressed": false])
+                try await Task.sleep(nanoseconds: 40_000_000)
+            }
+        }
+        try await Task.sleep(nanoseconds: 250_000_000)
     }
 
     private func wheel(at point: CGPoint, pixels: Int32) async throws {

@@ -53,6 +53,7 @@ impl MultisoulApp {
                     .shadow(command_dock_shadow())
                     .bg(rgba(command_dock_surface(theme)))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .child(self.voice_glow_dock_probe())
                     .children(suggestions)
                     .child(
                         chrome_icon_button(

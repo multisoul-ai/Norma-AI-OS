@@ -18,7 +18,7 @@ pub(super) fn owned_identity(command: &PtyCommand) -> Option<(u64, String, Optio
             .find(|(name, _)| name == key)
             .map(|(_, value)| value.as_str())
     };
-    if env("MULTISOUL_AGENT_PROFILE")? != "opencode"
+    if env("NORMA_AGENT_PROFILE")? != "opencode"
         || command.args.len() != 2
         || command.args[0] != "-lic"
     {
@@ -46,11 +46,7 @@ pub(super) fn owned_identity(command: &PtyCommand) -> Option<(u64, String, Optio
     if process.is_empty() || process.len() > 128 {
         return None;
     }
-    Some((
-        env("MULTISOUL_NODE_ID")?.parse().ok()?,
-        process.into(),
-        resume,
-    ))
+    Some((env("NORMA_NODE_ID")?.parse().ok()?, process.into(), resume))
 }
 
 pub(super) fn prepare(

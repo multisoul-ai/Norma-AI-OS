@@ -1,5 +1,5 @@
 use crate::settings::voice::jev::{
-    self, JevConfigurationError, JevSettings, JevVerification, KeychainVault,
+    self, JevConfigurationError, JevSettings, JevVerification, KeychainVault, SqliteVault,
 };
 use gpui::{AppContext, Context, Entity, Subscription, Window};
 use ui::{
@@ -59,8 +59,10 @@ impl JevPanel {
         let settings = store.map(JevSettings::new);
         let load = settings.clone();
         let work = cx.background_executor().spawn(async move {
-            load.ok_or(JevConfigurationError::SettingsStorage)?
-                .load_key(&KeychainVault)
+            let load = load.ok_or(JevConfigurationError::SettingsStorage)?;
+            let vault = SqliteVault::new(load.store().clone());
+            load.migrate_legacy_key(&vault, &KeychainVault);
+            load.load_key(&vault)
         });
         cx.spawn(async move |this, cx| {
             let result = work.await;
@@ -117,9 +119,10 @@ impl JevPanel {
         }
         self.busy = true;
         let work = cx.background_executor().spawn(async move {
-            settings.save_key(&key, &KeychainVault)?;
+            let vault = SqliteVault::new(settings.store().clone());
+            settings.save_key(&key, &vault)?;
             settings
-                .load_key(&KeychainVault)?
+                .load_key(&vault)?
                 .ok_or(JevConfigurationError::SecureStorage)
         });
         cx.spawn_in(window, async move |this, cx| {
@@ -186,9 +189,10 @@ impl JevPanel {
             return;
         };
         self.busy = true;
-        let work = cx
-            .background_executor()
-            .spawn(async move { settings.clear(&KeychainVault) });
+        let work = cx.background_executor().spawn(async move {
+            let vault = SqliteVault::new(settings.store().clone());
+            settings.clear(&vault)
+        });
         cx.spawn_in(window, async move |this, cx| {
             let result = work.await;
             let _ = this.update_in(cx, |view, window, cx| {

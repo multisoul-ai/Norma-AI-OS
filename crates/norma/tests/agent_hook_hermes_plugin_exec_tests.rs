@@ -103,9 +103,9 @@ fn run_plugin(dir: &Path, endpoint: &str, proxy: Option<&str>) {
     std::fs::write(&driver, DRIVER).unwrap();
     let mut cmd = Command::new("python3");
     cmd.arg("-I").arg(&driver).arg(&plugin);
-    cmd.env("MULTISOUL_HOOK_ENDPOINT", endpoint)
-        .env("MULTISOUL_HOOK_TOKEN", "tok-123")
-        .env("MULTISOUL_NODE_ID", "node-1")
+    cmd.env("NORMA_HOOK_ENDPOINT", endpoint)
+        .env("NORMA_HOOK_TOKEN", "tok-123")
+        .env("NORMA_NODE_ID", "node-1")
         .env_remove("no_proxy")
         .env_remove("NO_PROXY");
     if let Some(proxy) = proxy {
