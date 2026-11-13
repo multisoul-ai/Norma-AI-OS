@@ -8,7 +8,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
-    time::Duration,
+    time::{Duration, Instant},
 };
 mod runtime;
 
@@ -155,10 +155,9 @@ pub(crate) fn install_a1(
         .collect();
     let package_root = root.join("a1/packages");
     fs::create_dir_all(&package_root).map_err(|e| disk(&package_root, e))?;
-    let staged = tempfile::Builder::new()
-        .prefix(".download-")
-        .tempdir_in(&package_root)
-        .map_err(|e| disk(&package_root, e))?;
+    // Stable stage: a failed or cancelled install resumes here instead of restarting 1.2 GB.
+    let staged = package_root.join(".download");
+    fs::create_dir_all(&staged).map_err(|e| disk(&staged, e))?;
     let total = artifacts.iter().map(|a| a.bytes).sum();
     let mut completed = 0;
     for (artifact, file) in artifacts.iter().zip(&files) {
@@ -166,7 +165,7 @@ pub(crate) fn install_a1(
         download_verified_file(
             &artifact.download_url(),
             file,
-            staged.path(),
+            &staged,
             cancelled,
             |done, _| {
                 progress(A1InstallProgress::Download {
@@ -181,7 +180,7 @@ pub(crate) fn install_a1(
     progress(A1InstallProgress::Verify);
     check_cancelled(cancelled)?;
     let id = format!("a1-{}", uuid::Uuid::new_v4());
-    let installed = model_store::install_verified_files(&id, &files, staged.path(), &package_root)
+    let installed = model_store::install_verified_files(&id, &files, &staged, &package_root)
         .map_err(|error| match error {
             model_store::InstallationError::FileIntegrityMismatch(path) => {
                 A1InstallFailure::Integrity(
@@ -212,6 +211,7 @@ pub(crate) fn install_a1(
     };
     publish_config(&config, root, cancelled)?;
     pending.commit();
+    let _ = fs::remove_dir_all(&staged);
     Ok(config)
 }
 
@@ -236,7 +236,18 @@ fn publish_config(
     Ok(())
 }
 
+const DOWNLOAD_ATTEMPTS: u64 = 5;
+
+fn retryable(error: &A1InstallFailure) -> bool {
+    match error {
+        A1InstallFailure::Network(_) => true,
+        A1InstallFailure::Http { status, .. } => *status >= 500 || matches!(status, 408 | 429),
+        _ => false,
+    }
+}
+
 /// Runs on a background worker. Bytes are bounded and hashed before publishing the file.
+/// Interrupted transfers keep `.<name>.partial` beside the target and resume with HTTP Range.
 pub(crate) fn download_verified_file(
     url: &str,
     file: &VerifiedFile,
@@ -248,76 +259,149 @@ pub(crate) fn download_verified_file(
     let final_path = destination.join(&file.path);
     let parent = final_path.parent().ok_or(A1InstallFailure::Manifest)?;
     fs::create_dir_all(parent).map_err(|e| disk(parent, e))?;
-    let mut temporary = tempfile::NamedTempFile::new_in(parent).map_err(|e| disk(parent, e))?;
+    // A retried install reuses files a previous attempt already verified in the stable stage.
+    if fs::metadata(&final_path).is_ok_and(|m| m.is_file() && m.len() == file.bytes)
+        && runtime::file_hash(&final_path).is_ok_and(|hash| hash == file.sha256)
+    {
+        progress(file.bytes, file.bytes);
+        return Ok(final_path);
+    }
+    let name = final_path.file_name().ok_or(A1InstallFailure::Manifest)?;
+    let partial = parent.join(format!(".{}.partial", name.to_string_lossy()));
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .map_err(|_| A1InstallFailure::Network(file.path.clone()))?;
-    runtime.block_on(async {
-        let mut builder = reqwest::Client::builder()
-            .https_only(url.starts_with("https://"))
-            .connect_timeout(Duration::from_secs(10))
-            .read_timeout(Duration::from_secs(20))
-            .timeout(Duration::from_secs(1800));
-        if url.starts_with("http://127.0.0.1:") {
-            builder = builder.no_proxy();
-        }
-        let client = builder
-            .build()
-            .map_err(|_| A1InstallFailure::Network(file.path.clone()))?;
-        let mut response = client
-            .get(url)
-            .send()
-            .await
-            .map_err(|_| A1InstallFailure::Network(file.path.clone()))?;
-        if !response.status().is_success() {
-            return Err(A1InstallFailure::Http {
-                file: file.path.clone(),
-                status: response.status().as_u16(),
-            });
-        }
-        if response
-            .content_length()
-            .is_some_and(|length| length != file.bytes)
-        {
-            return Err(A1InstallFailure::Integrity(file.path.clone()));
-        }
-        let mut hash = Sha256::new();
-        let mut completed = 0u64;
-        let mut gate = super::download_progress::DownloadProgressGate::new(file.bytes);
-        while let Some(chunk) = response
-            .chunk()
-            .await
-            .map_err(|_| A1InstallFailure::Network(file.path.clone()))?
-        {
-            check_cancelled(cancelled)?;
-            completed += chunk.len() as u64;
-            if completed > file.bytes {
-                return Err(A1InstallFailure::Integrity(file.path.clone()));
+    for attempt in 1..=DOWNLOAD_ATTEMPTS {
+        let result = runtime.block_on(download_attempt(
+            url,
+            file,
+            &partial,
+            cancelled,
+            &mut progress,
+        ));
+        match result {
+            Ok(()) => break,
+            Err(error) if attempt < DOWNLOAD_ATTEMPTS && retryable(&error) => {
+                let deadline = Instant::now() + Duration::from_millis(500 * attempt);
+                while Instant::now() < deadline {
+                    check_cancelled(cancelled)?;
+                    std::thread::sleep(Duration::from_millis(50));
+                }
             }
-            temporary
-                .write_all(&chunk)
-                .map_err(|e| disk(&final_path, e))?;
-            hash.update(&chunk);
-            if gate.should_publish(completed) {
-                progress(completed, file.bytes);
+            Err(error) => {
+                if matches!(error, A1InstallFailure::Integrity(_)) {
+                    let _ = fs::remove_file(&partial);
+                }
+                return Err(error);
             }
         }
+    }
+    fs::rename(&partial, &final_path).map_err(|e| disk(&final_path, e))?;
+    Ok(final_path)
+}
+
+async fn download_attempt(
+    url: &str,
+    file: &VerifiedFile,
+    partial: &Path,
+    cancelled: &impl InstallCancellation,
+    progress: &mut impl FnMut(u64, u64),
+) -> Result<(), A1InstallFailure> {
+    let network = || A1InstallFailure::Network(file.path.clone());
+    let integrity = || A1InstallFailure::Integrity(file.path.clone());
+    let mut hash = Sha256::new();
+    let mut offset = fs::metadata(partial).map_or(0, |m| m.len());
+    if offset > 0 && offset <= file.bytes {
+        let mut existing = fs::File::open(partial).map_err(|e| disk(partial, e))?;
+        std::io::copy(&mut existing, &mut hash).map_err(|e| disk(partial, e))?;
+        if offset == file.bytes {
+            if format!("{:x}", hash.finalize_reset()) == file.sha256 {
+                return Ok(());
+            }
+            offset = 0;
+        }
+    } else {
+        offset = 0;
+    }
+    let mut builder = reqwest::Client::builder()
+        .https_only(url.starts_with("https://"))
+        .connect_timeout(Duration::from_secs(10))
+        .read_timeout(Duration::from_secs(20))
+        .timeout(Duration::from_secs(1800));
+    if url.starts_with("http://127.0.0.1:") {
+        builder = builder.no_proxy();
+    }
+    let client = builder.build().map_err(|_| network())?;
+    let mut request = client.get(url);
+    if offset > 0 {
+        request = request.header(reqwest::header::RANGE, format!("bytes={offset}-"));
+    }
+    let mut response = request.send().await.map_err(|_| network())?;
+    if !response.status().is_success() {
+        return Err(A1InstallFailure::Http {
+            file: file.path.clone(),
+            status: response.status().as_u16(),
+        });
+    }
+    let partial_content = response.status() == reqwest::StatusCode::PARTIAL_CONTENT;
+    let range_start = response
+        .headers()
+        .get(reqwest::header::CONTENT_RANGE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| {
+            value
+                .strip_prefix("bytes ")?
+                .split('-')
+                .next()?
+                .parse::<u64>()
+                .ok()
+        });
+    if partial_content && (offset == 0 || range_start != Some(offset)) {
+        return Err(integrity());
+    }
+    if !partial_content {
+        // Server ignored Range: restart from byte zero rather than concatenating.
+        offset = 0;
+        hash.reset();
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length != file.bytes - offset)
+    {
+        return Err(integrity());
+    }
+    let mut output = fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(partial_content)
+        .truncate(!partial_content)
+        .open(partial)
+        .map_err(|e| disk(partial, e))?;
+    let mut completed = offset;
+    let mut gate = super::download_progress::DownloadProgressGate::new(file.bytes);
+    while let Some(chunk) = response.chunk().await.map_err(|_| network())? {
         check_cancelled(cancelled)?;
-        if completed != file.bytes || format!("{:x}", hash.finalize()) != file.sha256 {
-            return Err(A1InstallFailure::Integrity(file.path.clone()));
+        completed += chunk.len() as u64;
+        if completed > file.bytes {
+            return Err(integrity());
         }
-        temporary
-            .as_file()
-            .sync_all()
-            .map_err(|e| disk(&final_path, e))?;
-        if gate.should_publish_final(completed) {
+        output.write_all(&chunk).map_err(|e| disk(partial, e))?;
+        hash.update(&chunk);
+        if gate.should_publish(completed) {
             progress(completed, file.bytes);
         }
-        Ok(())
-    })?;
-    temporary
-        .persist(&final_path)
-        .map_err(|e| disk(&final_path, e.error))?;
-    Ok(final_path)
+    }
+    check_cancelled(cancelled)?;
+    if completed != file.bytes {
+        return Err(network());
+    }
+    if format!("{:x}", hash.finalize()) != file.sha256 {
+        return Err(integrity());
+    }
+    output.sync_all().map_err(|e| disk(partial, e))?;
+    if gate.should_publish_final(completed) {
+        progress(completed, file.bytes);
+    }
+    Ok(())
 }
