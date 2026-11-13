@@ -1,0 +1,37 @@
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "elicitation/create",
+  "params": {
+    "mode": "form",
+    "sessionId": "staff-session",
+    "toolCallId": "question-call",
+    "message": "Which interface theme do you prefer?",
+    "requestedSchema": {
+      "type": "object",
+      "properties": {
+        "question_0": {
+          "type": "string",
+          "title": "Theme",
+          "oneOf": [
+            {
+              "const": "Light",
+              "title": "Light",
+              "description": "White/light background with dark text. Best for well-lit environments."
+            },
+            {
+              "const": "Dark",
+              "title": "Dark",
+              "description": "Dark background with light text. Easier on the eyes in low-light environments."
+            }
+          ]
+        },
+        "question_0_custom": {
+          "type": "string",
+          "title": "Other",
+          "description": "Type your own answer, or add a note to the option you chose above (optional)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "elicitation/create",
+  "params": {
+    "sessionId": "staff-session",
+    "toolCallId": "question-call",
+    "mode": "form",
+    "message": "Codex needs your input to continue.",
+    "requestedSchema": {
+      "type": "object",
+      "properties": {
+        "interface_theme": {
+          "title": "Which interface theme do you prefer?",
+          "description": "Theme",
+          "_meta": {
+            "codex": {
+              "isOther": true,
+              "isSecret": false
+            }
+          },
+          "type": "string",
+          "oneOf": [
+            {
+              "const": "Light",
+              "title": "Light",
+              "description": "Light backgrounds with dark text."
+            },
+            {
+              "const": "Dark",
+              "title": "Dark",
+              "description": "Dark backgrounds with light text."
+            },
+            {
+              "const": "None of the above",
+              "title": "None of the above",
+              "description": "Provide a different answer in the note field."
+            }
+          ]
+        },
+        "interface_theme_note": {
+          "type": "string",
+          "title": "Additional answer or note",
+          "_meta": {
+            "codex": {
+              "questionId": "interface_theme",
+              "role": "user_note",
+              "isSecret": false
+            }
+          }
+        }
+      },
+      "required": [
+        "interface_theme"
+      ]
+    },
+    "_meta": {
+      "codex": {
+        "autoResolutionMs": null
+      }
+    }
+  }
+}

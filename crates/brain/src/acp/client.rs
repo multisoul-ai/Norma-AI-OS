@@ -48,6 +48,7 @@ pub struct AcpSession {
     session_id: String,
     /// `session/new` 的回复，用来读出可选的模型。
     created: Value,
+    questions: Option<super::questions::QuestionHost>,
 }
 
 impl AcpSession {
@@ -58,6 +59,21 @@ impl AcpSession {
     pub fn start_cancellable(
         options: &SessionOptions,
         cancel: &AtomicBool,
+    ) -> Result<Self, AcpError> {
+        Self::start_with_questions(options, cancel, false)
+    }
+
+    pub fn start_staff_cancellable(
+        options: &SessionOptions,
+        cancel: &AtomicBool,
+    ) -> Result<Self, AcpError> {
+        Self::start_with_questions(options, cancel, true)
+    }
+
+    fn start_with_questions(
+        options: &SessionOptions,
+        cancel: &AtomicBool,
+        staff: bool,
     ) -> Result<Self, AcpError> {
         if cancel.load(Ordering::Relaxed) {
             return Err(AcpError::Cancelled);
@@ -71,10 +87,15 @@ impl AcpSession {
         )
         .map_err(AcpError::Spawn)?;
         let deadline = Instant::now() + options.handshake_timeout;
+        let mut capabilities =
+            json!({"fs": {"readTextFile": false, "writeTextFile": false}, "terminal": false});
+        if staff {
+            capabilities["elicitation"] = json!({"form": {}});
+        }
         call(
             &mut conn,
             "initialize",
-            json!({"protocolVersion": 1, "clientCapabilities": {"fs": {"readTextFile": false, "writeTextFile": false}, "terminal": false}}),
+            json!({"protocolVersion": 1, "clientCapabilities": capabilities}),
             deadline,
             cancel,
         )?;
@@ -96,7 +117,10 @@ impl AcpSession {
                 cancel,
             )?;
         }
+        let collaboration = (staff && options.kind == crate::backend::BackendKind::Codex)
+            .then(|| "plan".to_owned());
         let configs = [
+            ("collaboration_mode", &collaboration),
             ("model", &options.model),
             ("reasoning_effort", &options.effort),
         ];
@@ -120,7 +144,12 @@ impl AcpSession {
             conn,
             session_id,
             created,
+            questions: None,
         })
+    }
+
+    pub fn set_question_host(&mut self, host: Option<super::questions::QuestionHost>) {
+        self.questions = host;
     }
 
     pub fn session_id(&self) -> &str {
@@ -170,9 +199,18 @@ impl AcpSession {
                 json!({"sessionId": self.session_id, "prompt": [{"type": "text", "text": text}]}),
             )
             .map_err(|_| AcpError::Closed)?;
-            let deadline = Instant::now() + timeout;
+            let mut deadline = Instant::now() + timeout;
+            let mut tick = Instant::now();
             let mut reply = String::new();
             loop {
+                let now = Instant::now();
+                if let Some(questions) = &mut self.questions {
+                    if questions.waiting() {
+                        deadline += now.duration_since(tick);
+                    }
+                    questions.poll(&mut self.conn, false)?;
+                }
+                tick = now;
                 if cancel.load(Ordering::Relaxed) {
                     self.abort();
                     return Err(AcpError::Cancelled);
@@ -227,12 +265,22 @@ impl AcpSession {
                         if let Some(item) = merger.flush() {
                             sink(item);
                         }
+                        if method == "elicitation/create" {
+                            if let Some(questions) = &mut self.questions {
+                                if questions.open(&id, &params)? {
+                                    continue;
+                                }
+                            }
+                        }
                         self.answer(&id, &method, &params, gate, sink)?;
                     }
                     _ => {}
                 }
             }
         })();
+        if let Some(questions) = &mut self.questions {
+            questions.poll(&mut self.conn, true)?;
+        }
         if let Some(item) = merger.flush() {
             sink(item);
         }
