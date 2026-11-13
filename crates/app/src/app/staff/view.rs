@@ -193,29 +193,14 @@ impl MultisoulApp {
             .py(px(16.))
             .flex()
             .flex_col()
-            .gap(px(24.));
+            .gap(px(messages::tokens::SPACE_24));
         for (index, message) in task.messages.iter().enumerate() {
-            messages = messages.child(
-                div()
-                    .debug_selector(move || format!("staff-message-{index}"))
-                    .flex_none()
-                    .flex()
-                    .w_full()
-                    .max_w(px(760.))
-                    .mx_auto()
-                    .child(self.staff_message(task, index, message, window, cx)),
-            );
+            messages = messages.child(self.render_message(task, index, message, window, cx));
         }
+
         if let Some(activity) = self.staff.activity.get(&task.id) {
-            messages = messages.child(
-                div()
-                    .flex_none()
-                    .flex()
-                    .w_full()
-                    .max_w(px(760.))
-                    .mx_auto()
-                    .child(self.staff_activity_view(activity)),
-            );
+            messages = messages
+                .child(messages::message_column().child(self.staff_activity_view(activity)));
         }
         messages
     }
