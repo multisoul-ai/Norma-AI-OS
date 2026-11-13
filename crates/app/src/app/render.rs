@@ -199,9 +199,7 @@ impl Render for MultisoulApp {
             }
             if matches!(self.screen, AppScreen::DesktopWorkspace) {
                 if !self.desktop_directory_zoom_active() {
-                    if !self.staff.fullscreen {
-                        root = root.child(self.render_desktop_workspace_top_bar(window, cx));
-                    }
+                    root = root.child(self.render_desktop_workspace_top_bar(window, cx));
                     root = root.child(self.render_desktop_assistant_drawers(window, cx));
                 } else if let Some(fade) = self.desktop_workspace_chrome_fade_in(window) {
                     // 侧栏随工作空间放大淡入，而不是缩放结束后整块弹出。

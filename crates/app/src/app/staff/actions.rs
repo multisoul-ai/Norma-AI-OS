@@ -13,6 +13,7 @@ impl MultisoulApp {
             self.toggle_staff_fullscreen(window, cx);
         }
         self.staff.enabled = enabled;
+        self.staff.sidebar_open = false;
         self.focus_handle.focus(window);
         if let Some(project) = self
             .staff_project()
@@ -27,6 +28,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn toggle_staff_fullscreen(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.staff.sidebar_open = false;
         self.staff.fullscreen = !self.staff.fullscreen;
         if self.staff.fullscreen != window.is_fullscreen() {
             window.toggle_fullscreen();
@@ -40,6 +42,12 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.staff.enabled && self.staff.sidebar_open && event.keystroke.key == "escape" {
+            self.staff.sidebar_open = false;
+            cx.notify();
+            cx.stop_propagation();
+            return;
+        }
         if self.staff.enabled
             && self.staff.fullscreen
             && event.keystroke.key == "escape"

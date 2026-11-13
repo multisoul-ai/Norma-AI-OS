@@ -9,6 +9,9 @@ enum StaffWorker {
     dispatch = os.environ.get('NORMA_DISPATCH_ID')
     settings = json.loads(sys.argv[sys.argv.index('--settings') + 1])
     forward = shlex.split(settings['hooks']['SessionStart'][0]['hooks'][0]['command'])
+    # Optional real installed helper reproduces upgrades without changing the user's hook config.
+    if os.environ.get('NORMA_E2E_STAFF_HOOK_BINARY'):
+        forward = [os.environ['NORMA_E2E_STAFF_HOOK_BINARY'], 'forward', '--source', 'claude']
     sid = 'staff-' + str(node)
     def record(name, value):
         with open(os.path.join(root, name), 'a') as f: f.write(json.dumps(value) + '\n')
@@ -16,7 +19,7 @@ enum StaffWorker {
         payload = dict(hook_event_name=event, session_id=sid, cwd=os.getcwd(), prompt_id='staff-turn', **extra)
         result = subprocess.run(forward, input=json.dumps(payload), capture_output=True, text=True, timeout=10)
         if result.returncode: raise RuntimeError(result.stderr)
-    record('starts.jsonl', dict(node=node, dispatch=dispatch, pid=os.getpid()))
+    record('starts.jsonl', dict(node=node, dispatch=dispatch, pid=os.getpid(), helper=forward[0]))
     tty.setraw(sys.stdin.fileno())
     print('\x1b[?2004hSTAFF WORKER READY\r', flush=True)
     hook('SessionStart', source='startup')

@@ -3,7 +3,7 @@ use gpui::{div, prelude::*, px, rgba, Div, Stateful, Window};
 use norma::protocol::{TaskDisplayStatus, TaskPhase, WorkerOutcome};
 use ui::component::{
     button::{Button, ButtonVariants},
-    IconName, Selectable, Sizable, StyledExt,
+    Sizable, StyledExt,
 };
 use ui::i18n::text as t;
 
@@ -17,62 +17,6 @@ impl MultisoulApp {
         self.sync_staff_workspace(window, cx);
         self.ensure_staff_inputs(window, cx);
         let theme = self.staff_theme();
-        let header = div()
-            .flex()
-            .items_center()
-            .gap(px(12.))
-            .px(px(22.))
-            .h(px(56.))
-            .flex_none()
-            .when(self.staff.fullscreen, |header| {
-                header.pl(px(crate::app::chrome::BRAND_TOGGLE_LEFT))
-            })
-            .border_b_1()
-            .border_color(rgba(self.staff_line()))
-            .child(crate::app::chrome::brand_logo())
-            .child(div().text_size(px(17.)).font_semibold().child("Norma"))
-            .child(
-                div()
-                    .pl(px(12.))
-                    .border_l_1()
-                    .border_color(rgba(self.staff_line()))
-                    .text_size(px(13.))
-                    .text_color(rgba(self.staff_theme().text_secondary))
-                    .child(t("staff.mode")),
-            )
-            .child(div().flex_1())
-            .child(self.staff_workspace_picker(cx))
-            .child(self.staff_project_picker(false, cx))
-            .child(
-                Button::new("staff-fullscreen")
-                    .debug_selector(|| "staff-fullscreen".into())
-                    .ghost()
-                    .with_size(px(30.))
-                    .icon(if self.staff.fullscreen {
-                        IconName::Minimize
-                    } else {
-                        IconName::Maximize
-                    })
-                    .tooltip(if self.staff.fullscreen {
-                        t("staff.exit_fullscreen")
-                    } else {
-                        t("staff.fullscreen")
-                    })
-                    .selected(self.staff.fullscreen)
-                    .on_click(
-                        cx.listener(|app, _, window, cx| app.toggle_staff_fullscreen(window, cx)),
-                    ),
-            )
-            .child(
-                Button::new("staff-back-canvas")
-                    .ghost()
-                    .with_size(px(30.))
-                    .icon(IconName::Close)
-                    .tooltip(t("staff.canvas"))
-                    .on_click(
-                        cx.listener(|app, _, window, cx| app.set_staff_mode(false, window, cx)),
-                    ),
-            );
         div()
             .id("staff-workspace")
             .debug_selector(|| "staff-workspace".into())
@@ -88,7 +32,6 @@ impl MultisoulApp {
             .text_size(px(14.))
             .flex()
             .flex_col()
-            .child(header)
             .child(
                 div()
                     .id("staff-task-body")
@@ -96,12 +39,33 @@ impl MultisoulApp {
                     .min_h_0()
                     .flex()
                     .mr(px(layout.right_space))
-                    .when(super::sidebar_width(window) > 0., |body| {
-                        body.child(self.staff_task_list("", window, cx))
-                    })
+                    .p(px(12.))
+                    .gap(px(12.))
+                    .when(
+                        super::sidebar_width(window) > 0. && !self.staff.fullscreen,
+                        |body| body.child(self.staff_task_list("", window, cx)),
+                    )
                     .child(self.staff_conversation_area(window, cx)),
             )
-            .child(self.staff_footer())
+            .when(
+                super::sidebar_width(window) == 0. && self.staff.sidebar_open,
+                |panel| {
+                    panel.child(
+                        div()
+                            .absolute()
+                            .top(px(8.))
+                            .bottom(px(12.))
+                            .left(px(8.))
+                            .w(px(280.))
+                            .rounded(px(16.))
+                            .bg(rgba(theme.graphite))
+                            .border_1()
+                            .border_color(rgba(self.staff_line()))
+                            .occlude()
+                            .child(self.staff_task_list("", window, cx)),
+                    )
+                },
+            )
     }
 
     pub(super) fn render_staff_conversation(
@@ -143,7 +107,7 @@ impl MultisoulApp {
                         .w_full()
                         .max_w(px(760.))
                         .mx_auto()
-                        .child(self.staff_message(task, index, message, cx)),
+                        .child(self.staff_message(task, index, message, window, cx)),
                 );
             }
             if let Some(activity) = self.staff.activity.get(&task.id) {
@@ -205,39 +169,8 @@ impl MultisoulApp {
                     ),
             );
         }
-        center = center.child(self.staff_composer(selected.as_ref(), project_name, cx));
+        center = center.child(self.staff_composer(selected.as_ref(), project_name, window, cx));
         center
-    }
-
-    fn staff_footer(&self) -> Div {
-        let need = self
-            .staff
-            .tasks
-            .values()
-            .filter(|task| task.display_status() == TaskDisplayStatus::NeedsYou)
-            .count();
-        let run = self
-            .staff
-            .tasks
-            .values()
-            .filter(|task| task.display_status() == TaskDisplayStatus::Running)
-            .count();
-        div()
-            .h(px(34.))
-            .flex_none()
-            .px(px(18.))
-            .flex()
-            .items_center()
-            .gap(px(12.))
-            .border_t_1()
-            .border_color(rgba(self.staff_line()))
-            .text_size(px(11.))
-            .text_color(rgba(self.staff_theme().text_secondary))
-            .child(format!("{} {need}", t("staff.needs_you")))
-            .child("·")
-            .child(format!("{} {run}", t("staff.running")))
-            .child(div().flex_1())
-            .child(t("staff.footer_hint"))
     }
 
     pub(super) fn staff_line(&self) -> u32 {

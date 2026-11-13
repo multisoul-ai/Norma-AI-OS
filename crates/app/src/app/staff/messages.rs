@@ -1,10 +1,11 @@
 use super::view::outcome_label;
 use super::*;
-use gpui::{div, prelude::*, px, relative, rgba, Div, Stateful};
+use gpui::{div, prelude::*, px, relative, rgba, Div, Stateful, Window};
 use norma::protocol::{TaskMessage, WorkerOutcome};
 use ui::component::{
     avatar::Avatar,
     button::{Button, ButtonVariants},
+    text::TextView,
     Disableable, IconName, Sizable, StyledExt,
 };
 use ui::i18n::text as t;
@@ -15,6 +16,7 @@ impl MultisoulApp {
         task: &Task,
         index: usize,
         message: &TaskMessage,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let theme = self.staff_theme();
@@ -58,7 +60,15 @@ impl MultisoulApp {
                                     .child(t("staff.coordination")),
                             ),
                     )
-                    .child(text.clone());
+                    .child(
+                        TextView::markdown(
+                            gpui::SharedString::from(format!("staff-markdown-{}-{index}", task.id)),
+                            text.clone(),
+                            window,
+                            cx,
+                        )
+                        .selectable(true),
+                    );
             }
             TaskMessage::Proposal { proposal_id } => {
                 if let Some(proposal) = task.proposals.iter().find(|p| p.id == *proposal_id) {
@@ -122,7 +132,7 @@ impl MultisoulApp {
                                         .debug_selector(move || {
                                             format!("staff-adopt-{proposal_id}")
                                         })
-                                        .primary()
+                                        .custom(self.staff_primary_style(cx))
                                         .small()
                                         .compact()
                                         .h(px(34.))
@@ -142,7 +152,7 @@ impl MultisoulApp {
                                 .when(!dispatched, |actions| {
                                     actions.child(
                                         Button::new(("staff-edit-proposal", proposal_id))
-                                            .ghost()
+                                            .custom(self.staff_button_style(false, cx))
                                             .compact()
                                             .h(px(34.))
                                             .text_size(px(13.))

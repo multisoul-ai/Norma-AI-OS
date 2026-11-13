@@ -1,5 +1,5 @@
 use super::*;
-use gpui::{div, prelude::*, px, rgba, Div, Window};
+use gpui::{div, prelude::*, px, rgba, Div, Focusable, Window};
 use ui::component::{
     button::{Button, ButtonVariants},
     input::{Input, InputEvent},
@@ -34,7 +34,6 @@ impl MultisoulApp {
                 }
             })
             .detach();
-            self.staff.collapsed.insert("Done".into());
             self.staff.search = Some(search);
         }
     }
@@ -42,7 +41,8 @@ impl MultisoulApp {
     pub(super) fn staff_composer(
         &self,
         task: Option<&Task>,
-        project_name: &str,
+        _project_name: &str,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> Div {
         let input = self.staff.input.as_ref().expect("staff input initialized");
@@ -58,9 +58,13 @@ impl MultisoulApp {
                         .id("staff-composer")
                         .debug_selector(|| "staff-composer".into())
                         .border_1()
-                        .border_color(rgba(self.staff_line()))
-                        .rounded(px(16.))
-                        .bg(rgba(ui::icons::with_alpha(theme.text_primary, 9)))
+                        .border_color(rgba(if input.focus_handle(cx).is_focused(window) {
+                            theme.accent_cyan
+                        } else {
+                            self.staff_line()
+                        }))
+                        .rounded(px(22.))
+                        .bg(rgba(theme.panel_high))
                         .px(px(16.))
                         .py(px(10.))
                         .capture_action(cx.listener(
@@ -71,15 +75,6 @@ impl MultisoulApp {
                                 }
                             },
                         ))
-                        .child(
-                            div()
-                                .text_size(px(11.))
-                                .text_color(rgba(theme.text_secondary))
-                                .child(ui::i18n::format(
-                                    "staff.send_to_project",
-                                    &[("project", project_name.to_owned())],
-                                )),
-                        )
                         .child(
                             div()
                                 .flex()
@@ -102,7 +97,7 @@ impl MultisoulApp {
                                 .child(
                                     Button::new("staff-send")
                                         .debug_selector(|| "staff-send".into())
-                                        .primary()
+                                        .custom(self.staff_primary_style(cx))
                                         .with_size(px(34.))
                                         .rounded_full()
                                         .icon(IconName::ArrowUp)

@@ -3,9 +3,9 @@ use super::*;
 #[cfg(test)]
 #[path = "../../../tests/unit/staff_workspace_tests.rs"]
 mod tests;
-use gpui::{div, prelude::*, px, Div, Window};
+use gpui::{div, prelude::*, px, rgba, Div, Window};
 use ui::component::{
-    button::Button,
+    button::{Button, ButtonVariants},
     menu::{DropdownMenu, PopupMenuItem},
     Disableable, Sizable,
 };
@@ -117,6 +117,7 @@ impl MultisoulApp {
         if let Some((area, _)) = id.as_ref().and_then(|id| self.staff.task_projects.get(id)) {
             self.staff.target_project = Some(area.clone());
         }
+        self.staff.sidebar_open = false;
         self.staff.selected = id.clone();
         if let Some(project) = self.staff_project() {
             project.update(cx, |project, cx| project.select_staff_task(id, window, cx));
@@ -178,7 +179,7 @@ impl MultisoulApp {
                 "staff-project-filter".into()
             }
         })
-        .outline()
+        .custom(self.staff_button_style(false, cx))
         .small()
         .h(px(30.))
         .rounded(px(8.))
@@ -220,7 +221,11 @@ impl MultisoulApp {
         .into_any_element()
     }
 
-    pub(super) fn staff_workspace_picker(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+    pub(crate) fn staff_workspace_picker(
+        &self,
+        max_width: f32,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
         let current = self.desktop_workspace.active_id.clone();
         let workspaces = self.desktop_workspace.workspaces.clone();
         let label = self
@@ -230,11 +235,19 @@ impl MultisoulApp {
             .unwrap_or_default();
         let entity = cx.weak_entity();
         Button::new("staff-workspace-picker")
-            .outline()
+            .custom(self.staff_button_style(false, cx))
             .small()
             .h(px(30.))
+            .max_w(px(max_width))
+            .tooltip(label.clone())
             .rounded(px(8.))
-            .child(div().text_size(px(12.)).child(label))
+            .child(
+                div()
+                    .max_w(px((max_width - 40.).max(24.)))
+                    .truncate()
+                    .text_size(px(12.))
+                    .child(label),
+            )
             .dropdown_caret(true)
             .dropdown_menu(move |mut menu, _, _| {
                 for workspace in &workspaces {
@@ -270,7 +283,14 @@ impl MultisoulApp {
             })
             .map(|area| area.display_name.clone())
             .unwrap_or_default();
-        let mut center = div().flex_1().min_w_0().h_full().flex().flex_col();
+        let mut center = div()
+            .flex_1()
+            .min_w_0()
+            .h_full()
+            .flex()
+            .flex_col()
+            .rounded(px(20.))
+            .bg(rgba(self.staff_theme().panel));
         if self.staff.selected.is_none() {
             center = center.child(
                 div()

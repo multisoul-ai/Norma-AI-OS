@@ -78,7 +78,11 @@ impl MultisoulApp {
             dispatch_id: self.runtime.staff_dispatch_id(node).map(str::to_owned),
             agent: self.agent_announcement_name(node).unwrap_or_default(),
             outcome: Outcome::Failed,
-            excerpt: "staff.worker_failed".into(),
+            excerpt: if reason == "staff.worker_not_ready" {
+                reason
+            } else {
+                "staff.worker_failed".into()
+            },
             from_result: true,
         });
     }

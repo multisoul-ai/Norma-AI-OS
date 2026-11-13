@@ -78,3 +78,59 @@ fn worker_launch_identity_is_explicit_and_old_dispatch_is_rejected() {
     );
     runtime.kill_all();
 }
+
+/// 场景：兼容旧 helper 时仍拒绝缺身份、其他进程和显式旧派发编号。
+/// 数据构造：1 张 Codex Worker；80×24 为默认终端尺寸；当前进程由 Runtime 生成。
+/// 执行过程：创建并预备 Worker，分别检查当前 run、旧 run、无 run、错误/畸形 dispatch。
+/// 预期结果：只有当前进程且缺 dispatch 的旧载荷可接受；所有身份冲突均拒绝。
+#[test]
+fn legacy_staff_hook_requires_exact_current_process_identity() {
+    let mut runtime = Runtime::new_for_workspace("/tmp");
+    let node = runtime.create_staff_worker(
+        AgentProfile::Codex,
+        "Alan".into(),
+        CanvasRect::new(0., 0., 640., 400.),
+        "current-dispatch".into(),
+    );
+    let launch = runtime
+        .prepare_native_agent_terminal(node, 80, 24)
+        .expect("预备进程，不启动外部 CLI");
+    let hook = |raw| {
+        norma::agent_hook::parse_hook_event(norma::agent_hook::HookSource::Codex, node, raw)
+            .expect("SessionStart 载荷")
+    };
+    let current = hook(
+        serde_json::json!({"hook_event_name":"SessionStart", "_norma_control_run_id":launch.run_id()}),
+    );
+    let old = hook(
+        serde_json::json!({"hook_event_name":"SessionStart", "_norma_control_run_id":"retired-process"}),
+    );
+    let missing = hook(serde_json::json!({"hook_event_name":"SessionStart"}));
+    let conflict = hook(
+        serde_json::json!({"hook_event_name":"SessionStart", "_norma_control_run_id":launch.run_id(), "_norma_dispatch_id":"old-dispatch"}),
+    );
+    let malformed = hook(
+        serde_json::json!({"hook_event_name":"SessionStart", "_norma_control_run_id":launch.run_id(), "_norma_dispatch_id":null}),
+    );
+    assert!(
+        runtime.accepts_staff_hook(&current),
+        "旧 helper 的当前进程身份足以关联本次派发"
+    );
+    assert!(
+        !runtime.accepts_staff_hook(&old),
+        "旧进程迟到消息不得唤醒新 Worker"
+    );
+    assert!(
+        !runtime.accepts_staff_hook(&missing),
+        "只有 node 的消息不能冒认当前派发"
+    );
+    assert!(
+        !runtime.accepts_staff_hook(&conflict),
+        "显式旧 dispatch 不能靠当前 run 绕过"
+    );
+    assert!(
+        !runtime.accepts_staff_hook(&malformed),
+        "畸形 dispatch 不能按旧 helper 处理"
+    );
+    runtime.kill_all();
+}

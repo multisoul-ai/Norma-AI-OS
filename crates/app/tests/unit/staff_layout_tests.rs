@@ -3,9 +3,9 @@ use gpui::{px, size, TestAppContext};
 
 /// 场景：幕僚模式拖宽右栏后仍保留任务栏与可用对话区，不修改画布的宽度偏好。
 ///
-/// 数据构造：1280px 窗口，用户右栏宽960=1280−旧画布最小320；任务栏330px。
+/// 数据构造：1280px 窗口，用户右栏宽960=1280−旧画布最小320；任务栏280px。
 /// 执行过程：打开幕僚并读取生产布局 → 切回画布再读取 → 收起右栏。
-/// 预期结果：幕僚中央至少320px，即总内容≥330+320=650；画布仍用960px；收起不占空间。
+/// 预期结果：幕僚中央至少320px，即总内容≥280+320+36=636（外边距24+栏间距12）；画布仍用960px；收起不占空间。
 #[test]
 fn staff_drawer_keeps_conversation_visible_with_wide_saved_width() {
     let dir = tempfile::tempdir().expect("isolated project");
@@ -26,8 +26,8 @@ fn staff_drawer_keeps_conversation_visible_with_wide_saved_width() {
         app.desktop_workspace.drawer_widths.right = Some(960.);
         let staff = app.desktop_assistant_layout(window);
         assert!(
-            staff.canvas_width >= 650.,
-            "330px任务栏后必须保留至少320px对话，实际总宽{}",
+            staff.canvas_width >= 636.,
+            "扣除280px任务栏和36px留白后必须保留至少320px对话，实际总宽{}",
             staff.canvas_width
         );
         assert!(
@@ -56,7 +56,7 @@ fn staff_drawer_keeps_conversation_visible_with_wide_saved_width() {
 }
 
 /// 场景：原型窄窗折叠辅助栏，使任务对话始终可见。
-/// 数据构造：760px窗口原三栏会仅剩760−290−185=285px；600px时应隐藏任务列表。
+/// 数据构造：760px窗口原三栏会仅剩760−280−185=295px；600px时应隐藏任务列表。
 /// 执行过程：保持右抽屉打开与记忆宽960，依次缩窗760、600，读取生产布局。
 /// 预期结果：760px隐藏右栏占位且对话≥320px；600px左栏宽0，整窗用于任务对话。
 #[test]

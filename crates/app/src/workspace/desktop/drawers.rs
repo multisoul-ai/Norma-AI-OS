@@ -64,10 +64,12 @@ impl MultisoulApp {
             );
         }
         if self.staff.enabled {
-            // 任务栏之外仍保留既有最小320px内容区；只夹当前布局，不改画布宽度偏好。
-            let maximum =
-                (width - crate::app::staff::sidebar_width(window) - motion::MIN_CANVAS_WIDTH)
-                    .max(motion::RIGHT_MIN_WIDTH);
+            // 除任务栏、两侧12px内边距和12px栏间距（合计36px），保留最小320px对话。
+            let maximum = (width
+                - crate::app::staff::sidebar_width(window)
+                - 36.0
+                - motion::MIN_CANVAS_WIDTH)
+                .max(motion::RIGHT_MIN_WIDTH);
             let preferred = self.desktop_workspace.drawer_widths.right.unwrap_or(380.0);
             return motion::DesktopDrawerLayout::with_width(
                 width,

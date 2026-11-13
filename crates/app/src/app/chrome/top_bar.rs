@@ -6,8 +6,8 @@ use crate::workspace::persistence::PersistenceSaveState;
 use gpui::{div, img, prelude::*, px, rgba, Context, Div, Stateful, Window, WindowControlArea};
 use std::path::Path;
 use ui::component::{
-    button::{Button, ButtonCustomVariant, ButtonGroup, ButtonVariants},
-    Disableable, Selectable, StyledExt,
+    button::{Button, ButtonCustomVariant, ButtonVariants},
+    Disableable, IconName, Sizable, StyledExt,
 };
 use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
 use workspace::display_name_for_path;
@@ -79,7 +79,16 @@ impl MultisoulApp {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let theme = top_bar_theme(self.theme);
+        let theme = if self.staff.enabled {
+            let staff = self.staff_theme();
+            ui::Theme {
+                dock: staff.graphite,
+                dock_line: ui::icons::with_alpha(staff.text_primary, 0),
+                ..staff
+            }
+        } else {
+            top_bar_theme(self.theme)
+        };
         let layout = self.desktop_assistant_layout(window);
         // Staff's drawer begins below its own header, so the window bar stays full width.
         let right_space = if self.staff.enabled {
@@ -117,10 +126,32 @@ impl MultisoulApp {
             .child(
                 brand_logo()
                     .absolute()
-                    .left(px(BRAND_LOGO_LEFT))
+                    .left(px(if self.staff.enabled {
+                        BRAND_TOGGLE_LEFT
+                    } else {
+                        BRAND_LOGO_LEFT
+                    }))
                     .top(px((TOP_BAR_HEIGHT - BRAND_LOGO_SIZE) / 2.0)),
             )
-            .child(title)
+            .when(!self.staff.enabled, |bar| bar.child(title))
+            .when(self.staff.enabled, |bar| {
+                bar.child(
+                    div()
+                        .absolute()
+                        .left(px(BRAND_TOGGLE_LEFT + BRAND_LOGO_SIZE + 12.))
+                        .flex()
+                        .items_center()
+                        .gap(px(12.))
+                        .child(
+                            self.staff_workspace_picker(
+                                (width - BRAND_TOGGLE_LEFT - BRAND_LOGO_SIZE - 12. - 344.)
+                                    .clamp(64., 180.),
+                                cx,
+                            ),
+                        )
+                        .child(self.desktop_mode_switch(cx)),
+                )
+            })
             .child(
                 div()
                     .absolute()
@@ -140,29 +171,47 @@ impl MultisoulApp {
                     .flex()
                     .items_center()
                     .gap(px(8.0))
-                    .child(
-                        ButtonGroup::new("desktop-view-mode")
-                            .outline()
-                            .compact()
-                            .child(
-                                Button::new("desktop-canvas-mode")
-                                    .label(ui::i18n::text("staff.canvas"))
-                                    .selected(!self.staff.enabled)
-                                    .on_click(cx.listener(|app, _, window, cx| {
-                                        app.set_staff_mode(false, window, cx)
+                    .when(
+                        self.staff.enabled && crate::app::staff::sidebar_width(window) == 0.,
+                        |row| {
+                            row.child(
+                                Button::new("staff-show-tasks")
+                                    .debug_selector(|| "staff-show-tasks".into())
+                                    .icon(IconName::Menu)
+                                    .with_size(px(32.))
+                                    .custom(self.staff_button_style(self.staff.sidebar_open, cx))
+                                    .tooltip(ui::i18n::text("staff.tasks"))
+                                    .on_click(cx.listener(|app, _, _, cx| {
+                                        app.staff.sidebar_open = !app.staff.sidebar_open;
+                                        cx.notify();
                                     })),
                             )
-                            .child(
-                                Button::new("desktop-staff-toggle")
-                                    .debug_selector(|| "desktop-staff-toggle".to_owned())
-                                    .label(ui::i18n::text("staff.mode"))
-                                    .selected(self.staff.enabled)
-                                    .disabled(self.desktop_workspace.active_id.is_none())
-                                    .on_click(cx.listener(|app, _, window, cx| {
-                                        app.set_staff_mode(true, window, cx)
-                                    })),
-                            ),
+                        },
                     )
+                    .when(!self.staff.enabled, |row| {
+                        row.child(self.desktop_mode_switch(cx))
+                    })
+                    .when(self.staff.enabled, |row| {
+                        row.child(
+                            Button::new("staff-fullscreen")
+                                .debug_selector(|| "staff-fullscreen".into())
+                                .icon(if self.staff.fullscreen {
+                                    IconName::Minimize
+                                } else {
+                                    IconName::Maximize
+                                })
+                                .with_size(px(32.))
+                                .custom(self.staff_button_style(self.staff.fullscreen, cx))
+                                .tooltip(ui::i18n::text(if self.staff.fullscreen {
+                                    "staff.exit_fullscreen"
+                                } else {
+                                    "staff.fullscreen"
+                                }))
+                                .on_click(cx.listener(|app, _, window, cx| {
+                                    app.toggle_staff_fullscreen(window, cx)
+                                })),
+                        )
+                    })
                     .child(
                         launchpad_button(theme, cx)
                             .tooltip(ui::i18n::text("chrome.all_workspaces"))
@@ -176,26 +225,33 @@ impl MultisoulApp {
                                 );
                             })),
                     )
-                    .when(self.desktop_workspace.expanded_area_id.is_none(), |row| {
-                        row.child(
-                            Button::new("desktop-topbar-add-project")
-                                .debug_selector(|| "desktop-topbar-add-project".to_string())
-                                .child(toolbar_icon(ToolbarIcon::Plus, theme.text_primary, 14.0))
-                                .when(wide, |button| {
-                                    button.label(ui::i18n::text("shortcuts.add_project"))
-                                })
-                                .when(!wide, |button| button.w(px(36.0)).p(px(0.0)))
-                                .h(px(36.0))
-                                .rounded(px(12.0))
-                                .custom(top_bar_button(theme, cx))
-                                .tooltip(ui::i18n::text("shortcuts.add_project"))
-                                .disabled(self.desktop_workspace.busy)
-                                .on_click(cx.listener(|app, _, window, cx| {
-                                    cx.stop_propagation();
-                                    app.open_desktop_add_project(window, cx);
-                                })),
-                        )
-                    }),
+                    .when(
+                        !self.staff.enabled && self.desktop_workspace.expanded_area_id.is_none(),
+                        |row| {
+                            row.child(
+                                Button::new("desktop-topbar-add-project")
+                                    .debug_selector(|| "desktop-topbar-add-project".to_string())
+                                    .child(toolbar_icon(
+                                        ToolbarIcon::Plus,
+                                        theme.text_primary,
+                                        14.0,
+                                    ))
+                                    .when(wide, |button| {
+                                        button.label(ui::i18n::text("shortcuts.add_project"))
+                                    })
+                                    .when(!wide, |button| button.w(px(36.0)).p(px(0.0)))
+                                    .h(px(36.0))
+                                    .rounded(px(12.0))
+                                    .custom(top_bar_button(theme, cx))
+                                    .tooltip(ui::i18n::text("shortcuts.add_project"))
+                                    .disabled(self.desktop_workspace.busy)
+                                    .on_click(cx.listener(|app, _, window, cx| {
+                                        cx.stop_propagation();
+                                        app.open_desktop_add_project(window, cx);
+                                    })),
+                            )
+                        },
+                    ),
             )
     }
 

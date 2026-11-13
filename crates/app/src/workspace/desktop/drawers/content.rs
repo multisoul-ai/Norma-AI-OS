@@ -38,7 +38,7 @@ impl MultisoulApp {
             self.desktop_theme()
         };
         let (top, bottom) = if self.staff.enabled {
-            (self.staff_panel_top() + 56., 34.)
+            (self.staff_panel_top() + 12., 12.)
         } else {
             (TOP, BOTTOM)
         };

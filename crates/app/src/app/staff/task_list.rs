@@ -1,8 +1,7 @@
 use super::{view::status_label, *};
-use gpui::{div, prelude::*, px, rgba, Div, Stateful, Window};
-use norma::protocol::{TaskDisplayStatus, WorkerOutcome};
+use gpui::{div, prelude::*, px, rgba, Div, Focusable, Stateful, Window};
+use norma::protocol::TaskDisplayStatus;
 use ui::component::{
-    avatar::Avatar,
     button::{Button, ButtonVariants},
     input::Input,
     Disableable, Icon, IconName, Selectable, Sizable, StyledExt,
@@ -63,12 +62,12 @@ impl MultisoulApp {
             chips = chips.child(
                 Button::new(gpui::SharedString::from(format!("staff-filter-{key}")))
                     .debug_selector(move || format!("staff-filter-{key}"))
-                    .outline()
+                    .custom(self.staff_button_style(self.staff.filter == status, cx))
                     .small()
                     .h(px(26.))
                     .px(px(8.))
                     .text_size(px(12.))
-                    .rounded(px(7.))
+                    .rounded(px(16.))
                     .selected(self.staff.filter == status)
                     .child(div().text_size(px(12.)).child(format!("{label} {count}")))
                     .on_click(cx.listener(move |app, _, _, cx| {
@@ -124,51 +123,7 @@ impl MultisoulApp {
                 continue;
             }
             visible += tasks.len();
-            let key = format!("{status:?}");
-            let open = !self.staff.collapsed.contains(&key)
-                || !query.is_empty()
-                || self.staff.filter.is_some();
             let color = status_color(status, theme);
-            groups = groups.child(
-                Button::new(gpui::SharedString::from(format!("staff-group-{key}")))
-                    .ghost()
-                    .compact()
-                    .w_full()
-                    .h(px(30.))
-                    .mt(px(6.))
-                    .justify_start()
-                    .child(div().w(px(6.)).h(px(6.)).rounded_full().bg(rgba(color)))
-                    .child(
-                        div()
-                            .text_size(px(11.))
-                            .font_semibold()
-                            .child(status_label(status)),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(11.))
-                            .text_color(rgba(theme.text_tertiary))
-                            .child(tasks.len().to_string()),
-                    )
-                    .child(div().flex_1())
-                    .child(
-                        Icon::new(if open {
-                            IconName::ChevronDown
-                        } else {
-                            IconName::ChevronRight
-                        })
-                        .with_size(px(12.)),
-                    )
-                    .on_click(cx.listener(move |app, _, _, cx| {
-                        if !app.staff.collapsed.remove(&key) {
-                            app.staff.collapsed.insert(key.clone());
-                        }
-                        app.notify_staff(cx);
-                    })),
-            );
-            if !open {
-                continue;
-            }
             for task in tasks {
                 let id = task.id.clone();
                 let agents = task
@@ -192,77 +147,62 @@ impl MultisoulApp {
                     },
                     project_name
                 );
-                let mut avatars = div().flex().gap(px(2.)).flex_none();
-                for worker in task.workers.iter().take(3) {
-                    avatars =
-                        avatars.child(Avatar::new().name(worker.agent.clone()).with_size(px(22.)));
-                }
-                let done = task
-                    .workers
-                    .iter()
-                    .filter(|worker| worker.outcome == Some(WorkerOutcome::Succeeded))
-                    .count();
-                groups = groups.child(
-                    Button::new(gpui::SharedString::from(format!("staff-task-{id}")))
-                        .debug_selector(move || format!("staff-task-{}", task.id))
-                        .ghost()
-                        .w_full()
-                        .h_auto()
-                        .p(px(10.))
-                        .mt(px(2.))
-                        .rounded(px(10.))
-                        .justify_start()
-                        .gap(px(10.))
-                        .selected(self.staff.selected.as_deref() == Some(&id))
-                        .disabled(self.staff.busy)
-                        .child(
-                            Icon::new(match status {
-                                TaskDisplayStatus::NeedsYou => IconName::Bell,
-                                TaskDisplayStatus::Done => IconName::Check,
-                                TaskDisplayStatus::Running => IconName::Loader,
-                                _ => IconName::ChevronDown,
-                            })
-                            .with_size(px(16.))
-                            .text_color(rgba(color)),
-                        )
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .flex()
-                                .flex_col()
-                                .items_start()
-                                .gap(px(2.))
-                                .child(
-                                    div()
-                                        .w_full()
-                                        .text_size(px(14.))
-                                        .font_medium()
-                                        .text_ellipsis()
-                                        .child(task.title.clone()),
-                                )
-                                .child(
-                                    div()
-                                        .w_full()
-                                        .text_size(px(11.))
-                                        .text_color(rgba(theme.text_secondary))
-                                        .text_ellipsis()
-                                        .child(subtitle),
-                                ),
-                        )
-                        .when(!task.workers.is_empty(), |row| {
-                            row.child(
+                groups =
+                    groups.child(
+                        Button::new(gpui::SharedString::from(format!("staff-task-{id}")))
+                            .debug_selector(move || format!("staff-task-{}", task.id))
+                            .custom(self.staff_button_style(
+                                self.staff.selected.as_deref() == Some(&id),
+                                cx,
+                            ))
+                            .w_full()
+                            .h_auto()
+                            .px(px(14.))
+                            .py(px(13.))
+                            .mt(px(2.))
+                            .rounded(px(16.))
+                            .justify_start()
+                            .gap(px(10.))
+                            .selected(self.staff.selected.as_deref() == Some(&id))
+                            .disabled(self.staff.busy)
+                            .child(div().w(px(6.)).h(px(6.)).rounded_full().bg(rgba(color)))
+                            .child(
                                 div()
-                                    .text_size(px(11.))
-                                    .text_color(rgba(theme.text_secondary))
-                                    .child(format!("{done}/{}", task.workers.len())),
+                                    .flex_1()
+                                    .min_w_0()
+                                    .flex()
+                                    .flex_col()
+                                    .items_start()
+                                    .gap(px(2.))
+                                    .child(
+                                        div()
+                                            .w_full()
+                                            .text_size(px(13.))
+                                            .font_medium()
+                                            .text_ellipsis()
+                                            .child(task.title.clone()),
+                                    )
+                                    .child(
+                                        div()
+                                            .w_full()
+                                            .text_size(px(11.))
+                                            .text_color(rgba(theme.text_secondary))
+                                            .flex()
+                                            .gap(px(8.))
+                                            .child(
+                                                div()
+                                                    .flex_1()
+                                                    .min_w_0()
+                                                    .text_ellipsis()
+                                                    .child(subtitle),
+                                            )
+                                            .child(div().flex_none().child(status_label(status))),
+                                    ),
                             )
-                            .child(avatars)
-                        })
-                        .on_click(cx.listener(move |app, _, window, cx| {
-                            app.select_staff_task(Some(id.clone()), window, cx)
-                        })),
-                );
+                            .on_click(cx.listener(move |app, _, window, cx| {
+                                app.select_staff_task(Some(id.clone()), window, cx)
+                            })),
+                    );
             }
         }
         if visible == 0 {
@@ -277,40 +217,73 @@ impl MultisoulApp {
         div()
             .id("staff-task-list")
             .debug_selector(|| "staff-task-list".into())
-            .w(px(super::sidebar_width(window)))
+            .w(px(super::sidebar_width(window).max(280.)))
             .flex_none()
             .h_full()
             .flex()
             .flex_col()
-            .border_r_1()
-            .border_color(rgba(self.staff_line()))
-            .bg(rgba(theme.panel))
+            .rounded(px(16.))
+            .bg(rgba(theme.graphite))
             .child(
-                div().px(px(16.)).pt(px(16.)).pb(px(12.)).child(
-                    Button::new("staff-new-task")
-                        .debug_selector(|| "staff-new-task".into())
-                        .outline()
-                        .w_full()
-                        .h(px(44.))
-                        .rounded(px(12.))
-                        .justify_start()
-                        .icon(Icon::empty().path(crate::assets::TOOLBAR_PLUS_ASSET))
-                        .text_size(px(13.))
-                        .child(div().text_size(px(13.)).child(t("staff.new_task_prompt")))
-                        .disabled(self.staff.busy)
-                        .on_click(cx.listener(|app, _, window, cx| {
-                            app.select_staff_task(None, window, cx)
-                        })),
-                ),
+                div()
+                    .px(px(8.))
+                    .pt(px(8.))
+                    .pb(px(20.))
+                    .flex()
+                    .items_center()
+                    .gap(px(8.))
+                    .child(
+                        Button::new("staff-new-task")
+                            .debug_selector(|| "staff-new-task".into())
+                            .custom(self.staff_primary_style(cx))
+                            .h(px(48.))
+                            .px(px(20.))
+                            .rounded(px(16.))
+                            .justify_start()
+                            .icon(Icon::empty().path(crate::assets::TOOLBAR_PLUS_ASSET))
+                            .text_size(px(13.))
+                            .child(div().text_size(px(13.)).child(t("staff.new_task")))
+                            .disabled(self.staff.busy)
+                            .on_click(cx.listener(|app, _, window, cx| {
+                                app.select_staff_task(None, window, cx)
+                            })),
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        Button::new("staff-toggle-search")
+                            .icon(IconName::Search)
+                            .with_size(px(36.))
+                            .custom(self.staff_button_style(self.staff.search_open, cx))
+                            .tooltip(t("staff.search"))
+                            .on_click(cx.listener(|app, _, window, cx| {
+                                app.staff.search_open = !app.staff.search_open;
+                                if app.staff.search_open {
+                                    if let Some(search) = &app.staff.search {
+                                        search.focus_handle(cx).focus(window);
+                                    }
+                                }
+                                app.notify_staff(cx);
+                            })),
+                    ),
             )
+            .when(self.staff.search_open || !query.is_empty(), |list| {
+                list.child(
+                    div().px(px(16.)).pb(px(10.)).child(
+                        Input::new(search)
+                            .bg(rgba(theme.panel_high))
+                            .rounded(px(18.))
+                            .prefix(Icon::new(IconName::Search).with_size(px(14.)))
+                            .h(px(34.))
+                            .text_size(px(13.))
+                            .cleanable(true),
+                    ),
+                )
+            })
             .child(
-                div().px(px(16.)).pb(px(10.)).child(
-                    Input::new(search)
-                        .prefix(Icon::new(IconName::Search).with_size(px(14.)))
-                        .h(px(34.))
-                        .text_size(px(13.))
-                        .cleanable(true),
-                ),
+                div()
+                    .px(px(16.))
+                    .pb(px(8.))
+                    .child(self.staff_project_picker(false, cx)),
             )
             .child(chips)
             .child(groups)

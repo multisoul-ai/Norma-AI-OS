@@ -20,10 +20,8 @@ pub(crate) fn sidebar_width(window: &gpui::Window) -> f32 {
     let width = f32::from(window.viewport_size().width);
     if width < 760.0 {
         0.0
-    } else if width < 1180.0 {
-        290.0
     } else {
-        330.0
+        280.0
     }
 }
 
@@ -31,6 +29,7 @@ pub(crate) fn sidebar_width(window: &gpui::Window) -> f32 {
 pub(crate) struct StaffState {
     pub enabled: bool,
     pub fullscreen: bool,
+    pub sidebar_open: bool,
     pub loaded: bool,
     pub loading: bool,
     pub busy: bool,
@@ -45,8 +44,8 @@ pub(crate) struct StaffState {
     pub input: Option<Entity<InputState>>,
     pub search: Option<Entity<InputState>>,
     pub query: String,
+    pub search_open: bool,
     pub filter: Option<norma::protocol::TaskDisplayStatus>,
-    pub collapsed: std::collections::BTreeSet<String>,
     pub scroll: gpui::ScrollHandle,
     pub error: Option<ui::i18n::LocalizedText>,
     pub pending: BTreeMap<u64, PendingWorker>,

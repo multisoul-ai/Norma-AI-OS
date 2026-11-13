@@ -27,7 +27,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let (top, bottom) = if self.staff.enabled {
-            (self.staff_panel_top() + 56., 34.)
+            (self.staff_panel_top() + 12., 12.)
         } else {
             (0., 0.)
         };
@@ -99,7 +99,7 @@ impl MultisoulApp {
             return;
         };
         let task_list = if self.staff.enabled {
-            crate::app::staff::sidebar_width(window)
+            crate::app::staff::sidebar_width(window) + 36.0
         } else {
             0.0
         };

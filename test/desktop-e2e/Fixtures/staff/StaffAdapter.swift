@@ -80,7 +80,7 @@ enum StaffAdapter {
                     run(sid, base + ['task','propose',tid,agent,'--title','实现验收文件','--prompt','STAFF-M1-WORK: 创建 STAFF-RESULT.md 并返回结果。','--why','先完成一个可验收产物'])
                     # Task sessions are forbidden to report: prove the permission gate rejects it.
                     run(sid, base + ['report','--text','TASK MUST NOT SPEAK'])
-                    reply = 'STAFF PLAN：建议先生成验收文件，采用后开始。'
+                    reply = '**STAFF PLAN**：建议先生成验收文件。\n\n- 采用后开始\n- 产物：`STAFF-RESULT.md`'
                 elif 'CONFIRM' in last:
                     run(sid, base + ['task','phase',tid,'done'])
                     reply = 'STAFF DONE：验收完成。'
