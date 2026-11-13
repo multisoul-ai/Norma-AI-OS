@@ -1,5 +1,5 @@
 use super::*;
-use gpui::{div, prelude::*, px, rgba, Div, Focusable, Window};
+use gpui::{div, prelude::*, px, rgba, Div, Focusable, KeyDownEvent, Window};
 use ui::component::{
     button::{Button, ButtonVariants},
     input::{Input, InputEvent},
@@ -47,7 +47,7 @@ impl MultisoulApp {
     ) -> Div {
         let input = self.staff.input.as_ref().expect("staff input initialized");
         let theme = self.staff_theme();
-        div().px(px(28.)).pt(px(8.)).flex_none().child(
+        div().px(px(20.)).pt(px(8.)).flex_none().child(
             div()
                 .max_w(px(760.))
                 .mx_auto()
@@ -65,22 +65,29 @@ impl MultisoulApp {
                         }))
                         .rounded(px(22.))
                         .bg(rgba(theme.panel_high))
-                        .px(px(16.))
-                        .py(px(10.))
+                        .pl(px(18.))
+                        .pr(px(8.))
+                        .py(px(8.))
                         .capture_action(cx.listener(
-                            |app, action: &ui::component::input::Enter, window, cx| {
-                                if action.secondary {
-                                    app.send_staff_message(window, cx);
-                                    cx.stop_propagation();
-                                }
+                            |app, _: &ui::component::input::Enter, window, cx| {
+                                app.send_staff_message(window, cx);
+                                cx.stop_propagation();
                             },
                         ))
+                        .capture_key_down(cx.listener(|app, event: &KeyDownEvent, window, cx| {
+                            let keystroke = &event.keystroke;
+                            if keystroke.key == "enter" && keystroke.modifiers.shift {
+                                if let Some(input) = app.staff.input.clone() {
+                                    input.update(cx, |input, cx| input.insert("\n", window, cx));
+                                }
+                                cx.stop_propagation();
+                            }
+                        }))
                         .child(
                             div()
                                 .flex()
-                                .items_end()
+                                .items_center()
                                 .gap(px(10.))
-                                .mt(px(6.))
                                 .child(
                                     div()
                                         .flex_1()
@@ -115,7 +122,8 @@ impl MultisoulApp {
                         .flex()
                         .items_center()
                         .justify_between()
-                        .py(px(10.))
+                        .px(px(18.))
+                        .py(px(8.))
                         .text_size(px(11.))
                         .text_color(rgba(theme.text_tertiary))
                         .child(

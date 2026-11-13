@@ -74,6 +74,10 @@ pub enum TaskMessage {
         proposal_id: u64,
         dispatch_id: String,
     },
+    WorkerNeedsAttention {
+        node_id: u64,
+        dispatch_id: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -81,6 +85,7 @@ pub enum WorkerState {
     Active,
     Failed,
     Interrupted,
+    NeedsAttention,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -113,6 +118,16 @@ pub struct Worker {
     pub needs_input: bool,
     /// Active 表示仍持有卡片；outcome 区分执行中与已取得本轮结果。
     pub outcome: Option<WorkerOutcome>,
+    /// 实际打进卡片的 prompt。旧快照没有该字段时为空，重投回退到提议原文。
+    #[serde(default)]
+    pub launch_prompt: String,
+    /// 本轮 UserPromptSubmit 已确认。旧快照缺字段时视为已送达，避免正在执行的 Worker 变成启动中。
+    #[serde(default = "prompt_delivered_by_default")]
+    pub prompt_delivered: bool,
+}
+
+fn prompt_delivered_by_default() -> bool {
+    true
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -138,8 +153,36 @@ impl Worker {
             state: WorkerState::Active,
             needs_input: false,
             outcome: None,
+            launch_prompt: String::new(),
+            prompt_delivered: false,
         }
     }
+
+    pub fn chip(&self) -> WorkerChip {
+        if self.needs_input
+            || matches!(
+                self.state,
+                WorkerState::Failed | WorkerState::Interrupted | WorkerState::NeedsAttention
+            )
+            || self.outcome == Some(WorkerOutcome::Unavailable)
+        {
+            WorkerChip::NeedsYou
+        } else if self.outcome.is_some() {
+            WorkerChip::Done
+        } else if self.prompt_delivered {
+            WorkerChip::Running
+        } else {
+            WorkerChip::Starting
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WorkerChip {
+    Starting,
+    Running,
+    NeedsYou,
+    Done,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -215,7 +258,11 @@ impl Task {
             })
         {
             TaskDisplayStatus::NeedsYou
-        } else if self.workers.iter().any(|worker| worker.outcome.is_none()) {
+        } else if self.workers.iter().any(|worker| {
+            worker.outcome.is_none()
+                && worker.prompt_delivered
+                && worker.state == WorkerState::Active
+        }) {
             TaskDisplayStatus::Running
         } else {
             TaskDisplayStatus::Waiting

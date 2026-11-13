@@ -76,7 +76,9 @@ enum StaffAdapter {
                     roster = run(sid, base + ['agents'])
                     # Production CLI wraps Brain output in the response envelope.
                     agents = json.loads(roster['result']['Brain']['output'])['agents']
-                    agent = next(a['name'] for a in agents if a['enabled'])
+                    wanted = os.environ.get('NORMA_E2E_STAFF_AGENT')
+                    enabled = [a for a in agents if a['enabled']]
+                    agent = next(a['name'] for a in enabled if wanted and (a['name'] == wanted or a.get('profile') == wanted)) if wanted else enabled[0]['name']
                     run(sid, base + ['task','propose',tid,agent,'--title','实现验收文件','--prompt','STAFF-M1-WORK: 创建 STAFF-RESULT.md 并返回结果。','--why','先完成一个可验收产物'])
                     # Task sessions are forbidden to report: prove the permission gate rejects it.
                     run(sid, base + ['report','--text','TASK MUST NOT SPEAK'])

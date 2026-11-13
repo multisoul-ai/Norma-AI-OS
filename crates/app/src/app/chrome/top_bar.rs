@@ -90,13 +90,8 @@ impl MultisoulApp {
             top_bar_theme(self.theme)
         };
         let layout = self.desktop_assistant_layout(window);
-        // Staff's drawer begins below its own header, so the window bar stays full width.
-        let right_space = if self.staff.enabled {
-            0.0
-        } else {
-            layout.right_space
-        };
-        let width = layout.canvas_width + layout.right_space - right_space;
+        let right_space = layout.right_space;
+        let width = layout.canvas_width;
         let wide = width >= 780.0;
         let workspace = self
             .desktop_workspace
@@ -134,6 +129,18 @@ impl MultisoulApp {
                     .top(px((TOP_BAR_HEIGHT - BRAND_LOGO_SIZE) / 2.0)),
             )
             .when(!self.staff.enabled, |bar| bar.child(title))
+            .child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .right_0()
+                    .h(px(TOP_BAR_HEIGHT))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .child(self.desktop_mode_switch(cx)),
+            )
             .when(self.staff.enabled, |bar| {
                 bar.child(
                     div()
@@ -148,8 +155,7 @@ impl MultisoulApp {
                                     .clamp(64., 180.),
                                 cx,
                             ),
-                        )
-                        .child(self.desktop_mode_switch(cx)),
+                        ),
                 )
             })
             .child(
@@ -188,9 +194,6 @@ impl MultisoulApp {
                             )
                         },
                     )
-                    .when(!self.staff.enabled, |row| {
-                        row.child(self.desktop_mode_switch(cx))
-                    })
                     .when(self.staff.enabled, |row| {
                         row.child(
                             Button::new("staff-fullscreen")

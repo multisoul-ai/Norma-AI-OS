@@ -1,6 +1,6 @@
 //! Authenticated task commands run disk IO off the GPUI thread.
 use super::*;
-use norma::protocol::{StaffOp, Task};
+use norma::protocol::StaffOp;
 use std::sync::Arc;
 
 mod dispatch;
@@ -109,41 +109,5 @@ impl MultisoulApp {
             Err(error) if error == "island.staff_loading" => {}
             Err(error) => self.staff.error = Some(crate::app::staff::error_message(error)),
         }
-    }
-
-    pub(crate) fn staff_user_operation(
-        &mut self,
-        op: StaffOp,
-        manual: bool,
-        cx: &mut Context<Self>,
-    ) {
-        if self.staff.busy {
-            return;
-        }
-        let creating = matches!(op, StaffOp::Create { .. });
-        match self.write_staff_operation(op, manual, cx) {
-            Ok(work) => {
-                self.staff.busy = true;
-                self.staff.error = None;
-                cx.spawn(async move |app, cx| {
-                    let result = work.await;
-                    let _ = app.update(cx, |app, cx| {
-                        app.staff.busy = false;
-                        if creating {
-                            if let Ok(output) = &result {
-                                if let Ok(tasks) = serde_json::from_str::<Vec<Task>>(output) {
-                                    app.staff.selected = tasks.first().map(|task| task.id.clone());
-                                }
-                            }
-                        }
-                        app.staff.error = result.err().map(crate::app::staff::error_message);
-                        app.notify_staff(cx);
-                    });
-                })
-                .detach();
-            }
-            Err(error) => self.staff.error = Some(crate::app::staff::error_message(error)),
-        }
-        self.notify_staff(cx);
     }
 }

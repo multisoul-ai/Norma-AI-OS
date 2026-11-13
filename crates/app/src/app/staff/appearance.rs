@@ -57,6 +57,24 @@ impl MultisoulApp {
             .active(rgba(ui::icons::with_alpha(theme.accent_cyan, 200)).into())
     }
 
+    /// Material tonal container for the extended "new task" action; label colors must be set on its children.
+    pub(crate) fn staff_tonal_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
+        let (container, on_container) = self.staff_tonal_colors();
+        ButtonCustomVariant::new(cx)
+            .color(rgba(container).into())
+            .foreground(rgba(on_container).into())
+            .hover(rgba(ui::icons::with_alpha(container, 220)).into())
+            .active(rgba(ui::icons::with_alpha(container, 190)).into())
+    }
+
+    pub(crate) fn staff_tonal_colors(&self) -> (u32, u32) {
+        if self.theme.is_light() {
+            (0xd3e3fdff, 0x041e49ff)
+        } else {
+            (0x0842a0ff, 0xd3e3fdff)
+        }
+    }
+
     pub(crate) fn staff_panel_top(&self) -> f32 {
         crate::app::chrome::TOP_BAR_HEIGHT
     }
@@ -64,7 +82,16 @@ impl MultisoulApp {
 
 impl MultisoulApp {
     pub(crate) fn desktop_mode_switch(&self, cx: &mut Context<Self>) -> Div {
-        let mut row = div().flex().items_center().gap(px(4.));
+        let theme = self.staff_theme();
+        let mut row = div()
+            .flex()
+            .items_center()
+            .gap(px(2.))
+            .p(px(3.))
+            .rounded_full()
+            .border_1()
+            .border_color(rgba(ui::icons::with_alpha(theme.text_primary, 22)))
+            .bg(rgba(ui::icons::with_alpha(theme.panel_high, 230)));
         for (enabled, id, label) in [
             (false, "desktop-canvas-mode", "staff.canvas"),
             (true, "desktop-staff-toggle", "staff.mode"),
@@ -74,12 +101,11 @@ impl MultisoulApp {
                 Button::new(id)
                     .debug_selector(move || id.into())
                     .label(ui::i18n::text(label))
-                    .h(px(36.))
-                    .rounded(px(8.))
-                    .outline()
-                    .when(self.staff.enabled, |button| {
-                        button.custom(self.staff_button_style(selected, cx))
-                    })
+                    .h(px(30.))
+                    .px(px(16.))
+                    .text_size(px(13.))
+                    .rounded_full()
+                    .custom(self.staff_button_style(selected, cx))
                     .selected(selected)
                     .disabled(enabled && self.desktop_workspace.active_id.is_none())
                     .on_click(cx.listener(move |app, _, window, cx| {

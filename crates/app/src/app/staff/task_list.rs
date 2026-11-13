@@ -1,5 +1,5 @@
 use super::{view::status_label, *};
-use gpui::{div, prelude::*, px, rgba, Div, Focusable, Stateful, Window};
+use gpui::{div, prelude::*, px, rgba, Div, Stateful, Window};
 use norma::protocol::TaskDisplayStatus;
 use ui::component::{
     button::{Button, ButtonVariants},
@@ -31,7 +31,13 @@ impl MultisoulApp {
             .search
             .as_ref()
             .expect("staff search initialized");
-        let mut chips = div().flex().gap(px(6.)).px(px(16.)).pb(px(10.));
+        let list_w = super::sidebar_width(window).max(280.);
+        let mut chips = div()
+            .flex()
+            .items_center()
+            .gap(px(6.))
+            .px(px(8.))
+            .pb(px(12.));
         for (key, status, label) in [
             ("all", None, t("staff.all")),
             (
@@ -59,21 +65,32 @@ impl MultisoulApp {
                 })
                 .filter(|task| status.is_none_or(|status| task.display_status() == status))
                 .count();
+            // 外层等分宽度，避免按钮按文字内容撑出不等宽（英文标签更长）。
             chips = chips.child(
-                Button::new(gpui::SharedString::from(format!("staff-filter-{key}")))
-                    .debug_selector(move || format!("staff-filter-{key}"))
-                    .custom(self.staff_button_style(self.staff.filter == status, cx))
-                    .small()
-                    .h(px(26.))
-                    .px(px(8.))
-                    .text_size(px(12.))
-                    .rounded(px(16.))
-                    .selected(self.staff.filter == status)
-                    .child(div().text_size(px(12.)).child(format!("{label} {count}")))
-                    .on_click(cx.listener(move |app, _, _, cx| {
-                        app.staff.filter = status;
-                        app.notify_staff(cx);
-                    })),
+                div().flex_1().min_w_0().child(
+                    Button::new(gpui::SharedString::from(format!("staff-filter-{key}")))
+                        .debug_selector(move || format!("staff-filter-{key}"))
+                        .custom(self.staff_button_style(self.staff.filter == status, cx))
+                        .small()
+                        .w_full()
+                        .h(px(32.))
+                        .px(px(8.))
+                        .text_size(px(12.))
+                        .rounded(px(16.))
+                        .justify_center()
+                        .border_1()
+                        .border_color(rgba(if self.staff.filter == status {
+                            0
+                        } else {
+                            self.staff_line()
+                        }))
+                        .selected(self.staff.filter == status)
+                        .child(div().text_size(px(12.)).child(format!("{label} {count}")))
+                        .on_click(cx.listener(move |app, _, _, cx| {
+                            app.staff.filter = status;
+                            app.notify_staff(cx);
+                        })),
+                ),
             );
         }
         let mut groups = div()
@@ -130,6 +147,8 @@ impl MultisoulApp {
                     .workers
                     .iter()
                     .map(|worker| worker.agent.as_str())
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .into_iter()
                     .collect::<Vec<_>>()
                     .join(" · ");
                 let project_name = self
@@ -162,14 +181,23 @@ impl MultisoulApp {
                             .mt(px(2.))
                             .rounded(px(16.))
                             .justify_start()
-                            .gap(px(10.))
+                            .items_start()
+                            .gap(px(12.))
                             .selected(self.staff.selected.as_deref() == Some(&id))
                             .disabled(self.staff.busy)
-                            .child(div().w(px(6.)).h(px(6.)).rounded_full().bg(rgba(color)))
                             .child(
                                 div()
-                                    .flex_1()
-                                    .min_w_0()
+                                    .mt(px(6.))
+                                    .w(px(8.))
+                                    .h(px(8.))
+                                    .flex_none()
+                                    .rounded_full()
+                                    .bg(rgba(color)),
+                            )
+                            .child(
+                                // Button content shrink-wraps; fixed width keeps status right-aligned.
+                                div()
+                                    .w(px(list_w - 64.))
                                     .flex()
                                     .flex_col()
                                     .items_start()
@@ -177,26 +205,33 @@ impl MultisoulApp {
                                     .child(
                                         div()
                                             .w_full()
-                                            .text_size(px(13.))
-                                            .font_medium()
-                                            .text_ellipsis()
-                                            .child(task.title.clone()),
-                                    )
-                                    .child(
-                                        div()
-                                            .w_full()
-                                            .text_size(px(11.))
-                                            .text_color(rgba(theme.text_secondary))
                                             .flex()
+                                            .items_center()
                                             .gap(px(8.))
                                             .child(
                                                 div()
                                                     .flex_1()
                                                     .min_w_0()
+                                                    .text_size(px(14.))
+                                                    .font_medium()
                                                     .text_ellipsis()
-                                                    .child(subtitle),
+                                                    .child(task.title.clone()),
                                             )
-                                            .child(div().flex_none().child(status_label(status))),
+                                            .child(
+                                                div()
+                                                    .flex_none()
+                                                    .text_size(px(11.))
+                                                    .text_color(rgba(color))
+                                                    .child(status_label(status)),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .w_full()
+                                            .text_size(px(12.))
+                                            .text_color(rgba(theme.text_secondary))
+                                            .text_ellipsis()
+                                            .child(subtitle),
                                     ),
                             )
                             .on_click(cx.listener(move |app, _, window, cx| {
@@ -225,65 +260,60 @@ impl MultisoulApp {
             .rounded(px(16.))
             .bg(rgba(theme.graphite))
             .child(
-                div()
-                    .px(px(8.))
-                    .pt(px(8.))
-                    .pb(px(20.))
-                    .flex()
-                    .items_center()
-                    .gap(px(8.))
-                    .child(
-                        Button::new("staff-new-task")
-                            .debug_selector(|| "staff-new-task".into())
-                            .custom(self.staff_primary_style(cx))
-                            .h(px(48.))
-                            .px(px(20.))
-                            .rounded(px(16.))
-                            .justify_start()
-                            .icon(Icon::empty().path(crate::assets::TOOLBAR_PLUS_ASSET))
-                            .text_size(px(13.))
-                            .child(div().text_size(px(13.)).child(t("staff.new_task")))
-                            .disabled(self.staff.busy)
-                            .on_click(cx.listener(|app, _, window, cx| {
-                                app.select_staff_task(None, window, cx)
-                            })),
-                    )
-                    .child(div().flex_1())
-                    .child(
-                        Button::new("staff-toggle-search")
-                            .icon(IconName::Search)
-                            .with_size(px(36.))
-                            .custom(self.staff_button_style(self.staff.search_open, cx))
-                            .tooltip(t("staff.search"))
-                            .on_click(cx.listener(|app, _, window, cx| {
-                                app.staff.search_open = !app.staff.search_open;
-                                if app.staff.search_open {
-                                    if let Some(search) = &app.staff.search {
-                                        search.focus_handle(cx).focus(window);
-                                    }
-                                }
-                                app.notify_staff(cx);
-                            })),
-                    ),
+                div().px(px(8.)).pt(px(8.)).pb(px(12.)).child(
+                    Button::new("staff-new-task")
+                        .debug_selector(|| "staff-new-task".into())
+                        .custom(self.staff_tonal_style(cx))
+                        .w_full()
+                        .h(px(40.))
+                        .px(px(16.))
+                        .rounded(px(20.))
+                        .justify_center()
+                        .icon(Icon::empty().path(crate::assets::TOOLBAR_PLUS_ASSET))
+                        .text_size(px(13.))
+                        .child(
+                            div()
+                                .text_size(px(13.))
+                                .font_medium()
+                                .text_color(rgba(self.staff_tonal_colors().1))
+                                .child(t("staff.new_task")),
+                        )
+                        .disabled(self.staff.busy)
+                        .on_click(cx.listener(|app, _, window, cx| {
+                            app.select_staff_task(None, window, cx)
+                        })),
+                ),
             )
-            .when(self.staff.search_open || !query.is_empty(), |list| {
-                list.child(
-                    div().px(px(16.)).pb(px(10.)).child(
-                        Input::new(search)
-                            .bg(rgba(theme.panel_high))
-                            .rounded(px(18.))
-                            .prefix(Icon::new(IconName::Search).with_size(px(14.)))
-                            .h(px(34.))
-                            .text_size(px(13.))
-                            .cleanable(true),
-                    ),
-                )
-            })
             .child(
-                div()
-                    .px(px(16.))
-                    .pb(px(8.))
-                    .child(self.staff_project_picker(false, cx)),
+                // One Material-style search bar: query input plus an inline project filter.
+                div().px(px(8.)).pb(px(12.)).child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(4.))
+                        .h(px(44.))
+                        .pl(px(14.))
+                        .pr(px(6.))
+                        .rounded_full()
+                        .bg(rgba(theme.panel_high))
+                        .child(
+                            div().flex_1().min_w_0().child(
+                                Input::new(search)
+                                    .appearance(false)
+                                    .prefix(Icon::new(IconName::Search).with_size(px(16.)))
+                                    .text_size(px(13.))
+                                    .cleanable(true),
+                            ),
+                        )
+                        .child(
+                            div()
+                                .flex_none()
+                                .w(px(1.))
+                                .h(px(20.))
+                                .bg(rgba(self.staff_line())),
+                        )
+                        .child(self.staff_project_picker(false, cx)),
+                ),
             )
             .child(chips)
             .child(groups)

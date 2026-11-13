@@ -1,5 +1,5 @@
 use super::*;
-use crate::app::staff::PendingWorker;
+use crate::app::staff::{DeliveryStage, PendingWorker};
 use agent::context::ContextOperation;
 use norma::protocol::{StaffProposal, Worker};
 
@@ -77,10 +77,12 @@ impl MultisoulApp {
                         let live = spawned.and_then(|prepared| prepared.into_live());
                         app.runtime.complete_native_agent_terminal(node, &run, live).map_err(|error| error.to_string())?;
                         app.brain.own_prompts.remember(&prompt);
-                        app.staff.pending.insert(node, PendingWorker { dispatch: dispatch.clone(), prompt, since: Instant::now() });
-                        if app.runtime.agent_task_state(node) == Some(runtime::AgentTaskState::Ready) {
-                            app.submit_staff_ready_worker(node, cx);
-                        }
+                        app.staff.pending.insert(node, PendingWorker {
+                            dispatch: dispatch.clone(),
+                            prompt,
+                            stage: DeliveryStage::Starting { since: Instant::now(), grace_spent: false },
+                        });
+                        app.tick_staff_workers(Instant::now(), cx);
                         app.mark_canvas_dirty();
                         app.mark_session_dirty();
                         app.notify_staff(cx);
@@ -149,16 +151,15 @@ impl MultisoulApp {
                 .create_staff_worker(profile, entry.name.clone(), bounds, dispatch.clone());
         self.apply_layout_for_new_node_for_area(node, area, zoom);
         self.notify_staff(cx);
-        Ok((
-            Worker::new(
-                &entry.name,
-                &format!("{:?}", entry.profile),
-                &proposal.title,
-                node,
-                &dispatch,
-            ),
-            prompt,
-        ))
+        let mut worker = Worker::new(
+            &entry.name,
+            &format!("{:?}", entry.profile),
+            &proposal.title,
+            node,
+            &dispatch,
+        );
+        worker.launch_prompt = prompt.clone();
+        Ok((worker, prompt))
     }
 
     pub(crate) fn approve_staff_proposal(

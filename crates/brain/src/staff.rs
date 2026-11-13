@@ -6,6 +6,7 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 static STORES: OnceLock<Mutex<BTreeMap<PathBuf, Weak<TaskStore>>>> = OnceLock::new();
+mod delivery;
 mod workflow;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -58,6 +59,14 @@ impl TaskStore {
         {
             return self.record_attention(workspace, *node_id, dispatch_id, *waiting);
         }
+        if let BrainEventKind::WorkerDelivery {
+            node_id,
+            dispatch_id,
+            phase,
+        } = event
+        {
+            return self.record_delivery(workspace, *node_id, dispatch_id, *phase);
+        }
         let BrainEventKind::AgentFinished {
             node_id,
             dispatch_id,
@@ -94,10 +103,8 @@ impl TaskStore {
         Ok(if accepted {
             TaskEventResult::Recorded {
                 task_id: task.id.clone(),
-                wake: matches!(
-                    crate::triage::triage(event),
-                    crate::triage::Verdict::Speak(_)
-                ),
+                // 播报与否由 triage 决定；幕僚要看到每个被接受的结果，包括普通成功和中断。
+                wake: true,
             }
         } else {
             TaskEventResult::Ignored

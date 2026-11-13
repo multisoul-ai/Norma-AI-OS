@@ -1,5 +1,5 @@
 use super::*;
-use gpui::{px, size, TestAppContext};
+use gpui::{px, size, AppContext, TestAppContext};
 
 /// 场景：幕僚模式拖宽右栏后仍保留任务栏与可用对话区，不修改画布的宽度偏好。
 ///
@@ -131,4 +131,127 @@ fn staff_proposal_edit_preserves_unsent_draft() {
         assert!(app.staff.tasks.is_empty(), "编辑只填草稿，不创建任务");
         assert!(app.staff.error.is_none(), "编辑草稿不应触发发送失败");
     });
+}
+
+struct MessageListHost {
+    app: gpui::Entity<MultisoulApp>,
+    task: Task,
+}
+
+impl gpui::Render for MessageListHost {
+    fn render(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) -> impl gpui::IntoElement {
+        use gpui::{div, prelude::*};
+        let task = self.task.clone();
+        let list = self
+            .app
+            .update(cx, |app, cx| app.staff_message_list(&task, window, cx));
+        div().size_full().flex().flex_col().child(list)
+    }
+}
+
+/// 场景：消息总高度超过可视区时，相邻消息不能互相压缩、覆盖（用户气泡压住提议卡）。
+/// 数据构造：400px 高窗口；9 条消息，含长用户文本、长提议卡与 Worker 结果卡。
+/// 执行过程：用生产的消息列表渲染一帧，读取每条消息外层与内容的 bounds。
+/// 预期结果：每条外层高度不小于其内容高度，且下一条顶部不高于上一条底部。
+#[test]
+fn staff_messages_do_not_overlap_when_content_overflows() {
+    use norma::protocol::{StaffProposal, TaskMessage, WorkerOutcome};
+    let dir = tempfile::tempdir().expect("isolated project");
+    let paths = storage::DatabasePaths::isolated_test(dir.path());
+    let mut task = Task::new("t", "w", "p", "坦克大战");
+    let long = "很长的内容，需要换行。".repeat(40);
+    task.proposals.push(StaffProposal {
+        id: 1,
+        agent: "Simon".into(),
+        title: "做可玩的坦克大战".into(),
+        prompt: long.clone(),
+        why: "空闲".into(),
+        approved: false,
+        dispatch_id: None,
+    });
+    for index in 0..3 {
+        task.messages.push(TaskMessage::User { text: long.clone() });
+        task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
+        task.messages.push(TaskMessage::WorkerFinished {
+            node_id: index,
+            dispatch_id: format!("d{index}"),
+            outcome: WorkerOutcome::Succeeded,
+            text: long.clone(),
+        });
+    }
+    let count = task.messages.len();
+    let mut test = TestAppContext::single();
+    let (_, cx) = test.add_window_view(|_, cx| {
+        let app = cx.new(|cx| {
+            MultisoulApp::new_with_pty_factory_and_database_paths(
+                cx,
+                Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+                paths,
+            )
+        });
+        MessageListHost { app, task }
+    });
+    cx.simulate_resize(size(px(900.), px(400.)));
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+    let outer_selectors = [
+        "staff-message-0",
+        "staff-message-1",
+        "staff-message-2",
+        "staff-message-3",
+        "staff-message-4",
+        "staff-message-5",
+        "staff-message-6",
+        "staff-message-7",
+        "staff-message-8",
+    ];
+    let body_selectors = [
+        "staff-message-body-0",
+        "staff-message-body-1",
+        "staff-message-body-2",
+        "staff-message-body-3",
+        "staff-message-body-4",
+        "staff-message-body-5",
+        "staff-message-body-6",
+        "staff-message-body-7",
+        "staff-message-body-8",
+    ];
+    for (outer, bubble) in [
+        ("staff-message-0", "staff-user-bubble-0"),
+        ("staff-message-3", "staff-user-bubble-3"),
+        ("staff-message-6", "staff-user-bubble-6"),
+    ] {
+        let outer = cx.debug_bounds(outer).expect("user message bounds");
+        let bubble = cx.debug_bounds(bubble).expect("actual user bubble bounds");
+        assert!(
+            bubble.bottom() <= outer.bottom() + px(0.5),
+            "气泡真实底部不能溢出消息容器：{bubble:?} / {outer:?}"
+        );
+    }
+    let mut previous_bottom = None;
+    for index in 0..count {
+        let outer = cx
+            .debug_bounds(outer_selectors[index])
+            .unwrap_or_else(|| panic!("message {index} outer bounds"));
+        let body = cx
+            .debug_bounds(body_selectors[index])
+            .unwrap_or_else(|| panic!("message {index} body bounds"));
+        assert!(
+            outer.size.height + px(0.5) >= body.size.height,
+            "message {index} 被压缩：外层 {:?} < 内容 {:?}",
+            outer.size.height,
+            body.size.height
+        );
+        if let Some(bottom) = previous_bottom {
+            assert!(
+                outer.origin.y + px(0.5) >= bottom,
+                "message {index} 与上一条重叠"
+            );
+        }
+        previous_bottom = Some(outer.bottom());
+    }
 }

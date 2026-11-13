@@ -1,6 +1,6 @@
 use super::*;
 use gpui::{div, prelude::*, px, rgba, Div, Stateful, Window};
-use norma::protocol::{TaskDisplayStatus, TaskPhase, WorkerOutcome};
+use norma::protocol::{TaskDisplayStatus, WorkerOutcome};
 use ui::component::{
     button::{Button, ButtonVariants},
     Sizable, StyledExt,
@@ -84,41 +84,25 @@ impl MultisoulApp {
             .cloned();
         let mut center = div().flex_1().min_w_0().h_full().flex().flex_col();
         if let Some(task) = &selected {
-            center = center
-                .child(self.staff_task_header(task, project_name, cx))
-                .when(!task.workers.is_empty(), |center| {
-                    center.child(self.staff_workers(task, cx))
-                });
-            let mut messages = div()
-                .id("staff-messages")
-                .track_scroll(&self.staff.scroll)
-                .debug_selector(|| "staff-messages".into())
-                .flex_1()
-                .min_h_0()
-                .overflow_y_scroll()
-                .px(px(28.))
-                .py(px(16.))
-                .flex()
-                .flex_col()
-                .gap(px(18.));
-            for (index, message) in task.messages.iter().enumerate() {
-                messages = messages.child(
-                    div()
-                        .w_full()
-                        .max_w(px(760.))
-                        .mx_auto()
-                        .child(self.staff_message(task, index, message, window, cx)),
-                );
+            // Header and worker strip share the 760px reading column with messages and composer.
+            let mut head = div().w_full().max_w(px(800.)).child(self.staff_task_header(
+                task,
+                project_name,
+                cx,
+            ));
+            if !task.workers.is_empty() {
+                head = head.child(self.staff_workers(task, cx));
             }
-            if let Some(activity) = self.staff.activity.get(&task.id) {
-                messages = messages.child(
-                    div()
-                        .w_full()
-                        .max_w(px(760.))
-                        .mx_auto()
-                        .child(self.staff_activity_view(activity)),
-                );
-            }
+            center = center.child(
+                div()
+                    .flex_none()
+                    .flex()
+                    .justify_center()
+                    .border_b_1()
+                    .border_color(rgba(self.staff_line()))
+                    .child(head),
+            );
+            let messages = self.staff_message_list(task, window, cx);
             center = center.child(messages);
         } else {
             center = center.child(
@@ -148,29 +132,92 @@ impl MultisoulApp {
             );
         }
         if let Some(error) = &self.staff.error {
+            let destructive = self.staff_theme().destructive;
+            // Material error container: tonal fill, message left, retry pill right, aligned with the composer column.
             center = center.child(
-                div()
-                    .px(px(28.))
-                    .py_2()
-                    .text_size(px(12.))
-                    .text_color(rgba(self.staff_theme().destructive))
-                    .child(error.clone())
-                    .child(
-                        Button::new("staff-retry")
-                            .ghost()
-                            .small()
-                            .label(t("staff.retry"))
-                            .on_click(cx.listener(|app, _, _, cx| {
-                                app.staff.error = None;
-                                app.staff.loaded = false;
-                                app.load_staff_tasks(cx);
-                                app.notify_staff(cx);
-                            })),
-                    ),
+                div().flex().justify_center().px(px(24.)).pb(px(12.)).child(
+                    div()
+                        .w_full()
+                        .max_w(px(800.))
+                        .flex()
+                        .items_center()
+                        .gap(px(12.))
+                        .px(px(16.))
+                        .py(px(10.))
+                        .rounded(px(16.))
+                        .bg(rgba(ui::icons::with_alpha(destructive, 24)))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .text_size(px(13.))
+                                .text_color(rgba(destructive))
+                                .child(error.clone()),
+                        )
+                        .child(
+                            Button::new("staff-retry")
+                                .ghost()
+                                .small()
+                                .h(px(32.))
+                                .rounded(px(16.))
+                                .px(px(14.))
+                                .label(t("staff.retry"))
+                                .on_click(cx.listener(|app, _, _, cx| {
+                                    app.staff.error = None;
+                                    app.staff.loaded = false;
+                                    app.load_staff_tasks(cx);
+                                    app.notify_staff(cx);
+                                })),
+                        ),
+                ),
             );
         }
         center = center.child(self.staff_composer(selected.as_ref(), project_name, window, cx));
         center
+    }
+
+    pub(super) fn staff_message_list(
+        &self,
+        task: &Task,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let mut messages = div()
+            .id("staff-messages")
+            .track_scroll(&self.staff.scroll)
+            .debug_selector(|| "staff-messages".into())
+            .flex_1()
+            .min_h_0()
+            .overflow_y_scroll()
+            .px(px(20.))
+            .py(px(16.))
+            .flex()
+            .flex_col()
+            .gap(px(24.));
+        for (index, message) in task.messages.iter().enumerate() {
+            messages = messages.child(
+                div()
+                    .debug_selector(move || format!("staff-message-{index}"))
+                    .flex_none()
+                    .flex()
+                    .w_full()
+                    .max_w(px(760.))
+                    .mx_auto()
+                    .child(self.staff_message(task, index, message, window, cx)),
+            );
+        }
+        if let Some(activity) = self.staff.activity.get(&task.id) {
+            messages = messages.child(
+                div()
+                    .flex_none()
+                    .flex()
+                    .w_full()
+                    .max_w(px(760.))
+                    .mx_auto()
+                    .child(self.staff_activity_view(activity)),
+            );
+        }
+        messages
     }
 
     pub(super) fn staff_line(&self) -> u32 {
@@ -185,13 +232,6 @@ pub(super) fn status_label(status: TaskDisplayStatus) -> &'static str {
         TaskDisplayStatus::Waiting => "staff.waiting",
         TaskDisplayStatus::Merging => "staff.merging",
         TaskDisplayStatus::Done => "staff.done",
-    })
-}
-pub(super) fn phase_label(phase: TaskPhase) -> &'static str {
-    t(match phase {
-        TaskPhase::Active => "staff.active",
-        TaskPhase::Merging => "staff.merging",
-        TaskPhase::Done => "staff.done",
     })
 }
 pub(super) fn outcome_label(outcome: WorkerOutcome) -> &'static str {

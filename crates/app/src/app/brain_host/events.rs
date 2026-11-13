@@ -54,6 +54,7 @@ impl MultisoulApp {
                 dispatch_id: Some(_),
                 ..
             } | BrainEventKind::WorkerAttention { .. }
+                | BrainEventKind::WorkerDelivery { .. }
         ) {
             self.staff.events.borrow_mut().push_back(event);
             return;

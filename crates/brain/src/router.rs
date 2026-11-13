@@ -96,7 +96,9 @@ impl Router {
     pub fn push(&mut self, event: BrainEventKind, now: Instant) -> Vec<Action> {
         let verdict = triage(&event);
         match event {
-            BrainEventKind::TaskRequest { .. } | BrainEventKind::WorkerAttention { .. } => vec![],
+            BrainEventKind::TaskRequest { .. }
+            | BrainEventKind::WorkerAttention { .. }
+            | BrainEventKind::WorkerDelivery { .. } => vec![],
             BrainEventKind::AgentProgress { agent, text } => {
                 self.digest.insert(agent, text);
                 if self.digest.len() > MAX_DIGEST_LINES {

@@ -46,11 +46,23 @@ impl TaskStore {
                         io::Error::new(io::ErrorKind::InvalidInput, "invalid proposal copy")
                     })?;
                     // 模型重复提交同一提议时保留原编号与用户决策。
-                    if task
-                        .proposals
-                        .iter()
-                        .any(|p| p.agent == agent && p.prompt == prompt && p.dispatch_id.is_none())
-                    {
+                    // 需要你的 Worker 等用户在原卡重新投递，不再为同一 agent 与 prompt 新开一张卡。
+                    let duplicate = task.proposals.iter().any(|proposal| {
+                        proposal.agent == agent
+                            && proposal.prompt == prompt
+                            && proposal.dispatch_id.is_none()
+                    });
+                    let awaiting = task.workers.iter().any(|worker| {
+                        worker.state == norma::protocol::WorkerState::NeedsAttention
+                            && worker.agent == agent
+                            && task.proposals.iter().any(|proposal| {
+                                proposal.agent == agent
+                                    && proposal.prompt == prompt
+                                    && proposal.dispatch_id.as_deref()
+                                        == Some(worker.dispatch_id.as_str())
+                            })
+                    });
+                    if duplicate || awaiting {
                         return Ok(());
                     }
                     let id = task.proposals.len() as u64 + 1;
