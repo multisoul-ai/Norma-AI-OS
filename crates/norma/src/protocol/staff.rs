@@ -54,6 +54,10 @@ pub enum TaskPhase {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum TaskMessage {
+    Question {
+        #[serde(default)]
+        question: Box<super::StaffQuestion>,
+    },
     User {
         text: String,
     },
@@ -138,6 +142,8 @@ pub struct StaffProposal {
     pub prompt: String,
     pub why: String,
     pub approved: bool,
+    #[serde(default)]
+    pub ignored: bool,
     pub dispatch_id: Option<String>,
 }
 
@@ -226,6 +232,9 @@ impl Task {
     pub fn set_phase(&mut self, phase: TaskPhase, manual: bool) {
         if manual || !self.phase_manual {
             self.phase = phase;
+            if phase == TaskPhase::Done {
+                self.expire_pending_questions();
+            }
             self.phase_manual = manual;
             self.updated_at = timestamp();
         }
@@ -247,10 +256,11 @@ impl Task {
             TaskPhase::Merging => return TaskDisplayStatus::Merging,
             TaskPhase::Active => {}
         }
-        if self
-            .proposals
-            .iter()
-            .any(|proposal| proposal.dispatch_id.is_none())
+        if self.pending_question_count() > 0
+            || self
+                .proposals
+                .iter()
+                .any(|proposal| proposal.dispatch_id.is_none() && !proposal.ignored)
             || self.workers.iter().any(|worker| {
                 worker.needs_input
                     || worker.state != WorkerState::Active
@@ -300,7 +310,7 @@ impl Task {
         if self
             .proposals
             .iter()
-            .all(|proposal| proposal.dispatch_id.is_some())
+            .all(|proposal| proposal.dispatch_id.is_some() || proposal.ignored)
             && self
                 .workers
                 .iter()

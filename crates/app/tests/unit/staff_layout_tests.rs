@@ -171,6 +171,7 @@ fn staff_messages_do_not_overlap_when_content_overflows() {
         prompt: long.clone(),
         why: "空闲".into(),
         approved: false,
+        ignored: false,
         dispatch_id: None,
     });
     for index in 0..3 {

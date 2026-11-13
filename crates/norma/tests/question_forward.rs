@@ -184,6 +184,10 @@ fn unsupported_question_notifies_host_before_returning_to_native_tui() {
                 _ => return None,
             }
         };
+        // macOS accepted sockets inherit the listener's nonblocking mode.
+        socket
+            .set_nonblocking(false)
+            .expect("blocking request reader");
         socket
             .set_read_timeout(Some(std::time::Duration::from_secs(2)))
             .unwrap();

@@ -73,6 +73,7 @@ impl TaskStore {
                         prompt,
                         why,
                         approved: false,
+                        ignored: false,
                         dispatch_id: None,
                     });
                     task.messages
@@ -101,6 +102,12 @@ impl TaskStore {
                 .iter_mut()
                 .find(|p| p.id == proposal_id)
                 .ok_or_else(missing)?;
+            if proposal.ignored || proposal.dispatch_id.is_some() {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "staff.proposal_unavailable",
+                ));
+            }
             proposal.approved = true;
             Ok(())
         })
@@ -133,7 +140,8 @@ impl TaskStore {
                 .iter_mut()
                 .find(|p| p.id == proposal_id)
                 .ok_or_else(missing)?;
-            if !proposal.approved
+            if proposal.ignored
+                || !proposal.approved
                 || proposal.dispatch_id.is_some()
                 || proposal.agent != worker.agent
             {
