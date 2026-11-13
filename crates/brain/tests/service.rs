@@ -251,6 +251,8 @@ fn finished_agents_are_batched_and_goal_is_included() {
     });
     for agent in ["Codex", "Cursor"] {
         h.push(BrainEventKind::AgentFinished {
+            node_id: 0,
+            dispatch_id: None,
             agent: agent.into(),
             outcome: brain::Outcome::Succeeded,
             excerpt: "完成".into(),

@@ -37,7 +37,7 @@ function post(providerEvent, ctx, extra = {}) {
   } catch {
     // Context probing must never break Pi.
   }
-  const rawJson = { hook_event_name: providerEvent, session_id: sessionId, cwd, ...extra.raw };
+  const rawJson = { hook_event_name: providerEvent, session_id: sessionId, cwd, ...extra.raw, _norma_dispatch_id: process.env.NORMA_DISPATCH_ID };
   const body = {
     node_id: nodeID,
     profile: "Pi",

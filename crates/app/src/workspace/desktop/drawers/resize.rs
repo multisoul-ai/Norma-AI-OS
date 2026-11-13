@@ -26,12 +26,17 @@ impl MultisoulApp {
         inset: f32,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let (top, bottom) = if self.staff.enabled {
+            (self.staff_panel_top() + 12., 12.)
+        } else {
+            (0., 0.)
+        };
         div()
             .id("desktop-right-resize-handle")
             .debug_selector(|| "desktop-right-resize-handle".to_string())
             .absolute()
-            .top_0()
-            .bottom_0()
+            .top(px(top))
+            .bottom(px(bottom))
             .right(px(width + inset - 8.0))
             .w(px(16.0))
             .cursor_ew_resize()
@@ -93,8 +98,13 @@ impl MultisoulApp {
         let Some(session) = self.desktop_workspace.drawer_resize else {
             return;
         };
-        let maximum =
-            (f32::from(window.viewport_size().width) - MIN_CANVAS_WIDTH).max(RIGHT_MIN_WIDTH);
+        let task_list = if self.staff.enabled {
+            crate::app::staff::sidebar_width(window) + 36.0
+        } else {
+            0.0
+        };
+        let maximum = (f32::from(window.viewport_size().width) - task_list - MIN_CANVAS_WIDTH)
+            .max(RIGHT_MIN_WIDTH);
         let result = resize_drawer(
             session.initial_width,
             session.initial_x,

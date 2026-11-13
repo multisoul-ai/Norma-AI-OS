@@ -7,6 +7,7 @@ mod context;
 mod ego;
 mod errors;
 mod question;
+mod staff;
 mod workspace;
 
 pub use brain::{BrainDecision, BrainOp, BrainScope, ReportKind, ReportPriority};
@@ -24,6 +25,7 @@ pub use errors::{
     PresentationErrorCode,
 };
 pub use question::*;
+pub use staff::*;
 pub use workspace::{OrchestrationDoctorReport, WorkspaceSummary};
 
 pub type NodeId = u64;

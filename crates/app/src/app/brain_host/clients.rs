@@ -34,6 +34,9 @@ impl MultisoulApp {
     }
 
     pub(crate) fn release_brain_client(&mut self) {
+        for activity in self.staff.activity.values_mut() {
+            activity.interrupt();
+        }
         self.brain.client = None;
         self.brain.active_generation = None;
         self.brain.tracked.clear();
@@ -52,9 +55,26 @@ impl MultisoulApp {
             .as_ref()
             .and_then(owner::BrainClient::generation);
         if self.brain.active_generation != generation {
+            if self.brain.active_generation.is_some() {
+                for activity in self.staff.activity.values_mut() {
+                    activity.interrupt();
+                }
+            }
             self.brain.active_generation = generation;
             self.brain.tracked.clear();
             self.brain.last_turn.clear();
+            if generation.is_some() {
+                if ["island.staff_loading", "island.staff_disabled"]
+                    .iter()
+                    .any(|key| {
+                        self.staff.error.as_ref() == Some(&ui::i18n::LocalizedText::new(key))
+                    })
+                {
+                    self.staff.error = None;
+                }
+                self.load_staff_tasks(cx);
+            }
+            self.notify_staff(cx);
         }
         if generation.is_some() {
             let pending: Vec<_> = self.brain.pending_events.borrow_mut().drain(..).collect();

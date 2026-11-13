@@ -155,10 +155,12 @@ impl Runtime {
         else {
             return Err(control_error("agent missing"));
         };
-        if !matches!(
-            spec.profile,
-            AgentProfile::Codex | AgentProfile::Claude | AgentProfile::Cursor
-        ) {
+        if spec.mobile_control
+            && !matches!(
+                spec.profile,
+                AgentProfile::Codex | AgentProfile::Claude | AgentProfile::Cursor
+            )
+        {
             return Err(control_error("mobile Provider unavailable"));
         }
         let profile = spec.profile;
@@ -193,6 +195,8 @@ impl Runtime {
             .clone()
             .ok_or_else(|| control_error("run identity unavailable"))?;
         let control = run.control.clone();
+        // Register before the child can emit hooks; completion must retain early Ready/session state.
+        self.events.register(node, canvas::NodeType::Agent);
         Ok(NativeAgentLaunch {
             run_id,
             terminal_id: self.allocate_session_id(),
@@ -221,7 +225,8 @@ impl Runtime {
         }
         match result {
             Ok(live) => {
-                self.register_agent_live_node(node, live);
+                self.live.insert(node, Box::new(live));
+                self.track_native_agent(node);
                 Ok(())
             }
             Err(error) => {

@@ -1,0 +1,311 @@
+<meta charset="utf-8">
+<title>Norma 幕僚架构</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 布局：单栏长文，每节一张图 + 一句结论；新增部分用靛蓝描边，现有部分保持中性灰 */
+:root{
+  --bg:#f5f5f8;--surface:#ffffff;--panel:#eceef4;--ink:#1c1e27;--ink2:#5a5f70;--line:#c6cad7;
+  --new:#4a5ccf;--newbg:#e6e9fb;--warn:#a5680f;--warnbg:#fbf0dc;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111218;--surface:#1a1c25;--panel:#161820;--ink:#e8e9f0;--ink2:#9b9fb1;--line:#363a4a;
+  --new:#9eaaf6;--newbg:#222649;--warn:#e3b45c;--warnbg:#2f2614;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111218;--surface:#1a1c25;--panel:#161820;--ink:#e8e9f0;--ink2:#9b9fb1;--line:#363a4a;
+  --new:#9eaaf6;--newbg:#222649;--warn:#e3b45c;--warnbg:#2f2614;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.7;margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 72px}
+main{max-width:980px;margin:0 auto}
+h1{font-size:30px;line-height:1.25;letter-spacing:-.4px;margin:0 0 10px;text-wrap:balance}
+h2{font-size:19px;margin:0 0 6px;letter-spacing:-.2px;text-wrap:balance}
+p{margin:0}
+.lead{color:var(--ink2);max-width:62ch;margin-bottom:28px}
+.key{display:flex;flex-wrap:wrap;gap:18px;font-size:13px;color:var(--ink2);margin-bottom:40px}
+.key span{display:inline-flex;align-items:center;gap:8px}
+.key i{width:22px;height:14px;border-radius:4px;border:1.4px solid var(--line);background:var(--surface)}
+.key i.n{border-color:var(--new);background:var(--newbg)}
+section{margin-bottom:52px}
+section>p{color:var(--ink2);max-width:66ch;margin-bottom:16px}
+.fig{margin:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow-x:auto}
+.fig svg{display:block;min-width:820px;width:100%;height:auto;color:var(--ink)}
+figcaption{padding:10px 16px 12px;border-top:1px solid var(--line);color:var(--ink2);font-size:13px}
+svg text{fill:var(--ink);font-size:12.5px;font-family:var(--sans)}
+svg .s{fill:var(--ink2);font-size:11.5px}
+svg .h{fill:var(--ink2);font-size:12px;font-weight:600}
+svg .m{font-family:var(--mono);font-size:11.5px}
+svg .b{fill:var(--surface);stroke:var(--line);stroke-width:1.3}
+svg .n{fill:var(--newbg);stroke:var(--new);stroke-width:1.5}
+svg .pn{fill:var(--panel);stroke:var(--line);stroke-width:1.2}
+svg .a{fill:none;stroke:var(--ink2);stroke-width:1.4;marker-end:url(#ar)}
+svg .d{stroke-dasharray:5 4}
+svg .ln{stroke:var(--line);stroke-width:1;stroke-dasharray:4 4}
+svg .nt{fill:var(--new);font-weight:600}
+svg .c{text-anchor:middle}
+svg .e{text-anchor:end}
+#ar path{fill:var(--ink2)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:16px 18px}
+.card h3{margin:0 0 8px;font-size:14px}
+.card ul{margin:0;padding-left:18px;color:var(--ink2);font-size:14px}.card li{margin:4px 0}
+.card.w{background:var(--warnbg);border-color:var(--warn)}.card.w h3{color:var(--warn)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
+.tbl th,.tbl td{text-align:left;vertical-align:top;padding:10px 14px;border-bottom:1px solid var(--line)}
+.tbl th{font-size:12px;color:var(--ink2);background:var(--panel);font-weight:600}
+.tbl tr:last-child td{border-bottom:0}.tbl td:first-child{white-space:nowrap;font-weight:600}
+.tbl .nw{color:var(--new)}.tw{overflow-x:auto;border-radius:12px;margin-top:16px}.tw .tbl{min-width:640px}
+code{font-family:var(--mono);font-size:12.5px;background:var(--panel);padding:1px 5px;border-radius:4px}
+</style>
+
+<main>
+<h1>Norma 幕僚架构</h1>
+<p class="lead">Norma 是幕僚：你开一个会话就是一个任务，任务派出多张智能体卡片（Worker）去做。下面六节依次回答：放在哪一层、数据怎么组织、怎么分派、状态怎么变、事件往哪走，以及对现有汇报的影响。</p>
+<div class="key"><span><i></i>现有部分</span><span><i class="n"></i>本方案新增或扩展</span></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1L9 5L0 9z"/></marker></defs></svg>
+
+<section>
+<h2>1　整体分层：幕僚就是 brain，新增的是任务和会话池</h2>
+<p>幕僚不是新组件，是现有的 <code>brain</code>。它继续不依赖 GPUI 和存储，只通过 <code>norma</code> CLI 行动；App 通过现有的 <code>brain_host</code> 订阅任务快照。</p>
+<figure class="fig">
+<svg viewBox="0 0 940 524" role="img" aria-label="App、norma CLI、Runtime 卡片和 brain 的分层关系，新增 Task 与任务会话池位于 brain 内">
+  <rect class="pn" x="20" y="14" width="900" height="116" rx="12"/>
+  <text class="h" x="36" y="36">app / ui（GPUI）</text>
+  <rect class="b" x="36" y="56" width="100" height="52" rx="8"/><text class="c" x="86" y="86">画布</text>
+  <rect class="n" x="150" y="56" width="170" height="52" rx="8"/><text class="c" x="235" y="80">幕僚视图</text><text class="c s" x="235" y="97">三栏 · 可全屏</text>
+  <rect class="b" x="334" y="56" width="120" height="52" rx="8"/><text class="c" x="394" y="80">右抽屉</text><text class="c s" x="394" y="97">复用现有</text>
+  <rect class="n" x="468" y="56" width="220" height="52" rx="8"/><text class="c" x="578" y="80">brain_host</text><text class="c s" x="578" y="97">扩展：任务快照 + 用户消息</text>
+  <rect class="n" x="702" y="56" width="202" height="52" rx="8"/><text class="c" x="803" y="80">画布 / 幕僚切换</text><text class="c s" x="803" y="97">⌘E · 全屏</text>
+
+  <rect class="pn" x="20" y="170" width="420" height="80" rx="12"/>
+  <text class="h" x="36" y="192">Runtime / 智能体卡片</text>
+  <rect class="b" x="36" y="202" width="190" height="38" rx="8"/><text class="c" x="131" y="226">Worker 卡片（PTY）</text>
+  <rect class="b" x="240" y="202" width="184" height="38" rx="8"/><text class="c" x="332" y="226">norma-hook</text>
+
+  <rect class="pn" x="560" y="170" width="360" height="80" rx="12"/>
+  <text class="h" x="576" y="192">norma（协议 + CLI）</text>
+  <rect class="n" x="576" y="202" width="150" height="38" rx="8"/><text class="c" x="651" y="226">Task / Worker 类型</text>
+  <rect class="n" x="740" y="202" width="164" height="38" rx="8"/><text class="c m" x="822" y="226">task · assign --task</text>
+
+  <rect class="pn" x="20" y="300" width="680" height="156" rx="12"/>
+  <text class="h" x="36" y="322">brain（无 gpui / storage / runtime）</text>
+  <rect class="b" x="36" y="336" width="190" height="48" rx="8"/><text class="c" x="131" y="357">事件路由 Router</text><text class="c s" x="131" y="374">node_id 反查归属</text>
+  <rect class="n" x="242" y="336" width="190" height="48" rx="8"/><text class="c" x="337" y="357">任务会话池</text><text class="c s" x="337" y="374">每任务一条 ACP 会话</text>
+  <rect class="b" x="448" y="336" width="236" height="48" rx="8"/><text class="c" x="566" y="357">分诊会话 · 审批会话</text><text class="c s" x="566" y="374">现有，保留</text>
+  <rect class="n" x="36" y="396" width="190" height="48" rx="8"/><text class="c" x="131" y="417">Goal 迁移</text><text class="c s" x="131" y="434">旧 Goal → 单 Worker 任务</text>
+  <rect class="n" x="242" y="396" width="442" height="48" rx="8"/><text class="c" x="463" y="417">TaskStore（取代 GoalStore）</text><text class="c s" x="463" y="434">Task · Worker · messages</text>
+
+  <rect class="pn" x="740" y="300" width="180" height="156" rx="12"/>
+  <text class="h" x="756" y="322">ACP 适配器</text>
+  <text x="756" y="358">Claude Code</text><text x="756" y="382">Codex</text><text x="756" y="406">OpenCode</text>
+
+  <rect class="b" x="242" y="478" width="442" height="34" rx="8"/><text class="c m" x="463" y="500">~/.norma/brain/projects/&lt;ws-hash&gt;/tasks.json</text>
+
+  <path class="a" d="M120 130V170"/><text class="s" x="128" y="154">创建 / 回收 / 唤起</text>
+  <path class="a" d="M332 250V300"/><text class="s" x="340" y="280">hook 事件 + dispatch_id</text>
+  <path class="a" d="M480 300V130"/><text class="s e" x="472" y="212">任务快照</text>
+  <path class="a" d="M520 130V300"/><text class="s" x="528" y="212">用户消息</text>
+  <path class="a" d="M600 300V250"/><text class="s" x="608" y="280">经 CLI 行动</text>
+  <path class="a" d="M810 170V130"/><text class="s" x="818" y="154">IPC → App</text>
+  <path class="a d" d="M700 378H740"/><text class="s c" x="720" y="368">ACP</text>
+  <path class="a" d="M463 444V478"/><text class="s" x="471" y="465">原子写快照</text>
+</svg>
+<figcaption>brain 保持无 GPUI 依赖；写入只有 brain 一个入口，App 只读快照、转发用户消息。</figcaption>
+</figure>
+</section>
+
+<section>
+<h2>2　数据结构：任务下挂 Worker，Worker 绑定卡片和引擎会话</h2>
+<p>任务是唯一的归属单位。Worker 记着两样东西：现在对应哪张卡片，以及引擎那边的会话号。卡片被回收后 <code>card_id</code> 清空，会话号保留，之后就能接着原来的会话继续。</p>
+<figure class="fig">
+<svg viewBox="0 0 940 372" role="img" aria-label="Workspace、Project、Task、Worker 的一对多关系，Worker 分别指向画布卡片和引擎会话">
+  <rect class="b" x="20" y="96" width="130" height="52" rx="8"/><text class="c" x="85" y="118">Workspace</text><text class="c s" x="85" y="135">工作空间</text>
+  <rect class="b" x="196" y="96" width="130" height="52" rx="8"/><text class="c" x="261" y="118">Project</text><text class="c s" x="261" y="135">项目</text>
+  <path class="a" d="M150 122H196"/><path class="a" d="M326 122H372"/>
+  <text class="s c" x="173" y="112">1:N</text><text class="s c" x="349" y="112">1:N</text>
+
+  <rect class="n" x="372" y="20" width="268" height="216" rx="10"/>
+  <text class="nt" x="388" y="44">Task</text><text class="s" x="430" y="44">一次与幕僚的会话</text>
+  <line class="ln" x1="372" x2="640" y1="56" y2="56"/>
+  <text class="m" x="388" y="80">id · workspace_id · project_id</text>
+  <text class="m" x="388" y="104">title</text>
+  <text class="m" x="388" y="128">phase: Active|Merging|Done</text>
+  <text class="m" x="388" y="152">acp_session_id</text>
+  <text class="m" x="388" y="176">messages[]</text>
+  <text class="m" x="388" y="200">workers[]</text>
+  <text class="s" x="388" y="222">messages 是唯一数据源，会话重建时重放</text>
+
+  <rect class="n" x="696" y="20" width="224" height="216" rx="10"/>
+  <text class="nt" x="712" y="44">Worker</text><text class="s" x="768" y="44">一张卡片</text>
+  <line class="ln" x1="696" x2="920" y1="56" y2="56"/>
+  <text class="m" x="712" y="80">agent · engine · role</text>
+  <text class="m" x="712" y="104">card_id? · dispatch_id</text>
+  <text class="m" x="712" y="128">engine_session_id</text>
+  <text class="m" x="712" y="152">state: Active|Reclaimed|…</text>
+  <text class="s" x="712" y="184">一个 Worker 只属于一个任务，</text>
+  <text class="s" x="712" y="202">不跨任务移动</text>
+  <path class="a" d="M640 122H696"/><text class="s c" x="668" y="112">1:N</text>
+
+  <rect class="b" x="372" y="290" width="268" height="52" rx="8"/><text class="c" x="506" y="312">幕僚 ACP 任务会话</text><text class="c s" x="506" y="329">首次对话时才创建</text>
+  <path class="a d" d="M506 236V290"/><text class="s" x="514" y="268">acp_session_id</text>
+  <rect class="b" x="696" y="290" width="104" height="52" rx="8"/><text class="c" x="748" y="312">画布卡片</text><text class="c s" x="748" y="329">Runtime</text>
+  <rect class="b" x="816" y="290" width="104" height="52" rx="8"/><text class="c" x="868" y="312">引擎会话</text><text class="c s" x="868" y="329">CLI 会话</text>
+  <path class="a d" d="M748 236V290"/><text class="s" x="756" y="266">card_id</text>
+  <path class="a d" d="M868 236V290"/><text class="s" x="876" y="266">恢复</text>
+</svg>
+<figcaption>卡片只拿到 dispatch_id，不自报任务或工作空间；宿主用 node_id 反查 Task 得到归属，不改 storage。</figcaption>
+</figure>
+</section>
+
+<section>
+<h2>3　分派流程：先提议，你确认后才派</h2>
+<p>幕僚拆解后给出提议，沿用现有的 Proposal 机制。你点「采用」才会创建或唤起卡片，画布上不会凭空出现卡片。</p>
+<figure class="fig">
+<svg viewBox="0 0 940 540" role="img" aria-label="从用户新建任务到幕僚提议、采用、创建卡片、事件回传和回收的时序图">
+  <rect class="b" x="40" y="8" width="120" height="30" rx="6"/><text class="c" x="100" y="28">你</text>
+  <rect class="b" x="220" y="8" width="120" height="30" rx="6"/><text class="c" x="280" y="28">幕僚任务会话</text>
+  <rect class="b" x="410" y="8" width="120" height="30" rx="6"/><text class="c m" x="470" y="28">norma CLI</text>
+  <rect class="b" x="590" y="8" width="120" height="30" rx="6"/><text class="c" x="650" y="28">App / Runtime</text>
+  <rect class="b" x="770" y="8" width="120" height="30" rx="6"/><text class="c" x="830" y="28">Worker 卡片</text>
+  <line class="ln" x1="100" x2="100" y1="38" y2="530"/><line class="ln" x1="280" x2="280" y1="38" y2="530"/>
+  <line class="ln" x1="470" x2="470" y1="38" y2="530"/><line class="ln" x1="650" x2="650" y1="38" y2="530"/><line class="ln" x1="830" x2="830" y1="38" y2="530"/>
+
+  <path class="a" d="M100 76H280"/><text class="s c" x="190" y="68">① 新建任务，说目标</text>
+  <path class="a" d="M280 110H320V128H284"/><text class="s" x="330" y="124">② 拆解</text>
+  <path class="a" d="M280 164H100"/><text class="s c" x="190" y="156">③ 提议：N 个 Worker</text>
+  <path class="a" d="M100 202H280"/><text class="s c" x="190" y="194">④ 采用</text>
+  <path class="a" d="M280 240H470"/><text class="s c m" x="375" y="232">⑤ assign --task</text>
+  <path class="a" d="M470 278H650"/><text class="s c" x="560" y="270">⑥ 创建 / 唤起卡片</text>
+  <path class="a" d="M650 316H830"/><text class="s c" x="740" y="308">⑦ 启动 · 恢复会话</text>
+  <path class="a" d="M830 364H280"/><text class="s c" x="555" y="356">⑧ hook 事件（带 dispatch_id）</text>
+  <path class="a" d="M280 402H100"/><text class="s c" x="190" y="394">⑨ 进展 / 需要你决定</text>
+  <path class="a" d="M280 450H650"/><text class="s c" x="465" y="442">⑩ 确认后 reclaim</text>
+  <path class="a" d="M650 488H830"/><text class="s c" x="740" y="480">⑪ 关闭卡片，保留会话号</text>
+</svg>
+<figcaption>④ 之前不会有任何执行；⑩ 之后 Worker 变 Reclaimed，再次唤起时用保存的会话号接着做。</figcaption>
+</figure>
+</section>
+
+<section>
+<h2>4　状态：任务阶段由 Norma 推进，你可以改</h2>
+<p>列表里的「需要你 / 处理中 / 等待中」由存活 Worker 推出来，「待合并 / 已完成」是任务阶段。已回收的 Worker 不参与判断。</p>
+<figure class="fig">
+<svg viewBox="0 0 940 268" role="img" aria-label="任务阶段 Active、Merging、Done 的流转，以及 Worker 在 Active 与 Reclaimed 之间的切换">
+  <text class="h" x="30" y="28">任务阶段 phase</text>
+  <rect class="n" x="30" y="64" width="120" height="48" rx="24"/><text class="c" x="90" y="93">Active</text>
+  <rect class="n" x="270" y="64" width="120" height="48" rx="24"/><text class="c" x="330" y="93">Merging</text>
+  <rect class="n" x="510" y="64" width="120" height="48" rx="24"/><text class="c" x="570" y="93">Done</text>
+  <path class="a" d="M150 88H270"/><text class="s c" x="210" y="56">Worker 全部待验收</text><text class="s c" x="210" y="72">Norma 推进</text>
+  <path class="a" d="M390 88H510"/><text class="s c" x="450" y="56">你验收 / 归档</text><text class="s c" x="450" y="72">或 Norma 推进</text>
+  <path class="a d" d="M570 112C570 200 90 200 90 114"/>
+  <text class="s c" x="330" y="196">新消息 / 唤起 Worker：自动回到 Active，对话里记「已重新打开」</text>
+  <text class="s" x="30" y="244">任何阶段你都可以手动改；Norma 不会立刻覆盖你改过的阶段。</text>
+
+  <text class="h" x="700" y="28">Worker state</text>
+  <rect class="b" x="676" y="64" width="110" height="48" rx="24"/><text class="c" x="731" y="93">Active</text>
+  <rect class="b" x="824" y="64" width="100" height="48" rx="24"/><text class="c" x="874" y="93">Reclaimed</text>
+  <path class="a" d="M786 80H824"/><text class="s c" x="805" y="62">回收</text>
+  <path class="a" d="M824 100H786"/>
+  <text class="s c" x="805" y="134">唤起</text>
+  <text class="s" x="676" y="168">回收 = 你确认，或你直接关掉卡片</text>
+  <text class="s" x="676" y="188">唤起 = 用 engine_session_id 恢复</text>
+</svg>
+<figcaption>阶段只会因为人的动作或 Norma 的判断改变，不会因为某张卡片跑完就自动「完成」。</figcaption>
+</figure>
+</section>
+
+<section>
+<h2>5　事件路由：每个任务只收到自己的事件</h2>
+<p>宿主先反查归属，再核对 dispatch_id：不一致的迟到事件只留历史。事件先落盘再唤醒，会话忙就排队，会话已回收则先重建，所以事件不会丢。</p>
+<figure class="fig">
+<svg viewBox="0 0 940 268" role="img" aria-label="卡片事件依次判断是否审批、是否带 task_id、会话是否在线，分别进入审批会话、分诊会话、任务会话或重建后进入任务会话">
+  <rect class="b" x="20" y="108" width="110" height="44" rx="8"/><text class="c" x="75" y="135">卡片事件</text>
+  <rect class="b" x="180" y="108" width="140" height="44" rx="8"/><text class="c" x="250" y="135">是审批请求？</text>
+  <rect class="b" x="380" y="108" width="140" height="44" rx="8"/><text class="c" x="450" y="135">能反查到任务？</text>
+  <rect class="b" x="580" y="108" width="140" height="44" rx="8"/><text class="c" x="650" y="135">任务会话在线？</text>
+  <rect class="n" x="780" y="108" width="140" height="44" rx="8"/><text class="c" x="850" y="135">任务会话处理</text>
+  <path class="a" d="M130 130H180"/><path class="a" d="M320 130H380"/><path class="a" d="M520 130H580"/><path class="a" d="M720 130H780"/>
+  <text class="s c" x="350" y="122">否</text><text class="s c" x="550" y="122">是</text><text class="s c" x="750" y="122">是</text>
+
+  <rect class="b" x="170" y="20" width="160" height="44" rx="8"/><text class="c" x="250" y="40">审批会话</text><text class="c s" x="250" y="56">快模型，现有</text>
+  <path class="a" d="M250 108V64"/><text class="s" x="258" y="92">是</text>
+  <rect class="b" x="370" y="196" width="160" height="44" rx="8"/><text class="c" x="450" y="216">分诊会话</text><text class="c s" x="450" y="232">无归属事件，现有</text>
+  <path class="a" d="M450 152V196"/><text class="s" x="458" y="178">否</text>
+  <rect class="n" x="560" y="196" width="200" height="44" rx="8"/><text class="c" x="660" y="216">重建会话 + 重放 messages</text><text class="c s" x="660" y="232">限流，避免事件风暴</text>
+  <path class="a" d="M650 152V196"/><text class="s" x="658" y="178">否</text>
+  <path class="a" d="M760 218H850V152"/>
+</svg>
+<figcaption>审批不依赖任务会话，仍走现有的审批会话，所以任务会话冷着也不会让卡片卡在授权上。</figcaption>
+</figure>
+</section>
+
+<section>
+<h2>6　与现有汇报的关系：分流规则不动，任务会话不播报</h2>
+<p>现有汇报按工作空间统一做：Router 去抖、静默池、定时摘要，由主会话播报。任务会话只负责各自任务里的对话，汇报、摘要和语音仍由主会话完成。事件先落盘，只有需要立即汇报，或你正打开这个任务时，才唤醒任务会话。</p>
+<figure class="fig">
+<svg viewBox="0 0 940 360" role="img" aria-label="卡片事件经 Router 与 triage 分流后先写入 Task.messages，立即汇报的唤醒任务会话并由主会话播报，普通成功进入静默池再由定时摘要读取任务摘要">
+  <rect class="b" x="20" y="150" width="110" height="44" rx="8"/><text class="c" x="75" y="177">卡片事件</text>
+  <rect class="b" x="180" y="150" width="190" height="44" rx="8"/><text class="c" x="275" y="170">Router 去抖 + triage</text><text class="c s" x="275" y="186">现有，规则不改</text>
+  <rect class="n" x="420" y="150" width="180" height="44" rx="8"/><text class="c" x="510" y="170">写入 Task.messages</text><text class="c s" x="510" y="186">所有事件先落盘</text>
+  <path class="a" d="M130 172H180"/><path class="a" d="M370 172H420"/>
+  <text class="s c" x="400" y="140">node_id 反查归属</text>
+
+  <path class="a" d="M600 172H632V62H660"/><path class="a" d="M632 122H660"/><path class="a" d="M600 172H632V242H660"/>
+  <text class="s" x="612" y="212">静默</text><text class="s" x="612" y="102">立即汇报</text>
+
+  <rect class="n" x="660" y="40" width="260" height="44" rx="8"/><text class="c" x="790" y="60">唤醒任务会话</text><text class="c s" x="790" y="76">只在任务页对话，不播报</text>
+  <rect class="b" x="660" y="100" width="260" height="44" rx="8"/><text class="c" x="790" y="120">主会话播报</text><text class="c s" x="790" y="136">语音汇报，现有</text>
+  <rect class="b" x="660" y="220" width="260" height="44" rx="8"/><text class="c" x="790" y="240">静默池</text><text class="c s" x="790" y="256">普通成功，攒满窗口再扫，现有</text>
+  <rect class="n" x="660" y="296" width="260" height="44" rx="8"/><text class="c" x="790" y="316">定时摘要 / 回来时概览</text><text class="c s" x="790" y="332">读各任务摘要，取代 Goal</text>
+  <path class="a" d="M790 264V296"/>
+  <path class="a d" d="M920 318H932V122H920"/>
+</svg>
+<figcaption>虚线表示摘要交给主会话播报。静默事件只落盘，不逐条唤醒任务会话，现有的降噪因此保留。</figcaption>
+</figure>
+<div class="tw"><table class="tbl">
+<tr><th>环节</th><th>现有行为</th><th>本方案的调整</th></tr>
+<tr><td>事件分流</td><td>Router 去抖，triage 判断立即汇报或静默</td><td>不改；分流在分发给任务之前完成</td></tr>
+<tr><td>静默池</td><td>普通成功攒满窗口再让大脑扫一遍</td><td class="nw">静默事件只写入 Task.messages，不唤醒任务会话</td></tr>
+<tr><td>播报</td><td>主会话按语音模式播报</td><td class="nw">仍只有主会话播报；任务会话不出声，避免重复</td></tr>
+<tr><td>摘要与回来时概览</td><td>覆盖本工作空间所有 Agent</td><td class="nw">改为读取各任务摘要：标题、阶段、需要你的 Worker</td></tr>
+<tr><td>目标摘要</td><td>最近 5 条 Goal 随主会话提示发送</td><td class="nw">由任务摘要取代，迁移时旧 Goal 转成单 Worker 任务</td></tr>
+<tr><td>失败</td><td>立即汇报</td><td>不变；任务页同时显示「需要你」</td></tr>
+<tr><td>中断 Interrupted</td><td>triage 判为静默</td><td class="nw">任务页显示「需要你」；语音保持静默（已决定）</td></tr>
+</table></div>
+<div class="card" style="margin-top:16px"><h3>已核对 scoped_router.rs</h3><ul><li><code>ScopedRouter</code> 按 <code>BrainScope</code> 各持一个 <code>Router</code>，<code>triage</code> 在 <code>Router::push</code> 内执行，规则不改。</li><li>现有车道只有 <code>Main</code> 与 <code>Approval</code>，需新增 <code>Lane::Task</code>，在 <code>ScopedRouter</code> 之后按 <code>Task.workers</code> 改投任务会话。</li><li><code>AgentFinished</code> 目前没有 <code>node_id</code> / <code>dispatch_id</code>，需要扩展。</li></ul></div>
+</section>
+
+<section>
+<h2>7　MVP 拆分：先跑通一条主线</h2>
+<p>主线：建任务 → 提议 → 采用 → Worker 执行 → 结果回到任务对话 → 你验收。</p>
+<div class="tw"><table class="tbl">
+<tr><th>阶段</th><th>内容</th></tr>
+<tr><td>M1 最小闭环</td><td class="nw">Task / Worker 类型与 TaskStore；Worker 状态 Active / Failed / Interrupted；提议 → 采用 → assign --task；hook 回传 + dispatch_id 核对，先落盘再唤醒；新增 Lane::Task；phase 由 Norma 自动推进、用户可改；已完成任务收到新消息自动重开；画布 / 幕僚切换、全屏、三栏、中英文；域层单测 + desktop-e2e 模块 staff</td></tr>
+<tr><td>M2 回收与恢复</td><td>回收 / 再唤起（engine_session_id），画布关卡片视为回收；重启对账；冷会话重建与热会话上限</td></tr>
+<tr><td>M3 存量与自动化</td><td>旧 Goal 迁移、「未归属卡片」入口；自动派活次数上限（默认 8，可配置）与事件队列合并</td></tr>
+<tr><td>延后</td><td>Worker 依赖编排、卡片跨任务移动、自动给旧卡片分组、iOS</td></tr>
+</table></div>
+<div class="card w" style="margin-top:16px"><h3>降级方案（已决定）</h3><ul><li>「一任务一会话」验证不过时，复用主会话，并按任务重放 Task.messages。</li></ul></div>
+</section>
+
+<section>
+<div class="two">
+  <div class="card"><h3>已确定</h3><ul>
+    <li>幕僚就是 brain，新增 Task / Worker，取代 Goal</li>
+    <li>每个任务一条独立 ACP 会话，消息以 Task 为准</li>
+    <li>卡片只带 dispatch_id；宿主用 node_id 反查任务与工作空间</li><li>事件先落盘再唤醒，串行处理；失败生成终态消息转人工；重启先对账</li>
+    <li>先提议、确认后再派；Worker 不建依赖字段</li>
+    <li>存量卡片进「未归属卡片」，手动归入任务</li>
+  </ul></div>
+  <div class="card w"><h3>实现前要核对</h3><ul>
+    <li>三种适配器对一任务一会话的支持</li>
+    <li>各引擎 CLI 能否按会话号恢复</li>
+    <li>热会话数量上限与回收策略</li>
+    <li>冷会话重放的成本，是否需要摘要</li>
+    <li>Norma 自动推进阶段的误判处理（M1 即自动推进，需保护「用户改过不覆盖」）</li>
+  </ul></div>
+</div>
+</section>
+</main>

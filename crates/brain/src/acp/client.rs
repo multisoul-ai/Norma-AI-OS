@@ -141,6 +141,19 @@ impl AcpSession {
         timeout: Duration,
         sink: &mut dyn FnMut(TraceItem),
     ) -> Result<String, AcpError> {
+        self.prompt_observed(text, gate, cancel, timeout, sink, &mut |_| {})
+    }
+
+    /// Observe raw progress before audit trace coalescing; observations are not persisted replies.
+    pub fn prompt_observed(
+        &mut self,
+        text: &str,
+        gate: &Gate,
+        cancel: &AtomicBool,
+        timeout: Duration,
+        sink: &mut dyn FnMut(TraceItem),
+        progress: &mut dyn FnMut(&TraceItem),
+    ) -> Result<String, AcpError> {
         let started = Instant::now();
         let mut merger = Merger::default();
         let mut stop_reason = None;
@@ -204,6 +217,7 @@ impl AcpSession {
                             reply.push_str(update["content"]["text"].as_str().unwrap_or_default());
                         }
                         if let Some(item) = classify_update(update) {
+                            progress(&item);
                             for out in merger.push(item) {
                                 sink(out);
                             }

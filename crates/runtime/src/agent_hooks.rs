@@ -21,6 +21,7 @@ pub const INHERITED_AGENT_IDENTITY_ENV: &[&str] = &[
     "NORMA_SOCKET",
     ENV_PATH_CONVENTION,
     ENV_CONTROL_RUN_ID,
+    "NORMA_DISPATCH_ID",
 ];
 
 /// 清掉从父进程继承的 Norma 卡片身份。必须在任何其他线程启动前调用。
@@ -62,6 +63,7 @@ pub struct AgentHookRuntimeConfig {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AgentHookEnv {
     pub(crate) control_run_id: Option<String>,
+    pub(crate) dispatch_id: Option<String>,
     pub(crate) node_id: NodeId,
     pub(crate) profile: AgentProfile,
     pub(crate) endpoint: String,
@@ -83,6 +85,10 @@ impl AgentHookEnv {
         command: PtyCommand,
         path_convention: bool,
     ) -> PtyCommand {
+        let command = match &self.dispatch_id {
+            Some(id) => command.env("NORMA_DISPATCH_ID", id),
+            None => command.env_remove("NORMA_DISPATCH_ID"),
+        };
         question::attach(command, self)
             .env(
                 "NORMA_PATH_CONVENTION",
@@ -114,6 +120,7 @@ impl Runtime {
     ) -> Option<AgentHookEnv> {
         self.agent_hook_config.as_ref().map(|config| AgentHookEnv {
             control_run_id: self.native_question_process_id(node_id).map(str::to_owned),
+            dispatch_id: self.staff_dispatch_id(node_id).map(str::to_owned),
             node_id,
             profile,
             endpoint: config.endpoint.clone(),

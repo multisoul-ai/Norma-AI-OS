@@ -32,8 +32,18 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let theme = self.desktop_theme();
-        let frost = self.render_drawer_frost(false, width, edge_inset, window);
+        let theme = if self.staff.enabled {
+            self.staff_theme()
+        } else {
+            self.desktop_theme()
+        };
+        let (top, bottom) = if self.staff.enabled {
+            (self.staff_panel_top() + 12., 12.)
+        } else {
+            (TOP, BOTTOM)
+        };
+        let frost = (!self.staff.enabled)
+            .then(|| self.render_drawer_frost(false, width, edge_inset, window));
         let new_tab_page = self.desktop_workspace.content_browser.new_tab_page;
         let selected = self
             .desktop_workspace
@@ -46,8 +56,8 @@ impl MultisoulApp {
             .debug_selector(|| "desktop-assistant-right".to_string())
             .absolute()
             .right(px(edge_inset))
-            .top(px(TOP))
-            .bottom(px(BOTTOM))
+            .top(px(top))
+            .bottom(px(bottom))
             .w(px(width))
             .opacity(opacity)
             .flex()
@@ -67,7 +77,8 @@ impl MultisoulApp {
             }])
             .text_color(rgba(theme.text_primary))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(frost)
+            .when(self.staff.enabled, |drawer| drawer.bg(rgba(theme.panel)))
+            .when_some(frost, |drawer, frost| drawer.child(frost))
             .child(self.render_reader_chrome(cx))
             .when(
                 selected

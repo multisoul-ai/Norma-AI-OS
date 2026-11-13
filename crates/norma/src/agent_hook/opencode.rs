@@ -85,6 +85,7 @@ async function postHook(providerEvent, sessionID, extra = {}) {
     hook_event_name: providerEvent,
     session_id: sessionID,
     ...extra.raw_json,
+    _norma_dispatch_id: process.env.NORMA_DISPATCH_ID,
   };
   if (extra.tool_name) rawJson.tool_name = extra.tool_name;
   if (extra.message) rawJson.message = extra.message;

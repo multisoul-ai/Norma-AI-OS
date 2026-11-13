@@ -90,6 +90,7 @@ pub struct Gate {
     /// ACP cwd, used only to resolve relative paths; it is not an implicit grant.
     pub project_root: PathBuf,
     read_roots: ReadRoots,
+    task: Option<(norma::protocol::BrainScope, String)>,
 }
 
 impl Gate {
@@ -98,12 +99,18 @@ impl Gate {
             norma_bin,
             project_root,
             read_roots,
+            task: None,
         }
     }
 
     pub fn for_project(norma_bin: PathBuf, project_root: PathBuf) -> Self {
         let roots = ReadRoots::new(vec![project_root.clone()]);
         Self::new(norma_bin, project_root, roots)
+    }
+
+    pub fn for_task(mut self, scope: norma::protocol::BrainScope, id: String) -> Self {
+        self.task = Some((scope, id));
+        self
     }
 
     pub fn judge(&self, request: &PermissionRequest) -> Verdict {
@@ -124,6 +131,30 @@ impl Gate {
         // 只开放 brain 子命令，避免大脑通过 card send 之类的命令向终端注入输入。
         if argv.get(1).map(String::as_str) != Some("brain") {
             return Verdict::Reject("只允许 norma brain 子命令".into());
+        }
+        if let Some((scope, task_id)) = &self.task {
+            use norma::protocol::{BrainOp, StaffOp};
+            let allowed = norma::cli::parse_invocation_from(argv.iter())
+                .ok()
+                .is_some_and(|invocation| {
+                    invocation.brain_scope.as_ref() == Some(scope)
+                        && match invocation.command.brain_op() {
+                            Some(BrainOp::Task { op }) => {
+                                op.task_id() == Some(task_id.as_str())
+                                    && matches!(
+                                        op,
+                                        StaffOp::Reply { .. }
+                                            | StaffOp::Phase { .. }
+                                            | StaffOp::Propose { .. }
+                                    )
+                            }
+                            Some(BrainOp::Agents | BrainOp::History { .. }) => true,
+                            _ => false,
+                        }
+                });
+            if !allowed {
+                return Verdict::Reject("任务轮次只能读取名册/历史、回复本任务、修改本任务阶段或提议；不能播报或自行派活".into());
+            }
         }
         Verdict::Allow
     }

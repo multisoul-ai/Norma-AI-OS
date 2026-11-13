@@ -41,11 +41,22 @@ pub struct ApprovalRequest {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BrainEventKind {
+    /// 用户消息已经在 TaskStore 持久化，排队处理该任务的最新消息。
+    TaskRequest {
+        task_id: String,
+    },
+    WorkerAttention {
+        node_id: u64,
+        dispatch_id: String,
+        waiting: bool,
+    },
     AgentProgress {
         agent: String,
         text: String,
     },
     AgentFinished {
+        node_id: u64,
+        dispatch_id: Option<String>,
         agent: String,
         outcome: Outcome,
         excerpt: String,
@@ -99,6 +110,16 @@ pub enum BrainEventKind {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BrainStatusKind {
+    /// Live task feedback; never persisted as conversation history.
+    TaskActivity {
+        task_id: String,
+        turn: u64,
+        update: TaskUpdate,
+    },
+    TaskChanged(norma::protocol::Task),
+    TaskError {
+        reason: String,
+    },
     Ready,
     BackendDown {
         reason: String,
@@ -174,4 +195,13 @@ impl Trigger {
     pub fn unknown() -> Self {
         Self::new(TriggerKind::Unknown, "")
     }
+}
+
+/// Ephemeral progress of one task turn, independent of merged audit traces.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TaskUpdate {
+    Queued,
+    Started { message_count: usize },
+    Update(crate::acp::trace::TraceItem),
+    Finished { failed: bool },
 }

@@ -167,6 +167,7 @@ impl MultisoulApp {
             theme_settings,
             performance_settings,
             brain: super::brain_host::BrainHostState::new(),
+            staff: super::staff::StaffState::default(),
             interaction: InteractionState::default(),
             motion: MotionStore::from_env(),
             previews: PreviewStore::default(),

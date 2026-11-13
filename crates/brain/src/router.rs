@@ -10,10 +10,11 @@ const MAX_DIGEST_LINES: usize = 40;
 /// 回来摘要最多回顾多少条完成记录。
 const MAX_ACTIVITY: usize = 30;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Lane {
     Main,
     Approval,
+    Task(String),
 }
 
 /// 交给某条会话的一条提示。
@@ -95,6 +96,7 @@ impl Router {
     pub fn push(&mut self, event: BrainEventKind, now: Instant) -> Vec<Action> {
         let verdict = triage(&event);
         match event {
+            BrainEventKind::TaskRequest { .. } | BrainEventKind::WorkerAttention { .. } => vec![],
             BrainEventKind::AgentProgress { agent, text } => {
                 self.digest.insert(agent, text);
                 if self.digest.len() > MAX_DIGEST_LINES {

@@ -35,6 +35,8 @@ fn main() {
     if std::env::var("SMOKE_EVENT").as_deref() == Ok("finished") {
         service.push(
             BrainEventKind::AgentFinished {
+                node_id: 0,
+                dispatch_id: None,
                 agent: "Alan".into(),
                 outcome: brain::Outcome::Succeeded,
                 excerpt: "登录页已经做完，12 个测试全部通过。".into(),

@@ -283,6 +283,7 @@ mod tests {
     fn test_agent_command_injects_norma_hook_environment() {
         let hook_env = AgentHookEnv {
             control_run_id: None,
+            dispatch_id: None,
             node_id: 42,
             profile: AgentProfile::Codex,
             endpoint: "http://127.0.0.1:49152/agent-hooks".to_string(),
@@ -359,6 +360,7 @@ mod tests {
         let codex_without_hook_env = agent_command(AgentProfile::Codex, None);
         let hook_env = AgentHookEnv {
             control_run_id: None,
+            dispatch_id: None,
             node_id: 7,
             profile: AgentProfile::Codex,
             endpoint: "http://127.0.0.1:49153/agent-hooks".to_string(),
@@ -372,6 +374,7 @@ mod tests {
             AgentProfile::Claude,
             Some(&AgentHookEnv {
                 control_run_id: None,
+                dispatch_id: None,
                 node_id: 7,
                 profile: AgentProfile::Claude,
                 endpoint: "http://127.0.0.1:49153/agent-hooks".to_string(),
@@ -422,6 +425,7 @@ mod tests {
         let terminal = crate::runtime_support::terminal_shell_command("/bin/zsh");
         let hook_env = AgentHookEnv {
             control_run_id: None,
+            dispatch_id: None,
             node_id: 42,
             profile: AgentProfile::Claude,
             endpoint: "http://127.0.0.1:49152/agent-hooks".to_string(),

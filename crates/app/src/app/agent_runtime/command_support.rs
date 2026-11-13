@@ -1,13 +1,13 @@
 use crate::app::MultisoulApp;
 
 #[derive(Debug)]
-pub(super) struct AgentTaskSubmitError {
-    pub(super) message: String,
+pub(in crate::app) struct AgentTaskSubmitError {
+    pub(in crate::app) message: String,
     retry_safe: bool,
 }
 
 impl AgentTaskSubmitError {
-    pub(super) fn retry_safe(&self) -> bool {
+    pub(in crate::app) fn retry_safe(&self) -> bool {
         self.retry_safe
     }
 }
@@ -18,7 +18,7 @@ impl std::fmt::Display for AgentTaskSubmitError {
     }
 }
 
-pub(super) fn type_agent_task(
+pub(in crate::app) fn type_agent_task(
     runtime: &mut runtime::Runtime,
     node_id: canvas::NodeId,
     task: &str,
@@ -31,7 +31,7 @@ pub(super) fn type_agent_task(
         })
 }
 
-pub(super) fn submit_agent_enter(
+pub(in crate::app) fn submit_agent_enter(
     runtime: &mut runtime::Runtime,
     node_id: canvas::NodeId,
 ) -> Result<(), AgentTaskSubmitError> {
@@ -69,7 +69,7 @@ pub(super) fn submit_agent_enter(
     Ok(())
 }
 
-pub(super) fn clear_agent_task_input(
+pub(in crate::app) fn clear_agent_task_input(
     runtime: &mut runtime::Runtime,
     node_id: canvas::NodeId,
 ) -> Result<(), String> {
@@ -86,7 +86,7 @@ pub(super) fn clear_agent_task_input(
         .map_err(|error| error.to_string())
 }
 
-pub(super) fn activate_definition(
+pub(in crate::app) fn activate_definition(
     app: &mut MultisoulApp,
     definition: &storage::AgentDefinition,
     area: canvas::CanvasRect,
@@ -133,7 +133,9 @@ pub(super) fn activate_definition(
     Ok((node_id, false))
 }
 
-pub(super) fn canvas_agent_profile(profile: norma::protocol::AgentProfile) -> canvas::AgentProfile {
+pub(in crate::app) fn canvas_agent_profile(
+    profile: norma::protocol::AgentProfile,
+) -> canvas::AgentProfile {
     match profile {
         norma::protocol::AgentProfile::Claude => canvas::AgentProfile::Claude,
         norma::protocol::AgentProfile::Codex => canvas::AgentProfile::Codex,

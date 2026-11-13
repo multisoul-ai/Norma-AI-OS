@@ -34,6 +34,17 @@ mod cmd_d_delete_tests;
 mod material_tests;
 
 impl MultisoulApp {
+    pub(crate) fn desktop_content_area_id(&self) -> Option<String> {
+        if self.staff.enabled {
+            self.staff_area_id().map(str::to_owned)
+        } else {
+            self.desktop_workspace
+                .expanded_area_id
+                .clone()
+                .or(self.desktop_workspace.active_area_id.clone())
+        }
+    }
+
     pub(crate) fn desktop_assistant_layout(&self, window: &Window) -> motion::DesktopDrawerLayout {
         let width = f32::from(window.viewport_size().width);
         if !matches!(self.screen, crate::app::AppScreen::DesktopWorkspace)
@@ -43,6 +54,27 @@ impl MultisoulApp {
                 width,
                 0.0,
                 &self.desktop_workspace.drawer_widths,
+            );
+        }
+        if self.staff.enabled && width < 1180.0 {
+            return motion::DesktopDrawerLayout::with_width(
+                width,
+                0.0,
+                self.desktop_workspace.drawer_widths.right,
+            );
+        }
+        if self.staff.enabled {
+            // 除任务栏、两侧12px内边距和12px栏间距（合计36px），保留最小320px对话。
+            let maximum = (width
+                - crate::app::staff::sidebar_width(window)
+                - 36.0
+                - motion::MIN_CANVAS_WIDTH)
+                .max(motion::RIGHT_MIN_WIDTH);
+            let preferred = self.desktop_workspace.drawer_widths.right.unwrap_or(380.0);
+            return motion::DesktopDrawerLayout::with_width(
+                width,
+                f32::from(self.desktop_workspace.drawers.right_open as u8),
+                Some(preferred.min(maximum)),
             );
         }
         resize::layout_with_user_width(
@@ -57,6 +89,10 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        // 原型的窄窗断点隐藏内容栏；保留展开状态和宽度，回到宽窗自动恢复。
+        if self.staff.enabled && f32::from(window.viewport_size().width) < 1180.0 {
+            return div().id("desktop-assistant-drawers");
+        }
         self.ensure_workspace_activity_cache(cx);
         self.ensure_drawer_frost(cx);
         let drawers = self.desktop_workspace.drawers;

@@ -212,6 +212,7 @@ pub struct MultisoulApp {
     pub(crate) workspace_route_id: Option<String>,
     agent_announcements: agent_announcements::AgentAnnouncements,
     brain: brain_host::BrainHostState,
+    pub(crate) staff: staff::StaffState,
     agent_announcement_playback: agent_announcements::AgentAnnouncementPlayback,
     agent_announcement_audio_cache: agent_announcements::AgentAnnouncementAudioCache,
     pub(crate) screen: AppScreen,
@@ -491,3 +492,5 @@ impl MultisoulApp {
 mod focusable;
 #[cfg(test)]
 mod test_modules;
+
+pub(crate) mod staff;

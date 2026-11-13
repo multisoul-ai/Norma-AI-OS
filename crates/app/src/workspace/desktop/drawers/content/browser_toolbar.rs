@@ -99,7 +99,7 @@ impl MultisoulApp {
                 DesktopContentKind::Browser,
                 url,
                 title,
-                self.desktop_workspace.expanded_area_id.clone(),
+                self.desktop_content_area_id(),
                 cx,
             );
         }
