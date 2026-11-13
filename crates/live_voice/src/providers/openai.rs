@@ -42,7 +42,16 @@ pub(crate) async fn connect(
         .header("Sec-WebSocket-Key", &key)
         .send()
         .await
-        .map_err(|_| LiveError::Connection)?;
+        .map_err(|error| {
+            tracing::warn!(%error, "Live handshake request failed");
+            LiveError::Connection
+        })?;
+    if response.status().as_u16() != 101 {
+        tracing::warn!(
+            status = response.status().as_u16(),
+            "Live handshake not upgraded"
+        );
+    }
     if matches!(response.status().as_u16(), 401 | 403) {
         return Err(LiveError::Authentication(response.status().as_u16()));
     }
@@ -66,12 +75,13 @@ pub(crate) async fn connect(
         || headers.contains_key("sec-websocket-extensions")
         || headers.contains_key("sec-websocket-protocol")
     {
+        tracing::warn!("Live handshake response failed WebSocket validation");
         return Err(LiveError::Connection);
     }
-    let stream = response
-        .upgrade()
-        .await
-        .map_err(|_| LiveError::Connection)?;
+    let stream = response.upgrade().await.map_err(|error| {
+        tracing::warn!(%error, "Live connection upgrade failed");
+        LiveError::Connection
+    })?;
     let config = WebSocketConfig::default()
         .max_message_size(Some(128 * 1024))
         .max_frame_size(Some(128 * 1024))
