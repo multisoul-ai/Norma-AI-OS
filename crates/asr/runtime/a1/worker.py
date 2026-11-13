@@ -21,6 +21,11 @@ MAX_HEADER = 4096
 MAX_RESPONSE = 65536
 MAX_CHUNK = 32000  # 1 s × 16000 samples/s × PCM16
 MAX_AUDIO = 1920000  # 60 s, original audio only
+# Qwen3-ASR context biasing: product vocabulary it otherwise mishears (e.g. Claude -> "claw").
+# shortcut: static list only, pass per-session project/agent names via `begin` when needed.
+HOTWORDS = ["Norma", "Claude", "Codex", "Cursor", "OpenCode", "Grok", "Kimi", "Pi", "Hermes",
+            "ZCode", "InfCode", "Qwen3", "Git", "GitHub", "PR", "commit", "cargo", "worktree",
+            "Terminal", "TTS", "ASR"]
 VERSIONS = {"mlx": "0.32.4", "mlx-audio": "0.6.1", "numpy": "2.2.6",
             "sherpa-onnx": "1.13.3", "transformers": "5.20.2"}
 
@@ -142,7 +147,7 @@ class Qwen:
             result = self.model.generate(
                 samples, max_tokens=512, batch_size=1, temperature=0.0,
                 top_p=1.0, top_k=0, language=None, stream=False,
-                chunk_duration=1200.0, verbose=False, system_prompt=None, hotwords=None)
+                chunk_duration=1200.0, verbose=False, system_prompt=None, hotwords=HOTWORDS)
             self.mx.synchronize()
             return result.text
         finally:
