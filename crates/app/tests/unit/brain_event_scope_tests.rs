@@ -3,6 +3,52 @@ use brain::acp::trace::{AcpTrace, TraceItem, TraceKind};
 use brain::{BrainStatus, Trigger};
 use gpui::TestAppContext;
 
+/// 场景：项目已打开但本地服务不可用时，幕僚不能误报“请打开工作空间”。
+///
+/// 数据构造：1 个已打开的临时项目，0 个注册的 Norma endpoint；模拟另一进程占用入口。
+/// 执行过程：设置真实项目 root 与身份 → 调用生产 route 注册 → 入口缺失导致注册失败 → 发送幕僚消息。
+/// 预期结果：项目仍打开；提示服务连接不可用，而非缺少工作空间；消息不得进入未认证队列。
+#[test]
+fn opened_project_without_endpoint_reports_connection_failure() {
+    let dir = tempfile::tempdir().expect("isolated opened project");
+    let paths = storage::DatabasePaths::isolated_test(dir.path());
+    let mut test = TestAppContext::single();
+    let (source, cx) = test.add_window_view(|_, cx| {
+        MultisoulApp::new_with_pty_factory_and_database_paths(
+            cx,
+            Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+            paths,
+        )
+    });
+    source.update(cx, |app, cx| {
+        app.runtime.set_workspace_root(dir.path().to_owned());
+        app.workspace_id = Some("opened-project".into());
+        app.register_loaded_project_route(None, cx);
+        let result = app.push_staff_event(BrainEventKind::StaffRequest {
+            text: "帮我检查这个项目".into(),
+        });
+        assert_eq!(
+            app.runtime.workspace_root(),
+            Some(dir.path()),
+            "route 失败不得关闭已打开的项目"
+        );
+        assert_eq!(
+            result,
+            Err("staff.connection_unavailable"),
+            "已打开项目应报告连接失败，不能要求重新打开工作空间"
+        );
+        assert_ne!(
+            result,
+            Err("island.staff_no_workspace"),
+            "未注册 route 不等于未打开项目"
+        );
+        assert!(
+            app.brain.pending_events.borrow().is_empty(),
+            "连接失败不得排入无身份的消息"
+        );
+    });
+}
+
 /// 事件入队时固定当前 route，重启后不能将旧队列重绑到新项目。
 /// 数据：同一App先用 alpha/old 排队，再切换为 alpha/new，重放旧事件并接收新事件。
 /// 执行：调用生产 push_brain/push_scoped_brain，再给状态通道发送旧、新 route 的 trace。

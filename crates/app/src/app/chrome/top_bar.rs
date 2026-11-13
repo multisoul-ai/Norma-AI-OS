@@ -6,8 +6,8 @@ use crate::workspace::persistence::PersistenceSaveState;
 use gpui::{div, img, prelude::*, px, rgba, Context, Div, Stateful, Window, WindowControlArea};
 use std::path::Path;
 use ui::component::{
-    button::{Button, ButtonCustomVariant, ButtonVariants},
-    Disableable, StyledExt,
+    button::{Button, ButtonCustomVariant, ButtonGroup, ButtonVariants},
+    Disableable, Selectable, StyledExt,
 };
 use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
 use workspace::display_name_for_path;
@@ -135,18 +135,27 @@ impl MultisoulApp {
                     .items_center()
                     .gap(px(8.0))
                     .child(
-                        Button::new("desktop-staff-toggle")
-                            .debug_selector(|| "desktop-staff-toggle".to_owned())
+                        ButtonGroup::new("desktop-view-mode")
                             .outline()
-                            .label(ui::i18n::text(if self.staff.enabled {
-                                "staff.canvas"
-                            } else {
-                                "staff.mode"
-                            }))
-                            .disabled(self.expanded_desktop_project().is_none())
-                            .on_click(cx.listener(|app, _, window, cx| {
-                                app.set_staff_mode(!app.staff.enabled, window, cx)
-                            })),
+                            .compact()
+                            .child(
+                                Button::new("desktop-canvas-mode")
+                                    .label(ui::i18n::text("staff.canvas"))
+                                    .selected(!self.staff.enabled)
+                                    .on_click(cx.listener(|app, _, window, cx| {
+                                        app.set_staff_mode(false, window, cx)
+                                    })),
+                            )
+                            .child(
+                                Button::new("desktop-staff-toggle")
+                                    .debug_selector(|| "desktop-staff-toggle".to_owned())
+                                    .label(ui::i18n::text("staff.mode"))
+                                    .selected(self.staff.enabled)
+                                    .disabled(self.expanded_desktop_project().is_none())
+                                    .on_click(cx.listener(|app, _, window, cx| {
+                                        app.set_staff_mode(true, window, cx)
+                                    })),
+                            ),
                     )
                     .child(
                         launchpad_button(theme, cx)

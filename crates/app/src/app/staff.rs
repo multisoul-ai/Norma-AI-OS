@@ -5,8 +5,23 @@ use norma::protocol::Task;
 use std::collections::BTreeMap;
 use ui::component::input::InputState;
 mod actions;
+mod composer;
+mod detail;
 mod messages;
+mod task_list;
 mod view;
+
+/// 与原型相同：窄桌面压缩列表，保留对话宽度。
+pub(crate) fn sidebar_width(window: &gpui::Window) -> f32 {
+    let width = f32::from(window.viewport_size().width);
+    if width < 760.0 {
+        0.0
+    } else if width < 1180.0 {
+        290.0
+    } else {
+        330.0
+    }
+}
 
 #[derive(Default)]
 pub(crate) struct StaffState {
@@ -19,6 +34,10 @@ pub(crate) struct StaffState {
     pub selected: Option<String>,
     pub drafts: BTreeMap<String, String>,
     pub input: Option<Entity<InputState>>,
+    pub search: Option<Entity<InputState>>,
+    pub query: String,
+    pub filter: Option<norma::protocol::TaskDisplayStatus>,
+    pub collapsed: std::collections::BTreeSet<String>,
     pub scroll: gpui::ScrollHandle,
     pub error: Option<ui::i18n::LocalizedText>,
     pub pending: BTreeMap<u64, PendingWorker>,
@@ -90,6 +109,7 @@ pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
         "staff.approval_required" => "staff.approval_required",
         "staff.worker_not_ready" => "staff.worker_not_ready",
         "staff.worker_failed" => "staff.worker_failed",
+        "staff.connection_unavailable" => "staff.connection_unavailable",
         "island.staff_loading" => "island.staff_loading",
         "island.staff_disabled" => "island.staff_disabled",
         "island.staff_no_workspace" => "island.staff_no_workspace",
@@ -100,3 +120,7 @@ pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
     };
     ui::i18n::message(key, &[])
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/staff_layout_tests.rs"]
+mod layout_tests;

@@ -80,6 +80,26 @@ impl MultisoulApp {
         self.notify_staff(cx);
     }
 
+    pub(super) fn edit_staff_proposal(
+        &mut self,
+        draft: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(input) = &self.staff.input {
+            input.update(cx, |input, cx| {
+                let current = input.value();
+                let combined = if current.is_empty() {
+                    draft.to_owned()
+                } else {
+                    format!("{current}\n\n{draft}")
+                };
+                input.set_value(combined, window, cx);
+            });
+            input.focus_handle(cx).focus(window);
+        }
+    }
+
     pub(super) fn send_staff_message_click(
         &mut self,
         _: &ClickEvent,

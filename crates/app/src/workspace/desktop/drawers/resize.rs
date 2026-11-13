@@ -93,8 +93,13 @@ impl MultisoulApp {
         let Some(session) = self.desktop_workspace.drawer_resize else {
             return;
         };
-        let maximum =
-            (f32::from(window.viewport_size().width) - MIN_CANVAS_WIDTH).max(RIGHT_MIN_WIDTH);
+        let task_list = if self.staff.enabled {
+            crate::app::staff::sidebar_width(window)
+        } else {
+            0.0
+        };
+        let maximum = (f32::from(window.viewport_size().width) - task_list - MIN_CANVAS_WIDTH)
+            .max(RIGHT_MIN_WIDTH);
         let result = resize_drawer(
             session.initial_width,
             session.initial_x,

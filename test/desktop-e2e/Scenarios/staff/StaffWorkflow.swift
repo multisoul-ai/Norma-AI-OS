@@ -1,3 +1,4 @@
+import CoreGraphics
 import E2EKit
 import Fixtures
 import Foundation
@@ -47,19 +48,32 @@ public enum StaffWorkflow {
             _ = try await session.visualCheck([VisualCriterion(id: "seed", text: "E2E Project 画布有一张 Claude 卡片，显示 STAFF WORKER READY；顶部有幕僚或 Staff 按钮，右侧内容抽屉可见。若 Agent 仍启动，判 wait。")])
             try await session.visualClick("点击顶部幕僚或 Staff 按钮进入幕僚模式")
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "empty", text: "左栏有新任务/New task，中央显示输入新任务的空态与发送按钮，右栏复用原内容抽屉；没有卡片叠在任务界面上。"),
-                VisualCriterion(id: "locale", text: english ? "界面控制文案为英文，包含 Tasks、New task、Send；用户项目名称不翻译。" : "界面控制文案为中文，包含任务、新任务、发送。")
+                VisualCriterion(id: "empty", text: "顶部画布/Canvas与幕僚/Staff为同一个分段切换器，幕僚已选中；其下是56px左右的Norma标题栏，右侧全屏与关闭图标清晰可见，项目显示E2E Project，不能是临时目录UUID。左栏约330px，有44px左右的新任务入口、搜索框和筛选条；中央是空态和多行输入区，右栏复用原内容抽屉，没有卡片叠在任务界面上。"),
+                VisualCriterion(id: "locale", text: english ? "界面控制文案为英文，包含 Give Norma the next task、Search tasks、Send to Norma；用户项目名称不翻译。" : "界面控制文案为中文，包含把下一件事，交给 Norma、搜索任务、发送到 Norma。")
             ]), "01-empty.png")
             return "空态三栏和双语控制可见"
         }
 
         try await session.step("新建任务，经真实权限闸门生成提议") {
-            try await send("STAFF-M1 请生成验收文件", session)
+            try await session.visualClick("点击中央任务对话底部的消息输入框，不是左侧搜索框")
+            try await session.type("STAFF-M1 请生成验收文件")
+            try await session.shortcut(key: 36, modifiers: [])
+            try await session.type("保留这一行补充要求")
+            _ = try await session.visualCheck([VisualCriterion(id: "multiline", text: "中央输入框保留两行尚未发送的文字：STAFF-M1 请生成验收文件和保留这一行补充要求；仍是新任务空态，普通 Enter 没有发出任务；输入区有接收者、圆形上箭头和 Cmd+Enter 发送提示。")])
+            guard try StaffFixture.tasks(root).isEmpty else { throw E2EError.product("普通 Enter 意外发送了任务") }
+            try await session.shortcut(key: 36, modifiers: [0x37])
             try await waitFor("提议保存") { try first(root)["proposals"] as? [[String: Any]] != nil && !(try first(root)["proposals"] as? [[String: Any]] ?? []).isEmpty }
+            // 对话为滚动视口，先核对首条原话，再回到底部核对完整提议；不要求整段历史同屏。
+            try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: 3000)
+            try session.save(try await session.visualCheck([VisualCriterion(id: "user-message", text: "中央首条用户消息右对齐圆角气泡，完整包含 STAFF-M1 请生成验收文件 与 保留这一行补充要求 两行原话；不与固定标题或Worker栏重叠。")]), "02-user.png")
+            try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -3000)
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "proposal", text: "左栏需要你/Needs you 分组出现 STAFF-M1 任务；中央有用户原话、Norma 提议实现验收文件、目标 Agent、理由和完整任务内容，以及可点击的采用并派发/Adopt and dispatch 按钮。"),
-                VisualCriterion(id: "layout", text: "任务标题、phase 选择器、提议和发送框没有重叠或横向裁切；右侧文件抽屉仍在。")
+                VisualCriterion(id: "proposal", text: "左栏需要你/Needs you 分组出现 STAFF-M1 任务；中央有Norma 提议实现验收文件、目标 Agent、理由和完整任务内容，以及可点击的采用并派发/Adopt and dispatch 按钮。"),
+                VisualCriterion(id: "layout", text: "Norma 有独立头像与名字；提议为圆角卡片，有需要你决定标记及紧凑采用/编辑按钮。任务标题约22px，阶段选择紧凑；输入区为圆角多行框与圆形发送键。任务标题、提议和输入框没有重叠或横向裁切，右侧文件抽屉仍在。")
             ]), "02-proposal.png")
+            let rows = try first(root)["messages"] as? [[String: Any]] ?? []
+            let userText = rows.compactMap { ($0["User"] as? [String: Any])?["text"] as? String }.first
+            guard userText == "STAFF-M1 请生成验收文件\n保留这一行补充要求" else { throw E2EError.product("发送未原样保留两行消息：\(userText ?? "nil")") }
             let rejected = try StaffFixture.records(root, "commands.jsonl").contains { row in
                 (row["argv"] as? [String] ?? []).contains("TASK MUST NOT SPEAK") && row["allowed"] as? Bool == false
             }
@@ -69,6 +83,11 @@ public enum StaffWorkflow {
         }
 
         try await session.step("hover 与采用：创建独立 Worker，结果回到同一任务") {
+            try await session.visualClick("点击中央底部消息输入框")
+            try await session.type("EDIT-DRAFT 保留已有补充")
+            try await session.visualClick("点击提议卡的修改后发送/Edit and send按钮")
+            _ = try await session.visualCheck([VisualCriterion(id: "edit-draft", text: "输入框同时保留 EDIT-DRAFT 保留已有补充 和提议原文 STAFF-M1-WORK，提议没有覆盖原有草稿，也没有自动发送。")])
+            try await session.selectAll(); try await session.deleteSelection()
             let target = try await session.visualLocate("定位提议卡的采用并派发/Adopt and dispatch 按钮中心")
             try await session.hover(local: target.point, on: target.frame)
             try session.save(try await session.visualCheck([VisualCriterion(id: "hover", text: "提议采用按钮悬停反馈清楚可辨，文字与边框清晰，布局未跳动。")]), "03-hover.png")
@@ -91,10 +110,51 @@ public enum StaffWorkflow {
                   (received[0]["task"] as? String ?? "").contains("STAFF-M1-WORK") else {
                 throw E2EError.product("新卡身份/dispatch/恰好一次输入不符合：\(workers), \(received), \(starts)")
             }
+            // 从最新结果向上滚动一个提议卡的高度，检查已采用的禁用按钮，再回到结果。
+            try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: 250)
+            _ = try await session.visualCheck([VisualCriterion(id: "dispatched", text: "历史提议中的采用按钮已变成 已派发/Dispatched 禁用状态，不能再次派活；Worker卡条显示结果状态。")])
+            try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -3000)
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "result", text: "任务处于待验收/In review，中央有 Worker 结果 STAFF RESULT 与 Norma 的 STAFF REVIEW 回复；采用按钮显示已派发/Dispatched 且禁用，Worker 标签可定位。若消息在上方，允许滚动查看后重试。")
+                VisualCriterion(id: "result", text: "任务处于待验收/In review，中央有 Worker 结果 STAFF RESULT 与 Norma 的 STAFF REVIEW 回复；标题下有独立 Worker 卡条，卡片约230px宽，显示头像、真实 Agent 名称、引擎、角色和结果状态，能定位卡片。消息区在 Worker 卡条下方；若消息在上方，允许滚动查看后重试。")
             ]), "04-result.png")
             return "同名 Agent 新卡；dispatch 精确匹配；恰好一次送达；自动推进待验收"
+        }
+
+        try await session.step("搜索按标题与 Agent 名称过滤，筛选不清空当前任务") {
+            try await session.visualClick("点击中央底部消息输入框")
+            try await session.type("DRAFT 保留草稿第一行\nDRAFT 保留草稿第二行")
+            try await session.visualClick("点击左侧任务列表顶部的搜索任务/Search tasks输入框")
+            try await session.type("no-such-staff-task")
+            _ = try await session.visualCheck([VisualCriterion(id: "no-match", text: "左侧搜索无匹配结果，任务行隐藏；中央原任务及Worker卡条仍在，输入框仍保留 DRAFT 保留草稿第一行和 DRAFT 保留草稿第二行 两行原文。")])
+            try await session.selectAll()
+            let workers = try first(root)["workers"] as? [[String: Any]] ?? []
+            guard let agent = workers.first?["agent"] as? String else { throw E2EError.product("缺少可搜索的Worker名称") }
+            try await session.type(agent)
+            _ = try await session.visualCheck([VisualCriterion(id: "agent-search", text: "左侧搜索框显示Worker真实Agent名称，STAFF-M1任务行仍匹配；行里有Agent、项目、完成计数和头像，状态分组紧凑可读。")])
+            try await session.selectAll(); try await session.type("STAFF-M1")
+            _ = try await session.visualCheck([VisualCriterion(id: "title-search", text: "按STAFF-M1标题搜索仍能看到同一任务。")])
+            try await session.selectAll(); try await session.deleteSelection()
+            try await session.visualClick("点击左侧筛选条的进行中/Running按钮")
+            _ = try await session.visualCheck([VisualCriterion(id: "filter", text: "进行中/Running筛选为选中状态，待验收任务被过滤，中央已选任务保留。")])
+            try await session.visualClick("点击左侧筛选条的全部/All按钮")
+            try session.save(try await session.visualCheck([VisualCriterion(id: "restored", text: "全部/All恢复选中，左侧待验收任务行恢复，中央内容保持，输入框仍含两行DRAFT草稿。")]), "04-search.png")
+            return "无匹配、Agent与标题搜索、筛选和恢复均有效"
+        }
+
+        try await session.step("右栏拖宽与窄窗仍保留对话") {
+            let edge = try await session.visualLocate("定位中央幕僚面板与右侧内容抽屉之间可拖动的竖分隔线，在高度300处")
+            try await session.drag(local: edge.point, to: CGPoint(x: 120, y: edge.point.y), on: edge.frame)
+            _ = try await session.visualCheck([VisualCriterion(id: "wide-drawer", text: "右栏拖到上限后，左任务栏仍完整，中央仍至少约320px宽；任务标题、Worker卡、输入框和发送按钮可见且不重叠。两行DRAFT草稿仍在。")])
+            try await session.resize(width: 900, height: 800)
+            try session.save(try await session.visualCheck([VisualCriterion(id: "narrow", text: "900px窄窗中，左任务列表约290px，中央对话与输入区仍可用、发送按钮可见；右抽屉没有遮住或挤没对话，顶部全屏/关闭图标仍可见；两行DRAFT草稿保留。")]), "04-narrow.png")
+            try await session.resize(width: 760, height: 800)
+            _ = try await session.visualCheck([VisualCriterion(id: "breakpoint", text: "760px窗口右抽屉隐藏，保留左任务列表与中央可用对话，输入和发送按钮清楚可见。")])
+            try await session.resize(width: 600, height: 800)
+            _ = try await session.visualCheck([VisualCriterion(id: "compact", text: "600px窗口按原型隐藏左任务列表与右抽屉，任务对话占主要宽度；Worker卡、两行DRAFT输入和发送按钮完整可用，没有遮挡或横向溢出。")])
+            try await session.resize(width: 1280, height: 800)
+            let restore = try await session.visualLocate("定位幕僚面板与右内容抽屉之间的竖分隔线，高度300处，准备恢复右栏宽度")
+            try await session.drag(local: restore.point, to: CGPoint(x: 900, y: restore.point.y), on: restore.frame)
+            return "极限拖宽和900px窄窗仍能使用任务对话，恢复380px右栏"
         }
 
         try await session.step("右侧复用文件抽屉打开 Worker 产物") {
@@ -121,7 +181,7 @@ public enum StaffWorkflow {
 
         try await session.step("全屏、Escape 恢复与画布切换") {
             try await session.visualClick("点击幕僚标题栏中的全屏/Full screen按钮")
-            try session.save(try await session.visualCheck([VisualCriterion(id: "full", text: "幕僚任务界面填满窗口，顶部原工作空间工具栏收起，出现退出全屏/Exit full screen按钮，任务内容与右侧文件仍在；左上任务/Tasks标题完整可读，不与 macOS 红黄绿窗口按钮重叠。")]), "07-fullscreen.png")
+            try session.save(try await session.visualCheck([VisualCriterion(id: "full", text: "幕僚任务界面填满窗口，顶部原工作空间工具栏收起，出现退出全屏/Exit full screen按钮，任务内容与右侧文件仍在；左上Norma与幕僚/Staff标题完整可读，不与 macOS 红黄绿窗口按钮重叠。")]), "07-fullscreen.png")
             try await session.shortcut(key: 53, modifiers: [])
             _ = try await session.visualCheck([VisualCriterion(id: "escape", text: "Escape 已退出幕僚全屏，原工作空间顶栏恢复，任务和打开的文件保留。")])
             try await session.visualClick("点击幕僚标题栏中的画布/Canvas按钮返回画布")
@@ -138,7 +198,7 @@ public enum StaffWorkflow {
     private static func send(_ text: String, _ session: Session) async throws {
         try await session.visualClick("点击中央任务对话底部的消息输入框；不要点击右侧抽屉的搜索框")
         try await session.selectAll(); try await session.type(text)
-        try await session.shortcut(key: 36, modifiers: [])
+        try await session.shortcut(key: 36, modifiers: [0x37])
     }
     private static func waitFor(_ description: String, _ check: () throws -> Bool) async throws {
         // 60s covers two local subprocess handshakes and hook completion debounce; no network model.

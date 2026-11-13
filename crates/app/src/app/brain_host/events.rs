@@ -30,7 +30,11 @@ impl MultisoulApp {
     /// Why this host cannot carry island chat to the brain right now, if it cannot.
     pub(crate) fn staff_ready(&self) -> Result<(), &'static str> {
         if self.brain_scope().is_none() {
-            return Err("island.staff_no_workspace");
+            return Err(if self.runtime.workspace_root().is_some() {
+                "staff.connection_unavailable"
+            } else {
+                "island.staff_no_workspace"
+            });
         }
         match self.brain.settings.as_ref() {
             None => Err("island.staff_loading"),

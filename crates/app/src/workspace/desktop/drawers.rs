@@ -45,6 +45,25 @@ impl MultisoulApp {
                 &self.desktop_workspace.drawer_widths,
             );
         }
+        if self.staff.enabled && width < 1180.0 {
+            return motion::DesktopDrawerLayout::with_width(
+                width,
+                0.0,
+                self.desktop_workspace.drawer_widths.right,
+            );
+        }
+        if self.staff.enabled {
+            // 任务栏之外仍保留既有最小320px内容区；只夹当前布局，不改画布宽度偏好。
+            let maximum =
+                (width - crate::app::staff::sidebar_width(window) - motion::MIN_CANVAS_WIDTH)
+                    .max(motion::RIGHT_MIN_WIDTH);
+            let preferred = self.desktop_workspace.drawer_widths.right.unwrap_or(380.0);
+            return motion::DesktopDrawerLayout::with_width(
+                width,
+                f32::from(self.desktop_workspace.drawers.right_open as u8),
+                Some(preferred.min(maximum)),
+            );
+        }
         resize::layout_with_user_width(
             width,
             f32::from(self.desktop_workspace.drawers.right_open as u8),
@@ -57,6 +76,10 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        // 原型的窄窗断点隐藏内容栏；保留展开状态和宽度，回到宽窗自动恢复。
+        if self.staff.enabled && f32::from(window.viewport_size().width) < 1180.0 {
+            return div().id("desktop-assistant-drawers");
+        }
         self.ensure_workspace_activity_cache(cx);
         self.ensure_drawer_frost(cx);
         let drawers = self.desktop_workspace.drawers;
