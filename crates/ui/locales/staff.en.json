@@ -68,5 +68,11 @@
   "staff.execution_plan": "Plan",
   "staff.step_completed": "Completed",
   "staff.step_running": "In progress",
-  "staff.step_pending": "Pending"
+  "staff.step_pending": "Pending",
+  "staff.activity_completed": "Processed",
+  "staff.activity_summary": "%{status} · %{steps} steps · %{seconds}s",
+  "staff.activity_failed": "Failed",
+  "staff.activity_denied": "Denied",
+  "staff.activity_interrupted": "Interrupted",
+  "staff.activity_duration": "%{seconds}s"
 }

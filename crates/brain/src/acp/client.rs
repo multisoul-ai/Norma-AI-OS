@@ -272,7 +272,10 @@ impl AcpSession {
                                 }
                             }
                         }
-                        self.answer(&id, &method, &params, gate, sink)?;
+                        self.answer(&id, &method, &params, gate, &mut |item| {
+                            progress(&item);
+                            sink(item);
+                        })?;
                     }
                     _ => {}
                 }
@@ -324,11 +327,28 @@ impl AcpSession {
                     ("权限请求：拒绝".to_string(), format!("\n原因：{reason}"))
                 }
             };
-            sink(TraceItem::new(
+            let mut item = TraceItem::new(
                 TraceKind::Permission,
                 title,
                 format!("{}：{wanted}{result}", request.tool),
-            ));
+            );
+            item.tool =
+                params["toolCall"]["toolCallId"]
+                    .as_str()
+                    .map(|id| super::trace::ToolTrace {
+                        id: id.into(),
+                        name: Some(request.tool.clone()),
+                        input: Some(wanted.clone()),
+                        status: Some(
+                            if matches!(verdict, Verdict::Reject(_)) {
+                                "denied"
+                            } else {
+                                "in_progress"
+                            }
+                            .into(),
+                        ),
+                    });
+            sink(item);
             if let Verdict::Reject(reason) = &verdict {
                 tracing::info!(session_id = %self.session_id, permission_id = %id,
                     %reason, wanted = %wanted, "大脑的权限请求被拒绝");

@@ -1,7 +1,8 @@
 //! Transient task progress. Durable Task.messages remains the conversation authority.
-use brain::acp::trace::TraceKind;
+use brain::acp::trace::{TraceItem, TraceKind};
 use brain::event::TaskUpdate;
 use norma::protocol::{Task, TaskMessage};
+use std::time::Instant;
 
 #[derive(Default)]
 pub(crate) struct TaskActivity {
@@ -11,7 +12,9 @@ pub(crate) struct TaskActivity {
     pub reply: String,
     pub plan: Vec<(String, String)>,
     pub failed: bool,
-    pub working: bool,
+    pub tools: Vec<ToolActivity>,
+    started: Option<Instant>,
+    pub elapsed_ms: Option<u64>,
     baseline: usize,
     committed: bool,
 }
@@ -29,6 +32,7 @@ impl TaskActivity {
                     turn,
                     queued: self.queued.saturating_sub(1),
                     active: true,
+                    started: Some(Instant::now()),
                     baseline: message_count,
                     ..Self::default()
                 };
@@ -45,13 +49,14 @@ impl TaskActivity {
                         })
                         .collect()
                 }
-                TraceKind::ToolCall => self.working = true,
-                TraceKind::ToolResult => self.working = false,
+                TraceKind::ToolCall | TraceKind::ToolResult | TraceKind::Permission => {
+                    self.update_tool(item)
+                }
                 _ => {}
             },
             TaskUpdate::Finished { failed } if turn == self.turn => {
                 self.active = false;
-                self.working = false;
+                self.finish_tools();
                 self.failed = failed;
                 // Successful completion is sent only after durable TaskChanged.
                 if !failed {
@@ -59,6 +64,74 @@ impl TaskActivity {
                 }
             }
             _ => {}
+        }
+    }
+
+    pub fn working(&self) -> bool {
+        self.tools
+            .iter()
+            .any(|tool| tool.status == ToolStatus::Running)
+    }
+
+    pub fn duration_ms(&self) -> u64 {
+        self.elapsed_ms.unwrap_or_else(|| {
+            self.started
+                .map_or(0, |start| start.elapsed().as_millis() as u64)
+        })
+    }
+
+    fn update_tool(&mut self, item: TraceItem) {
+        let Some(meta) = item.tool else { return };
+        let index = self
+            .tools
+            .iter()
+            .position(|tool| tool.id == meta.id)
+            .unwrap_or_else(|| {
+                self.tools.push(ToolActivity {
+                    id: meta.id.clone(),
+                    name: meta.id.clone(),
+                    input: String::new(),
+                    output: String::new(),
+                    status: ToolStatus::Running,
+                    started: Instant::now(),
+                    elapsed_ms: None,
+                });
+                self.tools.len() - 1
+            });
+        let tool = &mut self.tools[index];
+        if let Some(name) = meta.name {
+            tool.name = name;
+        }
+        if let Some(input) = meta.input {
+            tool.input = input;
+        }
+        if !item.text.is_empty()
+            && matches!(item.kind, TraceKind::ToolResult | TraceKind::Permission)
+        {
+            tool.output = item.text;
+        }
+        if tool.status == ToolStatus::Denied {
+            return;
+        }
+        let status = match meta.status.as_deref() {
+            Some("denied") => ToolStatus::Denied,
+            Some("completed") => ToolStatus::Completed,
+            Some("failed") => ToolStatus::Failed,
+            _ => tool.status,
+        };
+        tool.status = status;
+        if status != ToolStatus::Running && tool.elapsed_ms.is_none() {
+            tool.elapsed_ms = Some(tool.started.elapsed().as_millis() as u64);
+        }
+    }
+
+    fn finish_tools(&mut self) {
+        self.elapsed_ms = Some(self.duration_ms());
+        for tool in &mut self.tools {
+            if tool.status == ToolStatus::Running {
+                tool.status = ToolStatus::Interrupted;
+                tool.elapsed_ms = Some(tool.started.elapsed().as_millis() as u64);
+            }
         }
     }
 
@@ -80,8 +153,27 @@ impl TaskActivity {
         }
         self.active = false;
         self.queued = 0;
-        self.working = false;
+        self.finish_tools();
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ToolStatus {
+    Running,
+    Completed,
+    Failed,
+    Denied,
+    Interrupted,
+}
+
+pub(crate) struct ToolActivity {
+    pub id: String,
+    pub name: String,
+    pub input: String,
+    pub output: String,
+    pub status: ToolStatus,
+    started: Instant,
+    pub elapsed_ms: Option<u64>,
 }
 
 #[cfg(test)]

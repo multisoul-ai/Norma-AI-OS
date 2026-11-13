@@ -68,5 +68,11 @@
   "staff.execution_plan": "执行计划",
   "staff.step_completed": "已完成",
   "staff.step_running": "进行中",
-  "staff.step_pending": "待处理"
+  "staff.step_pending": "待处理",
+  "staff.activity_completed": "已处理",
+  "staff.activity_summary": "%{status} · %{steps} 步 · 用时 %{seconds} 秒",
+  "staff.activity_failed": "失败",
+  "staff.activity_denied": "已拒绝",
+  "staff.activity_interrupted": "已中断",
+  "staff.activity_duration": "%{seconds} 秒"
 }

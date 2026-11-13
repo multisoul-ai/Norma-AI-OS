@@ -1,23 +1,35 @@
-use super::{activity::TaskActivity, *};
-use gpui::{div, prelude::*, px, relative, rgba, Div};
+use super::super::*;
+use crate::app::staff::activity::TaskActivity;
+use gpui::{div, px, relative, rgba, Div};
 use ui::component::{spinner::Spinner, Icon, IconName, Sizable, StyledExt};
 use ui::i18n::text as t;
 
 impl MultisoulApp {
-    pub(super) fn staff_activity_view(&self, activity: &TaskActivity) -> Div {
+    pub(in crate::app::staff) fn staff_activity_view(
+        &self,
+        task_id: &str,
+        activity: &TaskActivity,
+        cx: &mut Context<Self>,
+    ) -> Div {
         let theme = self.staff_theme();
         let mut body = div()
             .w_full()
             .flex()
             .flex_col()
-            .gap(px(10.))
-            .text_size(px(14.));
-        if activity.waiting() || !activity.reply.is_empty() || activity.failed {
+            .gap(px(tokens::SPACE_12))
+            .text_size(px(tokens::BODY_TEXT));
+        if activity.waiting()
+            || !activity.reply.is_empty()
+            || activity.failed
+            || !activity.tools.is_empty()
+        {
             let status = if activity.failed && !activity.waiting() {
                 "staff.response_failed"
+            } else if !activity.waiting() {
+                "staff.activity_completed"
             } else if !activity.active {
                 "staff.response_queued"
-            } else if activity.working {
+            } else if activity.working() {
                 "staff.response_working"
             } else if activity.reply.is_empty() {
                 "staff.response_waiting"
@@ -29,29 +41,41 @@ impl MultisoulApp {
                 .debug_selector(|| "staff-response-status".into())
                 .flex()
                 .items_center()
-                .gap(px(8.))
-                .text_size(px(12.))
+                .gap(px(tokens::SPACE_8))
+                .text_size(px(tokens::SPACE_12))
                 .text_color(rgba(theme.text_secondary))
                 .child(crate::app::chrome::brand_logo())
                 .child(div().font_semibold().child("Norma"));
             if activity.waiting() {
                 header = if self.motion.reduce_motion {
-                    header.child(Icon::new(IconName::Loader).with_size(px(14.)))
+                    header.child(Icon::new(IconName::Loader).with_size(px(tokens::BODY_TEXT)))
                 } else {
                     header.child(
                         Spinner::new()
-                            .with_size(px(14.))
+                            .with_size(px(tokens::BODY_TEXT))
                             .color(rgba(theme.accent_cyan).into()),
                     )
                 };
             }
-            body = body.child(header.child(t(status)));
+            let summary = ui::i18n::format(
+                "staff.activity_summary",
+                &[
+                    ("status", t(status).to_owned()),
+                    ("steps", activity.tools.len().to_string()),
+                    (
+                        "seconds",
+                        format!("{:.1}", activity.duration_ms() as f64 / 1000.),
+                    ),
+                ],
+            );
+            body = body.child(header.child(summary));
+            body = body.children(self.staff_tool_rows(task_id, activity, cx));
             if !activity.reply.is_empty() {
                 body = body.child(
                     div()
                         .id("staff-streaming-reply")
                         .debug_selector(|| "staff-streaming-reply".into())
-                        .line_height(relative(1.7))
+                        .line_height(relative(tokens::BODY_LEADING))
                         .child(activity.reply.clone()),
                 );
             }
@@ -67,12 +91,12 @@ impl MultisoulApp {
                 .debug_selector(|| "staff-plan".into())
                 .border_1()
                 .border_color(rgba(self.staff_line()))
-                .rounded(px(11.))
+                .rounded(px(tokens::SPACE_12))
                 .child(
                     div()
-                        .px(px(12.))
-                        .py(px(9.))
-                        .text_size(px(12.))
+                        .px(px(tokens::SPACE_12))
+                        .py(px(tokens::SPACE_8))
+                        .text_size(px(tokens::SPACE_12))
                         .text_color(rgba(theme.text_secondary))
                         .child(format!(
                             "{}  {completed}/{}",
@@ -92,12 +116,12 @@ impl MultisoulApp {
                     div()
                         .flex()
                         .items_center()
-                        .gap(px(10.))
-                        .px(px(12.))
-                        .py(px(9.))
+                        .gap(px(tokens::SPACE_12))
+                        .px(px(tokens::SPACE_12))
+                        .py(px(tokens::SPACE_8))
                         .border_t_1()
                         .border_color(rgba(self.staff_line()))
-                        .text_size(px(13.))
+                        .text_size(px(tokens::LABEL_TEXT))
                         .child(
                             Icon::new(if status == "completed" {
                                 IconName::Check
@@ -106,17 +130,20 @@ impl MultisoulApp {
                             } else {
                                 IconName::Minus
                             })
-                            .with_size(px(14.))
+                            .with_size(px(tokens::BODY_TEXT))
                             .text_color(rgba(color)),
                         )
                         .child(div().flex_1().min_w_0().child(text.clone()))
-                        .child(div().text_size(px(11.)).text_color(rgba(color)).child(t(
-                            match status.as_str() {
-                                "completed" => "staff.step_completed",
-                                "in_progress" => "staff.step_running",
-                                _ => "staff.step_pending",
-                            },
-                        ))),
+                        .child(
+                            div()
+                                .text_size(px(tokens::SPACE_12))
+                                .text_color(rgba(color))
+                                .child(t(match status.as_str() {
+                                    "completed" => "staff.step_completed",
+                                    "in_progress" => "staff.step_running",
+                                    _ => "staff.step_pending",
+                                })),
+                        ),
                 );
             }
             body = body.child(plan);

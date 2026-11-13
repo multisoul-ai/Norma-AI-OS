@@ -199,8 +199,9 @@ impl MultisoulApp {
         }
 
         if let Some(activity) = self.staff.activity.get(&task.id) {
-            messages = messages
-                .child(messages::message_column().child(self.staff_activity_view(activity)));
+            messages = messages.child(
+                messages::message_column().child(self.staff_activity_view(&task.id, activity, cx)),
+            );
         }
         messages
     }

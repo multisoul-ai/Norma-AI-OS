@@ -14,7 +14,6 @@ pub(crate) use delivery::{
     AGENT_ENTER_DELAY, AGENT_OUTPUT_QUIET, AGENT_STARTUP_GRACE, WORKER_DELIVERY_CONFIRM,
 };
 mod activity;
-mod activity_view;
 mod appearance;
 mod composer;
 mod detail;
@@ -43,6 +42,7 @@ pub(crate) struct StaffState {
     pub busy: bool,
     pub tasks: BTreeMap<String, Task>,
     pub activity: BTreeMap<String, activity::TaskActivity>,
+    pub expanded: std::collections::BTreeSet<String>,
     pub workspace_id: Option<String>,
     pub project_filter: Option<String>,
     pub target_project: Option<String>,
