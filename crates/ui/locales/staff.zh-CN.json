@@ -74,5 +74,22 @@
   "staff.activity_failed": "失败",
   "staff.activity_denied": "已拒绝",
   "staff.activity_interrupted": "已中断",
-  "staff.activity_duration": "%{seconds} 秒"
+  "staff.activity_duration": "%{seconds} 秒",
+  "staff.question": "需要你回答",
+  "staff.worker_question": "Worker 的问题",
+  "staff.question_pending": "待回答",
+  "staff.question_answered": "已回答",
+  "staff.question_skipped": "已跳过",
+  "staff.question_timed_out": "已超时",
+  "staff.question_submit": "提交回答",
+  "staff.question_skip": "跳过",
+  "staff.question_custom": "自定义回答",
+  "staff.ignore": "忽略",
+  "staff.ignored": "已忽略",
+  "staff.restore": "恢复提议",
+  "staff.pending_questions": "%{count} 题待答",
+  "staff.proposal_superseded": "已有更新的提议，无法恢复这一条。",
+  "staff.question_invalid": "请完整回答所有问题。",
+  "staff.question_unavailable": "这道问题已不可回答。",
+  "staff.question_identity_changed": "问题内容已改变，请重新加载。"
 }

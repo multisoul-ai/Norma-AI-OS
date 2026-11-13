@@ -84,6 +84,7 @@ impl MultisoulApp {
             .cloned();
         let mut center = div().flex_1().min_w_0().h_full().flex().flex_col();
         if let Some(task) = &selected {
+            self.ensure_staff_question_editors(task, window, cx);
             // Header and worker strip share the 760px reading column with messages and composer.
             let mut head = div().w_full().max_w(px(800.)).child(self.staff_task_header(
                 task,

@@ -18,6 +18,7 @@ mod appearance;
 mod composer;
 mod detail;
 mod messages;
+mod questions;
 mod task_list;
 mod view;
 mod workspace;
@@ -42,6 +43,13 @@ pub(crate) struct StaffState {
     pub busy: bool,
     pub tasks: BTreeMap<String, Task>,
     pub activity: BTreeMap<String, activity::TaskActivity>,
+    pub mirroring_questions: bool,
+    pub worker_answers: Vec<(
+        norma::protocol::QuestionRef,
+        Vec<norma::protocol::QuestionAnswer>,
+    )>,
+    pub question_subscriptions: BTreeMap<String, Vec<gpui::Subscription>>,
+    pub question_editors: BTreeMap<String, crate::workspace::desktop::QuestionEditor>,
     pub expanded: std::collections::BTreeSet<String>,
     pub workspace_id: Option<String>,
     pub project_filter: Option<String>,
@@ -99,6 +107,14 @@ impl MultisoulApp {
                             .scroll_to_item(task.messages.len().saturating_sub(1));
                     }
                 }
+                for message in &task.messages {
+                    if let norma::protocol::TaskMessage::Question { question } = message {
+                        if question.state != norma::protocol::StaffQuestionState::Pending {
+                            self.staff.question_editors.remove(&question.id);
+                            self.staff.question_subscriptions.remove(&question.id);
+                        }
+                    }
+                }
                 if let Some(activity) = self.staff.activity.get_mut(&task.id) {
                     activity.reconcile(&task);
                 }
@@ -121,6 +137,12 @@ impl MultisoulApp {
 
 pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
     let key = match reason.as_str() {
+        "staff.proposal_superseded" => "staff.proposal_superseded",
+        "staff.question_invalid" | "incomplete_answers" | "invalid_answer_cardinality" => {
+            "staff.question_invalid"
+        }
+        "staff.question_unavailable" => "staff.question_unavailable",
+        "staff.question_identity_changed" => "staff.question_identity_changed",
         "staff.invalid_source" => "staff.invalid_source",
         "staff.agent_unavailable" => "staff.agent_unavailable",
         "staff.proposal_unavailable" => "staff.proposal_unavailable",
@@ -146,3 +168,7 @@ mod layout_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/staff_worker_delivery_tests.rs"]
 mod delivery_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/staff_card_tests.rs"]
+mod card_tests;

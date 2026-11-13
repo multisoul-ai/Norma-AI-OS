@@ -242,3 +242,65 @@ fn skipped_and_timed_out_questions_reject_late_answers() {
         "超时终态不变"
     );
 }
+
+/// 场景：原生回执确认后，镜像必须记录一次脱敏用户摘要；镜像自身时钟不能推翻原生回执。
+/// 数据构造：绑定精确原题的待答卡，镜像expires_at已过但原生持有有效回执，答案Dark。
+/// 执行过程：用原生终态settle两次；预期：Answered、恰好一条用户摘要、重复回执不重复写消息。
+#[test]
+fn worker_receipt_records_answer_once_without_reclaiming_native_delivery() {
+    use norma::protocol::{AgentProfile, QuestionAnswer, QuestionRef, QuestionRequestId};
+    let root = tempfile::tempdir().expect("root");
+    let store = TaskStore::new(root.path().into());
+    let target = QuestionRef {
+        workspace_id: "w".into(),
+        project_id: "p".into(),
+        node_id: 1,
+        provider: AgentProfile::Claude,
+        run_id: "run".into(),
+        connection_id: "connection".into(),
+        session_id: "session".into(),
+        turn_id: None,
+        request_id: QuestionRequestId::String("request".into()),
+        revision: 1,
+    };
+    let mut q = question("worker-q");
+    q.worker = Some(target.clone());
+    q.expires_at = 0;
+    let mut task = Task::new("t", "w", "p", "Worker");
+    task.messages.push(TaskMessage::Question {
+        question: Box::new(q),
+    });
+    store.create(task).expect("task");
+    let answers = [QuestionAnswer {
+        key: "theme".into(),
+        selected: vec!["dark".into()],
+        text: None,
+    }];
+    store
+        .settle_worker_question("w", "t", &target, StaffQuestionState::Answered, &answers)
+        .expect("first receipt");
+    let task = store
+        .settle_worker_question("w", "t", &target, StaffQuestionState::Answered, &answers)
+        .expect("repeat receipt");
+    assert_eq!(
+        task.pending_question_count(),
+        0,
+        "原生确认后镜像不可继续编辑"
+    );
+    let TaskMessage::Question { question } = &task.messages[0] else {
+        panic!("question")
+    };
+    assert_eq!(
+        question.state,
+        StaffQuestionState::Answered,
+        "原生回执是终态权威"
+    );
+    assert_eq!(
+        task.messages
+            .iter()
+            .filter(|m| matches!(m,TaskMessage::User{text} if text.contains("Dark")))
+            .count(),
+        1,
+        "回执摘要恰好一次"
+    );
+}

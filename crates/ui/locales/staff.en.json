@@ -74,5 +74,22 @@
   "staff.activity_failed": "Failed",
   "staff.activity_denied": "Denied",
   "staff.activity_interrupted": "Interrupted",
-  "staff.activity_duration": "%{seconds}s"
+  "staff.activity_duration": "%{seconds}s",
+  "staff.question": "A question for you",
+  "staff.worker_question": "Worker question",
+  "staff.question_pending": "Needs your answer",
+  "staff.question_answered": "Answered",
+  "staff.question_skipped": "Skipped",
+  "staff.question_timed_out": "Timed out",
+  "staff.question_submit": "Submit answers",
+  "staff.question_skip": "Skip",
+  "staff.question_custom": "Custom answer",
+  "staff.ignore": "Ignore",
+  "staff.ignored": "Ignored",
+  "staff.restore": "Restore proposal",
+  "staff.pending_questions": "%{count} questions",
+  "staff.proposal_superseded": "A newer proposal is available. This one cannot be restored.",
+  "staff.question_invalid": "Please complete every answer.",
+  "staff.question_unavailable": "This question is no longer available.",
+  "staff.question_identity_changed": "This question has changed. Please reload."
 }

@@ -3,9 +3,11 @@ use super::*;
 use norma::protocol::StaffOp;
 use std::sync::Arc;
 
+mod decisions;
 mod dispatch;
 mod events;
 mod input;
+mod worker_questions;
 
 impl MultisoulApp {
     pub(crate) fn staff_store(&self) -> Result<Arc<brain::staff::TaskStore>, String> {

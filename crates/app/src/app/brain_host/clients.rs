@@ -34,6 +34,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn release_brain_client(&mut self) {
+        self.staff.worker_answers.clear();
         for activity in self.staff.activity.values_mut() {
             activity.interrupt();
         }

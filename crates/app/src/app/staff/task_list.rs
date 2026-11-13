@@ -143,6 +143,7 @@ impl MultisoulApp {
             let color = status_color(status, theme);
             for task in tasks {
                 let id = task.id.clone();
+                let pending_questions = task.pending_question_count();
                 let agents = task
                     .workers
                     .iter()
@@ -222,7 +223,21 @@ impl MultisoulApp {
                                                     .flex_none()
                                                     .text_size(px(11.))
                                                     .text_color(rgba(color))
-                                                    .child(status_label(status)),
+                                                    .child(if pending_questions > 0 {
+                                                        format!(
+                                                            "{} · {}",
+                                                            status_label(status),
+                                                            ui::i18n::format(
+                                                                "staff.pending_questions",
+                                                                &[(
+                                                                    "count",
+                                                                    pending_questions.to_string()
+                                                                )]
+                                                            )
+                                                        )
+                                                    } else {
+                                                        status_label(status).to_owned()
+                                                    }),
                                             ),
                                     )
                                     .child(

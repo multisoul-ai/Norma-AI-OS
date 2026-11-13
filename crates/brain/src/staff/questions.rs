@@ -107,20 +107,30 @@ impl TaskStore {
         id: &str,
         target: &norma::protocol::QuestionRef,
         state: StaffQuestionState,
+        answers: &[QuestionAnswer],
     ) -> io::Result<Task> {
         if state == StaffQuestionState::Pending {
             return Err(invalid("staff.question_invalid"));
         }
         self.update(workspace, id, |task| {
+            let mut summary = None;
             for message in &mut task.messages {
                 if let TaskMessage::Question { question } = message {
                     if question.worker.as_ref() == Some(target)
                         && question.state == StaffQuestionState::Pending
                     {
+                        if state == StaffQuestionState::Answered && !answers.is_empty() {
+                            validate_question_answers(&question.items, answers).map_err(invalid)?;
+                            summary = Some(question.answer_text(answers));
+                            question.answers = question.public_answers(answers);
+                        }
                         question.state = state;
                         task.updated_at = norma::protocol::timestamp();
                     }
                 }
+            }
+            if let Some(text) = summary {
+                task.user_message(&text);
             }
             Ok(())
         })

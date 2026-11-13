@@ -219,6 +219,7 @@ impl MultisoulApp {
         self.sync_brain_client(cx);
         self.flush_question_receipts(cx);
         self.poll_brain_questions();
+        self.mirror_staff_questions(cx);
         self.poll_brain_proposal_save(cx);
         self.drain_brain_status(cx);
         if self.brain.settings.is_none() {

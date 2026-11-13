@@ -19,7 +19,11 @@ impl MessageBlock for Proposal<'_> {
         let mut row = div().w_full().flex().flex_col().gap(px(tokens::SPACE_8));
         if let TaskMessage::Proposal { proposal_id } = message {
             if let Some(proposal) = task.proposals.iter().find(|p| p.id == *proposal_id) {
+                if proposal.ignored {
+                    return super::ignored_proposal::render(ctx, proposal, cx);
+                }
                 let id = task.id.clone();
+                let ignore_id = id.clone();
                 let proposal_id = *proposal_id;
                 let draft = proposal.prompt.clone();
                 let dispatched = proposal.dispatch_id.is_some();
@@ -98,6 +102,29 @@ impl MessageBlock for Proposal<'_> {
                                         app.approve_staff_proposal(id.clone(), proposal_id, cx)
                                     })),
                             )
+                            .when(!dispatched, |actions| {
+                                actions.child(
+                                    shell::action_button(
+                                        ctx,
+                                        ("staff-ignore", proposal_id),
+                                        false,
+                                        cx,
+                                    )
+                                    .debug_selector(move || format!("staff-ignore-{proposal_id}"))
+                                    .label(t("staff.ignore"))
+                                    .disabled(ctx.app.staff.busy || proposal.approved)
+                                    .on_click(cx.listener(
+                                        move |app, _, _, cx| {
+                                            app.set_staff_proposal_ignored(
+                                                ignore_id.clone(),
+                                                proposal_id,
+                                                true,
+                                                cx,
+                                            )
+                                        },
+                                    )),
+                                )
+                            })
                             .when(!dispatched, |actions| {
                                 actions.child(
                                     shell::action_button(
