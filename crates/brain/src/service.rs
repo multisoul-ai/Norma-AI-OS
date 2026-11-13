@@ -320,6 +320,16 @@ impl Dispatcher {
                 (Lane::Main, Some(declined)) => prompt::with_declined(&text, &declined),
                 _ => text,
             };
+            if let Lane::Task(id) = &lane {
+                let _ = self.status.send(BrainStatus {
+                    scope: scope.clone(),
+                    kind: crate::event::BrainStatusKind::TaskActivity {
+                        task_id: id.clone(),
+                        turn: 0,
+                        update: crate::event::TaskUpdate::Queued,
+                    },
+                });
+            }
             let _ = tx.send(Job {
                 task_id: match lane {
                     Lane::Task(id) => Some(id),

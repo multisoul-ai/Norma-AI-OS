@@ -14,7 +14,10 @@ impl MultisoulApp {
         }
         self.staff.enabled = enabled;
         self.focus_handle.focus(window);
-        if let Some(project) = self.expanded_desktop_project() {
+        if let Some(project) = self
+            .staff_project()
+            .or_else(|| self.expanded_desktop_project())
+        {
             project.update(cx, |project, cx| {
                 project.runtime.focus.exit_to_canvas();
                 project.load_staff_tasks(cx);
@@ -53,6 +56,12 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.desktop_host.is_none()
+            && matches!(self.screen, crate::app::AppScreen::DesktopWorkspace)
+        {
+            self.select_staff_workspace_task(id, window, cx);
+            return;
+        }
         if self.staff.busy {
             return;
         }
@@ -196,10 +205,23 @@ impl MultisoulApp {
         self.runtime.selection.select_only(node);
         self.runtime.focus.focus_node(node);
         if let Some(host) = self.desktop_host.clone() {
+            let project_id = cx.entity_id();
             let window = window.window_handle();
             cx.defer(move |cx| {
                 let _ = window.update(cx, |_, window, cx| {
-                    let _ = host.update(cx, |host, cx| host.set_staff_mode(false, window, cx));
+                    let _ = host.update(cx, |host, cx| {
+                        let area = host.desktop_workspace.sessions.iter().find_map(
+                            |((workspace, area), project)| {
+                                (host.desktop_workspace.active_id.as_ref() == Some(workspace)
+                                    && project.entity_id() == project_id)
+                                    .then(|| area.clone())
+                            },
+                        );
+                        host.set_staff_mode(false, window, cx);
+                        if let Some(area) = area {
+                            host.locate_desktop_agent(&area, node, window, cx);
+                        }
+                    });
                 });
             });
         }

@@ -14,16 +14,9 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let layout = self.desktop_assistant_layout(window);
-        let project = self.expanded_desktop_project();
-        let workspace = self
-            .desktop_workspace
-            .active()
-            .map(|item| item.name.clone())
-            .unwrap_or_default();
-        let project_name = match self.desktop_context_for_provider(cx) {
-            Some(agent::DesktopContext::ProjectCanvas { project_name, .. }) => project_name,
-            _ => String::new(),
-        };
+        self.sync_staff_workspace(window, cx);
+        self.ensure_staff_inputs(window, cx);
+        let theme = self.staff_theme();
         let header = div()
             .flex()
             .items_center()
@@ -44,19 +37,12 @@ impl MultisoulApp {
                     .border_l_1()
                     .border_color(rgba(self.staff_line()))
                     .text_size(px(13.))
-                    .text_color(rgba(self.theme.text_secondary))
+                    .text_color(rgba(self.staff_theme().text_secondary))
                     .child(t("staff.mode")),
             )
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .text_ellipsis()
-                    .text_right()
-                    .text_size(px(12.))
-                    .text_color(rgba(self.theme.text_secondary))
-                    .child(format!("{workspace}  /  {project_name}")),
-            )
+            .child(div().flex_1())
+            .child(self.staff_workspace_picker(cx))
+            .child(self.staff_project_picker(false, cx))
             .child(
                 Button::new("staff-fullscreen")
                     .debug_selector(|| "staff-fullscreen".into())
@@ -91,36 +77,39 @@ impl MultisoulApp {
             .id("staff-workspace")
             .debug_selector(|| "staff-workspace".into())
             .absolute()
-            .top(px(if self.staff.fullscreen {
-                0.
-            } else {
-                crate::app::chrome::TOP_BAR_HEIGHT
-            }))
+            .top(px(self.staff_panel_top()))
             .bottom_0()
             .left_0()
-            .right(px(layout.right_space))
-            .bg(rgba(self.theme.graphite))
-            .text_color(rgba(self.theme.text_primary))
+            .right_0()
+            .border_t_1()
+            .border_color(rgba(self.staff_line()))
+            .bg(rgba(theme.graphite))
+            .text_color(rgba(theme.text_primary))
             .text_size(px(14.))
             .flex()
             .flex_col()
             .child(header)
-            .when_some(project.clone(), |panel, project| {
-                panel.child(project.update(cx, |app, cx| {
-                    app.render_staff_tasks(&project_name, window, cx)
-                }))
-            })
-            .when(project.is_none(), |panel| {
-                panel.child(div().p_6().child(t("staff.choose_project")))
-            })
+            .child(
+                div()
+                    .id("staff-task-body")
+                    .flex_1()
+                    .min_h_0()
+                    .flex()
+                    .mr(px(layout.right_space))
+                    .when(super::sidebar_width(window) > 0., |body| {
+                        body.child(self.staff_task_list("", window, cx))
+                    })
+                    .child(self.staff_conversation_area(window, cx)),
+            )
+            .child(self.staff_footer())
     }
 
-    fn render_staff_tasks(
+    pub(super) fn render_staff_conversation(
         &mut self,
         project_name: &str,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Stateful<Div> {
+    ) -> Div {
         self.load_staff_tasks(cx);
         self.ensure_staff_inputs(window, cx);
         let selected = self
@@ -129,12 +118,13 @@ impl MultisoulApp {
             .as_ref()
             .and_then(|id| self.staff.tasks.get(id))
             .cloned();
-        let list = self.staff_task_list(project_name, window, cx);
         let mut center = div().flex_1().min_w_0().h_full().flex().flex_col();
         if let Some(task) = &selected {
             center = center
                 .child(self.staff_task_header(task, project_name, cx))
-                .child(self.staff_workers(task, cx));
+                .when(!task.workers.is_empty(), |center| {
+                    center.child(self.staff_workers(task, cx))
+                });
             let mut messages = div()
                 .id("staff-messages")
                 .track_scroll(&self.staff.scroll)
@@ -154,6 +144,15 @@ impl MultisoulApp {
                         .max_w(px(760.))
                         .mx_auto()
                         .child(self.staff_message(task, index, message, cx)),
+                );
+            }
+            if let Some(activity) = self.staff.activity.get(&task.id) {
+                messages = messages.child(
+                    div()
+                        .w_full()
+                        .max_w(px(760.))
+                        .mx_auto()
+                        .child(self.staff_activity_view(activity)),
                 );
             }
             center = center.child(messages);
@@ -179,7 +178,7 @@ impl MultisoulApp {
                             .max_w(px(460.))
                             .text_size(px(14.))
                             .text_center()
-                            .text_color(rgba(self.theme.text_secondary))
+                            .text_color(rgba(self.staff_theme().text_secondary))
                             .child(t("staff.start_hint")),
                     ),
             );
@@ -190,7 +189,7 @@ impl MultisoulApp {
                     .px(px(28.))
                     .py_2()
                     .text_size(px(12.))
-                    .text_color(rgba(self.theme.destructive))
+                    .text_color(rgba(self.staff_theme().destructive))
                     .child(error.clone())
                     .child(
                         Button::new("staff-retry")
@@ -207,6 +206,10 @@ impl MultisoulApp {
             );
         }
         center = center.child(self.staff_composer(selected.as_ref(), project_name, cx));
+        center
+    }
+
+    fn staff_footer(&self) -> Div {
         let need = self
             .staff
             .tasks
@@ -219,7 +222,7 @@ impl MultisoulApp {
             .values()
             .filter(|task| task.display_status() == TaskDisplayStatus::Running)
             .count();
-        let footer = div()
+        div()
             .h(px(34.))
             .flex_none()
             .px(px(18.))
@@ -229,31 +232,16 @@ impl MultisoulApp {
             .border_t_1()
             .border_color(rgba(self.staff_line()))
             .text_size(px(11.))
-            .text_color(rgba(self.theme.text_secondary))
+            .text_color(rgba(self.staff_theme().text_secondary))
             .child(format!("{} {need}", t("staff.needs_you")))
             .child("·")
             .child(format!("{} {run}", t("staff.running")))
             .child(div().flex_1())
-            .child(t("staff.footer_hint"));
-        div()
-            .id("staff-task-body")
-            .flex_1()
-            .min_h_0()
-            .flex()
-            .flex_col()
-            .child(
-                div()
-                    .flex_1()
-                    .min_h_0()
-                    .flex()
-                    .when(super::sidebar_width(window) > 0.0, |body| body.child(list))
-                    .child(center),
-            )
-            .child(footer)
+            .child(t("staff.footer_hint"))
     }
 
     pub(super) fn staff_line(&self) -> u32 {
-        ui::icons::with_alpha(self.theme.text_primary, 22)
+        ui::icons::with_alpha(self.staff_theme().text_primary, 22)
     }
 }
 

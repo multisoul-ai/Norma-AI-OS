@@ -17,7 +17,7 @@ impl MultisoulApp {
         message: &TaskMessage,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let theme = self.theme;
+        let theme = self.staff_theme();
         let mut row = div()
             .id(("staff-message", index))
             .w_full()

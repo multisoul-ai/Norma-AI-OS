@@ -77,6 +77,20 @@ def main():
         elif method == "session/prompt":
             text = "".join(p.get("text", "") for p in msg["params"]["prompt"])
             log("prompt: " + text)
+            if "FAKE_STREAM_HOLD" in text:
+                def update(body):
+                    send({"jsonrpc": "2.0", "method": "session/update", "params": {
+                        "sessionId": session_id, "update": body}})
+                update({"sessionUpdate": "plan", "entries": [
+                    {"content": "读取项目", "status": "completed"},
+                    {"content": "整理建议", "status": "in_progress"}]})
+                update({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "第一段"}})
+                log("stream-first-sent")
+                while not os.path.exists(os.environ["FAKE_RELEASE"]):
+                    time.sleep(0.01)
+                update({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "第二段"}})
+                send({"jsonrpc": "2.0", "id": mid, "result": {"stopReason": "end_turn"}})
+                continue
             if "FAKE_HOLD" in text:
                 while not os.path.exists(os.environ["FAKE_RELEASE"]):
                     time.sleep(0.01)

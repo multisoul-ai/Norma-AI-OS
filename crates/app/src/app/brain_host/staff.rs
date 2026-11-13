@@ -105,6 +105,8 @@ impl MultisoulApp {
                 })
                 .detach();
             }
+            // The shared service starts asynchronously. This is not a failed list request.
+            Err(error) if error == "island.staff_loading" => {}
             Err(error) => self.staff.error = Some(crate::app::staff::error_message(error)),
         }
     }

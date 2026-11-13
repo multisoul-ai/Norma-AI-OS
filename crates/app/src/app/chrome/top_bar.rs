@@ -81,7 +81,13 @@ impl MultisoulApp {
     ) -> Stateful<Div> {
         let theme = top_bar_theme(self.theme);
         let layout = self.desktop_assistant_layout(window);
-        let width = layout.canvas_width;
+        // Staff's drawer begins below its own header, so the window bar stays full width.
+        let right_space = if self.staff.enabled {
+            0.0
+        } else {
+            layout.right_space
+        };
+        let width = layout.canvas_width + layout.right_space - right_space;
         let wide = width >= 780.0;
         let workspace = self
             .desktop_workspace
@@ -107,7 +113,7 @@ impl MultisoulApp {
             .left(px(BRAND_BREADCRUMB_LEFT));
         top_bar_frame("desktop-workspace-top-bar", theme)
             .left(px(0.0))
-            .right(px(layout.right_space))
+            .right(px(right_space))
             .child(
                 brand_logo()
                     .absolute()
@@ -151,7 +157,7 @@ impl MultisoulApp {
                                     .debug_selector(|| "desktop-staff-toggle".to_owned())
                                     .label(ui::i18n::text("staff.mode"))
                                     .selected(self.staff.enabled)
-                                    .disabled(self.expanded_desktop_project().is_none())
+                                    .disabled(self.desktop_workspace.active_id.is_none())
                                     .on_click(cx.listener(|app, _, window, cx| {
                                         app.set_staff_mode(true, window, cx)
                                     })),

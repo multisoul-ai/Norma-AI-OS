@@ -54,5 +54,17 @@
   "staff.suggestion": "Norma 的建议",
   "staff.your_decision": "需要你决定",
   "staff.edit_proposal": "修改后发送",
-  "staff.send_to_project": "发送到 Norma · %{project}"
+  "staff.send_to_project": "发送到 Norma · %{project}",
+  "staff.new_task_project": "执行项目",
+  "staff.no_projects": "此工作空间还没有项目。添加项目后即可开始任务。",
+  "staff.projects_loading": "正在加载工作空间中的项目…",
+  "staff.response_queued": "已收到，等待处理…",
+  "staff.response_waiting": "正在思考…",
+  "staff.response_streaming": "正在回复…",
+  "staff.response_working": "正在执行操作…",
+  "staff.response_failed": "本次响应未完成，可补充消息后重试。",
+  "staff.execution_plan": "执行计划",
+  "staff.step_completed": "已完成",
+  "staff.step_running": "进行中",
+  "staff.step_pending": "待处理"
 }

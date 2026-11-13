@@ -29,7 +29,7 @@ impl MultisoulApp {
             .compact()
             .h(px(24.))
             .text_size(px(12.))
-            .label(phase_label(current))
+            .child(div().text_size(px(12.)).child(phase_label(current)))
             .disabled(self.staff.busy)
             .dropdown_caret(true)
             .dropdown_menu(move |mut menu, _, _| {
@@ -55,7 +55,7 @@ impl MultisoulApp {
                 }
                 menu
             });
-        let color = status_color(task.display_status(), self.theme);
+        let color = status_color(task.display_status(), self.staff_theme());
         let first_node = task.workers.iter().find_map(|worker| worker.card_id);
         let meta = ui::i18n::format(
             "staff.task_meta",
@@ -109,7 +109,7 @@ impl MultisoulApp {
                                     .items_center()
                                     .gap(px(6.))
                                     .text_size(px(12.))
-                                    .text_color(rgba(self.theme.text_secondary))
+                                    .text_color(rgba(self.staff_theme().text_secondary))
                                     .child(meta)
                                     .child(t("staff.phase"))
                                     .child(menu),
@@ -118,7 +118,7 @@ impl MultisoulApp {
                                 header.child(
                                     div()
                                         .text_size(px(11.))
-                                        .text_color(rgba(self.theme.text_secondary))
+                                        .text_color(rgba(self.staff_theme().text_secondary))
                                         .child(t("staff.manual_phase")),
                                 )
                             }),
@@ -141,7 +141,7 @@ impl MultisoulApp {
     }
 
     pub(super) fn staff_workers(&self, task: &Task, cx: &mut Context<Self>) -> Stateful<Div> {
-        let theme = self.theme;
+        let theme = self.staff_theme();
         let mut strip = div()
             .id("staff-workers")
             .debug_selector(|| "staff-workers".into())

@@ -3,7 +3,7 @@ import Foundation
 enum StaffAdapter {
     static let script = #"""
     #!/usr/bin/env python3
-    import json, os, re, shlex, subprocess, sys
+    import json, os, re, shlex, subprocess, sys, time
     root = os.environ['NORMA_BRAIN_DIR']
     def send(value): print(json.dumps(value), flush=True)
     def read():
@@ -12,6 +12,14 @@ enum StaffAdapter {
         return json.loads(line)
     def record(name, value):
         with open(os.path.join(root, name), 'a') as f: f.write(json.dumps(value) + '\n')
+    def update(sid, value):
+        send({'jsonrpc':'2.0','method':'session/update','params':{'sessionId':sid,'update':value}})
+    def hold(stage):
+        record('stream-events.jsonl', dict(stage=stage))
+        deadline = time.monotonic() + 900
+        while not os.path.exists(os.path.join(root, stage)):
+            if time.monotonic() > deadline: raise RuntimeError('Fixture release timed out: ' + stage)
+            time.sleep(.05)
     counter = 100
     def run(session, argv):
         global counter
@@ -47,7 +55,24 @@ enum StaffAdapter {
                 tid = task['id']
                 users = [m['User']['text'] for m in task['messages'] if 'User' in m]
                 last = users[-1] if users else ''
-                if not task['proposals']:
+                if 'STREAM-FAIL' in last:
+                    send({'jsonrpc':'2.0','id':mid,'error':{'code':-32602,'message':'Fixture permanent failure'}})
+                    continue
+                elif 'STREAM-ALPHA' in last:
+                    hold('release-waiting')
+                    update(sid, {'sessionUpdate':'plan','entries':[
+                        {'content':'Inspect Alpha project','priority':'high','status':'completed'},
+                        {'content':'Prepare acceptance result','priority':'medium','status':'in_progress'}]})
+                    update(sid, {'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':'ALPHA PARTIAL: project inspected. '}})
+                    hold('release-partial')
+                    update(sid, {'sessionUpdate':'plan','entries':[
+                        {'content':'Inspect Alpha project','priority':'high','status':'completed'},
+                        {'content':'Prepare acceptance result','priority':'medium','status':'completed'}]})
+                    update(sid, {'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':'ALPHA FINAL: acceptance ready.'}})
+                    hold('release-final')
+                elif 'STREAM-BETA' in last:
+                    reply = 'BETA RESULT: separate project conversation.'
+                elif not task['proposals']:
                     roster = run(sid, base + ['agents'])
                     # Production CLI wraps Brain output in the response envelope.
                     agents = json.loads(roster['result']['Brain']['output'])['agents']

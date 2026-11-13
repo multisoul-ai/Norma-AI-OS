@@ -54,5 +54,17 @@
   "staff.suggestion": "Norma’s proposal",
   "staff.your_decision": "Your decision",
   "staff.edit_proposal": "Edit and send",
-  "staff.send_to_project": "Send to Norma · %{project}"
+  "staff.send_to_project": "Send to Norma · %{project}",
+  "staff.new_task_project": "Project",
+  "staff.no_projects": "This workspace has no projects yet. Add one to start a task.",
+  "staff.projects_loading": "Loading workspace projects…",
+  "staff.response_queued": "Received · Waiting to start…",
+  "staff.response_waiting": "Thinking…",
+  "staff.response_streaming": "Replying…",
+  "staff.response_working": "Working…",
+  "staff.response_failed": "Response interrupted. Send another message to retry.",
+  "staff.execution_plan": "Plan",
+  "staff.step_completed": "Completed",
+  "staff.step_running": "In progress",
+  "staff.step_pending": "Pending"
 }

@@ -34,6 +34,17 @@ mod cmd_d_delete_tests;
 mod material_tests;
 
 impl MultisoulApp {
+    pub(crate) fn desktop_content_area_id(&self) -> Option<String> {
+        if self.staff.enabled {
+            self.staff_area_id().map(str::to_owned)
+        } else {
+            self.desktop_workspace
+                .expanded_area_id
+                .clone()
+                .or(self.desktop_workspace.active_area_id.clone())
+        }
+    }
+
     pub(crate) fn desktop_assistant_layout(&self, window: &Window) -> motion::DesktopDrawerLayout {
         let width = f32::from(window.viewport_size().width);
         if !matches!(self.screen, crate::app::AppScreen::DesktopWorkspace)

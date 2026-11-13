@@ -5,11 +5,15 @@ use norma::protocol::Task;
 use std::collections::BTreeMap;
 use ui::component::input::InputState;
 mod actions;
+mod activity;
+mod activity_view;
+mod appearance;
 mod composer;
 mod detail;
 mod messages;
 mod task_list;
 mod view;
+mod workspace;
 
 /// 与原型相同：窄桌面压缩列表，保留对话宽度。
 pub(crate) fn sidebar_width(window: &gpui::Window) -> f32 {
@@ -31,6 +35,11 @@ pub(crate) struct StaffState {
     pub loading: bool,
     pub busy: bool,
     pub tasks: BTreeMap<String, Task>,
+    pub activity: BTreeMap<String, activity::TaskActivity>,
+    pub workspace_id: Option<String>,
+    pub project_filter: Option<String>,
+    pub target_project: Option<String>,
+    pub task_projects: BTreeMap<String, (String, String)>,
     pub selected: Option<String>,
     pub drafts: BTreeMap<String, String>,
     pub input: Option<Entity<InputState>>,
@@ -83,6 +92,9 @@ impl MultisoulApp {
                             .scroll
                             .scroll_to_item(task.messages.len().saturating_sub(1));
                     }
+                }
+                if let Some(activity) = self.staff.activity.get_mut(&task.id) {
+                    activity.reconcile(&task);
                 }
                 self.staff.tasks.insert(task.id.clone(), task);
             }

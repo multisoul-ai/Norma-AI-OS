@@ -26,7 +26,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let theme = self.theme;
+        let theme = self.staff_theme();
         let search = self
             .staff
             .search
@@ -50,19 +50,27 @@ impl MultisoulApp {
                 .staff
                 .tasks
                 .values()
+                .filter(|task| {
+                    self.staff.project_filter.as_ref().is_none_or(|area| {
+                        self.staff
+                            .task_projects
+                            .get(&task.id)
+                            .is_some_and(|(owner, _)| owner == area)
+                    })
+                })
                 .filter(|task| status.is_none_or(|status| task.display_status() == status))
                 .count();
             chips = chips.child(
                 Button::new(gpui::SharedString::from(format!("staff-filter-{key}")))
                     .debug_selector(move || format!("staff-filter-{key}"))
                     .outline()
-                    .compact()
+                    .small()
                     .h(px(26.))
                     .px(px(8.))
                     .text_size(px(12.))
                     .rounded(px(7.))
                     .selected(self.staff.filter == status)
-                    .label(format!("{label} {count}"))
+                    .child(div().text_size(px(12.)).child(format!("{label} {count}")))
                     .on_click(cx.listener(move |app, _, _, cx| {
                         app.staff.filter = status;
                         app.notify_staff(cx);
@@ -92,6 +100,14 @@ impl MultisoulApp {
                 .staff
                 .tasks
                 .values()
+                .filter(|task| {
+                    self.staff.project_filter.as_ref().is_none_or(|area| {
+                        self.staff
+                            .task_projects
+                            .get(&task.id)
+                            .is_some_and(|(owner, _)| owner == area)
+                    })
+                })
                 .filter(|task| task.display_status() == status)
                 .filter(|task| {
                     query.is_empty()
@@ -161,6 +177,12 @@ impl MultisoulApp {
                     .map(|worker| worker.agent.as_str())
                     .collect::<Vec<_>>()
                     .join(" · ");
+                let project_name = self
+                    .staff
+                    .task_projects
+                    .get(&task.id)
+                    .map(|(_, name)| name.as_str())
+                    .unwrap_or(project_name);
                 let subtitle = format!(
                     "{} · {}",
                     if agents.is_empty() {
@@ -274,7 +296,7 @@ impl MultisoulApp {
                         .justify_start()
                         .icon(Icon::empty().path(crate::assets::TOOLBAR_PLUS_ASSET))
                         .text_size(px(13.))
-                        .label(t("staff.new_task_prompt"))
+                        .child(div().text_size(px(13.)).child(t("staff.new_task_prompt")))
                         .disabled(self.staff.busy)
                         .on_click(cx.listener(|app, _, window, cx| {
                             app.select_staff_task(None, window, cx)

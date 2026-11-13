@@ -46,7 +46,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Div {
         let input = self.staff.input.as_ref().expect("staff input initialized");
-        let theme = self.theme;
+        let theme = self.staff_theme();
         div().px(px(28.)).pt(px(8.)).flex_none().child(
             div()
                 .max_w(px(760.))
