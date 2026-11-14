@@ -80,7 +80,7 @@ impl MultisoulApp {
                                     .flex_1()
                                     .min_w_0()
                                     .text_left()
-                                    .child(truncate(&tool.name, 100)),
+                                    .child(tool_title(&tool.name, tool.description.as_deref())),
                             )
                             .child(
                                 div()
@@ -146,5 +146,38 @@ fn truncate(text: &str, limit: usize) -> String {
         text.to_owned()
     } else {
         format!("{}…", text.chars().take(limit).collect::<String>())
+    }
+}
+
+/// 优先显示模型写的描述；否则把命令缩成“可执行文件名 + 参数”并截断，完整命令留在展开详情里。
+pub(super) fn tool_title(name: &str, description: Option<&str>) -> String {
+    if let Some(text) = description {
+        return truncate(text, 60);
+    }
+    let name = name.trim();
+    let short = match name.split_once(' ') {
+        Some((head, rest)) if head.starts_with('/') => {
+            format!("{} {rest}", head.rsplit('/').next().unwrap_or(head))
+        }
+        _ => name.to_owned(),
+    };
+    truncate(&short, 60)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tool_title;
+
+    #[test]
+    fn title_prefers_description_then_shortens_command_path() {
+        assert_eq!(
+            tool_title("/a/b/norma brain agents", Some("查看 agents")),
+            "查看 agents"
+        );
+        assert_eq!(
+            tool_title("/a/b/norma brain agents", None),
+            "norma brain agents"
+        );
+        assert!(tool_title(&"x".repeat(200), None).chars().count() <= 61);
     }
 }

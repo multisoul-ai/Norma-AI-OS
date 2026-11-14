@@ -39,6 +39,8 @@ pub struct ToolTrace {
     pub id: String,
     pub name: Option<String>,
     pub input: Option<String>,
+    /// Model-written one-line summary (`rawInput.description`); absent for most non-Claude adapters.
+    pub description: Option<String>,
     pub status: Option<String>,
     /// Host-owned failure; translated at the display boundary, independent of adapter wording.
     pub command_format_error: bool,
@@ -188,6 +190,10 @@ pub fn classify_update(update: &Value) -> Option<TraceItem> {
                 .get("rawInput")
                 .filter(|value| !value.is_null())
                 .map(Value::to_string),
+            description: update["rawInput"]["description"]
+                .as_str()
+                .filter(|text| !text.is_empty())
+                .map(str::to_owned),
             status: update["status"].as_str().map(str::to_owned),
         });
     }
