@@ -43,7 +43,7 @@ impl MultisoulApp {
                     .is_some_and(|(owner, _)| owner == area)
             })
         };
-        let counts = staff_chip_counts(&owned, &project_matches);
+        let counts = staff_chip_counts(&owned, project_matches);
         let mut chips = div()
             .flex()
             .items_center()
@@ -108,7 +108,7 @@ impl MultisoulApp {
             self.staff.archive_view,
             self.staff.filter,
             &self.staff.query,
-            &project_matches,
+            project_matches,
         );
         let visible = visible_tasks.len();
         for task in visible_tasks {
