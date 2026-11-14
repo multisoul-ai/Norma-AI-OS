@@ -189,3 +189,14 @@ fn tool_metadata_preserves_identity_without_guessing_from_title() {
         "终态不依赖展示文本解析"
     );
 }
+
+#[test]
+fn tool_description_comes_from_raw_input() {
+    let call = item(
+        json!({"sessionUpdate":"tool_call","toolCallId":"t","title":"ls","rawInput":{"command":"ls","description":"列出文件"}}),
+    );
+    assert_eq!(
+        call.tool.expect("meta").description.as_deref(),
+        Some("列出文件")
+    );
+}

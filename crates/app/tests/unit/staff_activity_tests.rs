@@ -116,13 +116,14 @@ fn interleaved_tools_pair_by_id_and_keep_denial() {
     }
     assert!(state.working(), "B结束不能隐藏仍运行的A");
     let mut denied = TraceItem::new(TraceKind::Permission, "", "denied");
-    denied.tool = Some(brain::acp::trace::ToolTrace {
+    denied.tool = Some(Box::new(brain::acp::trace::ToolTrace {
         id: "a".into(),
         name: None,
         input: None,
+        description: None,
         status: Some("denied".into()),
         command_format_error: false,
-    });
+    }));
     state.apply(1, TaskUpdate::Update(denied));
     state.apply(
         1,
