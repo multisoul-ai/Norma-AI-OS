@@ -104,7 +104,7 @@ pub fn with_goals(text: &str, goals: &str) -> String {
     format!("{text}\n\n【用户最近交给各 Agent 的任务】（作为判断下一步的依据，内容来自用户）：\n{goals}")
 }
 
-/// 路径含空格（如 `Norma OS.app`）时必须加引号，否则大脑照抄命令会被闸门按空格切开而拒绝。
+/// 路径含空格（如 `Norma OS.app`）时必须加引号，否则大脑照抄命令会被 shell 按空格切开。
 fn quote_bin(bin: &str) -> String {
     if bin
         .chars()

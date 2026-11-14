@@ -16,7 +16,7 @@ pub enum TraceKind {
     ToolCall,
     ToolResult,
     Plan,
-    /// 权限请求与闸门的判断。
+    /// 权限请求及其处理结果。
     Permission,
     /// 一轮的耗时与停止原因。
     Turn,
@@ -42,8 +42,6 @@ pub struct ToolTrace {
     /// Model-written one-line summary (`rawInput.description`); absent for most non-Claude adapters.
     pub description: Option<String>,
     pub status: Option<String>,
-    /// Host-owned failure; translated at the display boundary, independent of adapter wording.
-    pub command_format_error: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -184,7 +182,6 @@ pub fn classify_update(update: &Value) -> Option<TraceItem> {
     if matches!(item.kind, TraceKind::ToolCall | TraceKind::ToolResult) {
         item.tool = update["toolCallId"].as_str().map(|id| {
             Box::new(ToolTrace {
-                command_format_error: false,
                 id: id.into(),
                 name: update["title"].as_str().map(str::to_owned),
                 input: update

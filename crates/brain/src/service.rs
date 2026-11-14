@@ -1,6 +1,5 @@
 //! 对外入口：`push` 事件进来，从 `Receiver<BrainStatus>` 读状态。
 
-use crate::acp::gate::{Gate, ReadRoots};
 use crate::backend::{self, Backend, Strategy};
 use crate::event::{BrainEvent, BrainEventKind, BrainStatus};
 use crate::goal::GoalStore;
@@ -29,7 +28,6 @@ pub struct BrainConfig {
     pub approval_workers: usize,
     pub norma_bin: PathBuf,
     pub project_root: PathBuf,
-    pub read_roots: ReadRoots,
     pub state_dir: PathBuf,
     pub tasks_dir: PathBuf,
     pub router: RouterConfig,
@@ -54,7 +52,6 @@ impl BrainConfig {
             approval_model: None,
             approval_workers: 1,
             norma_bin,
-            read_roots: ReadRoots::new(vec![project_root.clone()]),
             project_root,
             tasks_dir: state_dir.clone(),
             state_dir,
@@ -81,7 +78,6 @@ pub struct BrainService {
     events: Sender<Command>,
     scopes: Scopes,
     threads: Vec<JoinHandle<()>>,
-    read_roots: ReadRoots,
     tasks: Arc<TaskStore>,
 }
 
@@ -97,18 +93,14 @@ impl BrainService {
         let mut models = backend::models_for(config.backend.kind, config.strategy);
         models.main = config.main_model.clone().or(models.main);
         models.approval = config.approval_model.clone().or(models.approval);
-        let gate = Gate::new(
-            config.norma_bin.clone(),
-            config.project_root.clone(),
-            config.read_roots.clone(),
-        );
         let lane = |role: Role, model: Option<String>| LaneEnv {
             role,
             backend: config.backend.clone(),
             model,
             effort: backend::effort_for(config.backend.kind, config.strategy, role == Role::Main)
                 .map(str::to_string),
-            gate: gate.clone(),
+            norma_bin: config.norma_bin.clone(),
+            project_root: config.project_root.clone(),
             goal: goal.clone(),
             tasks: tasks.clone(),
             status: status_tx.clone(),
@@ -152,7 +144,6 @@ impl BrainService {
                 events,
                 scopes,
                 threads,
-                read_roots: config.read_roots,
                 tasks,
             },
             status_rx,
@@ -184,11 +175,6 @@ impl BrainService {
     pub fn release_scope(&self, scope: &BrainScope) {
         self.scopes.release(scope);
         let _ = self.events.send(Command::Release(scope.clone()));
-    }
-
-    /// Existing lanes observe added/removed projects without restarting the backend.
-    pub fn update_read_roots(&self, roots: Vec<PathBuf>) {
-        self.read_roots.replace(roots);
     }
 
     pub fn shutdown(self) {

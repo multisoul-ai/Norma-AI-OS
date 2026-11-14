@@ -1,24 +1,13 @@
 use super::*;
 use std::fs;
 
-/// 内置只读工具也必须经过权限请求，不能递归读取整个项目绕过逐文件检查。
-/// 数据构造：Claude 会话配置，不包含任何用户设置。
-/// 执行过程：检查工具白名单、逐次询问规则和跳过权限开关。
-/// 预期结果：只暴露 Bash/Read，每次都询问，禁用跳过权限与额外 MCP 配置。
+/// 大脑不限制工具集，但仍隔离用户设置、不允许跳过权限开关或加载用户 MCP。
 #[test]
-fn claude_requires_permission_for_every_exposed_tool() {
+fn claude_session_is_isolated_but_unrestricted() {
     let meta = session_meta(BackendKind::ClaudeCode, None).expect("应有 Claude 配置");
     let options = &meta["claudeCode"]["options"];
-    assert_eq!(
-        options["tools"],
-        serde_json::json!(["Bash", "Read"]),
-        "不能暴露递归搜索或其他工具"
-    );
-    assert_eq!(
-        options["settings"]["permissions"]["ask"],
-        serde_json::json!(["Bash", "Read"]),
-        "内置安全规则也必须转到 ACP 询问"
-    );
+    assert!(options["tools"].is_null(), "不再限制工具集");
+    assert!(options["disallowedTools"].is_null(), "不再禁用写类工具");
     assert_eq!(
         options["allowDangerouslySkipPermissions"], false,
         "不能允许跳过权限"
@@ -123,13 +112,13 @@ fn strategies_map_to_models() {
     }
 }
 
-/// Claude Code 会话必须忽略用户自己的设置并禁用写工具，否则用户的 bypassPermissions 会让闸门失效。
+/// Claude Code 会话必须忽略用户自己的设置。
 ///
 /// 预期结果：
-///   - 正断言：meta 里 settingSources 为空数组，disallowedTools 含 Write 与 Edit，带上模型；会话模式为 default
+///   - 正断言：meta 里 settingSources 为空数组，带上模型；会话模式为 default
 ///   - 负断言：其他后端没有 meta 与模式
 #[test]
-fn claude_sessions_ignore_user_settings_and_disable_write_tools() {
+fn claude_sessions_ignore_user_settings() {
     let meta = session_meta(BackendKind::ClaudeCode, Some("haiku")).expect("Claude 需要 meta");
     let options = &meta["claudeCode"]["options"];
     assert_eq!(
@@ -137,44 +126,17 @@ fn claude_sessions_ignore_user_settings_and_disable_write_tools() {
         serde_json::json!([]),
         "不能加载用户的权限设置"
     );
-    let denied = options["disallowedTools"].as_array().unwrap();
-    assert!(
-        denied.iter().any(|t| t == "Write") && denied.iter().any(|t| t == "Edit"),
-        "写工具要禁用"
-    );
     assert_eq!(options["model"], "haiku");
     assert_eq!(
         options["persistSession"], false,
         "大脑会话不能出现在用户的 Claude /resume 列表"
     );
     assert_eq!(session_mode(BackendKind::ClaudeCode), Some("default"));
-    // Codex 默认的 Auto review 模式跑命令不发权限请求，闸门会失效；只读模式下写入和连 socket 都要请求批准。
-    assert_eq!(session_mode(BackendKind::Codex), Some("read-only"));
+    assert_eq!(session_mode(BackendKind::Codex), Some("auto"));
     assert!(
         session_meta(BackendKind::Codex, None).is_none()
             && session_mode(BackendKind::OpenCode).is_none()
     );
-}
-
-/// OpenCode 候选配置包含 ask/deny 规则；这里只验证序列化，不证明后端遵守规则。
-/// 服务层在完成实际协议和权限验证前拒绝启动该后端。
-///
-/// 预期结果：
-///   - 正断言：OpenCode 的环境变量里有 OPENCODE_CONFIG_CONTENT，bash 为 ask，edit 与 webfetch 为 deny
-///   - 负断言：其他后端不注入环境变量
-#[test]
-fn opencode_configuration_contains_requested_permissions() {
-    let env = session_env(BackendKind::OpenCode);
-    let (_, content) = env
-        .iter()
-        .find(|(key, _)| key == "OPENCODE_CONFIG_CONTENT")
-        .expect("要注入 OpenCode 配置");
-    let config: serde_json::Value = serde_json::from_str(content).expect("应是 JSON");
-    assert_eq!(config["permission"]["bash"], "ask");
-    assert_eq!(config["permission"]["edit"], "deny");
-    assert_eq!(config["permission"]["webfetch"], "deny");
-    assert!(session_env(BackendKind::ClaudeCode).is_empty());
-    assert!(session_env(BackendKind::Codex).is_empty());
 }
 
 /// Codex 的策略对应推理强度：主会话按速度、自动、质量取 low、medium、high，审批会话始终 low。

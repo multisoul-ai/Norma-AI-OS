@@ -26,7 +26,6 @@ pub use event::{
     Outcome, Trigger, TriggerKind,
 };
 pub use risk::ApprovalSubject;
-pub use risk::{is_inside_project, is_secret_path, single_command};
 pub use router::{Action, Lane, Router, RouterConfig};
 pub use scoped_router::{ScopedAction, ScopedRouter};
 pub use service::{BrainConfig, BrainService};

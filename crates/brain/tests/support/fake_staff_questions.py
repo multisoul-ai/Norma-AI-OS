@@ -28,8 +28,7 @@ while True:
     elif method == 'session/new':
         if os.environ.get('FAKE_QUESTION_FIRST', 'claude') == 'claude':
             options = message['params']['_meta']['claudeCode']['options']
-            assert options['tools'] == ['Bash', 'Read', 'AskUserQuestion'], 'Staff must expose its native question tool'
-            assert options['settings']['permissions']['ask'] == ['Bash', 'Read'], 'I/O must remain gated'
+            assert 'tools' not in options, 'Staff must not restrict the tool set'
         result = {'sessionId': 'staff-session'}
     elif method == 'session/prompt':
         text = ''.join(part.get('text', '') for part in message['params']['prompt'])

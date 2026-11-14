@@ -86,11 +86,7 @@ impl MultisoulApp {
                                 div()
                                     .text_color(rgba(color))
                                     .text_size(px(tokens::META_TEXT))
-                                    .child(t(if tool.command_format_error {
-                                        "staff.command_format_error"
-                                    } else {
-                                        label
-                                    })),
+                                    .child(t(label)),
                             )
                             .when_some(tool.elapsed_ms, |button, elapsed| {
                                 button.child(div().text_size(px(tokens::META_TEXT)).child(
@@ -128,11 +124,7 @@ impl MultisoulApp {
                                 )
                             })
                             .when(!tool.output.is_empty(), |body| {
-                                body.child(div().child(if tool.command_format_error {
-                                    t("staff.command_format_detail").to_string()
-                                } else {
-                                    tool.output.clone()
-                                }))
+                                body.child(div().child(tool.output.clone()))
                             }),
                     );
                 }

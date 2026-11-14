@@ -95,14 +95,12 @@ impl TaskActivity {
                     description: None,
                     output: String::new(),
                     status: ToolStatus::Running,
-                    command_format_error: false,
                     started: Instant::now(),
                     elapsed_ms: None,
                 });
                 self.tools.len() - 1
             });
         let tool = &mut self.tools[index];
-        tool.command_format_error |= meta.command_format_error;
         if let Some(name) = meta.name {
             if item.kind != TraceKind::Permission || tool.name == tool.id {
                 tool.name = name;
@@ -182,7 +180,6 @@ pub(crate) struct ToolActivity {
     pub description: Option<String>,
     pub output: String,
     pub status: ToolStatus,
-    pub command_format_error: bool,
     started: Instant,
     pub elapsed_ms: Option<u64>,
 }

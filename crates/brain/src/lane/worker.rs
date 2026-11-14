@@ -2,13 +2,13 @@
 
 use super::prompt::{primer, Role};
 use crate::acp::client::{AcpError, AcpSession, SessionOptions};
-use crate::acp::gate::Gate;
 use crate::acp::trace::{AcpTrace, TraceItem, TraceKind};
 use crate::backend::{self, Backend};
 use crate::event::{BrainStatus, BrainStatusKind, TaskUpdate, Trigger};
 use crate::goal::GoalStore;
 use norma::protocol::BrainScope;
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
@@ -35,7 +35,8 @@ pub struct LaneEnv {
     pub backend: Backend,
     pub model: Option<String>,
     pub effort: Option<String>,
-    pub gate: Gate,
+    pub norma_bin: PathBuf,
+    pub project_root: PathBuf,
     pub goal: Arc<GoalStore>,
     pub tasks: Arc<crate::staff::TaskStore>,
     pub status: Sender<BrainStatus>,
@@ -54,13 +55,8 @@ impl LaneEnv {
             kind: self.backend.kind,
             program: self.backend.program.clone(),
             args: self.backend.args.clone(),
-            cwd: self.gate.project_root.clone(),
-            env: self
-                .env
-                .iter()
-                .cloned()
-                .chain(backend::session_env(self.backend.kind))
-                .collect(),
+            cwd: self.project_root.clone(),
+            env: self.env.clone(),
             meta: backend::session_meta(self.backend.kind, self.model.as_deref()),
             mode: backend::session_mode(self.backend.kind).map(str::to_string),
             model: self.model.clone(),
@@ -243,11 +239,11 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             continue;
         }
         let mut text = if let Some(task) = &task {
-            super::staff::prompt(task, &job.scope, &env.gate.norma_bin)
+            super::staff::prompt(task, &job.scope, &env.norma_bin)
         } else if primed {
             job.text.clone()
         } else {
-            let bin = env.gate.norma_bin.display().to_string();
+            let bin = env.norma_bin.display().to_string();
             format!(
                 "{}\n\n{}",
                 primer(
@@ -299,10 +295,6 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             TraceItem::new(TraceKind::Prompt, "发给大脑", text.clone()),
         );
         let this_turn = turn_no;
-        let gate = match &job.task_id {
-            Some(id) => env.gate.clone().for_task(job.scope.clone(), id.clone()),
-            None => env.gate.clone(),
-        };
         active.set_question_host(job.task_id.as_ref().map(|id| {
             crate::acp::questions::QuestionHost::new(
                 env.tasks.clone(),
@@ -315,7 +307,6 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
         let result = active.prompt_observed(
             &text,
             &images,
-            &gate,
             &cancelled,
             env.prompt_timeout,
             &mut |item| env.trace(&job.scope, this_turn, &job.trigger, item),

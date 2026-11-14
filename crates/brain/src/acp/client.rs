@@ -1,8 +1,7 @@
 //! 一个 ACP 会话：握手、创建会话、发 prompt，并处理期间的权限请求。
 
-use super::gate::Gate;
-use super::permission::Permissions;
-use super::trace::{classify_update, Merger, TraceItem, TraceKind};
+use super::permission;
+use super::trace::{classify_update, Merger, TraceItem};
 use super::wire::{Connection, Incoming};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -104,11 +103,6 @@ impl AcpSession {
         if let Some(meta) = &options.meta {
             params["_meta"] = meta.clone();
         }
-        if staff && options.kind == crate::backend::BackendKind::ClaudeCode {
-            if let Some(tools) = params["_meta"]["claudeCode"]["options"]["tools"].as_array_mut() {
-                tools.push(json!("AskUserQuestion"));
-            }
-        }
         let created = call(&mut conn, "session/new", params, deadline, cancel)?;
         let session_id = created["sessionId"]
             .as_str()
@@ -167,16 +161,15 @@ impl AcpSession {
         crate::backend::model_choices(&self.created)
     }
 
-    /// 发一条 prompt，返回助手的文字回复。期间的权限请求交给 `gate`。
+    /// 发一条 prompt，返回助手的文字回复。期间的权限请求一律放行。
     pub fn prompt(
         &mut self,
         text: &str,
-        gate: &Gate,
         cancel: &AtomicBool,
         timeout: Duration,
         sink: &mut dyn FnMut(TraceItem),
     ) -> Result<String, AcpError> {
-        self.prompt_observed(text, &[], gate, cancel, timeout, sink, &mut |_| {})
+        self.prompt_observed(text, &[], cancel, timeout, sink, &mut |_| {})
     }
 
     /// Observe raw progress before audit trace coalescing; observations are not persisted replies.
@@ -184,7 +177,6 @@ impl AcpSession {
         &mut self,
         text: &str,
         images: &[super::content::PromptImage],
-        gate: &Gate,
         cancel: &AtomicBool,
         timeout: Duration,
         sink: &mut dyn FnMut(TraceItem),
@@ -194,13 +186,12 @@ impl AcpSession {
         let mut merger = Merger::default();
         let mut stop_reason = None;
         let mut system_error = false;
-        let mut permissions = Permissions::default();
         let result = (|| {
             if cancel.load(Ordering::Relaxed) {
                 self.abort();
                 return Err(AcpError::Cancelled);
             }
-            let mut id = self
+            let id = self
                 .conn
                 .send_request(
                     "session/prompt",
@@ -257,41 +248,6 @@ impl AcpSession {
                             .and_then(|value| value["stopReason"].as_str())
                             .unwrap_or("error");
                         stop_reason = Some(if system_error { "error" } else { stop }.to_owned());
-                        if !system_error && matches!(stop, "end_turn" | "cancelled") {
-                            if let Some(correction) = permissions.continuation() {
-                                if let Some(item) = merger.flush() {
-                                    sink(item);
-                                }
-                                let item = TraceItem::new(
-                                    TraceKind::Prompt,
-                                    "Command format correction",
-                                    correction.clone(),
-                                );
-                                progress(&item);
-                                sink(item);
-                                if cancel.load(Ordering::Relaxed) {
-                                    self.abort();
-                                    return Err(AcpError::Cancelled);
-                                }
-                                if Instant::now() >= deadline {
-                                    self.abort();
-                                    return Err(AcpError::Timeout);
-                                }
-                                reply.clear();
-                                id = self
-                                    .conn
-                                    .send_request(
-                                        "session/prompt",
-                                        super::content::session_prompt(
-                                            &self.session_id,
-                                            &correction,
-                                            &[],
-                                        ),
-                                    )
-                                    .map_err(|_| AcpError::Closed)?;
-                                continue;
-                            }
-                        }
                         if stop == "cancelled" {
                             return Err(AcpError::Cancelled);
                         }
@@ -310,8 +266,7 @@ impl AcpSession {
                         if update["sessionUpdate"] == "agent_message_chunk" {
                             reply.push_str(update["content"]["text"].as_str().unwrap_or_default());
                         }
-                        if let Some(mut item) = classify_update(update) {
-                            permissions.decorate(&mut item);
+                        if let Some(item) = classify_update(update) {
                             progress(&item);
                             for out in merger.push(item) {
                                 sink(out);
@@ -329,17 +284,10 @@ impl AcpSession {
                                 }
                             }
                         }
-                        permissions.answer(
-                            &mut self.conn,
-                            &id,
-                            &method,
-                            &params,
-                            gate,
-                            &mut |item| {
-                                progress(&item);
-                                sink(item);
-                            },
-                        )?;
+                        permission::answer(&mut self.conn, &id, &method, &params, &mut |item| {
+                            progress(&item);
+                            sink(item);
+                        })?;
                     }
                     _ => {}
                 }
@@ -416,10 +364,7 @@ pub fn discover_models(
         program: backend.program.clone(),
         args: backend.args.clone(),
         cwd,
-        env: env
-            .into_iter()
-            .chain(crate::backend::session_env(backend.kind))
-            .collect(),
+        env,
         meta: crate::backend::session_meta(backend.kind, None),
         mode: None,
         model: None,

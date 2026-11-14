@@ -17,7 +17,6 @@ impl MultisoulApp {
         let directory = owner
             .directory()
             .expect("start requires prepared global data");
-        let read_roots = owner.read_roots();
         let work = cx.background_executor().spawn(async move {
             let backend =
                 config::pick_backend(&settings).ok_or_else(|| "没有可用的 ACP 后端".to_string())?;
@@ -35,7 +34,6 @@ impl MultisoulApp {
                 directory,
             );
             config.tasks_dir = state_dir;
-            config.read_roots = read_roots;
             config.strategy = settings.strategy;
             config.main_model = models.main;
             config.approval_model = models.approval;

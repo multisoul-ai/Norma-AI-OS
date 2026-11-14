@@ -10,9 +10,9 @@ status: 桌面端已实施 · 真实 Claude Code 验收通过 · 见 H 节的限
 
 ## 2026-10-24 更新：以下几处以本节为准
 
-**运行边界（2026-10-25 更新）**：Claude Code、Codex、OpenCode 均可作为幕僚后端，不再在服务层或设置页拒绝启动。已知并被用户接受的缺口：Codex 的 read-only 模式只限制写入，其读命令不经 Norma 闸门，可读项目目录之外的文件；OpenCode 仅注入 `bash:ask / edit:deny / webfetch:deny`，其余工具默认放行。只有 Claude Code 的逐条读取审批是完整的。这不影响 Claude／Codex 智能体卡片本身。
+**运行边界（2026-11-14 更新）**：Claude Code、Codex、OpenCode 均可作为幕僚后端。大脑不再有权限闸门：适配器发来的每个 `session/request_permission` 都直接放行（优先 `allow_once`），大脑可读写文件、执行任意命令，用户已明确接受这一风险。Claude 会话仍隔离用户设置、禁止 bypass 开关与用户 MCP；Codex 使用 `auto` 模式；不再向 OpenCode 注入权限配置。
 
-Claude 会话隔离用户设置、禁止 bypass，仅暴露 `Bash` 和逐文件 `Read`，并用显式 `permissions.ask` 让两者每次都发 ACP 权限请求。闸门拒绝组合、重定向、整条命令引号二次拆包与持久授权；读取检查真实路径，仅放行项目内存在的普通文件，拒绝已知凭据路径和递归目录工具。这个边界依赖适配器遵守配置，不是操作系统沙箱，也无法识别任意名称的秘密或消除检查与读取之间的文件变化。
+权限请求仍会写入大脑活动窗口的 trace（标题“权限请求：放行”），便于审计。
 
 目标、提议、审批和决策日志改为按稳定工作空间 ID 隔离，保存在 `~/.norma/brain/projects/<workspace-id-hash>/`；同一目录的不同画布不会共享提议。旧提议文件只原子迁移给一个画布。设置和提议通过进程共享队列有序写入，快照原子替换；关闭后重开先等待旧写入完成。JSON 语法或任一条目损坏时保留整份原件并重试；提议保存失败向工作空间报错，保留最新内存快照重试。派发失败回执保留原提议，只有实际接收／排队后才记成功。文件读取、写入、适配器扫描与进程启动均在后台。磁盘故障期间强制退出仍可能丢失待保存状态，PTY 派发与文件保存不构成跨进程事务。
 
@@ -63,7 +63,7 @@ Claude 会话隔离用户设置、禁止 bypass，仅暴露 `Bash` 和逐文件 
 group 感知: Agent 卡片, hook 事件收集
 group 前台对话: 实时语音模型, NormaSession
 group 后台 ACP 大脑: 事件分流, 主会话, 审批会话
-group 执行: norma 命令, 安全闸门
+group 执行: norma 命令
 group 表达: 播报队列, 当前语音模式
 Agent 卡片 -> hook 事件收集: 事件 / 审批
 hook 事件收集 -> 事件分流
@@ -76,10 +76,9 @@ hook 事件收集 -> 事件分流
 NormaSession -> 事件分流: 派活或深度判断
 主会话 -> norma 命令
 审批会话 -> norma 命令
-norma 命令 -> 安全闸门
-安全闸门 -> Agent 卡片: 派活 / 停止 / 放行或拒绝
-安全闸门 -> *需要你处理: 高风险 / 拿不准 / 出错
-安全闸门 -> 播报队列: 播报文本
+norma 命令 -> Agent 卡片: 派活 / 停止 / 放行或拒绝
+norma 命令 -> *需要你处理: 高风险 / 拿不准 / 出错
+norma 命令 -> 播报队列: 播报文本
 播报队列 -> 当前语音模式
 ```
 
@@ -88,7 +87,7 @@ norma 命令 -> 安全闸门
 | 感知 | 把各 Agent 的状态、最终输出和审批请求收进 Norma |
 | 前台对话 | 1–2 秒内回答用户；需要派活或读代码时先回一句，再把任务转给后台 |
 | 后台 ACP 大脑 | 主会话整理进度、派后续、读代码回答；审批会话只判断审批 |
-| 执行 | 大脑的一切动作都经过 `norma` 命令；安全闸门执行高风险规则 |
+| 执行 | 大脑的一切动作都经过 `norma` 命令；大脑的权限请求一律放行 |
 | 表达 | 播报排序、合并、用户开口时让路，再交给当前语音模式 |
 
 ## C 模块拆分
@@ -103,7 +102,7 @@ crates/
     + lane/worker.rs | 一条 lane：串行处理、会话失败退避重建
     + acp/wire.rs | 按行分隔的 JSON-RPC over stdio
     + acp/client.rs | 握手、建会话、发 prompt、处理权限请求
-    + acp/gate.rs | 权限闸门：单条 norma brain 命令与项目内只读
+    + acp/permission.rs | 权限请求：一律放行并记录 trace
     + backend.rs | 检测已装后端；策略到模型；强制 settingSources 为空
     + goal.rs | 目标摘要与决策日志
     + risk.rs、risk/ | 高风险规则（shell 拆分、命令、路径），纯函数
@@ -182,7 +181,7 @@ participants: 用户, 前台对话, 播报队列, 主会话, Agent
 启用后，标题栏右侧出现“语音汇报”开关。打开时，大脑的汇报用当前语音模式念出来。关闭时，大脑照常工作，只是不说话。它与语音设置里的“智能体任务播报”互不影响。
 
 - **ACP client 手写**：只用到 `initialize`、`session/new`、`session/set_mode`、`session/prompt`、`session/request_permission`，所以没有引入 `agent-client-protocol` crate，权限处理完全自己掌控。
-- **适配器**：Claude Code 用 `@agentclientprotocol/claude-agent-acp@0.94.0`，设置页的“安装”按钮会装到 `~/.norma/brain/adapters`；Codex 和 OpenCode 已放开启动，读取隔离缺口见上文运行边界。norma 路径含空格时，大脑使用 `~/.norma/brain/bin/norma` 符号链接，避免 Codex 的命令包装让闸门无法还原路径。
+- **适配器**：Claude Code 用 `@agentclientprotocol/claude-agent-acp@0.94.0`，设置页的“安装”按钮会装到 `~/.norma/brain/adapters`；Codex 和 OpenCode 已放开启动，读取隔离缺口见上文运行边界。norma 路径含空格时，大脑使用 `~/.norma/brain/bin/norma` 符号链接。
 - **权限请求**：仅切到 `default` 并不足以让安全读取逐次询问；还必须隔离用户设置、禁用 bypass、限制工具列表并显式配置 `permissions.ask`。历史探测见 `docs/research/2026-10-23-acp-adapters-probe.md`。
 - **Claude 认证**：保持 `settingSources: []`，启动时只从 `CLAUDE_CONFIG_DIR/settings.json`（默认 `~/.claude/settings.json`）提取 `ANTHROPIC_BASE_URL`、`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_API_KEY`、`CLAUDE_CODE_OAUTH_TOKEN` 给 Claude 子进程；不导入其他环境变量、权限或 hooks。进程已有显式认证时整组沿用，避免把不同来源的地址和凭证混配；没有用户配置时保留默认 OAuth/Keychain 流程。
 - **审批代理范围**：只有带手机控制的卡片有可代理的审批。普通桌面卡片的权限提示留在终端里，Norma 无法拦截。要覆盖它们，得给所有卡片装阻塞式权限 hook，这是单独的一项工作。

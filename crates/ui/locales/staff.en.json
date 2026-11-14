@@ -99,8 +99,6 @@
   "staff.question_invalid": "Please complete every answer.",
   "staff.question_unavailable": "This question is no longer available.",
   "staff.question_identity_changed": "This question has changed. Please reload.",
-  "staff.command_format_error": "Format error",
-  "staff.command_format_detail": "Command not executed: each tool call must contain one command, without && or semicolons. Norma needs to retry as separate calls. This was not a permission denial from you.",
   "staff.archive": "Archive",
   "staff.unarchive": "Unarchive",
   "staff.archived": "Archived",

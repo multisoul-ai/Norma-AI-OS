@@ -122,7 +122,6 @@ fn interleaved_tools_pair_by_id_and_keep_denial() {
         input: None,
         description: None,
         status: Some("denied".into()),
-        command_format_error: false,
     }));
     state.apply(1, TaskUpdate::Update(denied));
     state.apply(

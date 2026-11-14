@@ -130,7 +130,7 @@ fn finished_prompts_require_a_next_step_verdict() {
     }
 }
 
-/// 路径含空格时，提示里的命令必须加引号，闸门才能解析出完整的可执行文件路径。
+/// 路径含空格时，提示里的命令必须加引号，shell 才能解析出完整的可执行文件路径。
 /// 数据构造：App 包路径 `/Applications/Norma OS.app/Contents/MacOS/norma`。
 /// 预期结果：primer 中的命令被单引号包住，普通路径保持原样。
 #[test]

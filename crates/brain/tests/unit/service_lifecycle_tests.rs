@@ -1,30 +1,5 @@
 use super::*;
 
-/// 场景：shell 包装本身非法时，拒绝活动仍必须包含原始请求供用户诊断。
-/// 数据构造：假 ACP 发送 /tmp/zsh shell envelope；执行真实权限处理并读取公开 Trace。
-/// 预期结果：拒绝且保留原命令，不能只剩空 wanted 和通用错误。
-#[test]
-fn rejected_malformed_envelope_keeps_the_original_command() {
-    let h = start();
-    let command = "/tmp/zsh -lc '/opt/norma/bin/norma brain agents'";
-    h.push(BrainEventKind::UserRequest {
-        text: format!("FAKE_ENVELOPE: {command}"),
-    });
-    let status = h.wait_status(
-        |s| matches!(s, BrainStatusKind::Trace(t) if t.item.kind == TraceKind::Permission),
-    );
-    h.service.shutdown();
-    let BrainStatusKind::Trace(trace) = status else {
-        panic!("预期权限记录")
-    };
-    assert!(trace.item.title.contains("拒绝"), "非法 shell 必须被拒绝");
-    assert!(
-        trace.item.text.contains(command),
-        "审计正文必须保留被拒绝的原命令：{}",
-        trace.item.text
-    );
-}
-
 /// 场景：适配器未启动成功，也不能在活动记录中永久显示“进行中”。
 /// 数据构造：指向不存在程序的真实服务，提交一条请求。
 /// 执行过程：等待 BackendDown 后停止并收集同轮 Trace。
@@ -162,7 +137,6 @@ fn restarted_services_do_not_reuse_turn_ids() {
 #[test]
 fn every_abnormal_prompt_exit_finishes_once() {
     use brain::acp::client::{AcpSession, SessionOptions};
-    use brain::acp::gate::Gate;
     let dir = tempfile::tempdir().unwrap();
     let options = SessionOptions {
         kind: BackendKind::ClaudeCode,
@@ -179,7 +153,6 @@ fn every_abnormal_prompt_exit_finishes_once() {
         effort: None,
         handshake_timeout: Duration::from_secs(5),
     };
-    let gate = Gate::for_project(NORMA.into(), dir.path().into());
     for (text, stop) in [
         ("FAKE_CRASH", "error"),
         ("FAKE_PARTIAL_SLEEP", "timeout"),
@@ -189,7 +162,6 @@ fn every_abnormal_prompt_exit_finishes_once() {
         let mut items = Vec::new();
         let result = session.prompt(
             text,
-            &gate,
             &std::sync::atomic::AtomicBool::new(false),
             Duration::from_millis(200),
             &mut |item| items.push(item),

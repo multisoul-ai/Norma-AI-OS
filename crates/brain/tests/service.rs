@@ -114,7 +114,7 @@ fn approval(id: &str, command: &str) -> BrainEventKind {
     })
 }
 
-/// 普通审批：审批会话照提示执行 brain decide，闸门放行，随后通知本轮结束。
+/// 普通审批：审批会话照提示执行 brain decide，权限请求放行，随后通知本轮结束。
 ///
 /// 数据构造：审批 a1（cargo test）。假适配器看到提示里的 decide 命令后发起权限请求。
 /// 预期结果：
@@ -165,25 +165,6 @@ fn git_push_approval_is_judged_by_the_brain() {
         "{log}"
     );
     assert!(log.contains("可逆"), "提示要带风险评估要求：{log}");
-    h.service.shutdown();
-}
-
-/// 大脑想执行 norma 以外的命令时被闸门拒绝。
-///
-/// 数据构造：用户请求里带 `FAKE_RUN: rm -rf x` 和 `FAKE_RUN: <norma> brain agents`。
-/// 预期结果：
-///   - 正断言：norma 命令 allowed
-///   - 负断言：rm 命令 rejected，不是 allowed
-#[test]
-fn the_gate_rejects_non_norma_commands_from_the_main_lane() {
-    let h = start();
-    h.push(BrainEventKind::UserRequest {
-        text: format!("FAKE_RUN: rm -rf x\nFAKE_RUN: {NORMA} brain agents"),
-    });
-    h.wait_log(&format!("allowed: {NORMA} brain agents"));
-    let log = h.log();
-    assert!(log.contains("rejected: rm -rf x"), "rm 应被拒绝：\n{log}");
-    assert!(!log.contains("allowed: rm -rf x"), "rm 不应被放行：\n{log}");
     h.service.shutdown();
 }
 
