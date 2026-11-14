@@ -36,7 +36,7 @@ fn needs_attention_redelivers_the_same_card() {
             },
         )
         .expect("propose");
-    store.approve("ws", "ship", 1).expect("approve");
+    store.approve("ws", "ship", 1, None, None).expect("approve");
     let mut worker = Worker::new("Alan", "OpenCode", "Build", 7, "d-1");
     worker.launch_prompt = "wrapped build it".into();
     store.bind_worker("ws", "ship", 1, worker).expect("bind");

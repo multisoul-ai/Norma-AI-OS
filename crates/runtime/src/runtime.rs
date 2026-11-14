@@ -50,7 +50,7 @@ pub struct Runtime {
     pub focus: FocusState,
     live: HashMap<NodeId, Box<dyn LiveNode>>,
     mobile_runs: HashMap<NodeId, mobile_cards::MobileRun>,
-    staff_dispatches: HashMap<NodeId, String>,
+    staff_dispatches: HashMap<NodeId, (String, Option<String>)>,
     archive_reads: mobile_cards::ArchiveReads,
     questions: questions::Questions,
     pub(crate) events: RuntimeEvents,

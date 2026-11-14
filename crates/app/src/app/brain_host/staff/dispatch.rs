@@ -159,6 +159,9 @@ impl MultisoulApp {
             &dispatch,
         );
         worker.launch_prompt = prompt.clone();
+        if let Some(model) = proposal.model.clone() {
+            self.runtime.set_staff_model(node, model);
+        }
         Ok((worker, prompt))
     }
 
@@ -191,11 +194,12 @@ impl MultisoulApp {
                 return;
             }
         };
+        let (agent, model) = self.staff_proposal_choice(&task_id, proposal_id, cx);
         self.staff.busy = true;
         self.staff.error = None;
         let work = cx.background_executor().spawn(async move {
             store
-                .approve(&scope.workspace_id, &task_id, proposal_id)
+                .approve(&scope.workspace_id, &task_id, proposal_id, agent, model)
                 .map_err(|error| error.to_string())?;
             let paths = norma::orchestration::InstallPaths::for_current_process()
                 .map_err(|error| error.to_string())?;

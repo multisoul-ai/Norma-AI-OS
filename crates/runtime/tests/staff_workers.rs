@@ -134,3 +134,43 @@ fn legacy_staff_hook_requires_exact_current_process_identity() {
     );
     runtime.kill_all();
 }
+
+/// 幕僚指派选定的模型必须进入该 Worker 的启动命令，且不影响其他卡片。
+///
+/// 数据构造：选了 `opus` 的 Claude 卡、未选模型的 Codex 卡、选了模型的 Hermes 卡（无已验证的 --model）。
+/// 执行过程：分别 prepare，读取启动脚本。
+/// 预期结果：Claude 脚本以 `--model 'opus'` 结尾；Codex 不含 `--model`；Hermes prepare 失败。
+#[test]
+fn staff_worker_model_reaches_launch_command() {
+    let mut runtime = Runtime::new_for_workspace("/tmp");
+    let bounds = CanvasRect::new(0., 0., 640., 400.);
+    let claude = runtime.create_staff_worker(AgentProfile::Claude, "A".into(), bounds, "d1".into());
+    runtime.set_staff_model(claude, "opus".into());
+    let codex = runtime.create_staff_worker(AgentProfile::Codex, "B".into(), bounds, "d2".into());
+    let hermes = runtime.create_staff_worker(AgentProfile::Hermes, "C".into(), bounds, "d3".into());
+    runtime.set_staff_model(hermes, "x".into());
+    let with_model = runtime
+        .prepare_native_agent_terminal(claude, 80, 24)
+        .expect("claude")
+        .command()
+        .args
+        .last()
+        .cloned()
+        .unwrap_or_default();
+    let without = runtime
+        .prepare_native_agent_terminal(codex, 80, 24)
+        .expect("codex")
+        .command()
+        .args
+        .last()
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        with_model.ends_with("--model 'opus'"),
+        "实际脚本：{with_model}"
+    );
+    assert!(!without.contains("--model"), "实际脚本：{without}");
+    assert!(runtime
+        .prepare_native_agent_terminal(hermes, 80, 24)
+        .is_err());
+}

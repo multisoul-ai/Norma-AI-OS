@@ -72,6 +72,7 @@ impl TaskStore {
                         title,
                         prompt,
                         why,
+                        model: None,
                         approved: false,
                         ignored: false,
                         dispatch_id: None,
@@ -95,7 +96,15 @@ impl TaskStore {
         .map(|task| vec![task])
     }
 
-    pub fn approve(&self, workspace: &str, id: &str, proposal_id: u64) -> io::Result<Task> {
+    /// `agent`/`model` 是用户在采纳时的选择，与批准同一次事务写入。
+    pub fn approve(
+        &self,
+        workspace: &str,
+        id: &str,
+        proposal_id: u64,
+        agent: Option<String>,
+        model: Option<String>,
+    ) -> io::Result<Task> {
         self.update(workspace, id, |task| {
             let proposal = task
                 .proposals
@@ -108,6 +117,10 @@ impl TaskStore {
                     "staff.proposal_unavailable",
                 ));
             }
+            if let Some(agent) = agent.filter(|agent| !agent.trim().is_empty()) {
+                proposal.agent = agent;
+            }
+            proposal.model = model.map(|m| m.trim().to_owned()).filter(|m| !m.is_empty());
             proposal.approved = true;
             Ok(())
         })

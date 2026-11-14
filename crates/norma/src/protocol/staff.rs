@@ -141,6 +141,9 @@ pub struct StaffProposal {
     pub title: String,
     pub prompt: String,
     pub why: String,
+    /// 用户在采纳时选定的模型；None 表示沿用该 CLI 的默认模型。
+    #[serde(default)]
+    pub model: Option<String>,
     pub approved: bool,
     #[serde(default)]
     pub ignored: bool,
