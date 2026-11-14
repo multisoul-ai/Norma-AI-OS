@@ -236,7 +236,7 @@ Choose the smallest sufficient implementation and verification flow from [`docs/
 | 需要寻找值得加入动效的点 | `.agents/skills/find-animation-opportunities` | 先产出只读机会清单及明确拒绝项，再决定是否实施。 |
 | 系统性重构既有动效 | `.agents/skills/improve-animations` | 先完成优先级审计与实施计划，再执行获确认的计划。 |
 | 用户只描述效果、不知道术语 | `.agents/skills/animation-vocabulary` | 在设计记录中使用准确的动效术语，避免含糊需求直接进入实现。 |
-| 视觉方向尚未确定且需要比较方案 | `.agents/skills/prototype` | 先在隔离原型中比较方向，待选择后才进入生产页面。 |
+| 视觉方向尚未确定且需要比较方案 | `.agents/skills/apple-design` | 先在隔离原型中比较方向，待选择后才进入生产页面。 |
 
 每个上述页面任务的方案或验收记录都必须写出“参考的 skill、采纳或拒绝的关键设计决策、对应的 GPUI 实现/验证方式”。这些 skill 的 CSS、Pointer Events 或 Web 动画 API 示例只用于传达设计与交互原则；实现前仍须按本文件的 GPUI skill 路由验证 `gpui =0.2.2`、`gpui-component =0.5.1` 与邻近代码，不能直接照搬 Web API。
 - GPUI code belongs in `app` and `ui`.
