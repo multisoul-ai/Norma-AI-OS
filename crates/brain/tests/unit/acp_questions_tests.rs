@@ -1,12 +1,13 @@
 use super::*;
 
-/// 场景：两种真实适配器的原生form保持题目与选项，自定义入口不重复。
-/// 数据构造：已抓取的Claude/Codex请求原文；执行：解析params；预期：一题、两个有说明的选项并允许自定义。
+/// 场景：三种真实适配器的原生form保持题目与选项，自定义入口不重复。
+/// 数据构造：已抓取的Claude/Codex/OpenCode请求；执行：解析params；预期：一题、两个有说明的选项并允许自定义。
 #[test]
 fn captured_native_forms_preserve_question_semantics() {
     for fixture in [
         include_str!("../fixtures/staff/claude-question.json"),
         include_str!("../fixtures/staff/codex-question.json"),
+        include_str!("../fixtures/staff/opencode-question.json"),
     ] {
         let value: Value = serde_json::from_str(fixture).expect("fixture JSON");
         let items = parse_form(&value["params"]).expect("native form");
@@ -36,6 +37,29 @@ fn generic_elicitation_is_not_a_staff_question() {
     let params = json!({"mode":"form","toolCallId":"mcp-login","message":"Authorize",
         "requestedSchema":{"properties":{"token":{"type":"string","title":"Token"}}}});
     assert!(parse_form(&params).is_none(), "不接入权限或未知MCP表单");
+}
+
+/// 场景：OpenCode 一次提两题，第二题多选；自定义伴随字段不能被当成第三、四题。
+/// 数据构造：OpenCode 2.1.3 真实抓包；执行：解析表单；预期：保留顺序、多选和自定义语义。
+#[test]
+fn opencode_multiple_questions_preserve_order_and_selection_modes() {
+    let value: Value =
+        serde_json::from_str(include_str!("../fixtures/staff/opencode-multiple.json"))
+            .expect("captured multiple form");
+    let items = parse_form(&value["params"]).expect("native OpenCode form");
+    assert_eq!(items.len(), 2, "只包含两道题，不包含自定义伴随字段");
+    assert_eq!(items[0].key, "q0", "第一题按原始序号排列");
+    assert_eq!(items[1].key, "q1", "第二题按原始序号排列");
+    assert!(
+        !items[0].multiple && items[1].multiple,
+        "单选和多选保持独立"
+    );
+    assert!(
+        items.iter().all(|item| item.allow_custom),
+        "两题都支持自定义答案"
+    );
+    assert_eq!(items[1].options.len(), 2, "多选有两个真实选项");
+    assert_eq!(items[1].options[0].label, "Unit", "保留多选选项内容");
 }
 
 /// 场景：到期或会话结束都必须收口待答卡，不能留下永久需要你。

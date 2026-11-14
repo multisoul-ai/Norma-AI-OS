@@ -17,3 +17,5 @@
 ## staff
 
 场景：`staff-workflow`、`staff-workflow-en`、`staff-opencode-dispatch`，均通过 `--visual`。`staff-workflow` 覆盖新建任务、ACP 提议、用户采用、CLI 新建独立 Worker、生产 hook 结果落盘、自动阶段、手动保护、完成重开、右侧文件、全屏/Escape 与画布切换。`staff-opencode-dispatch` 覆盖无 SessionStart 的 OpenCode：第一次粘贴不确认，15 秒后需要你，重新投递仍是同一张卡。脚本只替代外部模型与 Agent；不得预写 TaskStore 或注入 App 内部任务状态。
+
+`staff-protocol-recovery` / `staff-protocol-recovery-en` 定向验证 OpenCode 原生 q0 问答、命令组合拒绝后的同会话纠正、双语格式错误反馈与提议唯一性，并连续录像。

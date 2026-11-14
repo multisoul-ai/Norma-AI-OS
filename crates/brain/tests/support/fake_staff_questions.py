@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import sys
+import time
 
 
 def send(value):
@@ -25,17 +26,23 @@ while True:
         assert 'form' in message['params']['clientCapabilities'].get('elicitation', {})
         result = {'protocolVersion': 1, 'agentCapabilities': {}}
     elif method == 'session/new':
+        if os.environ.get('FAKE_QUESTION_FIRST', 'claude') == 'claude':
+            options = message['params']['_meta']['claudeCode']['options']
+            assert options['tools'] == ['Bash', 'Read', 'AskUserQuestion'], 'Staff must expose its native question tool'
+            assert options['settings']['permissions']['ask'] == ['Bash', 'Read'], 'I/O must remain gated'
         result = {'sessionId': 'staff-session'}
     elif method == 'session/prompt':
         text = ''.join(part.get('text', '') for part in message['params']['prompt'])
         task = json.loads(text.split('\n任务快照：', 1)[1])
         if not any('Question' in item for item in task['messages']):
             fixtures = pathlib.Path(os.environ['FAKE_QUESTION_FIXTURES'])
-            for index, provider in enumerate(['claude', 'codex']):
+            if os.environ.get('FAKE_QUESTION_PAUSE') == '1': time.sleep(.02)
+            for index, provider in enumerate([os.environ.get('FAKE_QUESTION_FIRST', 'claude'), 'codex']):
                 request = json.loads((fixtures / (provider + '-question.json')).read_text())
                 request['id'] = 100 + index
                 request['params']['toolCallId'] += str(index)
                 send(request)
+                if index == 0 and os.environ.get('FAKE_QUESTION_PAUSE') == '1': time.sleep(.08)
             replies = []
             while len(replies) < 2:
                 reply = read()

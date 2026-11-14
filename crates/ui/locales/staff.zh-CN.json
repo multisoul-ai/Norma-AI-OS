@@ -91,5 +91,7 @@
   "staff.proposal_superseded": "已有更新的提议，无法恢复这一条。",
   "staff.question_invalid": "请完整回答所有问题。",
   "staff.question_unavailable": "这道问题已不可回答。",
-  "staff.question_identity_changed": "问题内容已改变，请重新加载。"
+  "staff.question_identity_changed": "问题内容已改变，请重新加载。",
+  "staff.command_format_error": "格式错误",
+  "staff.command_format_detail": "命令未执行：一次工具调用只能包含一条命令，不能用 && 或分号组合。Norma 需要改为逐条调用。这不是你拒绝了授权。"
 }

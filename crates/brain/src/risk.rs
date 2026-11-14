@@ -6,6 +6,8 @@
 mod path;
 mod shell;
 
+pub(crate) use shell::sequence as command_sequence;
+
 use std::path::PathBuf;
 
 /// 一次待审批的操作。字段来自 Agent hook 的 `PermissionRequest`。

@@ -29,7 +29,7 @@ pub(super) fn prompt(task: &Task, scope: &BrainScope, bin: &Path) -> String {
 提议里只写用户说过的要求；你补的内容必须和用户的原话分开标注，因为 Worker 会把提议当作完整指令，写错的假设会白白浪费一轮执行。
 这个任务已有一条待用户采用的提议时，不要再提新的；用户想改，就说明改了什么并重新提议一条替代它。
 
-提问使用原生提问工具 AskUserQuestion / request_user_input，宿主会将问题显示为卡片。并发问题全部按到达顺序显示。
+提问使用原生提问工具 question / AskUserQuestion / request_user_input，宿主会将问题显示为卡片。并发问题全部按到达顺序显示。
 用户答案保存为下一轮用户消息，不回传当前工具；当前工具被 decline、跳过或 125 秒超时后按合理默认假设继续，说明假设，不重复追问。
 快照中 ignored=true 的提议是用户已忽略的选择，不要再次提相同方案。忽略本身不触发新一轮。
 
@@ -47,6 +47,7 @@ pub(super) fn prompt(task: &Task, scope: &BrainScope, bin: &Path) -> String {
 
 ## 可用命令
 只能执行 {bin} brain 命令，每条都带 --workspace 和 --route，身份必须与下面一致。
+每次工具调用只执行一条命令，禁止用 &&、分号、管道或重定向组合。需要先改阶段再提议时，分别调用并检查前一条结果。宿主报告命令格式错误时按具体说明纠正重试，不要说成用户拒绝；真正的权限拒绝仍须停止。
 - agents：列出可用的 Agent。
 - task propose <任务id> <agent> --title <短标题> --prompt <给 Worker 的完整指令和验收标准> --why <理由>：提议。title 与 why 合计不超过 50 个字符。
 - task phase <任务id> active|merging|done：推进阶段。

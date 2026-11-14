@@ -5,6 +5,7 @@ mod claude_auth;
 pub mod client;
 mod codex_compat;
 pub mod gate;
+mod permission;
 pub mod questions;
 mod read_roots;
 pub mod trace;

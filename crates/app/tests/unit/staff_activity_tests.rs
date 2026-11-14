@@ -121,6 +121,7 @@ fn interleaved_tools_pair_by_id_and_keep_denial() {
         name: None,
         input: None,
         status: Some("denied".into()),
+        command_format_error: false,
     });
     state.apply(1, TaskUpdate::Update(denied));
     state.apply(
@@ -145,4 +146,31 @@ fn interleaved_tools_pair_by_id_and_keep_denial() {
         "终态必须有耗时"
     );
     assert!(!state.working(), "结束后无活动工具");
+}
+
+/// 场景：格式纠正续接不能保留上一段错误的用户拒绝说明。
+/// 数据构造：开始轮次、收到旧说明，再收到宿主纠正 Prompt 和新回复。
+/// 执行：经过 TaskActivity 的公开更新口；预期：只显示新回复，仍保持同轮活动。
+#[test]
+fn command_correction_replaces_stale_adapter_reply() {
+    let mut state = TaskActivity::default();
+    state.apply(1, TaskUpdate::Started { message_count: 0 });
+    state.apply(
+        1,
+        TaskUpdate::Update(TraceItem::new(TraceKind::Reply, "", "User rejected")),
+    );
+    state.apply(
+        1,
+        TaskUpdate::Update(TraceItem::new(
+            TraceKind::Prompt,
+            "",
+            "command format correction",
+        )),
+    );
+    state.apply(
+        1,
+        TaskUpdate::Update(TraceItem::new(TraceKind::Reply, "", "已纠正")),
+    );
+    assert_eq!(state.reply, "已纠正", "续接不能附带错误的用户拒绝说法");
+    assert!(state.active, "格式纠正仍属于当前轮次");
 }

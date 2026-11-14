@@ -8,12 +8,25 @@ use std::time::{Duration, Instant};
 /// 预期结果：无须先答第一题就能看到第二题；工具只收到decline而非答案，下一轮快照包含Dark。
 #[test]
 fn concurrent_acp_questions_publish_before_answers_and_resume_with_next_user_message() {
+    concurrent_questions(BackendKind::ClaudeCode, "claude", false);
+}
+
+/// 场景：OpenCode原生question的q0表单必须进入卡片，不能被当成未知请求拒绝。
+/// 数据构造：安装版OpenCode 2.1.3抓包，经真实stdio同时发送两张表单。
+/// 执行过程：启动OpenCode任务、回答第一题并跳过第二题，再进入下一轮。
+/// 预期结果：两卡及时发布；原工具只收到decline，答案在下一轮用户消息中出现。
+#[test]
+fn opencode_native_question_reaches_card_and_resumes_from_user_message() {
+    concurrent_questions(BackendKind::OpenCode, "opencode", false);
+}
+
+fn concurrent_questions(kind: BackendKind, provider: &str, pause: bool) {
     let root = tempfile::tempdir().expect("root");
     let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let log = root.path().join("replies.json");
     let mut config = BrainConfig::new(
         Backend {
-            kind: BackendKind::ClaudeCode,
+            kind,
             program: "python3".into(),
             args: vec![manifest
                 .join("tests/support/fake_staff_questions.py")
@@ -25,7 +38,15 @@ fn concurrent_acp_questions_publish_before_answers_and_resume_with_next_user_mes
         root.path().join("state"),
     );
     config.router.summary_every = None;
+    if pause {
+        config.prompt_timeout = Duration::from_millis(50);
+    }
     config.env = vec![
+        ("FAKE_QUESTION_FIRST".into(), provider.into()),
+        (
+            "FAKE_QUESTION_PAUSE".into(),
+            if pause { "1" } else { "0" }.into(),
+        ),
         (
             "CLAUDE_CONFIG_DIR".into(),
             root.path().display().to_string(),
@@ -132,4 +153,12 @@ fn concurrent_acp_questions_publish_before_answers_and_resume_with_next_user_mes
             .all(|r| r["result"] == serde_json::json!({"action":"decline"})),
         "工具响应只释放挂起"
     );
+}
+
+/// 场景：原轮临近截止时打开原生问题，等待期间收到更新不能消耗模型运行预算。
+/// 数据构造：50 ms 预算，20 ms 时首题到达，再等 80 ms 发第二题。
+/// 执行：真实 stdio 两题回答并续接；预期：等待用户的时间暂停计时，两题均正常持久化。
+#[test]
+fn pending_questions_pause_deadline_even_when_updates_arrive() {
+    concurrent_questions(BackendKind::OpenCode, "opencode", true);
 }

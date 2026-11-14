@@ -1,6 +1,7 @@
 //! 一个 ACP 会话：握手、创建会话、发 prompt，并处理期间的权限请求。
 
-use super::gate::{pick_option, Gate, PermissionRequest, Verdict};
+use super::gate::Gate;
+use super::permission::Permissions;
 use super::trace::{classify_update, Merger, TraceItem, TraceKind};
 use super::wire::{Connection, Incoming};
 use serde_json::{json, Value};
@@ -103,6 +104,11 @@ impl AcpSession {
         if let Some(meta) = &options.meta {
             params["_meta"] = meta.clone();
         }
+        if staff && options.kind == crate::backend::BackendKind::ClaudeCode {
+            if let Some(tools) = params["_meta"]["claudeCode"]["options"]["tools"].as_array_mut() {
+                tools.push(json!("AskUserQuestion"));
+            }
+        }
         let created = call(&mut conn, "session/new", params, deadline, cancel)?;
         let session_id = created["sessionId"]
             .as_str()
@@ -187,12 +193,13 @@ impl AcpSession {
         let mut merger = Merger::default();
         let mut stop_reason = None;
         let mut system_error = false;
+        let mut permissions = Permissions::default();
         let result = (|| {
             if cancel.load(Ordering::Relaxed) {
                 self.abort();
                 return Err(AcpError::Cancelled);
             }
-            let id = self
+            let mut id = self
             .conn
             .send_request(
                 "session/prompt",
@@ -228,6 +235,19 @@ impl AcpSession {
                     self.abort();
                     return Err(AcpError::Cancelled);
                 }
+                let received_at = Instant::now();
+                if self
+                    .questions
+                    .as_ref()
+                    .is_some_and(|questions| questions.waiting())
+                {
+                    deadline += received_at.duration_since(tick);
+                    tick = received_at;
+                }
+                if received_at >= deadline {
+                    self.abort();
+                    return Err(AcpError::Timeout);
+                }
                 match incoming {
                     Incoming::Response { id: rid, result } if rid == id => {
                         let stop = result
@@ -236,6 +256,40 @@ impl AcpSession {
                             .and_then(|value| value["stopReason"].as_str())
                             .unwrap_or("error");
                         stop_reason = Some(if system_error { "error" } else { stop }.to_owned());
+                        if !system_error && matches!(stop, "end_turn" | "cancelled") {
+                            if let Some(correction) = permissions.continuation() {
+                                if let Some(item) = merger.flush() {
+                                    sink(item);
+                                }
+                                let item = TraceItem::new(
+                                    TraceKind::Prompt,
+                                    "Command format correction",
+                                    correction.clone(),
+                                );
+                                progress(&item);
+                                sink(item);
+                                if cancel.load(Ordering::Relaxed) {
+                                    self.abort();
+                                    return Err(AcpError::Cancelled);
+                                }
+                                if Instant::now() >= deadline {
+                                    self.abort();
+                                    return Err(AcpError::Timeout);
+                                }
+                                reply.clear();
+                                id = self
+                                    .conn
+                                    .send_request(
+                                        "session/prompt",
+                                        json!({
+                                            "sessionId": self.session_id,
+                                            "prompt": [{"type":"text", "text":correction}]
+                                        }),
+                                    )
+                                    .map_err(|_| AcpError::Closed)?;
+                                continue;
+                            }
+                        }
                         if stop == "cancelled" {
                             return Err(AcpError::Cancelled);
                         }
@@ -254,7 +308,8 @@ impl AcpSession {
                         if update["sessionUpdate"] == "agent_message_chunk" {
                             reply.push_str(update["content"]["text"].as_str().unwrap_or_default());
                         }
-                        if let Some(item) = classify_update(update) {
+                        if let Some(mut item) = classify_update(update) {
+                            permissions.decorate(&mut item);
                             progress(&item);
                             for out in merger.push(item) {
                                 sink(out);
@@ -272,10 +327,17 @@ impl AcpSession {
                                 }
                             }
                         }
-                        self.answer(&id, &method, &params, gate, &mut |item| {
-                            progress(&item);
-                            sink(item);
-                        })?;
+                        permissions.answer(
+                            &mut self.conn,
+                            &id,
+                            &method,
+                            &params,
+                            gate,
+                            &mut |item| {
+                                progress(&item);
+                                sink(item);
+                            },
+                        )?;
                     }
                     _ => {}
                 }
@@ -287,81 +349,16 @@ impl AcpSession {
         if let Some(item) = merger.flush() {
             sink(item);
         }
-        let stop = stop_reason.as_deref().unwrap_or(match &result {
+        let stop = match &result {
             Err(AcpError::Cancelled) => "cancelled",
             Err(AcpError::Timeout) => "timeout",
-            _ => "error",
-        });
+            _ => stop_reason.as_deref().unwrap_or("error"),
+        };
         sink(TraceItem::turn_end(
             stop,
             started.elapsed().as_millis() as u64,
         ));
         result
-    }
-
-    fn answer(
-        &mut self,
-        id: &Value,
-        method: &str,
-        params: &Value,
-        gate: &Gate,
-        sink: &mut dyn FnMut(TraceItem),
-    ) -> Result<(), AcpError> {
-        let sent = if method == "session/request_permission" {
-            let request = PermissionRequest::from_params(params);
-            let verdict = gate.judge(&request);
-            let wanted = request
-                .command
-                .clone()
-                .or_else(|| request.path.clone())
-                // 解码失败仍保留请求原文；用于审计，绝不拿它重新做放行判定。
-                .or_else(|| {
-                    params["toolCall"]["rawInput"]
-                        .get("command")
-                        .map(Value::to_string)
-                })
-                .unwrap_or_default();
-            let (title, result) = match &verdict {
-                Verdict::Allow => ("权限请求：放行".to_string(), String::new()),
-                Verdict::Reject(reason) => {
-                    ("权限请求：拒绝".to_string(), format!("\n原因：{reason}"))
-                }
-            };
-            let mut item = TraceItem::new(
-                TraceKind::Permission,
-                title,
-                format!("{}：{wanted}{result}", request.tool),
-            );
-            item.tool =
-                params["toolCall"]["toolCallId"]
-                    .as_str()
-                    .map(|id| super::trace::ToolTrace {
-                        id: id.into(),
-                        name: Some(request.tool.clone()),
-                        input: Some(wanted.clone()),
-                        status: Some(
-                            if matches!(verdict, Verdict::Reject(_)) {
-                                "denied"
-                            } else {
-                                "in_progress"
-                            }
-                            .into(),
-                        ),
-                    });
-            sink(item);
-            if let Verdict::Reject(reason) = &verdict {
-                tracing::info!(session_id = %self.session_id, permission_id = %id,
-                    %reason, wanted = %wanted, "大脑的权限请求被拒绝");
-            }
-            let outcome = match pick_option(params, &verdict) {
-                Some(option_id) => json!({"outcome": "selected", "optionId": option_id}),
-                None => json!({"outcome": "cancelled"}),
-            };
-            self.conn.respond(id, json!({"outcome": outcome}))
-        } else {
-            self.conn.respond_error(id, -32601, "unsupported")
-        };
-        sent.map_err(|_| AcpError::Closed)
     }
 
     fn abort(&mut self) {

@@ -52,6 +52,9 @@ impl PermissionRequest {
         {
             tool = "Bash".into();
         }
+        if tool == "shell" && kind == "execute" && raw["command"].is_string() {
+            tool = "Bash".into();
+        }
         let path = raw["file_path"]
             .as_str()
             .or_else(|| raw["path"].as_str())
@@ -119,6 +122,19 @@ impl Gate {
             "Read" => self.judge_read(request.path.as_deref()),
             other => Verdict::Reject(format!("大脑不能使用 {other}")),
         }
+    }
+
+    /// Only an otherwise-authorized task sequence is recoverable. The original remains rejected.
+    pub(super) fn command_correction(&self, request: &PermissionRequest) -> Option<Vec<String>> {
+        self.task.as_ref()?;
+        if request.tool != "Bash" {
+            return None;
+        }
+        let commands = crate::risk::command_sequence(request.command.as_deref()?)?;
+        commands
+            .iter()
+            .all(|command| self.judge_command(Some(command)) == Verdict::Allow)
+            .then_some(commands)
     }
 
     fn judge_command(&self, command: Option<&str>) -> Verdict {

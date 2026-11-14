@@ -4,8 +4,8 @@ import E2EKit
 public enum StaffModule {
     public static let manifest = DesktopModule(
         name: "staff",
-        scenarioNames: [StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name],
-        visualScenarioNames: [StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name],
+        scenarioNames: [StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name, StaffProtocolRecovery.name, StaffProtocolRecovery.englishName],
+        visualScenarioNames: [StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name, StaffProtocolRecovery.name, StaffProtocolRecovery.englishName],
         run: { scenario, session in
             switch scenario {
             case StaffWorkflow.name: try await StaffWorkflow.run(session); return true
@@ -13,6 +13,8 @@ public enum StaffModule {
             case StaffWorkspaceStreaming.name: try await StaffWorkspaceStreaming.run(session); return true
             case StaffWorkspaceStreaming.englishName: try await StaffWorkspaceStreaming.run(session, english: true); return true
             case StaffOpenCodeDispatch.name: try await StaffOpenCodeDispatch.run(session); return true
+            case StaffProtocolRecovery.name: try await StaffProtocolRecovery.run(session); return true
+            case StaffProtocolRecovery.englishName: try await StaffProtocolRecovery.run(session, english: true); return true
             default: return false
             }
         }

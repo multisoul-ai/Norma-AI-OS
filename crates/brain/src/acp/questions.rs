@@ -118,7 +118,7 @@ impl QuestionHost {
     }
 }
 
-/// Recognize only adapter-native AskUserQuestion/request_user_input forms, not generic MCP forms.
+/// Recognize adapter-native AskUserQuestion/request_user_input/question forms, not generic MCP forms.
 fn parse_form(params: &Value) -> Option<Vec<QuestionItem>> {
     if params["mode"] != "form" || params["toolCallId"].as_str()?.is_empty() {
         return None;
@@ -127,17 +127,10 @@ fn parse_form(params: &Value) -> Option<Vec<QuestionItem>> {
     let mut fields: Vec<_> = properties
         .iter()
         .filter(|(key, value)| {
-            value["_meta"]["codex"]["isOther"].is_boolean()
-                || key
-                    .strip_prefix("question_")
-                    .is_some_and(|index| index.parse::<usize>().is_ok())
+            value["_meta"]["codex"]["isOther"].is_boolean() || native_index(key).is_some()
         })
         .collect();
-    fields.sort_by_key(|(key, _)| {
-        key.strip_prefix("question_")
-            .and_then(|index| index.parse::<usize>().ok())
-            .unwrap_or(0)
-    });
+    fields.sort_by_key(|(key, _)| native_index(key).unwrap_or(0));
     let count = fields.len();
     let items: Vec<_> = fields
         .into_iter()
@@ -176,7 +169,7 @@ fn parse_form(params: &Value) -> Option<Vec<QuestionItem>> {
                 .collect();
             let prompt = if codex {
                 field["title"].as_str()
-            } else if count == 1 {
+            } else if count == 1 && key.starts_with("question_") {
                 params["message"].as_str()
             } else {
                 field["description"]
@@ -198,6 +191,13 @@ fn parse_form(params: &Value) -> Option<Vec<QuestionItem>> {
         .collect();
     norma::protocol::validate_question_items(&items).ok()?;
     Some(items)
+}
+
+fn native_index(key: &str) -> Option<usize> {
+    key.strip_prefix("question_")
+        .or_else(|| key.strip_prefix('q'))?
+        .parse()
+        .ok()
 }
 
 #[cfg(test)]

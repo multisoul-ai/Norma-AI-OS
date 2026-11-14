@@ -40,6 +40,8 @@ pub struct ToolTrace {
     pub name: Option<String>,
     pub input: Option<String>,
     pub status: Option<String>,
+    /// Host-owned failure; translated at the display boundary, independent of adapter wording.
+    pub command_format_error: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -179,6 +181,7 @@ pub fn classify_update(update: &Value) -> Option<TraceItem> {
     };
     if matches!(item.kind, TraceKind::ToolCall | TraceKind::ToolResult) {
         item.tool = update["toolCallId"].as_str().map(|id| ToolTrace {
+            command_format_error: false,
             id: id.into(),
             name: update["title"].as_str().map(str::to_owned),
             input: update

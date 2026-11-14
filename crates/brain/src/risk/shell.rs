@@ -23,6 +23,43 @@ pub(super) fn parse(command: &str) -> Option<Vec<String>> {
     (!argv.is_empty()).then_some(argv)
 }
 
+/// Diagnose a literal sequence only. This never authorizes or executes its parts.
+pub(crate) fn sequence(command: &str) -> Option<Vec<String>> {
+    if command.contains(['\0', '\r', '\n']) {
+        return None;
+    }
+    let chars: Vec<char> = command.chars().collect();
+    let (mut i, mut start) = (0, 0);
+    let mut commands = Vec::new();
+    while i < chars.len() {
+        match chars[i] {
+            ' ' | '\t' => i += 1,
+            ';' | '&' => {
+                let width = if chars[i] == ';' {
+                    1
+                } else if chars.get(i + 1) == Some(&'&') {
+                    2
+                } else {
+                    return None;
+                };
+                let part: String = chars[start..i].iter().collect();
+                parse(&part)?;
+                commands.push(part.trim().to_owned());
+                i += width;
+                start = i;
+            }
+            '|' | '<' | '>' | '(' | ')' | '#' => return None,
+            _ => {
+                read_word(&chars, &mut i)?;
+            }
+        }
+    }
+    let part: String = chars[start..].iter().collect();
+    parse(&part)?;
+    commands.push(part.trim().to_owned());
+    (commands.len() > 1 && commands.len() <= 8).then_some(commands)
+}
+
 /// 读一个 shell 词；未加引号遇到空白或运算符时结束。
 fn read_word(chars: &[char], i: &mut usize) -> Option<String> {
     let mut word = String::new();
