@@ -13,22 +13,27 @@ enum StaffMessageCards {
         try await session.visualClick("点击 Enable optional analytics? 问题卡的跳过/Skip按钮")
         try await waitFor("第二张问题已跳过") { try questions(root).contains { $0["state"] as? String == "Skipped" } }
         try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: 3000)
-        for point in [CGPoint(x: 365, y: 457), CGPoint(x: 365, y: 624), CGPoint(x: 365, y: 680)] {
+        for point in [CGPoint(x: 365, y: 457), CGPoint(x: 365, y: 624)] {
             try await session.click(local: point, on: try await session.capturePixels())
         }
         let choices = try await session.capturePixels()
         try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -300)
-        try await session.visualClick("点击 Private build label 题的密码输入框")
+        // 顶部视图里 Accessibility 行落在输入框叠加层下面，下移 300px 后它与密码框都在可见区域。
+        try await session.click(local: CGPoint(x: 365, y: 381), on: try await session.capturePixels())
+        // 题卡许可只有 120 秒；密码框是整行等宽输入框，位置由固定字段顺序决定，这里用原始点击省掉一次模型往返。
+        // 跳过按钮的横坐标随语言变化，仍按当前画面定位。
+        try await session.click(local: CGPoint(x: 595, y: 520), on: try await session.capturePixels())
         try await session.type("e2e-private-label")
         let form = try await session.capturePixels()
-        try await session.visualClick("点击第一张包含主题和检查项问答卡的提交回答/Submit answers按钮")
+        // 提交按钮是该行第一个按钮，左对齐、位置由字段高度决定；用原始点击把作答压在题卡 120 秒许可内。
+        try await session.click(local: CGPoint(x: 388, y: 572), on: try await session.capturePixels())
         try await waitFor("已回答和跳过状态") {
             let rows = try questions(root)
             return rows.contains { $0["state"] as? String == "Answered" } && rows.contains { $0["state"] as? String == "Skipped" }
         }
         try session.save(try await session.visualSnapshotCheck(pending, [VisualCriterion(id: "pending", text: "中央有待回答的问题卡，末张题目Enable optional analytics?有Yes/No和Skip/跳过；左侧任务显示需要你/Needs you及2题待答计数。")]), "cards-00-pending.png")
-        _ = try await session.visualSnapshotCheck(choices, [VisualCriterion(id: "choices", text: "主题Dark单选选中，Keyboard shortcuts与Accessibility两个方框同时打勾；控件与题目不重叠。")])
-        try session.save(try await session.visualSnapshotCheck(form, [VisualCriterion(id: "form", text: "Private build label输入为掩码而非明文，提交回答/Submit answers可用；多选的Keyboard shortcuts和Accessibility保持选中，控件不重叠。")]), "cards-01-answers.png")
+        _ = try await session.visualSnapshotCheck(choices, [VisualCriterion(id: "choices", text: "顶部视图下主题Dark单选选中、Keyboard shortcuts已打勾；Accessibility与两个自定义回答未选中，各控件与题目文字不重叠、不被裁切。")])
+        try session.save(try await session.visualSnapshotCheck(form, [VisualCriterion(id: "form", text: "下移后的完整表单里主题Dark选中，Keyboard shortcuts与Accessibility两个方框同时打勾；Private build label 显示为掩码圆点而非明文，提交回答/Submit answers 可用；控件与题目不重叠。")]), "cards-01-answers.png")
         let snapshot = try JSONSerialization.data(withJSONObject: StaffFixture.tasks(root))
         guard !String(decoding: snapshot, as: UTF8.self).contains("e2e-private-label") else { throw E2EError.product("密码泄漏到任务对话快照") }
         guard try StaffFixture.records(root,"question-replies.jsonl").count == 1 else { throw E2EError.product("并发原工具没有恰好释放一次") }
@@ -57,11 +62,16 @@ enum StaffMessageCards {
         try await waitFor("Worker原生提问镜像") { try questions(root).contains { $0["worker"] is [String: Any] && $0["state"] as? String == "Pending" } }
         try await session.scroll(xFraction: 0.48,yFraction: 0.55,deltaY: -3000)
         try await session.scroll(xFraction: 0.48,yFraction: 0.55,deltaY: 220)
-        _ = try await session.visualCheck([VisualCriterion(id: "worker-question", text: "中央对话出现Worker的问题/Worker question卡，题目Record acceptance notes?，有Yes/No选项和提交按钮。")])
-        try await session.visualClick("点击Record acceptance notes?题中的Yes选项")
-        try await session.visualClick("点击Worker问题卡的提交回答/Submit answers按钮")
+        // 原 Hook 只等 140 秒：先把这一帧留作稍后看图，勾选与提交用原始点击立刻完成，不让模型往返吃掉等待窗口。
+        let questionFrame = try await session.capturePixels()
+        try await session.click(local: CGPoint(x: 600, y: 405), on: try await session.capturePixels())
+        try await session.click(local: CGPoint(x: 390, y: 587), on: try await session.capturePixels())
         try await waitFor("原Hook恰好收到一条回答") { try StaffFixture.records(root,"worker-question-replies.jsonl").count == 1 }
         try await waitFor("镜像已回答终态") { try questions(root).contains { $0["worker"] is [String: Any] && $0["state"] as? String == "Answered" } }
+        _ = try await session.visualSnapshotCheck(questionFrame, [
+            VisualCriterion(id: "worker-question", text: "中央对话出现Worker的问题/Worker question卡，题目Record acceptance notes?，有Yes（Include notes in the result）/No（Only the artifact）选项和提交回答/Submit answers按钮。"),
+            VisualCriterion(id: "worker-needs-you-pet", text: "标题下 Worker 卡条中的 Worker 胶囊处于需要你/Needs you 状态（橙色圆点与橙色状态文字），胶囊最左侧是带眼睛与表情的彩色宠物头像，不是字母缩写圆或纯色圆点；胶囊内同时有真实 Agent 名称与引擎名。")
+        ])
     }
 
     private static func questions(_ root: URL) throws -> [[String: Any]] {

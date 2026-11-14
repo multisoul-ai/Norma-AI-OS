@@ -66,7 +66,14 @@ public enum StaffWorkflow {
             _ = try await session.visualCheck([VisualCriterion(id: "multiline", text: "中央输入框保留两行尚未发送的文字：STAFF-M1 请生成验收文件和保留这一行补充要求；仍是新任务空态，Shift+Enter 只换行、没有发出任务；输入区有圆形上箭头和 Enter 发送、Shift + Enter 换行提示。")])
             guard try StaffFixture.tasks(root).isEmpty else { throw E2EError.product("Shift+Enter 意外发送了任务") }
             try await session.shortcut(key: 36, modifiers: [])
+            // 提示词已到适配器说明本轮已开始；此状态下还没有任何工具步骤，用于核对无步骤活动行。
+            // 问题卡必须在题卡超时前答完，所以这里只捕获原始帧，看图放到答完之后（snapshot 只证明该帧）。
+            try await waitFor("Norma 已开始本轮") { try StaffFixture.records(root, "prompts.jsonl").count == 1 }
+            try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -3000)
+            try await Task.sleep(nanoseconds: 1_500_000_000)
+            let activityFrame = try await session.capturePixels()
             try await StaffMessageCards.answer(session, root: root)
+            try session.save(try await session.visualSnapshotCheck(activityFrame, [VisualCriterion(id: "activity-waiting", text: "对话底部的 Norma 活动区为两行：第一行是 Norma 品牌图标、名字 Norma 与次要色「协调」/Coordinating；第二行只有状态图标（转圈或圆点）与一句状态文字（正在思考…/Thinking… 或 已收到，等待处理…/Received · Waiting to start…），不出现 0 步、用时 0.0 秒 或 · 0 steps、· 0.0s 这类步数与用时后缀；活动区与上方问题卡、下方输入框互不压叠。")]), "02-activity.png")
             try await waitFor("提议保存") { try first(root)["proposals"] as? [[String: Any]] != nil && !(try first(root)["proposals"] as? [[String: Any]] ?? []).isEmpty }
             // 对话为滚动视口，先核对首条原话，再回到底部核对完整提议；不要求整段历史同屏。
             try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: 3000)
@@ -77,7 +84,10 @@ public enum StaffWorkflow {
                 VisualCriterion(id: "layout", text: "Norma 有独立头像与名字；提议为无描边的填充圆角卡片（20px圆角），含标题、理由、内嵌的任务内容面板、Agent芯片，以及36px胶囊形采用/编辑按钮。任务标题下没有阶段下拉；输入区为圆角多行框与圆形发送键。任务标题、提议和输入框没有重叠或横向裁切，右侧文件抽屉仍在。")
             ]), "02-proposal.png")
             try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: 220)
-            try session.save(try await session.visualCheck([VisualCriterion(id: "markdown", text: "Norma正文的STAFF PLAN为粗体，采用后开始与产物为两条列表且正文清晰可见，STAFF-RESULT.md显示为行内代码；不能直接显示双星号和反引号标记。")]), "02-markdown.png")
+            try session.save(try await session.visualCheck([
+                VisualCriterion(id: "markdown", text: "Norma正文的STAFF PLAN为粗体，采用后开始与产物为两条列表且正文清晰可见，STAFF-RESULT.md显示为行内代码；不能直接显示双星号和反引号标记。"),
+                VisualCriterion(id: "spacing", text: "Norma 长回复正文（粗体标题与两条列表）的最后一行与紧邻其下的组件（提议卡或下一条消息）之间留着一条清晰的空白间隙，约等于一行正文高度（设计值 24px）；最后一行文字完整可见，不下沉、不贴住、不压在下一条消息或卡片上，也不被裁切。")
+            ]), "02-markdown.png")
             try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -3000)
             let rows = try first(root)["messages"] as? [[String: Any]] ?? []
             let userText = rows.compactMap { ($0["User"] as? [String: Any])?["text"] as? String }.first
@@ -120,12 +130,16 @@ public enum StaffWorkflow {
                   (received[0]["task"] as? String ?? "").contains("STAFF-M1-WORK") else {
                 throw E2EError.product("新卡身份/dispatch/恰好一次输入不符合：\(workers), \(received), \(starts)")
             }
-            // 从最新结果向上滚动一个提议卡的高度，检查已采用的禁用按钮，再回到结果。
+            // 从最新结果向上滚动一个提议卡的高度，检查已派发的历史提议，再回到结果。
             try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: 250)
-            _ = try await session.visualCheck([VisualCriterion(id: "dispatched", text: "历史提议中的采用按钮已变成 已派发/Dispatched 禁用状态，不能再次派活；Worker卡条显示结果状态。")])
+            try session.save(try await session.visualCheck([
+                VisualCriterion(id: "dispatched", text: "已派发的历史提议折叠成单行精简卡：最左是彩色宠物头像（带眼睛的圆润造型），接着任务名「实现验收文件」，右侧是「智能体名 · 引擎名」与绿色「✓ 已派发」/Dispatched；整卡只有一行内容，不显示原话、理由/假设、任务内容面板、智能体芯片、模型下拉，也没有采用、忽略、修改后发送按钮。"),
+                VisualCriterion(id: "worker-pet", text: "标题下方 Worker 卡条里，Worker 胶囊最左侧是彩色宠物头像（带眼睛与表情的圆润造型），不是字母缩写圆或纯色圆点；胶囊内同时显示真实 Agent 名称、引擎名与结果状态。")
+            ]), "03-dispatched.png")
             try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -3000)
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "result", text: "任务处于待验收/In review，中央有 Worker 结果 STAFF RESULT 与 Norma 的 STAFF REVIEW 回复；标题下有独立 Worker 卡条，Worker为36px的色调胶囊，显示真实 Agent 名称与结果状态。消息区在 Worker 卡条下方；若消息在上方，允许滚动查看后重试。")
+                VisualCriterion(id: "result", text: "任务处于待验收/In review，中央有 Worker 结果 STAFF RESULT 与 Norma 的 STAFF REVIEW 回复；标题下有独立 Worker 卡条，Worker为36px的色调胶囊，显示真实 Agent 名称与结果状态。消息区在 Worker 卡条下方；若消息在上方，允许滚动查看后重试。"),
+                VisualCriterion(id: "worker-result-pet", text: "Worker 结果卡（含 STAFF RESULT 的卡片）头部最左侧是彩色宠物头像（与 Worker 卡条同款圆润造型、可见眼睛与表情），其后才是 Agent 名称与绿色的已返回结果/Result received；不是字母缩写圆或纯色圆点。")
             ]), "04-result.png")
             return "同名 Agent 新卡；dispatch 精确匹配；恰好一次送达；自动推进待验收"
         }
