@@ -14,6 +14,7 @@ fn staff_dispatched_proposal_is_compact() {
     let mut task = Task::new("t", "w", "p", "派活");
     task.proposals.push(StaffProposal {
         id: 1,
+        round: 0,
         agent: "Ethan".into(),
         title: "派活可选类型和模型".into(),
         prompt: "用户原话：很长的原话。".repeat(20),

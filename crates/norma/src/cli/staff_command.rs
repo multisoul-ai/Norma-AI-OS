@@ -15,11 +15,6 @@ enum StaffCommand {
         title: String,
     },
     List,
-    Message {
-        task_id: String,
-        #[arg(long, value_parser = non_blank_task)]
-        text: String,
-    },
     Reply {
         task_id: String,
         #[arg(long, value_parser = non_blank_task)]
@@ -54,7 +49,6 @@ impl StaffArgs {
         match self.command {
             StaffCommand::Create { title } => StaffOp::Create { title },
             StaffCommand::List => StaffOp::List,
-            StaffCommand::Message { task_id, text } => StaffOp::Message { task_id, text },
             StaffCommand::Reply { task_id, text } => StaffOp::Reply { task_id, text },
             StaffCommand::Propose {
                 task_id,

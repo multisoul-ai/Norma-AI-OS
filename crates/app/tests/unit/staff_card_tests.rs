@@ -103,6 +103,7 @@ fn staff_ignored_proposal_collapses_and_only_latest_can_restore() {
             prompt: "Read project".into(),
             why: "Needed".into(),
             model: None,
+            round: 0,
             approved: false,
             ignored: true,
             dispatch_id: None,

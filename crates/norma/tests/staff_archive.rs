@@ -28,6 +28,7 @@ fn needs_you(id: &str) -> Task {
         ignored: false,
         dispatch_id: None,
         model: None,
+        round: 0,
     });
     let mut worker = Worker::new("Mia", "Claude", "Review", 4, "d-need");
     worker.needs_input = true;

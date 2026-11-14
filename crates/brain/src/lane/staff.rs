@@ -7,7 +7,8 @@ pub(super) fn load(
     scope: &BrainScope,
     id: Option<&str>,
 ) -> io::Result<Option<Task>> {
-    id.map(|id| store.get(&scope.workspace_id, id)).transpose()
+    id.map(|id| store.begin_round(&scope.workspace_id, id))
+        .transpose()
 }
 
 pub(super) fn prompt(task: &Task, scope: &BrainScope, bin: &Path) -> String {
@@ -27,7 +28,7 @@ pub(super) fn prompt(task: &Task, scope: &BrainScope, bin: &Path) -> String {
 - 不能假设（目标、对象或验收标准完全不知道）：先问，一次只问 1–2 个最关键的问题，不列问卷。
 - 请求很具体：直接提议，不要多问。
 提议里只写用户说过的要求；你补的内容必须和用户的原话分开标注，因为 Worker 会把提议当作完整指令，写错的假设会白白浪费一轮执行。
-这个任务已有一条待用户采用的提议时，不要再提新的；用户想改，就说明改了什么并重新提议一条替代它。
+同一轮里可以并行提多条提议（交给不同 Agent）。每一轮提出的提议合起来就是当前完整方案，会替换之前还没被采用的提议；想保留的旧提议要在这一轮原样再提一遍。方案没有变化就不要提。
 
 提问使用原生提问工具 question / AskUserQuestion / request_user_input，宿主会将问题显示为卡片。并发问题全部按到达顺序显示。
 用户答案保存为下一轮用户消息，不回传当前工具；当前工具被 decline、跳过或 125 秒超时后按合理默认假设继续，说明假设，不重复追问。
@@ -77,6 +78,8 @@ pub(super) fn save_reply(
         {
             insert_reply(task, before.messages.len(), reply);
         }
+        // 只有正常结束的轮次才整批替换；中断或出错时保留旧方案。
+        task.supersede_stale_proposals();
         task.updated_at = norma::protocol::timestamp();
         Ok(())
     })
@@ -104,7 +107,7 @@ mod tests {
             route_id: "r".into(),
         };
         let text = prompt(&task, &scope, Path::new("/bin/norma"));
-        assert!(text.contains("待你确认") && text.contains("已有一条待用户采用的提议"));
+        assert!(text.contains("待你确认") && text.contains("当前完整方案"));
         assert!(text.contains("NeedsAttention") && text.contains("不能直接 assign"));
         assert!(!text.contains("history"), "history 不进幕僚提示词");
     }
