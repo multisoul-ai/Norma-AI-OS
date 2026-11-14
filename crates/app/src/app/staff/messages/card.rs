@@ -1,3 +1,4 @@
+mod dispatched_proposal;
 mod ignored_proposal;
 pub(super) mod needs_attention;
 pub(super) mod proposal;

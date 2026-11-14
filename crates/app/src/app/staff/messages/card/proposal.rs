@@ -25,6 +25,9 @@ impl MessageBlock for Proposal<'_> {
                 if proposal.ignored {
                     return super::ignored_proposal::render(ctx, proposal, cx);
                 }
+                if proposal.dispatch_id.is_some() {
+                    return super::dispatched_proposal::render(ctx, proposal);
+                }
                 let id = task.id.clone();
                 let ignore_id = id.clone();
                 let proposal_id = *proposal_id;

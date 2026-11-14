@@ -2,12 +2,12 @@ use super::layout_tests::MessageListHost;
 use super::*;
 use gpui::{px, size, AppContext, TestAppContext};
 
-/// 场景：已派发的长提议卡，卡片背景必须包住「已派发」按钮。
+/// 场景：已派发的提议只保留任务名与智能体卡片名的单行卡片（不再有原话、假设、按钮）。
 /// 数据构造：900x700 窗口；含长原话的提议，已有 dispatch_id。
-/// 执行过程：渲染生产消息列表一帧，读取卡片与按钮 bounds。
-/// 预期结果：按钮底部不低于卡片底部。
+/// 执行过程：渲染生产消息列表一帧，读取卡片 bounds 与采用按钮。
+/// 预期结果：卡片存在且为单行高度（<72），没有“采用并派发”按钮。
 #[test]
-fn staff_dispatched_proposal_card_contains_its_button() {
+fn staff_dispatched_proposal_is_compact() {
     use norma::protocol::{StaffProposal, TaskMessage};
     let dir = tempfile::tempdir().expect("isolated project");
     let paths = storage::DatabasePaths::isolated_test(dir.path());
@@ -16,7 +16,7 @@ fn staff_dispatched_proposal_card_contains_its_button() {
         id: 1,
         agent: "Ethan".into(),
         title: "派活可选类型和模型".into(),
-        prompt: "用户原话：我发现幕僚指派的 Work 无法选择智能体类型。请在当前项目源码里让幕僚指派 Work 时可以同时选择智能体类型和模型，并让指派结果真正用上这两个选择。验收：派活界面能选类型和模型。待你确认（幕僚假设，不是用户原话）：只改幕僚指派这条路径，不改无关流程。".into(),
+        prompt: "用户原话：很长的原话。".repeat(20),
         why: "幕僚指派目前选不了".into(),
         model: None,
         approved: true,
@@ -24,10 +24,6 @@ fn staff_dispatched_proposal_card_contains_its_button() {
         dispatch_id: Some("d1".into()),
     });
     task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
-    task.messages.push(TaskMessage::WorkerStarted {
-        proposal_id: 1,
-        dispatch_id: "d1".into(),
-    });
     let mut test = TestAppContext::single();
     let (_, cx) = test.add_window_view(|_, cx| {
         let app = cx.new(|cx| {
@@ -39,19 +35,17 @@ fn staff_dispatched_proposal_card_contains_its_button() {
         });
         MessageListHost { app, task }
     });
-    for width in [420., 560., 700., 900.] {
-        cx.simulate_resize(size(px(width), px(700.)));
-        cx.run_until_parked();
-        cx.update(|window, cx| window.draw(cx).clear());
-        let card = cx
-            .debug_bounds("staff-proposal-card-1")
-            .expect("proposal card");
-        let button = cx.debug_bounds("staff-adopt-1").expect("adopt button");
-        assert!(
-            button.bottom() <= card.bottom() + px(0.5),
-            "宽度 {width} 按钮溢出卡片：{button:?} / {card:?}"
-        );
-    }
+    cx.simulate_resize(size(px(900.), px(700.)));
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+    let card = cx
+        .debug_bounds("staff-proposal-card-1")
+        .expect("proposal card");
+    assert!(card.size.height < px(72.), "应为单行卡片：{card:?}");
+    assert!(
+        cx.debug_bounds("staff-adopt-1").is_none(),
+        "已派发不应再有采用按钮"
+    );
 }
 
 /// 场景：Norma 长回复（截图中第四行压住下一张卡/输入框）。

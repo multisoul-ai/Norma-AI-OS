@@ -43,7 +43,11 @@ impl MessageBlock for Prose<'_> {
                         window,
                         cx,
                     )
-                    .selectable(true),
+                    .selectable(true)
+                    // TextView defaults to `size_full()`; a percentage height inside the auto-height message
+                    // stack must not decide how much room the wrapped text gets, or the next block rides up.
+                    .h_auto()
+                    .flex_none(),
                 );
         }
         row.into_any_element()
