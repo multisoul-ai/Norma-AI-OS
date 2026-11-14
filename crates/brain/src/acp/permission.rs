@@ -87,13 +87,15 @@ impl Permissions {
             title,
             format!("{}：{wanted}{detail}", request.tool),
         );
-        item.tool = call_id.map(|id| ToolTrace {
-            id: id.into(),
-            name: Some(request.tool.clone()),
-            input: Some(wanted.clone()),
-            description: None,
-            status: Some(status.into()),
-            command_format_error: correction.is_some(),
+        item.tool = call_id.map(|id| {
+            Box::new(ToolTrace {
+                id: id.into(),
+                name: Some(request.tool.clone()),
+                input: Some(wanted.clone()),
+                description: None,
+                status: Some(status.into()),
+                command_format_error: correction.is_some(),
+            })
         });
         sink(item);
         if let Verdict::Reject(reason) = &verdict {
