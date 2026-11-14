@@ -72,9 +72,9 @@ fn manual_phase_survives_reload_and_message_reopens_done() {
 ///
 /// 数据构造：同名 Simon 在 ws-a/node21 和 ws-b/node22，各有一个 dispatch；超时不参与。
 /// 执行过程：1. 中断 A。2. 重复中断 A。3. B 失败。4. 从磁盘重载检查原消息。
-/// 预期结果：中断有终态但 wake=false；重复 Ignored；失败 wake=true；两个任务各仅一条消息。
+/// 预期结果：中断有终态且 wake=true；重复 Ignored；失败 wake=true；两个任务各仅一条消息。
 #[test]
-fn events_are_durable_scoped_and_interrupted_is_quiet() {
+fn events_are_durable_scoped_and_interrupted_wakes() {
     let dir = tempfile::tempdir().expect("store root");
     let store = TaskStore::new(dir.path().to_owned());
     let mut a = Task::new("a", "ws-a", "project", "A");
@@ -99,9 +99,9 @@ fn events_are_durable_scoped_and_interrupted_is_quiet() {
             .expect("record interruption"),
         TaskEventResult::Recorded {
             task_id: "a".into(),
-            wake: false
+            wake: true
         },
-        "interruption must persist without waking task"
+        "interruption must persist and wake the task"
     );
     assert_eq!(
         store.record_event("ws-a", &interrupted).expect("duplicate"),
@@ -152,7 +152,7 @@ fn events_are_durable_scoped_and_interrupted_is_quiet() {
 ///
 /// 数据构造：任务 A/B 各一 Worker，名字同为 Simon，node 分别 11/12，dispatch 分别 d-a/d-b。
 /// 执行过程：1. 向 A 交付 B 的节点和旧编号。2. 交付 A 真结果并重复。3. B 交付无可信结果。
-/// 预期结果：错误归属不写消息；成功只写一次并自动 Merging；B 保持 Active 且需要你。
+/// 预期结果：未送达是等待而不是执行中；错误归属不写消息；成功只写一次并自动 Merging；B 保持 Active 且需要你。
 #[test]
 fn result_identity_deduplication_and_missing_result_are_explicit() {
     let mut a = Task::new("a", "ws-a", "project", "A");
@@ -163,8 +163,19 @@ fn result_identity_deduplication_and_missing_result_are_explicit() {
         .push(Worker::new("Simon", "Codex", "Check", 12, "d-b"));
     assert_eq!(
         a.display_status(),
+        TaskDisplayStatus::Waiting,
+        "an undelivered Worker is not running yet"
+    );
+    assert_eq!(
+        a.workers[0].chip(),
+        norma::protocol::WorkerChip::Starting,
+        "the card is still starting until UserPromptSubmit"
+    );
+    a.workers[0].prompt_delivered = true;
+    assert_eq!(
+        a.display_status(),
         TaskDisplayStatus::Running,
-        "pending Worker must be running"
+        "delivery confirmation is what makes the Worker running"
     );
     assert!(
         !a.finish_worker(12, "d-a", WorkerOutcome::Succeeded, "wrong node"),
@@ -254,8 +265,9 @@ fn waiting_for_user_is_task_attention_without_settling_worker() {
     let dir = tempfile::tempdir().expect("root");
     let store = TaskStore::new(dir.path().into());
     let mut task = Task::new("waiting", "ws", "p", "Approve");
-    task.workers
-        .push(Worker::new("Alan", "Claude", "Build", 30, "current"));
+    let mut worker = Worker::new("Alan", "Claude", "Build", 30, "current");
+    worker.prompt_delivered = true;
+    task.workers.push(worker);
     store.create(task).expect("create");
     let attention = |dispatch: &str, waiting| BrainEventKind::WorkerAttention {
         node_id: 30,
@@ -318,5 +330,31 @@ fn waiting_for_user_is_task_attention_without_settling_worker() {
         task.phase,
         TaskPhase::Done,
         "approval is not task completion"
+    );
+}
+
+/// 预期结果：不含关键词的普通成功也会唤醒幕僚（triage 只管播报，不管唤醒）。
+#[test]
+fn plain_success_wakes_the_task() {
+    let dir = tempfile::tempdir().expect("store root");
+    let store = TaskStore::new(dir.path().to_owned());
+    let mut task = Task::new("a", "ws-a", "project", "A");
+    task.workers
+        .push(Worker::new("Simon", "Codex", "Build", 21, "d-a"));
+    store.create(task).expect("save");
+    let done = BrainEventKind::AgentFinished {
+        node_id: 21,
+        dispatch_id: Some("d-a".into()),
+        agent: "Simon".into(),
+        outcome: Outcome::Succeeded,
+        excerpt: "已完成".into(),
+        from_result: true,
+    };
+    assert_eq!(
+        store.record_event("ws-a", &done).expect("record"),
+        TaskEventResult::Recorded {
+            task_id: "a".into(),
+            wake: true
+        },
     );
 }

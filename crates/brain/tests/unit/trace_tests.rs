@@ -167,3 +167,25 @@ fn different_unknown_updates_are_not_collapsed() {
     assert_eq!(out[0].title, "usage_update");
     assert_eq!(merger.flush().unwrap().title, "available_commands_update");
 }
+
+/// 场景：工具更新不带名称时仍能与最初调用配对。
+/// 数据构造：相同toolCallId的call/result，result带完成状态；执行分类；预期保留ID和结构化终态，不捏造名称。
+#[test]
+fn tool_metadata_preserves_identity_without_guessing_from_title() {
+    let call = item(
+        json!({"sessionUpdate":"tool_call","toolCallId":"tool-a","title":"Read","rawInput":{"path":"README.md"}}),
+    );
+    let result = item(
+        json!({"sessionUpdate":"tool_call_update","toolCallId":"tool-a","status":"completed","rawOutput":"done"}),
+    );
+    let call = call.tool.expect("call metadata");
+    let result = result.tool.expect("result metadata");
+    assert_eq!(call.id, result.id, "ID必须贯通整个调用");
+    assert_eq!(call.name.as_deref(), Some("Read"), "调用名称独立保存");
+    assert_eq!(result.name, None, "结果缺少名称时不得以ID覆盖原名称");
+    assert_eq!(
+        result.status.as_deref(),
+        Some("completed"),
+        "终态不依赖展示文本解析"
+    );
+}

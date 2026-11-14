@@ -6,7 +6,7 @@ use norma::protocol::{Task, Worker};
 ///
 /// 数据构造：任务 a 含 node=7/dispatch=d，一条成功结果；用同名目录模拟原子替换失败。
 /// 执行过程：保存初态 → 备份快照并以目录占位 → 投递结果失败 → 恢复文件 → 重投同一结果。
-/// 预期结果：失败时内存无结果且备份不变；恢复后结果只写一次，重复为 Ignored。
+/// 预期结果：失败时内存无结果且备份不变；恢复后结果只写一次并唤醒幕僚验收，重复为 Ignored。
 #[test]
 fn failed_atomic_save_does_not_publish_or_consume_result() {
     let dir = tempfile::tempdir().expect("root");
@@ -46,9 +46,9 @@ fn failed_atomic_save_does_not_publish_or_consume_result() {
         store.record_event("ws", &event).expect("retry"),
         TaskEventResult::Recorded {
             task_id: "a".into(),
-            wake: false
+            wake: true
         },
-        "same event must be accepted after storage recovery"
+        "same event must be accepted after storage recovery and wake staff to review the result"
     );
     assert_eq!(
         store.record_event("ws", &event).expect("repeat"),

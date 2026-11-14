@@ -1,4 +1,6 @@
 use super::*;
+use crate::NodeRunState;
+use std::time::Instant;
 
 impl Runtime {
     /// Reserve a fresh card; persistence must succeed before the caller starts its terminal.
@@ -30,5 +32,18 @@ impl Runtime {
                     }),
                 }
             })
+    }
+
+    pub fn last_output_at(&self, node: NodeId) -> Option<Instant> {
+        self.live.get(&node).and_then(|live| live.last_output_at())
+    }
+
+    pub fn terminal_has_exited(&self, node: NodeId) -> bool {
+        matches!(
+            self.node_run_state(node),
+            Some(
+                NodeRunState::Finished { .. } | NodeRunState::Error { .. } | NodeRunState::Stopped
+            )
+        )
     }
 }

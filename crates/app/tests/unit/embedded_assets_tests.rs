@@ -1,5 +1,34 @@
 use super::*;
 
+/// 场景：600px幕僚窗口只能通过菜单图标重新打开任务列表。
+/// 数据构造：生产IconName::Menu引用icons/menu.svg，缺失资源为icons/menu-missing.svg。
+/// 执行过程：调用生产AssetSource加载并枚举菜单图标，再查询缺失路径。
+/// 预期结果：菜单为非空SVG且可枚举；缺失路径仍返回None，不能留下不可见按钮。
+#[test]
+fn staff_compact_task_menu_icon_is_embedded() {
+    let assets = EmbeddedAssets;
+    let bytes = assets.load("icons/menu.svg").expect("资源查找不能出错");
+    assert!(
+        bytes.is_some_and(|bytes| bytes.starts_with(b"<svg")),
+        "任务列表入口必须有实际SVG图标"
+    );
+    assert!(
+        assets
+            .list("icons")
+            .expect("可枚举图标")
+            .iter()
+            .any(|name| name.as_ref() == "menu.svg"),
+        "菜单图标必须可枚举"
+    );
+    assert!(
+        assets
+            .load("icons/menu-missing.svg")
+            .expect("缺失资源查询")
+            .is_none(),
+        "未知图标不得误命中菜单"
+    );
+}
+
 /// 旧版内置壁纸只由 bundle Resources 分发，不应重复嵌入主二进制。
 ///
 /// 数据构造（含关键数值的推导过程）：

@@ -1,6 +1,34 @@
 use super::{Gate, PermissionRequest, Verdict};
 use serde_json::json;
 
+/// 场景：OpenCode 2.1.3 抓包使用 shell/execute，单条命令仍须进入同一闸门。
+/// 数据构造：真实请求字段，仅变化 name/kind；执行：ACP 解码后判断；预期：精确别名可用，未知与编辑拒绝。
+#[test]
+fn opencode_shell_alias_still_checks_the_full_command() {
+    let gate = Gate::for_project("/opt/norma".into(), "/work".into());
+    for (name, kind, expected) in [
+        ("shell", "execute", true),
+        ("shell", "edit", false),
+        ("other", "execute", false),
+    ] {
+        let params = json!({"toolCall":{"name":name,"kind":kind,"rawInput":{"command":"/opt/norma brain agents"}}});
+        assert_eq!(
+            gate.judge(&PermissionRequest::from_params(&params)) == Verdict::Allow,
+            expected,
+            "只有真实 shell/execute 别名可经完整命令校验"
+        );
+    }
+    let params =
+        json!({"toolCall":{"name":"shell","kind":"execute","rawInput":{"command":"true"}}});
+    assert!(
+        matches!(
+            gate.judge(&PermissionRequest::from_params(&params)),
+            Verdict::Reject(_)
+        ),
+        "shell 别名不能绕过可执行文件白名单"
+    );
+}
+
 /// 场景：真实 Codex unifiedExecStartup 权限请求携带 exec_command 工具名。
 /// 数据构造：同一受控 shell envelope，仅替换工具名及 kind。
 /// 执行过程：经过公开 ACP 解码与 Gate；预期仅已知 execute 别名放行。

@@ -1,0 +1,63 @@
+{
+  "jsonrpc": "2.0",
+  "id": 43,
+  "method": "elicitation/create",
+  "params": {
+    "mode": "form",
+    "sessionId": "staff-session",
+    "toolCallId": "question-multiple",
+    "message": "Questions",
+    "requestedSchema": {
+      "type": "object",
+      "properties": {
+        "q0": {
+          "type": "string",
+          "title": "Theme",
+          "description": "Which theme do you want?",
+          "oneOf": [
+            {
+              "const": "Light",
+              "title": "Light",
+              "description": "Light background with dark text"
+            },
+            {
+              "const": "Dark",
+              "title": "Dark",
+              "description": "Dark background with light text"
+            }
+          ]
+        },
+        "q0_custom": {
+          "type": "string",
+          "title": "Theme (other)",
+          "description": "Type your own answer"
+        },
+        "q1": {
+          "type": "array",
+          "title": "Checks",
+          "description": "Which checks should run?",
+          "items": {
+            "anyOf": [
+              {
+                "const": "Unit",
+                "title": "Unit",
+                "description": "Run unit tests for isolated components"
+              },
+              {
+                "const": "Integration",
+                "title": "Integration",
+                "description": "Run integration tests across components"
+              }
+            ]
+          }
+        },
+        "q1_custom": {
+          "type": "string",
+          "title": "Checks (other)",
+          "description": "Add your own answer"
+        }
+      },
+      "required": []
+    }
+  }
+}

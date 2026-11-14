@@ -8,6 +8,7 @@ mod ego;
 mod errors;
 mod question;
 mod staff;
+mod staff_question;
 mod workspace;
 
 pub use brain::{BrainDecision, BrainOp, BrainScope, ReportKind, ReportPriority};
@@ -26,6 +27,7 @@ pub use errors::{
 };
 pub use question::*;
 pub use staff::*;
+pub use staff_question::*;
 pub use workspace::{OrchestrationDoctorReport, WorkspaceSummary};
 
 pub type NodeId = u64;

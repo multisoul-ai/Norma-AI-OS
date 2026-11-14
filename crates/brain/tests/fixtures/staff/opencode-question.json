@@ -1,0 +1,39 @@
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "elicitation/create",
+  "params": {
+    "mode": "form",
+    "sessionId": "staff-session",
+    "toolCallId": "question-call",
+    "message": "Questions",
+    "requestedSchema": {
+      "type": "object",
+      "properties": {
+        "q0": {
+          "type": "string",
+          "title": "Theme",
+          "description": "Which interface theme do you prefer?",
+          "oneOf": [
+            {
+              "const": "Light",
+              "title": "Light",
+              "description": "Light interface theme"
+            },
+            {
+              "const": "Dark",
+              "title": "Dark",
+              "description": "Dark interface theme"
+            }
+          ]
+        },
+        "q0_custom": {
+          "type": "string",
+          "title": "Theme (other)",
+          "description": "Type your own answer"
+        }
+      },
+      "required": []
+    }
+  }
+}

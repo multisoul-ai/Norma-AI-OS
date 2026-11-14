@@ -17,8 +17,10 @@ enum StaffWorker {
         with open(os.path.join(root, name), 'a') as f: f.write(json.dumps(value) + '\n')
     def hook(event, **extra):
         payload = dict(hook_event_name=event, session_id=sid, cwd=os.getcwd(), prompt_id='staff-turn', **extra)
-        result = subprocess.run(forward, input=json.dumps(payload), capture_output=True, text=True, timeout=10)
+        command = forward + (['--request-question'] if event == 'PreToolUse' and extra.get('tool_name') == 'AskUserQuestion' else [])
+        result = subprocess.run(command, input=json.dumps(payload), capture_output=True, text=True, timeout=140 if event == 'PreToolUse' else 10)
         if result.returncode: raise RuntimeError(result.stderr)
+        return json.loads(result.stdout) if result.stdout.strip() else {}
     record('starts.jsonl', dict(node=node, dispatch=dispatch, pid=os.getpid(), helper=forward[0]))
     tty.setraw(sys.stdin.fileno())
     print('\x1b[?2004hSTAFF WORKER READY\r', flush=True)
@@ -33,6 +35,13 @@ enum StaffWorker {
             buffer = b''
             record('received.jsonl', dict(node=node, dispatch=dispatch, task=task))
             hook('UserPromptSubmit', prompt=task)
+            if os.environ.get('NORMA_E2E_STAFF_QUESTIONS') == '1':
+                items = [{'question':'Record acceptance notes?', 'header':'Notes', 'options':[{'label':'Yes','description':'Include notes in the result'}, {'label':'No','description':'Only the artifact'}]}]
+                reply = hook('PreToolUse', tool_name='AskUserQuestion', tool_use_id='staff-native-question', tool_input={'questions':items})
+                record('worker-question-replies.jsonl', dict(node=node, reply=reply))
+                updated = reply.get('hookSpecificOutput',{}).get('updatedInput')
+                if not isinstance(updated,dict) or not updated.get('answers'): raise RuntimeError('Missing original Worker question answer')
+                hook('PostToolUse', tool_name='AskUserQuestion', tool_use_id='staff-native-question', tool_input=updated, tool_response=updated)
             with open('STAFF-RESULT.md', 'w') as f: f.write('# STAFF RESULT\n\nAcceptance artifact from the dispatched Worker.\n')
             print('\r\nSTAFF RESULT ready\r', flush=True)
             hook('Stop', last_assistant_message='STAFF RESULT: 需要你确认验收；文件 STAFF-RESULT.md 已生成。')

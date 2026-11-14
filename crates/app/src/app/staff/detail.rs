@@ -1,14 +1,12 @@
 use super::{
-    task_list::status_color,
-    view::{outcome_label, phase_label, status_label},
+    view::{outcome_label, status_label},
     *,
 };
 use gpui::{div, prelude::*, px, rgba, Div, Stateful};
-use norma::protocol::{StaffOp, TaskDisplayStatus, TaskPhase, WorkerOutcome, WorkerState};
+use norma::protocol::{TaskDisplayStatus, WorkerChip};
 use ui::component::{
     avatar::Avatar,
     button::{Button, ButtonVariants},
-    menu::{DropdownMenu, PopupMenuItem},
     Disableable, Sizable, StyledExt,
 };
 use ui::i18n::text as t;
@@ -18,55 +16,12 @@ impl MultisoulApp {
         &self,
         task: &Task,
         project_name: &str,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) -> Div {
-        let current = task.phase;
-        let id = task.id.clone();
-        let entity = cx.weak_entity();
-        let menu = Button::new("staff-phase")
-            .debug_selector(|| "staff-phase".into())
-            .custom(self.staff_button_style(false, cx))
-            .compact()
-            .h(px(32.))
-            .rounded(px(16.))
-            .text_size(px(12.))
-            .child(div().text_size(px(12.)).child(phase_label(current)))
-            .disabled(self.staff.busy)
-            .tooltip(if task.phase_manual {
-                t("staff.manual_phase")
-            } else {
-                t("staff.phase")
-            })
-            .dropdown_caret(true)
-            .dropdown_menu(move |mut menu, _, _| {
-                for phase in [TaskPhase::Active, TaskPhase::Merging, TaskPhase::Done] {
-                    let entity = entity.clone();
-                    let id = id.clone();
-                    menu = menu.item(
-                        PopupMenuItem::new(phase_label(phase))
-                            .checked(current == phase)
-                            .on_click(move |_, _, cx| {
-                                let _ = entity.update(cx, |app, cx| {
-                                    app.staff_user_operation(
-                                        StaffOp::Phase {
-                                            task_id: id.clone(),
-                                            phase,
-                                        },
-                                        true,
-                                        cx,
-                                    )
-                                });
-                            }),
-                    );
-                }
-                menu
-            });
         div()
-            .px(px(28.))
-            .py(px(22.))
+            .px(px(20.))
+            .py(px(18.))
             .flex_none()
-            .border_b_1()
-            .border_color(rgba(self.staff_line()))
             .flex()
             .items_center()
             .gap(px(16.))
@@ -81,10 +36,7 @@ impl MultisoulApp {
                         div()
                             .text_size(px(12.))
                             .text_color(rgba(self.staff_theme().text_secondary))
-                            .child(project_name.to_owned())
-                            .when(task.phase_manual, |meta| {
-                                meta.child(format!(" · {}", t("staff.manual_phase")))
-                            }),
+                            .child(project_name.to_owned()),
                     )
                     .child(
                         div()
@@ -93,7 +45,6 @@ impl MultisoulApp {
                             .child(task.title.clone()),
                     ),
             )
-            .child(div().flex_none().child(menu))
     }
 
     pub(super) fn staff_workers(&self, task: &Task, cx: &mut Context<Self>) -> Stateful<Div> {
@@ -105,10 +56,8 @@ impl MultisoulApp {
             .flex()
             .gap(px(8.))
             .overflow_x_scroll()
-            .px(px(28.))
-            .py(px(8.))
-            .border_b_1()
-            .border_color(rgba(self.staff_line()));
+            .px(px(20.))
+            .py(px(12.));
         if task.workers.is_empty() {
             return strip.child(
                 div()
@@ -118,29 +67,28 @@ impl MultisoulApp {
             );
         }
         for (index, worker) in task.workers.iter().enumerate() {
-            let status = if worker.needs_input
-                || matches!(worker.state, WorkerState::Failed | WorkerState::Interrupted)
-                || worker.outcome == Some(WorkerOutcome::Unavailable)
-            {
-                TaskDisplayStatus::NeedsYou
-            } else if worker.outcome.is_some() {
-                TaskDisplayStatus::Done
-            } else {
-                TaskDisplayStatus::Running
+            let chip = worker.chip();
+            let color = match chip {
+                WorkerChip::NeedsYou => theme.accent_warm,
+                WorkerChip::Running => theme.accent_cyan,
+                WorkerChip::Starting => theme.accent_violet,
+                WorkerChip::Done => theme.success,
             };
-            let color = status_color(status, theme);
-            let status_text = worker
-                .outcome
-                .map(outcome_label)
-                .unwrap_or_else(|| status_label(status));
+            let status_text = worker.outcome.map(outcome_label).unwrap_or(match chip {
+                WorkerChip::Starting => t("staff.worker_starting"),
+                WorkerChip::Running => status_label(TaskDisplayStatus::Running),
+                WorkerChip::NeedsYou => status_label(TaskDisplayStatus::NeedsYou),
+                WorkerChip::Done => status_label(TaskDisplayStatus::Done),
+            });
             let node = worker.card_id;
             strip = strip.child(
                 Button::new(("staff-worker", index))
                     .debug_selector(move || format!("staff-worker-{}", node.unwrap_or_default()))
                     .custom(self.staff_button_style(false, cx))
-                    .h(px(38.))
-                    .px(px(10.))
-                    .rounded(px(12.))
+                    .h(px(36.))
+                    .px(px(12.))
+                    .rounded_full()
+                    .bg(rgba(theme.panel_high))
                     .flex_none()
                     .justify_start()
                     .gap(px(8.))

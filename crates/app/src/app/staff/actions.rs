@@ -29,6 +29,8 @@ impl MultisoulApp {
 
     pub(crate) fn toggle_staff_fullscreen(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.staff.sidebar_open = false;
+        // The task search may disappear here; move focus before its dispatch path is removed.
+        self.focus_handle.focus(window);
         self.staff.fullscreen = !self.staff.fullscreen;
         if self.staff.fullscreen != window.is_fullscreen() {
             window.toggle_fullscreen();

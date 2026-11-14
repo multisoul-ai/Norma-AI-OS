@@ -374,7 +374,8 @@ impl TextLayout {
 
                 if let Some(text_layout) = element_state.0.borrow().as_ref()
                     && text_layout.size.is_some()
-                    && (wrap_width.is_none() || wrap_width == text_layout.wrap_width)
+                    // Intrinsic measurement must not reuse a previously wrapped size.
+                    && wrap_width == text_layout.wrap_width
                     && truncate_width == text_layout.truncate_width
                 {
                     return text_layout.size.unwrap();

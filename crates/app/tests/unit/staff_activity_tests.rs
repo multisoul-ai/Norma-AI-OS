@@ -93,3 +93,84 @@ fn service_retirement_stops_queued_and_active_feedback() {
     assert_eq!(state.reply, "部分", "失败前输出保留给用户判断");
     assert_eq!(state.queued, 0, "不能残留排队计数");
 }
+
+/// 场景：两个交错工具有独立终态，被拒绝的工具不能被迟到完成覆盖。
+/// 数据构造：A/B同时开始，B先完成，A收到拒绝后又有完成事件。
+/// 执行过程：通过真实ACP update分类送入活动聚合，再结束本轮。
+/// 预期结果：B结束不清掉A的处理中状态；两步均保留、A拒绝、B输出与耗时可读。
+#[test]
+fn interleaved_tools_pair_by_id_and_keep_denial() {
+    use brain::acp::trace::classify_update;
+    use serde_json::json;
+    let mut state = TaskActivity::default();
+    state.apply(1, TaskUpdate::Started { message_count: 0 });
+    for value in [
+        json!({"sessionUpdate":"tool_call","toolCallId":"a","title":"Inspect","rawInput":{"command":"read"}}),
+        json!({"sessionUpdate":"tool_call","toolCallId":"b","title":"Agents"}),
+        json!({"sessionUpdate":"tool_call_update","toolCallId":"b","status":"completed","rawOutput":"worker ready"}),
+    ] {
+        state.apply(
+            1,
+            TaskUpdate::Update(classify_update(&value).expect("update")),
+        );
+    }
+    assert!(state.working(), "B结束不能隐藏仍运行的A");
+    let mut denied = TraceItem::new(TraceKind::Permission, "", "denied");
+    denied.tool = Some(brain::acp::trace::ToolTrace {
+        id: "a".into(),
+        name: None,
+        input: None,
+        status: Some("denied".into()),
+        command_format_error: false,
+    });
+    state.apply(1, TaskUpdate::Update(denied));
+    state.apply(
+        1,
+        TaskUpdate::Update(
+            classify_update(
+                &json!({"sessionUpdate":"tool_call_update","toolCallId":"a","status":"completed"}),
+            )
+            .expect("late"),
+        ),
+    );
+    state.apply(1, TaskUpdate::Finished { failed: false });
+    assert_eq!(state.tools.len(), 2, "按调用ID配对而非每次更新增加一行");
+    assert_eq!(
+        state.tools[0].status,
+        ToolStatus::Denied,
+        "拒绝不可被迟到completed覆盖"
+    );
+    assert_eq!(state.tools[1].output, "worker ready", "输出属于B");
+    assert!(
+        state.tools.iter().all(|tool| tool.elapsed_ms.is_some()),
+        "终态必须有耗时"
+    );
+    assert!(!state.working(), "结束后无活动工具");
+}
+
+/// 场景：格式纠正续接不能保留上一段错误的用户拒绝说明。
+/// 数据构造：开始轮次、收到旧说明，再收到宿主纠正 Prompt 和新回复。
+/// 执行：经过 TaskActivity 的公开更新口；预期：只显示新回复，仍保持同轮活动。
+#[test]
+fn command_correction_replaces_stale_adapter_reply() {
+    let mut state = TaskActivity::default();
+    state.apply(1, TaskUpdate::Started { message_count: 0 });
+    state.apply(
+        1,
+        TaskUpdate::Update(TraceItem::new(TraceKind::Reply, "", "User rejected")),
+    );
+    state.apply(
+        1,
+        TaskUpdate::Update(TraceItem::new(
+            TraceKind::Prompt,
+            "",
+            "command format correction",
+        )),
+    );
+    state.apply(
+        1,
+        TaskUpdate::Update(TraceItem::new(TraceKind::Reply, "", "已纠正")),
+    );
+    assert_eq!(state.reply, "已纠正", "续接不能附带错误的用户拒绝说法");
+    assert!(state.active, "格式纠正仍属于当前轮次");
+}

@@ -9,7 +9,7 @@ public enum StaffFixture {
         }
         try Data(#"{"enabled":true,"backend":"claude","strategy":"speed","speak":false,"summary":"off","autonomy":{"assign_followups":false}}"#.utf8).write(to: root.appendingPathComponent("config.json"))
         try Data("export PATH=\"\(root.path)/bin:$PATH\"\n".utf8).write(to: root.appendingPathComponent(".zshrc"))
-        for (path, script) in [("bin/claude", StaffWorker.script), ("adapters/node_modules/.bin/claude-agent-acp", StaffAdapter.script)] {
+        for (path, script) in [("bin/claude", StaffWorker.script), ("bin/opencode", StaffOpenCode.script), ("adapters/node_modules/.bin/claude-agent-acp", StaffAdapter.script)] {
             let file = root.appendingPathComponent(path)
             try Data(script.utf8).write(to: file)
             try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file.path)

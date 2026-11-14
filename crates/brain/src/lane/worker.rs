@@ -136,6 +136,7 @@ pub type SharedJobs = Arc<Mutex<Receiver<Job>>>;
 pub fn run(env: LaneEnv, jobs: SharedJobs) {
     let mut session: Option<AcpSession> = None;
     let mut turns = 0u32;
+    let mut session_staff = false;
     let mut primed = false;
     let mut failures = 0u32;
     let mut retrying: Option<(Job, u32)> = None;
@@ -187,12 +188,18 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 message_count: task.as_ref().map_or(0, |task| task.messages.len()),
             },
         );
-        if session.is_none() || turns >= env.max_turns {
+        if session.is_none() || turns >= env.max_turns || session_staff != job.task_id.is_some() {
             session = None;
             let connecting = Instant::now();
-            match AcpSession::start_cancellable(&env.session_options(), &cancelled) {
+            let started = if job.task_id.is_some() {
+                AcpSession::start_staff_cancellable(&env.session_options(), &cancelled)
+            } else {
+                AcpSession::start_cancellable(&env.session_options(), &cancelled)
+            };
+            match started {
                 Ok(started) => {
                     session = Some(started);
+                    session_staff = job.task_id.is_some();
                     turns = 0;
                     primed = false;
                     env.send(&job.scope, BrainStatusKind::Ready);
@@ -281,6 +288,15 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             Some(id) => env.gate.clone().for_task(job.scope.clone(), id.clone()),
             None => env.gate.clone(),
         };
+        active.set_question_host(job.task_id.as_ref().map(|id| {
+            crate::acp::questions::QuestionHost::new(
+                env.tasks.clone(),
+                job.scope.clone(),
+                id.clone(),
+                turn_no,
+                env.status.clone(),
+            )
+        }));
         let result = active.prompt_observed(
             &text,
             &gate,

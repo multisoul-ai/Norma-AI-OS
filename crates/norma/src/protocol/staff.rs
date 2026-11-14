@@ -54,6 +54,10 @@ pub enum TaskPhase {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum TaskMessage {
+    Question {
+        #[serde(default)]
+        question: Box<super::StaffQuestion>,
+    },
     User {
         text: String,
     },
@@ -74,6 +78,10 @@ pub enum TaskMessage {
         proposal_id: u64,
         dispatch_id: String,
     },
+    WorkerNeedsAttention {
+        node_id: u64,
+        dispatch_id: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -81,6 +89,7 @@ pub enum WorkerState {
     Active,
     Failed,
     Interrupted,
+    NeedsAttention,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -113,6 +122,16 @@ pub struct Worker {
     pub needs_input: bool,
     /// Active 表示仍持有卡片；outcome 区分执行中与已取得本轮结果。
     pub outcome: Option<WorkerOutcome>,
+    /// 实际打进卡片的 prompt。旧快照没有该字段时为空，重投回退到提议原文。
+    #[serde(default)]
+    pub launch_prompt: String,
+    /// 本轮 UserPromptSubmit 已确认。旧快照缺字段时视为已送达，避免正在执行的 Worker 变成启动中。
+    #[serde(default = "prompt_delivered_by_default")]
+    pub prompt_delivered: bool,
+}
+
+fn prompt_delivered_by_default() -> bool {
+    true
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -123,6 +142,8 @@ pub struct StaffProposal {
     pub prompt: String,
     pub why: String,
     pub approved: bool,
+    #[serde(default)]
+    pub ignored: bool,
     pub dispatch_id: Option<String>,
 }
 
@@ -138,8 +159,36 @@ impl Worker {
             state: WorkerState::Active,
             needs_input: false,
             outcome: None,
+            launch_prompt: String::new(),
+            prompt_delivered: false,
         }
     }
+
+    pub fn chip(&self) -> WorkerChip {
+        if self.needs_input
+            || matches!(
+                self.state,
+                WorkerState::Failed | WorkerState::Interrupted | WorkerState::NeedsAttention
+            )
+            || self.outcome == Some(WorkerOutcome::Unavailable)
+        {
+            WorkerChip::NeedsYou
+        } else if self.outcome.is_some() {
+            WorkerChip::Done
+        } else if self.prompt_delivered {
+            WorkerChip::Running
+        } else {
+            WorkerChip::Starting
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WorkerChip {
+    Starting,
+    Running,
+    NeedsYou,
+    Done,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -183,6 +232,9 @@ impl Task {
     pub fn set_phase(&mut self, phase: TaskPhase, manual: bool) {
         if manual || !self.phase_manual {
             self.phase = phase;
+            if phase == TaskPhase::Done {
+                self.expire_pending_questions();
+            }
             self.phase_manual = manual;
             self.updated_at = timestamp();
         }
@@ -199,6 +251,9 @@ impl Task {
     }
 
     pub fn display_status(&self) -> TaskDisplayStatus {
+        if self.phase != TaskPhase::Done && self.pending_question_count() > 0 {
+            return TaskDisplayStatus::NeedsYou;
+        }
         match self.phase {
             TaskPhase::Done => return TaskDisplayStatus::Done,
             TaskPhase::Merging => return TaskDisplayStatus::Merging,
@@ -207,7 +262,7 @@ impl Task {
         if self
             .proposals
             .iter()
-            .any(|proposal| proposal.dispatch_id.is_none())
+            .any(|proposal| proposal.dispatch_id.is_none() && !proposal.ignored)
             || self.workers.iter().any(|worker| {
                 worker.needs_input
                     || worker.state != WorkerState::Active
@@ -215,7 +270,11 @@ impl Task {
             })
         {
             TaskDisplayStatus::NeedsYou
-        } else if self.workers.iter().any(|worker| worker.outcome.is_none()) {
+        } else if self.workers.iter().any(|worker| {
+            worker.outcome.is_none()
+                && worker.prompt_delivered
+                && worker.state == WorkerState::Active
+        }) {
             TaskDisplayStatus::Running
         } else {
             TaskDisplayStatus::Waiting
@@ -253,7 +312,7 @@ impl Task {
         if self
             .proposals
             .iter()
-            .all(|proposal| proposal.dispatch_id.is_some())
+            .all(|proposal| proposal.dispatch_id.is_some() || proposal.ignored)
             && self
                 .workers
                 .iter()

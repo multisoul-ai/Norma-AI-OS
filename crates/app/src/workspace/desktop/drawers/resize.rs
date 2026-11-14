@@ -26,11 +26,7 @@ impl MultisoulApp {
         inset: f32,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let (top, bottom) = if self.staff.enabled {
-            (self.staff_panel_top() + 12., 12.)
-        } else {
-            (0., 0.)
-        };
+        let (top, bottom) = (0., 0.);
         div()
             .id("desktop-right-resize-handle")
             .debug_selector(|| "desktop-right-resize-handle".to_string())

@@ -6,6 +6,9 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 static STORES: OnceLock<Mutex<BTreeMap<PathBuf, Weak<TaskStore>>>> = OnceLock::new();
+mod delivery;
+mod proposals;
+mod questions;
 mod workflow;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -58,6 +61,14 @@ impl TaskStore {
         {
             return self.record_attention(workspace, *node_id, dispatch_id, *waiting);
         }
+        if let BrainEventKind::WorkerDelivery {
+            node_id,
+            dispatch_id,
+            phase,
+        } = event
+        {
+            return self.record_delivery(workspace, *node_id, dispatch_id, *phase);
+        }
         let BrainEventKind::AgentFinished {
             node_id,
             dispatch_id,
@@ -94,10 +105,8 @@ impl TaskStore {
         Ok(if accepted {
             TaskEventResult::Recorded {
                 task_id: task.id.clone(),
-                wake: matches!(
-                    crate::triage::triage(event),
-                    crate::triage::Verdict::Speak(_)
-                ),
+                // 播报与否由 triage 决定；幕僚要看到每个被接受的结果，包括普通成功和中断。
+                wake: true,
             }
         } else {
             TaskEventResult::Ignored
@@ -120,7 +129,7 @@ impl TaskStore {
 
     fn load(&self, workspace: &str) -> io::Result<Snapshot> {
         let path = self.path(workspace);
-        let snapshot: Snapshot = match std::fs::read(&path) {
+        let mut snapshot: Snapshot = match std::fs::read(&path) {
             Ok(bytes) => serde_json::from_slice(&bytes)?,
             Err(error) if error.kind() == io::ErrorKind::NotFound => Snapshot {
                 version: 1,
@@ -142,6 +151,20 @@ impl TaskStore {
                 io::ErrorKind::InvalidData,
                 "invalid staff snapshot identity",
             ));
+        }
+        let mut expired = false;
+        for task in &mut snapshot.tasks {
+            if task.expire_pending_questions() {
+                task.revision = task
+                    .revision
+                    .checked_add(1)
+                    .ok_or_else(|| io::Error::other("task revision overflow"))?;
+                task.updated_at = norma::protocol::timestamp();
+                expired = true;
+            }
+        }
+        if expired {
+            crate::persistence::atomic_write(&path, &serde_json::to_vec(&snapshot)?)?;
         }
         Ok(snapshot)
     }

@@ -35,11 +35,22 @@ pub struct TurnEnd {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ToolTrace {
+    pub id: String,
+    pub name: Option<String>,
+    pub input: Option<String>,
+    pub status: Option<String>,
+    /// Host-owned failure; translated at the display boundary, independent of adapter wording.
+    pub command_format_error: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TraceItem {
     pub kind: TraceKind,
     pub title: String,
     pub text: String,
     pub end: Option<TurnEnd>,
+    pub tool: Option<ToolTrace>,
 }
 
 impl TraceItem {
@@ -49,6 +60,7 @@ impl TraceItem {
             title: title.into(),
             text: text.into(),
             end: None,
+            tool: None,
         }
     }
 
@@ -122,7 +134,7 @@ fn tool_output(update: &Value) -> String {
 /// 把一条 `session/update` 的 `update` 对象分类。没有类型字段的返回 `None`。
 pub fn classify_update(update: &Value) -> Option<TraceItem> {
     let kind = update["sessionUpdate"].as_str()?;
-    Some(match kind {
+    let mut item = match kind {
         "agent_message_chunk" => TraceItem::new(TraceKind::Reply, "", text_of(&update["content"])),
         "agent_thought_chunk" => {
             TraceItem::new(TraceKind::Thought, "", text_of(&update["content"]))
@@ -166,7 +178,20 @@ pub fn classify_update(update: &Value) -> Option<TraceItem> {
             TraceItem::new(TraceKind::Plan, "计划", lines.join("\n"))
         }
         other => TraceItem::new(TraceKind::Unknown, other, cap(update.to_string())),
-    })
+    };
+    if matches!(item.kind, TraceKind::ToolCall | TraceKind::ToolResult) {
+        item.tool = update["toolCallId"].as_str().map(|id| ToolTrace {
+            command_format_error: false,
+            id: id.into(),
+            name: update["title"].as_str().map(str::to_owned),
+            input: update
+                .get("rawInput")
+                .filter(|value| !value.is_null())
+                .map(Value::to_string),
+            status: update["status"].as_str().map(str::to_owned),
+        });
+    }
+    Some(item)
 }
 
 /// 把相邻的流式片段合并：回复、思考片段拼成一条；同标题的未知状态更新（如 usage_update）只留最新。

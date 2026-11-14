@@ -181,9 +181,17 @@ impl MultisoulApp {
         })
         .custom(self.staff_button_style(false, cx))
         .small()
-        .h(px(30.))
-        .rounded(px(8.))
-        .child(div().text_size(px(12.)).child(label))
+        .when(target, |button| button.h(px(36.)).rounded(px(8.)))
+        .when(!target, |button| {
+            button.h(px(32.)).rounded_full().max_w(px(120.))
+        })
+        .child(
+            div()
+                .max_w(px(80.))
+                .truncate()
+                .text_size(px(13.))
+                .child(label),
+        )
         .dropdown_caret(true)
         .disabled(areas.is_empty() || self.staff.busy)
         .dropdown_menu(move |mut menu, _, _| {

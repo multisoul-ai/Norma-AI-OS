@@ -39,6 +39,13 @@ pub struct ApprovalRequest {
     pub subject: ApprovalSubject,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DeliveryPhase {
+    Accepted,
+    NeedsAttention,
+    Redeliver,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BrainEventKind {
     /// 用户消息已经在 TaskStore 持久化，排队处理该任务的最新消息。
@@ -49,6 +56,11 @@ pub enum BrainEventKind {
         node_id: u64,
         dispatch_id: String,
         waiting: bool,
+    },
+    WorkerDelivery {
+        node_id: u64,
+        dispatch_id: String,
+        phase: DeliveryPhase,
     },
     AgentProgress {
         agent: String,

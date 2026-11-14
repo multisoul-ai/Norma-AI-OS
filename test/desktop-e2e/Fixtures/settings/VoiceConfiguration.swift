@@ -23,7 +23,7 @@ public enum VoiceConfigurationFixture {
 
     /// Call only while the isolated app is stopped.
     public static func theme(database: URL, id: String) throws {
-        guard ["paper-blue", "sapphire-night"].contains(id) else { throw E2EError.product("未知测试主题") }
+        guard ["ink-black", "paper-blue", "sapphire-night"].contains(id) else { throw E2EError.product("未知测试主题") }
         try withDatabase(database) { db in
             var statement: OpaquePointer?
             let sql = "INSERT INTO settings(key,value,updated_at_unix) VALUES('appearance.theme.v1',?1,0) ON CONFLICT(key) DO UPDATE SET value=excluded.value"

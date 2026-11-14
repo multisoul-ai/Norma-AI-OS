@@ -31,7 +31,7 @@ public enum StaffWorkspaceStreaming {
         try Catalog.seedWorkspace(database: database, name: "Staff Workspace")
         try Catalog.seedWorkspace(database: database, name: "Other Workspace")
         try Catalog.suppressFeatureGuide(database: database)
-        if english { try VoiceConfigurationFixture.theme(database: database, id: "sapphire-night") }
+        try VoiceConfigurationFixture.theme(database: database, id: english ? "sapphire-night" : "ink-black")
         for name in ["Alpha", "Beta"] {
             let project = root.appendingPathComponent(name)
             try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
@@ -43,8 +43,8 @@ public enum StaffWorkspaceStreaming {
             try await session.visualClick("点击 Staff Workspace 工作空间卡片")
             try await session.visualClick("保持所有项目总览，点击顶部幕僚/Staff分段按钮；不要进入项目")
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "workspace", text: "窗口顶栏有唯一Staff Workspace工作空间选择器，左任务栏有所有项目项目筛选器。中央有可用新任务输入框与项目目标选择器，没有必须打开项目的错误。"),
-                VisualCriterion(id: "prototype", text: "按已选双栏原型：只有一个顶部导航，左栏约280px；灰黑中性表面、柔和蓝色新任务入口与选中态、圆角对话区，栏间12px左右留白。没有第二行Norma标题或底部重复统计，按钮文字紧凑。"),
+                VisualCriterion(id: "workspace", text: "窗口顶栏有唯一Staff Workspace工作空间选择器，左侧搜索胶囊内有所有项目项目选择器。中央有可用新任务输入框与项目目标选择器，没有必须打开项目的错误。"),
+                VisualCriterion(id: "prototype", text: "只有一个顶部导航，中央为画布/幕僚分段胶囊；左栏约280px：整行新任务按钮、含项目选择器的单个搜索胶囊、等宽筛选芯片；Material色调表面与圆角对话区。没有第二行Norma标题或底部重复统计。"),
                 VisualCriterion(id: "language", text: english ? "控制文案为英文：All projects、New task、Give Norma a task；项目名Alpha/Beta保持原文。" : "控制文案为中文：所有项目、新任务、交给Norma一件事；项目名Alpha/Beta保持原文。")
             ]), "01-workspace.png")
             try await session.visualClick("点击中央新任务所属项目的下拉框，不是左栏项目筛选器")
@@ -70,12 +70,12 @@ public enum StaffWorkspaceStreaming {
         try await session.step("项目筛选和草稿隔离，所有项目聚合") {
             try await session.visualClick("点击中央底部消息输入框")
             try await session.type("ALPHA UNSENT DRAFT")
-            try await session.visualClick("点击左任务栏的所有项目/All projects筛选下拉框")
+            try await session.visualClick("点击左侧搜索胶囊内的所有项目/All projects项目选择器")
             try await session.visualClick("点击菜单Beta项目")
             _ = try await session.visualCheck([VisualCriterion(id: "beta-empty", text: "左栏项目筛选为Beta；左侧没有STREAM-ALPHA任务，中央是Beta新任务输入区，不能残留ALPHA UNSENT DRAFT。主窗口仍在幕僚工作空间视图。")])
             try await send(session, "STREAM-BETA")
             try await waitFor("Beta durable") { try normaReplies(root).count == 2 }
-            try await session.visualClick("点击左任务栏Beta项目筛选下拉框")
+            try await session.visualClick("点击左侧搜索胶囊内的Beta项目选择器")
             try await session.visualClick("点击菜单所有项目/All projects")
             try await session.visualClick("点击左侧STREAM-ALPHA任务行")
             try session.save(try await session.visualCheck([VisualCriterion(id: "all-projects", text: "左侧同时显示STREAM-ALPHA和STREAM-BETA，各自副标题为Alpha/Beta；中央选中ALPHA任务，历史是ALPHA回复，输入框恢复ALPHA UNSENT DRAFT，不显示BETA RESULT。")]), "06-all-projects.png")
@@ -89,7 +89,7 @@ public enum StaffWorkspaceStreaming {
             try await session.visualClick("点击右侧Alpha.md文件")
             _ = try await session.visualCheck([
                 VisualCriterion(id: "alpha-file", text: "文件工作台项目为Alpha，打开Alpha.md并显示Alpha project；中央仍是Alpha任务。"),
-                VisualCriterion(id: "drawer-frame", text: "右侧抽屉从窗口顶栏下方开始，外框/标签栏为中性灰黑而非紫色壁纸；窗口最顶栏铺满全宽，幕僚/添加项目等操作靠窗口右侧，不在抽屉上方留下空白。文件预览本身沿用原生工作台样式。")
+                VisualCriterion(id: "drawer-frame", text: "右侧抽屉与画布模式的抽屉位置、背景、外框完全一致，没有幕僚专属的偏移或主题；窗口最顶栏铺满全宽，模式开关居中。")
             ])
             try await session.visualClick("点击左侧STREAM-BETA任务行")
             _ = try await session.visualCheck([VisualCriterion(id: "beta-files", text: "文件工作台项目自动跟随为Beta，树中列出Beta.md，不能继续显示Alpha.md旧正文；中央是Beta任务和BETA RESULT。")])
@@ -99,7 +99,7 @@ public enum StaffWorkspaceStreaming {
             try await session.visualClick("点击中央底部消息输入框")
             try await session.selectAll(); try await session.deleteSelection()
             try await session.type("STREAM-FAIL")
-            try await session.shortcut(key: 36, modifiers: [0x37])
+            try await session.shortcut(key: 36, modifiers: [])
             try session.save(try await session.visualCheck([VisualCriterion(id: "failed", text: "Norma显示本次响应未完成/Response interrupted错误状态，没有永久等待动画；已完成ALPHA回复仍保留。若尚在等待允许wait。")]), "07-failed.png")
             return "项目/任务/草稿隔离，失败停止等待"
         }
@@ -114,7 +114,7 @@ public enum StaffWorkspaceStreaming {
     private static func send(_ session: Session, _ text: String) async throws {
         try await session.visualClick("点击中央底部任务消息输入框")
         try await session.type(text)
-        try await session.shortcut(key: 36, modifiers: [0x37])
+        try await session.shortcut(key: 36, modifiers: [])
     }
     private static func release(_ root: URL, _ name: String) throws {
         try Data().write(to: root.appendingPathComponent(name))
