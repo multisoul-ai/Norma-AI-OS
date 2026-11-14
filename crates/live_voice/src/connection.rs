@@ -255,8 +255,24 @@ async fn connect_at(
                 .ok_or(LiveError::Connection)?
                 .map_err(|_| LiveError::Connection)?;
             if let Message::Text(text) = message {
-                if matches!(session.receive(&text)?, LiveEvent::Rejected { .. }) {
-                    return Err(LiveError::ServerRejected);
+                match session.receive(&text) {
+                    Ok(LiveEvent::Rejected { code, .. }) => {
+                        tracing::warn!(?code, "Live startup rejected by the service");
+                        return Err(LiveError::ServerRejected);
+                    }
+                    Err(error) => {
+                        // Only the event type and close reason: startup frames may carry user content.
+                        let event =
+                            serde_json::from_str::<serde_json::Value>(&text).unwrap_or_default();
+                        tracing::warn!(
+                            %error,
+                            event_type = event["type"].as_str(),
+                            reason = event["reason"].as_str(),
+                            "Live startup event refused"
+                        );
+                        return Err(error);
+                    }
+                    Ok(_) => {}
                 }
                 if let Some(id) = session.session_id() {
                     return Ok::<_, LiveError>((socket, id.to_owned(), session));
