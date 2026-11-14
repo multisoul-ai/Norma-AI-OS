@@ -43,7 +43,9 @@ fn proposal_requires_user_adoption_and_dispatch_is_once() {
             .is_err(),
         "model cannot adopt its own proposal"
     );
-    store.approve("ws", "a", 1).expect("user approval");
+    store
+        .approve("ws", "a", 1, None, None)
+        .expect("user approval");
     store
         .bind_worker(
             "ws",
@@ -85,4 +87,37 @@ fn proposal_requires_user_adoption_and_dispatch_is_once() {
         TaskPhase::Active,
         "dispatch must keep task active"
     );
+}
+
+/// 用户采纳时改选的智能体和模型必须随批准落库，空白模型视为默认。
+///
+/// 数据构造：任务 a 上 Simon 的提议 1；用户改选 Kimi 与模型 " opus "。
+/// 执行过程：先 propose，再 approve(Some("Kimi"), Some(" opus "))，重读任务。
+/// 预期结果：proposal.agent == "Kimi"，model == Some("opus")，approved 为真。
+#[test]
+fn approval_persists_user_agent_and_model_choice() {
+    let dir = tempfile::tempdir().expect("root");
+    let store = TaskStore::new(dir.path().to_owned());
+    store
+        .create(Task::new("a", "ws", "project", "Ship"))
+        .expect("create");
+    store
+        .execute(
+            "ws",
+            StaffOp::Propose {
+                task_id: "a".into(),
+                agent: "Simon".into(),
+                title: "Build".into(),
+                prompt: "Build and test".into(),
+                why: "Required".into(),
+            },
+        )
+        .expect("propose");
+    store
+        .approve("ws", "a", 1, Some("Kimi".into()), Some(" opus ".into()))
+        .expect("approve");
+    let proposal = store.get("ws", "a").expect("task").proposals[0].clone();
+    assert_eq!(proposal.agent, "Kimi");
+    assert_eq!(proposal.model.as_deref(), Some("opus"));
+    assert!(proposal.approved);
 }

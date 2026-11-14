@@ -10,6 +10,7 @@ use ui::i18n::text as t;
 
 impl MultisoulApp {
     pub(super) fn ensure_staff_inputs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.ensure_proposal_model_inputs(window, cx);
         if self.staff.input.is_none() {
             let input = cx.new(|cx| {
                 InputState::new(window, cx).auto_grow(1, 5).placeholder(

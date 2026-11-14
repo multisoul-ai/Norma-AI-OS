@@ -1,7 +1,7 @@
 use super::super::*;
 use super::shell;
 use gpui::rgba;
-use ui::component::{Disableable, IconName, StyledExt};
+use ui::component::{input::Input, Disableable, IconName, Sizable, StyledExt};
 use ui::i18n::text as t;
 
 pub(in crate::app::staff::messages) struct Proposal<'a>(pub &'a TaskMessage);
@@ -24,6 +24,7 @@ impl MessageBlock for Proposal<'_> {
                 }
                 let id = task.id.clone();
                 let ignore_id = id.clone();
+                let pick_id = id.clone();
                 let proposal_id = *proposal_id;
                 let draft = proposal.prompt.clone();
                 let dispatched = proposal.dispatch_id.is_some();
@@ -68,19 +69,49 @@ impl MessageBlock for Proposal<'_> {
                             .child(proposal.prompt.clone()),
                     )
                     .child(
-                        div().flex().child(
-                            div()
-                                .px(px(tokens::SPACE_12))
-                                .py(px(tokens::SPACE_4))
-                                .rounded_full()
-                                .bg(rgba(ui::icons::with_alpha(theme.accent_cyan, 30)))
-                                .text_size(px(tokens::SPACE_12))
-                                .text_color(rgba(theme.accent_cyan))
-                                .child(ui::i18n::format(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(tokens::SPACE_8))
+                            .child(
+                                shell::action_button(
+                                    ctx,
+                                    ("staff-agent-pick", proposal_id),
+                                    false,
+                                    cx,
+                                )
+                                .debug_selector(move || format!("staff-agent-pick-{proposal_id}"))
+                                .label(ui::i18n::format(
                                     "staff.proposal_for",
-                                    &[("agent", proposal.agent.clone())],
+                                    &[("agent", ctx.app.staff_proposal_agent(&task.id, proposal))],
+                                ))
+                                .disabled(ctx.app.staff.busy || dispatched || proposal.approved)
+                                .on_click(cx.listener(
+                                    move |app, _, _, cx| {
+                                        app.cycle_staff_proposal_agent(&pick_id, proposal_id, cx)
+                                    },
                                 )),
-                        ),
+                            )
+                            .children(
+                                ctx.app
+                                    .staff
+                                    .proposal_models
+                                    .get(&(task.id.clone(), proposal_id))
+                                    .filter(|_| !dispatched && !proposal.approved)
+                                    .map(|input| div().flex_1().child(Input::new(input).small())),
+                            )
+                            .children(
+                                proposal
+                                    .model
+                                    .clone()
+                                    .filter(|_| dispatched || proposal.approved)
+                                    .map(|model| {
+                                        div()
+                                            .text_size(px(tokens::SPACE_12))
+                                            .text_color(rgba(theme.accent_cyan))
+                                            .child(model)
+                                    }),
+                            ),
                     )
                     .child(
                         div()

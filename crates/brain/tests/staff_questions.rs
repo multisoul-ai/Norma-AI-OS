@@ -174,7 +174,7 @@ fn ignore_is_per_proposal_and_restore_rejects_superseded_proposals() {
         "已有更新提议时不得恢复旧提议"
     );
     assert!(
-        store.approve("w", "t", 1).is_err(),
+        store.approve("w", "t", 1, None, None).is_err(),
         "已忽略提议不能绕过恢复直接采用"
     );
     let task = store.get("w", "t").expect("task");

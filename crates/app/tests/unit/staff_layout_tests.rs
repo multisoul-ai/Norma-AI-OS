@@ -353,6 +353,7 @@ fn staff_messages_do_not_overlap_when_content_overflows() {
         title: "做可玩的坦克大战".into(),
         prompt: long.clone(),
         why: "空闲".into(),
+        model: None,
         approved: false,
         ignored: false,
         dispatch_id: None,

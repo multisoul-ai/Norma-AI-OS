@@ -19,6 +19,7 @@ mod composer;
 mod detail;
 mod images;
 mod messages;
+mod proposal_choice;
 mod questions;
 mod task_list;
 mod view;
@@ -61,6 +62,9 @@ pub(crate) struct StaffState {
     pub images: Vec<String>,
     pub image_drafts: BTreeMap<String, Vec<String>>,
     pub uploading_image: bool,
+    /// 采纳前用户为提案改选的智能体类型；缺省沿用提案原值。
+    pub proposal_agents: BTreeMap<(String, u64), String>,
+    pub proposal_models: BTreeMap<(String, u64), Entity<InputState>>,
     pub input: Option<Entity<InputState>>,
     pub search: Option<Entity<InputState>>,
     pub query: String,

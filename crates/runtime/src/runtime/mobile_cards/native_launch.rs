@@ -19,6 +19,10 @@ pub struct NativeAgentLaunch {
     control: Arc<launch::LaunchControl>,
 }
 impl NativeAgentLaunch {
+    pub fn command(&self) -> &PtyCommand {
+        &self.command
+    }
+
     pub fn run_id(&self) -> &str {
         &self.run_id
     }
@@ -180,8 +184,9 @@ impl Runtime {
                 self.workspace_root(),
             )
         } else {
-            crate::nodes::agent::agent_command(profile, hook.as_ref())
-                .with_cwd(self.workspace_root())
+            let command = crate::nodes::agent::agent_command(profile, hook.as_ref())
+                .with_cwd(self.workspace_root());
+            self.with_staff_model(node, profile, command)?
         };
         if let Some(mut exited) = self.live.remove(&node) {
             exited.kill();
