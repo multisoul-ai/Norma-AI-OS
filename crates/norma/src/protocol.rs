@@ -8,6 +8,7 @@ mod ego;
 mod errors;
 mod question;
 mod staff;
+mod staff_list;
 mod staff_question;
 mod workspace;
 
@@ -27,6 +28,7 @@ pub use errors::{
 };
 pub use question::*;
 pub use staff::*;
+pub use staff_list::{staff_chip_counts, staff_visible_tasks, StaffChipCounts};
 pub use staff_question::*;
 pub use workspace::{OrchestrationDoctorReport, WorkspaceSummary};
 

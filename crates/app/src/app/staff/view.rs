@@ -66,6 +66,7 @@ impl MultisoulApp {
                     )
                 },
             )
+            .child(self.staff_archive_toast(cx))
     }
 
     pub(super) fn render_staff_conversation(
@@ -103,6 +104,9 @@ impl MultisoulApp {
                     .border_color(rgba(self.staff_line()))
                     .child(head),
             );
+            if task.archived {
+                center = center.child(self.staff_archived_banner());
+            }
             let messages = self.staff_message_list(task, window, cx);
             center = center.child(messages);
         } else {

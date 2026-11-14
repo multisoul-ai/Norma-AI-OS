@@ -93,5 +93,18 @@
   "staff.question_unavailable": "This question is no longer available.",
   "staff.question_identity_changed": "This question has changed. Please reload.",
   "staff.command_format_error": "Format error",
-  "staff.command_format_detail": "Command not executed: each tool call must contain one command, without && or semicolons. Norma needs to retry as separate calls. This was not a permission denial from you."
+  "staff.command_format_detail": "Command not executed: each tool call must contain one command, without && or semicolons. Norma needs to retry as separate calls. This was not a permission denial from you.",
+  "staff.archive": "Archive",
+  "staff.unarchive": "Unarchive",
+  "staff.archived": "Archived",
+  "staff.back_to_tasks": "Back to tasks",
+  "staff.archive_toast": "Archived “%{title}”",
+  "staff.archive_toast_active": "Archived “%{title}” (still in progress; open Archived to view it)",
+  "staff.undo": "Undo",
+  "staff.archive_undone": "Archive undone",
+  "staff.unarchived_toast": "Moved back to the task list",
+  "staff.archived_note": "Archived · hidden from the task list. A new message unarchives it.",
+  "staff.archive_named": "Archive %{title}",
+  "staff.archive_empty": "No archived tasks yet",
+  "staff.archive_empty_hint": "Finished tasks can be put here"
 }
