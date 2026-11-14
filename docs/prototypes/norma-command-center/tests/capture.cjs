@@ -1,0 +1,10 @@
+const {chromium}=require('playwright');const path=require('node:path');const {pathToFileURL}=require('node:url');
+(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});const page=await browser.newPage({viewport:{width:1600,height:1050},deviceScaleFactor:1});
+const url=pathToFileURL(path.resolve(__dirname,'../index.html')).href;
+await page.goto(url+'?v=1');await page.locator('video').evaluate(async v=>{v.pause();if(v.readyState<2)await new Promise(r=>v.addEventListener('loadeddata',r,{once:true}));await new Promise(r=>{v.addEventListener('seeked',r,{once:true});v.currentTime=3;});});
+for(let n=1;n<=5;n++){await page.locator('.proto-picker-item').nth(n-1).click();await page.locator(`[data-variant-root="${n}"]`).waitFor();await page.screenshot({path:path.resolve(__dirname,`../assets/form-${n}.png`)});}
+await page.locator('[data-action="compare"]').click();await page.screenshot({path:path.resolve(__dirname,'../assets/compare.png')});await page.keyboard.press('Escape');
+await page.locator('.proto-picker-item').nth(1).click();await page.locator('[data-map-node="site-notes"]').click();await page.getByTestId('show-dependencies').click();await page.screenshot({path:path.resolve(__dirname,'../assets/dependencies.png')});
+await page.locator('.proto-picker-item').nth(0).click();await page.locator('[data-select="login"]').check();await page.locator('[data-select="drawer"]').check();await page.getByTestId('global-input').fill('先整理各自的验收清单，遇到阻塞时同步给我。');await page.getByTestId('prepare-command').click();await page.screenshot({path:path.resolve(__dirname,'../assets/dispatch.png')});await page.keyboard.press('Escape');
+await page.locator('[data-action="language"]').click();await page.setViewportSize({width:900,height:900});for(let n=1;n<=5;n++){await page.locator('.proto-picker-item').nth(n-1).click();await page.locator(`[data-variant-root="${n}"]`).waitFor();await page.screenshot({path:path.resolve(__dirname,`../assets/compact-en-${n}.png`)});}
+await browser.close();})();
