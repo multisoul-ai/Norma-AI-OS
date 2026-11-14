@@ -92,6 +92,7 @@ impl TaskActivity {
                     id: meta.id.clone(),
                     name: meta.id.clone(),
                     input: String::new(),
+                    description: None,
                     output: String::new(),
                     status: ToolStatus::Running,
                     command_format_error: false,
@@ -106,6 +107,9 @@ impl TaskActivity {
             if item.kind != TraceKind::Permission || tool.name == tool.id {
                 tool.name = name;
             }
+        }
+        if meta.description.is_some() {
+            tool.description = meta.description;
         }
         if let Some(input) = meta.input {
             tool.input = input;
@@ -175,6 +179,7 @@ pub(crate) struct ToolActivity {
     pub id: String,
     pub name: String,
     pub input: String,
+    pub description: Option<String>,
     pub output: String,
     pub status: ToolStatus,
     pub command_format_error: bool,

@@ -26,6 +26,46 @@ fn claude_requires_permission_for_every_exposed_tool() {
     assert_eq!(options["strictMcpConfig"], true, "不能加载用户的 MCP 工具");
 }
 
+/// 写一个只回答 `--version` 的假 opencode 可执行文件。
+fn fake_opencode(dir: &Path, version: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    let path = dir.join("opencode");
+    fs::write(&path, format!("#!/bin/sh\necho '{version}'\n")).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+/// OpenCode 1.x 没有原生问答（`elicitation/create`），PATH 里排在前面的旧版不能遮住新版。
+///
+/// 数据构造：PATH 先放 1.19.3（nvm），后放 2.1.3（homebrew）。
+/// 预期结果：
+///   - 正断言：选中后面的 2.1.3
+///   - 负断言：不选 1.19.3
+#[test]
+fn opencode_detection_skips_old_version_shadowing_new_one() {
+    let adapters = tempfile::tempdir().unwrap();
+    let (old, new) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    fake_opencode(old.path(), "1.19.3");
+    fake_opencode(new.path(), "opencode v2.1.3");
+    let found = detect(
+        adapters.path(),
+        &[old.path().to_path_buf(), new.path().to_path_buf()],
+    );
+    assert_eq!(found.len(), 1, "应检测到一个 OpenCode");
+    assert_eq!(found[0].program, new.path().join("opencode"), "应选 2.x");
+}
+
+/// 只装了 OpenCode 1.x 时不提供该后端，避免模型拿 bash 假装提问。
+///
+/// 数据构造：PATH 只有 1.19.3。预期结果：检测不到 OpenCode。
+#[test]
+fn opencode_detection_rejects_only_old_version() {
+    let adapters = tempfile::tempdir().unwrap();
+    let old = tempfile::tempdir().unwrap();
+    fake_opencode(old.path(), "1.19.3");
+    let found = detect(adapters.path(), &[old.path().to_path_buf()]);
+    assert!(found.is_empty(), "1.x 不支持原生问答，不应作为后端");
+}
+
 /// 在适配器目录和 PATH 中检测后端，并保持固定顺序。
 ///
 /// 数据构造：临时目录里放 node_modules/.bin/claude-agent-acp，PATH 目录里放 opencode。
@@ -39,7 +79,7 @@ fn detects_installed_backends() {
     let bin = adapters.path().join("node_modules/.bin");
     fs::create_dir_all(&bin).unwrap();
     fs::write(bin.join("claude-agent-acp"), "").unwrap();
-    fs::write(path_dir.path().join("opencode"), "").unwrap();
+    fake_opencode(path_dir.path(), "opencode v2.1.3");
     let found = detect(adapters.path(), &[path_dir.path().to_path_buf()]);
     let kinds: Vec<_> = found.iter().map(|b| b.kind).collect();
     assert_eq!(

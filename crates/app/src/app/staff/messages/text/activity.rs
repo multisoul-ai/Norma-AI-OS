@@ -36,39 +36,70 @@ impl MultisoulApp {
             } else {
                 "staff.response_streaming"
             };
+            // Same two rows as Prose: byline first, then the status line under it (prototype `.activity`).
+            let byline = div()
+                .flex()
+                .items_center()
+                .gap(px(tokens::SPACE_8))
+                .text_size(px(tokens::LABEL_TEXT))
+                .font_semibold()
+                .child(crate::app::chrome::brand_logo())
+                .child("Norma")
+                .child(
+                    div()
+                        .text_size(px(tokens::META_TEXT))
+                        .font_normal()
+                        .text_color(rgba(theme.text_secondary))
+                        .child(t("staff.coordination")),
+                );
             let mut header = div()
                 .id("staff-response-status")
                 .debug_selector(|| "staff-response-status".into())
                 .flex()
                 .items_center()
                 .gap(px(tokens::SPACE_8))
-                .text_size(px(tokens::SPACE_12))
-                .text_color(rgba(theme.text_secondary))
-                .child(crate::app::chrome::brand_logo())
-                .child(div().font_semibold().child("Norma"));
-            if activity.waiting() {
-                header = if self.motion.reduce_motion {
-                    header.child(Icon::new(IconName::Loader).with_size(px(tokens::BODY_TEXT)))
-                } else {
-                    header.child(
-                        Spinner::new()
-                            .with_size(px(tokens::BODY_TEXT))
-                            .color(rgba(theme.accent_cyan).into()),
-                    )
-                };
-            }
-            let summary = ui::i18n::format(
-                "staff.activity_summary",
-                &[
-                    ("status", t(status).to_owned()),
-                    ("steps", activity.tools.len().to_string()),
-                    (
-                        "seconds",
-                        format!("{:.1}", activity.duration_ms() as f64 / 1000.),
-                    ),
-                ],
-            );
-            body = body.child(header.child(summary));
+                .text_size(px(tokens::LABEL_TEXT))
+                .text_color(rgba(theme.text_secondary));
+            header = if activity.waiting() && self.motion.reduce_motion {
+                header.child(Icon::new(IconName::Loader).with_size(px(tokens::BODY_TEXT)))
+            } else if activity.waiting() {
+                header.child(
+                    Spinner::new()
+                        .with_size(px(tokens::BODY_TEXT))
+                        .color(rgba(theme.accent_cyan).into()),
+                )
+            } else {
+                header.child(
+                    Icon::new(if activity.failed {
+                        IconName::TriangleAlert
+                    } else {
+                        IconName::Check
+                    })
+                    .with_size(px(tokens::BODY_TEXT))
+                    .text_color(rgba(if activity.failed {
+                        theme.accent_warm
+                    } else {
+                        theme.success
+                    })),
+                )
+            };
+            // No steps yet: steps and duration would read "0 步 · 0.0 秒", so show the status alone.
+            let summary = if activity.tools.is_empty() {
+                t(status).to_owned()
+            } else {
+                ui::i18n::format(
+                    "staff.activity_summary",
+                    &[
+                        ("status", t(status).to_owned()),
+                        ("steps", activity.tools.len().to_string()),
+                        (
+                            "seconds",
+                            format!("{:.1}", activity.duration_ms() as f64 / 1000.),
+                        ),
+                    ],
+                )
+            };
+            body = body.child(byline).child(header.child(summary));
             body = body.children(self.staff_tool_rows(task_id, activity, cx));
             if !activity.reply.is_empty() {
                 body = body.child(

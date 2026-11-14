@@ -57,6 +57,24 @@ impl MultisoulApp {
             .active(rgba(ui::icons::with_alpha(theme.accent_cyan, 200)).into())
     }
 
+    /// 与参考输入框一致：实心蓝圆，用来添加图片，和发送钮分开。
+    pub(crate) fn staff_image_attach_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
+        ButtonCustomVariant::new(cx)
+            .color(rgba(0x2f7cf6ff).into())
+            .foreground(rgba(0xffffffff).into())
+            .hover(rgba(0x4b90f8ff).into())
+            .active(rgba(0x1f68d8ff).into())
+    }
+
+    /// 缩略图角上的移除钮：浅底深色叉，压在图片上仍能看清。
+    pub(crate) fn staff_image_remove_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
+        ButtonCustomVariant::new(cx)
+            .color(rgba(0xf4f4f5ff).into())
+            .foreground(rgba(0x1c1c1eff).into())
+            .hover(rgba(0xffffffff).into())
+            .active(rgba(0xd4d4d8ff).into())
+    }
+
     /// Material tonal container for the extended "new task" action; label colors must be set on its children.
     pub(crate) fn staff_tonal_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
         let (container, on_container) = self.staff_tonal_colors();

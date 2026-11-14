@@ -91,6 +91,7 @@ impl Permissions {
             id: id.into(),
             name: Some(request.tool.clone()),
             input: Some(wanted.clone()),
+            description: None,
             status: Some(status.into()),
             command_format_error: correction.is_some(),
         });

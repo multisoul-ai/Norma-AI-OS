@@ -70,7 +70,13 @@ pub fn detect(adapter_dir: &Path, path_dirs: &[PathBuf]) -> Vec<Backend> {
             args: vec![],
         });
     }
-    if let Some(program) = find("opencode") {
+    // 只有 2.x 才有原生问答；1.x 排在 PATH 前面时不能遮住后面的新版。
+    let opencode = dirs
+        .iter()
+        .map(|d| d.join("opencode"))
+        .filter(|p| p.is_file())
+        .find(|p| opencode_major(p).is_some_and(|major| major >= 2));
+    if let Some(program) = opencode {
         found.push(Backend {
             kind: BackendKind::OpenCode,
             program,
@@ -78,6 +84,17 @@ pub fn detect(adapter_dir: &Path, path_dirs: &[PathBuf]) -> Vec<Backend> {
         });
     }
     found
+}
+
+/// `opencode --version` 的主版本号，兼容 `1.19.3` 与 `opencode v2.1.3` 两种输出。
+fn opencode_major(program: &Path) -> Option<u32> {
+    let output = std::process::Command::new(program)
+        .arg("--version")
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&output.stdout)
+        .split_whitespace()
+        .find_map(|word| word.trim_start_matches('v').split('.').next()?.parse().ok())
 }
 
 /// 策略到模型别名：Claude Code 接受 opus / sonnet / haiku；其他后端沿用 CLI 默认。

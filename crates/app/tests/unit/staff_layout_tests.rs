@@ -166,9 +166,9 @@ fn staff_proposal_edit_preserves_unsent_draft() {
     });
 }
 
-struct MessageListHost {
-    app: gpui::Entity<MultisoulApp>,
-    task: Task,
+pub(super) struct MessageListHost {
+    pub(super) app: gpui::Entity<MultisoulApp>,
+    pub(super) task: Task,
 }
 
 struct StaffTopBarHost {

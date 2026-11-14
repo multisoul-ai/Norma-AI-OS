@@ -1,7 +1,10 @@
 use super::super::*;
 use super::shell;
-use gpui::rgba;
-use ui::component::{input::Input, Disableable, IconName, Sizable, StyledExt};
+use gpui::{rgba, Div};
+use ui::component::{
+    menu::{DropdownMenu, PopupMenuItem},
+    Disableable, IconName, StyledExt,
+};
 use ui::i18n::text as t;
 
 pub(in crate::app::staff::messages) struct Proposal<'a>(pub &'a TaskMessage);
@@ -24,12 +27,12 @@ impl MessageBlock for Proposal<'_> {
                 }
                 let id = task.id.clone();
                 let ignore_id = id.clone();
-                let pick_id = id.clone();
                 let proposal_id = *proposal_id;
                 let draft = proposal.prompt.clone();
                 let dispatched = proposal.dispatch_id.is_some();
                 // Material filled card: tonal surface, no outline.
                 row = shell::card(ctx, true)
+                    .debug_selector(move || format!("staff-proposal-card-{proposal_id}"))
                     .child(
                         shell::header()
                             .text_size(px(tokens::LABEL_TEXT))
@@ -68,51 +71,13 @@ impl MessageBlock for Proposal<'_> {
                             .text_size(px(tokens::LABEL_TEXT))
                             .child(proposal.prompt.clone()),
                     )
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(px(tokens::SPACE_8))
-                            .child(
-                                shell::action_button(
-                                    ctx,
-                                    ("staff-agent-pick", proposal_id),
-                                    false,
-                                    cx,
-                                )
-                                .debug_selector(move || format!("staff-agent-pick-{proposal_id}"))
-                                .label(ui::i18n::format(
-                                    "staff.proposal_for",
-                                    &[("agent", ctx.app.staff_proposal_agent(&task.id, proposal))],
-                                ))
-                                .disabled(ctx.app.staff.busy || dispatched || proposal.approved)
-                                .on_click(cx.listener(
-                                    move |app, _, _, cx| {
-                                        app.cycle_staff_proposal_agent(&pick_id, proposal_id, cx)
-                                    },
-                                )),
-                            )
-                            .children(
-                                ctx.app
-                                    .staff
-                                    .proposal_models
-                                    .get(&(task.id.clone(), proposal_id))
-                                    .filter(|_| !dispatched && !proposal.approved)
-                                    .map(|input| div().flex_1().child(Input::new(input).small())),
-                            )
-                            .children(
-                                proposal
-                                    .model
-                                    .clone()
-                                    .filter(|_| dispatched || proposal.approved)
-                                    .map(|model| {
-                                        div()
-                                            .text_size(px(tokens::SPACE_12))
-                                            .text_color(rgba(theme.accent_cyan))
-                                            .child(model)
-                                    }),
-                            ),
-                    )
+                    .child(choice_row(
+                        ctx,
+                        &task.id,
+                        proposal,
+                        dispatched || proposal.approved,
+                        cx,
+                    ))
                     .child(
                         div()
                             .flex()
@@ -179,4 +144,107 @@ impl MessageBlock for Proposal<'_> {
         }
         row.into_any_element()
     }
+}
+
+/// 智能体与模型两个下拉；采纳或派发后锁定，只显示最终值。
+fn choice_row(
+    ctx: &BlockCtx,
+    task_id: &str,
+    proposal: &norma::protocol::StaffProposal,
+    locked: bool,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    let proposal_id = proposal.id;
+    let agent = ctx.app.staff_proposal_agent(task_id, proposal);
+    let models = ctx.app.staff_model_choices(&agent);
+    let key = (task_id.to_owned(), proposal_id);
+    let selected = if locked {
+        proposal.model.clone()
+    } else {
+        ctx.app.staff.proposal_models.get(&key).cloned()
+    };
+    let model_label = selected
+        .as_ref()
+        .map(|id| {
+            models
+                .iter()
+                .find(|(model, _)| model == id)
+                .map_or_else(|| id.clone(), |(_, name)| name.clone())
+        })
+        .unwrap_or_else(|| t("staff.model_default").to_string());
+    let busy = ctx.app.staff.busy;
+    let agents = ctx.app.staff_agent_choices();
+    let app = cx.weak_entity();
+    let agent_menu = {
+        let (task_id, agent, app) = (task_id.to_owned(), agent.clone(), app.clone());
+        shell::action_button(ctx, ("staff-agent-pick", proposal_id), false, cx)
+            .debug_selector(move || format!("staff-agent-pick-{proposal_id}"))
+            .label(ui::i18n::format(
+                "staff.proposal_for",
+                &[("agent", agent.clone())],
+            ))
+            .dropdown_caret(true)
+            .disabled(busy || locked)
+            .dropdown_menu(move |menu, _, _| {
+                let mut menu = menu.max_h(px(360.0)).scrollable(true);
+                for (name, profile) in &agents {
+                    let (app, task_id, pick) = (app.clone(), task_id.clone(), name.clone());
+                    menu = menu.item(
+                        PopupMenuItem::new(format!("{name} · {}", profile_title(profile)))
+                            .checked(*name == agent)
+                            .on_click(move |_, _, cx| {
+                                let (task_id, pick) = (task_id.clone(), pick.clone());
+                                let _ = app.update(cx, |app, cx| {
+                                    app.set_staff_proposal_agent(&task_id, proposal_id, pick, cx)
+                                });
+                            }),
+                    );
+                }
+                menu
+            })
+    };
+    let row = div()
+        .flex()
+        .items_center()
+        .gap(px(tokens::SPACE_8))
+        .child(agent_menu);
+    if models.is_empty() {
+        return row;
+    }
+    let task_id = task_id.to_owned();
+    row.child(
+        shell::action_button(ctx, ("staff-model-pick", proposal_id), false, cx)
+            .debug_selector(move || format!("staff-model-pick-{proposal_id}"))
+            .label(model_label)
+            .dropdown_caret(true)
+            .disabled(busy || locked)
+            .dropdown_menu(move |menu, _, _| {
+                let pick = |value: Option<String>| {
+                    let (app, task_id) = (app.clone(), task_id.clone());
+                    move |_: &gpui::ClickEvent, _: &mut Window, cx: &mut gpui::App| {
+                        let (task_id, value) = (task_id.clone(), value.clone());
+                        let _ = app.update(cx, |app, cx| {
+                            app.set_staff_proposal_model(&task_id, proposal_id, value, cx)
+                        });
+                    }
+                };
+                let mut menu = menu.max_h(px(360.0)).scrollable(true).item(
+                    PopupMenuItem::new(t("staff.model_default"))
+                        .checked(selected.is_none())
+                        .on_click(pick(None)),
+                );
+                for (id, name) in &models {
+                    menu = menu.item(
+                        PopupMenuItem::new(name.clone())
+                            .checked(selected.as_deref() == Some(id.as_str()))
+                            .on_click(pick(Some(id.clone()))),
+                    );
+                }
+                menu
+            }),
+    )
+}
+
+fn profile_title(profile: &norma::protocol::AgentProfile) -> String {
+    format!("{profile:?}")
 }

@@ -120,6 +120,7 @@ fn interleaved_tools_pair_by_id_and_keep_denial() {
         id: "a".into(),
         name: None,
         input: None,
+        description: None,
         status: Some("denied".into()),
         command_format_error: false,
     });

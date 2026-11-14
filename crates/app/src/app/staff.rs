@@ -61,10 +61,13 @@ pub(crate) struct StaffState {
     pub drafts: BTreeMap<String, String>,
     pub images: Vec<String>,
     pub image_drafts: BTreeMap<String, Vec<String>>,
-    pub uploading_image: bool,
+    pub image_uploads: u8,
     /// 采纳前用户为提案改选的智能体类型；缺省沿用提案原值。
     pub proposal_agents: BTreeMap<(String, u64), String>,
-    pub proposal_models: BTreeMap<(String, u64), Entity<InputState>>,
+    /// 采纳前选定的模型 id；缺省表示用 CLI 默认。
+    pub proposal_models: BTreeMap<(String, u64), String>,
+    /// 已为模型下拉触发过后端模型列表读取。
+    pub models_probed: bool,
     pub input: Option<Entity<InputState>>,
     pub search: Option<Entity<InputState>>,
     pub query: String,
@@ -176,6 +179,10 @@ pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
 #[cfg(test)]
 #[path = "../../tests/unit/staff_layout_tests.rs"]
 mod layout_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/staff_layout_wrap_tests.rs"]
+mod layout_wrap_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/staff_worker_delivery_tests.rs"]

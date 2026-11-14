@@ -2,7 +2,7 @@ use super::super::*;
 use super::shell;
 use gpui::rgba;
 use norma::protocol::WorkerOutcome;
-use ui::component::{avatar::Avatar, Sizable};
+use runtime::island::bloub::Mood;
 
 pub(in crate::app::staff::messages) struct WorkerResult<'a>(pub &'a TaskMessage);
 
@@ -24,21 +24,27 @@ impl MessageBlock for WorkerResult<'_> {
             ..
         } = message
         {
-            let name = task
+            let worker = task
                 .workers
                 .iter()
-                .find(|worker| worker.card_id == Some(*node_id))
-                .map(|worker| worker.agent.as_str())
-                .unwrap_or("Agent");
+                .find(|worker| worker.card_id == Some(*node_id));
+            let name = worker.map_or("Agent", |worker| worker.agent.as_str());
+            let engine = worker.map_or("", |worker| worker.engine.as_str());
             row = shell::card(ctx, false)
                 .child(
                     shell::header()
                         .text_size(px(tokens::SPACE_12))
-                        .child(
-                            Avatar::new()
-                                .name(name.to_owned())
-                                .with_size(px(tokens::AVATAR_SIZE)),
-                        )
+                        .child(crate::island::pet(
+                            name,
+                            engine,
+                            tokens::AVATAR_SIZE,
+                            if *outcome == WorkerOutcome::Succeeded {
+                                Mood::Responded
+                            } else {
+                                Mood::Failed
+                            },
+                            !ctx.app.motion.reduce_motion,
+                        ))
                         .child(name.to_owned())
                         .child(
                             div()

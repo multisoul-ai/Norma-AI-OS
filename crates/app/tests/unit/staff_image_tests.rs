@@ -1,5 +1,8 @@
 use super::super::error_message;
-use super::{staff_can_send, staff_outgoing, store_picked_image};
+use super::{
+    prepare_staff_clipboard_image, staff_can_send, staff_image_from_clipboard, staff_outgoing,
+    store_picked_image,
+};
 use gpui::{div, prelude::*, px, size, AppContext, Render, TestAppContext, Window};
 use norma::protocol::{compose_image_message, Task, TaskMessage};
 use std::{fs, io::Write, path::Path};
@@ -59,6 +62,17 @@ fn staff_image_upload_uses_the_existing_store_and_reports_failures() {
             .expect("相同字节应复用"),
         saved,
         "重复上传不能另存一份"
+    );
+    let desktop =
+        "desktop:CDC3EA3E-CDEC-4FC8-82CC-C77D94607C8F:CE60ECF4-1891-41E2-9C05-32F8331E140D";
+    let desktop_saved =
+        crate::mobile::accept_chat_image(database, desktop, &fs::read(&tiny).expect("读回"))
+            .expect("桌面工作区 id 含冒号时仍应保存");
+    assert!(
+        desktop_saved.contains(
+            ".mobile-images/desktop_CDC3EA3E-CDEC-4FC8-82CC-C77D94607C8F_CE60ECF4-1891-41E2-9C05-32F8331E140D/"
+        ) && !desktop_saved.contains(':'),
+        "目录名应把冒号换成下划线，避免被当成非法图片：{desktop_saved}"
     );
 
     let mut huge = fs::File::create(dir.path().join("huge.bin")).expect("创建超限文件");
@@ -154,6 +168,67 @@ fn staff_outgoing_message_carries_images_without_requiring_text() {
     );
 }
 
+/// 场景：复制图片后粘贴，按聊天输入的方式收成附件，不把文件路径写进正文。
+/// 数据构造：1×1 PNG；3000×2 PNG；只含「screenshot.png」的剪贴板；系统图片加文件名条目。
+/// 数值：边长上限 2048。3000 按 2048/3000 缩小后宽为 2048，高为 floor(2×2048/3000)=1。
+/// 执行过程：prepare_staff_clipboard_image 与 staff_image_from_clipboard。
+/// 预期结果：小图可写入既有存储；超宽图落在 2048 以内；纯文字不拦截；有图片时优先图片。
+#[test]
+fn staff_pasted_image_fits_the_store_and_does_not_become_text() {
+    let tiny = encode_png(1, 1);
+    let prepared = prepare_staff_clipboard_image(&gpui::Image::from_bytes(
+        gpui::ImageFormat::Png,
+        tiny.clone(),
+    ))
+    .expect("1×1 png 应可粘贴");
+    assert_eq!(prepared, tiny, "未超限的 PNG 应原样保存，避免再压缩");
+    let dir = tempfile::tempdir().expect("临时目录");
+    let paths = storage::DatabasePaths::isolated_test(dir.path());
+    let saved = crate::mobile::accept_chat_image(paths.app_db_path(), "ws", &prepared)
+        .expect("粘贴结果应走既有上传");
+    assert!(
+        saved.contains(".mobile-images/ws/") && saved.ends_with(".png"),
+        "粘贴图片应进入既有目录：{saved}"
+    );
+
+    let wide = prepare_staff_clipboard_image(&gpui::Image::from_bytes(
+        gpui::ImageFormat::Png,
+        encode_png(3000, 2),
+    ))
+    .expect("超宽截图应缩小后仍可粘贴");
+    let decoded = image::load_from_memory(&wide).expect("缩小结果应是图片");
+    assert!(
+        decoded.width() <= 2048 && decoded.height() <= 2048 && decoded.width() >= 1,
+        "粘贴后边长必须落在存储上限内：{}×{}",
+        decoded.width(),
+        decoded.height()
+    );
+    assert!(wide.len() <= 2 * 1024 * 1024, "粘贴结果不能超过 2 MiB");
+
+    let filename = gpui::ClipboardItem::new_string("screenshot.png".into());
+    assert!(
+        staff_image_from_clipboard(None, Some(&filename)).is_none(),
+        "只有文字时必须继续粘贴到输入框"
+    );
+    let shot = gpui::Image::from_bytes(gpui::ImageFormat::Png, tiny);
+    assert!(
+        staff_image_from_clipboard(Some(shot), Some(&filename)).is_some(),
+        "剪贴板同时有文件名和图片时应收成附件，不能把路径写进正文"
+    );
+}
+
+fn encode_png(width: u32, height: u32) -> Vec<u8> {
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+        width,
+        height,
+        image::Rgb([9, 8, 7]),
+    ))
+    .write_to(&mut bytes, image::ImageFormat::Png)
+    .expect("应编码 png");
+    bytes.into_inner()
+}
+
 /// 场景：幕僚输入区能挂上已选图片，用户气泡展示图片而不是协议原文。
 /// 数据构造：800×600 窗口、一条已保存路径、用户消息「看这张」加该路径。
 /// 执行过程：生产 composer 与消息渲染器各画一帧。
@@ -200,7 +275,20 @@ fn staff_composer_shows_the_attach_control_and_selected_image() {
     let chip = cx
         .debug_bounds("staff-image-0")
         .expect("已选图片应出现在输入区");
-    assert!(chip.size.width > px(20.), "图片条应有可见宽度");
+    assert!(
+        chip.size.width > px(90.) && chip.size.height > px(60.),
+        "预览应是缩略图，而不是带文字的小条：{chip:?}"
+    );
+    let remove = cx
+        .debug_bounds("staff-image-remove-0")
+        .expect("缩略图角上应有移除按钮");
+    assert!(
+        remove.origin.x >= chip.origin.x
+            && remove.origin.x < chip.origin.x + chip.size.width
+            && remove.origin.y >= chip.origin.y
+            && remove.origin.y < chip.origin.y + chip.size.height,
+        "移除按钮应压在缩略图内部右上角：{remove:?} / {chip:?}"
+    );
     let image = cx
         .debug_bounds("staff-user-image-0-0")
         .expect("用户气泡应显示图片");

@@ -3,11 +3,11 @@ use super::{
     *,
 };
 use gpui::{div, prelude::*, px, rgba, Div, Stateful};
-use norma::protocol::{TaskDisplayStatus, WorkerChip};
+use norma::protocol::{TaskDisplayStatus, WorkerChip, WorkerOutcome};
+use runtime::island::bloub::Mood;
 use ui::component::{
-    avatar::Avatar,
     button::{Button, ButtonVariants},
-    Disableable, Sizable, StyledExt,
+    Disableable, StyledExt,
 };
 use ui::i18n::text as t;
 
@@ -94,7 +94,13 @@ impl MultisoulApp {
                     .gap(px(8.))
                     .disabled(node.is_none())
                     .tooltip(format!("{} · {}", worker.role, t("staff.locate_worker")))
-                    .child(Avatar::new().name(worker.agent.clone()).with_size(px(24.)))
+                    .child(crate::island::pet(
+                        &worker.agent,
+                        &worker.engine,
+                        24.,
+                        worker_mood(chip, worker.outcome),
+                        !self.motion.reduce_motion,
+                    ))
                     .child(
                         div()
                             .text_size(px(13.))
@@ -122,5 +128,37 @@ impl MultisoulApp {
             );
         }
         strip
+    }
+}
+
+/// Pet mood for a worker chip; a finished-but-unsuccessful outcome looks failed, not happy.
+pub(super) fn worker_mood(chip: WorkerChip, outcome: Option<WorkerOutcome>) -> Mood {
+    match (chip, outcome) {
+        (_, Some(WorkerOutcome::Succeeded)) => Mood::Responded,
+        (_, Some(_)) => Mood::Failed,
+        (WorkerChip::Running, _) => Mood::Working,
+        (WorkerChip::NeedsYou, _) => Mood::Waiting,
+        (WorkerChip::Done, _) => Mood::Responded,
+        (WorkerChip::Starting, _) => Mood::Idle,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn worker_mood_follows_chip_and_outcome() {
+        assert_eq!(worker_mood(WorkerChip::Running, None), Mood::Working);
+        assert_eq!(worker_mood(WorkerChip::NeedsYou, None), Mood::Waiting);
+        assert_eq!(worker_mood(WorkerChip::Starting, None), Mood::Idle);
+        assert_eq!(
+            worker_mood(WorkerChip::Done, Some(WorkerOutcome::Succeeded)),
+            Mood::Responded
+        );
+        assert_eq!(
+            worker_mood(WorkerChip::Done, Some(WorkerOutcome::Interrupted)),
+            Mood::Failed
+        );
     }
 }

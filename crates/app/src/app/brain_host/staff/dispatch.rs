@@ -194,7 +194,7 @@ impl MultisoulApp {
                 return;
             }
         };
-        let (agent, model) = self.staff_proposal_choice(&task_id, proposal_id, cx);
+        let (agent, model) = self.staff_proposal_choice(&task_id, proposal_id);
         self.staff.busy = true;
         self.staff.error = None;
         let work = cx.background_executor().spawn(async move {
