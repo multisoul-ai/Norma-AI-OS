@@ -161,6 +161,12 @@ impl AssetSource for EmbeddedAssets {
             "icons/chevron-right.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/chevron-right.svg"
             )))),
+            "icons/archive.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/archive.svg"
+            )))),
+            "icons/unarchive.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/unarchive.svg"
+            )))),
             "icons/check.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/check.svg"
             )))),
@@ -267,6 +273,8 @@ impl AssetSource for EmbeddedAssets {
                     SharedString::from("menu.svg"),
                     SharedString::from("minimize.svg"),
                     SharedString::from("chevron-right.svg"),
+                    SharedString::from("archive.svg"),
+                    SharedString::from("unarchive.svg"),
                     SharedString::from("folder.svg"),
                     SharedString::from("diff.svg"),
                     SharedString::from("grid.svg"),

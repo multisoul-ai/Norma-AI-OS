@@ -100,5 +100,18 @@
   "staff.question_unavailable": "这道问题已不可回答。",
   "staff.question_identity_changed": "问题内容已改变，请重新加载。",
   "staff.command_format_error": "格式错误",
-  "staff.command_format_detail": "命令未执行：一次工具调用只能包含一条命令，不能用 && 或分号组合。Norma 需要改为逐条调用。这不是你拒绝了授权。"
+  "staff.command_format_detail": "命令未执行：一次工具调用只能包含一条命令，不能用 && 或分号组合。Norma 需要改为逐条调用。这不是你拒绝了授权。",
+  "staff.archive": "归档",
+  "staff.unarchive": "取消归档",
+  "staff.archived": "已归档",
+  "staff.back_to_tasks": "返回任务列表",
+  "staff.archive_toast": "已归档「%{title}」",
+  "staff.archive_toast_active": "已归档「%{title}」（仍在进行，可在已归档中查看）",
+  "staff.undo": "撤销",
+  "staff.archive_undone": "已撤销归档",
+  "staff.unarchived_toast": "已移回任务列表",
+  "staff.archived_note": "已归档 · 不再出现在任务列表。发送新消息会自动取消归档。",
+  "staff.archive_named": "归档 %{title}",
+  "staff.archive_empty": "还没有归档的任务",
+  "staff.archive_empty_hint": "完成的任务可以收进这里"
 }

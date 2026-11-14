@@ -16,7 +16,7 @@ impl MultisoulApp {
         &self,
         task: &Task,
         project_name: &str,
-        _cx: &mut Context<Self>,
+        cx: &mut Context<Self>,
     ) -> Div {
         div()
             .px(px(20.))
@@ -45,6 +45,7 @@ impl MultisoulApp {
                             .child(task.title.clone()),
                     ),
             )
+            .child(self.staff_archive_header(task, cx))
     }
 
     pub(super) fn staff_workers(&self, task: &Task, cx: &mut Context<Self>) -> Stateful<Div> {

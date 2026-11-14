@@ -9,6 +9,7 @@ mod errors;
 mod question;
 mod staff;
 mod staff_images;
+mod staff_list;
 mod staff_question;
 mod workspace;
 
@@ -31,6 +32,7 @@ pub use staff::*;
 pub use staff_images::{
     compose_image_message, image_id, image_message_parts, parse_image_message, MAX_CHAT_IMAGES,
 };
+pub use staff_list::{staff_chip_counts, staff_visible_tasks, StaffChipCounts};
 pub use staff_question::*;
 pub use workspace::{OrchestrationDoctorReport, WorkspaceSummary};
 

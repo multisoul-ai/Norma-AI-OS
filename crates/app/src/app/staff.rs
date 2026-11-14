@@ -5,6 +5,7 @@ use norma::protocol::Task;
 use std::collections::BTreeMap;
 use ui::component::input::InputState;
 mod actions;
+mod archive;
 mod delivery;
 pub(crate) use delivery::{
     delivery_action, delivery_confirmed, output_is_quiet, DeliveryAction, DeliveryStage,
@@ -72,6 +73,9 @@ pub(crate) struct StaffState {
     pub search: Option<Entity<InputState>>,
     pub query: String,
     pub filter: Option<norma::protocol::TaskDisplayStatus>,
+    pub archive_view: bool,
+    pub toast: Option<StaffToast>,
+    pub toast_generation: u64,
     pub scroll: gpui::ScrollHandle,
     pub error: Option<ui::i18n::LocalizedText>,
     pub pending: BTreeMap<u64, PendingWorker>,
@@ -80,6 +84,13 @@ pub(crate) struct StaffState {
     pub recorded: std::cell::RefCell<
         std::collections::VecDeque<(brain::BrainEvent, brain::staff::TaskEventResult)>,
     >,
+}
+
+#[derive(Clone)]
+pub(crate) struct StaffToast {
+    pub text: ui::i18n::LocalizedText,
+    pub undo_task: Option<String>,
+    pub generation: u64,
 }
 
 pub(crate) struct PendingWorker {

@@ -100,6 +100,9 @@ enum StaffAdapter {
                 elif os.environ.get('NORMA_E2E_STAFF_QUESTIONS') == '1' and not any('Question' in item for item in task['messages']):
                     ask_cards(sid)
                     reply = 'STAFF QUESTIONS: answers will be read in the next turn.'
+                elif os.environ.get('NORMA_E2E_STAFF_ARCHIVE') == '1' and not task['proposals']:
+                    run(sid, base + ['task','propose',tid,'Claude','--title','下一步','--prompt','继续 ARCHIVE-KEEP','--why','请确认'])
+                    reply = 'STAFF PLAN：已提出下一步。'
                 elif not task['proposals']:
                     roster = run(sid, base + ['agents'])
                     # Production CLI wraps Brain output in the response envelope.

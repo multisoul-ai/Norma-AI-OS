@@ -30,6 +30,11 @@ pub enum StaffOp {
         task_id: String,
         proposal_id: u64,
     },
+    /// 用户归档或取消归档。不开放给任务轮次里的模型命令。
+    Archive {
+        task_id: String,
+        archived: bool,
+    },
 }
 
 impl StaffOp {
@@ -40,7 +45,8 @@ impl StaffOp {
             | Self::Reply { task_id, .. }
             | Self::Phase { task_id, .. }
             | Self::Propose { task_id, .. }
-            | Self::Adopt { task_id, .. } => Some(task_id),
+            | Self::Adopt { task_id, .. }
+            | Self::Archive { task_id, .. } => Some(task_id),
         }
     }
 }
@@ -210,6 +216,9 @@ pub struct Task {
     pub messages: Vec<TaskMessage>,
     pub workers: Vec<Worker>,
     pub proposals: Vec<StaffProposal>,
+    /// 缺字段的旧快照视为未归档。
+    #[serde(default)]
+    pub archived: bool,
 }
 
 impl Task {
@@ -229,6 +238,7 @@ impl Task {
             messages: Vec::new(),
             workers: Vec::new(),
             proposals: Vec::new(),
+            archived: false,
         }
     }
 
@@ -243,7 +253,21 @@ impl Task {
         }
     }
 
+    pub fn set_archived(&mut self, archived: bool) {
+        self.archived = archived;
+        self.updated_at = timestamp();
+    }
+
+    /// 归档提示是否要写明任务仍在进行：需要你、执行中、待验收。
+    pub fn archive_note_active(&self) -> bool {
+        matches!(
+            self.display_status(),
+            TaskDisplayStatus::NeedsYou | TaskDisplayStatus::Running | TaskDisplayStatus::Merging
+        )
+    }
+
     pub fn user_message(&mut self, text: &str) {
+        self.archived = false;
         if self.phase == TaskPhase::Done {
             self.phase = TaskPhase::Active;
             self.phase_manual = false;

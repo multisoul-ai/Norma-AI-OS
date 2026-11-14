@@ -1,6 +1,7 @@
+use super::archive::StaffArchiveNotice;
 use super::{view::status_label, *};
 use gpui::{div, prelude::*, px, rgba, Div, Stateful, Window};
-use norma::protocol::TaskDisplayStatus;
+use norma::protocol::{staff_chip_counts, staff_visible_tasks, Task, TaskDisplayStatus};
 use ui::component::{
     button::{Button, ButtonVariants},
     input::Input,
@@ -32,6 +33,17 @@ impl MultisoulApp {
             .as_ref()
             .expect("staff search initialized");
         let list_w = super::sidebar_width(window).max(280.);
+        let owned: Vec<_> = self.staff.tasks.values().cloned().collect();
+        let project_filter = self.staff.project_filter.clone();
+        let task_projects = self.staff.task_projects.clone();
+        let project_matches = |task: &Task| {
+            project_filter.as_ref().is_none_or(|area| {
+                task_projects
+                    .get(&task.id)
+                    .is_some_and(|(owner, _)| owner == area)
+            })
+        };
+        let counts = staff_chip_counts(&owned, project_matches);
         let mut chips = div()
             .flex()
             .items_center()
@@ -51,20 +63,11 @@ impl MultisoulApp {
                 t("staff.running"),
             ),
         ] {
-            let count = self
-                .staff
-                .tasks
-                .values()
-                .filter(|task| {
-                    self.staff.project_filter.as_ref().is_none_or(|area| {
-                        self.staff
-                            .task_projects
-                            .get(&task.id)
-                            .is_some_and(|(owner, _)| owner == area)
-                    })
-                })
-                .filter(|task| status.is_none_or(|status| task.display_status() == status))
-                .count();
+            let count = match key {
+                "needs" => counts.needs_you,
+                "running" => counts.running,
+                _ => counts.all,
+            };
             // 外层等分宽度，避免按钮按文字内容撑出不等宽（英文标签更长）。
             chips = chips.child(
                 div().flex_1().min_w_0().child(
@@ -100,49 +103,20 @@ impl MultisoulApp {
             .overflow_y_scroll()
             .px(px(8.))
             .pb(px(12.));
-        let query = self.staff.query.trim().to_lowercase();
-        let mut visible = 0;
-        for status in [
-            TaskDisplayStatus::NeedsYou,
-            TaskDisplayStatus::Running,
-            TaskDisplayStatus::Waiting,
-            TaskDisplayStatus::Merging,
-            TaskDisplayStatus::Done,
-        ] {
-            if self.staff.filter.is_some_and(|filter| filter != status) {
-                continue;
-            }
-            let mut tasks: Vec<_> = self
-                .staff
-                .tasks
-                .values()
-                .filter(|task| {
-                    self.staff.project_filter.as_ref().is_none_or(|area| {
-                        self.staff
-                            .task_projects
-                            .get(&task.id)
-                            .is_some_and(|(owner, _)| owner == area)
-                    })
-                })
-                .filter(|task| task.display_status() == status)
-                .filter(|task| {
-                    query.is_empty()
-                        || task.title.to_lowercase().contains(&query)
-                        || task
-                            .workers
-                            .iter()
-                            .any(|worker| worker.agent.to_lowercase().contains(&query))
-                })
-                .cloned()
-                .collect();
-            tasks.sort_by_key(|task| std::cmp::Reverse(task.updated_at));
-            if tasks.is_empty() {
-                continue;
-            }
-            visible += tasks.len();
+        let visible_tasks = staff_visible_tasks(
+            &owned,
+            self.staff.archive_view,
+            self.staff.filter,
+            &self.staff.query,
+            project_matches,
+        );
+        let visible = visible_tasks.len();
+        for task in visible_tasks {
+            let status = task.display_status();
             let color = status_color(status, theme);
-            for task in tasks {
+            {
                 let id = task.id.clone();
+                let group_name = gpui::SharedString::from(format!("staff-row-{id}"));
                 let pending_questions = task.pending_question_count();
                 let agents = task
                     .workers
@@ -171,6 +145,8 @@ impl MultisoulApp {
                     groups.child(
                         Button::new(gpui::SharedString::from(format!("staff-task-{id}")))
                             .debug_selector(move || format!("staff-task-{}", task.id))
+                            .group(group_name.clone())
+                            .relative()
                             .custom(self.staff_button_style(
                                 self.staff.selected.as_deref() == Some(&id),
                                 cx,
@@ -223,6 +199,9 @@ impl MultisoulApp {
                                                     .flex_none()
                                                     .text_size(px(11.))
                                                     .text_color(rgba(color))
+                                                    .group_hover(group_name.clone(), |style| {
+                                                        style.opacity(0.)
+                                                    })
                                                     .child(if pending_questions > 0 {
                                                         format!(
                                                             "{} · {}",
@@ -249,6 +228,52 @@ impl MultisoulApp {
                                             .child(subtitle),
                                     ),
                             )
+                            .when(!self.staff.archive_view, |row| {
+                                let archive_id = id.clone();
+                                let title = task.title.clone();
+                                let selector_id = archive_id.clone();
+                                row.child(
+                                    Button::new(gpui::SharedString::from(format!(
+                                        "staff-archive-row-{selector_id}"
+                                    )))
+                                    .debug_selector(move || {
+                                        format!("staff-archive-row-{selector_id}")
+                                    })
+                                    .custom(self.staff_button_style(false, cx))
+                                    .absolute()
+                                    .right(px(8.))
+                                    .top(px(8.))
+                                    .w(px(32.))
+                                    .h(px(32.))
+                                    .rounded(px(16.))
+                                    .opacity(0.)
+                                    .group_hover(group_name.clone(), |style| style.opacity(1.))
+                                    .focus(|style| style.opacity(1.))
+                                    .in_focus(|style| style.opacity(1.))
+                                    .tooltip(ui::i18n::format(
+                                        "staff.archive_named",
+                                        &[("title", title.clone())],
+                                    ))
+                                    .icon(Icon::empty().path("icons/archive.svg"))
+                                    .disabled(self.staff.busy)
+                                    .on_click(cx.listener(move |app, _, window, cx| {
+                                        cx.stop_propagation();
+                                        let task = app.staff.tasks.get(&archive_id);
+                                        let active =
+                                            task.is_some_and(|task| task.archive_note_active());
+                                        let title = task
+                                            .map(|task| task.title.clone())
+                                            .unwrap_or_else(|| title.clone());
+                                        app.request_staff_archive(
+                                            archive_id.clone(),
+                                            true,
+                                            StaffArchiveNotice::Archived { title, active },
+                                            window,
+                                            cx,
+                                        );
+                                    })),
+                                )
+                            })
                             .on_click(cx.listener(move |app, _, window, cx| {
                                 app.select_staff_task(Some(id.clone()), window, cx)
                             })),
@@ -261,7 +286,17 @@ impl MultisoulApp {
                     .p(px(24.))
                     .text_size(px(13.))
                     .text_color(rgba(theme.text_tertiary))
-                    .child(t("staff.no_matches")),
+                    .child(
+                        if self.staff.archive_view && self.staff.query.trim().is_empty() {
+                            t("staff.archive_empty")
+                        } else {
+                            t("staff.no_matches")
+                        },
+                    )
+                    .when(
+                        self.staff.archive_view && self.staff.query.trim().is_empty(),
+                        |empty| empty.child(div().pt(px(4.)).child(t("staff.archive_empty_hint"))),
+                    ),
             );
         }
         div()
@@ -330,7 +365,14 @@ impl MultisoulApp {
                         .child(self.staff_project_picker(false, cx)),
                 ),
             )
-            .child(chips)
+            .child(if self.staff.archive_view {
+                self.staff_archive_bar(visible, cx)
+            } else {
+                chips
+            })
             .child(groups)
+            .when(!self.staff.archive_view, |list| {
+                list.child(self.staff_archive_link(cx))
+            })
     }
 }

@@ -52,7 +52,7 @@ pub struct TraceItem {
     pub title: String,
     pub text: String,
     pub end: Option<TurnEnd>,
-    pub tool: Option<ToolTrace>,
+    pub tool: Option<Box<ToolTrace>>,
 }
 
 impl TraceItem {
@@ -182,19 +182,21 @@ pub fn classify_update(update: &Value) -> Option<TraceItem> {
         other => TraceItem::new(TraceKind::Unknown, other, cap(update.to_string())),
     };
     if matches!(item.kind, TraceKind::ToolCall | TraceKind::ToolResult) {
-        item.tool = update["toolCallId"].as_str().map(|id| ToolTrace {
-            command_format_error: false,
-            id: id.into(),
-            name: update["title"].as_str().map(str::to_owned),
-            input: update
-                .get("rawInput")
-                .filter(|value| !value.is_null())
-                .map(Value::to_string),
-            description: update["rawInput"]["description"]
-                .as_str()
-                .filter(|text| !text.is_empty())
-                .map(str::to_owned),
-            status: update["status"].as_str().map(str::to_owned),
+        item.tool = update["toolCallId"].as_str().map(|id| {
+            Box::new(ToolTrace {
+                command_format_error: false,
+                id: id.into(),
+                name: update["title"].as_str().map(str::to_owned),
+                input: update
+                    .get("rawInput")
+                    .filter(|value| !value.is_null())
+                    .map(Value::to_string),
+                description: update["rawInput"]["description"]
+                    .as_str()
+                    .filter(|text| !text.is_empty())
+                    .map(str::to_owned),
+                status: update["status"].as_str().map(str::to_owned),
+            })
         });
     }
     Some(item)
