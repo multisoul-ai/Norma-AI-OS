@@ -242,7 +242,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             env.finish(&job, turn_no, true);
             continue;
         }
-        let text = if let Some(task) = &task {
+        let mut text = if let Some(task) = &task {
             super::staff::prompt(task, &job.scope, &env.gate.norma_bin)
         } else if primed {
             job.text.clone()
@@ -262,6 +262,21 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 ),
                 job.text
             )
+        };
+        let images = if let Some(task) = &task {
+            let attached = super::staff_images::attachments(task);
+            if !attached.blocks.is_empty() {
+                text.push_str(
+                    "\n\n本轮用户上传的图片已作为随后的 image 内容块附上。直接查看这些内容块，不要再去读磁盘路径。",
+                );
+            }
+            if !attached.missing.is_empty() {
+                text.push_str("\n\n这些已上传图片本次没能读入，不要当作已经看过：");
+                text.push_str(&attached.missing.join(" "));
+            }
+            attached.blocks
+        } else {
+            Vec::new()
         };
         let active = session.as_mut().expect("会话刚创建");
         let identity = format!(
@@ -299,6 +314,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
         }));
         let result = active.prompt_observed(
             &text,
+            &images,
             &gate,
             &cancelled,
             env.prompt_timeout,

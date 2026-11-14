@@ -17,6 +17,7 @@ mod activity;
 mod appearance;
 mod composer;
 mod detail;
+mod images;
 mod messages;
 mod questions;
 mod task_list;
@@ -57,6 +58,9 @@ pub(crate) struct StaffState {
     pub task_projects: BTreeMap<String, (String, String)>,
     pub selected: Option<String>,
     pub drafts: BTreeMap<String, String>,
+    pub images: Vec<String>,
+    pub image_drafts: BTreeMap<String, Vec<String>>,
+    pub uploading_image: bool,
     pub input: Option<Entity<InputState>>,
     pub search: Option<Entity<InputState>>,
     pub query: String,
@@ -150,6 +154,10 @@ pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
         "staff.worker_not_ready" | "staff.worker_needs_attention" => "staff.worker_needs_attention",
         "staff.worker_failed" => "staff.worker_failed",
         "staff.connection_unavailable" => "staff.connection_unavailable",
+        "invalid_image" => "staff.image_invalid",
+        "too_many_images" => "staff.image_too_many",
+        "image_storage_full" => "staff.image_storage_full",
+        "image_storage_unavailable" => "staff.image_unavailable",
         "island.staff_loading" => "island.staff_loading",
         "island.staff_disabled" => "island.staff_disabled",
         "island.staff_no_workspace" => "island.staff_no_workspace",

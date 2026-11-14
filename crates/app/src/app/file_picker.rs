@@ -31,6 +31,15 @@ pub(crate) async fn pick_wallpaper_image() -> Option<PathBuf> {
         .map(|handle| handle.path().to_path_buf())
 }
 
+pub(crate) async fn pick_chat_image(title: &str) -> Option<PathBuf> {
+    rfd::AsyncFileDialog::new()
+        .set_title(title)
+        .add_filter("PNG / JPEG", &["png", "jpg", "jpeg"])
+        .pick_file()
+        .await
+        .map(|handle| handle.path().to_path_buf())
+}
+
 pub(crate) async fn pick_zipvoice_reference_audio() -> Option<PathBuf> {
     rfd::AsyncFileDialog::new()
         .set_title("Choose a ZipVoice reference WAV")

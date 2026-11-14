@@ -35,6 +35,7 @@ pub use command::{
 };
 pub use conversation::LiveConversationRequest;
 use norma::mobile::{PairingPending, PairingQr, PairingRequest, PairingSession, ServerIdentity};
+pub(crate) use server::connection::accept_chat_image;
 pub use server::MobileServer;
 pub use snapshot::LiveSnapshotRequest;
 use std::time::Instant;

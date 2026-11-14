@@ -4,9 +4,12 @@
 mod claude_auth;
 pub mod client;
 mod codex_compat;
+mod content;
 pub mod gate;
 mod permission;
 pub mod questions;
 mod read_roots;
 pub mod trace;
 pub mod wire;
+
+pub(crate) use content::PromptImage;

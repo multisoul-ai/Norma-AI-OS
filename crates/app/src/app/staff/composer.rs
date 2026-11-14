@@ -1,3 +1,4 @@
+use super::images::staff_can_send;
 use super::*;
 use gpui::{div, prelude::*, px, rgba, Div, Focusable, KeyDownEvent, Window};
 use ui::component::{
@@ -68,6 +69,11 @@ impl MultisoulApp {
                         .pl(px(18.))
                         .pr(px(8.))
                         .py(px(8.))
+                        .flex()
+                        .flex_col()
+                        .when(!self.staff.images.is_empty(), |composer| {
+                            composer.child(self.staff_image_chips(cx))
+                        })
                         .capture_action(cx.listener(
                             |app, _: &ui::component::input::Enter, window, cx| {
                                 app.send_staff_message(window, cx);
@@ -89,6 +95,19 @@ impl MultisoulApp {
                                 .items_center()
                                 .gap(px(10.))
                                 .child(
+                                    Button::new("staff-attach-image")
+                                        .debug_selector(|| "staff-attach-image".into())
+                                        .custom(self.staff_button_style(false, cx))
+                                        .with_size(px(34.))
+                                        .rounded_full()
+                                        .icon(IconName::Plus)
+                                        .tooltip(t("staff.attach_image"))
+                                        .disabled(self.staff.busy || self.staff.uploading_image)
+                                        .on_click(
+                                            cx.listener(|app, _, _, cx| app.pick_staff_image(cx)),
+                                        ),
+                                )
+                                .child(
                                     div()
                                         .flex_1()
                                         .min_w_0()
@@ -98,7 +117,9 @@ impl MultisoulApp {
                                             Input::new(input)
                                                 .appearance(false)
                                                 .text_size(px(14.))
-                                                .disabled(self.staff.busy),
+                                                .disabled(
+                                                    self.staff.busy || self.staff.uploading_image,
+                                                ),
                                         ),
                                 )
                                 .child(
@@ -109,10 +130,12 @@ impl MultisoulApp {
                                         .rounded_full()
                                         .icon(IconName::ArrowUp)
                                         .tooltip(t("staff.send"))
-                                        .disabled(
-                                            self.staff.busy
-                                                || input.read(cx).value().trim().is_empty(),
-                                        )
+                                        .disabled(!staff_can_send(
+                                            self.staff.busy,
+                                            self.staff.uploading_image,
+                                            &input.read(cx).value(),
+                                            self.staff.images.len(),
+                                        ))
                                         .on_click(cx.listener(Self::send_staff_message_click)),
                                 ),
                         ),

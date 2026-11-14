@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use std::{
     fs,
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -23,6 +23,21 @@ const CHUNK: usize = 64 * 1024;
 struct Chunk {
     offset: usize,
     data: String,
+}
+
+/// 把一张已校验的聊天图片写入既有 `.mobile-images` 目录，返回绝对路径。
+pub(crate) fn accept_chat_image(
+    database: &Path,
+    workspace: &str,
+    bytes: &[u8],
+) -> Result<String, &'static str> {
+    if !crate::mobile::command::valid_id(workspace) || bytes.is_empty() || bytes.len() > LIMIT {
+        return Err("invalid_image");
+    }
+    let extension = store::validate(bytes)?;
+    let id = format!("{:x}", Sha256::digest(bytes));
+    let folder = database.with_extension("mobile-images").join(workspace);
+    store::save(&folder, &id, extension, bytes)
 }
 
 pub(super) fn serve(

@@ -2,4 +2,5 @@
 
 pub mod prompt;
 mod staff;
+mod staff_images;
 pub mod worker;

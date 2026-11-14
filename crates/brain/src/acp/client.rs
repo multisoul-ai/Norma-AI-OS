@@ -176,13 +176,14 @@ impl AcpSession {
         timeout: Duration,
         sink: &mut dyn FnMut(TraceItem),
     ) -> Result<String, AcpError> {
-        self.prompt_observed(text, gate, cancel, timeout, sink, &mut |_| {})
+        self.prompt_observed(text, &[], gate, cancel, timeout, sink, &mut |_| {})
     }
 
     /// Observe raw progress before audit trace coalescing; observations are not persisted replies.
     pub fn prompt_observed(
         &mut self,
         text: &str,
+        images: &[super::content::PromptImage],
         gate: &Gate,
         cancel: &AtomicBool,
         timeout: Duration,
@@ -200,12 +201,12 @@ impl AcpSession {
                 return Err(AcpError::Cancelled);
             }
             let mut id = self
-            .conn
-            .send_request(
-                "session/prompt",
-                json!({"sessionId": self.session_id, "prompt": [{"type": "text", "text": text}]}),
-            )
-            .map_err(|_| AcpError::Closed)?;
+                .conn
+                .send_request(
+                    "session/prompt",
+                    super::content::session_prompt(&self.session_id, text, images),
+                )
+                .map_err(|_| AcpError::Closed)?;
             let mut deadline = Instant::now() + timeout;
             let mut tick = Instant::now();
             let mut reply = String::new();
@@ -281,10 +282,11 @@ impl AcpSession {
                                     .conn
                                     .send_request(
                                         "session/prompt",
-                                        json!({
-                                            "sessionId": self.session_id,
-                                            "prompt": [{"type":"text", "text":correction}]
-                                        }),
+                                        super::content::session_prompt(
+                                            &self.session_id,
+                                            &correction,
+                                            &[],
+                                        ),
                                     )
                                     .map_err(|_| AcpError::Closed)?;
                                 continue;

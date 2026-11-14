@@ -75,6 +75,7 @@ impl MultisoulApp {
         if self.staff.busy {
             return;
         }
+        self.stash_staff_images(id.clone());
         if let Some(input) = &self.staff.input {
             self.staff.drafts.insert(
                 self.staff.selected.clone().unwrap_or_default(),
@@ -135,25 +136,27 @@ impl MultisoulApp {
         let Some(input) = self.staff.input.clone() else {
             return;
         };
-        let text = input.read(cx).value().trim().to_owned();
-        if text.is_empty() {
+        let visible = input.read(cx).value().trim().to_owned();
+        let images = self.staff.images.clone();
+        if visible.is_empty() && images.is_empty() {
             return;
         }
+        let (text, title) = match super::images::staff_outgoing(&visible, &images) {
+            Ok(message) => message,
+            Err("empty") => return,
+            Err(error) => {
+                self.staff.error = Some(super::error_message(error.to_owned()));
+                self.notify_staff(cx);
+                return;
+            }
+        };
         let selected = self.staff.selected.clone();
         let op = match &selected {
             Some(id) => StaffOp::Message {
                 task_id: id.clone(),
                 text: text.clone(),
             },
-            None => StaffOp::Create {
-                title: text
-                    .lines()
-                    .next()
-                    .unwrap_or(&text)
-                    .chars()
-                    .take(60)
-                    .collect(),
-            },
+            None => StaffOp::Create { title },
         };
         let work = match self.write_staff_operation(op, false, cx) {
             Ok(work) => work,
@@ -196,7 +199,10 @@ impl MultisoulApp {
                 app.staff.busy = false;
                 if result.is_ok() {
                     input.update(cx, |input, cx| input.set_value(String::new(), window, cx));
-                    app.staff.drafts.remove(&selected.unwrap_or_default());
+                    let key = selected.unwrap_or_default();
+                    app.staff.drafts.remove(&key);
+                    app.staff.images.clear();
+                    app.staff.image_drafts.remove(&key);
                 }
                 app.staff.error = result.err().map(crate::app::staff::error_message);
                 app.notify_staff(cx);

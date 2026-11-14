@@ -114,6 +114,7 @@ impl MultisoulApp {
         if self.staff.busy {
             return;
         }
+        self.stash_staff_images(id.clone());
         if let Some((area, _)) = id.as_ref().and_then(|id| self.staff.task_projects.get(id)) {
             self.staff.target_project = Some(area.clone());
         }
