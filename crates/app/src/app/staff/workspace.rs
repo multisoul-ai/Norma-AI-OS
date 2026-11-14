@@ -19,6 +19,8 @@ impl MultisoulApp {
             self.staff.project_filter = None;
             self.staff.target_project = None;
             self.staff.query.clear();
+            self.staff.archive_view = false;
+            self.staff.toast = None;
             if let Some(search) = &self.staff.search {
                 search.update(cx, |input, cx| input.set_value("", window, cx));
             }

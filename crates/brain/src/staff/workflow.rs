@@ -85,6 +85,7 @@ impl TaskStore {
                         "adoption requires host dispatch",
                     ))
                 }
+                StaffOp::Archive { archived, .. } => task.set_archived(archived),
                 StaffOp::Create { .. } | StaffOp::List => {
                     unreachable!("handled before task lookup")
                 }
