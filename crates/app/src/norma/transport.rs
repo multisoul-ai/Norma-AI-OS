@@ -334,6 +334,35 @@ mod tests {
     use super::*;
     use norma::protocol::AgentErrorCode;
 
+    /// 多开单例：同一 socket 路径的第二个监听者必须以 AddrInUse 失败，App 据此跳过灵动岛。
+    ///
+    /// 数据构造：临时目录下的同一 socket 路径，先后 bind 两次（2 个监听者，期望 1 成功 1 失败）。
+    /// 执行过程：第一次 bind 并保持存活，第二次 bind 同路径；随后释放第一个再 bind。
+    /// 预期结果：
+    ///   - 正断言：第二次 bind 返回 ErrorKind::AddrInUse。
+    ///   - 正断言：第一个释放后同路径可再次 bind（租约随进程/监听者释放）。
+    #[test]
+    fn second_listener_on_same_socket_is_rejected_while_first_lives() {
+        let dir = std::env::temp_dir().join(format!("norma-lease-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("创建临时目录");
+        let path = dir.join("n.sock");
+
+        let first = NormaSocketListener::bind(path.clone()).expect("首个监听者应成功");
+        let second = NormaSocketListener::bind(path.clone());
+        assert_eq!(
+            second.err().map(|error| error.kind()),
+            Some(ErrorKind::AddrInUse),
+            "已有持有者时第二个监听者必须返回 AddrInUse"
+        );
+
+        drop(first);
+        assert!(
+            NormaSocketListener::bind(path).is_ok(),
+            "持有者释放后租约应可重新获取"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// 入口背压与超时：过载、关闭和副作用未知必须使用不同结构化错误。
     ///
     /// 数据构造（含关键数值的推导过程）：
