@@ -157,12 +157,17 @@ pub fn run_norma_os() {
             .expect("failed to start App-global Agent Hook ingress");
         updater::install(cx);
         telemetry::install(cx);
-        if let Err(error) = norma::endpoint::install(cx) {
-            tracing::error!(
-                %error,
-                "App-global Norma endpoint unavailable; another App process may own it"
-            );
-        }
+        // 端点租约是跨进程单例信号：只有持有者创建灵动岛，避免多开时屏幕上叠出多个岛。
+        let endpoint_owner = match norma::endpoint::install(cx) {
+            Ok(()) => true,
+            Err(error) => {
+                tracing::error!(
+                    %error,
+                    "App-global Norma endpoint unavailable; another App process may own it"
+                );
+                false
+            }
+        };
 
         // Quit 是唯一由 GPUI keymap 固定绑定的菜单快捷键；可配置命令仍由
         // ShortcutSettingsState 统一处理，暂不在原生菜单中显示提示。
@@ -200,7 +205,9 @@ pub fn run_norma_os() {
         // The opt-in `licenses` feature controls the hard gate (ADR 0015).
         // Default and packaged builds enter the workbench without a license.
         settings::general::open_initial_window(cx);
-        island::install(cx);
-        island::hotkey::install(cx);
+        if endpoint_owner {
+            island::install(cx);
+            island::hotkey::install(cx);
+        }
     });
 }
