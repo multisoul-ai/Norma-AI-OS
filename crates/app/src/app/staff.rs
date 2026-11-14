@@ -172,3 +172,7 @@ mod delivery_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/staff_card_tests.rs"]
 mod card_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/staff_keyboard_tests.rs"]
+mod keyboard_tests;

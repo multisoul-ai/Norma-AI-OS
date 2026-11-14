@@ -31,7 +31,7 @@ public enum StaffWorkspaceStreaming {
         try Catalog.seedWorkspace(database: database, name: "Staff Workspace")
         try Catalog.seedWorkspace(database: database, name: "Other Workspace")
         try Catalog.suppressFeatureGuide(database: database)
-        if english { try VoiceConfigurationFixture.theme(database: database, id: "sapphire-night") }
+        try VoiceConfigurationFixture.theme(database: database, id: english ? "sapphire-night" : "ink-black")
         for name in ["Alpha", "Beta"] {
             let project = root.appendingPathComponent(name)
             try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)

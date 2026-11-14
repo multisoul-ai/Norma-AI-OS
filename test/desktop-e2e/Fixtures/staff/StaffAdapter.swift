@@ -24,6 +24,7 @@ enum StaffAdapter {
     def run(session, argv):
         global counter
         counter += 1
+        update(session, {'sessionUpdate':'tool_call','toolCallId':str(counter),'title':' '.join(argv[6:8]),'status':'in_progress','rawInput':{'command':shlex.join(argv)}})
         send({'jsonrpc':'2.0','id':counter,'method':'session/request_permission','params':{
             'sessionId':session,'toolCall':{'toolCallId':str(counter),'name':'Bash','kind':'execute','rawInput':{'command':shlex.join(argv)}},
             'options':[{'optionId':'yes','kind':'allow_once'},{'optionId':'no','kind':'reject_once'}]}})
@@ -32,11 +33,35 @@ enum StaffAdapter {
             if answer.get('id') == counter: break
         allowed = answer.get('result',{}).get('outcome',{}).get('optionId') == 'yes'
         record('commands.jsonl', dict(argv=argv, allowed=allowed))
-        if not allowed: return None
+        if not allowed:
+            update(session, {'sessionUpdate':'tool_call_update','toolCallId':str(counter),'status':'failed','rawOutput':'Permission gate declined this command.'})
+            return None
         result = subprocess.run(argv, capture_output=True, text=True, timeout=40)
         record('results.jsonl', dict(argv=argv, code=result.returncode, output=result.stdout, error=result.stderr))
+        update(session, {'sessionUpdate':'tool_call_update','toolCallId':str(counter),'status':'completed' if result.returncode == 0 else 'failed','rawOutput':result.stdout or result.stderr})
         if result.returncode: raise RuntimeError(result.stderr)
         return json.loads(result.stdout)
+    def ask_cards(sid):
+        forms = [
+            {'theme': {'type':'string','title':'Which interface theme?', '_meta':{'codex':{'isOther':True,'isSecret':False}},
+                'oneOf':[{'const':'Light','title':'Light','description':'Bright background'}, {'const':'Dark','title':'Dark','description':'Comfortable at night'}]},
+             'checks': {'type':'array','title':'Which checks should Worker run?', '_meta':{'codex':{'isOther':True,'isSecret':False}},
+                'items':{'anyOf':[{'const':'Keyboard','title':'Keyboard shortcuts'}, {'const':'Access','title':'Accessibility'}]}},
+             'private_label': {'type':'string','title':'Private build label', '_meta':{'codex':{'isOther':True,'isSecret':True}}}},
+            {'analytics': {'type':'string','title':'Enable optional analytics?', '_meta':{'codex':{'isOther':True,'isSecret':False}},
+                'oneOf':[{'const':'Yes','title':'Yes'}, {'const':'No','title':'No'}]}}
+        ]
+        for index, fields in enumerate(forms):
+            send({'jsonrpc':'2.0','id':900+index,'method':'elicitation/create','params':{'sessionId':sid,
+                'toolCallId':'staff-question-'+str(index),'mode':'form','message':'Please choose',
+                'requestedSchema':{'type':'object','properties':fields}}})
+        replies = []
+        while len(replies) < 2:
+            answer = read()
+            if answer.get('id') in [900,901]: replies.append(answer)
+        record('question-replies.jsonl', {'replies':replies})
+        assert all(item.get('result') == {'action':'decline'} for item in replies), replies
+
     while True:
         message = read(); method, mid = message.get('method'), message.get('id')
         if method == 'initialize': send({'jsonrpc':'2.0','id':mid,'result':{'protocolVersion':1,'agentCapabilities':{}}})
@@ -47,10 +72,10 @@ enum StaffAdapter {
             record('prompts.jsonl', dict(text=text))
             sid = message['params']['sessionId']
             reply = ''
-            match = re.search(r'当前作用域：(\{.*\})\n.*?\n(\{.*\})\n只能执行 (.*?) brain 命令', text)
+            match = re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})', text)
             if match:
                 scope, task = json.loads(match[1]), json.loads(match[2])
-                binary = shlex.split(match[3])[0]
+                binary = shlex.split(re.search(r'只能执行 (.*?) brain 命令', text)[1])[0]
                 base = [binary,'brain','--workspace',scope['workspace_id'],'--route',scope['route_id']]
                 tid = task['id']
                 users = [m['User']['text'] for m in task['messages'] if 'User' in m]
@@ -72,6 +97,9 @@ enum StaffAdapter {
                     hold('release-final')
                 elif 'STREAM-BETA' in last:
                     reply = 'BETA RESULT: separate project conversation.'
+                elif os.environ.get('NORMA_E2E_STAFF_QUESTIONS') == '1' and not any('Question' in item for item in task['messages']):
+                    ask_cards(sid)
+                    reply = 'STAFF QUESTIONS: answers will be read in the next turn.'
                 elif not task['proposals']:
                     roster = run(sid, base + ['agents'])
                     # Production CLI wraps Brain output in the response envelope.
@@ -81,7 +109,7 @@ enum StaffAdapter {
                     agent = next(a['name'] for a in enabled if wanted and (a['name'] == wanted or a.get('profile') == wanted)) if wanted else enabled[0]['name']
                     run(sid, base + ['task','propose',tid,agent,'--title','实现验收文件','--prompt','STAFF-M1-WORK: 创建 STAFF-RESULT.md 并返回结果。','--why','先完成一个可验收产物'])
                     # Task sessions are forbidden to report: prove the permission gate rejects it.
-                    run(sid, base + ['report','--text','TASK MUST NOT SPEAK'])
+                    run(sid, base + ['report','--text','TASK MUST NOT SPEAK ' + 'Long acceptance input. ' * 100])
                     reply = '**STAFF PLAN**：建议先生成验收文件。\n\n- 采用后开始\n- 产物：`STAFF-RESULT.md`'
                 elif 'CONFIRM' in last:
                     run(sid, base + ['task','phase',tid,'done'])

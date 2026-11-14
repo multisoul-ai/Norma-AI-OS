@@ -42,13 +42,26 @@ impl MessageBlock for Question<'_> {
                             } else {
                                 theme.text_secondary
                             }))
-                            .child(t(if pending && !available {
-                                "chrome.question_submitted"
-                            } else {
-                                state_key(question.state)
-                            })),
+                            .child(t(ctx.app.staff_question_status(question))),
                     ),
             );
+        if pending && !available {
+            if let Some(target) = &question.worker {
+                let node = target.node_id;
+                card = card.child(
+                    shell::action_button(
+                        ctx,
+                        gpui::SharedString::from(format!("question-native-{}", question.id)),
+                        false,
+                        cx,
+                    )
+                    .label(t("chrome.question_native"))
+                    .on_click(cx.listener(move |app, _, window, cx| {
+                        app.locate_staff_worker(node, window, cx)
+                    })),
+                );
+            }
+        }
         let editor = ctx.app.staff.question_editors.get(&question.id);
         for (index, item) in question.items.iter().enumerate() {
             card = card.child(div().font_medium().child(item.prompt.clone()));
@@ -157,13 +170,5 @@ impl MessageBlock for Question<'_> {
             );
         }
         card.into_any_element()
-    }
-}
-fn state_key(state: StaffQuestionState) -> &'static str {
-    match state {
-        StaffQuestionState::Pending => "staff.question_pending",
-        StaffQuestionState::Answered => "staff.question_answered",
-        StaffQuestionState::Skipped => "staff.question_skipped",
-        StaffQuestionState::TimedOut => "staff.question_timed_out",
     }
 }

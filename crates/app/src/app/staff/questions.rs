@@ -3,6 +3,35 @@ use gpui::Window;
 use norma::protocol::{StaffQuestionState, TaskMessage};
 
 impl MultisoulApp {
+    pub(crate) fn staff_question_status(
+        &self,
+        question: &norma::protocol::StaffQuestion,
+    ) -> &'static str {
+        use norma::protocol::{QuestionState as Native, StaffQuestionState as Card};
+        match question.state {
+            Card::Answered => "staff.question_answered",
+            Card::Skipped => "staff.question_skipped",
+            Card::TimedOut => "staff.question_timed_out",
+            Card::Pending => match question.worker.as_ref() {
+                None => "staff.question_pending",
+                Some(target) => {
+                    match self
+                        .runtime
+                        .question_snapshot(target)
+                        .map(|snapshot| snapshot.state)
+                    {
+                        Some(Native::Submitting) => "chrome.question_submitting",
+                        Some(Native::Submitted) => "chrome.question_submitted",
+                        _ if self.runtime.native_question_available(target) => {
+                            "staff.question_pending"
+                        }
+                        _ => "chrome.question_native_only",
+                    }
+                }
+            },
+        }
+    }
+
     pub(super) fn ensure_staff_question_editors(
         &mut self,
         task: &Task,

@@ -75,6 +75,7 @@ public enum StaffOpenCodeDispatch {
             guard try StaffFixture.records(root, "received.jsonl").count == 1 else {
                 throw E2EError.product("宽限后应恰好粘贴一次")
             }
+            try await session.scroll(xFraction: 0.60, yFraction: 0.55, deltaY: -700)
             try session.save(try await session.visualCheck([
                 VisualCriterion(id: "needs-you", text: "任务里只有一张 Worker 卡，状态是需要你，不是执行失败或执行中。对话里有重新投递和在画布中查看两个按钮。")
             ]), "01-needs-you.png")

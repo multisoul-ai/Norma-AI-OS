@@ -12,7 +12,7 @@ public enum StaffWorkflow {
     public static func run(_ session: Session, english: Bool = false) async throws {
         let root = try StaffFixture.install()
         var project: URL?
-        let keys = ["ZDOTDIR", "NORMA_BRAIN_DIR", "CLAUDE_CONFIG_DIR"]
+        let keys = ["ZDOTDIR", "NORMA_BRAIN_DIR", "CLAUDE_CONFIG_DIR", "NORMA_E2E_STAFF_QUESTIONS"]
         let previous = Dictionary(uniqueKeysWithValues: keys.map { ($0, ProcessInfo.processInfo.environment[$0]) })
         defer {
             session.stop()
@@ -25,6 +25,7 @@ public enum StaffWorkflow {
         setenv("ZDOTDIR", root.path, 1)
         setenv("NORMA_BRAIN_DIR", root.path, 1)
         setenv("CLAUDE_CONFIG_DIR", root.appendingPathComponent("claude-config").path, 1)
+        setenv("NORMA_E2E_STAFF_QUESTIONS", "1", 1)
         let language = english ? "en" : "zh-Hans"
         try session.launch(language: language)
         _ = try await session.capturePixels()
@@ -33,10 +34,13 @@ public enum StaffWorkflow {
         session.stop()
         try Catalog.seedWorkspace(database: database, name: "Staff M1")
         try Catalog.suppressFeatureGuide(database: database)
-        if english { try VoiceConfigurationFixture.theme(database: database, id: "sapphire-night") }
+        try VoiceConfigurationFixture.theme(database: database, id: english ? "sapphire-night" : "ink-black")
         project = try CanvasProjectFixture.install(dataRoot: dataRoot, workspaceName: "Staff M1")
         try session.launch(language: language)
 
+        guard let output = session.output else { throw E2EError.env("缺少录像目录") }
+        let recording = try StaffRecording(session: session, first: try await session.capturePixels(), url: output.appendingPathComponent("staff-conversation.mp4"))
+        do {
         try await session.step("进入项目并准备一个可派活的 Agent 名称") {
             try await session.visualClick("点击 Staff M1 工作空间卡片进入")
             try await session.visualClick("点击 E2E Project 项目进入画布")
@@ -62,6 +66,7 @@ public enum StaffWorkflow {
             _ = try await session.visualCheck([VisualCriterion(id: "multiline", text: "中央输入框保留两行尚未发送的文字：STAFF-M1 请生成验收文件和保留这一行补充要求；仍是新任务空态，Shift+Enter 只换行、没有发出任务；输入区有圆形上箭头和 Enter 发送、Shift + Enter 换行提示。")])
             guard try StaffFixture.tasks(root).isEmpty else { throw E2EError.product("Shift+Enter 意外发送了任务") }
             try await session.shortcut(key: 36, modifiers: [])
+            try await StaffMessageCards.answer(session, root: root)
             try await waitFor("提议保存") { try first(root)["proposals"] as? [[String: Any]] != nil && !(try first(root)["proposals"] as? [[String: Any]] ?? []).isEmpty }
             // 对话为滚动视口，先核对首条原话，再回到底部核对完整提议；不要求整段历史同屏。
             try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: 3000)
@@ -69,18 +74,21 @@ public enum StaffWorkflow {
             try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -3000)
             try session.save(try await session.visualCheck([
                 VisualCriterion(id: "proposal", text: "左栏出现需要你/Needs you 状态的 STAFF-M1 任务；中央有Norma 提议实现验收文件、目标 Agent、理由和完整任务内容，以及可点击的采用并派发/Adopt and dispatch 按钮。"),
-                VisualCriterion(id: "markdown", text: "Norma正文的STAFF PLAN为粗体，采用后开始与产物为两条列表，STAFF-RESULT.md显示为行内代码；不能直接显示双星号和反引号标记。"),
                 VisualCriterion(id: "layout", text: "Norma 有独立头像与名字；提议为无描边的填充圆角卡片（20px圆角），含标题、理由、内嵌的任务内容面板、Agent芯片，以及36px胶囊形采用/编辑按钮。任务标题下没有阶段下拉；输入区为圆角多行框与圆形发送键。任务标题、提议和输入框没有重叠或横向裁切，右侧文件抽屉仍在。")
             ]), "02-proposal.png")
+            try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: 220)
+            try session.save(try await session.visualCheck([VisualCriterion(id: "markdown", text: "Norma正文的STAFF PLAN为粗体，采用后开始与产物为两条列表且正文清晰可见，STAFF-RESULT.md显示为行内代码；不能直接显示双星号和反引号标记。")]), "02-markdown.png")
+            try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -3000)
             let rows = try first(root)["messages"] as? [[String: Any]] ?? []
             let userText = rows.compactMap { ($0["User"] as? [String: Any])?["text"] as? String }.first
             guard userText == "STAFF-M1 请生成验收文件\n保留这一行补充要求" else { throw E2EError.product("发送未原样保留两行消息：\(userText ?? "nil")") }
             let rejected = try StaffFixture.records(root, "commands.jsonl").contains { row in
-                (row["argv"] as? [String] ?? []).contains("TASK MUST NOT SPEAK") && row["allowed"] as? Bool == false
+                (row["argv"] as? [String] ?? []).contains { $0.hasPrefix("TASK MUST NOT SPEAK") } && row["allowed"] as? Bool == false
             }
             guard rejected else { throw E2EError.product("任务会话播报未被权限闸门拒绝") }
             guard try StaffFixture.records(root, "received.jsonl").isEmpty else { throw E2EError.product("用户采用前已派活") }
-            return "提议落盘；采用前无 Worker 输入；Task report 被拒绝"
+            try await StaffMessageCards.ignoreAndRestore(session, root: root)
+            return "提问、忽略/恢复、工具活动通过；采用前无Worker输入"
         }
 
         try await session.step("hover 与采用：创建独立 Worker，结果回到同一任务") {
@@ -96,6 +104,7 @@ public enum StaffWorkflow {
             try await session.press(local: adopt.point, on: adopt.frame) {
                 try session.save(try await session.visualCheck([VisualCriterion(id: "pressed", text: "采用按钮按下状态比悬停状态更明显，文字可读，位置和尺寸未改变；尚未显示已派发。")]), "03-pressed.png")
             }
+            try await StaffMessageCards.answerWorker(session, root: root)
             try await waitFor("Worker 返回可信结果") {
                 let task = try first(root)
                 return task["phase"] as? String == "Merging" && messages(task).contains("STAFF REVIEW")
@@ -177,7 +186,9 @@ public enum StaffWorkflow {
             try await waitFor("Norma 自动完成") { try first(root)["phase"] as? String == "Done" && first(root)["phase_manual"] as? Bool == false }
             try await send("REOPEN 补充一个要求", session)
             try await waitFor("完成任务重开") { try first(root)["phase"] as? String == "Active" && messages(first(root)).contains("STAFF REOPEN") }
-            try session.save(try await session.visualCheck([VisualCriterion(id: "reopened", text: "任务重开为进行中/Active，对话包含 STAFF REOPEN 回复，没有错误提示，标题区没有阶段下拉或手动阶段说明。")]), "06-reopened.png")
+            // The reply can arrive below the retained viewport after the persisted message barrier.
+            try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -700)
+            try session.save(try await session.visualCheck([VisualCriterion(id: "reopened", text: "任务已重开，对话包含重新打开提示与 STAFF REOPEN 回复；没有运行中的Worker时左栏显示等待中/Waiting。没有错误提示，标题区没有阶段下拉或手动阶段说明。")]), "06-reopened.png")
             return "自动 Done、Done→Active 重开"
         }
 
@@ -190,6 +201,11 @@ public enum StaffWorkflow {
             try session.save(try await session.visualCheck([VisualCriterion(id: "canvas", text: "原画布恢复，有两张独立 Claude 卡片；右侧 STAFF-RESULT.md 仍打开，没有重复创建第三张卡。")]), "08-canvas.png")
             guard try StaffFixture.records(root, "starts.jsonl").count == 2 else { throw E2EError.product("切换页面重启了 Worker") }
             return "全屏与模式切换保留原 Runtime 和文件标签"
+        }
+        try await recording.finish()
+        } catch {
+            try? await recording.finish()
+            throw error
         }
     }
 

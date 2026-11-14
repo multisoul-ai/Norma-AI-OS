@@ -153,6 +153,7 @@ fn parse_form(params: &Value) -> Option<Vec<QuestionItem>> {
                 field["_meta"]["codex"]["isOther"]
                     .as_bool()
                     .unwrap_or(false)
+                    || (field["type"] == "string" && choices.as_array().is_none_or(Vec::is_empty))
             } else {
                 properties.contains_key(&format!("{key}_custom"))
             };

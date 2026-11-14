@@ -2,6 +2,8 @@ use super::*;
 use crate::app::staff::error_message;
 use norma::protocol::{QuestionAnswer, StaffQuestionState, Task};
 
+type DecisionWork = gpui::Task<Result<(Task, bool), String>>;
+
 impl MultisoulApp {
     pub(crate) fn set_staff_proposal_ignored(
         &mut self,
@@ -28,7 +30,7 @@ impl MultisoulApp {
 
     pub(crate) fn complete_staff_decision(
         &mut self,
-        result: Result<gpui::Task<Result<(Task, bool), String>>, String>,
+        result: Result<DecisionWork, String>,
         cx: &mut Context<Self>,
     ) {
         let work = match result {

@@ -36,6 +36,16 @@ extension Session {
         return frame
     }
 
+    /// 先完成有时限的真实输入，再核对当时捕获的帧；不允许用历史帧定位输入。
+    @discardableResult
+    public func visualSnapshotCheck(_ frame: Frame, _ criteria: [VisualCriterion]) async throws -> Frame {
+        guard try await reviewImageOnce(kind: "snapshot", criteria: criteria, captured: frame) != nil else {
+            throw E2EError.driver("历史截图无法刷新；请依据该帧给出明确结论")
+        }
+        visualCheckCount += 1
+        return frame
+    }
+
     /// 定位成功不是产品验收；场景随后必须检查动作后置状态。
     public func visualClick(_ instruction: String) async throws {
         let (frame, response) = try await reviewImage(kind: "locate", criteria: [VisualCriterion(id: "target", text: instruction)])
@@ -57,11 +67,12 @@ extension Session {
         try await retryVisualReview { try await self.reviewImageOnce(kind: kind, criteria: criteria) }
     }
 
-    private func reviewImageOnce(kind: String, criteria: [VisualCriterion]) async throws -> (Frame, VisualResponse)? {
+    private func reviewImageOnce(kind: String, criteria: [VisualCriterion], captured: Frame? = nil) async throws -> (Frame, VisualResponse)? {
         guard visualReview, let output else { throw E2EError.driver("模型看图模式未启用或运行目录未建立") }
         // 上一动作先绘制一帧；仍在加载时模型可返回 wait，不重放动作。
         try await Task.sleep(nanoseconds: 600_000_000)
-        let frame = try await capturePixels()
+        let frame: Frame
+        if let captured { frame = captured } else { frame = try await capturePixels() }
         let directory = output.appendingPathComponent("visual", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let id = UUID().uuidString

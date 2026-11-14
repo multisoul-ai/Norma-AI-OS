@@ -1,4 +1,4 @@
-use norma::protocol::{Task, TaskDisplayStatus};
+use norma::protocol::{StaffQuestion, StaffQuestionState, Task, TaskDisplayStatus, TaskMessage};
 use serde_json::json;
 
 /// 场景：旧提议仍待决定，忽略的提议持久化后不再要求用户采用。
@@ -72,5 +72,39 @@ fn question_messages_roundtrip_and_only_pending_questions_need_you() {
     assert_eq!(
         roundtrip["messages"][0]["Question"]["question"]["items"][0]["prompt"], "Theme?",
         "题目是用户内容，原文保留"
+    );
+}
+
+/// 场景：待验收任务收到补充问题时需要用户操作优先于阶段标签。
+/// 数据构造：Merging任务追加Pending问答，再将问题改成Answered。
+/// 执行：读取display_status；预期：待答时NeedsYou，回答后恢复Merging且原阶段不变。
+#[test]
+fn pending_question_takes_priority_over_review_phase() {
+    let mut task = Task::new("t", "w", "p", "Review");
+    task.phase = norma::protocol::TaskPhase::Merging;
+    task.messages.push(TaskMessage::Question {
+        question: Box::new(StaffQuestion {
+            state: StaffQuestionState::Pending,
+            ..StaffQuestion::default()
+        }),
+    });
+    assert_eq!(
+        task.display_status(),
+        TaskDisplayStatus::NeedsYou,
+        "待验收任务的新问题必须进入需要你筛选"
+    );
+    let TaskMessage::Question { question } = &mut task.messages[0] else {
+        panic!("question")
+    };
+    question.state = StaffQuestionState::Answered;
+    assert_eq!(
+        task.display_status(),
+        TaskDisplayStatus::Merging,
+        "回答后恢复待验收标签"
+    );
+    assert_eq!(
+        task.phase,
+        norma::protocol::TaskPhase::Merging,
+        "问题不覆盖实际阶段"
     );
 }

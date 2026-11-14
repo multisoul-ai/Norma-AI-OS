@@ -100,7 +100,9 @@ impl TaskActivity {
             });
         let tool = &mut self.tools[index];
         if let Some(name) = meta.name {
-            tool.name = name;
+            if item.kind != TraceKind::Permission || tool.name == tool.id {
+                tool.name = name;
+            }
         }
         if let Some(input) = meta.input {
             tool.input = input;

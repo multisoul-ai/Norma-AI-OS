@@ -17,6 +17,7 @@ impl MessageBlock for User<'_> {
         if let TaskMessage::User { text } = message {
             row = row.flex_row().justify_end().child(
                 div()
+                    .flex()
                     .debug_selector(move || format!("staff-user-bubble-{index}"))
                     .max_w(relative(0.78))
                     .px(px(tokens::SPACE_16))

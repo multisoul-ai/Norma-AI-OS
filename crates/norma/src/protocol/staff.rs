@@ -251,16 +251,18 @@ impl Task {
     }
 
     pub fn display_status(&self) -> TaskDisplayStatus {
+        if self.phase != TaskPhase::Done && self.pending_question_count() > 0 {
+            return TaskDisplayStatus::NeedsYou;
+        }
         match self.phase {
             TaskPhase::Done => return TaskDisplayStatus::Done,
             TaskPhase::Merging => return TaskDisplayStatus::Merging,
             TaskPhase::Active => {}
         }
-        if self.pending_question_count() > 0
-            || self
-                .proposals
-                .iter()
-                .any(|proposal| proposal.dispatch_id.is_none() && !proposal.ignored)
+        if self
+            .proposals
+            .iter()
+            .any(|proposal| proposal.dispatch_id.is_none() && !proposal.ignored)
             || self.workers.iter().any(|worker| {
                 worker.needs_input
                     || worker.state != WorkerState::Active

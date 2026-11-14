@@ -96,3 +96,19 @@ fn expiration_and_session_end_settle_durable_cards() {
         assert!(!claimed, "终态拒绝迟到回答");
     }
 }
+
+/// 场景：Codex无选项的自由输入允许isOther=false，密码题同样需要能输入。
+/// 数据构造：安装版适配器产生的无oneOf string字段，分别secret=false/true。
+/// 执行：解析原生form；预期：题目被接收、可自由填写，secret语义保留而非返回unsupported。
+#[test]
+fn codex_text_only_questions_allow_input_without_is_other() {
+    for secret in [false, true] {
+        let params = json!({"mode":"form","toolCallId":"native-input","requestedSchema":{"properties":{
+            "name":{"type":"string","title":"Build name?","_meta":{"codex":{"isOther":false,"isSecret":secret}}}
+        }}});
+        let items = parse_form(&params).expect("native text input");
+        assert!(items[0].allow_custom, "无选项题必须有输入路径");
+        assert!(items[0].options.is_empty(), "不能凭空制造选项");
+        assert_eq!(items[0].secret, secret, "密码属性不能丢失");
+    }
+}
