@@ -305,7 +305,7 @@ Codrops 文章页面遇到验证，采用官方 GitHub 源码作为证据；Thre
 
 没有继续使用球面中心的白色 X、单个厚橡胶环或倾斜的 App 图标贴纸。黄珊瑚色收为少量反射，光体以浅紫、蓝和薄荷色为主；黑色背景、系统字体和玻璃输入框继续保留。外观 ID 和存储键保持兼容，选择器仅改变形态。
 
-参考的技能：`.agents/skills/apple-design`、`.agents/skills/animate`、`.agents/skills/emil-design-eng`、`.agents/skills/review-animations`；按 `.agents/skills/prototype` 的方案分歧原则保留三个不同结构的探索方向。内容仍优先：展开网页、文件或媒体时，助手停靠左下角，完整内容使用主区域；全屏形态菜单可用键盘切换并保留焦点。
+参考的技能：`.agents/skills/apple-design`、`.agents/skills/animate`、`.agents/skills/emil-design-eng`、`.agents/skills/review-animations`；保留三个不同结构的探索方向，便于比较方案。内容仍优先：展开网页、文件或媒体时，助手停靠左下角，完整内容使用主区域；全屏形态菜单可用键盘切换并保留焦点。
 
 ### 动效审查
 
