@@ -1,7 +1,7 @@
 use super::super::*;
 use crate::app::staff::activity::{card_key, TaskActivity, TimelineEntry};
 use gpui::{div, px, relative, rgba, Div};
-use ui::component::{spinner::Spinner, Icon, IconName, Sizable, StyledExt};
+use ui::component::{spinner::Spinner, Icon, IconName, Sizable};
 use ui::i18n::text as t;
 
 impl MultisoulApp {
@@ -40,21 +40,7 @@ impl MultisoulApp {
                 "staff.response_streaming"
             };
             // Same two rows as Prose: byline first, then the status line under it (prototype `.activity`).
-            let byline = div()
-                .flex()
-                .items_center()
-                .gap(px(tokens::SPACE_8))
-                .text_size(px(tokens::LABEL_TEXT))
-                .font_semibold()
-                .child(crate::app::chrome::brand_logo())
-                .child("Norma")
-                .child(
-                    div()
-                        .text_size(px(tokens::META_TEXT))
-                        .font_normal()
-                        .text_color(rgba(theme.text_secondary))
-                        .child(t("staff.coordination")),
-                );
+            let byline = super::staff_byline(self);
             let mut header = div()
                 .id("staff-response-status")
                 .debug_selector(|| "staff-response-status".into())

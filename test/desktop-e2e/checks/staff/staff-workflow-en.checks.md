@@ -8,7 +8,7 @@
 - 03-hover / 03-pressed：明确悬停与按下反馈，文字可读、尺寸不变，松开后才派发。
 - 03-dispatched：（1）已派发提议为单行精简卡——宠物头像、任务名「实现验收文件」、「智能体名 · 引擎名」、绿色「✓ Dispatched」，不出现原话/理由/任务内容面板/智能体与模型下拉/采用、忽略、修改后发送按钮；（2）Worker 卡条胶囊最左侧是带眼睛与表情的宠物头像，不是字母缩写圆或纯色圆点。
 - 04-result / worker-result-pet：紧凑 Worker 行含真实名称/引擎/状态，角色可悬停查看；Worker 结果卡头部同样以宠物头像开头，其后才是 Agent 名称与绿色 Result received；可信结果归回原任务并自动待验收。
-- activity-waiting：本轮尚无工具步骤时，Norma 活动区为两行（第一行 Norma 品牌图标 + 名字 + Coordinating；第二行只有状态图标与状态文字），不得出现「0 steps」「0.0s」后缀。
+- activity-waiting：本轮尚无工具步骤时，Norma 活动区为两行（第一行 Norma 圆形头像 + 名字 + Super-Agent；第二行只有状态图标与状态文字），不得出现「0 steps」「0.0s」后缀。
 - spacing：Norma 长回复（粗体标题 + 两条列表）最后一行与紧邻其下的组件之间保留约 24px 空白；末行完整可见，不下沉、不贴住、不压叠下一条消息或提议卡。
 - 04-search：输入框先存两行 DRAFT，再验证无匹配、Agent/标题搜索、Running/All 筛选与恢复；当前任务和草稿始终保留。
 - wide-drawer：右栏拖至上限后中央至少约 320px，标题、Worker 卡、输入和发送无重叠，两行草稿保留。

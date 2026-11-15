@@ -41,6 +41,26 @@ impl MultisoulApp {
             .active(rgba(ui::icons::with_alpha(theme.accent_cyan, 60)).into())
     }
 
+    /// 中性填充：次要但可点的操作，不与主按钮抢色。
+    pub(crate) fn staff_neutral_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
+        let theme = self.staff_theme();
+        ButtonCustomVariant::new(cx)
+            .color(rgba(ui::icons::with_alpha(theme.text_primary, 20)).into())
+            .foreground(rgba(theme.text_primary).into())
+            .hover(rgba(ui::icons::with_alpha(theme.text_primary, 34)).into())
+            .active(rgba(ui::icons::with_alpha(theme.text_primary, 48)).into())
+    }
+
+    /// 文字链接：无底色，主色文字，悬停时淡底。
+    pub(crate) fn staff_link_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
+        let theme = self.staff_theme();
+        ButtonCustomVariant::new(cx)
+            .color(rgba(ui::icons::with_alpha(theme.accent_cyan, 0)).into())
+            .foreground(rgba(theme.accent_cyan).into())
+            .hover(rgba(ui::icons::with_alpha(theme.accent_cyan, 24)).into())
+            .active(rgba(ui::icons::with_alpha(theme.accent_cyan, 40)).into())
+    }
+
     pub(crate) fn staff_primary_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
         let theme = self.staff_theme();
         ButtonCustomVariant::new(cx)

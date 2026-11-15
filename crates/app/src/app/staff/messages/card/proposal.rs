@@ -1,11 +1,20 @@
 use super::super::*;
 use super::shell;
-use gpui::{rgba, Div};
+use gpui::{linear_color_stop, linear_gradient, rgba, Div};
 use ui::component::{
+    button::ButtonVariants,
     menu::{DropdownMenu, PopupMenuItem},
     Disableable, IconName, StyledExt,
 };
 use ui::i18n::text as t;
+
+/// 收起时约四行正文加上下内边距。
+const PROMPT_COLLAPSED_HEIGHT: f32 = 132.;
+
+/// 超过四行或约四行字数的指令默认收起。
+fn prompt_is_long(prompt: &str) -> bool {
+    prompt.lines().count() > 4 || prompt.chars().count() > 160
+}
 
 pub(in crate::app::staff::messages) struct Proposal<'a>(pub &'a TaskMessage);
 
@@ -33,21 +42,58 @@ impl MessageBlock for Proposal<'_> {
                 let proposal_id = *proposal_id;
                 let draft = proposal.prompt.clone();
                 let dispatched = proposal.dispatch_id.is_some();
+                let prompt_key = format!("proposal-prompt-{}-{proposal_id}", task.id);
+                let long = prompt_is_long(&proposal.prompt);
+                let collapsed = long && !ctx.app.staff.expanded.contains(&prompt_key);
+                let panel_color = theme.panel;
+                let mut prompt = div()
+                    .debug_selector(move || format!("staff-proposal-prompt-{proposal_id}"))
+                    .relative()
+                    .px(px(tokens::SPACE_16))
+                    .py(px(tokens::SPACE_12))
+                    .rounded(px(tokens::SPACE_12))
+                    .bg(rgba(panel_color))
+                    .text_size(px(tokens::LABEL_TEXT))
+                    .child(proposal.prompt.clone());
+                if collapsed {
+                    // 收起时只露约四行，底部渐隐提示还有内容。
+                    prompt = prompt
+                        .max_h(px(PROMPT_COLLAPSED_HEIGHT))
+                        .overflow_hidden()
+                        .child(
+                            div()
+                                .absolute()
+                                .left_0()
+                                .right_0()
+                                .bottom_0()
+                                .h(px(56.))
+                                .bg(linear_gradient(
+                                    180.,
+                                    linear_color_stop(rgba(panel_color & 0xffff_ff00), 0.),
+                                    linear_color_stop(rgba(panel_color), 1.),
+                                )),
+                        );
+                }
                 // Material filled card: tonal surface, no outline.
                 row = shell::card(ctx, true)
                     .debug_selector(move || format!("staff-proposal-card-{proposal_id}"))
                     .child(
                         shell::header()
-                            .text_size(px(tokens::LABEL_TEXT))
-                            .font_semibold()
-                            .child(crate::app::chrome::brand_logo())
-                            .child(t("staff.suggestion"))
+                            .text_size(px(tokens::META_TEXT))
+                            .child(
+                                div()
+                                    .text_color(rgba(theme.text_secondary))
+                                    .child(t("staff.suggestion")),
+                            )
                             .child(div().flex_1())
                             .when(!dispatched, |row| {
                                 row.child(
                                     div()
-                                        .text_size(px(tokens::META_TEXT))
-                                        .font_normal()
+                                        .px(px(tokens::SPACE_8))
+                                        .py(px(2.))
+                                        .rounded_full()
+                                        .bg(rgba(ui::icons::with_alpha(theme.accent_warm, 36)))
+                                        .font_semibold()
                                         .text_color(rgba(theme.accent_warm))
                                         .child(t("staff.your_decision")),
                                 )
@@ -55,58 +101,67 @@ impl MessageBlock for Proposal<'_> {
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::SPACE_16))
-                            .font_semibold()
-                            .child(proposal.title.clone()),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(tokens::LABEL_TEXT))
-                            .text_color(rgba(theme.text_secondary))
-                            .child(proposal.why.clone()),
-                    )
-                    .children(proposal.downgrade.as_deref().map(|code| {
-                        div()
-                            .text_size(px(tokens::META_TEXT))
-                            .text_color(rgba(theme.accent_warm))
-                            .child(downgrade_text(code))
-                    }))
-                    .child(
-                        div()
-                            .px(px(tokens::SPACE_16))
-                            .py(px(tokens::SPACE_12))
-                            .rounded(px(tokens::SPACE_12))
-                            .bg(rgba(theme.panel))
-                            .text_size(px(tokens::LABEL_TEXT))
-                            .child(proposal.prompt.clone()),
-                    )
-                    .child(choice_row(
-                        ctx,
-                        &task.id,
-                        proposal,
-                        dispatched || proposal.approved,
-                        cx,
-                    ))
-                    .child(
-                        div()
                             .flex()
-                            .items_center()
-                            .flex_wrap()
-                            .gap(px(tokens::SPACE_8))
+                            .flex_col()
+                            .gap(px(tokens::SPACE_4))
                             .child(
-                                shell::action_button(ctx, ("staff-adopt", proposal_id), true, cx)
-                                    .debug_selector(move || format!("staff-adopt-{proposal_id}"))
-                                    .icon(IconName::Check)
-                                    .label(if dispatched {
-                                        t("staff.dispatched")
-                                    } else {
-                                        t("staff.adopt")
-                                    })
-                                    .disabled(ctx.app.staff.busy || dispatched)
-                                    .on_click(cx.listener(move |app, _, _, cx| {
-                                        app.approve_staff_proposal(id.clone(), proposal_id, cx)
-                                    })),
+                                div()
+                                    .text_size(px(tokens::SPACE_16))
+                                    .font_semibold()
+                                    .child(proposal.title.clone()),
                             )
+                            .child(
+                                div()
+                                    .text_size(px(tokens::LABEL_TEXT))
+                                    .text_color(rgba(theme.text_secondary))
+                                    .child(proposal.why.clone()),
+                            )
+                            .children(proposal.downgrade.as_deref().map(|code| {
+                                div()
+                                    .text_size(px(tokens::META_TEXT))
+                                    .text_color(rgba(theme.accent_warm))
+                                    .child(downgrade_text(code))
+                            })),
+                    )
+                    .child(prompt)
+                    .when(long, |card| {
+                        card.child(
+                            div().flex().child(
+                                shell::action_button(
+                                    ctx,
+                                    ("staff-proposal-expand", proposal_id),
+                                    false,
+                                    cx,
+                                )
+                                .debug_selector(move || {
+                                    format!("staff-proposal-expand-{proposal_id}")
+                                })
+                                .custom(ctx.app.staff_link_style(cx))
+                                .px(px(tokens::SPACE_8))
+                                .label(if collapsed {
+                                    t("staff.expand_prompt")
+                                } else {
+                                    t("staff.collapse_prompt")
+                                })
+                                .on_click(cx.listener(
+                                    move |app, _, _, cx| {
+                                        if !app.staff.expanded.remove(&prompt_key) {
+                                            app.staff.expanded.insert(prompt_key.clone());
+                                        }
+                                        app.notify_staff(cx);
+                                    },
+                                )),
+                            ),
+                        )
+                    })
+                    .child(
+                        // 智能体、模型与三个操作同在卡片底栏；主按钮固定在最右。
+                        choice_row(ctx, &task.id, proposal, dispatched || proposal.approved, cx)
+                            .flex_wrap()
+                            .pt(px(tokens::SPACE_12))
+                            .border_t_1()
+                            .border_color(rgba(ctx.app.staff_line()))
+                            .child(div().flex_1())
                             .when(!dispatched, |actions| {
                                 actions.child(
                                     shell::action_button(
@@ -138,7 +193,10 @@ impl MessageBlock for Proposal<'_> {
                                         false,
                                         cx,
                                     )
-                                    .text_size(px(tokens::LABEL_TEXT))
+                                    .debug_selector(move || {
+                                        format!("staff-edit-proposal-{proposal_id}")
+                                    })
+                                    .custom(ctx.app.staff_neutral_style(cx))
                                     .label(t("staff.edit_proposal"))
                                     .disabled(ctx.app.staff.busy)
                                     .on_click(cx.listener(
@@ -147,8 +205,24 @@ impl MessageBlock for Proposal<'_> {
                                         },
                                     )),
                                 )
-                            }),
+                            })
+                            .child(
+                                shell::action_button(ctx, ("staff-adopt", proposal_id), true, cx)
+                                    .debug_selector(move || format!("staff-adopt-{proposal_id}"))
+                                    .icon(IconName::Check)
+                                    .label(if dispatched {
+                                        t("staff.dispatched")
+                                    } else {
+                                        t("staff.adopt")
+                                    })
+                                    .disabled(ctx.app.staff.busy || dispatched)
+                                    .on_click(cx.listener(move |app, _, _, cx| {
+                                        app.approve_staff_proposal(id.clone(), proposal_id, cx)
+                                    })),
+                            ),
                     );
+                // 高度只由内容决定，不被消息行的交叉轴拉伸改写，按钮不会落到卡片外。
+                row.style().align_self = Some(gpui::AlignSelf::FlexStart);
             }
         }
         row.into_any_element()
