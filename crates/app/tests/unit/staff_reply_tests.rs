@@ -173,3 +173,42 @@ fn long_worker_results_collapse_to_three_lines() {
         "展开后内容更高：折叠 {collapsed:?}，展开 {expanded:?}（多出第 4、5 行）"
     );
 }
+
+/// 场景：Worker 的结果是一整段很长的话（没有换行），折行后超过 3 行。
+/// 数据构造：一条 800 多字的单行结果；窗口 900×700。
+/// 预期结果：有展开按钮；折叠时正文比展开时矮，不会顶到按钮上。
+#[test]
+fn one_long_paragraph_is_clamped_and_expandable() {
+    let text = "已创建文件，单文件即可在浏览器里打开运行。".repeat(40);
+    let mut task = Task::new("t", "w", "p", "结果");
+    task.messages.push(TaskMessage::WorkerFinished {
+        node_id: 1,
+        dispatch_id: "d".into(),
+        outcome: norma::protocol::WorkerOutcome::Succeeded,
+        text,
+    });
+    let mut test = TestAppContext::single();
+    let (app, cx) = window!(test, task);
+    assert!(
+        cx.debug_bounds("staff-result-toggle-0").is_some(),
+        "长段落有展开按钮"
+    );
+    let collapsed = cx
+        .debug_bounds("staff-message-body-0")
+        .expect("body")
+        .size
+        .height;
+    app.update(cx, |app, _| {
+        app.staff.expanded.insert("worker-result-t-0".into());
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let expanded = cx
+        .debug_bounds("staff-message-body-0")
+        .expect("body")
+        .size
+        .height;
+    assert!(
+        expanded > collapsed,
+        "展开后更高：折叠 {collapsed:?}，展开 {expanded:?}"
+    );
+}

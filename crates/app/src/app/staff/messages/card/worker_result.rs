@@ -7,6 +7,10 @@ use ui::i18n::text as t;
 
 /// 折叠时显示的摘要行数。
 const SUMMARY_LINES: usize = 3;
+/// 摘要的固定行高；折叠高度 = 行数 × 行高，折行的长段落也只占 3 行。
+const SUMMARY_LINE_HEIGHT: f32 = 20.;
+/// 一段话折行后可能超过摘要行数，约这么多字就算长。
+const SUMMARY_CHARS: usize = 120;
 
 pub(in crate::app::staff::messages) struct WorkerResult<'a>(pub &'a TaskMessage);
 
@@ -72,22 +76,26 @@ impl MessageBlock for WorkerResult<'_> {
                     } else {
                         text.clone()
                     };
-                    // 默认只显示前 3 行摘要，长结果可以展开。
+                    // 默认只显示 3 行（按显示行数截断，长段落折行后也不会顶到按钮），长结果可以展开。
                     let key = format!("worker-result-{}-{}", task.id, ctx.index);
-                    let long = body.lines().count() > SUMMARY_LINES;
+                    let long = body.lines().count() > SUMMARY_LINES
+                        || body.chars().count() > SUMMARY_CHARS;
                     let open = ctx.app.staff.expanded.contains(&key);
-                    let shown = if long && !open {
-                        body.lines()
-                            .take(SUMMARY_LINES)
-                            .collect::<Vec<_>>()
-                            .join("\n")
-                    } else {
-                        body
-                    };
                     let index = ctx.index;
-                    row.child(div().text_size(px(tokens::LABEL_TEXT)).child(shown))
-                        .when(long, |row| {
-                            row.child(
+                    row.child(
+                        div()
+                            .text_size(px(tokens::LABEL_TEXT))
+                            .line_height(px(SUMMARY_LINE_HEIGHT))
+                            .when(long && !open, |text| {
+                                text.max_h(px(SUMMARY_LINE_HEIGHT * SUMMARY_LINES as f32))
+                                    .overflow_hidden()
+                            })
+                            .child(body),
+                    )
+                    .when(long, |row| {
+                        // 放进横向容器里，按钮只占内容宽度，不再撑满整行。
+                        row.child(
+                            div().flex().child(
                                 shell::action_button(
                                     ctx,
                                     ("staff-result-toggle", index),
@@ -108,8 +116,9 @@ impl MessageBlock for WorkerResult<'_> {
                                         app.notify_staff(cx);
                                     },
                                 )),
-                            )
-                        })
+                            ),
+                        )
+                    })
                 });
         }
         row.into_any_element()
