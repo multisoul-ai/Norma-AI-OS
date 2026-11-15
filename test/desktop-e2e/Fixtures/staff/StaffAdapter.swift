@@ -122,6 +122,12 @@ enum StaffAdapter {
                     # Task sessions are forbidden to report: prove the permission gate rejects it.
                     run(sid, base + ['report','--text','TASK MUST NOT SPEAK ' + 'Long acceptance input. ' * 100])
                     reply = '**STAFF PLAN**：建议先生成验收文件。\n\n- 采用后开始\n- 产物：`STAFF-RESULT.md`'
+                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and 'ASSIGN-RISK' in last:
+                    run(sid, base + ['task','assign',tid,task['workers'][0]['agent'],'--title','推送并发布','--prompt','git push origin main 然后发布','--why','收尾发布'])
+                    reply = 'STAFF RISK：这条涉及推送，已交给你决定。'
+                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and len(task['proposals']) == 1 and task['workers'] and task['workers'][0].get('outcome') == 'Succeeded':
+                    run(sid, base + ['task','assign',tid,task['workers'][0]['agent'],'--title','补一条测试','--prompt','STAFF-HOLD 为验收文件补一条测试','--why','结果缺少测试'])
+                    reply = 'STAFF ASSIGN：已把后续任务派给同一个 Agent。'
                 elif 'CONFIRM' in last:
                     run(sid, base + ['task','phase',tid,'done'])
                     reply = 'STAFF DONE：验收完成。'
