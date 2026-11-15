@@ -259,7 +259,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                 .task_id
                 .as_deref()
                 .and_then(|task| env.staff_tokens.as_ref().map(|tokens| tokens.mint(task)));
-            session_token.token = minted.clone();
+            session_token.replace(minted.clone());
             let started = if job.task_id.is_some() {
                 AcpSession::start_staff_cancellable(
                     &env.session_options(minted.as_deref(), true),
