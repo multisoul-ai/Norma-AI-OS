@@ -23,6 +23,8 @@ mod messages;
 mod proposal_choice;
 mod questions;
 mod task_list;
+mod task_row;
+mod task_time;
 mod view;
 mod worker_remove;
 mod workspace;
@@ -236,6 +238,10 @@ pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
     };
     ui::i18n::message(key, &[])
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/staff_task_time_tests.rs"]
+mod task_time_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/staff_layout_tests.rs"]

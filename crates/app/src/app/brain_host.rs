@@ -1,6 +1,7 @@
 //! 把 `brain` 接到项目窗口：事件进、状态出、审批和播报的落地。
 
 mod activity_feed;
+pub(crate) use activity_feed::{civil_month_day, local_offset_secs};
 mod activity_sink;
 mod activity_view;
 pub(crate) use activity_view::{recent_activity_lines, ActivityLine};
