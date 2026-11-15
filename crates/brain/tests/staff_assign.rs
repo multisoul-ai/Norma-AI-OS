@@ -108,6 +108,32 @@ fn assign_is_downgraded_to_a_proposal_when_settings_ask() {
     );
 }
 
+/// 场景：用户撤回（或 Worker 失败）后，幕僚不能把它当成「刚完成」的后续来源再自动重派。
+/// 数据构造：Simon 的 Worker 结果为 Interrupted；auto=true，assign 给 Simon 一条普通后续。
+/// 预期结果：降级为未批准提议，原因是不是后续，自动派发计数仍为 0。
+#[test]
+fn interrupted_worker_is_not_a_follow_up_source() {
+    let (_dir, store) = store_with_finished_worker("Simon");
+    store
+        .update("ws", "a", |task| {
+            task.workers[0].outcome = Some(WorkerOutcome::Interrupted);
+            Ok(())
+        })
+        .expect("interrupt");
+    let (task, outcome) = store
+        .assign("ws", assign_op("Simon", "Add the missing test"), true)
+        .expect("assign");
+    assert_eq!(
+        outcome,
+        AssignOutcome::Proposed {
+            proposal_id: 2,
+            reason: ProposeReason::NotFollowUp
+        },
+        "撤回后的 Agent 不能被自动重派"
+    );
+    assert_eq!(task.auto_dispatches, 0, "check: task.auto_dispatches");
+}
+
 /// 场景：内容命中高风险关键词，即使设置为自动也只能提议。
 /// 数据构造：auto=true，同一 Agent，指令含 git push。
 /// 预期结果：降级为未批准提议，原因带风险类别 Release。

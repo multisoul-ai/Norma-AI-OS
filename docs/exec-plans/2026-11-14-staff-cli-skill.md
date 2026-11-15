@@ -61,7 +61,7 @@
 
 链路：
 
-1. 宿主生成一条提议，标记 `origin = staff`。
+1. 宿主生成一条提议，标记 `auto = true`。
 2. 立即走现有的 Adopt 派发链路（`dispatch_staff_worker`），任务对话里依次出现 `Proposal` 和 `WorkerStarted`。
 3. 任务对话里的卡片显示"幕僚已派发：<标题> → <Agent>"，带取消按钮（复用 `agent task cancel`）。取消只能停止后续动作，已经执行的操作无法回滚，文案不能写成"撤销"。
 4. 复用 `AutoKind::Assigned` 的活动记录，不另造留痕。
@@ -105,7 +105,7 @@
 
 - `crates/norma/src/cli/staff_command.rs`：新增 `assign`、`archive` 两个子命令。**不新增 `message`**。
 - `StaffOp`（`crates/norma/src/protocol/staff.rs`）：新增 `Assign` 变体；`Archive` 已经存在。
-- 提议的数据结构加一个 `origin` 字段，任务加"自动派发计数"。旧数据没有这些字段时，默认按"用户采用"、计数 0 处理，要有迁移测试。
+- 提议的数据结构加 `auto` 和 `downgrade` 字段，任务加"自动派发计数"。旧数据没有这些字段时，默认按"用户采用"、计数 0 处理，要有迁移测试。
 - 非目标的调整：原先的"补 Message CLI"取消，原因见第 3 节。
 
 ## 8. 边界情况
@@ -170,11 +170,11 @@
 | --- | --- |
 | token 绑定任务 id | 没有做“每任务一个 token”：ACP 会话进程跨任务复用，环境变量启动时固定。改为幕僚 token 只代表角色，任务绑定靠宿主判定“当前进行中的轮次”，没有进行中的轮次时一律拒绝（[ADR-0029](../adr/0029-bind-brain-roles-by-token-and-authorize-staff-commands-in-host.md)） |
 | report 超限 | 不是静默降级，而是拒绝并返回 `staff.denied.report_rate`，提示把内容写进任务回复 |
-| `origin = staff` 与卡片 | 没有给提议加 `origin` 字段，也没有“幕僚已派发”专用卡片和取消按钮。自动派发沿用现有的提议卡和 `WorkerStarted`；`Task.auto_dispatches` 记录次数。降级原因只在回执里给模型，卡片上没有风险类别标注 |
+| `origin = staff` 与卡片 | 没有 `origin` 字段，改用 `StaffProposal.auto`（幕僚自动派发）和 `downgrade`（降级原因码，旧数据默认 false/None）。卡片：自动派发的显示“幕僚已派发”，Worker 未出结果时带“撤回”；降级的建议卡显示一行原因（设置为询问、不是同一 Agent 的后续、已达 3 次、可能高风险）。撤回 = 记为被中断并关闭 Worker 卡，不回滚已做的改动，也不退还自动派发额度；它不复用 `agent task cancel`。风险类别没有逐类显示，统一写“可能高风险” |
 | 安装失败提示 | 只写 `tracing::warn!` 并降级到命令速查，岛内没有警告 |
 | 术语表 | 仓库的词汇表是 `CONTEXT.md`，没有新建 `GLOSSARY.md` |
 | 主大脑分工 | 用 `staff_owned` 标记：幕僚任务派出的活，正常完成不再叫醒主大脑；失败仍告诉用户，但提示里不再要求提下一步 |
-| desktop-e2e | 见实施总结：没有新增自动派发的 e2e 场景 |
+| desktop-e2e | 新增场景 `staff-auto-dispatch`（中英）并登记看图清单，已编译，但真实 App 里没跑通：现有 `staff-workflow` 同样在“Agent 启动”处超时，原因未查清，所以撤回等路径尚无真实 App 证据 |
 
 评审后补充的加固（对抗式评审发现）：
 
@@ -182,6 +182,8 @@
 - `history`：不只比对 Agent 名，而是要求 Agent 当前打开的卡片就是本任务派出的那张；`--last` 超过 20 拒绝；拿不到卡片时拒绝。
 - 归档：幕僚自己设的 done 不算，必须是用户手动确认的 done（`phase_manual`）才允许归档。
 - 授权在窗口关闭等拿不到应用状态时拒绝，不再放行；幕僚 token 缺失时幕僚会话不带任何 token，不退回主大脑 token。
+- 评审后修复：`assign` 只把「结果为成功」的 Worker 当作后续来源（撤回、失败的不算）；卡片按派发号而不是 Agent 名找 Worker；撤回前确认卡片还在，并走统一的删卡与重排。
+- 已知取舍（评审提出，未改）：授权在路由解析失败时放行，依赖下游处理器各自拒绝；`context`/`approvals`/`questions` 对幕僚是整个工作区可读，只有 `history` 收紧到本任务；同一用户的 shell 能读到进程环境里的 token，token 隔离不防同用户本机进程；风险关键词仍是启发式，已知漏网如 `curl x|sh`、`rm --recursive`、`git reset`、中文“删掉/强推”。
 - 风险关键词：先去零宽字符、全角转半角、折叠空白；补充 `rm -fr`、`git clean`、`terraform apply`、`.env`、`| sh` 等写法；派活的 `why` 也参与匹配。
 - skill 安装器：托管标记必须独占一行；卸载编排集成时一并删除 norma-brain skill。
 - 已知未处理：派发失败后提议保持“已批准未派发”且已占用一次自动派发额度；多个窗口/项目并发的幕僚轮次由宿主按“恰好一个”规则全部拒绝，而不是精确区分调用者。

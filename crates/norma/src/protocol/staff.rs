@@ -355,6 +355,11 @@ impl Task {
         }
     }
 
+    /// 按派发号找 Worker；同一个 Agent 可以被派多次，不能按名字找。
+    pub fn worker_for_dispatch(&self, dispatch_id: &str) -> Option<&Worker> {
+        self.workers.iter().find(|w| w.dispatch_id == dispatch_id)
+    }
+
     pub fn finish_worker(
         &mut self,
         node_id: u64,

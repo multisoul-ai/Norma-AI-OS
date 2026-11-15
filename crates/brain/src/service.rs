@@ -33,7 +33,7 @@ pub struct BrainConfig {
     pub router: RouterConfig,
     /// 传给适配器进程的环境变量，例如让 `norma` CLI 找到 App 的 socket。
     pub env: Vec<(String, String)>,
-    /// 幕僚会话专用的 token；`None` 时幕僚会话沿用 `env` 里的主大脑 token。
+    /// 幕僚会话专用的 token；`None` 时幕僚会话不带任何 token（不会退回主大脑 token）。
     pub staff_token: Option<String>,
     /// norma-brain skill 已装好：提示词不再内联命令用法。默认 false，会话带命令速查。
     pub skill_ready: bool,

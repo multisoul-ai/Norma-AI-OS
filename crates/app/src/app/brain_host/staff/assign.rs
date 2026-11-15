@@ -56,6 +56,7 @@ impl MultisoulApp {
         &mut self,
         task_id: &str,
         proposal_id: u64,
+        window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) {
         let Some(task) = self.staff.tasks.get(task_id) else {
@@ -68,13 +69,16 @@ impl MultisoulApp {
             return;
         };
         let Some(node) = task
-            .workers
-            .iter()
-            .find(|w| w.dispatch_id == dispatch && w.outcome.is_none())
+            .worker_for_dispatch(dispatch)
+            .filter(|w| w.outcome.is_none())
             .and_then(|w| w.card_id)
         else {
             return;
         };
+        // 连点或卡片已被关掉：不再推第二条空事件。
+        if self.runtime.document.node(node).is_none() {
+            return;
+        }
         let agent = self.agent_announcement_name(node).unwrap_or_default();
         let dispatch_id = self.runtime.staff_dispatch_id(node).map(str::to_owned);
         self.staff.pending.remove(&node);
@@ -86,8 +90,7 @@ impl MultisoulApp {
             excerpt: "staff.worker_cancelled".into(),
             from_result: true,
         });
-        self.runtime.remove_node(node);
-        self.mark_canvas_dirty();
+        self.remove_node_and_reflow(node, window);
         self.mark_session_dirty();
         self.notify_staff(cx);
     }

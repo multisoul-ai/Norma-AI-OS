@@ -13,7 +13,10 @@ pub(super) fn render(
 ) -> AnyElement {
     let theme = ctx.app.staff_theme();
     let id = proposal.id;
-    let worker = ctx.task.workers.iter().find(|w| w.agent == proposal.agent);
+    let worker = proposal
+        .dispatch_id
+        .as_deref()
+        .and_then(|dispatch| ctx.task.worker_for_dispatch(dispatch));
     let engine = worker.map_or("", |w| w.engine.as_str());
     let mood = worker.map_or(runtime::island::bloub::Mood::Idle, |w| {
         crate::app::staff::detail::worker_mood(w.chip(), w.outcome)
@@ -69,8 +72,8 @@ pub(super) fn render(
                     .debug_selector(move || format!("staff-cancel-dispatch-{id}"))
                     .label(t("staff.cancel_dispatch"))
                     .disabled(ctx.app.staff.busy)
-                    .on_click(cx.listener(move |app, _, _, cx| {
-                        app.cancel_staff_worker(&task_id, proposal_id, cx)
+                    .on_click(cx.listener(move |app, _, window, cx| {
+                        app.cancel_staff_worker(&task_id, proposal_id, window, cx)
                     })),
             )
         })
