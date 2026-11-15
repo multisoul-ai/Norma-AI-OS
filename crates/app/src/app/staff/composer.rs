@@ -43,7 +43,8 @@ impl MultisoulApp {
     pub(super) fn staff_composer(&self, window: &Window, cx: &mut Context<Self>) -> Div {
         let input = self.staff.input.as_ref().expect("staff input initialized");
         let theme = self.staff_theme();
-        div().px(px(20.)).pt(px(8.)).flex_none().child(
+        // 底部留白：原来提示行占的位置，输入框不贴着面板底边。
+        div().px(px(20.)).pt(px(8.)).pb(px(24.)).flex_none().child(
             div().max_w(px(760.)).mx_auto().flex().flex_col().child(
                 div()
                     .id("staff-composer")
