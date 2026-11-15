@@ -47,7 +47,7 @@ fn native_question_roundtrip_through_brain_service() {
         if matches!(
             &status.kind,
             BrainStatusKind::TaskActivity {
-                update: brain::event::TaskUpdate::Started { .. },
+                update: brain::event::TaskUpdate::Started,
                 ..
             }
         ) {

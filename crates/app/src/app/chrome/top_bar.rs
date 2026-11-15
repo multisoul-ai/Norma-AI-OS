@@ -114,8 +114,7 @@ impl MultisoulApp {
         let reserve = if wide { 380.0 } else { 250.0 };
         // The logo sits at the canvas edge and the breadcrumb hugs it instead of centering.
         let title_width = (width - BRAND_BREADCRUMB_LEFT - reserve)
-            .min(MODE_SWITCH_LEFT - 16.0 - BRAND_BREADCRUMB_LEFT)
-            .max(1.0);
+            .clamp(1.0, MODE_SWITCH_LEFT - 16.0 - BRAND_BREADCRUMB_LEFT);
         let title = desktop_top_bar_title(workspace, project, title_width, theme)
             .absolute()
             .left(px(BRAND_BREADCRUMB_LEFT));

@@ -164,26 +164,6 @@ pub(super) fn worker_mood(chip: WorkerChip, outcome: Option<WorkerOutcome>) -> M
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn worker_mood_follows_chip_and_outcome() {
-        assert_eq!(worker_mood(WorkerChip::Running, None), Mood::Working);
-        assert_eq!(worker_mood(WorkerChip::NeedsYou, None), Mood::Waiting);
-        assert_eq!(worker_mood(WorkerChip::Starting, None), Mood::Idle);
-        assert_eq!(
-            worker_mood(WorkerChip::Done, Some(WorkerOutcome::Succeeded)),
-            Mood::Responded
-        );
-        assert_eq!(
-            worker_mood(WorkerChip::Done, Some(WorkerOutcome::Interrupted)),
-            Mood::Failed
-        );
-    }
-}
-
 /// 菜单里的两行项：标题加一行说明；`color` 用于危险操作。
 fn rich_item(
     title: &'static str,
@@ -274,5 +254,25 @@ fn worker_menu(
         menu.item(remove("staff.worker_remove_close", None, true))
     } else {
         menu
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn worker_mood_follows_chip_and_outcome() {
+        assert_eq!(worker_mood(WorkerChip::Running, None), Mood::Working);
+        assert_eq!(worker_mood(WorkerChip::NeedsYou, None), Mood::Waiting);
+        assert_eq!(worker_mood(WorkerChip::Starting, None), Mood::Idle);
+        assert_eq!(
+            worker_mood(WorkerChip::Done, Some(WorkerOutcome::Succeeded)),
+            Mood::Responded
+        );
+        assert_eq!(
+            worker_mood(WorkerChip::Done, Some(WorkerOutcome::Interrupted)),
+            Mood::Failed
+        );
     }
 }
