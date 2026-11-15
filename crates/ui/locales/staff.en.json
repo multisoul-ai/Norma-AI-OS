@@ -57,7 +57,6 @@
   "staff.footer_hint": "Tasks progress independently · Conversations stay with each task",
   "staff.composer_hint": "Shift + Enter for a new line",
   "staff.send_shortcut": "Enter to send",
-  "staff.reopen_hint": "A new message reopens this task",
   "staff.task_meta": "%{project} · %{count} workers",
   "staff.phase": "Phase",
   "staff.no_workers": "No workers yet. Norma will propose the work.",

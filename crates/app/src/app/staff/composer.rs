@@ -151,25 +151,23 @@ impl MultisoulApp {
                                 ),
                         ),
                 )
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .justify_between()
-                        .px(px(18.))
-                        .py(px(8.))
-                        .text_size(px(11.))
-                        .text_color(rgba(theme.text_tertiary))
-                        .child(
-                            if task
-                                .is_some_and(|task| task.phase == norma::protocol::TaskPhase::Done)
-                            {
-                                t("staff.reopen_hint")
-                            } else {
-                                t("staff.composer_hint")
-                            },
+                // 已完成任务（重新打开提示那一档）不再显示提示行，输入框更干净。
+                .when(
+                    !task.is_some_and(|task| task.phase == norma::protocol::TaskPhase::Done),
+                    |column| {
+                        column.child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .justify_between()
+                                .px(px(18.))
+                                .py(px(8.))
+                                .text_size(px(11.))
+                                .text_color(rgba(theme.text_tertiary))
+                                .child(t("staff.composer_hint"))
+                                .child(t("staff.send_shortcut")),
                         )
-                        .child(t("staff.send_shortcut")),
+                    },
                 ),
         )
     }

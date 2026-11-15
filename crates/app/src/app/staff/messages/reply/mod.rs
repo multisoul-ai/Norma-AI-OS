@@ -22,7 +22,12 @@ impl MessageBlock for Reply<'_> {
         let (task, index) = (ctx.task, ctx.index);
         let theme = ctx.app.staff_theme();
         let running = reply.is_running();
-        let mut body = div().w_full().flex().flex_col().gap(px(tokens::SPACE_12));
+        let mut body = div()
+            .group(gpui::SharedString::from(format!("staff-reply-{index}")))
+            .w_full()
+            .flex()
+            .flex_col()
+            .gap(px(tokens::SPACE_12));
         // Keep Markdown height intrinsic instead of resolving its nested percentages against flex stretch.
         body.style().align_self = Some(gpui::AlignSelf::FlexStart);
         body = body
