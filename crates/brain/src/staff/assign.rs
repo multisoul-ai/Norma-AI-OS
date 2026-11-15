@@ -39,7 +39,7 @@ impl TaskStore {
         let mut proposal_id = 0;
         let mut decision = AssignDecision::Dispatch;
         let task = self.update(workspace, &task_id, |task| {
-            let text = format!("{title}\n{prompt}");
+            let text = format!("{title}\n{prompt}\n{why}");
             let last_finished = task
                 .workers
                 .iter()

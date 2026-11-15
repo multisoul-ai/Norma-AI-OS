@@ -72,16 +72,33 @@ pub fn authorize(role: BrainRole, op: &BrainOp, context: &GateContext) -> Verdic
 
 const TOKEN_VAR: &str = "NORMA_BRAIN_TOKEN";
 
-/// 幕僚会话的环境：沿用基础环境，只把大脑 token 换成幕僚 token，不留第二份。
-pub fn staff_env(base: &[(String, String)], staff_token: &str) -> Vec<(String, String)> {
+/// 幕僚会话的环境：沿用基础环境，把大脑 token 换成幕僚 token，不留第二份。
+/// 没有幕僚 token 时宁可不给任何 token，也不退回主大脑的 token。
+pub fn staff_env(base: &[(String, String)], staff_token: Option<&str>) -> Vec<(String, String)> {
     let mut env: Vec<_> = base
         .iter()
         .filter(|(key, _)| key != TOKEN_VAR)
         .cloned()
         .collect();
-    env.push((TOKEN_VAR.into(), staff_token.into()));
+    env.extend(staff_token.map(|token| (TOKEN_VAR.into(), token.into())));
     env
 }
+
+/// history 读的是 Agent 卡片的整段对话：只放行本任务派出过的那张卡。
+pub fn history_in_task(task: &norma::protocol::Task, open_card: Option<u64>) -> bool {
+    open_card.is_some_and(|card| {
+        task.workers
+            .iter()
+            .any(|worker| worker.card_id == Some(card))
+    })
+}
+
+/// 幕僚主动 report 的限制：每个任务每 10 分钟最多 2 条。
+pub const REPORT_WINDOW: std::time::Duration = std::time::Duration::from_secs(600);
+pub const REPORT_LIMIT: usize = 2;
+
+/// history 一次最多读几轮。
+pub const HISTORY_MAX_LAST: u32 = 20;
 
 /// 幕僚主动 report 的频率上限：每个任务在窗口内最多 `max` 条。
 pub struct ReportLimiter {

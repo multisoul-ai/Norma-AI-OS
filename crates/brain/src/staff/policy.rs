@@ -20,14 +20,29 @@ const KEYWORDS: [(RiskCategory, &[&str]); 4] = [
     (
         RiskCategory::Release,
         &[
-            "push", "merge", "deploy", "release", "publish", "部署", "发布", "发版", "上线",
-            "推送", "合并",
+            "push",
+            "merge",
+            "deploy",
+            "release",
+            "publish",
+            "terraform apply",
+            "kubectl apply",
+            "部署",
+            "发布",
+            "发版",
+            "上线",
+            "推送",
+            "合并",
         ],
     ),
     (
         RiskCategory::Destructive,
         &[
             "rm -rf",
+            "rm -fr",
+            "rm -r",
+            "git clean",
+            "branch -d",
             "drop table",
             "drop database",
             "truncate",
@@ -46,6 +61,15 @@ const KEYWORDS: [(RiskCategory, &[&str]); 4] = [
             "password",
             "api key",
             "private key",
+            "bearer",
+            "access token",
+            "auth token",
+            ".env",
+            "| sh",
+            "| bash",
+            "chmod",
+            "chown",
+            "/etc/",
             "sudo",
             "~/.ssh",
             "密钥",
@@ -71,9 +95,24 @@ const KEYWORDS: [(RiskCategory, &[&str]); 4] = [
     ),
 ];
 
+/// 去掉零宽字符、全角转半角、空白折叠并转小写，让简单的混淆写法不能绕过关键词。
+fn normalize(text: &str) -> String {
+    let half_width = text.chars().filter_map(|c| match c {
+        '\u{200b}'..='\u{200d}' | '\u{2060}' | '\u{feff}' => None,
+        '\u{ff01}'..='\u{ff5e}' => char::from_u32(c as u32 - 0xfee0),
+        c => Some(c),
+    });
+    half_width
+        .collect::<String>()
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// 返回文本命中的全部风险类别，按类别顺序，不重复。
 pub fn risk_categories(text: &str) -> Vec<RiskCategory> {
-    let text = text.to_lowercase();
+    let text = normalize(text);
     KEYWORDS
         .iter()
         .filter(|(_, words)| words.iter().any(|word| text.contains(word)))

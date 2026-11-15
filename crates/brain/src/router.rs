@@ -37,6 +37,8 @@ pub struct RouterConfig {
     pub summary_every: Option<Duration>,
     /// 提示里要求大脑执行的 `norma` 命令路径。
     pub norma_bin: String,
+    /// norma-brain skill 已装好：审批提示不再内联命令用法。
+    pub skill_ready: bool,
 }
 
 impl Default for RouterConfig {
@@ -46,6 +48,7 @@ impl Default for RouterConfig {
             quiet_window: Duration::from_secs(30),
             summary_every: Some(Duration::from_secs(300)),
             norma_bin: "norma".into(),
+            skill_ready: false,
         }
     }
 }
@@ -227,7 +230,11 @@ impl Router {
         self.open_approvals.insert(request.id.clone());
         vec![Action {
             lane: Lane::Approval,
-            text: prompt::approval(&request, &self.config.norma_bin),
+            text: if self.config.skill_ready {
+                prompt::approval_with_skill(&request)
+            } else {
+                prompt::approval(&request, &self.config.norma_bin)
+            },
             trigger: Trigger::new(TriggerKind::ApprovalRequest, request.agent),
             approval_id: Some(request.id),
         }]

@@ -41,12 +41,15 @@ fn owned_failures_still_reach_the_user_without_next_step_duty() {
     let mut owned = Router::new(RouterConfig::default(), now);
     owned.push_owned(failed("Simon"), now, true);
     let actions = owned.poll(now);
-    assert_eq!(actions.len(), 1);
+    assert_eq!(actions.len(), 1, "check: actions.len()");
     assert!(actions[0].text.contains("失败"), "{}", actions[0].text);
     assert!(!actions[0].text.contains("下一步"), "{}", actions[0].text);
     let mut plain = Router::new(RouterConfig::default(), now);
     plain.push_owned(failed("Simon"), now, false);
-    assert!(plain.poll(now)[0].text.contains("下一步"));
+    assert!(
+        plain.poll(now)[0].text.contains("下一步"),
+        "check: plain.poll(now)[0].text.contains('下一步')"
+    );
 }
 
 /// 同一批里只要有一个不属于幕僚，就仍按完整规则处理。
@@ -60,6 +63,6 @@ fn mixed_batches_keep_the_next_step_duty() {
     router.push_owned(failed("Simon"), now, true);
     router.push_owned(failed("Kai"), now, false);
     let actions = router.poll(now);
-    assert_eq!(actions.len(), 1);
+    assert_eq!(actions.len(), 1, "check: actions.len()");
     assert!(actions[0].text.contains("下一步"), "{}", actions[0].text);
 }

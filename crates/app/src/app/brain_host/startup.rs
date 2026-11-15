@@ -28,12 +28,10 @@ impl MultisoulApp {
             let token = uuid::Uuid::new_v4().simple().to_string();
             let staff_token = uuid::Uuid::new_v4().simple().to_string();
             let models = settings.models_for(backend.kind);
-            let mut config = BrainConfig::new(
-                backend,
-                config::shell_safe_bin(&state_dir, paths.bundled_cli),
-                global_dir,
-                directory,
-            );
+            let norma_bin = config::shell_safe_bin(&state_dir, paths.bundled_cli.clone());
+            let skill_ready = config::sync_brain_skill(&paths, backend.kind, &norma_bin);
+            let mut config = BrainConfig::new(backend, norma_bin, global_dir, directory);
+            config.skill_ready = skill_ready;
             config.tasks_dir = state_dir;
             config.strategy = settings.strategy;
             config.main_model = models.main;

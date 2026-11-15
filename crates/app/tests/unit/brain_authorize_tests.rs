@@ -63,10 +63,15 @@ fn host_authorizes_by_token_role_and_active_task() {
     let dir = tempfile::tempdir().unwrap();
     let (entity, cx) = app_with_active_task(&mut test, dir.path());
     entity.update(cx, |app, _| {
-        assert_eq!(app.authorize_brain("staff-token", &reply("a")), Ok(()));
+        assert_eq!(
+            app.authorize_brain("staff-token", &reply("a")),
+            Ok(()),
+            "check: app.authorize_brain('staff-token', &reply('a'))"
+        );
         assert_eq!(
             app.authorize_brain("staff-token", &reply("b")),
-            Err("staff.denied.other_task".into())
+            Err("staff.denied.other_task".into()),
+            "check: app.authorize_brain('staff-token', &reply('b'))"
         );
         let decide = BrainOp::Decide {
             approval_id: "1".into(),
@@ -75,19 +80,25 @@ fn host_authorizes_by_token_role_and_active_task() {
         };
         assert_eq!(
             app.authorize_brain("staff-token", &decide),
-            Err("staff.denied.decide".into())
+            Err("staff.denied.decide".into()),
+            "check: app.authorize_brain('staff-token', &decide)"
         );
-        assert_eq!(app.authorize_brain("main-token", &decide), Ok(()));
+        assert_eq!(
+            app.authorize_brain("main-token", &decide),
+            Ok(()),
+            "check: app.authorize_brain('main-token', &decide)"
+        );
         assert_eq!(
             app.authorize_brain("worker-guess", &reply("a")),
-            Err("staff.invalid_source".into())
+            Err("staff.invalid_source".into()),
+            "check: app.authorize_brain('worker-guess', &reply('a'))"
         );
     });
 }
 
-/// 场景：幕僚 history 只能读本任务派出过的 Agent；主动 report 每任务 10 分钟最多 2 条。
-/// 数据构造：任务 a 只派过 Simon；幕僚读 Simon 与 Kai 的对话；连续三次 report。
-/// 预期结果：Simon 放行、Kai 被拒绝（history_scope）；第三条 report 被拒绝（report_rate）。
+/// 场景：幕僚 history 在拿不到本任务那张卡时一律拒绝；主动 report 每任务 10 分钟最多 2 条。
+/// 数据构造：任务 a 派过 Simon，但 Agent 名册里没有打开的卡片；幕僚读 Simon 与 Kai；连续三次 report。
+/// 预期结果：两者都被拒绝（history_scope，失败即拒绝）；第三条 report 被拒绝（report_rate）。
 #[test]
 fn staff_history_is_task_scoped_and_reports_are_rate_limited() {
     let mut test = TestAppContext::single();
@@ -101,22 +112,97 @@ fn staff_history_is_task_scoped_and_reports_are_rate_limited() {
         };
         assert_eq!(
             app.authorize_brain("staff-token", &history("Simon")),
-            Ok(())
+            Err("staff.denied.history_scope".into()),
+            "no open card for this task: fail closed"
         );
         assert_eq!(
             app.authorize_brain("staff-token", &history("Kai")),
-            Err("staff.denied.history_scope".into())
+            Err("staff.denied.history_scope".into()),
+            "check: app.authorize_brain('staff-token', &history('Kai')"
         );
-        assert_eq!(app.authorize_brain("staff-token", &report()), Ok(()));
-        assert_eq!(app.authorize_brain("staff-token", &report()), Ok(()));
         assert_eq!(
             app.authorize_brain("staff-token", &report()),
-            Err("staff.denied.report_rate".into())
+            Ok(()),
+            "check: app.authorize_brain('staff-token', &report())"
+        );
+        assert_eq!(
+            app.authorize_brain("staff-token", &report()),
+            Ok(()),
+            "check: app.authorize_brain('staff-token', &report())"
+        );
+        assert_eq!(
+            app.authorize_brain("staff-token", &report()),
+            Err("staff.denied.report_rate".into()),
+            "check: app.authorize_brain('staff-token', &report())"
         );
         assert_eq!(
             app.authorize_brain("main-token", &report()),
             Ok(()),
             "main brain is not limited"
+        );
+    });
+}
+
+/// 场景：同时有两个任务在进行一轮，宿主无法确定调用者属于哪个，一律拒绝，不能随便挑一个。
+/// 数据构造：在基础夹具上再让任务 b 也开始一轮。
+/// 预期结果：对 a 和 b 的幕僚命令都被拒绝（other_task）；主大脑不受影响。
+#[test]
+fn ambiguous_active_tasks_fail_closed() {
+    let mut test = TestAppContext::single();
+    let dir = tempfile::tempdir().unwrap();
+    let (entity, cx) = app_with_active_task(&mut test, dir.path());
+    entity.update(cx, |app, _| {
+        app.staff
+            .activity
+            .entry("b".into())
+            .or_default()
+            .apply(1, TaskUpdate::Started { message_count: 0 });
+        for task in ["a", "b"] {
+            assert_eq!(
+                app.authorize_brain("staff-token", &reply(task)),
+                Err("staff.denied.other_task".into()),
+                "task {task}"
+            );
+        }
+        assert_eq!(
+            app.authorize_brain("main-token", &reply("a")),
+            Ok(()),
+            "check: app.authorize_brain('main-token', &reply('a'))"
+        );
+    });
+}
+
+/// 场景：幕僚自己把任务设成 done 不能紧接着归档，要等用户确认完成。
+/// 数据构造：任务 a 的阶段为 Done 但不是用户手动设置；再改成用户手动设置。
+/// 预期结果：前者归档被拒绝（archive_not_done），后者放行。
+#[test]
+fn staff_cannot_archive_a_task_it_marked_done_itself() {
+    let mut test = TestAppContext::single();
+    let dir = tempfile::tempdir().unwrap();
+    let (entity, cx) = app_with_active_task(&mut test, dir.path());
+    entity.update(cx, |app, _| {
+        let archive = BrainOp::Task {
+            op: StaffOp::Archive {
+                task_id: "a".into(),
+                archived: true,
+            },
+        };
+        let task = app.staff.tasks.get_mut("a").unwrap();
+        task.set_phase(norma::protocol::TaskPhase::Done, false);
+        assert_eq!(
+            app.authorize_brain("staff-token", &archive),
+            Err("staff.denied.archive_not_done".into()),
+            "model-set done is not the user's confirmation"
+        );
+        app.staff
+            .tasks
+            .get_mut("a")
+            .unwrap()
+            .set_phase(norma::protocol::TaskPhase::Done, true);
+        assert_eq!(
+            app.authorize_brain("staff-token", &archive),
+            Ok(()),
+            "check: app.authorize_brain('staff-token', &archive)"
         );
     });
 }

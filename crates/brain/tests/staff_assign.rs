@@ -58,14 +58,18 @@ fn follow_up_to_the_same_agent_is_dispatched_directly() {
     let (task, outcome) = store
         .assign("ws", assign_op("Simon", "Add the missing test"), true)
         .expect("assign");
-    assert_eq!(outcome, AssignOutcome::Dispatch { proposal_id: 2 });
+    assert_eq!(
+        outcome,
+        AssignOutcome::Dispatch { proposal_id: 2 },
+        "check: outcome"
+    );
     let proposal = task.proposals.iter().find(|p| p.id == 2).expect("proposal");
     assert!(proposal.approved, "direct dispatch is pre-approved");
     assert!(
         proposal.dispatch_id.is_none(),
         "host binds the worker later"
     );
-    assert_eq!(task.auto_dispatches, 1);
+    assert_eq!(task.auto_dispatches, 1, "check: task.auto_dispatches");
 }
 
 /// 场景：设置还在「询问」，幕僚的 assign 不能直接派发。
@@ -82,11 +86,12 @@ fn assign_is_downgraded_to_a_proposal_when_settings_ask() {
         AssignOutcome::Proposed {
             proposal_id: 2,
             reason: ProposeReason::AutonomyAsk
-        }
+        },
+        "check: outcome"
     );
     let proposal = task.proposals.iter().find(|p| p.id == 2).expect("proposal");
     assert!(!proposal.approved, "the user still has to adopt it");
-    assert_eq!(task.auto_dispatches, 0);
+    assert_eq!(task.auto_dispatches, 0, "check: task.auto_dispatches");
     assert!(
         task.messages
             .iter()
@@ -109,9 +114,13 @@ fn risky_assign_is_downgraded_even_when_auto() {
         AssignOutcome::Proposed {
             proposal_id: 2,
             reason: ProposeReason::Risk(vec![RiskCategory::Release])
-        }
+        },
+        "check: outcome"
     );
-    assert!(!task.proposals[1].approved);
+    assert!(
+        !task.proposals[1].approved,
+        "check: !task.proposals[1].approved"
+    );
 }
 
 /// 场景：一个任务里连续自动派发，第 4 次要被拦下；用户采用一条提议后计数清零，又可以自动派。
@@ -132,7 +141,8 @@ fn automatic_dispatches_are_capped_until_the_user_adopts_something() {
             outcome,
             AssignOutcome::Dispatch {
                 proposal_id: expected
-            }
+            },
+            "check: outcome"
         );
     }
     let (task, outcome) = store
@@ -143,9 +153,10 @@ fn automatic_dispatches_are_capped_until_the_user_adopts_something() {
         AssignOutcome::Proposed {
             proposal_id: 5,
             reason: ProposeReason::LimitReached
-        }
+        },
+        "check: outcome"
     );
-    assert_eq!(task.auto_dispatches, 3);
+    assert_eq!(task.auto_dispatches, 3, "check: task.auto_dispatches");
     let task = store
         .approve("ws", "a", 5, None, None)
         .expect("user adopts");
@@ -156,7 +167,11 @@ fn automatic_dispatches_are_capped_until_the_user_adopts_something() {
     let (_, outcome) = store
         .assign("ws", assign_op("Simon", "After the reset"), true)
         .expect("assign after reset");
-    assert_eq!(outcome, AssignOutcome::Dispatch { proposal_id: 6 });
+    assert_eq!(
+        outcome,
+        AssignOutcome::Dispatch { proposal_id: 6 },
+        "check: outcome"
+    );
 }
 
 /// 场景：旧快照没有自动派发计数字段，升级后不能读失败，也不能被当成已派发过。
@@ -170,7 +185,7 @@ fn old_snapshots_without_the_counter_load_as_zero() {
         .expect("object")
         .remove("auto_dispatches");
     let task: Task = serde_json::from_value(value).expect("old snapshot");
-    assert_eq!(task.auto_dispatches, 0);
+    assert_eq!(task.auto_dispatches, 0, "check: task.auto_dispatches");
 }
 
 /// 场景：模型发来的 Assign 不能绕过策略，通用写入口 execute 必须拒绝它。
@@ -179,6 +194,13 @@ fn old_snapshots_without_the_counter_load_as_zero() {
 #[test]
 fn generic_execute_refuses_assign_so_policy_cannot_be_skipped() {
     let (_dir, store) = store_with_finished_worker("Simon");
-    assert!(store.execute("ws", assign_op("Simon", "Anything")).is_err());
-    assert_eq!(store.get("ws", "a").expect("task").proposals.len(), 1);
+    assert!(
+        store.execute("ws", assign_op("Simon", "Anything")).is_err(),
+        "check: store.execute('ws', assign_op('Simon', 'Anything')"
+    );
+    assert_eq!(
+        store.get("ws", "a").expect("task").proposals.len(),
+        1,
+        "check: store.get('ws', 'a').expect('task').proposals.len("
+    );
 }

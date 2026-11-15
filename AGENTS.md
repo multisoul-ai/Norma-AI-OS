@@ -16,7 +16,7 @@ Workspace 分层：
 - `crates/storage/` - 零 GPUI 存储层：SQLite store、migration、recent/settings/canvas/session checkpoint。
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
 - `crates/agent/` - 零 GPUI/Storage Agent Runtime：NormaSession、Rig Provider、typed tools、AgentCardAdapter 与预算。
-- `crates/brain/` - 零 GPUI/Storage/Runtime/Agent 的后台幕僚：事件分流、ACP 会话（权限请求一律放行）与提议；只依赖 `norma` 协议类型，动作一律经 `norma` CLI。
+- `crates/brain/` - 零 GPUI/Storage/Runtime/Agent 的后台幕僚：事件分流、ACP 会话（权限请求一律放行）与提议；只依赖 `norma` 协议类型，动作一律经 `norma` CLI；幕僚命令由宿主按 token 角色授权，用法见内置 norma-brain skill。
 - `crates/asr/` - 零 GPUI/Storage/Keychain ASR 领域层：provider、识别协议、Local Sherpa、Cloud Azure、模型安装与完整性。
 - `crates/voice_input/` - provider 中立的音频输入层：权限、设备、采集、重采样、PCM 流与共享 VAD。
 - `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。

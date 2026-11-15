@@ -61,7 +61,11 @@ impl OrchestrationInstaller {
                 fs::remove_file(path)?;
             }
         }
-        Ok(())
+        // norma-brain 只装给当前大脑后端，不属于上面三个常驻 skill，卸载时一并清理。
+        match crate::orchestration::brain_skill::remove_brain_skill(&self.paths, provider) {
+            Ok(()) | Err(InstallerError::UnsupportedProvider) => Ok(()),
+            Err(error) => Err(error),
+        }
     }
 
     fn inspect_skill_file(

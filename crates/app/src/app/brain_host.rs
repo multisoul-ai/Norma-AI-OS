@@ -171,8 +171,8 @@ impl BrainHostState {
             away: away::AwayTracker::default(),
             pending_return: None,
             report_limiter: brain::staff::gate::ReportLimiter::new(
-                std::time::Duration::from_secs(600),
-                2,
+                brain::staff::gate::REPORT_WINDOW,
+                brain::staff::gate::REPORT_LIMIT,
             ),
             trace_focus: None,
             proposals: proposals::Proposals::default(),

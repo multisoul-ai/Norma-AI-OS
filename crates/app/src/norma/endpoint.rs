@@ -330,15 +330,16 @@ fn brain_authorization_error(
         return None;
     };
     let target = resolve_targets(request, cx).ok()?.target;
-    match target
+    // 窗口已关闭等拿不到应用状态的情况也拒绝：授权不能失败放行。
+    let denied = target
         .app
         .update(cx, |app, _| app.authorize_brain(token, op))
-    {
-        Ok(Err(code)) => Some(norma::protocol::CardCommandError::Unsupported {
+        .unwrap_or_else(|_| Err("staff.invalid_source".to_owned()));
+    denied
+        .err()
+        .map(|code| norma::protocol::CardCommandError::Unsupported {
             message: crate::app::staff::error_message(code).to_string(),
-        }),
-        _ => None,
-    }
+        })
 }
 
 fn dispatch_request(server_request: NormaServerRequest, cx: &mut App) {

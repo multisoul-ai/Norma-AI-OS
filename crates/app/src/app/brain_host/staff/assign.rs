@@ -22,37 +22,30 @@ impl MultisoulApp {
             .spawn(async move { store.assign(&workspace, op, auto) });
         Ok(cx.spawn(async move |app, cx| {
             let (task, outcome) = work.await.map_err(|error| error.to_string())?;
-            let dispatch = app
+            let work = app
                 .update(cx, |app, cx| {
                     if app.brain_scope().as_ref() != Some(&scope) {
                         return Err("staff.invalid_source".to_owned());
                     }
                     app.receive_staff_tasks(vec![task], cx);
-                    match &outcome {
-                        AssignOutcome::Dispatch { proposal_id } => app
-                            .dispatch_staff_worker(task_id.clone(), *proposal_id, token, cx)
-                            .map(Some),
-                        AssignOutcome::Proposed { .. } => Ok(None),
+                    match outcome {
+                        AssignOutcome::Dispatch { proposal_id } => {
+                            app.dispatch_staff_worker(task_id, proposal_id, token, cx)
+                        }
+                        AssignOutcome::Proposed {
+                            proposal_id,
+                            reason,
+                        } => Ok(gpui::Task::ready(Ok(serde_json::json!({
+                            "task": task_id,
+                            "status": "proposed",
+                            "proposal_id": proposal_id,
+                            "reason": reason.code(),
+                        })
+                        .to_string()))),
                     }
                 })
                 .map_err(|_| "staff.invalid_source".to_owned())??;
-            match (dispatch, outcome) {
-                (Some(dispatch), _) => dispatch.await,
-                (
-                    None,
-                    AssignOutcome::Proposed {
-                        proposal_id,
-                        reason,
-                    },
-                ) => Ok(serde_json::json!({
-                    "task": task_id,
-                    "status": "proposed",
-                    "proposal_id": proposal_id,
-                    "reason": reason.code(),
-                })
-                .to_string()),
-                (None, AssignOutcome::Dispatch { .. }) => unreachable!("dispatch yields a task"),
-            }
+            work.await
         }))
     }
 }

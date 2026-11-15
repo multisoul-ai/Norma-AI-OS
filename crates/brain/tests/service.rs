@@ -50,6 +50,7 @@ fn start() -> Harness {
         quiet_window: Duration::from_millis(50),
         summary_every: None,
         norma_bin: String::new(),
+        skill_ready: false,
     };
     let (service, status) = BrainService::start(config);
     Harness {
@@ -285,6 +286,7 @@ fn start_with(workers: usize) -> Harness {
         quiet_window: Duration::from_millis(50),
         summary_every: None,
         norma_bin: String::new(),
+        skill_ready: false,
     };
     config.approval_workers = workers;
     let (service, status) = BrainService::start(config);

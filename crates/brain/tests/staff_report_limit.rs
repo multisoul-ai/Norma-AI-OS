@@ -8,8 +8,14 @@ use std::time::{Duration, Instant};
 fn proactive_reports_are_capped_per_task_within_a_window() {
     let start = Instant::now();
     let mut limiter = ReportLimiter::new(Duration::from_secs(600), 2);
-    assert!(limiter.allow("a", start));
-    assert!(limiter.allow("a", start + Duration::from_secs(10)));
+    assert!(
+        limiter.allow("a", start),
+        "check: limiter.allow('a', start)"
+    );
+    assert!(
+        limiter.allow("a", start + Duration::from_secs(10)),
+        "check: limiter.allow('a', start + Duration::from_secs(10)"
+    );
     assert!(
         !limiter.allow("a", start + Duration::from_secs(20)),
         "third in the window"
