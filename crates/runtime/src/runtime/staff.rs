@@ -12,12 +12,48 @@ impl Runtime {
         dispatch_id: String,
     ) -> NodeId {
         let node = self.add_agent_node(profile, None, Some(alias), bounds);
-        self.staff_dispatches.insert(node, dispatch_id);
+        self.staff_dispatches.insert(node, (dispatch_id, None));
         node
     }
 
+    /// Model chosen for a Staff worker; applied when its native terminal is prepared.
+    pub fn set_staff_model(&mut self, node: NodeId, model: String) {
+        if let Some(entry) = self.staff_dispatches.get_mut(&node) {
+            entry.1 = Some(model);
+        }
+    }
+
+    /// Append `--model`; engines without a verified flag refuse instead of silently ignoring it.
+    pub(crate) fn with_staff_model(
+        &self,
+        node: NodeId,
+        profile: canvas::AgentProfile,
+        mut command: terminal::PtyCommand,
+    ) -> Result<terminal::PtyCommand, terminal::PtyError> {
+        let Some(model) = self
+            .staff_dispatches
+            .get(&node)
+            .and_then(|(_, m)| m.as_deref())
+        else {
+            return Ok(command);
+        };
+        use canvas::AgentProfile::*;
+        if !matches!(profile, Claude | Codex | Cursor | OpenCode | Kimi | Grok) {
+            return Err(terminal::PtyError::Spawn(
+                "model selection unsupported".into(),
+            ));
+        }
+        let script = command
+            .args
+            .last_mut()
+            .ok_or_else(|| terminal::PtyError::Spawn("empty agent command".into()))?;
+        script.push_str(" --model ");
+        script.push_str(&crate::session_snapshot::shell_quote(model));
+        Ok(command)
+    }
+
     pub fn staff_dispatch_id(&self, node: NodeId) -> Option<&str> {
-        self.staff_dispatches.get(&node).map(String::as_str)
+        self.staff_dispatches.get(&node).map(|(id, _)| id.as_str())
     }
 
     pub fn accepts_staff_hook(&self, event: &norma::agent_hook::AgentHookEvent) -> bool {

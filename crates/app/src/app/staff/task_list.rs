@@ -141,143 +141,133 @@ impl MultisoulApp {
                     },
                     project_name
                 );
-                groups =
-                    groups.child(
-                        Button::new(gpui::SharedString::from(format!("staff-task-{id}")))
-                            .debug_selector(move || format!("staff-task-{}", task.id))
-                            .group(group_name.clone())
-                            .relative()
-                            .custom(self.staff_button_style(
+                groups = groups.child(
+                    Button::new(gpui::SharedString::from(format!("staff-task-{id}")))
+                        .debug_selector(move || format!("staff-task-{}", task.id))
+                        .group(group_name.clone())
+                        .relative()
+                        .custom(
+                            self.staff_button_style(
                                 self.staff.selected.as_deref() == Some(&id),
                                 cx,
-                            ))
-                            .w_full()
-                            .h_auto()
-                            .px(px(14.))
-                            .py(px(13.))
-                            .mt(px(2.))
-                            .rounded(px(16.))
-                            .justify_start()
-                            .items_start()
-                            .gap(px(12.))
-                            .selected(self.staff.selected.as_deref() == Some(&id))
-                            .disabled(self.staff.busy)
-                            .child(
-                                div()
-                                    .mt(px(6.))
-                                    .w(px(8.))
-                                    .h(px(8.))
-                                    .flex_none()
-                                    .rounded_full()
-                                    .bg(rgba(color)),
-                            )
-                            .child(
-                                // Button content shrink-wraps; fixed width keeps status right-aligned.
-                                div()
-                                    .w(px(list_w - 64.))
-                                    .flex()
-                                    .flex_col()
-                                    .items_start()
-                                    .gap(px(2.))
-                                    .child(
-                                        div()
-                                            .w_full()
-                                            .flex()
-                                            .items_center()
-                                            .gap(px(8.))
-                                            .child(
-                                                div()
-                                                    .flex_1()
-                                                    .min_w_0()
-                                                    .text_size(px(14.))
-                                                    .font_medium()
-                                                    .text_ellipsis()
-                                                    .child(task.title.clone()),
-                                            )
-                                            .child(
-                                                div()
-                                                    .flex_none()
-                                                    .text_size(px(11.))
-                                                    .text_color(rgba(color))
-                                                    .group_hover(group_name.clone(), |style| {
-                                                        style.opacity(0.)
-                                                    })
-                                                    .child(if pending_questions > 0 {
-                                                        format!(
-                                                            "{} · {}",
-                                                            status_label(status),
-                                                            ui::i18n::format(
-                                                                "staff.pending_questions",
-                                                                &[(
-                                                                    "count",
-                                                                    pending_questions.to_string()
-                                                                )]
-                                                            )
-                                                        )
-                                                    } else {
-                                                        status_label(status).to_owned()
-                                                    }),
-                                            ),
-                                    )
-                                    .child(
-                                        div()
-                                            .w_full()
-                                            .text_size(px(12.))
-                                            .text_color(rgba(theme.text_secondary))
-                                            .text_ellipsis()
-                                            .child(subtitle),
-                                    ),
-                            )
-                            .when(!self.staff.archive_view, |row| {
-                                let archive_id = id.clone();
-                                let title = task.title.clone();
-                                let selector_id = archive_id.clone();
-                                row.child(
-                                    Button::new(gpui::SharedString::from(format!(
-                                        "staff-archive-row-{selector_id}"
-                                    )))
-                                    .debug_selector(move || {
-                                        format!("staff-archive-row-{selector_id}")
-                                    })
-                                    .custom(self.staff_button_style(false, cx))
-                                    .absolute()
-                                    .right(px(8.))
-                                    .top(px(8.))
-                                    .w(px(32.))
-                                    .h(px(32.))
-                                    .rounded(px(16.))
-                                    .opacity(0.)
-                                    .group_hover(group_name.clone(), |style| style.opacity(1.))
-                                    .focus(|style| style.opacity(1.))
-                                    .in_focus(|style| style.opacity(1.))
-                                    .tooltip(ui::i18n::format(
-                                        "staff.archive_named",
-                                        &[("title", title.clone())],
-                                    ))
-                                    .icon(Icon::empty().path("icons/archive.svg"))
-                                    .disabled(self.staff.busy)
-                                    .on_click(cx.listener(move |app, _, window, cx| {
+                            ),
+                        )
+                        .w_full()
+                        .h(px(64.))
+                        .px(px(14.))
+                        .py(px(13.))
+                        .mt(px(2.))
+                        .rounded(px(16.))
+                        .justify_start()
+                        .items_start()
+                        .gap(px(12.))
+                        .selected(self.staff.selected.as_deref() == Some(&id))
+                        .disabled(self.staff.busy)
+                        .child(
+                            div()
+                                .mt(px(6.))
+                                .w(px(8.))
+                                .h(px(8.))
+                                .flex_none()
+                                .rounded_full()
+                                .bg(rgba(color)),
+                        )
+                        .child(
+                            // Button content shrink-wraps; fixed width keeps status right-aligned.
+                            div()
+                                .w(px(list_w - 64.))
+                                .flex()
+                                .flex_col()
+                                .items_start()
+                                .gap(px(2.))
+                                .child(
+                                    div()
+                                        .w_full()
+                                        .text_size(px(14.))
+                                        .font_medium()
+                                        .whitespace_nowrap()
+                                        .overflow_hidden()
+                                        .text_ellipsis()
+                                        .child(task.title.clone()),
+                                )
+                                .child(
+                                    // Status leads the subtitle; archive only appears on hover.
+                                    div()
+                                        .w_full()
+                                        .flex()
+                                        .gap(px(4.))
+                                        .text_size(px(12.))
+                                        .text_color(rgba(theme.text_secondary))
+                                        .child(div().flex_none().text_color(rgba(color)).child(
+                                            if pending_questions > 0 {
+                                                format!(
+                                                    "{} · {}",
+                                                    status_label(status),
+                                                    ui::i18n::format(
+                                                        "staff.pending_questions",
+                                                        &[("count", pending_questions.to_string())]
+                                                    )
+                                                )
+                                            } else {
+                                                status_label(status).to_owned()
+                                            },
+                                        ))
+                                        .child(
+                                            div()
+                                                .flex_1()
+                                                .min_w_0()
+                                                .whitespace_nowrap()
+                                                .overflow_hidden()
+                                                .text_ellipsis()
+                                                .child(format!("· {subtitle}")),
+                                        ),
+                                ),
+                        )
+                        .when(!self.staff.archive_view, |row| {
+                            let archive_id = id.clone();
+                            let title = task.title.clone();
+                            let selector_id = archive_id.clone();
+                            row.child(
+                                Button::new(gpui::SharedString::from(format!(
+                                    "staff-archive-row-{selector_id}"
+                                )))
+                                .debug_selector(move || format!("staff-archive-row-{selector_id}"))
+                                .custom(self.staff_button_style(false, cx))
+                                .absolute()
+                                // Offsets are measured from the padded content box (px 14 / py 13).
+                                .right(px(-6.))
+                                .top(px(3.))
+                                .w(px(32.))
+                                .h(px(32.))
+                                .rounded(px(16.))
+                                .opacity(0.)
+                                .group_hover(group_name.clone(), |style| style.opacity(1.))
+                                .focus(|style| style.opacity(1.))
+                                .in_focus(|style| style.opacity(1.))
+                                .tooltip(ui::i18n::format(
+                                    "staff.archive_named",
+                                    &[("title", title.clone())],
+                                ))
+                                .icon(Icon::empty().path("icons/archive.svg"))
+                                .disabled(self.staff.busy)
+                                .on_click(cx.listener(
+                                    move |app, _, window, cx| {
                                         cx.stop_propagation();
-                                        let task = app.staff.tasks.get(&archive_id);
-                                        let active =
-                                            task.is_some_and(|task| task.archive_note_active());
-                                        let title = task
-                                            .map(|task| task.title.clone())
-                                            .unwrap_or_else(|| title.clone());
                                         app.request_staff_archive(
                                             archive_id.clone(),
                                             true,
-                                            StaffArchiveNotice::Archived { title, active },
+                                            StaffArchiveNotice::Archived,
                                             window,
                                             cx,
                                         );
-                                    })),
-                                )
-                            })
-                            .on_click(cx.listener(move |app, _, window, cx| {
-                                app.select_staff_task(Some(id.clone()), window, cx)
-                            })),
-                    );
+                                    },
+                                )),
+                            )
+                        })
+                        .on_click(cx.listener(move |app, _, window, cx| {
+                            app.select_staff_task(Some(id.clone()), window, cx)
+                        })),
+                );
             }
         }
         if visible == 0 {

@@ -36,6 +36,7 @@ mod workspace;
 pub(in crate::mobile) use action::Action;
 use workspace::workspace_credentials;
 mod image;
+pub(crate) use image::accept_chat_image;
 mod terminal;
 
 fn decode(text: &str) -> Result<Request, Value> {

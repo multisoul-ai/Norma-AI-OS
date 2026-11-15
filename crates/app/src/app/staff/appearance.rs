@@ -41,6 +41,26 @@ impl MultisoulApp {
             .active(rgba(ui::icons::with_alpha(theme.accent_cyan, 60)).into())
     }
 
+    /// 中性填充：次要但可点的操作，不与主按钮抢色。
+    pub(crate) fn staff_neutral_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
+        let theme = self.staff_theme();
+        ButtonCustomVariant::new(cx)
+            .color(rgba(ui::icons::with_alpha(theme.text_primary, 20)).into())
+            .foreground(rgba(theme.text_primary).into())
+            .hover(rgba(ui::icons::with_alpha(theme.text_primary, 34)).into())
+            .active(rgba(ui::icons::with_alpha(theme.text_primary, 48)).into())
+    }
+
+    /// 文字链接：无底色，主色文字，悬停时淡底。
+    pub(crate) fn staff_link_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
+        let theme = self.staff_theme();
+        ButtonCustomVariant::new(cx)
+            .color(rgba(ui::icons::with_alpha(theme.accent_cyan, 0)).into())
+            .foreground(rgba(theme.accent_cyan).into())
+            .hover(rgba(ui::icons::with_alpha(theme.accent_cyan, 24)).into())
+            .active(rgba(ui::icons::with_alpha(theme.accent_cyan, 40)).into())
+    }
+
     pub(crate) fn staff_primary_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
         let theme = self.staff_theme();
         ButtonCustomVariant::new(cx)
@@ -55,6 +75,24 @@ impl MultisoulApp {
             )
             .hover(rgba(ui::icons::with_alpha(theme.accent_cyan, 230)).into())
             .active(rgba(ui::icons::with_alpha(theme.accent_cyan, 200)).into())
+    }
+
+    /// 与参考输入框一致：实心蓝圆，用来添加图片，和发送钮分开。
+    pub(crate) fn staff_image_attach_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
+        ButtonCustomVariant::new(cx)
+            .color(rgba(0x2f7cf6ff).into())
+            .foreground(rgba(0xffffffff).into())
+            .hover(rgba(0x4b90f8ff).into())
+            .active(rgba(0x1f68d8ff).into())
+    }
+
+    /// 缩略图角上的移除钮：浅底深色叉，压在图片上仍能看清。
+    pub(crate) fn staff_image_remove_style(&self, cx: &gpui::App) -> ButtonCustomVariant {
+        ButtonCustomVariant::new(cx)
+            .color(rgba(0xf4f4f5ff).into())
+            .foreground(rgba(0x1c1c1eff).into())
+            .hover(rgba(0xffffffff).into())
+            .active(rgba(0xd4d4d8ff).into())
     }
 
     /// Material tonal container for the extended "new task" action; label colors must be set on its children.

@@ -35,7 +35,7 @@ pub struct RouterConfig {
     pub quiet_window: Duration,
     /// `None` 表示不发定时摘要。
     pub summary_every: Option<Duration>,
-    /// 提示里要求大脑执行的 `norma` 命令路径，必须与权限闸门的白名单一致。
+    /// 提示里要求大脑执行的 `norma` 命令路径。
     pub norma_bin: String,
 }
 

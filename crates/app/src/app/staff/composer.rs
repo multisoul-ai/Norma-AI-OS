@@ -1,3 +1,4 @@
+use super::images::staff_can_send;
 use super::*;
 use gpui::{div, prelude::*, px, rgba, Div, Focusable, KeyDownEvent, Window};
 use ui::component::{
@@ -9,6 +10,7 @@ use ui::i18n::text as t;
 
 impl MultisoulApp {
     pub(super) fn ensure_staff_inputs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.ensure_proposal_model_lists(cx);
         if self.staff.input.is_none() {
             let input = cx.new(|cx| {
                 InputState::new(window, cx).auto_grow(1, 5).placeholder(
@@ -68,10 +70,22 @@ impl MultisoulApp {
                         .pl(px(18.))
                         .pr(px(8.))
                         .py(px(8.))
+                        .flex()
+                        .flex_col()
+                        .when(!self.staff.images.is_empty(), |composer| {
+                            composer.child(self.staff_image_chips(cx))
+                        })
                         .capture_action(cx.listener(
                             |app, _: &ui::component::input::Enter, window, cx| {
                                 app.send_staff_message(window, cx);
                                 cx.stop_propagation();
+                            },
+                        ))
+                        .capture_action(cx.listener(
+                            |app, _: &ui::component::input::Paste, _, cx| {
+                                if app.paste_staff_clipboard_image(cx) {
+                                    cx.stop_propagation();
+                                }
                             },
                         ))
                         .capture_key_down(cx.listener(|app, event: &KeyDownEvent, window, cx| {
@@ -86,34 +100,54 @@ impl MultisoulApp {
                         .child(
                             div()
                                 .flex()
-                                .items_center()
-                                .gap(px(10.))
+                                .flex_col()
+                                .gap(px(8.))
                                 .child(
-                                    div()
-                                        .flex_1()
-                                        .min_w_0()
-                                        .min_h(px(34.))
-                                        .max_h(px(120.))
-                                        .child(
-                                            Input::new(input)
-                                                .appearance(false)
-                                                .text_size(px(14.))
-                                                .disabled(self.staff.busy),
-                                        ),
+                                    div().w_full().min_h(px(34.)).max_h(px(120.)).child(
+                                        Input::new(input)
+                                            .appearance(false)
+                                            .text_size(px(14.))
+                                            .disabled(self.staff.busy),
+                                    ),
                                 )
                                 .child(
-                                    Button::new("staff-send")
-                                        .debug_selector(|| "staff-send".into())
-                                        .custom(self.staff_primary_style(cx))
-                                        .with_size(px(34.))
-                                        .rounded_full()
-                                        .icon(IconName::ArrowUp)
-                                        .tooltip(t("staff.send"))
-                                        .disabled(
-                                            self.staff.busy
-                                                || input.read(cx).value().trim().is_empty(),
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .justify_between()
+                                        .child(
+                                            Button::new("staff-attach-image")
+                                                .debug_selector(|| "staff-attach-image".into())
+                                                .custom(self.staff_image_attach_style(cx))
+                                                .with_size(px(32.))
+                                                .rounded_full()
+                                                .icon(IconName::Plus)
+                                                .tooltip(t("staff.attach_image"))
+                                                .disabled(
+                                                    self.staff.busy || self.staff.image_uploads > 0,
+                                                )
+                                                .on_click(cx.listener(|app, _, _, cx| {
+                                                    app.pick_staff_image(cx)
+                                                })),
                                         )
-                                        .on_click(cx.listener(Self::send_staff_message_click)),
+                                        .child(
+                                            Button::new("staff-send")
+                                                .debug_selector(|| "staff-send".into())
+                                                .custom(self.staff_primary_style(cx))
+                                                .with_size(px(34.))
+                                                .rounded_full()
+                                                .icon(IconName::ArrowUp)
+                                                .tooltip(t("staff.send"))
+                                                .disabled(!staff_can_send(
+                                                    self.staff.busy,
+                                                    self.staff.image_uploads > 0,
+                                                    &input.read(cx).value(),
+                                                    self.staff.images.len(),
+                                                ))
+                                                .on_click(
+                                                    cx.listener(Self::send_staff_message_click),
+                                                ),
+                                        ),
                                 ),
                         ),
                 )

@@ -47,10 +47,15 @@ impl TaskStore {
                     })?;
                     // 模型重复提交同一提议时保留原编号与用户决策。
                     // 需要你的 Worker 等用户在原卡重新投递，不再为同一 agent 与 prompt 新开一张卡。
-                    let duplicate = task.proposals.iter().any(|proposal| {
-                        proposal.agent == agent
+                    let round = task.round;
+                    let duplicate = task.proposals.iter_mut().fold(false, |found, proposal| {
+                        let same = proposal.agent == agent
                             && proposal.prompt == prompt
-                            && proposal.dispatch_id.is_none()
+                            && proposal.dispatch_id.is_none();
+                        if same {
+                            proposal.round = round;
+                        }
+                        found || same
                     });
                     let awaiting = task.workers.iter().any(|worker| {
                         worker.state == norma::protocol::WorkerState::NeedsAttention
@@ -65,16 +70,18 @@ impl TaskStore {
                     if duplicate || awaiting {
                         return Ok(());
                     }
-                    let id = task.proposals.len() as u64 + 1;
+                    let id = task.proposals.iter().map(|p| p.id).max().unwrap_or(0) + 1;
                     task.proposals.push(StaffProposal {
                         id,
                         agent,
                         title,
                         prompt,
                         why,
+                        model: None,
                         approved: false,
                         ignored: false,
                         dispatch_id: None,
+                        round,
                     });
                     task.messages
                         .push(TaskMessage::Proposal { proposal_id: id });
@@ -96,7 +103,23 @@ impl TaskStore {
         .map(|task| vec![task])
     }
 
-    pub fn approve(&self, workspace: &str, id: &str, proposal_id: u64) -> io::Result<Task> {
+    /// 幕僚每轮开始时调用；轮次用于轮末替换旧的待采用提议。
+    pub fn begin_round(&self, workspace: &str, id: &str) -> io::Result<Task> {
+        self.update(workspace, id, |task| {
+            task.round += 1;
+            Ok(())
+        })
+    }
+
+    /// `agent`/`model` 是用户在采纳时的选择，与批准同一次事务写入。
+    pub fn approve(
+        &self,
+        workspace: &str,
+        id: &str,
+        proposal_id: u64,
+        agent: Option<String>,
+        model: Option<String>,
+    ) -> io::Result<Task> {
         self.update(workspace, id, |task| {
             let proposal = task
                 .proposals
@@ -109,6 +132,10 @@ impl TaskStore {
                     "staff.proposal_unavailable",
                 ));
             }
+            if let Some(agent) = agent.filter(|agent| !agent.trim().is_empty()) {
+                proposal.agent = agent;
+            }
+            proposal.model = model.map(|m| m.trim().to_owned()).filter(|m| !m.is_empty());
             proposal.approved = true;
             Ok(())
         })

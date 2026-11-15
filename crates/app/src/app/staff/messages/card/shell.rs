@@ -49,5 +49,4 @@ pub(super) fn action_button(
         .h(px(tokens::BUTTON_HEIGHT))
         .px(px(tokens::SPACE_16))
         .rounded_full()
-        .text_size(px(tokens::LABEL_TEXT))
 }

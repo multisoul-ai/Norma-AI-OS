@@ -57,15 +57,19 @@ public enum StaffWorkspaceStreaming {
         try await session.step("真实分片和计划状态在结束前可见") {
             try release(root, "release-waiting")
             try await waitFor("ACP partial") { try StaffFixture.records(root, "stream-events.jsonl").contains { $0["stage"] as? String == "release-partial" } }
-            try session.save(try await session.visualCheck([VisualCriterion(id: "partial", text: "Norma显示ALPHA PARTIAL: project inspected.且仍在回复；执行计划1/2，Inspect Alpha project已完成，Prepare acceptance result执行中。ALPHA FINAL尚未出现，文字/计划/输入区没有重叠。")]), "03-partial.png")
+            try session.save(try await session.visualCheck([VisualCriterion(id: "partial", text: "Norma显示ALPHA PARTIAL: project inspected.且仍在回复；其下依次是ALPHA QUESTION问答卡（卡片在ALPHA PARTIAL文字之后）；执行计划1/2，Inspect Alpha project已完成，Prepare acceptance result执行中。ALPHA FINAL尚未出现，文字/卡片/计划/输入区没有重叠。")]), "03-partial.png")
             guard try normaReplies(root).isEmpty else { throw E2EError.product("模型结束前不应伪造完整历史") }
             try release(root, "release-partial")
             try await waitFor("ACP final held") { try StaffFixture.records(root, "stream-events.jsonl").contains { $0["stage"] as? String == "release-final" } }
-            try session.save(try await session.visualCheck([VisualCriterion(id: "plan-complete", text: "流式文字同时有ALPHA PARTIAL和ALPHA FINAL；执行计划为2/2，两行都是已完成/Completed，没有重复的旧计划行；回复仍在等待模型结束。")]), "04-plan-complete.png")
+            try session.save(try await session.visualCheck([VisualCriterion(id: "plan-complete", text: "ALPHA PARTIAL、ALPHA QUESTION问答卡位置与上一张相比没有移动，ALPHA FINAL出现在ALPHA QUESTION下方；执行计划为2/2，两行都是已完成/Completed，没有重复的旧计划行；回复仍在等待模型结束。")]), "04-plan-complete.png")
             try release(root, "release-final")
-            try await waitFor("durable reply") { try normaReplies(root).count == 1 }
-            try session.save(try await session.visualCheck([VisualCriterion(id: "settled", text: "完整ALPHA PARTIAL和ALPHA FINAL只出现一份，等待动画和回复中提示已消失；计划2/2仍可查看。")]), "05-settled.png")
-            return "结束前有分片/计划，结束后恰好一条完整回复"
+            try await waitFor("durable reply") { try normaReplies(root).count == 2 }
+            let saved = try normaReplies(root)
+            guard saved[0].hasPrefix("ALPHA PARTIAL"), saved[1].hasPrefix("ALPHA FINAL") else {
+                throw E2EError.product("回复应按卡片边界分成前后两段: \(saved)")
+            }
+            try session.save(try await session.visualCheck([VisualCriterion(id: "settled", text: "ALPHA PARTIAL、ALPHA QUESTION、ALPHA FINAL按此顺序自上而下各只出现一份且位置不再跳动，等待动画和回复中提示已消失；计划2/2仍可查看。")]), "05-settled.png")
+            return "结束前有分片/计划/卡片，结束后回复按卡片边界分两段落盘"
         }
         try await session.step("项目筛选和草稿隔离，所有项目聚合") {
             try await session.visualClick("点击中央底部消息输入框")
@@ -74,7 +78,7 @@ public enum StaffWorkspaceStreaming {
             try await session.visualClick("点击菜单Beta项目")
             _ = try await session.visualCheck([VisualCriterion(id: "beta-empty", text: "左栏项目筛选为Beta；左侧没有STREAM-ALPHA任务，中央是Beta新任务输入区，不能残留ALPHA UNSENT DRAFT。主窗口仍在幕僚工作空间视图。")])
             try await send(session, "STREAM-BETA")
-            try await waitFor("Beta durable") { try normaReplies(root).count == 2 }
+            try await waitFor("Beta durable") { try normaReplies(root).count == 3 }
             try await session.visualClick("点击左侧搜索胶囊内的Beta项目选择器")
             try await session.visualClick("点击菜单所有项目/All projects")
             try await session.visualClick("点击左侧STREAM-ALPHA任务行")

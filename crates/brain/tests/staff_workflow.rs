@@ -43,7 +43,9 @@ fn proposal_requires_user_adoption_and_dispatch_is_once() {
             .is_err(),
         "model cannot adopt its own proposal"
     );
-    store.approve("ws", "a", 1).expect("user approval");
+    store
+        .approve("ws", "a", 1, None, None)
+        .expect("user approval");
     store
         .bind_worker(
             "ws",
@@ -84,5 +86,144 @@ fn proposal_requires_user_adoption_and_dispatch_is_once() {
         restored.phase,
         TaskPhase::Active,
         "dispatch must keep task active"
+    );
+}
+
+/// 用户采纳时改选的智能体和模型必须随批准落库，空白模型视为默认。
+///
+/// 数据构造：任务 a 上 Simon 的提议 1；用户改选 Kimi 与模型 " opus "。
+/// 执行过程：先 propose，再 approve(Some("Kimi"), Some(" opus "))，重读任务。
+/// 预期结果：proposal.agent == "Kimi"，model == Some("opus")，approved 为真。
+#[test]
+fn approval_persists_user_agent_and_model_choice() {
+    let dir = tempfile::tempdir().expect("root");
+    let store = TaskStore::new(dir.path().to_owned());
+    store
+        .create(Task::new("a", "ws", "project", "Ship"))
+        .expect("create");
+    store
+        .execute(
+            "ws",
+            StaffOp::Propose {
+                task_id: "a".into(),
+                agent: "Simon".into(),
+                title: "Build".into(),
+                prompt: "Build and test".into(),
+                why: "Required".into(),
+            },
+        )
+        .expect("propose");
+    store
+        .approve("ws", "a", 1, Some("Kimi".into()), Some(" opus ".into()))
+        .expect("approve");
+    let proposal = store.get("ws", "a").expect("task").proposals[0].clone();
+    assert_eq!(proposal.agent, "Kimi");
+    assert_eq!(proposal.model.as_deref(), Some("opus"));
+    assert!(proposal.approved);
+}
+
+fn propose(store: &TaskStore, agent: &str, prompt: &str) {
+    store
+        .execute(
+            "ws",
+            StaffOp::Propose {
+                task_id: "a".into(),
+                agent: agent.into(),
+                title: "T".into(),
+                prompt: prompt.into(),
+                why: "W".into(),
+            },
+        )
+        .expect("propose");
+}
+
+/// 一轮：开始轮次、执行提议、轮末整批替换（与幕僚 lane 的调用顺序一致）。
+fn round(store: &TaskStore, proposals: &[(&str, &str)]) -> Task {
+    store.begin_round("ws", "a").expect("begin");
+    for (agent, prompt) in proposals {
+        propose(store, agent, prompt);
+    }
+    store
+        .update("ws", "a", |task| {
+            task.supersede_stale_proposals();
+            Ok(())
+        })
+        .expect("end round")
+}
+
+fn proposal_messages(task: &Task) -> Vec<u64> {
+    task.messages
+        .iter()
+        .filter_map(|m| match m {
+            norma::protocol::TaskMessage::Proposal { proposal_id } => Some(*proposal_id),
+            _ => None,
+        })
+        .collect()
+}
+
+fn fresh() -> (tempfile::TempDir, TaskStore) {
+    let dir = tempfile::tempdir().expect("root");
+    let store = TaskStore::new(dir.path().to_owned());
+    store
+        .create(Task::new("a", "ws", "project", "Ship"))
+        .expect("create");
+    (dir, store)
+}
+
+/// 并行提议共存；下一轮只提新的 -> 旧的整批被替换，消息同步删除，新 id 不与旧 id 重复。
+#[test]
+fn new_round_replaces_pending_proposals_and_ids_stay_unique() {
+    let (_dir, store) = fresh();
+    let t = round(&store, &[("Simon", "p1"), ("Kimi", "p2")]);
+    assert_eq!(t.proposals.iter().map(|p| p.id).collect::<Vec<_>>(), [1, 2]);
+    let t = round(&store, &[("Codex", "p3")]);
+    assert_eq!(t.proposals.iter().map(|p| p.id).collect::<Vec<_>>(), [3]);
+    assert_eq!(proposal_messages(&t), [3]);
+    let t = round(&store, &[("Codex", "p4")]);
+    assert_eq!(t.proposals.iter().map(|p| p.id).collect::<Vec<_>>(), [4]);
+}
+
+/// 原样重提保留原 id；本轮不提则旧提议不变；已 approved/派发的不被删。
+#[test]
+fn resubmitted_proposal_keeps_id_and_silent_round_changes_nothing() {
+    let (_dir, store) = fresh();
+    round(&store, &[("Simon", "p1"), ("Kimi", "p2")]);
+    let t = round(&store, &[("Kimi", "p2"), ("Codex", "p3")]);
+    assert_eq!(
+        t.proposals
+            .iter()
+            .map(|p| (p.id, p.prompt.as_str()))
+            .collect::<Vec<_>>(),
+        [(2, "p2"), (3, "p3")]
+    );
+    assert_eq!(proposal_messages(&t), [2, 3]);
+    let silent = round(&store, &[]);
+    assert_eq!(
+        silent.proposals.len(),
+        2,
+        "silent round keeps old proposals"
+    );
+    assert_eq!(proposal_messages(&silent), [2, 3]);
+}
+
+#[test]
+fn approved_and_dispatched_proposals_survive_replacement() {
+    let (_dir, store) = fresh();
+    round(&store, &[("Simon", "p1"), ("Kimi", "p2"), ("Codex", "p3")]);
+    store.approve("ws", "a", 1, None, None).expect("approve");
+    store.approve("ws", "a", 2, None, None).expect("approve");
+    store
+        .bind_worker("ws", "a", 2, Worker::new("Kimi", "Kimi", "r", 10, "d-1"))
+        .expect("bind");
+    let t = round(&store, &[("Codex", "p9")]);
+    let ids: Vec<u64> = t.proposals.iter().map(|p| p.id).collect();
+    assert_eq!(
+        ids,
+        [1, 2, 4],
+        "approved(1) and dispatched(2) stay, pending(3) replaced"
+    );
+    assert!(
+        store.approve("ws", "a", 3, None, None).is_err(),
+        "removed proposal cannot be adopted"
     );
 }

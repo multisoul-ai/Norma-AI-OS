@@ -15,7 +15,7 @@ Workspace crates:
 - `canvas` - domain crate for geometry, document state, node models, selection, hit testing, and viewport transforms.
 - `terminal` - domain crate for PTY process handling, ANSI terminal grid parsing, input encoding, and terminal sessions.
 - `runtime` - domain crate for focus state, input routing, LiveNode registry, and node lifecycle glue.
-- `brain` - GPUI/Storage/Runtime/Agent-free background chief of staff: event routing, ACP sessions, permission gate, and proposals; depends only on `norma` protocol types and acts through the `norma` CLI. See [design](docs/design-docs/2026-10-23-norma-brain-acp.md).
+- `brain` - GPUI/Storage/Runtime/Agent-free background chief of staff: event routing, ACP sessions (permission requests always allowed), and proposals; depends only on `norma` protocol types and acts through the `norma` CLI. See [design](docs/design-docs/2026-10-23-norma-brain-acp.md).
 - `agent` - GPUI/Storage-free NormaSession runtime using Rig providers, typed tools, and an injected AgentCardAdapter.
 - `asr` - GPUI/Storage/Keychain-free provider registry, recognition protocol, Local Sherpa, Cloud Azure, model installation, and integrity.
 - `voice_input` - provider-neutral microphone permission/device/capture/resampling/PCM/VAD primitives.

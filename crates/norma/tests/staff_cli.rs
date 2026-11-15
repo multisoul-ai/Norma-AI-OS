@@ -52,3 +52,15 @@ fn staff_assignment_preserves_legacy_task_text() {
         "missing legacy agent or staff proposal must be rejected"
     );
 }
+
+/// 模型不得通过 CLI 冒充用户发消息；用户消息只走面板内部路径。
+///
+/// 数据构造：`norma brain task message task-a --text x`。
+/// 预期结果：解析失败，不产生 StaffOp::Message。
+#[test]
+fn model_cli_cannot_send_user_messages() {
+    assert!(
+        parse_command_from(["norma", "brain", "task", "message", "task-a", "--text", "x"]).is_err(),
+        "brain task message must not exist for the model"
+    );
+}

@@ -122,7 +122,6 @@ fn interleaved_tools_pair_by_id_and_keep_denial() {
         input: None,
         description: None,
         status: Some("denied".into()),
-        command_format_error: false,
     }));
     state.apply(1, TaskUpdate::Update(denied));
     state.apply(
@@ -174,4 +173,108 @@ fn command_correction_replaces_stale_adapter_reply() {
     );
     assert_eq!(state.reply, "已纠正", "续接不能附带错误的用户拒绝说法");
     assert!(state.active, "格式纠正仍属于当前轮次");
+}
+
+fn reply(state: &mut TaskActivity, text: &str) {
+    state.apply(
+        1,
+        TaskUpdate::Update(TraceItem::new(TraceKind::Reply, "", text)),
+    );
+}
+
+fn tool(state: &mut TaskActivity, id: &str, status: &str) {
+    use serde_json::json;
+    let update = if status == "pending" {
+        json!({"sessionUpdate":"tool_call","toolCallId":id,"title":"Run"})
+    } else {
+        json!({"sessionUpdate":"tool_call_update","toolCallId":id,"status":status})
+    };
+    state.apply(
+        1,
+        TaskUpdate::Update(brain::acp::trace::classify_update(&update).expect("update")),
+    );
+}
+
+/// 场景：本轮中途入库建议卡，后续文字和工具必须排在卡片之后。
+/// 数据构造：基线1条用户消息；到达顺序为文字→工具→卡片→文字→工具。
+/// 执行过程：逐条 apply/reconcile，工具状态更新与重复 reconcile 穿插。
+/// 预期结果：时间线与到达顺序一致；工具更新和重复 reconcile 不新增条目。
+#[test]
+fn timeline_appends_in_arrival_order_with_cards() {
+    let mut task = Task::new("t", "w", "p", "title");
+    task.user_message("问");
+    let mut state = TaskActivity::default();
+    state.apply(1, TaskUpdate::Started { message_count: 1 });
+    reply(&mut state, "前");
+    reply(&mut state, "文");
+    tool(&mut state, "a", "pending");
+    tool(&mut state, "a", "completed");
+    task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
+    state.reconcile(&task);
+    state.reconcile(&task);
+    reply(&mut state, "后");
+    tool(&mut state, "b", "pending");
+    assert_eq!(
+        state.timeline,
+        vec![
+            TimelineEntry::Text("前文".into()),
+            TimelineEntry::Tool(0),
+            TimelineEntry::Card("p1".into()),
+            TimelineEntry::Text("后".into()),
+            TimelineEntry::Tool(1),
+        ]
+    );
+}
+
+/// 场景：本轮结束后落盘回复和卡片由时间线接管，旧轮消息不受影响。
+/// 数据构造：旧用户+旧Norma，新用户，本轮卡片与分段回复已落盘。
+/// 执行过程：流式文字→卡片→落盘 reconcile → 下一轮 Started。
+/// 预期结果：落盘后时间线不变；owns 对本轮 Norma/卡片为真、对旧轮和用户消息为假；下一轮后清空。
+#[test]
+fn saved_turn_messages_are_owned_by_timeline_until_next_turn() {
+    let mut task = Task::new("t", "w", "p", "title");
+    task.user_message("旧");
+    task.messages.push(TaskMessage::Norma {
+        text: "旧答".into(),
+    });
+    task.user_message("新");
+    let mut state = TaskActivity::default();
+    state.apply(1, TaskUpdate::Started { message_count: 3 });
+    reply(&mut state, "前");
+    task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
+    state.reconcile(&task);
+    reply(&mut state, "后");
+    // 落盘后的存储顺序：前、卡片、后；卡片下标因此从 3 移到 4。
+    task.messages
+        .insert(3, TaskMessage::Norma { text: "前".into() });
+    task.messages.push(TaskMessage::Norma { text: "后".into() });
+    state.apply(1, TaskUpdate::Finished { failed: false });
+    let before = state.timeline.clone();
+    state.reconcile(&task);
+    assert_eq!(state.timeline, before, "落盘不能改动已显示条目");
+    assert!(state.owns(3, &task.messages[3]), "本轮 Norma 由时间线负责");
+    assert!(
+        state.owns(4, &task.messages[4]),
+        "卡片下标移动后仍由时间线负责"
+    );
+    assert!(!state.owns(1, &task.messages[1]), "旧轮 Norma 照常渲染");
+    assert!(!state.owns(2, &task.messages[2]), "用户消息照常渲染");
+    state.apply(2, TaskUpdate::Started { message_count: 6 });
+    assert!(state.timeline.is_empty(), "下一轮清空时间线");
+    assert!(!state.owns(4, &task.messages[4]), "旧轮消息回到消息列表");
+}
+
+/// 场景：纠错重来只清文字，不动已出现的工具与卡片顺序。
+/// 预期结果：Prompt 之后 Text 被移除，Tool 保留。
+#[test]
+fn correction_prompt_drops_text_but_keeps_tools() {
+    let mut state = TaskActivity::default();
+    state.apply(1, TaskUpdate::Started { message_count: 0 });
+    reply(&mut state, "错");
+    tool(&mut state, "a", "pending");
+    state.apply(
+        1,
+        TaskUpdate::Update(TraceItem::new(TraceKind::Prompt, "", "fix")),
+    );
+    assert_eq!(state.timeline, vec![TimelineEntry::Tool(0)]);
 }

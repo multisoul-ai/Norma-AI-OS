@@ -18,7 +18,9 @@ mod activity;
 mod appearance;
 mod composer;
 mod detail;
+mod images;
 mod messages;
+mod proposal_choice;
 mod questions;
 mod task_list;
 mod view;
@@ -58,6 +60,15 @@ pub(crate) struct StaffState {
     pub task_projects: BTreeMap<String, (String, String)>,
     pub selected: Option<String>,
     pub drafts: BTreeMap<String, String>,
+    pub images: Vec<String>,
+    pub image_drafts: BTreeMap<String, Vec<String>>,
+    pub image_uploads: u8,
+    /// 采纳前用户为提案改选的智能体类型；缺省沿用提案原值。
+    pub proposal_agents: BTreeMap<(String, u64), String>,
+    /// 采纳前选定的模型 id；缺省表示用 CLI 默认。
+    pub proposal_models: BTreeMap<(String, u64), String>,
+    /// 已为模型下拉触发过后端模型列表读取。
+    pub models_probed: bool,
     pub input: Option<Entity<InputState>>,
     pub search: Option<Entity<InputState>>,
     pub query: String,
@@ -161,6 +172,10 @@ pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
         "staff.worker_not_ready" | "staff.worker_needs_attention" => "staff.worker_needs_attention",
         "staff.worker_failed" => "staff.worker_failed",
         "staff.connection_unavailable" => "staff.connection_unavailable",
+        "invalid_image" => "staff.image_invalid",
+        "too_many_images" => "staff.image_too_many",
+        "image_storage_full" => "staff.image_storage_full",
+        "image_storage_unavailable" => "staff.image_unavailable",
         "island.staff_loading" => "island.staff_loading",
         "island.staff_disabled" => "island.staff_disabled",
         "island.staff_no_workspace" => "island.staff_no_workspace",
@@ -177,6 +192,10 @@ pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
 mod layout_tests;
 
 #[cfg(test)]
+#[path = "../../tests/unit/staff_layout_wrap_tests.rs"]
+mod layout_wrap_tests;
+
+#[cfg(test)]
 #[path = "../../tests/unit/staff_worker_delivery_tests.rs"]
 mod delivery_tests;
 
@@ -187,3 +206,7 @@ mod card_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/staff_keyboard_tests.rs"]
 mod keyboard_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/staff_content_layout_tests.rs"]
+mod content_layout_tests;

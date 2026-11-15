@@ -166,9 +166,9 @@ fn staff_proposal_edit_preserves_unsent_draft() {
     });
 }
 
-struct MessageListHost {
-    app: gpui::Entity<MultisoulApp>,
-    task: Task,
+pub(super) struct MessageListHost {
+    pub(super) app: gpui::Entity<MultisoulApp>,
+    pub(super) task: Task,
 }
 
 struct StaffTopBarHost {
@@ -353,9 +353,11 @@ fn staff_messages_do_not_overlap_when_content_overflows() {
         title: "做可玩的坦克大战".into(),
         prompt: long.clone(),
         why: "空闲".into(),
+        model: None,
         approved: false,
         ignored: false,
         dispatch_id: None,
+        round: 0,
     });
     for index in 0..3 {
         task.messages.push(TaskMessage::User { text: long.clone() });

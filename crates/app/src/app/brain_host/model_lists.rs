@@ -50,4 +50,15 @@ impl MultisoulApp {
             .detach();
         }
     }
+
+    /// 已读出的某后端模型 (id, 显示名)；还在读或失败时为空。
+    pub(crate) fn brain_model_choices(&self, kind: BackendKind) -> Vec<(String, String)> {
+        match self.brain.model_lists.get(&kind) {
+            Some(ModelList::Ready(models)) => models
+                .iter()
+                .map(|model| (model.id.clone(), model.name.clone()))
+                .collect(),
+            _ => Vec::new(),
+        }
+    }
 }

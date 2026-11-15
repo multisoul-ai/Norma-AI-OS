@@ -2,13 +2,13 @@
 
 use super::prompt::{primer, Role};
 use crate::acp::client::{AcpError, AcpSession, SessionOptions};
-use crate::acp::gate::Gate;
 use crate::acp::trace::{AcpTrace, TraceItem, TraceKind};
 use crate::backend::{self, Backend};
 use crate::event::{BrainStatus, BrainStatusKind, TaskUpdate, Trigger};
 use crate::goal::GoalStore;
 use norma::protocol::BrainScope;
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
@@ -35,7 +35,8 @@ pub struct LaneEnv {
     pub backend: Backend,
     pub model: Option<String>,
     pub effort: Option<String>,
-    pub gate: Gate,
+    pub norma_bin: PathBuf,
+    pub project_root: PathBuf,
     pub goal: Arc<GoalStore>,
     pub tasks: Arc<crate::staff::TaskStore>,
     pub status: Sender<BrainStatus>,
@@ -54,13 +55,8 @@ impl LaneEnv {
             kind: self.backend.kind,
             program: self.backend.program.clone(),
             args: self.backend.args.clone(),
-            cwd: self.gate.project_root.clone(),
-            env: self
-                .env
-                .iter()
-                .cloned()
-                .chain(backend::session_env(self.backend.kind))
-                .collect(),
+            cwd: self.project_root.clone(),
+            env: self.env.clone(),
             meta: backend::session_meta(self.backend.kind, self.model.as_deref()),
             mode: backend::session_mode(self.backend.kind).map(str::to_string),
             model: self.model.clone(),
@@ -242,12 +238,12 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             env.finish(&job, turn_no, true);
             continue;
         }
-        let text = if let Some(task) = &task {
-            super::staff::prompt(task, &job.scope, &env.gate.norma_bin)
+        let mut text = if let Some(task) = &task {
+            super::staff::prompt(task, &job.scope, &env.norma_bin)
         } else if primed {
             job.text.clone()
         } else {
-            let bin = env.gate.norma_bin.display().to_string();
+            let bin = env.norma_bin.display().to_string();
             format!(
                 "{}\n\n{}",
                 primer(
@@ -262,6 +258,21 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 ),
                 job.text
             )
+        };
+        let images = if let Some(task) = &task {
+            let attached = super::staff_images::attachments(task);
+            if !attached.blocks.is_empty() {
+                text.push_str(
+                    "\n\n本轮用户上传的图片已作为随后的 image 内容块附上。直接查看这些内容块，不要再去读磁盘路径。",
+                );
+            }
+            if !attached.missing.is_empty() {
+                text.push_str("\n\n这些已上传图片本次没能读入，不要当作已经看过：");
+                text.push_str(&attached.missing.join(" "));
+            }
+            attached.blocks
+        } else {
+            Vec::new()
         };
         let active = session.as_mut().expect("会话刚创建");
         let identity = format!(
@@ -284,10 +295,6 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             TraceItem::new(TraceKind::Prompt, "发给大脑", text.clone()),
         );
         let this_turn = turn_no;
-        let gate = match &job.task_id {
-            Some(id) => env.gate.clone().for_task(job.scope.clone(), id.clone()),
-            None => env.gate.clone(),
-        };
         active.set_question_host(job.task_id.as_ref().map(|id| {
             crate::acp::questions::QuestionHost::new(
                 env.tasks.clone(),
@@ -297,14 +304,30 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 env.status.clone(),
             )
         }));
+        let mut segments = task.as_ref().zip(job.task_id.as_deref()).map(|(task, id)| {
+            super::staff::Segments::new(
+                env.tasks.clone(),
+                &job.scope.workspace_id,
+                id,
+                task.messages.len(),
+            )
+        });
         let result = active.prompt_observed(
             &text,
-            &gate,
+            &images,
             &cancelled,
             env.prompt_timeout,
             &mut |item| env.trace(&job.scope, this_turn, &job.trigger, item),
-            &mut |item| env.task_update(&job, this_turn, TaskUpdate::Update(item.clone())),
+            &mut |item| {
+                if let Some(segments) = &mut segments {
+                    segments.observe(item);
+                }
+                env.task_update(&job, this_turn, TaskUpdate::Update(item.clone()))
+            },
         );
+        let segments = segments
+            .map(super::staff::Segments::into_items)
+            .unwrap_or_default();
         match result {
             Ok(reply) => {
                 if let Some(task) = &task {
@@ -313,6 +336,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                         match super::staff::save_reply(
                             &env.tasks,
                             task,
+                            &segments,
                             &reply,
                             active.session_id(),
                         ) {

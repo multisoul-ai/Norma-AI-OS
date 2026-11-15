@@ -102,6 +102,8 @@ fn staff_ignored_proposal_collapses_and_only_latest_can_restore() {
             title: "Inspect".into(),
             prompt: "Read project".into(),
             why: "Needed".into(),
+            model: None,
+            round: 0,
             approved: false,
             ignored: true,
             dispatch_id: None,
@@ -143,6 +145,99 @@ fn staff_ignored_proposal_collapses_and_only_latest_can_restore() {
             cx.debug_bounds("staff-restore-1").is_some(),
             expanded && !newer,
             "仅展开且无更新提议可恢复"
+        );
+    }
+}
+
+fn proposal_task(prompt: &str) -> Task {
+    let mut task = Task::new("t", "w", "p", "Proposal");
+    task.proposals.push(norma::protocol::StaffProposal {
+        id: 1,
+        agent: "Worker".into(),
+        title: "做单页贪吃蛇".into(),
+        prompt: prompt.into(),
+        why: "浏览器直接玩".into(),
+        model: None,
+        round: 0,
+        approved: false,
+        ignored: false,
+        dispatch_id: None,
+    });
+    task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
+    task
+}
+
+/// 场景：方案A建议卡，长指令默认收起，展开后完整显示；底栏控件全部在卡片内同一行。
+/// 数据构造：8段指令（长）与一句指令（短）；800×600窗口；展开键 proposal-prompt-t-1。
+/// 执行过程：生产渲染器真实布局，分别读取指令面板、展开按钮、底栏控件与卡片边界。
+/// 预期结果：长指令收起≤132px、展开后更高；短指令无展开按钮；采用/忽略/修改/智能体在卡内且同一行。
+#[test]
+fn staff_proposal_card_collapses_long_prompt_and_keeps_footer_inside() {
+    let long = (1..=8)
+        .map(|n| format!("第{n}段：验收标准与假设说明，需要完整保留给执行智能体。"))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    for (prompt, expanded) in [
+        (long.as_str(), false),
+        (long.as_str(), true),
+        ("做个贪吃蛇", false),
+    ] {
+        let dir = tempfile::tempdir().expect("isolated project");
+        let paths = storage::DatabasePaths::isolated_test(dir.path());
+        let task = proposal_task(prompt);
+        let mut test = TestAppContext::single();
+        let (_, cx) = test.add_window_view(|_, cx| {
+            let app = cx.new(|cx| {
+                let mut app = MultisoulApp::new_with_pty_factory_and_database_paths(
+                    cx,
+                    Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+                    paths,
+                );
+                if expanded {
+                    app.staff.expanded.insert("proposal-prompt-t-1".into());
+                }
+                app
+            });
+            CardHost { app, task }
+        });
+        cx.simulate_resize(size(px(800.), px(600.)));
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear());
+        let card = cx.debug_bounds("staff-proposal-card-1").expect("建议卡");
+        let panel = cx
+            .debug_bounds("staff-proposal-prompt-1")
+            .expect("指令面板");
+        let toggle = cx.debug_bounds("staff-proposal-expand-1");
+        if prompt == long {
+            assert!(toggle.is_some(), "长指令须有展开/收起按钮");
+            assert_eq!(
+                panel.size.height <= px(132.),
+                !expanded,
+                "长指令收起时≤132px，展开后完整显示：{panel:?}"
+            );
+        } else {
+            assert!(toggle.is_none(), "短指令不出现展开按钮");
+        }
+        let adopt = cx.debug_bounds("staff-adopt-1").expect("采用");
+        for name in [
+            "staff-ignore-1",
+            "staff-edit-proposal-1",
+            "staff-agent-pick-1",
+        ] {
+            let control = cx.debug_bounds(name).expect(name);
+            assert!(
+                control.bottom() <= card.bottom() && control.top() >= panel.bottom(),
+                "{name} 须在卡片底栏内：{control:?} / {card:?}"
+            );
+            assert!(
+                (control.top() - adopt.top()).abs() < px(1.),
+                "{name} 与采用按钮同一行：{control:?} / {adopt:?}"
+            );
+        }
+        assert!(adopt.bottom() <= card.bottom(), "采用按钮在卡片内");
+        assert!(
+            adopt.right() >= cx.debug_bounds("staff-ignore-1").unwrap().right(),
+            "主按钮在最右"
         );
     }
 }

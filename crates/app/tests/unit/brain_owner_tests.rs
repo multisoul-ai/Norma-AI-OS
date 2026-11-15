@@ -1,5 +1,4 @@
 use super::*;
-use brain::acp::gate::{Gate, PermissionRequest, Verdict};
 use brain::acp::trace::{AcpTrace, TraceItem, TraceKind};
 use brain::{BrainStatusKind, Trigger};
 
@@ -10,10 +9,10 @@ fn scope(name: &str) -> BrainScope {
     }
 }
 
-/// 多项目共享一个宿主，客户端只领取自己的状态；最后一个项目释放使宿主及读取授权失效。
+/// 多项目共享一个宿主，客户端只领取自己的状态；最后一个项目释放使宿主失效。
 /// 数据：同一个owner注册alpha/beta两个根；两项目争取启动；完成一次不含外部进程的宿主。
-/// 执行：向共享状态流发送beta trace，由alpha先轮询；逐个drop客户端并检查Gate实际文件读取。
-/// 预期：仅一个启动ticket，统一token，beta状态不被alpha吞掉；释放alpha不关宿主，最后释放撤销全部读取。
+/// 执行：向共享状态流发送beta trace，由alpha先轮询；逐个drop客户端。
+/// 预期：仅一个启动ticket，统一token，beta状态不被alpha吞掉；释放alpha不关宿主，最后释放关闭宿主。
 #[test]
 fn one_owner_routes_status_and_lives_until_last_project_is_released() {
     let dir = tempfile::tempdir().expect("隔离项目根");
@@ -70,39 +69,10 @@ fn one_owner_routes_status_and_lives_until_last_project_is_released() {
     let received = beta.try_recv().expect("beta收到原状态");
     assert_eq!(received.status.scope, scope("beta"), "状态保持完整身份");
     assert!(!received.retired, "当前服务回执非退休回执");
-    let gate = Gate::new("/opt/norma".into(), dir.path().into(), owner.read_roots());
-    let read = |root: &std::path::Path| PermissionRequest {
-        tool: "Read".into(),
-        command: None,
-        path: Some(root.join("notes.md").display().to_string()),
-    };
-    assert_eq!(
-        gate.judge(&read(&alpha_root)),
-        Verdict::Allow,
-        "已开alpha可读"
-    );
-    assert_eq!(
-        gate.judge(&read(&beta_root)),
-        Verdict::Allow,
-        "已开beta可读"
-    );
     drop(alpha);
     assert!(beta.is_running(), "关一个项目不能终止另一项目的全局幕僚");
-    assert!(
-        matches!(gate.judge(&read(&alpha_root)), Verdict::Reject(_)),
-        "释放alpha即撤销读取"
-    );
-    assert_eq!(
-        gate.judge(&read(&beta_root)),
-        Verdict::Allow,
-        "beta读取仍有效"
-    );
     drop(beta);
     assert!(!owner.is_running(), "最后项目释放后全局宿主关闭");
-    assert!(
-        matches!(gate.judge(&read(&beta_root)), Verdict::Reject(_)),
-        "最后项目的读取也立即撤销"
-    );
     assert!(
         owner.begin_start(Instant::now()).is_none(),
         "零项目不能自动重启"
@@ -305,7 +275,6 @@ fn releasing_a_client_cancels_its_real_service_work_and_keeps_other_clients_aliv
         dir.path().join("global"),
     );
     service_config.router.summary_every = None;
-    service_config.read_roots = owner.read_roots();
     let log = dir.path().join("prompt.log");
     service_config.env = vec![
         ("FAKE_LOG".into(), log.display().to_string()),

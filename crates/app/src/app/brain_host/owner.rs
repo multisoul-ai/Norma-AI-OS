@@ -1,6 +1,5 @@
 //! App-owned service and project subscriptions. No filesystem or process joins on this path.
 use super::{config, BrainHost, START_RETRY};
-use brain::acp::gate::ReadRoots;
 use brain::{BrainEvent, BrainStatus};
 use norma::protocol::BrainScope;
 use std::cell::RefCell;
@@ -50,7 +49,6 @@ struct Owner {
     preparing: bool,
     prepare_retry_at: Option<Instant>,
     prepare_error: Option<String>,
-    read_roots: ReadRoots,
     retired: Vec<Retired>,
 }
 
@@ -130,10 +128,6 @@ impl SharedBrain {
         owner.settings = Some(settings);
     }
 
-    pub(super) fn read_roots(&self) -> ReadRoots {
-        self.0.borrow().read_roots.clone()
-    }
-
     pub(super) fn register(&self, scope: BrainScope, root: PathBuf) -> BrainClient {
         let (sender, status) = mpsc::channel();
         let mut owner = self.0.borrow_mut();
@@ -147,7 +141,6 @@ impl SharedBrain {
                 status: sender,
             },
         );
-        owner.update_roots();
         BrainClient {
             owner: self.clone(),
             scope,
@@ -205,17 +198,6 @@ impl SharedBrain {
 }
 
 impl Owner {
-    fn update_roots(&self) {
-        let mut roots: Vec<_> = self
-            .members
-            .values()
-            .map(|member| member.root.clone())
-            .collect();
-        roots.sort();
-        roots.dedup();
-        self.read_roots.replace(roots);
-    }
-
     fn invalidate(&mut self) {
         let generation = self.generation;
         self.generation += 1;
@@ -356,7 +338,6 @@ impl Drop for BrainClient {
         let mut owner = self.owner.0.borrow_mut();
         if self.live(&owner) {
             owner.members.remove(&self.scope);
-            owner.update_roots();
             if let Some(service) = owner.host.as_ref().and_then(|host| host.service.as_ref()) {
                 service.release_scope(&self.scope);
             }

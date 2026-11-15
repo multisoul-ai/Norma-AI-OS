@@ -1,29 +1,58 @@
 use super::*;
 use std::fs;
 
-/// 内置只读工具也必须经过权限请求，不能递归读取整个项目绕过逐文件检查。
-/// 数据构造：Claude 会话配置，不包含任何用户设置。
-/// 执行过程：检查工具白名单、逐次询问规则和跳过权限开关。
-/// 预期结果：只暴露 Bash/Read，每次都询问，禁用跳过权限与额外 MCP 配置。
+/// 大脑不限制工具集，但仍隔离用户设置、不允许跳过权限开关或加载用户 MCP。
 #[test]
-fn claude_requires_permission_for_every_exposed_tool() {
+fn claude_session_is_isolated_but_unrestricted() {
     let meta = session_meta(BackendKind::ClaudeCode, None).expect("应有 Claude 配置");
     let options = &meta["claudeCode"]["options"];
-    assert_eq!(
-        options["tools"],
-        serde_json::json!(["Bash", "Read"]),
-        "不能暴露递归搜索或其他工具"
-    );
-    assert_eq!(
-        options["settings"]["permissions"]["ask"],
-        serde_json::json!(["Bash", "Read"]),
-        "内置安全规则也必须转到 ACP 询问"
-    );
+    assert!(options["tools"].is_null(), "不再限制工具集");
+    assert!(options["disallowedTools"].is_null(), "不再禁用写类工具");
     assert_eq!(
         options["allowDangerouslySkipPermissions"], false,
         "不能允许跳过权限"
     );
     assert_eq!(options["strictMcpConfig"], true, "不能加载用户的 MCP 工具");
+}
+
+/// 写一个只回答 `--version` 的假 opencode 可执行文件。
+fn fake_opencode(dir: &Path, version: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    let path = dir.join("opencode");
+    fs::write(&path, format!("#!/bin/sh\necho '{version}'\n")).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+/// OpenCode 1.x 没有原生问答（`elicitation/create`），PATH 里排在前面的旧版不能遮住新版。
+///
+/// 数据构造：PATH 先放 1.19.3（nvm），后放 2.1.3（homebrew）。
+/// 预期结果：
+///   - 正断言：选中后面的 2.1.3
+///   - 负断言：不选 1.19.3
+#[test]
+fn opencode_detection_skips_old_version_shadowing_new_one() {
+    let adapters = tempfile::tempdir().unwrap();
+    let (old, new) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    fake_opencode(old.path(), "1.19.3");
+    fake_opencode(new.path(), "opencode v2.1.3");
+    let found = detect(
+        adapters.path(),
+        &[old.path().to_path_buf(), new.path().to_path_buf()],
+    );
+    assert_eq!(found.len(), 1, "应检测到一个 OpenCode");
+    assert_eq!(found[0].program, new.path().join("opencode"), "应选 2.x");
+}
+
+/// 只装了 OpenCode 1.x 时不提供该后端，避免模型拿 bash 假装提问。
+///
+/// 数据构造：PATH 只有 1.19.3。预期结果：检测不到 OpenCode。
+#[test]
+fn opencode_detection_rejects_only_old_version() {
+    let adapters = tempfile::tempdir().unwrap();
+    let old = tempfile::tempdir().unwrap();
+    fake_opencode(old.path(), "1.19.3");
+    let found = detect(adapters.path(), &[old.path().to_path_buf()]);
+    assert!(found.is_empty(), "1.x 不支持原生问答，不应作为后端");
 }
 
 /// 在适配器目录和 PATH 中检测后端，并保持固定顺序。
@@ -39,7 +68,7 @@ fn detects_installed_backends() {
     let bin = adapters.path().join("node_modules/.bin");
     fs::create_dir_all(&bin).unwrap();
     fs::write(bin.join("claude-agent-acp"), "").unwrap();
-    fs::write(path_dir.path().join("opencode"), "").unwrap();
+    fake_opencode(path_dir.path(), "opencode v2.1.3");
     let found = detect(adapters.path(), &[path_dir.path().to_path_buf()]);
     let kinds: Vec<_> = found.iter().map(|b| b.kind).collect();
     assert_eq!(
@@ -83,13 +112,13 @@ fn strategies_map_to_models() {
     }
 }
 
-/// Claude Code 会话必须忽略用户自己的设置并禁用写工具，否则用户的 bypassPermissions 会让闸门失效。
+/// Claude Code 会话必须忽略用户自己的设置。
 ///
 /// 预期结果：
-///   - 正断言：meta 里 settingSources 为空数组，disallowedTools 含 Write 与 Edit，带上模型；会话模式为 default
+///   - 正断言：meta 里 settingSources 为空数组，带上模型；会话模式为 default
 ///   - 负断言：其他后端没有 meta 与模式
 #[test]
-fn claude_sessions_ignore_user_settings_and_disable_write_tools() {
+fn claude_sessions_ignore_user_settings() {
     let meta = session_meta(BackendKind::ClaudeCode, Some("haiku")).expect("Claude 需要 meta");
     let options = &meta["claudeCode"]["options"];
     assert_eq!(
@@ -97,44 +126,17 @@ fn claude_sessions_ignore_user_settings_and_disable_write_tools() {
         serde_json::json!([]),
         "不能加载用户的权限设置"
     );
-    let denied = options["disallowedTools"].as_array().unwrap();
-    assert!(
-        denied.iter().any(|t| t == "Write") && denied.iter().any(|t| t == "Edit"),
-        "写工具要禁用"
-    );
     assert_eq!(options["model"], "haiku");
     assert_eq!(
         options["persistSession"], false,
         "大脑会话不能出现在用户的 Claude /resume 列表"
     );
     assert_eq!(session_mode(BackendKind::ClaudeCode), Some("default"));
-    // Codex 默认的 Auto review 模式跑命令不发权限请求，闸门会失效；只读模式下写入和连 socket 都要请求批准。
-    assert_eq!(session_mode(BackendKind::Codex), Some("read-only"));
+    assert_eq!(session_mode(BackendKind::Codex), Some("auto"));
     assert!(
         session_meta(BackendKind::Codex, None).is_none()
             && session_mode(BackendKind::OpenCode).is_none()
     );
-}
-
-/// OpenCode 候选配置包含 ask/deny 规则；这里只验证序列化，不证明后端遵守规则。
-/// 服务层在完成实际协议和权限验证前拒绝启动该后端。
-///
-/// 预期结果：
-///   - 正断言：OpenCode 的环境变量里有 OPENCODE_CONFIG_CONTENT，bash 为 ask，edit 与 webfetch 为 deny
-///   - 负断言：其他后端不注入环境变量
-#[test]
-fn opencode_configuration_contains_requested_permissions() {
-    let env = session_env(BackendKind::OpenCode);
-    let (_, content) = env
-        .iter()
-        .find(|(key, _)| key == "OPENCODE_CONFIG_CONTENT")
-        .expect("要注入 OpenCode 配置");
-    let config: serde_json::Value = serde_json::from_str(content).expect("应是 JSON");
-    assert_eq!(config["permission"]["bash"], "ask");
-    assert_eq!(config["permission"]["edit"], "deny");
-    assert_eq!(config["permission"]["webfetch"], "deny");
-    assert!(session_env(BackendKind::ClaudeCode).is_empty());
-    assert!(session_env(BackendKind::Codex).is_empty());
 }
 
 /// Codex 的策略对应推理强度：主会话按速度、自动、质量取 low、medium、high，审批会话始终 low。

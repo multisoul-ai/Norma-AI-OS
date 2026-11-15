@@ -147,10 +147,16 @@ pub struct StaffProposal {
     pub title: String,
     pub prompt: String,
     pub why: String,
+    /// 用户在采纳时选定的模型；None 表示沿用该 CLI 的默认模型。
+    #[serde(default)]
+    pub model: Option<String>,
     pub approved: bool,
     #[serde(default)]
     pub ignored: bool,
     pub dispatch_id: Option<String>,
+    /// 提出（或最近一次原样重提）时的幕僚轮次。
+    #[serde(default)]
+    pub round: u64,
 }
 
 impl Worker {
@@ -216,6 +222,9 @@ pub struct Task {
     /// 缺字段的旧快照视为未归档。
     #[serde(default)]
     pub archived: bool,
+    /// 幕僚已开始的轮次数；每轮开始 +1。
+    #[serde(default)]
+    pub round: u64,
 }
 
 impl Task {
@@ -236,7 +245,29 @@ impl Task {
             workers: Vec::new(),
             proposals: Vec::new(),
             archived: false,
+            round: 0,
         }
+    }
+
+    /// 轮末整批替换：本轮提过提议（含原样重提）时，删除更早轮次留下的待采用提议及其消息。
+    pub fn supersede_stale_proposals(&mut self) {
+        if !self.proposals.iter().any(|p| p.round == self.round) {
+            return;
+        }
+        let round = self.round;
+        let stale = |p: &StaffProposal| {
+            p.round < round && !p.approved && !p.ignored && p.dispatch_id.is_none()
+        };
+        let gone: Vec<u64> = self
+            .proposals
+            .iter()
+            .filter(|p| stale(p))
+            .map(|p| p.id)
+            .collect();
+        self.proposals.retain(|p| !stale(p));
+        self.messages.retain(
+            |m| !matches!(m, TaskMessage::Proposal { proposal_id } if gone.contains(proposal_id)),
+        );
     }
 
     pub fn set_phase(&mut self, phase: TaskPhase, manual: bool) {

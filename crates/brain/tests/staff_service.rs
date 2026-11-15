@@ -1,4 +1,3 @@
-use brain::acp::gate::{Gate, PermissionRequest, Verdict};
 use brain::{Backend, BackendKind, BrainConfig, BrainEventKind, BrainService, BrainStatusKind};
 use norma::protocol::{BrainScope, Task, TaskMessage};
 use std::time::{Duration, Instant};
@@ -125,34 +124,5 @@ fn shared_lane_replays_task_messages_and_scopes_mutations() {
             .expect("B JSON")
             .contains("ALPHA_ONLY"),
         "A content must not be appended to B"
-    );
-    let gate =
-        Gate::for_project("/opt/norma".into(), dir.path().into()).for_task(scope, "task-a".into());
-    let judge = |command: &str| {
-        gate.judge(&PermissionRequest {
-            tool: "Bash".into(),
-            command: Some(command.into()),
-            path: None,
-        })
-    };
-    assert_eq!(
-        judge("/opt/norma brain --workspace ws --route route task phase task-a merging"),
-        Verdict::Allow,
-        "task may advance its own phase"
-    );
-    assert_ne!(
-        judge("/opt/norma brain --workspace ws --route route report --text hi"),
-        Verdict::Allow,
-        "task must never speak"
-    );
-    assert_ne!(
-        judge("/opt/norma brain --workspace ws --route route task phase task-b done"),
-        Verdict::Allow,
-        "task cannot write another task"
-    );
-    assert_ne!(
-        judge("/opt/norma brain --workspace other --route route task phase task-a done"),
-        Verdict::Allow,
-        "task cannot write another workspace"
     );
 }
