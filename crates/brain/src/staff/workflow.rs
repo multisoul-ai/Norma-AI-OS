@@ -241,6 +241,12 @@ impl TaskStore {
                 .iter_mut()
                 .find(|w| w.dispatch_id == target && w.outcome.is_some())
                 .ok_or_else(missing)?;
+            if worker.agent != proposal.agent {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "staff.worker_agent_mismatch",
+                ));
+            }
             worker.outcome = None;
             worker.needs_input = false;
             worker.state = norma::protocol::WorkerState::Active;

@@ -47,11 +47,13 @@ impl TaskStore {
                 .rev()
                 .find(|worker| worker.outcome == Some(WorkerOutcome::Succeeded))
                 .map(|worker| worker.agent.as_str());
-            let continuing = worker.is_some();
+            let user_turn = task.user_turn_running();
+            // 用户发话触发的续派不计数；其余直接派发都计入自动次数。
+            let counts = worker.is_none() || !user_turn;
             decision = match &worker {
                 Some(dispatch_id) => {
                     check_continuable(task, dispatch_id, &agent)?;
-                    decide_continue(auto, task.user_turn_running(), &text)
+                    decide_continue(auto, user_turn, task.auto_dispatches, &text)
                 }
                 None => {
                     let context = AssignContext {
@@ -84,7 +86,7 @@ impl TaskStore {
                 target_worker: worker,
             });
             task.attach_card(StaffPart::Proposal(proposal_id));
-            if dispatch && !continuing {
+            if dispatch && counts {
                 task.auto_dispatches += 1;
             }
             task.updated_at = norma::protocol::timestamp();
@@ -108,6 +110,16 @@ fn check_continuable(task: &Task, dispatch_id: &str, agent: &str) -> io::Result<
         None => refuse("staff.worker_unknown"),
         Some(worker) if worker.agent != agent => refuse("staff.worker_agent_mismatch"),
         Some(worker) if worker.outcome.is_none() => refuse("staff.worker_busy"),
+        Some(_)
+            if task.proposals.iter().any(|p| {
+                p.target_worker.as_deref() == Some(dispatch_id)
+                    && p.dispatch_id.is_none()
+                    && !p.ignored
+                    && !p.superseded
+            }) =>
+        {
+            refuse("staff.worker_pending")
+        }
         Some(_) => Ok(()),
     }
 }

@@ -185,9 +185,18 @@ pub fn decide_assign(context: &AssignContext, agent: &str, text: &str) -> Assign
 
 /// 续派已有 Worker：用户这一轮发过话就不再问（也不要求它刚完成、不计自动次数），
 /// 否则按「后续任务」设置；风险词照旧降级为提议。
-pub fn decide_continue(auto: bool, user_turn: bool, text: &str) -> AssignDecision {
+/// 事件触发的回合（没有用户发话）仍受自动次数上限约束，避免「Worker 完成 → 续派 → 完成」无限循环。
+pub fn decide_continue(
+    auto: bool,
+    user_turn: bool,
+    auto_dispatches: u32,
+    text: &str,
+) -> AssignDecision {
     if !user_turn && !auto {
         return AssignDecision::Propose(ProposeReason::AutonomyAsk);
+    }
+    if !user_turn && auto_dispatches >= AUTO_DISPATCH_LIMIT {
+        return AssignDecision::Propose(ProposeReason::LimitReached);
     }
     let risks = risk_categories(text);
     if !risks.is_empty() {

@@ -45,20 +45,20 @@ pub(super) async fn resume_staff_worker(
         .spawn(async move { writer.rebind_worker(&workspace, &id, proposal_id, &stored) })
         .await
         .map_err(|error| error.to_string())?;
-    entity
+    let delivered = entity
         .update(cx, |app, cx| {
             app.check_staff_source(&token, &scope)?;
             app.receive_staff_tasks(vec![rebound], cx);
             app.brain.own_prompts.remember(&prompt);
-            // 进程早已在运行：不必再等启动宽限，卡片接受输入就直接投递。
             app.staff.pending.insert(
                 node,
                 PendingWorker {
                     dispatch: target.clone(),
                     prompt,
+                    // 进程早已在运行，但要等它空闲（ready 或输出安静）再输入，免得打进正在执行的 Agent。
                     stage: DeliveryStage::Starting {
                         since: Instant::now(),
-                        grace_spent: true,
+                        grace_spent: false,
                     },
                 },
             );
@@ -67,6 +67,24 @@ pub(super) async fn resume_staff_worker(
             app.notify_staff(cx);
             Ok::<(), String>(())
         })
-        .map_err(|_| "staff.invalid_source".to_owned())??;
+        .map_err(|_| "staff.invalid_source".to_owned())
+        .and_then(|result| result);
+    if let Err(error) = delivered {
+        // 已经写盘的续派不能留成永远「执行中」：记为失败，用户可在卡片上重新投递。
+        let kind = brain::BrainEventKind::AgentFinished {
+            node_id: node,
+            dispatch_id: Some(target.clone()),
+            agent: proposal.agent.clone(),
+            outcome: brain::Outcome::Failed,
+            excerpt: "staff.worker_failed".into(),
+            from_result: true,
+        };
+        let workspace = scope.workspace_id.clone();
+        let _ = cx
+            .background_executor()
+            .spawn(async move { store.record_event(&workspace, &kind) })
+            .await;
+        return Err(error);
+    }
     Ok(serde_json::json!({"task": task.id, "node_id": node, "dispatch_id": target, "status": "continued"}).to_string())
 }

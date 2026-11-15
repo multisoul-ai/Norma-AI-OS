@@ -115,12 +115,16 @@ fn event_turn_follows_the_followup_setting() {
         "降级后的提议仍要指向同一个 Worker"
     );
     assert!(!proposal.approved, "降级的提议等用户采用");
+    let (_dir, store) = store_with_worker(Some(WorkerOutcome::Unavailable));
+    store
+        .begin_turn("ws", "a", ReplyTrigger::Event)
+        .expect("turn");
     let (_, outcome) = store
         .assign("ws", continue_op("AgentC", "d-1", "Finish the snake"), true)
         .expect("assign");
     assert_eq!(
         outcome,
-        AssignOutcome::Dispatch { proposal_id: 3 },
+        AssignOutcome::Dispatch { proposal_id: 2 },
         "check: outcome when automatic"
     );
 }
@@ -148,37 +152,158 @@ fn risky_continue_is_still_downgraded_in_a_user_turn() {
 }
 
 /// 场景：目标 Worker 不能被续派。
-/// 数据构造：仍在执行的 Worker；不存在的 dispatch；Agent 与 Worker 不一致。
-/// 预期结果：三种都报错，且不留下任何提议。
+/// 数据构造：仍在执行的 Worker；不存在的 dispatch；Agent 与 Worker 不一致；同一个 Worker 已有待采用的续派提议。
+/// 预期结果：各自返回结构化错误码，且不留下新的提议。
 #[test]
 fn unusable_targets_are_refused_without_leaving_a_proposal() {
+    let refused = |store: &TaskStore, op| {
+        store
+            .assign("ws", op, true)
+            .expect_err("worker must be refused")
+            .to_string()
+    };
     let (_dir, store) = store_with_worker(None);
     store
         .begin_turn("ws", "a", ReplyTrigger::User)
         .expect("turn");
-    for op in [
-        continue_op("AgentC", "d-1", "busy worker"),
-        continue_op("AgentC", "nope", "unknown worker"),
-    ] {
-        assert!(
-            store.assign("ws", op, true).is_err(),
-            "worker must be refused"
-        );
-    }
+    assert_eq!(
+        refused(&store, continue_op("AgentC", "d-1", "busy")),
+        "staff.worker_busy"
+    );
+    assert_eq!(
+        refused(&store, continue_op("AgentC", "nope", "unknown")),
+        "staff.worker_unknown"
+    );
     let (_dir, store) = store_with_worker(Some(WorkerOutcome::Succeeded));
     store
         .begin_turn("ws", "a", ReplyTrigger::User)
         .expect("turn");
-    assert!(
-        store
-            .assign("ws", continue_op("AgentA", "d-1", "wrong agent"), true)
-            .is_err(),
-        "agent must match the worker"
+    assert_eq!(
+        refused(&store, continue_op("AgentA", "d-1", "wrong agent")),
+        "staff.worker_agent_mismatch"
     );
     assert_eq!(
         store.get("ws", "a").expect("task").proposals.len(),
         1,
         "被拒绝的续派不留提议"
+    );
+    // 第一条续派（设置为询问且事件回合）降级成待采用提议后，同一 Worker 不能再接第二条。
+    let (_dir, store) = store_with_worker(Some(WorkerOutcome::Unavailable));
+    store
+        .begin_turn("ws", "a", ReplyTrigger::Event)
+        .expect("turn");
+    store
+        .assign("ws", continue_op("AgentC", "d-1", "first"), false)
+        .expect("first continue");
+    assert_eq!(
+        refused(&store, continue_op("AgentC", "d-1", "second")),
+        "staff.worker_pending"
+    );
+}
+
+/// 场景：事件触发的回合（Worker 完成事件）自动续派不能无限循环。
+/// 数据构造：auto=true、事件回合；连续续派并绑定 3 次后第 4 次；用户回合里同样的第 4 次。
+/// 预期结果：事件回合的前 3 次直接派发并计数，第 4 次因次数上限降级；用户回合不受上限影响。
+#[test]
+fn event_turn_continues_are_capped_but_user_turns_are_not() {
+    let (_dir, store) = store_with_worker(Some(WorkerOutcome::Unavailable));
+    store
+        .begin_turn("ws", "a", ReplyTrigger::Event)
+        .expect("turn");
+    for round in 0..3u64 {
+        let (task, outcome) = store
+            .assign("ws", continue_op("AgentC", "d-1", "again"), true)
+            .expect("assign");
+        assert!(
+            matches!(outcome, AssignOutcome::Dispatch { .. }),
+            "round {round}: {outcome:?}"
+        );
+        assert_eq!(
+            task.auto_dispatches,
+            round as u32 + 1,
+            "事件回合的续派计入次数"
+        );
+        let id = task.proposals.last().expect("proposal").id;
+        store.rebind_worker("ws", "a", id, "p").expect("rebind");
+        store
+            .update("ws", "a", |task| {
+                task.finish_worker(10, "d-1", WorkerOutcome::Unavailable, "still nothing");
+                Ok(())
+            })
+            .expect("finish");
+    }
+    let (_, outcome) = store
+        .assign("ws", continue_op("AgentC", "d-1", "again"), true)
+        .expect("assign");
+    assert!(
+        matches!(
+            outcome,
+            AssignOutcome::Proposed {
+                reason: ProposeReason::LimitReached,
+                ..
+            }
+        ),
+        "check: outcome {outcome:?}"
+    );
+    let (_dir, store) = store_with_worker(Some(WorkerOutcome::Unavailable));
+    store
+        .update("ws", "a", |task| {
+            task.auto_dispatches = 3;
+            Ok(())
+        })
+        .expect("cap reached");
+    store
+        .begin_turn("ws", "a", ReplyTrigger::User)
+        .expect("turn");
+    let (_, outcome) = store
+        .assign("ws", continue_op("AgentC", "d-1", "user says go"), true)
+        .expect("assign");
+    assert!(
+        matches!(outcome, AssignOutcome::Dispatch { .. }),
+        "用户回合不受上限影响：{outcome:?}"
+    );
+}
+
+/// 场景：降级成提议的续派，用户采用后仍续派同一个 Worker；采用时改了 Agent 则拒绝。
+/// 数据构造：事件回合 auto=false 得到未批准的提议 2；approve 后 rebind；另一份里 approve 时换成 AgentA。
+/// 预期结果：采用后提议仍带 target_worker，rebind 复用原 Worker；换 Agent 的 rebind 报 Agent 不一致。
+#[test]
+fn adopted_continue_proposal_still_targets_the_worker() {
+    let (_dir, store) = store_with_worker(Some(WorkerOutcome::Unavailable));
+    store
+        .begin_turn("ws", "a", ReplyTrigger::Event)
+        .expect("turn");
+    store
+        .assign("ws", continue_op("AgentC", "d-1", "go on"), false)
+        .expect("assign");
+    store.approve("ws", "a", 2, None, None).expect("approve");
+    let task = store.get("ws", "a").expect("task");
+    let proposal = task.proposals.iter().find(|p| p.id == 2).expect("proposal");
+    assert_eq!(
+        proposal.target_worker.as_deref(),
+        Some("d-1"),
+        "采用后仍指向原 Worker"
+    );
+    let task = store.rebind_worker("ws", "a", 2, "p").expect("rebind");
+    assert_eq!(task.workers.len(), 1, "采用后续派不新增 Worker");
+
+    let (_dir, store) = store_with_worker(Some(WorkerOutcome::Unavailable));
+    store
+        .begin_turn("ws", "a", ReplyTrigger::Event)
+        .expect("turn");
+    store
+        .assign("ws", continue_op("AgentC", "d-1", "go on"), false)
+        .expect("assign");
+    store
+        .approve("ws", "a", 2, Some("AgentA".into()), None)
+        .expect("approve");
+    let error = store
+        .rebind_worker("ws", "a", 2, "p")
+        .expect_err("agent changed");
+    assert_eq!(
+        error.to_string(),
+        "staff.worker_agent_mismatch",
+        "check: error"
     );
 }
 
