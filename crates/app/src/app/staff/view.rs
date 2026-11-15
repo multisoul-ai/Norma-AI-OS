@@ -213,7 +213,7 @@ impl MultisoulApp {
                 ),
             );
         }
-        center = center.child(self.staff_composer(selected.as_ref(), project_name, window, cx));
+        center = center.child(self.staff_composer(window, cx));
         center
     }
 

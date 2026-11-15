@@ -55,8 +55,6 @@
   "staff.waiting_plan": "等待拆解",
   "staff.no_matches": "没有找到匹配的任务",
   "staff.footer_hint": "各任务独立推进 · 对话留在任务中",
-  "staff.composer_hint": "Shift + Enter 换行",
-  "staff.send_shortcut": "Enter 发送",
   "staff.task_meta": "%{project} · %{count} 个 Worker",
   "staff.phase": "阶段",
   "staff.no_workers": "还没有 Worker：等 Norma 给出拆解提议",
