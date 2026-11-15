@@ -160,5 +160,7 @@
   "staff.worker_restored": "已恢复 %{agent}",
   "staff.worker_remove_title": "停止并移除 %{agent}？",
   "staff.worker_remove_body": "它还在执行。停止后画布上的卡片会关闭，这一轮的进度不会保留；对话里已有的结果不受影响。",
-  "staff.worker_gone": "Worker 已移除"
+  "staff.worker_gone": "Worker 已移除",
+  "staff.worker_remove_note": "画布上的卡片保留",
+  "staff.worker_stop_note": "画布上的卡片会关闭"
 }

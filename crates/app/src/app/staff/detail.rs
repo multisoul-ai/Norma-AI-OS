@@ -90,6 +90,8 @@ impl MultisoulApp {
                 worker.dispatch_id.clone(),
             );
             let running = worker.outcome.is_none();
+            let title = format!("{} · {}", worker.agent, worker.engine);
+            let (secondary, danger) = (theme.text_secondary, theme.destructive);
             strip = strip.child(
                 Button::new(("staff-worker", index))
                     .debug_selector(move || format!("staff-worker-{}", node.unwrap_or_default()))
@@ -128,8 +130,21 @@ impl MultisoulApp {
                             .text_color(rgba(color))
                             .child(status_text),
                     )
+                    .child(
+                        div()
+                            .text_size(px(14.))
+                            .text_color(rgba(theme.text_secondary))
+                            .child("⋯"),
+                    )
                     .dropdown_menu(move |menu, _, _| {
-                        worker_menu(menu, &app, &task_id, &dispatch_id, node, running)
+                        worker_menu(
+                            menu,
+                            &app,
+                            (&task_id, &dispatch_id),
+                            title.clone(),
+                            (secondary, danger),
+                            (node, running),
+                        )
                     }),
             );
         }
@@ -169,15 +184,47 @@ mod tests {
     }
 }
 
-/// 胶囊菜单：定位、移除；执行中只有「停止并移除」（会关卡片），已结束的另有「移除并关闭卡片」。
+/// 菜单里的两行项：标题加一行说明；`color` 用于危险操作。
+fn rich_item(
+    title: &'static str,
+    note: Option<&'static str>,
+    color: Option<u32>,
+    secondary: u32,
+    on_click: impl Fn(&mut gpui::Window, &mut gpui::App) + 'static,
+) -> PopupMenuItem {
+    PopupMenuItem::element(move |_, _| {
+        let title = div()
+            .text_size(px(13.))
+            .when_some(color, |row, color| row.text_color(rgba(color)))
+            .child(t(title));
+        div()
+            .flex()
+            .flex_col()
+            .py(px(2.))
+            .child(title)
+            .when_some(note, |col, note| {
+                col.child(
+                    div()
+                        .text_size(px(11.))
+                        .text_color(rgba(secondary))
+                        .child(t(note)),
+                )
+            })
+    })
+    .on_click(move |_, window, cx| on_click(window, cx))
+}
+
+/// 胶囊菜单：标题行、定位、移除；执行中只有「停止并移除」（会关卡片），已结束的另有「移除并关闭卡片」。
 fn worker_menu(
     menu: PopupMenu,
     app: &gpui::WeakEntity<MultisoulApp>,
-    task_id: &str,
-    dispatch_id: &str,
-    node: Option<u64>,
-    running: bool,
+    target: (&str, &str),
+    title: String,
+    colors: (u32, u32),
+    (node, running): (Option<u64>, bool),
 ) -> PopupMenu {
+    let (task_id, dispatch_id) = target;
+    let (secondary, danger) = colors;
     let locate = {
         let app = app.clone();
         PopupMenuItem::new(t("staff.locate_worker"))
@@ -188,25 +235,43 @@ fn worker_menu(
                 }
             })
     };
-    let remove = |label: &'static str, close_card: bool| {
+    let remove = |label: &'static str, note: Option<&'static str>, close_card: bool| {
         let (app, task_id, dispatch_id) = (app.clone(), task_id.to_owned(), dispatch_id.to_owned());
-        PopupMenuItem::new(t(label)).on_click(move |_, window, cx| {
-            let request = RemoveRequest {
-                task_id: task_id.clone(),
-                dispatch_id: dispatch_id.clone(),
-                close_card,
-                confirmed: false,
-            };
-            let _ = app.update(cx, |app, cx| app.request_remove_worker(request, window, cx));
-        })
+        rich_item(
+            label,
+            note,
+            close_card.then_some(danger),
+            secondary,
+            move |window, cx| {
+                let request = RemoveRequest {
+                    task_id: task_id.clone(),
+                    dispatch_id: dispatch_id.clone(),
+                    close_card,
+                    confirmed: false,
+                };
+                let _ = app.update(cx, |app, cx| app.request_remove_worker(request, window, cx));
+            },
+        )
     };
-    let menu = menu.item(locate).item(PopupMenuItem::separator());
+    let menu = menu
+        .min_w(px(250.))
+        .item(PopupMenuItem::label(title))
+        .item(locate)
+        .item(PopupMenuItem::separator());
     if running {
-        return menu.item(remove("staff.worker_stop_remove", true));
+        return menu.item(remove(
+            "staff.worker_stop_remove",
+            Some("staff.worker_stop_note"),
+            true,
+        ));
     }
-    let menu = menu.item(remove("staff.worker_remove", false));
+    let menu = menu.item(remove(
+        "staff.worker_remove",
+        Some("staff.worker_remove_note"),
+        false,
+    ));
     if node.is_some() {
-        menu.item(remove("staff.worker_remove_close", true))
+        menu.item(remove("staff.worker_remove_close", None, true))
     } else {
         menu
     }

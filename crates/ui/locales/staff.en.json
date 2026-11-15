@@ -160,5 +160,7 @@
   "staff.worker_restored": "Restored %{agent}",
   "staff.worker_remove_title": "Stop and remove %{agent}?",
   "staff.worker_remove_body": "It is still running. Its card on the canvas will close and this run's progress is lost. Results already in the conversation are kept.",
-  "staff.worker_gone": "Worker removed"
+  "staff.worker_gone": "Worker removed",
+  "staff.worker_remove_note": "The card on the canvas stays",
+  "staff.worker_stop_note": "The card on the canvas will close"
 }
