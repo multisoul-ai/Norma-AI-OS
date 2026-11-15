@@ -16,9 +16,9 @@ fn prompt_is_long(prompt: &str) -> bool {
     prompt.lines().count() > 4 || prompt.chars().count() > 160
 }
 
-pub(in crate::app::staff::messages) struct Proposal<'a>(pub &'a TaskMessage);
+pub(in crate::app::staff::messages) struct Proposal(pub u64);
 
-impl MessageBlock for Proposal<'_> {
+impl MessageBlock for Proposal {
     fn render(
         &self,
         ctx: &BlockCtx,
@@ -27,10 +27,13 @@ impl MessageBlock for Proposal<'_> {
     ) -> AnyElement {
         let task = ctx.task;
         let theme = ctx.app.staff_theme();
-        let message = self.0;
         let mut row = div().w_full().flex().flex_col().gap(px(tokens::SPACE_8));
-        if let TaskMessage::Proposal { proposal_id } = message {
+        {
+            let proposal_id = &self.0;
             if let Some(proposal) = task.proposals.iter().find(|p| p.id == *proposal_id) {
+                if proposal.superseded {
+                    return super::superseded_proposal::render(ctx, proposal);
+                }
                 if proposal.ignored {
                     return super::ignored_proposal::render(ctx, proposal, cx);
                 }

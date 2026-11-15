@@ -67,7 +67,7 @@ public enum StaffProtocolFixture {
                 match = re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})',text)
                 assert match, text
                 scope, task = json.loads(match[1]), json.loads(match[2])
-                if not any('Question' in row for row in task['messages']):
+                if not task['questions']:
                     send(dict(jsonrpc='2.0',id=42,method='elicitation/create',params=dict(mode='form',sessionId='protocol',toolCallId='native-question',message='Questions',requestedSchema={
                         'type':'object','properties':{
                             'q0':{'type':'string','title':'Theme','description':'Which interface theme do you prefer?','oneOf':[{'const':'Light','title':'Light','description':'Light interface theme'},{'const':'Dark','title':'Dark','description':'Dark interface theme'}]},
@@ -76,7 +76,7 @@ public enum StaffProtocolFixture {
                     assert answer.get('result') == {'action':'decline'}, answer
                     record('question-replies.jsonl',answer)
                 else:
-                    assert any('Dark' in row.get('User',{}).get('text','') for row in task['messages']), task
+                    assert any('Dark' in row.get('answer','') for row in task['messages']), task
                     binary = shlex.split(re.search(r'只能执行 (.*?) brain 命令',text)[1])[0]
                     base = [binary,'brain','--workspace',scope['workspace_id'],'--route',scope['route_id']]
                     roster = command(shlex.join(base+['agents']),'Read agents')

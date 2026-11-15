@@ -8,9 +8,9 @@ fn tokens() -> Tokens {
 
 fn reply(task_id: &str) -> BrainOp {
     BrainOp::Task {
-        op: StaffOp::Reply {
+        op: StaffOp::Phase {
             task_id: task_id.into(),
-            text: "ok".into(),
+            phase: norma::protocol::TaskPhase::Merging,
         },
     }
 }

@@ -1,5 +1,4 @@
 use super::*;
-use brain::event::TaskUpdate;
 use gpui::TestAppContext;
 use norma::protocol::{BrainDecision, ReportKind, ReportPriority, StaffOp, Task, Worker};
 
@@ -25,21 +24,18 @@ fn app_with_active_task<'a>(
         let mut task = Task::new("a", "ws", "p", "Ship");
         task.workers
             .push(Worker::new("Simon", "Codex", "Build", 10, "d-1"));
+        // 当前这一轮：任务里有一条正在运行的幕僚回复。
+        task.begin_reply(norma::protocol::ReplyTrigger::User);
         app.staff.tasks.insert("a".into(), task);
-        app.staff
-            .activity
-            .entry("a".into())
-            .or_default()
-            .apply(1, TaskUpdate::Started { message_count: 0 });
     });
     (entity, cx)
 }
 
 fn reply(task: &str) -> BrainOp {
     BrainOp::Task {
-        op: StaffOp::Reply {
+        op: StaffOp::Phase {
             task_id: task.into(),
-            text: "ok".into(),
+            phase: norma::protocol::TaskPhase::Merging,
         },
     }
 }
@@ -152,11 +148,9 @@ fn ambiguous_active_tasks_fail_closed() {
     let dir = tempfile::tempdir().unwrap();
     let (entity, cx) = app_with_active_task(&mut test, dir.path());
     entity.update(cx, |app, _| {
-        app.staff
-            .activity
-            .entry("b".into())
-            .or_default()
-            .apply(1, TaskUpdate::Started { message_count: 0 });
+        let mut other = Task::new("b", "ws", "p", "Other");
+        other.begin_reply(norma::protocol::ReplyTrigger::User);
+        app.staff.tasks.insert("b".into(), other);
         for task in ["a", "b"] {
             assert_eq!(
                 app.authorize_brain("staff-token", &reply(task)),

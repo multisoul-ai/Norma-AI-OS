@@ -103,7 +103,8 @@ fn assign_is_downgraded_to_a_proposal_when_settings_ask() {
     assert!(
         task.messages
             .iter()
-            .any(|m| matches!(m, norma::protocol::TaskMessage::Proposal { proposal_id: 2 })),
+            .any(|m| matches!(m, norma::protocol::TaskMessage::Staff(reply)
+            if reply.parts.contains(&norma::protocol::StaffPart::Proposal(2)))),
         "the downgraded proposal appears as a card"
     );
 }

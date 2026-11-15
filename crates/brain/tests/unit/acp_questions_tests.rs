@@ -106,9 +106,7 @@ fn expiration_and_session_end_settle_durable_cards() {
         host.poll(&mut conn, !expired).expect("settle");
         assert!(!host.waiting(), "收口后没有悬挂请求");
         let task = store.get("w", "t").expect("task");
-        let TaskMessage::Question { question } = &task.messages[0] else {
-            panic!("question card")
-        };
+        let question = &task.questions[0];
         assert_eq!(
             question.state,
             StaffQuestionState::TimedOut,

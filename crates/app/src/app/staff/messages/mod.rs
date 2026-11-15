@@ -4,6 +4,8 @@ use gpui::{div, prelude::*, px, relative, AnyElement, Window};
 use norma::protocol::TaskMessage;
 mod card;
 mod registry;
+mod reply;
+pub(super) mod rows;
 mod text;
 pub(super) mod tokens;
 

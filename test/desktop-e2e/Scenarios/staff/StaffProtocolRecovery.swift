@@ -60,11 +60,11 @@ public enum StaffProtocolRecovery {
             }
             try await session.step("格式错误有明确双语反馈并自动纠正") {
                 try await session.scroll(xFraction: 0.60, yFraction: 0.55, deltaY: -3000)
-                try await session.visualClick("点击 Combined phase and proposal 工具活动行，展开格式错误详情")
+                // 过程摘要只落盘步骤标题、状态与耗时，不存工具输出；回合运行中过程区自动展开。
                 try await session.scroll(xFraction: 0.60, yFraction: 0.55, deltaY: -3000)
                 try session.save(try await session.visualCheck([
-                    VisualCriterion(id: "format", text: english ? "组合工具状态为 Format error，展开内容明确说明一次一条命令、不能 && 或分号组合，并说明不是用户拒绝授权。不是泛化 Denied。" : "组合工具状态为格式错误，展开内容明确说明一次一条命令、不能 && 或分号组合，并说明不是用户拒绝授权。不是泛化已拒绝。"),
-                    VisualCriterion(id: "retry", text: "同一轮里有独立的 Corrected phase 和 Corrected proposal 两条已完成工具活动；没有仍显示 The user rejected permission 的回复气泡。")
+                    VisualCriterion(id: "format", text: english ? "同一条 Norma 回复的过程区里，组合命令那一步标为 Denied，不是 Completed；步骤标题里没有任何文件路径或命令参数。" : "同一条 Norma 回复的过程区里，组合命令那一步标为已拒绝，不是已完成；步骤标题里没有任何文件路径或命令参数。"),
+                    VisualCriterion(id: "retry", text: "同一条回复里还有两条独立的已完成步骤（更新任务阶段、提出方案）；没有仍显示 The user rejected permission 的回复气泡。")
                 ]), "02-format-recovered.png")
                 let commands = try StaffFixture.records(root, "commands.jsonl")
                 guard commands.count == 4, commands.filter({ $0["allowed"] as? Bool == false }).count == 1,
@@ -74,10 +74,9 @@ public enum StaffProtocolRecovery {
                 try Data().write(to: root.appendingPathComponent("release-recovery"))
                 try await waitFor("最终回复落盘") {
                     let messages = try StaffFixture.tasks(root).first?["messages"] as? [[String: Any]] ?? []
-                    return messages.contains { ($0["Norma"] as? [String: Any])?["text"] as? String == "Dark selected. Review proposal ready." }
+                    return messages.contains { StaffFixture.replyText($0) == "Dark selected. Review proposal ready." }
                 }
-                try await session.visualClick("点击 Combined phase and proposal 工具活动行，收起详情")
-                // Durable Norma prose precedes the proposal; the tool log is appended last.
+                // 回合完成后过程区折叠为“已处理 N 步”，回复正文与提议卡按顺序排在其后。
                 try await session.scroll(xFraction: 0.60, yFraction: 0.55, deltaY: 180)
                 try session.save(try await session.visualCheck([
                     VisualCriterion(id: "proposal", text: "最终回复 Dark selected. Review proposal ready. 可见，Review next 提议卡已出现且可采用。未自动派发 Worker，没有用户拒绝授权的错误回复。")

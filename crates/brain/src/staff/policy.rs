@@ -210,10 +210,11 @@ pub fn authorize_staff(op: &BrainOp, task_done: bool) -> Verdict {
         BrainOp::Answer { .. } => denied("staff.denied.answer"),
         BrainOp::Assign { .. } => denied("staff.denied.legacy_assign"),
         BrainOp::Task { op } => match op {
-            StaffOp::Reply { .. }
-            | StaffOp::Phase { .. }
-            | StaffOp::Propose { .. }
-            | StaffOp::Assign { .. } => Verdict::Allow,
+            StaffOp::Phase { .. } | StaffOp::Propose { .. } | StaffOp::Assign { .. } => {
+                Verdict::Allow
+            }
+            // 回复正文只来自流式文字；`task reply` 会造成同一句话两个来源。
+            StaffOp::Reply { .. } => denied("staff.denied.reply"),
             StaffOp::Create { .. } | StaffOp::List => denied("staff.denied.task_scope"),
             StaffOp::Message { .. } => denied("staff.denied.user_message"),
             StaffOp::Adopt { .. } => denied("staff.denied.adopt"),

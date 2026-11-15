@@ -1,5 +1,5 @@
 use super::{missing, TaskStore};
-use norma::protocol::{StaffOp, StaffProposal, Task, TaskMessage, TaskPhase, Worker};
+use norma::protocol::{StaffOp, StaffPart, StaffProposal, Task, TaskMessage, TaskPhase, Worker};
 use std::io;
 
 impl TaskStore {
@@ -28,9 +28,12 @@ impl TaskStore {
                     require_text(&text)?;
                     task.user_message(&text);
                 }
-                StaffOp::Reply { text, .. } => {
-                    require_text(&text)?;
-                    task.messages.push(TaskMessage::Norma { text });
+                // 回复正文只来自幕僚的流式文字；`task reply` 不再写入对话，避免同一句话两个来源。
+                StaffOp::Reply { .. } => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "staff.reply_removed",
+                    ))
                 }
                 StaffOp::Phase { phase, .. } => task.set_phase(phase, false),
                 StaffOp::Propose {
@@ -84,9 +87,9 @@ impl TaskStore {
                         round,
                         auto: false,
                         downgrade: None,
+                        superseded: false,
                     });
-                    task.messages
-                        .push(TaskMessage::Proposal { proposal_id: id });
+                    task.attach_card(StaffPart::Proposal(id));
                 }
                 StaffOp::Adopt { .. } | StaffOp::Assign { .. } => {
                     return Err(io::Error::new(
@@ -128,7 +131,7 @@ impl TaskStore {
                 .iter_mut()
                 .find(|p| p.id == proposal_id)
                 .ok_or_else(missing)?;
-            if proposal.ignored || proposal.dispatch_id.is_some() {
+            if proposal.ignored || proposal.superseded || proposal.dispatch_id.is_some() {
                 return Err(io::Error::new(
                     io::ErrorKind::PermissionDenied,
                     "staff.proposal_unavailable",

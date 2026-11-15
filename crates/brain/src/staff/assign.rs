@@ -1,7 +1,7 @@
 //! 幕僚自己派活：宿主传入自主权开关，由策略决定直接派发还是降级为提议。
 use super::policy::{decide_assign, AssignContext, AssignDecision, ProposeReason};
 use super::TaskStore;
-use norma::protocol::{StaffOp, StaffProposal, Task, TaskMessage, WorkerOutcome};
+use norma::protocol::{StaffOp, StaffPart, StaffProposal, Task, WorkerOutcome};
 use std::io;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -70,8 +70,9 @@ impl TaskStore {
                     AssignDecision::Propose(reason) => Some(reason.code()),
                     AssignDecision::Dispatch => None,
                 },
+                superseded: false,
             });
-            task.messages.push(TaskMessage::Proposal { proposal_id });
+            task.attach_card(StaffPart::Proposal(proposal_id));
             if dispatch {
                 task.auto_dispatches += 1;
             }

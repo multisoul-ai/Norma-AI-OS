@@ -166,6 +166,14 @@ fn staff_proposal_edit_preserves_unsent_draft() {
     });
 }
 
+/// 一条已完成、只有正文的幕僚回复。
+pub(super) fn staff_text(text: &str) -> norma::protocol::TaskMessage {
+    let mut reply = norma::protocol::StaffReply::new(0, norma::protocol::ReplyTrigger::User);
+    reply.push_text(text);
+    reply.finish(norma::protocol::ReplyStatus::Done, 0);
+    norma::protocol::TaskMessage::Staff(reply)
+}
+
 pub(super) struct MessageListHost {
     pub(super) app: gpui::Entity<MultisoulApp>,
     pub(super) task: Task,
@@ -360,10 +368,11 @@ fn staff_messages_do_not_overlap_when_content_overflows() {
         round: 0,
         auto: false,
         downgrade: None,
+        superseded: false,
     });
     for index in 0..3 {
         task.messages.push(TaskMessage::User { text: long.clone() });
-        task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
+        task.attach_card(norma::protocol::StaffPart::Proposal(1));
         task.messages.push(TaskMessage::WorkerFinished {
             node_id: index,
             dispatch_id: format!("d{index}"),

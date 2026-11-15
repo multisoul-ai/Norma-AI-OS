@@ -129,6 +129,12 @@ pub enum BrainStatusKind {
         update: TaskUpdate,
     },
     TaskChanged(norma::protocol::Task),
+    /// 流式期间本轮幕僚回复的增量：只改内存、不加 revision；落盘后的 `TaskChanged` 会覆盖它。
+    TaskReplyChanged {
+        task_id: String,
+        index: usize,
+        reply: norma::protocol::StaffReply,
+    },
     TaskError {
         reason: String,
     },
@@ -213,7 +219,6 @@ impl Trigger {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TaskUpdate {
     Queued,
-    Started { message_count: usize },
-    Update(crate::acp::trace::TraceItem),
+    Started,
     Finished { failed: bool },
 }

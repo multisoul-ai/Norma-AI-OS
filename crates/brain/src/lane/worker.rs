@@ -4,9 +4,9 @@ use super::prompt::{primer, primer_with_skill, Role};
 use crate::acp::client::{AcpError, AcpSession, SessionOptions};
 use crate::acp::trace::{AcpTrace, TraceItem, TraceKind};
 use crate::backend::{self, Backend};
-use crate::event::{BrainStatus, BrainStatusKind, TaskUpdate, Trigger};
+use crate::event::{BrainStatus, BrainStatusKind, TaskUpdate, Trigger, TriggerKind};
 use crate::goal::GoalStore;
-use norma::protocol::BrainScope;
+use norma::protocol::{BrainScope, ReplyStatus, ReplyTrigger};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -122,7 +122,41 @@ impl LaneEnv {
         }
     }
 
-    fn finish(&self, job: &Job, turn: u64, failed: bool) {
+    /// 把这条任务里仍在运行的幕僚回复收尾并落盘；已经收尾过的什么也不写。
+    fn settle(&self, job: &Job, status: ReplyStatus, started: Instant, session_id: Option<&str>) {
+        let Some(task_id) = &job.task_id else {
+            return;
+        };
+        match self.tasks.settle_reply(
+            &job.scope.workspace_id,
+            task_id,
+            status,
+            started.elapsed().as_millis() as u64,
+            session_id,
+        ) {
+            Ok(Some(task)) => self.send(&job.scope, BrainStatusKind::TaskChanged(task)),
+            Ok(None) => {}
+            Err(error) => self.send(
+                &job.scope,
+                BrainStatusKind::TaskError {
+                    reason: error.to_string(),
+                },
+            ),
+        }
+    }
+
+    fn finish(&self, job: &Job, turn: u64, failed: bool, started: Instant) {
+        // 成功路径已经把回复记为 Done；这里只兜住所有提前退出的路径，不让回复永远停在 Running。
+        self.settle(
+            job,
+            if failed {
+                ReplyStatus::Failed
+            } else {
+                ReplyStatus::Done
+            },
+            started,
+            None,
+        );
         self.task_update(job, turn, TaskUpdate::Finished { failed });
         if let Some(id) = &job.approval_id {
             self.send(
@@ -170,7 +204,14 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             continue;
         }
         let turn_no = NEXT_TURN.fetch_add(1, Ordering::Relaxed);
-        let task = match super::staff::load(&env.tasks, &job.scope, job.task_id.as_deref()) {
+        let turn_started = Instant::now();
+        let trigger = if job.trigger.kind == TriggerKind::UserRequest {
+            ReplyTrigger::User
+        } else {
+            ReplyTrigger::Event
+        };
+        let task = match super::staff::load(&env.tasks, &job.scope, job.task_id.as_deref(), trigger)
+        {
             Ok(task) => task,
             Err(error) => {
                 env.send(
@@ -179,18 +220,15 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                         reason: error.to_string(),
                     },
                 );
-                env.task_update(&job, turn_no, TaskUpdate::Started { message_count: 0 });
-                env.finish(&job, turn_no, true);
+                env.task_update(&job, turn_no, TaskUpdate::Started);
+                env.finish(&job, turn_no, true, turn_started);
                 continue;
             }
         };
-        env.task_update(
-            &job,
-            turn_no,
-            TaskUpdate::Started {
-                message_count: task.as_ref().map_or(0, |task| task.messages.len()),
-            },
-        );
+        env.task_update(&job, turn_no, TaskUpdate::Started);
+        if let Some(task) = &task {
+            env.send(&job.scope, BrainStatusKind::TaskChanged(task.clone()));
+        }
         if session.is_none() || turns >= env.max_turns || session_staff != job.task_id.is_some() {
             session = None;
             let connecting = Instant::now();
@@ -231,7 +269,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                     if !matches!(error, AcpError::Cancelled) {
                         down(&env, &job.scope, &error);
                     }
-                    env.finish(&job, turn_no, true);
+                    env.finish(&job, turn_no, true, turn_started);
                     env.sleep(
                         (env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF),
                         &cancelled,
@@ -242,7 +280,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
         }
         if cancelled.load(Ordering::Relaxed) {
             session = None;
-            env.finish(&job, turn_no, true);
+            env.finish(&job, turn_no, true, turn_started);
             continue;
         }
         let mut text = if let Some(task) = &task {
@@ -309,12 +347,12 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 env.status.clone(),
             )
         }));
-        let mut segments = task.as_ref().zip(job.task_id.as_deref()).map(|(task, id)| {
-            super::staff::Segments::new(
+        let mut writer = job.task_id.clone().filter(|_| task.is_some()).map(|id| {
+            super::staff_stream::ReplyWriter::new(
                 env.tasks.clone(),
-                &job.scope.workspace_id,
+                job.scope.clone(),
                 id,
-                task.messages.len(),
+                env.status.clone(),
             )
         });
         let result = active.prompt_observed(
@@ -324,29 +362,28 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             env.prompt_timeout,
             &mut |item| env.trace(&job.scope, this_turn, &job.trigger, item),
             &mut |item| {
-                if let Some(segments) = &mut segments {
-                    segments.observe(item);
+                if let Some(writer) = &mut writer {
+                    writer.observe(item);
                 }
-                env.task_update(&job, this_turn, TaskUpdate::Update(item.clone()))
             },
         );
-        let segments = segments
-            .map(super::staff::Segments::into_items)
-            .unwrap_or_default();
         match result {
             Ok(reply) => {
-                if let Some(task) = &task {
+                if task.is_some() {
                     // Keep the already-computed reply until it is durable; never rerun model effects.
                     let saved = loop {
-                        match super::staff::save_reply(
-                            &env.tasks,
-                            task,
-                            &segments,
-                            &reply,
-                            active.session_id(),
+                        let session = active.session_id().to_owned();
+                        match env.tasks.settle_reply(
+                            &job.scope.workspace_id,
+                            job.task_id.as_deref().unwrap_or_default(),
+                            ReplyStatus::Done,
+                            turn_started.elapsed().as_millis() as u64,
+                            Some(&session),
                         ) {
-                            Ok(task) => {
-                                env.send(&job.scope, BrainStatusKind::TaskChanged(task));
+                            Ok(saved) => {
+                                if let Some(task) = saved {
+                                    env.send(&job.scope, BrainStatusKind::TaskChanged(task));
+                                }
                                 break true;
                             }
                             Err(error) => env.send(
@@ -362,7 +399,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                         env.sleep(env.retry_backoff, &cancelled);
                     };
                     if !saved {
-                        env.finish(&job, turn_no, true);
+                        env.finish(&job, turn_no, true, turn_started);
                         continue;
                     }
                 }
@@ -386,13 +423,25 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 if !matches!(error, AcpError::Cancelled) {
                     down(&env, &job.scope, &error);
                 }
+                if matches!(error, AcpError::Cancelled) {
+                    env.settle(&job, ReplyStatus::Stopped, turn_started, None);
+                }
                 if matches!(error, AcpError::Transient(_)) && attempts < MAX_TRANSIENT_RETRIES {
                     // 限流等临时故障：退避后用新会话重发同一条任务，不能把它丢掉。
-                    env.finish(&job, turn_no, true);
+                    // 还没写出任何内容的回复直接撤掉，重发会开一条新的，不留一条空的“失败”。
+                    if let Some(task_id) = &job.task_id {
+                        if let Ok(Some(task)) = env
+                            .tasks
+                            .discard_empty_reply(&job.scope.workspace_id, task_id)
+                        {
+                            env.send(&job.scope, BrainStatusKind::TaskChanged(task));
+                        }
+                    }
+                    env.finish(&job, turn_no, true, turn_started);
                     env.task_update(&job, turn_no, TaskUpdate::Queued);
                     retrying = Some((job, attempts + 1));
                 } else {
-                    env.finish(&job, turn_no, true);
+                    env.finish(&job, turn_no, true, turn_started);
                 }
                 env.sleep(
                     (env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF),
@@ -401,7 +450,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 continue;
             }
         }
-        env.finish(&job, turn_no, false);
+        env.finish(&job, turn_no, false, turn_started);
     }
 }
 

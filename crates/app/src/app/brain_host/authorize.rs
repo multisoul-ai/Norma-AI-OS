@@ -41,10 +41,10 @@ impl MultisoulApp {
     fn single_active_task(&self) -> Option<String> {
         let mut active = self
             .staff
-            .activity
-            .iter()
-            .filter(|(_, activity)| activity.active)
-            .map(|(id, _)| id.clone());
+            .tasks
+            .values()
+            .filter(|task| task.has_running_reply())
+            .map(|task| task.id.clone());
         let first = active.next()?;
         active.next().is_none().then_some(first)
     }

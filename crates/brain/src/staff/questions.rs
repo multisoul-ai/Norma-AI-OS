@@ -1,6 +1,6 @@
 use super::{missing, TaskStore};
 use norma::protocol::{
-    validate_question_answers, validate_question_items, QuestionAnswer, StaffQuestion,
+    validate_question_answers, validate_question_items, QuestionAnswer, StaffPart, StaffQuestion,
     StaffQuestionState, Task, TaskMessage, TaskPhase,
 };
 use std::io;
@@ -20,10 +20,7 @@ impl TaskStore {
             target.validate().map_err(invalid)?;
         }
         self.update(workspace, id, |task| {
-            if let Some(old) = task.messages.iter().find_map(|message| match message {
-                TaskMessage::Question { question: old } if old.id == question.id => Some(old),
-                _ => None,
-            }) {
+            if let Some(old) = task.question(&question.id) {
                 return if old.items == question.items && old.worker == question.worker {
                     Ok(())
                 } else {
@@ -40,9 +37,15 @@ impl TaskStore {
             {
                 return Err(invalid("staff.question_unavailable"));
             }
-            task.messages.push(TaskMessage::Question {
-                question: Box::new(question),
-            });
+            let id = question.id.clone();
+            if question.worker.is_some() {
+                // Worker 的提问不属于任何幕僚轮次，按时间进对话流。
+                task.messages
+                    .push(TaskMessage::WorkerQuestion { question_id: id });
+            } else {
+                task.attach_card(StaffPart::Question(id));
+            }
+            task.questions.push(question);
             task.updated_at = norma::protocol::timestamp();
             Ok(())
         })
@@ -63,14 +66,9 @@ impl TaskStore {
         let mut resolved = false;
         let task = self.update(workspace, id, |task| {
             let question = task
-                .messages
+                .questions
                 .iter_mut()
-                .find_map(|message| match message {
-                    TaskMessage::Question { question } if question.id == question_id => {
-                        Some(question)
-                    }
-                    _ => None,
-                })
+                .find(|question| question.id == question_id)
                 .ok_or_else(missing)?;
             if question.state != StaffQuestionState::Pending {
                 return Ok(());
@@ -81,18 +79,14 @@ impl TaskStore {
                 question.state = StaffQuestionState::TimedOut;
                 return Ok(());
             }
-            let text = if state == StaffQuestionState::Answered {
+            if state == StaffQuestionState::Answered {
                 validate_question_answers(&question.items, answers).map_err(invalid)?;
-                let text = question.answer_text(answers);
                 question.answers = question.public_answers(answers);
-                Some(text)
-            } else {
-                None
-            };
+            }
             question.state = state;
             resolved = true;
-            if let Some(text) = text {
-                task.user_message(&text);
+            if state == StaffQuestionState::Answered {
+                task.answered_message(question_id);
             }
             task.updated_at = norma::protocol::timestamp();
             Ok(())
@@ -113,24 +107,22 @@ impl TaskStore {
             return Err(invalid("staff.question_invalid"));
         }
         self.update(workspace, id, |task| {
-            let mut summary = None;
-            for message in &mut task.messages {
-                if let TaskMessage::Question { question } = message {
-                    if question.worker.as_ref() == Some(target)
-                        && question.state == StaffQuestionState::Pending
-                    {
-                        if state == StaffQuestionState::Answered && !answers.is_empty() {
-                            validate_question_answers(&question.items, answers).map_err(invalid)?;
-                            summary = Some(question.answer_text(answers));
-                            question.answers = question.public_answers(answers);
-                        }
-                        question.state = state;
-                        task.updated_at = norma::protocol::timestamp();
+            let mut answered = Vec::new();
+            for question in &mut task.questions {
+                if question.worker.as_ref() == Some(target)
+                    && question.state == StaffQuestionState::Pending
+                {
+                    if state == StaffQuestionState::Answered && !answers.is_empty() {
+                        validate_question_answers(&question.items, answers).map_err(invalid)?;
+                        question.answers = question.public_answers(answers);
+                        answered.push(question.id.clone());
                     }
+                    question.state = state;
+                    task.updated_at = norma::protocol::timestamp();
                 }
             }
-            if let Some(text) = summary {
-                task.user_message(&text);
+            for question_id in answered {
+                task.answered_message(&question_id);
             }
             Ok(())
         })

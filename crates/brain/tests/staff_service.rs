@@ -1,5 +1,5 @@
 use brain::{Backend, BackendKind, BrainConfig, BrainEventKind, BrainService, BrainStatusKind};
-use norma::protocol::{BrainScope, Task, TaskMessage};
+use norma::protocol::{BrainScope, ReplyStatus, Task, TaskMessage};
 use std::time::{Duration, Instant};
 
 /// 任务轮次限制写入目标与播报；同一个主会话串行重放两个任务且回复归属正确。
@@ -61,11 +61,9 @@ fn shared_lane_replays_task_messages_and_scopes_mutations() {
             .recv_timeout(deadline.saturating_duration_since(Instant::now()))
             .expect("two task replies before deadline");
         if let BrainStatusKind::TaskChanged(task) = status.kind {
-            if task
-                .messages
-                .iter()
-                .any(|message| matches!(message, TaskMessage::Norma { .. }))
-            {
+            if task.messages.iter().any(
+                |message| matches!(message, TaskMessage::Staff(reply) if reply.status == ReplyStatus::Done),
+            ) {
                 completed.insert(task.id);
             }
         }
@@ -100,17 +98,19 @@ fn shared_lane_replays_task_messages_and_scopes_mutations() {
     let a = store.get("ws", "task-a").expect("A");
     let b = store.get("ws", "task-b").expect("B");
     assert_eq!(
-        a.messages.last(),
-        Some(&TaskMessage::Norma {
-            text: "收到".into()
+        a.messages.last().and_then(|m| match m {
+            TaskMessage::Staff(reply) => Some(reply.text()),
+            _ => None,
         }),
+        Some("收到".to_owned()),
         "ACP reply must return to A"
     );
     assert_eq!(
-        b.messages.last(),
-        Some(&TaskMessage::Norma {
-            text: "收到".into()
+        b.messages.last().and_then(|m| match m {
+            TaskMessage::Staff(reply) => Some(reply.text()),
+            _ => None,
         }),
+        Some("收到".to_owned()),
         "ACP reply must return to B"
     );
     assert!(

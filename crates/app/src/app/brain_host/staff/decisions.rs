@@ -76,14 +76,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         let target = self.staff.tasks.get(&task_id).and_then(|task| {
-            task.messages.iter().find_map(|message| match message {
-                norma::protocol::TaskMessage::Question { question }
-                    if question.id == question_id =>
-                {
-                    question.worker.clone()
-                }
-                _ => None,
-            })
+            task.question(&question_id)
+                .and_then(|question| question.worker.clone())
         });
         if let Some(target) = target {
             if !skip {

@@ -157,10 +157,6 @@ fn staff_may_only_run_whitelisted_commands() {
             answers: vec![],
             reason: "r".into(),
         },
-        task(StaffOp::Reply {
-            task_id: "a".into(),
-            text: "ok".into(),
-        }),
         task(StaffOp::Phase {
             task_id: "a".into(),
             phase: TaskPhase::Merging,
@@ -227,6 +223,13 @@ fn staff_may_only_run_whitelisted_commands() {
             "staff.denied.task_scope",
         ),
         (StaffOp::List, "staff.denied.task_scope"),
+        (
+            StaffOp::Reply {
+                task_id: "a".into(),
+                text: "ok".into(),
+            },
+            "staff.denied.reply",
+        ),
         (
             StaffOp::Message {
                 task_id: "a".into(),

@@ -8,7 +8,7 @@ use gpui::{px, size, AppContext, TestAppContext};
 /// 预期结果：卡片存在且为单行高度（<72），没有“采用并派发”按钮。
 #[test]
 fn staff_dispatched_proposal_is_compact() {
-    use norma::protocol::{StaffProposal, TaskMessage};
+    use norma::protocol::StaffProposal;
     let dir = tempfile::tempdir().expect("isolated project");
     let paths = storage::DatabasePaths::isolated_test(dir.path());
     let mut task = Task::new("t", "w", "p", "派活");
@@ -17,6 +17,7 @@ fn staff_dispatched_proposal_is_compact() {
         round: 0,
         auto: false,
         downgrade: None,
+        superseded: false,
         agent: "Ethan".into(),
         title: "派活可选类型和模型".into(),
         prompt: "用户原话：很长的原话。".repeat(20),
@@ -26,7 +27,7 @@ fn staff_dispatched_proposal_is_compact() {
         ignored: false,
         dispatch_id: Some("d1".into()),
     });
-    task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
+    task.attach_card(norma::protocol::StaffPart::Proposal(1));
     let mut test = TestAppContext::single();
     let (_, cx) = test.add_window_view(|_, cx| {
         let app = cx.new(|cx| {
@@ -62,7 +63,7 @@ fn staff_norma_prose_height_covers_wrapped_lines() {
     let paths = storage::DatabasePaths::isolated_test(dir.path());
     let mut task = Task::new("t", "w", "p", "派活");
     let text = "Yara 第二次也没启动成功。我先看还有哪些 agent 处于就绪，再告诉你怎么处理。贪吃蛇还是没做出来。Yara 第二次启动也失败了（worker_not_ready），没有可验收的结果，任务仍保持进行中。我不会自动再派给她。请指定另一位 Agent，或等 Yara 稳定后再让我重试一次。";
-    task.messages.push(TaskMessage::Norma { text: text.into() });
+    task.messages.push(super::layout_tests::staff_text(text));
     task.messages.push(TaskMessage::Reopened);
     let units: f32 = text
         .chars()
@@ -103,18 +104,18 @@ fn staff_norma_prose_height_covers_wrapped_lines() {
 /// 预期结果：正文容纳全部换行及22px署名+8px间隙，建议再留24px，卡片包住按钮。
 #[test]
 fn staff_norma_paragraphs_reserve_height_before_proposal() {
-    use norma::protocol::{StaffProposal, TaskMessage};
+    use norma::protocol::StaffProposal;
     let dir = tempfile::tempdir().expect("isolated project");
     let paths = storage::DatabasePaths::isolated_test(dir.path());
     let mut task = Task::new("t", "w", "p", "布局验收");
     let text = "归档成功那条提示不该再出现。我先看现在有哪些 Agent 能接着改 pr-235。截图里那条「已归档…仍在进行，可在已归档中查看」会整条去掉，撤销一起不显示。归档本身还在。交给 Ethan 在 pr-235 上改。已提议交给 Ethan，在 `/Users/openclawd/Documents/code/norma-os/pr-235` 里改：归档后不再弹出截图里那条「已归档…仍在进行，可在已归档中查看」，右边的撤销也一起去掉。\n\n归档本身还在，任务照样进已归档。你点采用就派给他。若只想删括号里那句、撤销还要留，跟我说一声再改。".to_owned();
-    task.messages
-        .push(TaskMessage::Norma { text: text.clone() });
+    task.messages.push(super::layout_tests::staff_text(&text));
     task.proposals.push(StaffProposal {
         id: 1,
         round: 0,
         auto: false,
         downgrade: None,
+        superseded: false,
         agent: "Simon".into(),
         title: "归档不显示这条提示".into(),
         why: "保留建议的完整理由".into(),
@@ -124,7 +125,7 @@ fn staff_norma_paragraphs_reserve_height_before_proposal() {
         ignored: false,
         dispatch_id: None,
     });
-    task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
+    task.attach_card(norma::protocol::StaffPart::Proposal(1));
     struct Host {
         app: Entity<MultisoulApp>,
         task: Task,

@@ -45,7 +45,7 @@ public enum StaffProposalLayout {
             try await session.shortcut(key: 36, modifiers: [])
             for _ in 0..<100 {
                 let tasks = try StaffFixture.tasks(root)
-                if let messages = tasks.first?["messages"] as? [[String: Any]], messages.contains(where: { $0["Norma"] != nil }) { break }
+                if let messages = tasks.first?["messages"] as? [[String: Any]], messages.contains(where: { StaffFixture.replyText($0) != nil }) { break }
                 try await Task.sleep(nanoseconds: 200_000_000)
             }
             for width in [1280, 900, 1280] {

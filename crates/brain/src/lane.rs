@@ -3,4 +3,6 @@
 pub mod prompt;
 mod staff;
 mod staff_images;
+mod staff_prompt;
+mod staff_stream;
 pub mod worker;

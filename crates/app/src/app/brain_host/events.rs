@@ -93,19 +93,16 @@ impl MultisoulApp {
                 } => {
                     self.staff
                         .activity
-                        .entry(task_id.clone())
+                        .entry(task_id)
                         .or_default()
                         .apply(turn, update);
-                    if self.staff.selected.as_ref() == Some(&task_id) {
-                        let remaining = f32::from(self.staff.scroll.max_offset().height)
-                            + f32::from(self.staff.scroll.offset().y);
-                        // Same 48px follow threshold as durable conversation messages.
-                        if remaining <= 48.0 {
-                            self.staff.scroll.scroll_to_bottom();
-                        }
-                    }
                     self.notify_staff(cx);
                 }
+                BrainStatusKind::TaskReplyChanged {
+                    task_id,
+                    index,
+                    reply,
+                } => self.receive_staff_reply(&task_id, index, reply, cx),
                 BrainStatusKind::TaskChanged(task) => self.receive_staff_tasks(vec![task], cx),
                 BrainStatusKind::TaskError { reason } => {
                     self.staff.error = Some(crate::app::staff::error_message(reason));

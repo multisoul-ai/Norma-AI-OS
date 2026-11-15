@@ -1,5 +1,5 @@
 //! Durable question cards. Live delivery remains owned by ACP / the native question runtime.
-use super::{QuestionAnswer, QuestionItem, QuestionRef, Task, TaskMessage};
+use super::{QuestionAnswer, QuestionItem, QuestionRef, Task};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -84,19 +84,18 @@ impl StaffQuestion {
 
 impl Task {
     pub fn pending_question_count(&self) -> usize {
-        self.messages.iter().filter(|message| {
-            matches!(message, TaskMessage::Question { question } if question.state == StaffQuestionState::Pending)
-        }).count()
+        self.questions
+            .iter()
+            .filter(|question| question.state == StaffQuestionState::Pending)
+            .count()
     }
 
     pub fn expire_pending_questions(&mut self) -> bool {
         let mut changed = false;
-        for message in &mut self.messages {
-            if let TaskMessage::Question { question } = message {
-                if question.state == StaffQuestionState::Pending {
-                    question.state = StaffQuestionState::TimedOut;
-                    changed = true;
-                }
+        for question in &mut self.questions {
+            if question.state == StaffQuestionState::Pending {
+                question.state = StaffQuestionState::TimedOut;
+                changed = true;
             }
         }
         changed

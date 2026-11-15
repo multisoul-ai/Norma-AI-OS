@@ -199,18 +199,27 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .gap(px(messages::tokens::SPACE_24));
-        let activity = self.staff.activity.get(&task.id);
-        for (index, message) in task.messages.iter().enumerate() {
-            if activity.is_some_and(|activity| activity.owns(index, message)) {
-                continue;
-            }
-            messages = messages.child(self.render_message(task, index, message, window, cx));
+        for index in messages::rows::rows(task) {
+            messages =
+                messages.child(self.render_message(task, index, &task.messages[index], window, cx));
         }
-
-        if let Some(activity) = activity {
+        // 已入队但还没开始的轮次：回复行还不存在，先给出等待反馈。
+        let waiting = self
+            .staff
+            .activity
+            .get(&task.id)
+            .is_some_and(|a| a.queued > 0);
+        let running = task.has_running_reply();
+        if waiting && !running {
             messages = messages.child(
-                messages::message_column()
-                    .child(self.staff_activity_view(task, activity, window, cx)),
+                messages::message_column().child(
+                    div()
+                        .id("staff-response-queued")
+                        .debug_selector(|| "staff-response-queued".into())
+                        .text_size(px(12.))
+                        .text_color(rgba(self.staff_theme().text_secondary))
+                        .child(t("staff.response_queued")),
+                ),
             );
         }
         messages

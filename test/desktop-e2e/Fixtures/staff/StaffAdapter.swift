@@ -78,7 +78,7 @@ enum StaffAdapter {
                 binary = shlex.split(re.search(r'只能执行 (.*?) brain 命令', text)[1])[0]
                 base = [binary,'brain','--workspace',scope['workspace_id'],'--route',scope['route_id']]
                 tid = task['id']
-                users = [m['User']['text'] for m in task['messages'] if 'User' in m]
+                users = [m['user'] for m in task['messages'] if 'user' in m]
                 last = users[-1] if users else ''
                 if 'PROPOSAL-LAYOUT' in last and not task['proposals']:
                     run(sid, base + ['task','propose',tid,'Claude','--title','归档不显示这条提示','--prompt','保持卡片完整可读。说明文字与建议卡分开排列，不修改归档提示逻辑。','--why','仅修复布局重叠，保留标题、理由、指令和交给谁。'])
@@ -105,7 +105,7 @@ enum StaffAdapter {
                     hold('release-final')
                 elif 'STREAM-BETA' in last:
                     reply = 'BETA RESULT: separate project conversation.'
-                elif os.environ.get('NORMA_E2E_STAFF_QUESTIONS') == '1' and not any('Question' in item for item in task['messages']):
+                elif os.environ.get('NORMA_E2E_STAFF_QUESTIONS') == '1' and not task['questions']:
                     ask_cards(sid)
                     reply = 'STAFF QUESTIONS: answers will be read in the next turn.'
                 elif os.environ.get('NORMA_E2E_STAFF_ARCHIVE') == '1' and not task['proposals']:

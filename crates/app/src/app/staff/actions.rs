@@ -90,10 +90,11 @@ impl MultisoulApp {
             input.update(cx, |input, cx| input.set_value(draft, window, cx));
             input.focus_handle(cx).focus(window);
         }
-        if let Some(task) = id.as_ref().and_then(|id| self.staff.tasks.get(id)) {
-            self.staff
-                .scroll
-                .scroll_to_item(task.messages.len().saturating_sub(1));
+        if id
+            .as_ref()
+            .is_some_and(|id| self.staff.tasks.contains_key(id))
+        {
+            self.staff.scroll.scroll_to_bottom();
         }
         self.staff.selected = id;
         self.staff.error = None;
@@ -209,6 +210,27 @@ impl MultisoulApp {
             });
         })
         .detach();
+        self.notify_staff(cx);
+    }
+
+    /// 重新生成：用同一条用户输入追加一轮新回复；旧回复保留，已派发的 Worker 不回滚。
+    pub(super) fn regenerate_staff_reply(&mut self, task_id: &str, cx: &mut Context<Self>) {
+        let waiting = self
+            .staff
+            .activity
+            .get(task_id)
+            .is_some_and(|a| a.queued > 0);
+        let running = self
+            .staff
+            .tasks
+            .get(task_id)
+            .is_some_and(|task| task.has_running_reply());
+        if self.staff.busy || waiting || running {
+            return;
+        }
+        self.push_brain(brain::BrainEventKind::TaskRequest {
+            task_id: task_id.to_owned(),
+        });
         self.notify_staff(cx);
     }
 
