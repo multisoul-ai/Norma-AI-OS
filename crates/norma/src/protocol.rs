@@ -12,6 +12,7 @@ mod staff_images;
 mod staff_list;
 mod staff_question;
 mod staff_reply;
+mod staff_worker;
 mod workspace;
 
 pub use brain::{BrainDecision, BrainOp, BrainScope, ReportKind, ReportPriority};
@@ -36,6 +37,7 @@ pub use staff_images::{
 pub use staff_list::{staff_chip_counts, staff_visible_tasks, StaffChipCounts};
 pub use staff_question::*;
 pub use staff_reply::*;
+pub use staff_worker::RemovedWorker;
 pub use workspace::{OrchestrationDoctorReport, WorkspaceSummary};
 
 pub type NodeId = u64;

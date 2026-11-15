@@ -197,16 +197,33 @@ impl MultisoulApp {
         undo: Option<String>,
         cx: &mut Context<Self>,
     ) {
+        self.show_staff_toast_with(text, undo, None, cx);
+    }
+
+    pub(super) fn show_staff_toast_with(
+        &mut self,
+        text: ui::i18n::LocalizedText,
+        undo: Option<String>,
+        undo_worker: Option<(String, String)>,
+        cx: &mut Context<Self>,
+    ) {
         if let Some(host) = self.desktop_host.clone() {
-            let _ = host.update(cx, |host, cx| host.show_staff_toast(text, undo, cx));
+            let _ = host.update(cx, |host, cx| {
+                host.show_staff_toast_with(text, undo, undo_worker, cx)
+            });
             return;
         }
         self.staff.toast_generation = self.staff.toast_generation.wrapping_add(1);
         let generation = self.staff.toast_generation;
-        let seconds = if undo.is_some() { 6 } else { 3 };
+        let seconds = if undo.is_some() || undo_worker.is_some() {
+            8
+        } else {
+            3
+        };
         self.staff.toast = Some(StaffToast {
             text,
             undo_task: undo,
+            undo_worker,
             generation,
         });
         self.notify_staff(cx);
@@ -249,6 +266,7 @@ impl MultisoulApp {
             return div();
         };
         let undo = toast.undo_task.clone();
+        let undo_worker = toast.undo_worker.clone();
         let (background, foreground, action) = if self.theme.is_light() {
             (0x313033ff, 0xf4eff4ff, 0xd3e3fdff)
         } else {
@@ -282,8 +300,8 @@ impl MultisoulApp {
                             .whitespace_normal()
                             .child(toast.text),
                     )
-                    .when(undo.is_some(), |row| {
-                        let undo_id = undo.clone();
+                    .when(undo.is_some() || undo_worker.is_some(), |row| {
+                        let (undo_id, undo_worker) = (undo.clone(), undo_worker.clone());
                         row.child(
                             Button::new("staff-archive-undo")
                                 .debug_selector(|| "staff-archive-undo".into())
@@ -300,10 +318,14 @@ impl MultisoulApp {
                                 .text_size(px(13.))
                                 .label(t("staff.undo"))
                                 .on_click(cx.listener(move |app, _: &ClickEvent, window, cx| {
+                                    app.staff.toast = None;
+                                    if let Some((task_id, dispatch_id)) = undo_worker.clone() {
+                                        app.restore_staff_worker(task_id, dispatch_id, window, cx);
+                                        return;
+                                    }
                                     let Some(id) = undo_id.clone() else {
                                         return;
                                     };
-                                    app.staff.toast = None;
                                     app.request_staff_archive(
                                         id,
                                         false,

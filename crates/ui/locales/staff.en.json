@@ -40,6 +40,7 @@
   "staff.retry": "Reload",
   "staff.invalid_source": "The task source expired. Reopen the project.",
   "staff.agent_unavailable": "This agent is missing or disabled.",
+  "staff.denied.remove_worker": "Staff cannot remove workers; the user does that from the task.",
   "staff.worker_card_gone": "This worker's card was closed, so it cannot continue. Start a new worker instead.",
   "staff.proposal_unavailable": "This proposal is no longer available.",
   "staff.approval_required": "Adopt this proposal in the task first.",
@@ -149,5 +150,15 @@
   "staff.worker_needs_attention_short": "Task not delivered",
   "staff.scroll_latest": "Back to latest",
   "staff.result_expand": "Show all",
-  "staff.result_collapse": "Show less"
+  "staff.result_collapse": "Show less",
+  "staff.worker_menu": "Worker actions",
+  "staff.worker_remove": "Remove from task",
+  "staff.worker_remove_close": "Remove and close card",
+  "staff.worker_stop_remove": "Stop and remove from task",
+  "staff.worker_removed": "Removed %{agent}",
+  "staff.worker_removed_closed": "Removed %{agent} and closed its card",
+  "staff.worker_restored": "Restored %{agent}",
+  "staff.worker_remove_title": "Stop and remove %{agent}?",
+  "staff.worker_remove_body": "It is still running. Its card on the canvas will close and this run's progress is lost. Results already in the conversation are kept.",
+  "staff.worker_gone": "Worker removed"
 }

@@ -24,6 +24,7 @@ mod proposal_choice;
 mod questions;
 mod task_list;
 mod view;
+mod worker_remove;
 mod workspace;
 
 /// 与原型相同：窄桌面压缩列表，保留对话宽度。
@@ -75,6 +76,7 @@ pub(crate) struct StaffState {
     pub filter: Option<norma::protocol::TaskDisplayStatus>,
     pub archive_view: bool,
     pub toast: Option<StaffToast>,
+    pub remove_ask: Option<WorkerRemoveAsk>,
     pub toast_generation: u64,
     pub scroll: gpui::ScrollHandle,
     pub error: Option<ui::i18n::LocalizedText>,
@@ -90,7 +92,17 @@ pub(crate) struct StaffState {
 pub(crate) struct StaffToast {
     pub text: ui::i18n::LocalizedText,
     pub undo_task: Option<String>,
+    /// 提示条上「撤销」恢复的 Worker：(任务号, dispatch_id)。
+    pub undo_worker: Option<(String, String)>,
     pub generation: u64,
+}
+
+/// 用户点了移除，但 Worker 还在执行：等确认。
+#[derive(Clone)]
+pub(crate) struct WorkerRemoveAsk {
+    pub task_id: String,
+    pub dispatch_id: String,
+    pub agent: String,
 }
 
 pub(crate) struct PendingWorker {
@@ -196,6 +208,7 @@ pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
         "staff.denied.reply" => "staff.denied.reply",
         "staff.denied.user_message" => "staff.denied.user_message",
         "staff.denied.adopt" => "staff.denied.adopt",
+        "staff.denied.remove_worker" => "staff.denied.remove_worker",
         "staff.denied.unarchive" => "staff.denied.unarchive",
         "staff.denied.archive_not_done" => "staff.denied.archive_not_done",
         "staff.denied.other_task" => "staff.denied.other_task",

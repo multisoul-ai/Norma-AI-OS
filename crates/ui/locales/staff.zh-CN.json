@@ -40,6 +40,7 @@
   "staff.retry": "重新加载",
   "staff.invalid_source": "任务来源已失效，请重新打开项目。",
   "staff.agent_unavailable": "此 Agent 不存在或已停用。",
+  "staff.denied.remove_worker": "幕僚不能移除 Worker，请由用户在任务里操作。",
   "staff.worker_card_gone": "这个 Worker 的卡片已关闭，无法继续。请改为新建一个 Worker。",
   "staff.proposal_unavailable": "这条提议已不可用。",
   "staff.approval_required": "请先在任务中采用这条提议。",
@@ -149,5 +150,15 @@
   "staff.worker_needs_attention_short": "任务还没送达",
   "staff.scroll_latest": "回到最新",
   "staff.result_expand": "展开全文",
-  "staff.result_collapse": "收起"
+  "staff.result_collapse": "收起",
+  "staff.worker_menu": "Worker 操作",
+  "staff.worker_remove": "从任务中移除",
+  "staff.worker_remove_close": "移除并关闭卡片",
+  "staff.worker_stop_remove": "停止并从任务中移除",
+  "staff.worker_removed": "已移除 %{agent}",
+  "staff.worker_removed_closed": "已移除 %{agent}，并关闭了卡片",
+  "staff.worker_restored": "已恢复 %{agent}",
+  "staff.worker_remove_title": "停止并移除 %{agent}？",
+  "staff.worker_remove_body": "它还在执行。停止后画布上的卡片会关闭，这一轮的进度不会保留；对话里已有的结果不受影响。",
+  "staff.worker_gone": "Worker 已移除"
 }

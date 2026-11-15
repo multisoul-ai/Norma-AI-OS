@@ -67,6 +67,7 @@ impl MultisoulApp {
                 },
             )
             .child(self.staff_archive_toast(cx))
+            .child(self.staff_worker_remove_confirm(cx))
     }
 
     pub(super) fn render_staff_conversation(

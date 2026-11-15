@@ -42,6 +42,15 @@ pub enum StaffOp {
         #[serde(default)]
         worker: Option<String>,
     },
+    /// 用户移除 / 撤销移除一个 Worker（按 dispatch_id）；幕僚命令里没有这两个。
+    RemoveWorker {
+        task_id: String,
+        worker: String,
+    },
+    RestoreWorker {
+        task_id: String,
+        worker: String,
+    },
     /// 归档或取消归档。模型命令只开放归档，取消归档只由用户在面板里操作。
     Archive {
         task_id: String,
@@ -59,6 +68,8 @@ impl StaffOp {
             | Self::Propose { task_id, .. }
             | Self::Adopt { task_id, .. }
             | Self::Assign { task_id, .. }
+            | Self::RemoveWorker { task_id, .. }
+            | Self::RestoreWorker { task_id, .. }
             | Self::Archive { task_id, .. } => Some(task_id),
         }
     }
@@ -256,6 +267,9 @@ pub struct Task {
     /// 幕僚未经用户采用自动派发的次数；用户采用任意一条提议后清零。旧快照缺字段时为 0。
     #[serde(default)]
     pub auto_dispatches: u32,
+    /// 用户移除的 Worker，保留到下次清理，供撤销。
+    #[serde(default)]
+    pub removed_workers: Vec<super::RemovedWorker>,
 }
 
 impl Task {
@@ -279,6 +293,7 @@ impl Task {
             archived: false,
             round: 0,
             auto_dispatches: 0,
+            removed_workers: Vec::new(),
         }
     }
 

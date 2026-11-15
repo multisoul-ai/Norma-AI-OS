@@ -240,6 +240,10 @@ pub fn authorize_staff(op: &BrainOp, task_done: bool) -> Verdict {
             StaffOp::Create { .. } | StaffOp::List => denied("staff.denied.task_scope"),
             StaffOp::Message { .. } => denied("staff.denied.user_message"),
             StaffOp::Adopt { .. } => denied("staff.denied.adopt"),
+            // 暂只给用户；以后开放给幕僚时改这里，并在 skill 里加命令。
+            StaffOp::RemoveWorker { .. } | StaffOp::RestoreWorker { .. } => {
+                denied("staff.denied.remove_worker")
+            }
             StaffOp::Archive {
                 archived: false, ..
             } => denied("staff.denied.unarchive"),

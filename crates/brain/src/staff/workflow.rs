@@ -98,6 +98,22 @@ impl TaskStore {
                         "adoption requires host dispatch",
                     ))
                 }
+                StaffOp::RemoveWorker { worker, .. } => {
+                    if !task.remove_worker(&worker) {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "staff.worker_unknown",
+                        ));
+                    }
+                }
+                StaffOp::RestoreWorker { worker, .. } => {
+                    if !task.restore_worker(&worker) {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "staff.worker_unknown",
+                        ));
+                    }
+                }
                 StaffOp::Archive { archived, .. } => task.set_archived(archived),
                 StaffOp::Create { .. } | StaffOp::List => {
                     unreachable!("handled before task lookup")

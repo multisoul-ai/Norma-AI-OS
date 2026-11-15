@@ -1,3 +1,4 @@
+use super::worker_remove::RemoveRequest;
 use super::{
     view::{outcome_label, status_label},
     *,
@@ -7,7 +8,8 @@ use norma::protocol::{TaskDisplayStatus, WorkerChip, WorkerOutcome};
 use runtime::island::bloub::Mood;
 use ui::component::{
     button::{Button, ButtonVariants},
-    Disableable, StyledExt,
+    menu::{DropdownMenu, PopupMenu, PopupMenuItem},
+    StyledExt,
 };
 use ui::i18n::text as t;
 
@@ -82,6 +84,12 @@ impl MultisoulApp {
                 WorkerChip::Done => status_label(TaskDisplayStatus::Done),
             });
             let node = worker.card_id;
+            let (app, task_id, dispatch_id) = (
+                cx.weak_entity(),
+                task.id.clone(),
+                worker.dispatch_id.clone(),
+            );
+            let running = worker.outcome.is_none();
             strip = strip.child(
                 Button::new(("staff-worker", index))
                     .debug_selector(move || format!("staff-worker-{}", node.unwrap_or_default()))
@@ -93,8 +101,7 @@ impl MultisoulApp {
                     .flex_none()
                     .justify_start()
                     .gap(px(8.))
-                    .disabled(node.is_none())
-                    .tooltip(format!("{} · {}", worker.role, t("staff.locate_worker")))
+                    .tooltip(format!("{} · {}", worker.role, t("staff.worker_menu")))
                     .child(crate::island::pet(
                         &worker.agent,
                         &worker.engine,
@@ -121,11 +128,9 @@ impl MultisoulApp {
                             .text_color(rgba(color))
                             .child(status_text),
                     )
-                    .on_click(cx.listener(move |app, _, window, cx| {
-                        if let Some(node) = node {
-                            app.locate_staff_worker(node, window, cx);
-                        }
-                    })),
+                    .dropdown_menu(move |menu, _, _| {
+                        worker_menu(menu, &app, &task_id, &dispatch_id, node, running)
+                    }),
             );
         }
         strip
@@ -161,5 +166,48 @@ mod tests {
             worker_mood(WorkerChip::Done, Some(WorkerOutcome::Interrupted)),
             Mood::Failed
         );
+    }
+}
+
+/// 胶囊菜单：定位、移除；执行中只有「停止并移除」（会关卡片），已结束的另有「移除并关闭卡片」。
+fn worker_menu(
+    menu: PopupMenu,
+    app: &gpui::WeakEntity<MultisoulApp>,
+    task_id: &str,
+    dispatch_id: &str,
+    node: Option<u64>,
+    running: bool,
+) -> PopupMenu {
+    let locate = {
+        let app = app.clone();
+        PopupMenuItem::new(t("staff.locate_worker"))
+            .disabled(node.is_none())
+            .on_click(move |_, window, cx| {
+                if let Some(node) = node {
+                    let _ = app.update(cx, |app, cx| app.locate_staff_worker(node, window, cx));
+                }
+            })
+    };
+    let remove = |label: &'static str, close_card: bool| {
+        let (app, task_id, dispatch_id) = (app.clone(), task_id.to_owned(), dispatch_id.to_owned());
+        PopupMenuItem::new(t(label)).on_click(move |_, window, cx| {
+            let request = RemoveRequest {
+                task_id: task_id.clone(),
+                dispatch_id: dispatch_id.clone(),
+                close_card,
+                confirmed: false,
+            };
+            let _ = app.update(cx, |app, cx| app.request_remove_worker(request, window, cx));
+        })
+    };
+    let menu = menu.item(locate).item(PopupMenuItem::separator());
+    if running {
+        return menu.item(remove("staff.worker_stop_remove", true));
+    }
+    let menu = menu.item(remove("staff.worker_remove", false));
+    if node.is_some() {
+        menu.item(remove("staff.worker_remove_close", true))
+    } else {
+        menu
     }
 }
