@@ -47,7 +47,7 @@ fn native_question_roundtrip_through_brain_service() {
         if matches!(
             &status.kind,
             BrainStatusKind::TaskActivity {
-                update: brain::event::TaskUpdate::Started { .. },
+                update: brain::event::TaskUpdate::Started,
                 ..
             }
         ) {
@@ -55,14 +55,11 @@ fn native_question_roundtrip_through_brain_service() {
         }
         if let BrainStatusKind::TaskChanged(task) = status.kind {
             if !answered {
-                if let Some(question) = task.messages.iter().find_map(|m| match m {
-                    TaskMessage::Question { question }
-                        if question.state == StaffQuestionState::Pending =>
-                    {
-                        Some(question)
-                    }
-                    _ => None,
-                }) {
+                if let Some(question) = task
+                    .questions
+                    .iter()
+                    .find(|question| question.state == StaffQuestionState::Pending)
+                {
                     let item = &question.items[0];
                     let dark = item
                         .options
@@ -91,8 +88,10 @@ fn native_question_roundtrip_through_brain_service() {
                     .messages
                     .iter()
                     .rev()
-                    .take_while(|m| !matches!(m, TaskMessage::User { .. }))
-                    .any(|m| matches!(m, TaskMessage::Norma { text } if text.contains("Dark")))
+                    .take_while(|m| !matches!(m, TaskMessage::Answered { .. }))
+                    .any(
+                        |m| matches!(m, TaskMessage::Staff(reply) if reply.text().contains("Dark")),
+                    )
             {
                 confirmed = true;
                 println!("REAL REPLY: {:?}", task.messages.last());

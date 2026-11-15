@@ -273,7 +273,7 @@ pub(crate) fn day_bucket(now_ms: i64, at_ms: i64, offset_secs: i64) -> DayBucket
 }
 
 /// 自 1970-01-01 起的天数 → （月，日）。Howard Hinnant 的 civil_from_days。
-fn civil_month_day(days: i64) -> (u32, u32) {
+pub(crate) fn civil_month_day(days: i64) -> (u32, u32) {
     let z = days + 719_468;
     let doe = z.rem_euclid(146_097);
     let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;

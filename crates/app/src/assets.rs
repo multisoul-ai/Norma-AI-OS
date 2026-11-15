@@ -197,6 +197,9 @@ impl AssetSource for EmbeddedAssets {
             "icons/settings-2.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/settings-2.svg"
             )))),
+            "icons/message-square.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/message-square.svg"
+            )))),
             "icons/copy.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/copy.svg"
             )))),

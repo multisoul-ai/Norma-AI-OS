@@ -2,7 +2,7 @@ use super::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div};
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
-    Disableable, Selectable,
+    Disableable, Icon, Selectable, StyledExt,
 };
 
 impl MultisoulApp {
@@ -119,33 +119,99 @@ impl MultisoulApp {
 }
 
 impl MultisoulApp {
+    /// 画布 / 幕僚切换：胶囊底，选中项是浅色毛玻璃块；幕僚旁边的橙色数字是需要你处理的任务数。
     pub(crate) fn desktop_mode_switch(&self, cx: &mut Context<Self>) -> Div {
         let theme = self.staff_theme();
+        let light = self.theme.is_light();
+        let needs =
+            norma::protocol::staff_chip_counts(self.staff.tasks.values(), |_| true).needs_you;
+        let (track, thumb, edge) = if light {
+            (0x0000000f, 0xffffffff, 0x0000000d)
+        } else {
+            (0xffffff12, 0xffffff2b, 0xffffff14)
+        };
         let mut row = div()
             .flex()
             .items_center()
-            .gap(px(2.))
-            .p(px(3.))
+            .p(px(2.))
+            .h(px(34.))
             .rounded_full()
             .border_1()
-            .border_color(rgba(ui::icons::with_alpha(theme.text_primary, 22)))
-            .bg(rgba(ui::icons::with_alpha(theme.panel_high, 230)));
-        for (enabled, id, label) in [
-            (false, "desktop-canvas-mode", "staff.canvas"),
-            (true, "desktop-staff-toggle", "staff.mode"),
+            .border_color(rgba(edge))
+            .bg(rgba(track));
+        for (enabled, id, label, icon) in [
+            (
+                false,
+                "desktop-canvas-mode",
+                "staff.canvas",
+                "icons/grid.svg",
+            ),
+            (
+                true,
+                "desktop-staff-toggle",
+                "staff.mode",
+                "icons/message-square.svg",
+            ),
         ] {
             let selected = self.staff.enabled == enabled;
+            let variant = ButtonCustomVariant::new(cx)
+                .color(rgba(if selected { thumb } else { 0 }).into())
+                .foreground(
+                    rgba(if selected {
+                        theme.text_primary
+                    } else {
+                        theme.text_secondary
+                    })
+                    .into(),
+                )
+                .hover(
+                    rgba(if selected {
+                        thumb
+                    } else {
+                        ui::icons::with_alpha(theme.text_primary, 16)
+                    })
+                    .into(),
+                )
+                .active(rgba(thumb).into());
+            let badge = enabled && needs > 0;
             row = row.child(
                 Button::new(id)
                     .debug_selector(move || id.into())
-                    .label(ui::i18n::text(label))
+                    .custom(variant)
+                    .w(px(96.))
                     .h(px(30.))
-                    .px(px(16.))
-                    .text_size(px(13.))
                     .rounded_full()
-                    .custom(self.staff_button_style(selected, cx))
+                    .justify_center()
                     .selected(selected)
                     .disabled(enabled && self.desktop_workspace.active_id.is_none())
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(6.))
+                            .text_size(px(13.))
+                            .font_medium()
+                            .child(Icon::empty().path(icon).size(px(15.)))
+                            .child(ui::i18n::text(label))
+                            .when(badge, |content| {
+                                content.child(
+                                    div()
+                                        .min_w(px(16.))
+                                        .h(px(16.))
+                                        .px(px(4.))
+                                        .rounded_full()
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .bg(rgba(0xff9f0aff))
+                                        .text_color(rgba(0x111111ff))
+                                        .text_size(px(10.))
+                                        .font_bold()
+                                        .debug_selector(|| "desktop-staff-badge".into())
+                                        .child(needs.to_string()),
+                                )
+                            }),
+                    )
                     .on_click(cx.listener(move |app, _, window, cx| {
                         app.set_staff_mode(enabled, window, cx)
                     })),

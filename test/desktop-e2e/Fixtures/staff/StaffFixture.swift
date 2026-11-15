@@ -29,6 +29,12 @@ public enum StaffFixture {
         }
     }
 
+    /// 一条已落盘幕僚回复的正文（各段文字用空行连接）；不是幕僚回复时为 nil。
+    public static func replyText(_ message: [String: Any]) -> String? {
+        guard let reply = message["Staff"] as? [String: Any], let parts = reply["parts"] as? [[String: Any]] else { return nil }
+        return parts.compactMap { $0["Text"] as? String }.joined(separator: "\n\n")
+    }
+
     public static func records(_ root: URL, _ name: String) throws -> [[String: Any]] {
         let text = (try? String(contentsOf: root.appendingPathComponent(name), encoding: .utf8)) ?? ""
         return try text.split(separator: "\n").map {

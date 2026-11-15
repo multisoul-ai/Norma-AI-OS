@@ -33,7 +33,7 @@ while True:
     elif method == 'session/prompt':
         text = ''.join(part.get('text', '') for part in message['params']['prompt'])
         task = json.loads(text.split('\n任务快照：', 1)[1])
-        if not any('Question' in item for item in task['messages']):
+        if not task['questions']:
             fixtures = pathlib.Path(os.environ['FAKE_QUESTION_FIXTURES'])
             if os.environ.get('FAKE_QUESTION_PAUSE') == '1': time.sleep(.02)
             for index, provider in enumerate([os.environ.get('FAKE_QUESTION_FIRST', 'claude'), 'codex']):
@@ -51,7 +51,7 @@ while True:
             assert all(reply.get('result') == {'action': 'decline'} for reply in replies)
             answer = 'Current turn continued without a tool answer.'
         else:
-            user = [item['User']['text'] for item in task['messages'] if 'User' in item][-1]
+            user = [item.get('user') or item.get('answer') for item in task['messages'] if 'user' in item or 'answer' in item][-1]
             answer = 'NEXT TURN: ' + user
         send({'jsonrpc': '2.0', 'method': 'session/update', 'params': {
             'sessionId': 'staff-session', 'update': {'sessionUpdate': 'agent_message_chunk',

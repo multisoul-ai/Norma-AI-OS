@@ -90,7 +90,7 @@ fn staff_can_assign_follow_up_work_to_an_agent() {
     assert!(
         matches!(
             assigned.brain_op(),
-            Some(BrainOp::Task { op: StaffOp::Assign { task_id, agent, title, prompt, why } })
+            Some(BrainOp::Task { op: StaffOp::Assign { task_id, agent, title, prompt, why, .. } })
                 if task_id == "task-a" && agent == "Simon" && title == "Implement"
                     && prompt == "implement and test" && why == "Required"
         ),
@@ -102,6 +102,35 @@ fn staff_can_assign_follow_up_work_to_an_agent() {
         ])
         .is_err(),
         "assign without --why must be rejected"
+    );
+}
+
+/// 场景：幕僚续派给已有 Worker。
+/// 数据构造：`task assign task-a Simon --worker d-1 ...`。
+/// 预期结果：解析出的 `StaffOp::Assign` 带着 `worker = Some("d-1")`；不带 `--worker` 时为 None。
+#[test]
+fn task_assign_carries_the_target_worker() {
+    let parsed = |extra: &[&str]| {
+        let mut args = vec!["norma", "brain", "task", "assign", "task-a", "Simon"];
+        args.extend_from_slice(extra);
+        args.extend(["--title", "T", "--prompt", "P", "--why", "W"]);
+        parse_command_from(args).expect("task assign")
+    };
+    let worker = |command: &CardCommand| match command.brain_op() {
+        Some(BrainOp::Task {
+            op: StaffOp::Assign { worker, .. },
+        }) => worker.clone(),
+        other => panic!("unexpected op {other:?}"),
+    };
+    assert_eq!(
+        worker(&parsed(&["--worker", "d-1"])).as_deref(),
+        Some("d-1"),
+        "--worker must reach the op"
+    );
+    assert_eq!(
+        worker(&parsed(&[])).as_deref(),
+        None,
+        "plain assign has no target worker"
     );
 }
 

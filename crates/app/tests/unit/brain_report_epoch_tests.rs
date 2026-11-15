@@ -38,7 +38,7 @@ fn fixture(speak: bool) -> Fixture {
         app.install_brain_host_for_test(super::super::BrainHost {
             service: None,
             status,
-            tokens: brain::staff::gate::Tokens::new("report-token", "staff-token"),
+            tokens: brain::staff::gate::Tokens::new("report-token"),
         });
         let settings = config::BrainSettings {
             enabled: true,

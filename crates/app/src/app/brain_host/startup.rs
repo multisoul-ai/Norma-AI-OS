@@ -26,7 +26,7 @@ impl MultisoulApp {
             let paths = norma::orchestration::InstallPaths::for_current_process()
                 .map_err(|error| error.to_string())?;
             let token = uuid::Uuid::new_v4().simple().to_string();
-            let staff_token = uuid::Uuid::new_v4().simple().to_string();
+            let staff_tokens = brain::staff::gate::StaffTokens::default();
             let models = settings.models_for(backend.kind);
             let norma_bin = config::shell_safe_bin(&state_dir, paths.bundled_cli.clone());
             let skill_ready = config::sync_brain_skill(&paths, backend.kind, &norma_bin);
@@ -41,12 +41,12 @@ impl MultisoulApp {
             config.router.quiet_window = config::quiet_window();
             // Global adapters must name each event's exact source on every CLI action.
             config.env = config::adapter_env(&token, "", "");
-            config.staff_token = Some(staff_token.clone());
+            config.staff_tokens = Some(staff_tokens.clone());
             let (service, status) = BrainService::start(config);
             Ok::<_, String>(BrainHost {
                 service: Some(service),
                 status,
-                tokens: brain::staff::gate::Tokens::new(&token, &staff_token),
+                tokens: brain::staff::gate::Tokens::with_staff(&token, staff_tokens),
             })
         });
         cx.spawn(async move |_, _| {

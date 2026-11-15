@@ -24,7 +24,7 @@ impl gpui::Render for ContentHost {
             app.ensure_staff_inputs(window, cx);
             (
                 app.staff_message_list(&self.task, window, cx),
-                app.staff_composer(Some(&self.task), "Alpha", window, cx),
+                app.staff_composer(window, cx),
             )
         });
         div()

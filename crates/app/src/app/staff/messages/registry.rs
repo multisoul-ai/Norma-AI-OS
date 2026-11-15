@@ -7,20 +7,19 @@ pub(super) fn render(
     cx: &mut Context<MultisoulApp>,
 ) -> AnyElement {
     match message {
-        TaskMessage::Question { question } => {
-            card::question::Question(question).render(ctx, window, cx)
-        }
         TaskMessage::User { .. } => text::user::User(message).render(ctx, window, cx),
-        TaskMessage::Norma { .. } => text::prose::Prose(message).render(ctx, window, cx),
-        TaskMessage::Proposal { .. } => card::proposal::Proposal(message).render(ctx, window, cx),
+        TaskMessage::Staff(reply) => reply::Reply(reply).render(ctx, window, cx),
+        TaskMessage::WorkerQuestion { question_id } => match ctx.task.question(question_id) {
+            Some(question) => card::question::Question(question).render(ctx, window, cx),
+            None => div().into_any_element(),
+        },
         TaskMessage::WorkerFinished { .. } => {
             card::worker_result::WorkerResult(message).render(ctx, window, cx)
         }
-        TaskMessage::WorkerNeedsAttention { .. } => {
-            card::needs_attention::NeedsAttention(message).render(ctx, window, cx)
-        }
-        TaskMessage::WorkerStarted { .. } | TaskMessage::Reopened => {
-            text::notice::Notice(message).render(ctx, window, cx)
-        }
+        TaskMessage::WorkerNeedsAttention { .. }
+        | TaskMessage::WorkerStarted { .. }
+        | TaskMessage::Reopened => card::event::Event(message).render(ctx, window, cx),
+        // 答案在问题卡上原地显示，这条只是状态标记，行排序已经跳过它。
+        TaskMessage::Answered { .. } => div().into_any_element(),
     }
 }

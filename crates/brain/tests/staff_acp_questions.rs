@@ -86,14 +86,7 @@ fn concurrent_questions(kind: BackendKind, provider: &str, pause: bool) {
     }
     let mut next = None;
     if let Some(task) = &pending {
-        let questions: Vec<_> = task
-            .messages
-            .iter()
-            .filter_map(|message| match message {
-                TaskMessage::Question { question } => Some(question),
-                _ => None,
-            })
-            .collect();
+        let questions: Vec<_> = task.questions.iter().collect();
         let item = &questions[0].items[0];
         let dark = item
             .options
@@ -122,7 +115,7 @@ fn concurrent_questions(kind: BackendKind, provider: &str, pause: bool) {
             statuses.recv_timeout(deadline.saturating_duration_since(Instant::now()))
         {
             if let BrainStatusKind::TaskChanged(task) = status.kind {
-                if task.messages.iter().any(|m| matches!(m, TaskMessage::Norma{text} if text.contains("NEXT TURN:") && text.contains("Dark"))) {
+                if task.messages.iter().any(|m| matches!(m, TaskMessage::Staff(reply) if reply.text().contains("NEXT TURN:") && reply.text().contains("Dark"))) {
                     next = Some(task); break;
                 }
             }

@@ -9,23 +9,70 @@ pub enum BrainRole {
     Staff,
 }
 
-/// 一次大脑启动里下发的两个 token。
+/// 幕僚会话的任务专属 token：每个会话（一个后端进程）只服务一个任务，
+/// 宿主凭 token 就知道命令来自哪个任务，不必猜「当前在跑的是哪个」。
+#[derive(Clone, Debug, Default)]
+pub struct StaffTokens {
+    bound: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, String>>>,
+}
+
+impl StaffTokens {
+    /// 为任务铸一把新 token 并登记；会话结束时 `revoke`。
+    pub fn mint(&self, task_id: &str) -> String {
+        let token = uuid::Uuid::new_v4().simple().to_string();
+        self.bind(&token, task_id);
+        token
+    }
+
+    pub fn bind(&self, token: &str, task_id: &str) {
+        self.map().insert(token.to_owned(), task_id.to_owned());
+    }
+
+    pub fn revoke(&self, token: &str) {
+        self.map().remove(token);
+    }
+
+    pub fn task_of(&self, token: &str) -> Option<String> {
+        self.map().get(token).cloned()
+    }
+
+    fn map(&self) -> std::sync::MutexGuard<'_, std::collections::HashMap<String, String>> {
+        self.bound
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+}
+
+/// 一次大脑启动里下发的 token：一个主大脑 token，加按任务铸造的幕僚 token。
 #[derive(Clone, Debug)]
 pub struct Tokens {
     main: String,
-    staff: String,
+    staff: StaffTokens,
 }
 
 impl Tokens {
-    pub fn new(main: &str, staff: &str) -> Self {
+    pub fn new(main: &str) -> Self {
+        Self::with_staff(main, StaffTokens::default())
+    }
+
+    pub fn with_staff(main: &str, staff: StaffTokens) -> Self {
         Self {
             main: main.into(),
-            staff: staff.into(),
+            staff,
         }
     }
 
     pub fn main(&self) -> &str {
         &self.main
+    }
+
+    /// 幕僚 token 对应的任务；主大脑、陌生和空 token 都没有。
+    pub fn staff_task(&self, token: &str) -> Option<String> {
+        if token.is_empty() {
+            None
+        } else {
+            self.staff.task_of(token)
+        }
     }
 
     /// 空 token 和陌生 token 都没有角色。
@@ -34,7 +81,7 @@ impl Tokens {
             None
         } else if token == self.main {
             Some(BrainRole::Main)
-        } else if token == self.staff {
+        } else if self.staff.task_of(token).is_some() {
             Some(BrainRole::Staff)
         } else {
             None

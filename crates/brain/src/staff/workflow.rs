@@ -1,5 +1,5 @@
 use super::{missing, TaskStore};
-use norma::protocol::{StaffOp, StaffProposal, Task, TaskMessage, TaskPhase, Worker};
+use norma::protocol::{StaffOp, StaffPart, StaffProposal, Task, TaskMessage, TaskPhase, Worker};
 use std::io;
 
 impl TaskStore {
@@ -28,9 +28,12 @@ impl TaskStore {
                     require_text(&text)?;
                     task.user_message(&text);
                 }
-                StaffOp::Reply { text, .. } => {
-                    require_text(&text)?;
-                    task.messages.push(TaskMessage::Norma { text });
+                // 回复正文只来自幕僚的流式文字；`task reply` 不再写入对话，避免同一句话两个来源。
+                StaffOp::Reply { .. } => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "staff.reply_removed",
+                    ))
                 }
                 StaffOp::Phase { phase, .. } => task.set_phase(phase, false),
                 StaffOp::Propose {
@@ -84,15 +87,32 @@ impl TaskStore {
                         round,
                         auto: false,
                         downgrade: None,
+                        superseded: false,
+                        target_worker: None,
                     });
-                    task.messages
-                        .push(TaskMessage::Proposal { proposal_id: id });
+                    task.attach_card(StaffPart::Proposal(id));
                 }
                 StaffOp::Adopt { .. } | StaffOp::Assign { .. } => {
                     return Err(io::Error::new(
                         io::ErrorKind::PermissionDenied,
                         "adoption requires host dispatch",
                     ))
+                }
+                StaffOp::RemoveWorker { worker, .. } => {
+                    if !task.remove_worker(&worker) {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "staff.worker_unknown",
+                        ));
+                    }
+                }
+                StaffOp::RestoreWorker { worker, .. } => {
+                    if !task.restore_worker(&worker) {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "staff.worker_unknown",
+                        ));
+                    }
                 }
                 StaffOp::Archive { archived, .. } => task.set_archived(archived),
                 StaffOp::Create { .. } | StaffOp::List => {
@@ -128,7 +148,7 @@ impl TaskStore {
                 .iter_mut()
                 .find(|p| p.id == proposal_id)
                 .ok_or_else(missing)?;
-            if proposal.ignored || proposal.dispatch_id.is_some() {
+            if proposal.ignored || proposal.superseded || proposal.dispatch_id.is_some() {
                 return Err(io::Error::new(
                     io::ErrorKind::PermissionDenied,
                     "staff.proposal_unavailable",
@@ -202,6 +222,55 @@ impl TaskStore {
             task.set_phase(TaskPhase::Active, false);
             task.updated_at = norma::protocol::timestamp();
             Ok(task.clone())
+        })
+    }
+
+    /// 续派：已批准的提议绑定到它指向的已结束 Worker，卡片和 dispatch_id 都不变。
+    /// 进程的环境变量里带着原 dispatch_id，换新会让它之后的 hook 全被拒收。
+    pub fn rebind_worker(
+        &self,
+        workspace: &str,
+        id: &str,
+        proposal_id: u64,
+        launch_prompt: &str,
+    ) -> io::Result<Task> {
+        self.update(workspace, id, |task| {
+            let proposal = task
+                .proposals
+                .iter_mut()
+                .find(|p| p.id == proposal_id)
+                .ok_or_else(missing)?;
+            let Some(target) = proposal.target_worker.clone() else {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "proposal has no target worker",
+                ));
+            };
+            if proposal.ignored || !proposal.approved || proposal.dispatch_id.is_some() {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "proposal not approved or already dispatched",
+                ));
+            }
+            let worker = task
+                .workers
+                .iter_mut()
+                .find(|w| w.dispatch_id == target && w.outcome.is_some())
+                .ok_or_else(missing)?;
+            if worker.agent != proposal.agent {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "staff.worker_agent_mismatch",
+                ));
+            }
+            worker.outcome = None;
+            worker.needs_input = false;
+            worker.state = norma::protocol::WorkerState::Active;
+            worker.prompt_delivered = false;
+            worker.launch_prompt = launch_prompt.into();
+            proposal.dispatch_id = Some(target);
+            task.set_phase(TaskPhase::Active, false);
+            Ok(())
         })
     }
 

@@ -183,6 +183,28 @@ pub fn decide_assign(context: &AssignContext, agent: &str, text: &str) -> Assign
     AssignDecision::Dispatch
 }
 
+/// 续派已有 Worker：用户这一轮发过话就不再问（也不要求它刚完成、不计自动次数），
+/// 否则按「后续任务」设置；风险词照旧降级为提议。
+/// 事件触发的回合（没有用户发话）仍受自动次数上限约束，避免「Worker 完成 → 续派 → 完成」无限循环。
+pub fn decide_continue(
+    auto: bool,
+    user_turn: bool,
+    auto_dispatches: u32,
+    text: &str,
+) -> AssignDecision {
+    if !user_turn && !auto {
+        return AssignDecision::Propose(ProposeReason::AutonomyAsk);
+    }
+    if !user_turn && auto_dispatches >= AUTO_DISPATCH_LIMIT {
+        return AssignDecision::Propose(ProposeReason::LimitReached);
+    }
+    let risks = risk_categories(text);
+    if !risks.is_empty() {
+        return AssignDecision::Propose(ProposeReason::Risk(risks));
+    }
+    AssignDecision::Dispatch
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Verdict {
     Allow,
@@ -210,13 +232,18 @@ pub fn authorize_staff(op: &BrainOp, task_done: bool) -> Verdict {
         BrainOp::Answer { .. } => denied("staff.denied.answer"),
         BrainOp::Assign { .. } => denied("staff.denied.legacy_assign"),
         BrainOp::Task { op } => match op {
-            StaffOp::Reply { .. }
-            | StaffOp::Phase { .. }
-            | StaffOp::Propose { .. }
-            | StaffOp::Assign { .. } => Verdict::Allow,
+            StaffOp::Phase { .. } | StaffOp::Propose { .. } | StaffOp::Assign { .. } => {
+                Verdict::Allow
+            }
+            // 回复正文只来自流式文字；`task reply` 会造成同一句话两个来源。
+            StaffOp::Reply { .. } => denied("staff.denied.reply"),
             StaffOp::Create { .. } | StaffOp::List => denied("staff.denied.task_scope"),
             StaffOp::Message { .. } => denied("staff.denied.user_message"),
             StaffOp::Adopt { .. } => denied("staff.denied.adopt"),
+            // 暂只给用户；以后开放给幕僚时改这里，并在 skill 里加命令。
+            StaffOp::RemoveWorker { .. } | StaffOp::RestoreWorker { .. } => {
+                denied("staff.denied.remove_worker")
+            }
             StaffOp::Archive {
                 archived: false, ..
             } => denied("staff.denied.unarchive"),

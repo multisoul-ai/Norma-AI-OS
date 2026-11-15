@@ -1,16 +1,20 @@
-use brain::staff::gate::{authorize, history_in_task, staff_env, BrainRole, GateContext, Tokens};
+use brain::staff::gate::{
+    authorize, history_in_task, staff_env, BrainRole, GateContext, StaffTokens, Tokens,
+};
 use brain::staff::policy::Verdict;
 use norma::protocol::{BrainOp, StaffOp};
 
 fn tokens() -> Tokens {
-    Tokens::new("main-token", "staff-token")
+    let staff = StaffTokens::default();
+    staff.bind("staff-token", "a");
+    Tokens::with_staff("main-token", staff)
 }
 
 fn reply(task_id: &str) -> BrainOp {
     BrainOp::Task {
-        op: StaffOp::Reply {
+        op: StaffOp::Phase {
             task_id: task_id.into(),
-            text: "ok".into(),
+            phase: norma::protocol::TaskPhase::Merging,
         },
     }
 }
@@ -171,4 +175,39 @@ fn history_is_limited_to_cards_this_task_dispatched() {
     assert!(history_in_task(&task, Some(10)), "this task's card");
     assert!(!history_in_task(&task, Some(11)), "same agent, other card");
     assert!(!history_in_task(&task, None), "no open card");
+}
+
+/// 场景：每个幕僚会话拿到自己任务的专属 token，宿主凭 token 认出它属于哪个任务。
+/// 数据构造：为任务 a、b 各铸一把 token；再撤销 a 的。
+/// 预期结果：两把 token 不同且各自对应自己的任务，角色都是幕僚；撤销后 a 的 token 不再有角色，b 的不受影响。
+#[test]
+fn each_staff_session_token_belongs_to_one_task() {
+    let staff = StaffTokens::default();
+    let tokens = Tokens::with_staff("main-token", staff.clone());
+    let a = staff.mint("task-a");
+    let b = staff.mint("task-b");
+    assert_ne!(a, b, "check: tokens differ");
+    assert_eq!(
+        tokens.staff_task(&a).as_deref(),
+        Some("task-a"),
+        "check: a task"
+    );
+    assert_eq!(
+        tokens.staff_task(&b).as_deref(),
+        Some("task-b"),
+        "check: b task"
+    );
+    assert_eq!(tokens.role(&a), Some(BrainRole::Staff), "check: a role");
+    assert_eq!(
+        tokens.staff_task("main-token"),
+        None,
+        "主大脑 token 不属于任何任务"
+    );
+    staff.revoke(&a);
+    assert_eq!(tokens.role(&a), None, "撤销后 a 的 token 没有角色");
+    assert_eq!(
+        tokens.staff_task(&b).as_deref(),
+        Some("task-b"),
+        "b 不受影响"
+    );
 }

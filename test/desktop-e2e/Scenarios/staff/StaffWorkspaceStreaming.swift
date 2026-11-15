@@ -125,7 +125,7 @@ public enum StaffWorkspaceStreaming {
     }
     private static func normaReplies(_ root: URL) throws -> [String] {
         try StaffFixture.tasks(root).flatMap { task in
-            (task["messages"] as? [[String: Any]] ?? []).compactMap { ($0["Norma"] as? [String: Any])?["text"] as? String }
+            (task["messages"] as? [[String: Any]] ?? []).compactMap { StaffFixture.replyText($0) }
         }
     }
     private static func waitFor(_ label: String, _ condition: () throws -> Bool) async throws {

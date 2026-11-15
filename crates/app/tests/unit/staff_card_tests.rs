@@ -1,8 +1,6 @@
 use super::*;
 use gpui::{div, prelude::*, px, size, AppContext, Render, TestAppContext, Window};
-use norma::protocol::{
-    QuestionItem, QuestionOption, StaffQuestion, StaffQuestionState, TaskMessage,
-};
+use norma::protocol::{QuestionItem, QuestionOption, StaffQuestion, StaffQuestionState};
 
 struct CardHost {
     app: Entity<MultisoulApp>,
@@ -50,9 +48,8 @@ fn staff_question_cards_render_each_state_and_remove_terminal_actions() {
         );
         question.state = state;
         let mut task = Task::new("t", "w", "p", "Theme");
-        task.messages.push(TaskMessage::Question {
-            question: Box::new(question),
-        });
+        task.attach_card(norma::protocol::StaffPart::Question(question.id.clone()));
+        task.questions.push(question);
         let mut test = TestAppContext::single();
         let (_, cx) = test.add_window_view(|_, cx| {
             let app = cx.new(|cx| {
@@ -106,6 +103,8 @@ fn staff_ignored_proposal_collapses_and_only_latest_can_restore() {
             round: 0,
             auto: false,
             downgrade: None,
+            superseded: false,
+            target_worker: None,
             approved: false,
             ignored: true,
             dispatch_id: None,
@@ -116,7 +115,7 @@ fn staff_ignored_proposal_collapses_and_only_latest_can_restore() {
             next.ignored = false;
             task.proposals.push(next);
         }
-        task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
+        task.attach_card(norma::protocol::StaffPart::Proposal(1));
         let mut test = TestAppContext::single();
         let (_, cx) = test.add_window_view(|_, cx| {
             let app = cx.new(|cx| {
@@ -163,11 +162,13 @@ fn proposal_task(prompt: &str) -> Task {
         round: 0,
         auto: false,
         downgrade: None,
+        superseded: false,
+        target_worker: None,
         approved: false,
         ignored: false,
         dispatch_id: None,
     });
-    task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
+    task.attach_card(norma::protocol::StaffPart::Proposal(1));
     task
 }
 

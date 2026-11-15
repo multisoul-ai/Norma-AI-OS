@@ -1,4 +1,5 @@
 //! 幕僚任务协议。任务与现有 AgentTaskReceipt（单次派发回执）分别建模。
+use super::StaffQuestion;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -37,6 +38,18 @@ pub enum StaffOp {
         title: String,
         prompt: String,
         why: String,
+        /// 续派给该 dispatch_id 的已有 Worker（同一张卡片），不新建。
+        #[serde(default)]
+        worker: Option<String>,
+    },
+    /// 用户移除 / 撤销移除一个 Worker（按 dispatch_id）；幕僚命令里没有这两个。
+    RemoveWorker {
+        task_id: String,
+        worker: String,
+    },
+    RestoreWorker {
+        task_id: String,
+        worker: String,
     },
     /// 归档或取消归档。模型命令只开放归档，取消归档只由用户在面板里操作。
     Archive {
@@ -55,6 +68,8 @@ impl StaffOp {
             | Self::Propose { task_id, .. }
             | Self::Adopt { task_id, .. }
             | Self::Assign { task_id, .. }
+            | Self::RemoveWorker { task_id, .. }
+            | Self::RestoreWorker { task_id, .. }
             | Self::Archive { task_id, .. } => Some(task_id),
         }
     }
@@ -69,15 +84,18 @@ pub enum TaskPhase {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum TaskMessage {
-    Question {
-        #[serde(default)]
-        question: Box<super::StaffQuestion>,
-    },
     User {
         text: String,
     },
-    Norma {
-        text: String,
+    /// 幕僚一个轮次的全部输出；流式时就地更新。
+    Staff(super::StaffReply),
+    /// 用户回答了问题；问题与答案在 `Task.questions`，卡片原地显示答案。
+    Answered {
+        question_id: String,
+    },
+    /// Worker 提问的镜像，不属于任何幕僚轮次。
+    WorkerQuestion {
+        question_id: String,
     },
     Reopened,
     WorkerFinished {
@@ -85,9 +103,6 @@ pub enum TaskMessage {
         dispatch_id: String,
         outcome: WorkerOutcome,
         text: String,
-    },
-    Proposal {
-        proposal_id: u64,
     },
     WorkerStarted {
         proposal_id: u64,
@@ -172,6 +187,12 @@ pub struct StaffProposal {
     /// 幕僚想直接派发但被降级为提议的原因码（见 `ProposeReason::code`）。
     #[serde(default)]
     pub downgrade: Option<String>,
+    /// 更新的完整方案出现后，旧的待采用提议保留在原回合里，只标记为已替换。
+    #[serde(default)]
+    pub superseded: bool,
+    /// 续派目标：该 dispatch_id 的 Worker 继续做这条提议，而不是新建卡片。
+    #[serde(default)]
+    pub target_worker: Option<String>,
 }
 
 impl Worker {
@@ -234,6 +255,9 @@ pub struct Task {
     pub messages: Vec<TaskMessage>,
     pub workers: Vec<Worker>,
     pub proposals: Vec<StaffProposal>,
+    /// 幕僚、ACP 原生提问与 Worker 提问的本体；消息里只放引用。
+    #[serde(default)]
+    pub questions: Vec<StaffQuestion>,
     /// 缺字段的旧快照视为未归档。
     #[serde(default)]
     pub archived: bool,
@@ -243,6 +267,9 @@ pub struct Task {
     /// 幕僚未经用户采用自动派发的次数；用户采用任意一条提议后清零。旧快照缺字段时为 0。
     #[serde(default)]
     pub auto_dispatches: u32,
+    /// 用户移除的 Worker，保留到下次清理，供撤销。
+    #[serde(default)]
+    pub removed_workers: Vec<super::RemovedWorker>,
 }
 
 impl Task {
@@ -262,31 +289,30 @@ impl Task {
             messages: Vec::new(),
             workers: Vec::new(),
             proposals: Vec::new(),
+            questions: Vec::new(),
             archived: false,
             round: 0,
             auto_dispatches: 0,
+            removed_workers: Vec::new(),
         }
     }
 
-    /// 轮末整批替换：本轮提过提议（含原样重提）时，删除更早轮次留下的待采用提议及其消息。
+    /// 轮末整批替换：本轮提过提议（含原样重提）时，更早轮次留下的待采用提议标记为已替换。
+    /// 回合内容和卡片引用保留，卡片显示“已被新方案替换”。
     pub fn supersede_stale_proposals(&mut self) {
-        if !self.proposals.iter().any(|p| p.round == self.round) {
+        let round = self.round;
+        if !self.proposals.iter().any(|p| p.round == round) {
             return;
         }
-        let round = self.round;
-        let stale = |p: &StaffProposal| {
-            p.round < round && !p.approved && !p.ignored && p.dispatch_id.is_none()
-        };
-        let gone: Vec<u64> = self
-            .proposals
-            .iter()
-            .filter(|p| stale(p))
-            .map(|p| p.id)
-            .collect();
-        self.proposals.retain(|p| !stale(p));
-        self.messages.retain(
-            |m| !matches!(m, TaskMessage::Proposal { proposal_id } if gone.contains(proposal_id)),
-        );
+        for proposal in &mut self.proposals {
+            if proposal.round < round
+                && !proposal.approved
+                && !proposal.ignored
+                && proposal.dispatch_id.is_none()
+            {
+                proposal.superseded = true;
+            }
+        }
     }
 
     pub fn set_phase(&mut self, phase: TaskPhase, manual: bool) {
@@ -333,16 +359,13 @@ impl Task {
             TaskPhase::Merging => return TaskDisplayStatus::Merging,
             TaskPhase::Active => {}
         }
-        if self
-            .proposals
-            .iter()
-            .any(|proposal| proposal.dispatch_id.is_none() && !proposal.ignored)
-            || self.workers.iter().any(|worker| {
-                worker.needs_input
-                    || worker.state != WorkerState::Active
-                    || worker.outcome == Some(WorkerOutcome::Unavailable)
-            })
-        {
+        if self.proposals.iter().any(|proposal| {
+            proposal.dispatch_id.is_none() && !proposal.ignored && !proposal.superseded
+        }) || self.workers.iter().any(|worker| {
+            worker.needs_input
+                || worker.state != WorkerState::Active
+                || worker.outcome == Some(WorkerOutcome::Unavailable)
+        }) {
             TaskDisplayStatus::NeedsYou
         } else if self.workers.iter().any(|worker| {
             worker.outcome.is_none()
@@ -388,14 +411,12 @@ impl Task {
             text: text.into(),
         });
         self.updated_at = timestamp();
-        if self
-            .proposals
+        if self.proposals.iter().all(|proposal| {
+            proposal.dispatch_id.is_some() || proposal.ignored || proposal.superseded
+        }) && self
+            .workers
             .iter()
-            .all(|proposal| proposal.dispatch_id.is_some() || proposal.ignored)
-            && self
-                .workers
-                .iter()
-                .all(|worker| worker.outcome == Some(WorkerOutcome::Succeeded))
+            .all(|worker| worker.outcome == Some(WorkerOutcome::Succeeded))
         {
             self.set_phase(TaskPhase::Merging, false);
         }

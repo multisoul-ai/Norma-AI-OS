@@ -8,6 +8,7 @@ mod decisions;
 mod dispatch;
 mod events;
 mod input;
+mod resume;
 mod worker_questions;
 
 impl MultisoulApp {

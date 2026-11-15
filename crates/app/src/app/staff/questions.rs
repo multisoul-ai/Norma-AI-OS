@@ -1,6 +1,6 @@
 use super::*;
 use gpui::Window;
-use norma::protocol::{StaffQuestionState, TaskMessage};
+use norma::protocol::StaffQuestionState;
 
 impl MultisoulApp {
     pub(crate) fn staff_question_status(
@@ -38,8 +38,8 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        for message in &task.messages {
-            if let TaskMessage::Question { question } = message {
+        for question in &task.questions {
+            {
                 if question.state == StaffQuestionState::Pending {
                     if !self.staff.question_editors.contains_key(&question.id) {
                         let editor = crate::workspace::desktop::QuestionEditor::from_items(

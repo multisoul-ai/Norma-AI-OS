@@ -1,4 +1,4 @@
-use norma::protocol::{StaffQuestion, StaffQuestionState, Task, TaskDisplayStatus, TaskMessage};
+use norma::protocol::{StaffQuestion, StaffQuestionState, Task, TaskDisplayStatus};
 use serde_json::json;
 
 /// 场景：旧提议仍待决定，忽略的提议持久化后不再要求用户采用。
@@ -41,10 +41,10 @@ fn old_proposals_remain_pending_but_ignored_proposals_do_not_need_you() {
 #[test]
 fn question_messages_roundtrip_and_only_pending_questions_need_you() {
     let mut value = serde_json::to_value(Task::new("t", "w", "p", "Ship")).expect("task");
-    value["messages"] = json!([{"Question":{"question":{"id":"q", "state":"Pending", "items":[{
+    value["questions"] = json!([{"id":"q", "state":"Pending", "items":[{
         "key":"theme", "prompt":"Theme?", "options":[{"key":"light","label":"Light"},{"key":"dark","label":"Dark"}],
         "multiple":false, "allow_custom":true, "secret":false
-    }]}}}]);
+    }]}]);
     let pending: Task =
         serde_json::from_value(value.clone()).expect("question message must deserialize");
     assert_eq!(
@@ -52,7 +52,7 @@ fn question_messages_roundtrip_and_only_pending_questions_need_you() {
         TaskDisplayStatus::NeedsYou,
         "待答需要用户"
     );
-    value["messages"][0]["Question"]["question"]["state"] = json!("Answered");
+    value["questions"][0]["state"] = json!("Answered");
     let answered: Task = serde_json::from_value(value).expect("answered question");
     assert_eq!(
         answered.display_status(),
@@ -66,11 +66,11 @@ fn question_messages_roundtrip_and_only_pending_questions_need_you() {
     );
     let roundtrip = serde_json::to_value(answered).expect("serialize");
     assert_eq!(
-        roundtrip["messages"][0]["Question"]["question"]["state"], "Answered",
+        roundtrip["questions"][0]["state"], "Answered",
         "回答状态不能丢失"
     );
     assert_eq!(
-        roundtrip["messages"][0]["Question"]["question"]["items"][0]["prompt"], "Theme?",
+        roundtrip["questions"][0]["items"][0]["prompt"], "Theme?",
         "题目是用户内容，原文保留"
     );
 }
@@ -82,21 +82,16 @@ fn question_messages_roundtrip_and_only_pending_questions_need_you() {
 fn pending_question_takes_priority_over_review_phase() {
     let mut task = Task::new("t", "w", "p", "Review");
     task.phase = norma::protocol::TaskPhase::Merging;
-    task.messages.push(TaskMessage::Question {
-        question: Box::new(StaffQuestion {
-            state: StaffQuestionState::Pending,
-            ..StaffQuestion::default()
-        }),
+    task.questions.push(StaffQuestion {
+        state: StaffQuestionState::Pending,
+        ..StaffQuestion::default()
     });
     assert_eq!(
         task.display_status(),
         TaskDisplayStatus::NeedsYou,
         "待验收任务的新问题必须进入需要你筛选"
     );
-    let TaskMessage::Question { question } = &mut task.messages[0] else {
-        panic!("question")
-    };
-    question.state = StaffQuestionState::Answered;
+    task.questions[0].state = StaffQuestionState::Answered;
     assert_eq!(
         task.display_status(),
         TaskDisplayStatus::Merging,

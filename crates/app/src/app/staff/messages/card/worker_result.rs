@@ -3,6 +3,14 @@ use super::shell;
 use gpui::rgba;
 use norma::protocol::WorkerOutcome;
 use runtime::island::bloub::Mood;
+use ui::i18n::text as t;
+
+/// 折叠时显示的摘要行数。
+const SUMMARY_LINES: usize = 3;
+/// 摘要的固定行高；折叠高度 = 行数 × 行高，折行的长段落也只占 3 行。
+const SUMMARY_LINE_HEIGHT: f32 = 20.;
+/// 一段话折行后可能超过摘要行数，约这么多字就算长。
+const SUMMARY_CHARS: usize = 120;
 
 pub(in crate::app::staff::messages) struct WorkerResult<'a>(pub &'a TaskMessage);
 
@@ -11,7 +19,7 @@ impl MessageBlock for WorkerResult<'_> {
         &self,
         ctx: &BlockCtx,
         _window: &mut Window,
-        _cx: &mut Context<MultisoulApp>,
+        cx: &mut Context<MultisoulApp>,
     ) -> AnyElement {
         let task = ctx.task;
         let theme = ctx.app.staff_theme();
@@ -57,19 +65,60 @@ impl MessageBlock for WorkerResult<'_> {
                         ),
                 )
                 .when(*outcome != WorkerOutcome::Unavailable, |row| {
-                    row.child(div().text_size(px(tokens::LABEL_TEXT)).child(
-                        if matches!(
-                            text.as_str(),
-                            "staff.worker_failed"
-                                | "staff.worker_cancelled"
-                                | "staff.worker_not_ready"
-                                | "staff.worker_needs_attention"
-                        ) {
-                            error_message(text.clone()).to_string()
-                        } else {
-                            text.clone()
-                        },
-                    ))
+                    let body = if matches!(
+                        text.as_str(),
+                        "staff.worker_failed"
+                            | "staff.worker_cancelled"
+                            | "staff.worker_not_ready"
+                            | "staff.worker_needs_attention"
+                    ) {
+                        error_message(text.clone()).to_string()
+                    } else {
+                        text.clone()
+                    };
+                    // 默认只显示 3 行（按显示行数截断，长段落折行后也不会顶到按钮），长结果可以展开。
+                    let key = format!("worker-result-{}-{}", task.id, ctx.index);
+                    let long = body.lines().count() > SUMMARY_LINES
+                        || body.chars().count() > SUMMARY_CHARS;
+                    let open = ctx.app.staff.expanded.contains(&key);
+                    let index = ctx.index;
+                    row.child(
+                        div()
+                            .text_size(px(tokens::LABEL_TEXT))
+                            .line_height(px(SUMMARY_LINE_HEIGHT))
+                            .when(long && !open, |text| {
+                                text.max_h(px(SUMMARY_LINE_HEIGHT * SUMMARY_LINES as f32))
+                                    .overflow_hidden()
+                            })
+                            .child(body),
+                    )
+                    .when(long, |row| {
+                        // 放进横向容器里，按钮只占内容宽度，不再撑满整行。
+                        row.child(
+                            div().flex().child(
+                                shell::action_button(
+                                    ctx,
+                                    ("staff-result-toggle", index),
+                                    false,
+                                    cx,
+                                )
+                                .debug_selector(move || format!("staff-result-toggle-{index}"))
+                                .label(t(if open {
+                                    "staff.result_collapse"
+                                } else {
+                                    "staff.result_expand"
+                                }))
+                                .on_click(cx.listener(
+                                    move |app, _, _, cx| {
+                                        if !app.staff.expanded.remove(&key) {
+                                            app.staff.expanded.insert(key.clone());
+                                        }
+                                        app.notify_staff(cx);
+                                    },
+                                )),
+                            ),
+                        )
+                    })
                 });
         }
         row.into_any_element()
