@@ -145,5 +145,8 @@
   "staff.copied": "已复制",
   "staff.regenerate": "重新生成",
   "staff.proposal_superseded_note": "已被新方案替换",
-  "staff.worker_needs_attention_short": "任务还没送达"
+  "staff.worker_needs_attention_short": "任务还没送达",
+  "staff.scroll_latest": "回到最新",
+  "staff.result_expand": "展开全文",
+  "staff.result_collapse": "收起"
 }

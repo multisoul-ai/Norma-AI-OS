@@ -6,6 +6,7 @@ fn norma(words: &[&str]) -> StepTitle {
 
 /// 场景：已知 norma 子命令显示成人话，未知的只显示命令词，工具名原样；任何情况下都没有路径。
 /// 数据构造：brain agents、brain task propose、一个未知子命令、Bash 工具。
+/// 执行过程：逐个调用 label 取展示文案。
 /// 预期结果：前两个走 i18n 表（不等于原始命令词）；未知的是「norma brain frobnicate」；工具名原样；结果里没有「/」。
 #[test]
 fn known_commands_are_translated_and_unknown_ones_stay_command_words() {

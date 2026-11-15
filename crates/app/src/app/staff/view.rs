@@ -108,7 +108,42 @@ impl MultisoulApp {
                 center = center.child(self.staff_archived_banner());
             }
             let messages = self.staff_message_list(task, window, cx);
-            center = center.child(messages);
+            let theme = self.staff_theme();
+            // 用户上翻后不抢滚动；离开底部时给出「回到最新」，点一下回到底部并恢复跟随。
+            let latest = (!self.staff_near_bottom()).then(|| {
+                div()
+                    .absolute()
+                    .left_0()
+                    .right_0()
+                    .bottom(px(12.))
+                    .flex()
+                    .justify_center()
+                    .child(
+                        Button::new("staff-scroll-latest")
+                            .debug_selector(|| "staff-scroll-latest".into())
+                            .custom(self.staff_button_style(false, cx))
+                            .small()
+                            .h(px(32.))
+                            .px(px(16.))
+                            .rounded_full()
+                            .bg(rgba(theme.panel_high))
+                            .label(t("staff.scroll_latest"))
+                            .on_click(cx.listener(|app, _, _, cx| {
+                                app.staff.scroll.scroll_to_bottom();
+                                app.notify_staff(cx);
+                            })),
+                    )
+            });
+            center = center.child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .flex()
+                    .flex_col()
+                    .child(messages)
+                    .children(latest),
+            );
         } else {
             center = center.child(
                 div()
@@ -190,6 +225,8 @@ impl MultisoulApp {
         let mut messages = div()
             .id("staff-messages")
             .track_scroll(&self.staff.scroll)
+            // 滚动位置不触发重绘；通知一次，「回到最新」才能随位置出现或消失。
+            .on_scroll_wheel(cx.listener(|app, _, _, cx| app.notify_staff(cx)))
             .debug_selector(|| "staff-messages".into())
             .flex_1()
             .min_h_0()

@@ -145,5 +145,8 @@
   "staff.copied": "Copied",
   "staff.regenerate": "Regenerate",
   "staff.proposal_superseded_note": "Replaced by a newer plan",
-  "staff.worker_needs_attention_short": "Task not delivered"
+  "staff.worker_needs_attention_short": "Task not delivered",
+  "staff.scroll_latest": "Back to latest",
+  "staff.result_expand": "Show all",
+  "staff.result_collapse": "Show less"
 }

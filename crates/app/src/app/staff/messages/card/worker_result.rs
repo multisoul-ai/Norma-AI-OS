@@ -3,6 +3,10 @@ use super::shell;
 use gpui::rgba;
 use norma::protocol::WorkerOutcome;
 use runtime::island::bloub::Mood;
+use ui::i18n::text as t;
+
+/// 折叠时显示的摘要行数。
+const SUMMARY_LINES: usize = 3;
 
 pub(in crate::app::staff::messages) struct WorkerResult<'a>(pub &'a TaskMessage);
 
@@ -11,7 +15,7 @@ impl MessageBlock for WorkerResult<'_> {
         &self,
         ctx: &BlockCtx,
         _window: &mut Window,
-        _cx: &mut Context<MultisoulApp>,
+        cx: &mut Context<MultisoulApp>,
     ) -> AnyElement {
         let task = ctx.task;
         let theme = ctx.app.staff_theme();
@@ -57,19 +61,55 @@ impl MessageBlock for WorkerResult<'_> {
                         ),
                 )
                 .when(*outcome != WorkerOutcome::Unavailable, |row| {
-                    row.child(div().text_size(px(tokens::LABEL_TEXT)).child(
-                        if matches!(
-                            text.as_str(),
-                            "staff.worker_failed"
-                                | "staff.worker_cancelled"
-                                | "staff.worker_not_ready"
-                                | "staff.worker_needs_attention"
-                        ) {
-                            error_message(text.clone()).to_string()
-                        } else {
-                            text.clone()
-                        },
-                    ))
+                    let body = if matches!(
+                        text.as_str(),
+                        "staff.worker_failed"
+                            | "staff.worker_cancelled"
+                            | "staff.worker_not_ready"
+                            | "staff.worker_needs_attention"
+                    ) {
+                        error_message(text.clone()).to_string()
+                    } else {
+                        text.clone()
+                    };
+                    // 默认只显示前 3 行摘要，长结果可以展开。
+                    let key = format!("worker-result-{}-{}", task.id, ctx.index);
+                    let long = body.lines().count() > SUMMARY_LINES;
+                    let open = ctx.app.staff.expanded.contains(&key);
+                    let shown = if long && !open {
+                        body.lines()
+                            .take(SUMMARY_LINES)
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                    } else {
+                        body
+                    };
+                    let index = ctx.index;
+                    row.child(div().text_size(px(tokens::LABEL_TEXT)).child(shown))
+                        .when(long, |row| {
+                            row.child(
+                                shell::action_button(
+                                    ctx,
+                                    ("staff-result-toggle", index),
+                                    false,
+                                    cx,
+                                )
+                                .debug_selector(move || format!("staff-result-toggle-{index}"))
+                                .label(t(if open {
+                                    "staff.result_collapse"
+                                } else {
+                                    "staff.result_expand"
+                                }))
+                                .on_click(cx.listener(
+                                    move |app, _, _, cx| {
+                                        if !app.staff.expanded.remove(&key) {
+                                            app.staff.expanded.insert(key.clone());
+                                        }
+                                        app.notify_staff(cx);
+                                    },
+                                )),
+                            )
+                        })
                 });
         }
         row.into_any_element()

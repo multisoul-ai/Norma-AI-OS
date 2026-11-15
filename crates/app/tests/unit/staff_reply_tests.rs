@@ -127,3 +127,49 @@ fn running_reply_stays_expanded_and_event_replies_cannot_regenerate() {
         "没有用户输入的回复不能重新生成"
     );
 }
+
+/// 场景：Worker 的长结果默认只显示前 3 行摘要，展开后显示全文；短结果没有展开按钮。
+/// 数据构造：一条 5 行的成功结果和一条 1 行的成功结果；窗口 900×700。
+/// 执行过程：先渲染折叠态，再把该结果的展开键放进 expanded 重绘。
+/// 预期结果：长结果有展开按钮、第 5 行未出现在布局里之前按钮存在；短结果没有按钮；展开后按钮仍在（变为收起）。
+#[test]
+fn long_worker_results_collapse_to_three_lines() {
+    use norma::protocol::WorkerOutcome;
+    let finished = |node: u64, text: &str| TaskMessage::WorkerFinished {
+        node_id: node,
+        dispatch_id: format!("d{node}"),
+        outcome: WorkerOutcome::Succeeded,
+        text: text.into(),
+    };
+    let mut task = Task::new("t", "w", "p", "结果");
+    task.messages.push(finished(1, "一\n二\n三\n四\n五"));
+    task.messages.push(finished(2, "只有一行"));
+    let mut test = TestAppContext::single();
+    let (app, cx) = window!(test, task);
+    assert!(
+        cx.debug_bounds("staff-result-toggle-0").is_some(),
+        "超过 3 行的结果有展开按钮"
+    );
+    assert!(
+        cx.debug_bounds("staff-result-toggle-1").is_none(),
+        "不超过 3 行的结果没有展开按钮"
+    );
+    let collapsed = cx
+        .debug_bounds("staff-message-body-0")
+        .expect("body")
+        .size
+        .height;
+    app.update(cx, |app, _| {
+        app.staff.expanded.insert("worker-result-t-0".into());
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let expanded = cx
+        .debug_bounds("staff-message-body-0")
+        .expect("body")
+        .size
+        .height;
+    assert!(
+        expanded > collapsed,
+        "展开后内容更高：折叠 {collapsed:?}，展开 {expanded:?}（多出第 4、5 行）"
+    );
+}
