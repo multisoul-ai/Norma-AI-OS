@@ -15,6 +15,8 @@ fn staff_dispatched_proposal_is_compact() {
     task.proposals.push(StaffProposal {
         id: 1,
         round: 0,
+        auto: false,
+        downgrade: None,
         agent: "Ethan".into(),
         title: "派活可选类型和模型".into(),
         prompt: "用户原话：很长的原话。".repeat(20),
@@ -111,6 +113,8 @@ fn staff_norma_paragraphs_reserve_height_before_proposal() {
     task.proposals.push(StaffProposal {
         id: 1,
         round: 0,
+        auto: false,
+        downgrade: None,
         agent: "Simon".into(),
         title: "归档不显示这条提示".into(),
         why: "保留建议的完整理由".into(),

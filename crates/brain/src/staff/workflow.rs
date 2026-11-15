@@ -82,6 +82,8 @@ impl TaskStore {
                         ignored: false,
                         dispatch_id: None,
                         round,
+                        auto: false,
+                        downgrade: None,
                     });
                     task.messages
                         .push(TaskMessage::Proposal { proposal_id: id });

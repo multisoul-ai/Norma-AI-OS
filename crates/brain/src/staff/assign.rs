@@ -65,6 +65,11 @@ impl TaskStore {
                 ignored: false,
                 dispatch_id: None,
                 round: task.round,
+                auto: dispatch,
+                downgrade: match &decision {
+                    AssignDecision::Propose(reason) => Some(reason.code()),
+                    AssignDecision::Dispatch => None,
+                },
             });
             task.messages.push(TaskMessage::Proposal { proposal_id });
             if dispatch {

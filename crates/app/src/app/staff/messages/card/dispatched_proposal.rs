@@ -2,11 +2,15 @@ use super::super::*;
 use super::shell;
 use gpui::rgba;
 use norma::protocol::StaffProposal;
-use ui::component::StyledExt;
+use ui::component::{Disableable, StyledExt};
 use ui::i18n::text as t;
 
 /// Dispatched proposal: only the task name and the agent card name remain (prototype `.proposal-sent`).
-pub(super) fn render(ctx: &BlockCtx, proposal: &StaffProposal) -> AnyElement {
+pub(super) fn render(
+    ctx: &BlockCtx,
+    proposal: &StaffProposal,
+    cx: &mut Context<MultisoulApp>,
+) -> AnyElement {
     let theme = ctx.app.staff_theme();
     let id = proposal.id;
     let worker = ctx.task.workers.iter().find(|w| w.agent == proposal.agent);
@@ -14,6 +18,8 @@ pub(super) fn render(ctx: &BlockCtx, proposal: &StaffProposal) -> AnyElement {
     let mood = worker.map_or(runtime::island::bloub::Mood::Idle, |w| {
         crate::app::staff::detail::worker_mood(w.chip(), w.outcome)
     });
+    let running = proposal.auto && worker.is_some_and(|w| w.outcome.is_none());
+    let (task_id, proposal_id) = (ctx.task.id.clone(), proposal.id);
     shell::card(ctx, false)
         .debug_selector(move || format!("staff-proposal-card-{id}"))
         .flex_row()
@@ -48,7 +54,25 @@ pub(super) fn render(ctx: &BlockCtx, proposal: &StaffProposal) -> AnyElement {
             div()
                 .text_size(px(tokens::META_TEXT))
                 .text_color(rgba(theme.success))
-                .child(format!("✓ {}", t("staff.dispatched"))),
+                .child(format!(
+                    "✓ {}",
+                    t(if proposal.auto {
+                        "staff.dispatched_by_staff"
+                    } else {
+                        "staff.dispatched"
+                    })
+                )),
         )
+        .when(running, |row| {
+            row.child(
+                shell::action_button(ctx, ("staff-cancel-dispatch", id), false, cx)
+                    .debug_selector(move || format!("staff-cancel-dispatch-{id}"))
+                    .label(t("staff.cancel_dispatch"))
+                    .disabled(ctx.app.staff.busy)
+                    .on_click(cx.listener(move |app, _, _, cx| {
+                        app.cancel_staff_worker(&task_id, proposal_id, cx)
+                    })),
+            )
+        })
         .into_any_element()
 }

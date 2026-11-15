@@ -358,6 +358,8 @@ fn staff_messages_do_not_overlap_when_content_overflows() {
         ignored: false,
         dispatch_id: None,
         round: 0,
+        auto: false,
+        downgrade: None,
     });
     for index in 0..3 {
         task.messages.push(TaskMessage::User { text: long.clone() });

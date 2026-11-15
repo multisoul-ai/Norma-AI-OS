@@ -49,3 +49,46 @@ impl MultisoulApp {
         }))
     }
 }
+
+impl MultisoulApp {
+    /// 用户撤回幕僚自动派发的活：记为被中断并关闭那张 Agent 卡。已有结果的 Worker 不处理。
+    pub(crate) fn cancel_staff_worker(
+        &mut self,
+        task_id: &str,
+        proposal_id: u64,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(task) = self.staff.tasks.get(task_id) else {
+            return;
+        };
+        let Some(proposal) = task.proposals.iter().find(|p| p.id == proposal_id) else {
+            return;
+        };
+        let Some(dispatch) = proposal.dispatch_id.as_deref() else {
+            return;
+        };
+        let Some(node) = task
+            .workers
+            .iter()
+            .find(|w| w.dispatch_id == dispatch && w.outcome.is_none())
+            .and_then(|w| w.card_id)
+        else {
+            return;
+        };
+        let agent = self.agent_announcement_name(node).unwrap_or_default();
+        let dispatch_id = self.runtime.staff_dispatch_id(node).map(str::to_owned);
+        self.staff.pending.remove(&node);
+        self.push_brain(BrainEventKind::AgentFinished {
+            node_id: node,
+            dispatch_id,
+            agent,
+            outcome: Outcome::Interrupted,
+            excerpt: "staff.worker_cancelled".into(),
+            from_result: true,
+        });
+        self.runtime.remove_node(node);
+        self.mark_canvas_dirty();
+        self.mark_session_dirty();
+        self.notify_staff(cx);
+    }
+}

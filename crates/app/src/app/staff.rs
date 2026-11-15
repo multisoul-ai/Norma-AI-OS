@@ -182,6 +182,7 @@ pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
         "staff.approval_required" => "staff.approval_required",
         "staff.worker_not_ready" | "staff.worker_needs_attention" => "staff.worker_needs_attention",
         "staff.worker_failed" => "staff.worker_failed",
+        "staff.worker_cancelled" => "staff.worker_cancelled",
         "staff.connection_unavailable" => "staff.connection_unavailable",
         "invalid_image" => "staff.image_invalid",
         "too_many_images" => "staff.image_too_many",

@@ -104,6 +104,8 @@ fn staff_ignored_proposal_collapses_and_only_latest_can_restore() {
             why: "Needed".into(),
             model: None,
             round: 0,
+            auto: false,
+            downgrade: None,
             approved: false,
             ignored: true,
             dispatch_id: None,

@@ -166,6 +166,12 @@ pub struct StaffProposal {
     /// 提出（或最近一次原样重提）时的幕僚轮次。
     #[serde(default)]
     pub round: u64,
+    /// 幕僚自己派发（无需用户采用）。
+    #[serde(default)]
+    pub auto: bool,
+    /// 幕僚想直接派发但被降级为提议的原因码（见 `ProposeReason::code`）。
+    #[serde(default)]
+    pub downgrade: Option<String>,
 }
 
 impl Worker {

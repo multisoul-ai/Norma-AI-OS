@@ -70,6 +70,8 @@ fn follow_up_to_the_same_agent_is_dispatched_directly() {
         "host binds the worker later"
     );
     assert_eq!(task.auto_dispatches, 1, "check: task.auto_dispatches");
+    assert!(proposal.auto, "直接派发的提议要标记为幕僚自动派发");
+    assert_eq!(proposal.downgrade, None, "直接派发没有降级原因");
 }
 
 /// 场景：设置还在「询问」，幕僚的 assign 不能直接派发。
@@ -91,6 +93,12 @@ fn assign_is_downgraded_to_a_proposal_when_settings_ask() {
     );
     let proposal = task.proposals.iter().find(|p| p.id == 2).expect("proposal");
     assert!(!proposal.approved, "the user still has to adopt it");
+    assert!(!proposal.auto, "降级的提议不是自动派发");
+    assert_eq!(
+        proposal.downgrade.as_deref(),
+        Some("autonomy_ask"),
+        "卡片要能显示为什么没有自动派发"
+    );
     assert_eq!(task.auto_dispatches, 0, "check: task.auto_dispatches");
     assert!(
         task.messages

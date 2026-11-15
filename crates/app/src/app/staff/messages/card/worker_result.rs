@@ -61,6 +61,7 @@ impl MessageBlock for WorkerResult<'_> {
                         if matches!(
                             text.as_str(),
                             "staff.worker_failed"
+                                | "staff.worker_cancelled"
                                 | "staff.worker_not_ready"
                                 | "staff.worker_needs_attention"
                         ) {
