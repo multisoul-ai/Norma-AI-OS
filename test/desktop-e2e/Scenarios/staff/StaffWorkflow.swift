@@ -73,7 +73,7 @@ public enum StaffWorkflow {
             try await Task.sleep(nanoseconds: 1_500_000_000)
             let activityFrame = try await session.capturePixels()
             try await StaffMessageCards.answer(session, root: root)
-            try session.save(try await session.visualSnapshotCheck(activityFrame, [VisualCriterion(id: "activity-waiting", text: "对话底部的 Norma 活动区为两行：第一行是 Norma 品牌图标、名字 Norma 与次要色「协调」/Coordinating；第二行只有状态图标（转圈或圆点）与一句状态文字（正在思考…/Thinking… 或 已收到，等待处理…/Received · Waiting to start…），不出现 0 步、用时 0.0 秒 或 · 0 steps、· 0.0s 这类步数与用时后缀；活动区与上方问题卡、下方输入框互不压叠。")]), "02-activity.png")
+            try session.save(try await session.visualSnapshotCheck(activityFrame, [VisualCriterion(id: "activity-waiting", text: "对话底部的 Norma 活动区为两行：第一行是带渐变描边和绿色在线点的 Norma 圆形头像、紫色名字 Norma 与次要色 Super-Agent；第二行只有状态图标（转圈或圆点）与一句状态文字（正在思考…/Thinking… 或 已收到，等待处理…/Received · Waiting to start…），不出现 0 步、用时 0.0 秒 或 · 0 steps、· 0.0s 这类步数与用时后缀；活动区与上方问题卡、下方输入框互不压叠。")]), "02-activity.png")
             try await waitFor("提议保存") { try first(root)["proposals"] as? [[String: Any]] != nil && !(try first(root)["proposals"] as? [[String: Any]] ?? []).isEmpty }
             // 对话为滚动视口，先核对首条原话，再回到底部核对完整提议；不要求整段历史同屏。
             try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: 3000)
