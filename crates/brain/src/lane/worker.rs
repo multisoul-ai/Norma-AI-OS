@@ -1,6 +1,6 @@
 //! 一条 lane 的工作线程：串行处理 prompt，会话失败时退避重建。
 
-use super::prompt::{primer, Role};
+use super::prompt::{primer, primer_with_skill, Role};
 use crate::acp::client::{AcpError, AcpSession, SessionOptions};
 use crate::acp::trace::{AcpTrace, TraceItem, TraceKind};
 use crate::backend::{self, Backend};
@@ -43,6 +43,8 @@ pub struct LaneEnv {
     pub open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
     pub stop: Arc<AtomicBool>,
     pub env: Vec<(String, String)>,
+    pub staff_token: Option<String>,
+    pub skill_ready: bool,
     pub prompt_timeout: Duration,
     pub retry_backoff: Duration,
     /// 超过这个轮数就重建会话，避免上下文无限增长。
@@ -50,13 +52,18 @@ pub struct LaneEnv {
 }
 
 impl LaneEnv {
-    fn session_options(&self) -> SessionOptions {
+    fn session_options(&self, staff: bool) -> SessionOptions {
+        let env = if staff {
+            crate::staff::gate::staff_env(&self.env, self.staff_token.as_deref())
+        } else {
+            self.env.clone()
+        };
         SessionOptions {
             kind: self.backend.kind,
             program: self.backend.program.clone(),
             args: self.backend.args.clone(),
             cwd: self.project_root.clone(),
-            env: self.env.clone(),
+            env,
             meta: backend::session_meta(self.backend.kind, self.model.as_deref()),
             mode: backend::session_mode(self.backend.kind).map(str::to_string),
             model: self.model.clone(),
@@ -188,9 +195,9 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             session = None;
             let connecting = Instant::now();
             let started = if job.task_id.is_some() {
-                AcpSession::start_staff_cancellable(&env.session_options(), &cancelled)
+                AcpSession::start_staff_cancellable(&env.session_options(true), &cancelled)
             } else {
-                AcpSession::start_cancellable(&env.session_options(), &cancelled)
+                AcpSession::start_cancellable(&env.session_options(false), &cancelled)
             };
             match started {
                 Ok(started) => {
@@ -239,25 +246,23 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             continue;
         }
         let mut text = if let Some(task) = &task {
-            super::staff::prompt(task, &job.scope, &env.norma_bin)
+            super::staff::prompt_with(task, &job.scope, &env.norma_bin, env.skill_ready)
         } else if primed {
             job.text.clone()
         } else {
             let bin = env.norma_bin.display().to_string();
-            format!(
-                "{}\n\n{}",
-                primer(
-                    env.role,
-                    &bin,
-                    env.tasks
-                        .summary_for(&job.scope.workspace_id)
-                        .ok()
-                        .flatten()
-                        .or_else(|| env.goal.summary_for(&job.scope.workspace_id))
-                        .as_deref()
-                ),
-                job.text
-            )
+            let goal = env
+                .tasks
+                .summary_for(&job.scope.workspace_id)
+                .ok()
+                .flatten()
+                .or_else(|| env.goal.summary_for(&job.scope.workspace_id));
+            let opening = if env.skill_ready {
+                primer_with_skill(env.role, goal.as_deref())
+            } else {
+                primer(env.role, &bin, goal.as_deref())
+            };
+            format!("{opening}\n\n{}", job.text)
         };
         let images = if let Some(task) = &task {
             let attached = super::staff_images::attachments(task);

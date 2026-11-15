@@ -415,3 +415,6 @@ fn the_activity_record_is_capped() {
 
 #[path = "router_trigger_tests.rs"]
 mod triggers;
+
+#[path = "router_owned_tests.rs"]
+mod owned;

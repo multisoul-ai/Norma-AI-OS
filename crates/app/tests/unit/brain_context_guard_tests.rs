@@ -58,7 +58,7 @@ fn brain_context_guard_checks_assign_and_allow_without_blocking_deny_or_escalate
             app.install_brain_host_for_test(super::super::BrainHost {
                 service: None,
                 status,
-                token: "test-token".into(),
+                tokens: brain::staff::gate::Tokens::new("test-token", "staff-token"),
             });
             let mut settings = config::BrainSettings::default();
             settings.autonomy.assign_followups = true;

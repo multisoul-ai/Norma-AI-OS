@@ -45,7 +45,7 @@ fn one_owner_routes_status_and_lives_until_last_project_is_released() {
         Ok(BrainHost {
             service: None,
             status,
-            token: "global-token".into(),
+            tokens: brain::staff::gate::Tokens::new("global-token", "staff-token"),
         }),
     );
     assert_eq!(
@@ -151,7 +151,7 @@ fn fixture_host(token: &str) -> BrainHost {
     BrainHost {
         service: None,
         status: mpsc::channel().1,
-        token: token.into(),
+        tokens: brain::staff::gate::Tokens::new(token, "staff-token"),
     }
 }
 
@@ -201,7 +201,7 @@ fn app_projects_use_the_global_owner_and_release_it_on_stop() {
         Ok(BrainHost {
             service: None,
             status,
-            token: "shared".into(),
+            tokens: brain::staff::gate::Tokens::new("shared", "staff-token"),
         }),
     );
     for entity in [&alpha, &beta] {
@@ -291,7 +291,7 @@ fn releasing_a_client_cancels_its_real_service_work_and_keeps_other_clients_aliv
         Ok(BrainHost {
             service: Some(service),
             status,
-            token: "real-shared".into(),
+            tokens: brain::staff::gate::Tokens::new("real-shared", "staff-token"),
         }),
     );
     assert!(

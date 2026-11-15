@@ -8,17 +8,17 @@ impl Dispatcher {
         scope: &BrainScope,
         event: &BrainEventKind,
         recorded: Option<TaskEventResult>,
-    ) -> bool {
+    ) -> Option<bool> {
         if let BrainEventKind::TaskRequest { task_id } = event {
             self.wake_task(scope, task_id, TriggerKind::UserRequest);
-            return false;
+            return None;
         }
         match recorded
             .map(Ok)
             .unwrap_or_else(|| self.tasks.record_event(&scope.workspace_id, event))
         {
-            Ok(TaskEventResult::Unowned) => true,
-            Ok(TaskEventResult::Ignored) => false,
+            Ok(TaskEventResult::Unowned) => Some(false),
+            Ok(TaskEventResult::Ignored) => None,
             Ok(TaskEventResult::Recorded { task_id, wake }) => {
                 if let Ok(task) = self.tasks.get(&scope.workspace_id, &task_id) {
                     let _ = self.status.send(BrainStatus {
@@ -29,8 +29,9 @@ impl Dispatcher {
                 if wake {
                     self.wake_task(scope, &task_id, TriggerKind::AgentFinished);
                 }
-                // Router/triage 仍接收一次事件并负责唯一的工作空间播报。
-                true
+                // Router/triage 仍接收一次事件并负责唯一的工作空间播报；
+                // 幕僚任务派出的活，下一步归幕僚，所以标记为幕僚所有。
+                Some(true)
             }
             Err(error) => {
                 let _ = self.status.send(BrainStatus {
@@ -43,7 +44,7 @@ impl Dispatcher {
                     scope: scope.clone(),
                     kind: event.clone(),
                 });
-                false
+                None
             }
         }
     }

@@ -33,6 +33,10 @@ pub struct BrainConfig {
     pub router: RouterConfig,
     /// 传给适配器进程的环境变量，例如让 `norma` CLI 找到 App 的 socket。
     pub env: Vec<(String, String)>,
+    /// 幕僚会话专用的 token；`None` 时幕僚会话不带任何 token（不会退回主大脑 token）。
+    pub staff_token: Option<String>,
+    /// norma-brain skill 已装好：提示词不再内联命令用法。默认 false，会话带命令速查。
+    pub skill_ready: bool,
     pub prompt_timeout: Duration,
     pub retry_backoff: Duration,
     pub max_turns: u32,
@@ -57,6 +61,8 @@ impl BrainConfig {
             state_dir,
             router: RouterConfig::default(),
             env: Vec::new(),
+            staff_token: None,
+            skill_ready: false,
             prompt_timeout: Duration::from_secs(180),
             retry_backoff: Duration::from_secs(1),
             max_turns: 30,
@@ -107,6 +113,8 @@ impl BrainService {
             open: open.clone(),
             stop: stop.clone(),
             env: config.env.clone(),
+            staff_token: config.staff_token.clone(),
+            skill_ready: config.skill_ready,
             prompt_timeout: config.prompt_timeout,
             retry_backoff: config.retry_backoff,
             max_turns: config.max_turns,
@@ -126,6 +134,7 @@ impl BrainService {
             scopes: scopes.clone(),
             router: ScopedRouter::new(RouterConfig {
                 norma_bin: config.norma_bin.display().to_string(),
+                skill_ready: config.skill_ready,
                 ..config.router
             }),
             goal,
@@ -240,9 +249,9 @@ impl Dispatcher {
         if self.scopes.token(&scope).load(Ordering::Relaxed) {
             return;
         }
-        if !self.record_task(&scope, &event, recorded) {
+        let Some(staff_owned) = self.record_task(&scope, &event, recorded) else {
             return;
-        }
+        };
         let approval_id = match &event {
             BrainEventKind::ApprovalRequested(request) => Some(request.id.clone()),
             BrainEventKind::ApprovalClosed { id } => Some(id.clone()),
@@ -257,7 +266,9 @@ impl Dispatcher {
             }
             _ => {}
         }
-        let actions = self.router.push(scope.clone(), event, Instant::now());
+        let actions = self
+            .router
+            .push_owned(scope.clone(), event, Instant::now(), staff_owned);
         if let Some(id) = approval_id {
             let mut open = self.open.lock().expect("open lock");
             if self.router.is_open(&scope, &id) {

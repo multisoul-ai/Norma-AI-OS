@@ -29,6 +29,8 @@ fn needs_you(id: &str) -> Task {
         dispatch_id: None,
         model: None,
         round: 0,
+        auto: false,
+        downgrade: None,
     });
     let mut worker = Worker::new("Mia", "Claude", "Review", 4, "d-need");
     worker.needs_input = true;
@@ -150,5 +152,26 @@ fn archived_tasks_leave_status_counts_but_stay_in_the_archive_count() {
             .iter()
             .all(|task| !task.archived),
         "搜索也不能把已归档任务带回主列表"
+    );
+}
+
+/// 场景：同一个 Agent 先后派了两次，卡片要按 dispatch 找到对应的那个 Worker，而不是第一个同名的。
+/// 数据构造：两个同名 Worker，dispatch 分别为 d-1（已完成）、d-2（运行中）。
+/// 预期结果：按 d-2 查到运行中的那个；不存在的 dispatch 查不到。
+#[test]
+fn worker_is_found_by_dispatch_not_by_agent_name() {
+    let mut task = norma::protocol::Task::new("a", "ws", "project", "Ship");
+    let mut first = norma::protocol::Worker::new("Simon", "Codex", "Build", 10, "d-1");
+    first.outcome = Some(norma::protocol::WorkerOutcome::Succeeded);
+    task.workers.push(first);
+    task.workers.push(norma::protocol::Worker::new(
+        "Simon", "Codex", "Test", 11, "d-2",
+    ));
+    let found = task.worker_for_dispatch("d-2").expect("d-2");
+    assert_eq!(found.card_id, Some(11), "应取运行中的第二个 Worker");
+    assert!(found.outcome.is_none(), "运行中的 Worker 还没有结果");
+    assert!(
+        task.worker_for_dispatch("none").is_none(),
+        "未知 dispatch 查不到"
     );
 }

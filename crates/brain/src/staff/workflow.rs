@@ -82,11 +82,13 @@ impl TaskStore {
                         ignored: false,
                         dispatch_id: None,
                         round,
+                        auto: false,
+                        downgrade: None,
                     });
                     task.messages
                         .push(TaskMessage::Proposal { proposal_id: id });
                 }
-                StaffOp::Adopt { .. } => {
+                StaffOp::Adopt { .. } | StaffOp::Assign { .. } => {
                     return Err(io::Error::new(
                         io::ErrorKind::PermissionDenied,
                         "adoption requires host dispatch",
@@ -137,6 +139,8 @@ impl TaskStore {
             }
             proposal.model = model.map(|m| m.trim().to_owned()).filter(|m| !m.is_empty());
             proposal.approved = true;
+            // 用户的决定让幕僚重新获得自动派发额度。
+            task.auto_dispatches = 0;
             Ok(())
         })
     }

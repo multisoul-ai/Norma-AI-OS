@@ -205,3 +205,9 @@ participants: 用户, 前台对话, 播报队列, 主会话, Agent
 - 未做：多个审批同时到达时审批会话并行处理（现在每条 lane 串行）；定时摘要提醒的语音选项；Codex 和 OpenCode 的权限请求字段实测。
 - 待定：“Norma 自主处理”记录保留多久，是否需要每天汇总一次。
 - 风险：每次审批都经过大脑，高峰期需要并行处理。设置页需要显示两个常驻会话的用量。
+
+## 幕僚命令授权与自动派发
+
+- 主大脑与幕僚使用独立 token；宿主按角色白名单授权，幕僚只能操作当前轮次的任务，详见 [ADR-0029](../adr/0029-bind-brain-roles-by-token-and-authorize-staff-commands-in-host.md)。
+- 幕僚可用 `task assign` 自动派发后续活：设置为「直接派发」、同一 Agent、每任务最多 3 次、非高风险；否则降级为提议。幕僚任务派出的活完成后，主大脑不再提议下一步。
+- 命令用法在内置 `norma-brain` skill（只装给当前后端）；装不上时提示词补命令名速查。实施计划见 [exec-plan](../exec-plans/2026-11-14-staff-cli-skill.md)。

@@ -5,6 +5,7 @@ mod activity_sink;
 mod activity_view;
 pub(crate) use activity_view::{recent_activity_lines, ActivityLine};
 mod approvals;
+mod authorize;
 mod away;
 mod clients;
 mod config;
@@ -82,7 +83,7 @@ pub(crate) struct Tracked {
 struct BrainHost {
     service: Option<BrainService>,
     status: Receiver<BrainStatus>,
-    token: String,
+    tokens: brain::staff::gate::Tokens,
 }
 
 impl Drop for BrainHost {
@@ -127,6 +128,8 @@ pub(crate) struct BrainHostState {
     /// 窗口失焦与回来的跟踪，以及等着通知大脑的“回来”事件。
     pub(crate) away: away::AwayTracker,
     pub(crate) pending_return: Option<std::time::Duration>,
+    /// 幕僚主动 report 的频率上限，按任务计。
+    report_limiter: brain::staff::gate::ReportLimiter,
     /// 活动窗口自己的焦点：打开时抢走焦点，Esc 才不会被聚焦的终端吃掉。
     pub(crate) trace_focus: Option<gpui::FocusHandle>,
     /// 大脑提议、等用户确认的下一步；读过文件后 `proposals_path` 才有值。
@@ -167,6 +170,10 @@ impl BrainHostState {
             trace_open: false,
             away: away::AwayTracker::default(),
             pending_return: None,
+            report_limiter: brain::staff::gate::ReportLimiter::new(
+                brain::staff::gate::REPORT_WINDOW,
+                brain::staff::gate::REPORT_LIMIT,
+            ),
             trace_focus: None,
             proposals: proposals::Proposals::default(),
             proposals_path: None,
@@ -203,7 +210,12 @@ impl BrainHostState {
     }
 
     pub(crate) fn token_matches(&self, token: &str) -> bool {
-        !token.is_empty() && self.token().as_deref() == Some(token)
+        self.role(token).is_some()
+    }
+
+    /// 主大脑与幕僚各有独立 token；陌生 token 没有角色。
+    pub(crate) fn role(&self, token: &str) -> Option<brain::staff::gate::BrainRole> {
+        self.tokens()?.role(token)
     }
 }
 

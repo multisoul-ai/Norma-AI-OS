@@ -383,6 +383,11 @@ impl InstallPaths {
         }
     }
 
+    /// Path of the managed `norma-brain` skill. Cursor has no skills directory, so it has none.
+    pub fn brain_skill_path(&self, provider: OrchestrationProvider) -> Option<PathBuf> {
+        self.sibling_skill_path(provider, "norma-brain")
+    }
+
     /// Path of the managed `/ask-norma` entry-point skill for a Provider.
     ///
     /// ask-norma is the friendly, higher-recall entry into the Norma OS Agent delegation flow

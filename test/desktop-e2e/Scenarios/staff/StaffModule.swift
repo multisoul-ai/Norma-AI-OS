@@ -4,8 +4,8 @@ import E2EKit
 public enum StaffModule {
     public static let manifest = DesktopModule(
         name: "staff",
-        scenarioNames: [StaffComposerImages.name, StaffComposerImages.englishName, StaffProposalLayout.name, StaffProposalLayout.englishName, StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name, StaffArchive.name, StaffArchive.englishName, StaffProtocolRecovery.name, StaffProtocolRecovery.englishName],
-        visualScenarioNames: [StaffComposerImages.name, StaffComposerImages.englishName, StaffProposalLayout.name, StaffProposalLayout.englishName, StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name, StaffArchive.name, StaffArchive.englishName, StaffProtocolRecovery.name, StaffProtocolRecovery.englishName],
+        scenarioNames: [StaffComposerImages.name, StaffComposerImages.englishName, StaffProposalLayout.name, StaffProposalLayout.englishName, StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name, StaffArchive.name, StaffArchive.englishName, StaffProtocolRecovery.name, StaffProtocolRecovery.englishName, StaffAutoDispatch.name, StaffAutoDispatch.englishName],
+        visualScenarioNames: [StaffComposerImages.name, StaffComposerImages.englishName, StaffProposalLayout.name, StaffProposalLayout.englishName, StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name, StaffArchive.name, StaffArchive.englishName, StaffProtocolRecovery.name, StaffProtocolRecovery.englishName, StaffAutoDispatch.name, StaffAutoDispatch.englishName],
         run: { scenario, session in
             switch scenario {
             case StaffComposerImages.name: try await StaffComposerImages.run(session); return true
@@ -21,6 +21,8 @@ public enum StaffModule {
             case StaffProtocolRecovery.englishName: try await StaffProtocolRecovery.run(session, english: true); return true
             case StaffArchive.name: try await StaffArchive.run(session); return true
             case StaffArchive.englishName: try await StaffArchive.run(session, english: true); return true
+            case StaffAutoDispatch.name: try await StaffAutoDispatch.run(session); return true
+            case StaffAutoDispatch.englishName: try await StaffAutoDispatch.run(session, english: true); return true
             default: return false
             }
         }

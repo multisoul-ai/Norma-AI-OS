@@ -15,7 +15,7 @@ fn retired_quota_error_survives_storage_reopen_without_crossing_turns() {
     state.install_brain_host_for_test(BrainHost {
         service: None,
         status,
-        token: "old".into(),
+        tokens: brain::staff::gate::Tokens::new("old", "staff-token"),
     });
     let trace = |turn, item| AcpTrace {
         at: SystemTime::now(),
@@ -51,7 +51,7 @@ fn retired_quota_error_survives_storage_reopen_without_crossing_turns() {
     state.install_brain_host_for_test(BrainHost {
         service: None,
         status,
-        token: "new".into(),
+        tokens: brain::staff::gate::Tokens::new("new", "staff-token"),
     });
     state.record_trace(trace(
         44,
@@ -119,7 +119,7 @@ fn retired_host_keeps_late_permission_and_end_in_activity() {
     state.install_brain_host_for_test(BrainHost {
         service: None,
         status,
-        token: "old".into(),
+        tokens: brain::staff::gate::Tokens::new("old", "staff-token"),
     });
     let trace = |item| AcpTrace {
         at: SystemTime::now(),

@@ -98,7 +98,7 @@ fn queued_event_and_status_cannot_be_rebound_to_a_new_route() {
         app.install_brain_host_for_test(super::super::BrainHost {
             service: None,
             status,
-            token: "test".into(),
+            tokens: brain::staff::gate::Tokens::new("test", "staff-token"),
         });
         for (route, turn) in [("new", 7), ("old", 8)] {
             tx.send(BrainStatus {
@@ -217,7 +217,7 @@ fn disabled_brain_preserves_worker_completion_for_background_persistence() {
     source.update(cx, |app, cx| {
         app.workspace_id = Some("alpha".into());
         app.workspace_route_id = Some("route".into());
-        app.install_brain_host_for_test(super::super::BrainHost { service: Some(service), status, token: "test".into() });
+        app.install_brain_host_for_test(super::super::BrainHost { service: Some(service), status, tokens: brain::staff::gate::Tokens::new("test", "staff-token") });
         app.brain.settings = Some(super::super::config::BrainSettings { enabled: true, ..Default::default() });
         app.push_brain(BrainEventKind::AgentFinished {
             node_id: 7, dispatch_id: Some("d".into()), agent: "Simon".into(),

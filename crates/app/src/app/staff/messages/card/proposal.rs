@@ -35,7 +35,7 @@ impl MessageBlock for Proposal<'_> {
                     return super::ignored_proposal::render(ctx, proposal, cx);
                 }
                 if proposal.dispatch_id.is_some() {
-                    return super::dispatched_proposal::render(ctx, proposal);
+                    return super::dispatched_proposal::render(ctx, proposal, cx);
                 }
                 let id = task.id.clone();
                 let ignore_id = id.clone();
@@ -115,7 +115,13 @@ impl MessageBlock for Proposal<'_> {
                                     .text_size(px(tokens::LABEL_TEXT))
                                     .text_color(rgba(theme.text_secondary))
                                     .child(proposal.why.clone()),
-                            ),
+                            )
+                            .children(proposal.downgrade.as_deref().map(|code| {
+                                div()
+                                    .text_size(px(tokens::META_TEXT))
+                                    .text_color(rgba(theme.accent_warm))
+                                    .child(downgrade_text(code))
+                            })),
                     )
                     .child(prompt)
                     .when(long, |card| {
@@ -324,4 +330,14 @@ fn choice_row(
 
 fn profile_title(profile: &norma::protocol::AgentProfile) -> String {
     format!("{profile:?}")
+}
+
+/// 降级原因码转成面向用户的文案；未知码按风险处理。
+fn downgrade_text(code: &str) -> String {
+    match code {
+        "autonomy_ask" => t("staff.downgrade.autonomy_ask").to_string(),
+        "not_follow_up" => t("staff.downgrade.not_follow_up").to_string(),
+        "limit_reached" => t("staff.downgrade.limit_reached").to_string(),
+        _ => t("staff.downgrade.risk").to_string(),
+    }
 }

@@ -30,7 +30,15 @@ pub enum StaffOp {
         task_id: String,
         proposal_id: u64,
     },
-    /// 用户归档或取消归档。不开放给任务轮次里的模型命令。
+    /// 幕僚自己派活：是否直接派发由宿主按策略决定，不满足条件时降级为提议。
+    Assign {
+        task_id: String,
+        agent: String,
+        title: String,
+        prompt: String,
+        why: String,
+    },
+    /// 归档或取消归档。模型命令只开放归档，取消归档只由用户在面板里操作。
     Archive {
         task_id: String,
         archived: bool,
@@ -46,6 +54,7 @@ impl StaffOp {
             | Self::Phase { task_id, .. }
             | Self::Propose { task_id, .. }
             | Self::Adopt { task_id, .. }
+            | Self::Assign { task_id, .. }
             | Self::Archive { task_id, .. } => Some(task_id),
         }
     }
@@ -157,6 +166,12 @@ pub struct StaffProposal {
     /// 提出（或最近一次原样重提）时的幕僚轮次。
     #[serde(default)]
     pub round: u64,
+    /// 幕僚自己派发（无需用户采用）。
+    #[serde(default)]
+    pub auto: bool,
+    /// 幕僚想直接派发但被降级为提议的原因码（见 `ProposeReason::code`）。
+    #[serde(default)]
+    pub downgrade: Option<String>,
 }
 
 impl Worker {
@@ -225,6 +240,9 @@ pub struct Task {
     /// 幕僚已开始的轮次数；每轮开始 +1。
     #[serde(default)]
     pub round: u64,
+    /// 幕僚未经用户采用自动派发的次数；用户采用任意一条提议后清零。旧快照缺字段时为 0。
+    #[serde(default)]
+    pub auto_dispatches: u32,
 }
 
 impl Task {
@@ -246,6 +264,7 @@ impl Task {
             proposals: Vec::new(),
             archived: false,
             round: 0,
+            auto_dispatches: 0,
         }
     }
 
@@ -334,6 +353,11 @@ impl Task {
         } else {
             TaskDisplayStatus::Waiting
         }
+    }
+
+    /// 按派发号找 Worker；同一个 Agent 可以被派多次，不能按名字找。
+    pub fn worker_for_dispatch(&self, dispatch_id: &str) -> Option<&Worker> {
+        self.workers.iter().find(|w| w.dispatch_id == dispatch_id)
     }
 
     pub fn finish_worker(

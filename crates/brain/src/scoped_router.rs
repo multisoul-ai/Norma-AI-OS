@@ -29,11 +29,22 @@ impl ScopedRouter {
         event: BrainEventKind,
         now: Instant,
     ) -> Vec<ScopedAction> {
+        self.push_owned(scope, event, now, false)
+    }
+
+    /// `staff_owned`：事件来自幕僚任务派出的 Worker，下一步由幕僚负责。
+    pub fn push_owned(
+        &mut self,
+        scope: BrainScope,
+        event: BrainEventKind,
+        now: Instant,
+        staff_owned: bool,
+    ) -> Vec<ScopedAction> {
         let router = self
             .routes
             .entry(scope.clone())
             .or_insert_with(|| Router::new(self.config.clone(), now));
-        scoped_actions(&scope, router.push(event, now))
+        scoped_actions(&scope, router.push_owned(event, now, staff_owned))
     }
 
     pub fn poll(&mut self, now: Instant) -> Vec<ScopedAction> {

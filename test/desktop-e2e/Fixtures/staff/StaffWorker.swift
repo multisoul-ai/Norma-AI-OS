@@ -44,6 +44,8 @@ enum StaffWorker {
                 hook('PostToolUse', tool_name='AskUserQuestion', tool_use_id='staff-native-question', tool_input=updated, tool_response=updated)
             with open('STAFF-RESULT.md', 'w') as f: f.write('# STAFF RESULT\n\nAcceptance artifact from the dispatched Worker.\n')
             print('\r\nSTAFF RESULT ready\r', flush=True)
+            # 后续任务带 STAFF-HOLD 时停在这里，场景放行文件出现前不结束，用来点“撤回”。
+            while 'STAFF-HOLD' in task and not os.path.exists(os.path.join(root, 'release-worker')): time.sleep(.05)
             hook('Stop', last_assistant_message='STAFF RESULT: 需要你确认验收；文件 STAFF-RESULT.md 已生成。')
     """#
 }

@@ -143,7 +143,7 @@ fn staff_outgoing_message_carries_images_without_requiring_text() {
         !staff_can_send(false, true, "在", 1),
         "上传未完成时不能发送"
     );
-    let (body, title) = staff_outgoing("", &[path.clone()]).expect("纯图片应能发送");
+    let (body, title) = staff_outgoing("", std::slice::from_ref(&path)).expect("纯图片应能发送");
     let (visible, paths) = norma::protocol::parse_image_message(&body).expect("应能解析");
     assert_eq!(visible, "", "协议外壳不是用户正文");
     assert_eq!(paths, vec![path.clone()], "发送体必须带上保存路径");
@@ -261,7 +261,7 @@ fn staff_composer_shows_the_attach_control_and_selected_image() {
     cx.simulate_resize(size(px(800.), px(600.)));
     let mut task = Task::new("t", "w", "p", "图");
     task.messages.push(TaskMessage::User {
-        text: compose_image_message("看这张", &[saved.clone()]).expect("打包"),
+        text: compose_image_message("看这张", std::slice::from_ref(&saved)).expect("打包"),
     });
     source.update(cx, |app, _| {
         app.staff.images = vec![saved];

@@ -37,6 +37,8 @@ pub struct RouterConfig {
     pub summary_every: Option<Duration>,
     /// 提示里要求大脑执行的 `norma` 命令路径。
     pub norma_bin: String,
+    /// norma-brain skill 已装好：审批提示不再内联命令用法。
+    pub skill_ready: bool,
 }
 
 impl Default for RouterConfig {
@@ -46,6 +48,7 @@ impl Default for RouterConfig {
             quiet_window: Duration::from_secs(30),
             summary_every: Some(Duration::from_secs(300)),
             norma_bin: "norma".into(),
+            skill_ready: false,
         }
     }
 }
@@ -55,6 +58,8 @@ struct FinishedBatch {
     lines: Vec<String>,
     /// 批里出现过的 Agent，按首次出现的顺序去重。
     agents: Vec<String>,
+    /// 批里每条完成都来自幕僚任务；只要混入一条别的，就按完整规则处理。
+    staff_owned: bool,
 }
 
 impl FinishedBatch {
@@ -94,6 +99,16 @@ impl Router {
     }
 
     pub fn push(&mut self, event: BrainEventKind, now: Instant) -> Vec<Action> {
+        self.push_owned(event, now, false)
+    }
+
+    /// `staff_owned`：这个完成事件属于幕僚任务派出的 Worker，下一步由幕僚负责。
+    pub fn push_owned(
+        &mut self,
+        event: BrainEventKind,
+        now: Instant,
+        staff_owned: bool,
+    ) -> Vec<Action> {
         let verdict = triage(&event);
         match event {
             BrainEventKind::TaskRequest { .. }
@@ -126,7 +141,9 @@ impl Router {
                     first_at: now,
                     lines: vec![],
                     agents: vec![],
+                    staff_owned: true,
                 });
+                batch.staff_owned &= staff_owned;
                 batch
                     .lines
                     .push(prompt::finished_line(&agent, outcome, &excerpt));
@@ -213,7 +230,11 @@ impl Router {
         self.open_approvals.insert(request.id.clone());
         vec![Action {
             lane: Lane::Approval,
-            text: prompt::approval(&request, &self.config.norma_bin),
+            text: if self.config.skill_ready {
+                prompt::approval_with_skill(&request)
+            } else {
+                prompt::approval(&request, &self.config.norma_bin)
+            },
             trigger: Trigger::new(TriggerKind::ApprovalRequest, request.agent),
             approval_id: Some(request.id),
         }]
@@ -227,7 +248,11 @@ impl Router {
                 let batch = self.finished.take().expect("批次刚检查过存在");
                 actions.push(Action {
                     lane: Lane::Main,
-                    text: prompt::urgent_batch(&batch.lines),
+                    text: if batch.staff_owned {
+                        prompt::urgent_batch_staff_owned(&batch.lines)
+                    } else {
+                        prompt::urgent_batch(&batch.lines)
+                    },
                     approval_id: None,
                     trigger: batch.trigger(),
                 });
@@ -237,12 +262,15 @@ impl Router {
         if let Some(batch) = &self.quiet {
             if now >= batch.first_at + self.config.quiet_window {
                 let batch = self.quiet.take().expect("静默批次刚检查过存在");
-                actions.push(Action {
-                    lane: Lane::Main,
-                    text: prompt::quiet_batch(&batch.lines),
-                    approval_id: None,
-                    trigger: batch.trigger(),
-                });
+                // 正常完成且归幕僚：下一步由幕僚提议，不叫醒主大脑。
+                if !batch.staff_owned {
+                    actions.push(Action {
+                        lane: Lane::Main,
+                        text: prompt::quiet_batch(&batch.lines),
+                        approval_id: None,
+                        trigger: batch.trigger(),
+                    });
+                }
                 self.last_summary = now;
             }
         }

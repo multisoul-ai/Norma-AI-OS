@@ -346,6 +346,39 @@ pub(super) fn adapter_env(
     ]
 }
 
+/// 把 norma-brain skill 只装给当前后端，并卸载另外两个后端里的托管副本。
+/// 返回当前后端是否装好；没装好时会话改用提示词里的命令速查，不影响启动。
+pub(super) fn sync_brain_skill(
+    paths: &norma::orchestration::InstallPaths,
+    current: BackendKind,
+    norma_bin: &Path,
+) -> bool {
+    use norma::orchestration::{ensure_brain_skill, remove_brain_skill, OrchestrationProvider};
+    let provider = |kind| match kind {
+        BackendKind::ClaudeCode => OrchestrationProvider::Claude,
+        BackendKind::Codex => OrchestrationProvider::Codex,
+        BackendKind::OpenCode => OrchestrationProvider::OpenCode,
+    };
+    for other in [
+        BackendKind::ClaudeCode,
+        BackendKind::Codex,
+        BackendKind::OpenCode,
+    ] {
+        if other != current {
+            if let Err(error) = remove_brain_skill(paths, provider(other)) {
+                tracing::warn!(%error, "移除旧后端的 norma-brain skill 失败");
+            }
+        }
+    }
+    match ensure_brain_skill(paths, provider(current), norma_bin) {
+        Ok(()) => true,
+        Err(error) => {
+            tracing::warn!(%error, "norma-brain skill 安装失败，改用提示词里的命令速查");
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "../../../tests/unit/brain_config_models_tests.rs"]
 mod brain_config_models_tests;
