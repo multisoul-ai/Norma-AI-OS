@@ -108,7 +108,9 @@ impl ReplyWriter {
                 };
                 let finished = status.is_some();
                 // 权限请求的名称可能是占位值：已知步骤的标题不被它覆盖。
-                let title = (item.kind != TraceKind::Permission || first_seen)
+                // 完成事件常常不带 title/rawInput：没有新信息就不更新，免得用占位名盖掉已有标题。
+                let informative = meta.name.is_some() || meta.input.is_some();
+                let title = (informative && (item.kind != TraceKind::Permission || first_seen))
                     .then(|| step_title(meta.name.as_deref(), meta.input.as_deref()));
                 let elapsed = finished.then(|| started.elapsed().as_millis() as u64);
                 let id = meta.id.clone();
@@ -214,5 +216,69 @@ fn publish(store: &TaskStore, scope: &BrainScope, task_id: &str, status: &Sender
                 reply,
             },
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::acp::trace::{ToolTrace, TraceKind};
+    use norma::protocol::{ReplyTrigger, StaffPart, StepTitle};
+
+    fn tool_item(kind: TraceKind, name: Option<&str>, status: Option<&str>) -> TraceItem {
+        let mut item = TraceItem::new(kind, "", "");
+        item.tool = Some(Box::new(ToolTrace {
+            id: "call-1".into(),
+            name: name.map(str::to_owned),
+            input: None,
+            description: None,
+            status: status.map(str::to_owned),
+        }));
+        item
+    }
+
+    /// 场景：工具完成事件不带 title 时，不能用占位名覆盖调用时已知的标题。
+    /// 数据构造：任务里有一条运行中的回复；先收到带 title「skill」的 ToolCall，再收到只有 id 和 completed 状态的 ToolResult。
+    /// 执行过程：依次 observe 两个事件，读回存储里的回复。
+    /// 预期结果：只有一个步骤，标题仍是 Tool("skill")，状态 Completed。
+    #[test]
+    fn completion_without_a_title_keeps_the_known_title() {
+        let dir = tempfile::tempdir().expect("root");
+        let store = Arc::new(TaskStore::new(dir.path().into()));
+        store
+            .create(Task::new("t", "ws", "p", "x"))
+            .expect("create");
+        store
+            .begin_turn("ws", "t", ReplyTrigger::User)
+            .expect("begin");
+        let (status, _statuses) = std::sync::mpsc::channel();
+        let scope = BrainScope {
+            workspace_id: "ws".into(),
+            route_id: "r".into(),
+        };
+        let mut writer = ReplyWriter::new(store.clone(), scope, "t".into(), status);
+        writer.observe(&tool_item(
+            TraceKind::ToolCall,
+            Some("skill"),
+            Some("in_progress"),
+        ));
+        writer.observe(&tool_item(TraceKind::ToolResult, None, Some("completed")));
+        let task = store.get("ws", "t").expect("task");
+        let Some(TaskMessage::Staff(reply)) = task.messages.last() else {
+            panic!("staff reply")
+        };
+        let steps: Vec<_> = reply
+            .parts
+            .iter()
+            .filter_map(|part| match part {
+                StaffPart::Step { title, status, .. } => Some((title.clone(), *status)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            steps,
+            vec![(StepTitle::Tool("skill".into()), StepStatus::Completed)],
+            "完成事件只更新状态，不覆盖标题"
+        );
     }
 }

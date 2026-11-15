@@ -281,7 +281,9 @@ impl Task {
 /// 由工具调用的名称和入参得到结构化步骤标题：`norma` 子命令只保留命令词，
 /// 其余只保留工具名；绝对路径、参数与参数值都不进入快照。
 pub fn step_title(name: Option<&str>, input: Option<&str>) -> StepTitle {
-    for text in [name, input].into_iter().flatten() {
+    // 入参通常是 `{"command": "..."}` 这样的 JSON；先取出命令再找 norma 子命令。
+    let command = input.and_then(command_of);
+    for text in [name, command.as_deref(), input].into_iter().flatten() {
         let words = norma_words(text);
         if !words.is_empty() {
             return StepTitle::Norma(words);
@@ -294,6 +296,22 @@ pub fn step_title(name: Option<&str>, input: Option<&str>) -> StepTitle {
         .filter(|token| !token.is_empty())
         .unwrap_or("tool");
     StepTitle::Tool(first.chars().take(40).collect())
+}
+
+/// ACP 的 `rawInput` 里的命令：字符串，或拆开的字符串数组。
+fn command_of(input: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(input).ok()?;
+    match value.get("command")? {
+        serde_json::Value::String(command) => Some(command.clone()),
+        serde_json::Value::Array(parts) => Some(
+            parts
+                .iter()
+                .filter_map(|part| part.as_str())
+                .collect::<Vec<_>>()
+                .join(" "),
+        ),
+        _ => None,
+    }
 }
 
 fn norma_words(text: &str) -> Vec<String> {

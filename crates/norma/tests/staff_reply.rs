@@ -350,3 +350,30 @@ fn step_titles_drop_paths_and_arguments() {
         "什么都没有时用占位名"
     );
 }
+
+/// 场景：命令放在 rawInput 的 JSON 里（字符串或数组）时仍能识别 norma 子命令，且不泄露路径。
+/// 数据构造：名称是占位的 Bash，入参分别是 {"command": "<带绝对路径和引号的 norma 命令>"} 与数组形式。
+/// 执行过程：调用 step_title。
+/// 预期结果：两种形式都得到 ["brain","agents"]；入参不是 JSON 时仍按原文本处理。
+#[test]
+fn step_titles_read_the_command_from_json_input() {
+    use norma::protocol::step_title;
+    let words = StepTitle::Norma(vec!["brain".into(), "agents".into()]);
+    let string = r#"{"command":"\"/Users/me/.norma/brain/bin/norma\" brain agents --workspace w"}"#;
+    assert_eq!(
+        step_title(Some("Bash"), Some(string)),
+        words,
+        "字符串形式的命令"
+    );
+    let array = r#"{"command":["/Users/me/norma","brain","agents","--route","r"]}"#;
+    assert_eq!(
+        step_title(Some("Bash"), Some(array)),
+        words,
+        "数组形式的命令"
+    );
+    assert_eq!(
+        step_title(Some("Bash"), Some(r#"{"path":"/etc/hosts"}"#)),
+        StepTitle::Tool("Bash".into()),
+        "没有命令字段时只留工具名"
+    );
+}
