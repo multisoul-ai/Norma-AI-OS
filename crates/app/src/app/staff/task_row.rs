@@ -241,9 +241,8 @@ impl MultisoulApp {
                 .h(px(32.))
                 .rounded(px(16.))
                 .opacity(0.)
+                // 只在悬停这一行时显示。不用聚焦样式：点空白处后三行的按钮会一起亮出来。
                 .group_hover(group, |style| style.opacity(1.))
-                .focus(|style| style.opacity(1.))
-                .in_focus(|style| style.opacity(1.))
                 .tooltip(ui::i18n::format("staff.archive_named", &[("title", title)]))
                 .icon(Icon::empty().path("icons/archive.svg"))
                 .disabled(self.staff.busy)
