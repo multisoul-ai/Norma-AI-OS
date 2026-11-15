@@ -5,6 +5,8 @@ use norma::protocol::StaffProposal;
 use ui::component::{Disableable, StyledExt};
 use ui::i18n::text as t;
 
+const TITLE_MIN_WIDTH: f32 = 96.;
+
 /// Dispatched proposal: only the task name and the agent card name remain (prototype `.proposal-sent`).
 pub(super) fn render(
     ctx: &BlockCtx,
@@ -26,7 +28,9 @@ pub(super) fn render(
     shell::card(ctx, false)
         .debug_selector(move || format!("staff-proposal-card-{id}"))
         .flex_row()
+        .flex_wrap()
         .items_center()
+        .gap_y(px(tokens::SPACE_4))
         .child(crate::island::pet(
             &proposal.agent,
             engine,
@@ -35,9 +39,11 @@ pub(super) fn render(
             !ctx.app.motion.reduce_motion,
         ))
         .child(
+            // Keeps a readable minimum; below it the meta group wraps to its own line instead of overlapping.
             div()
+                .debug_selector(move || format!("staff-dispatched-title-{id}"))
                 .flex_1()
-                .min_w_0()
+                .min_w(px(TITLE_MIN_WIDTH))
                 .truncate()
                 .text_size(px(tokens::BODY_TEXT))
                 .font_semibold()
@@ -45,26 +51,35 @@ pub(super) fn render(
         )
         .child(
             div()
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(px(tokens::SPACE_8))
+                .whitespace_nowrap()
                 .text_size(px(tokens::META_TEXT))
-                .text_color(rgba(theme.text_secondary))
-                .child(if engine.is_empty() {
-                    proposal.agent.clone()
-                } else {
-                    format!("{} · {engine}", proposal.agent)
-                }),
-        )
-        .child(
-            div()
-                .text_size(px(tokens::META_TEXT))
-                .text_color(rgba(theme.success))
-                .child(format!(
-                    "✓ {}",
-                    t(if proposal.auto {
-                        "staff.dispatched_by_staff"
-                    } else {
-                        "staff.dispatched"
-                    })
-                )),
+                .child(
+                    div()
+                        .debug_selector(move || format!("staff-dispatched-agent-{id}"))
+                        .text_color(rgba(theme.text_secondary))
+                        .child(if engine.is_empty() {
+                            proposal.agent.clone()
+                        } else {
+                            format!("{} · {engine}", proposal.agent)
+                        }),
+                )
+                .child(
+                    div()
+                        .debug_selector(move || format!("staff-dispatched-status-{id}"))
+                        .text_color(rgba(theme.success))
+                        .child(format!(
+                            "✓ {}",
+                            t(if proposal.auto {
+                                "staff.dispatched_by_staff"
+                            } else {
+                                "staff.dispatched"
+                            })
+                        )),
+                ),
         )
         .when(running, |row| {
             row.child(

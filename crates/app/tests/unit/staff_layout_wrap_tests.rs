@@ -49,6 +49,36 @@ fn staff_dispatched_proposal_is_compact() {
         cx.debug_bounds("staff-adopt-1").is_none(),
         "已派发不应再有采用按钮"
     );
+    // 窄到放不下一行时，智能体名与状态整组换行，不与标题或彼此重叠，也不超出卡片。
+    for width in [320., 260., 900.] {
+        cx.simulate_resize(size(px(width), px(700.)));
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear());
+        let card = cx.debug_bounds("staff-proposal-card-1").expect("card");
+        let agent = cx.debug_bounds("staff-dispatched-agent-1").expect("agent");
+        let status = cx
+            .debug_bounds("staff-dispatched-status-1")
+            .expect("status");
+        let title = cx.debug_bounds("staff-dispatched-title-1").expect("title");
+        for (name, part) in [("title", title), ("agent", agent), ("status", status)] {
+            assert!(
+                part.left() >= card.left() && part.right() <= card.right() + px(0.5),
+                "宽 {width}：{name} 超出卡片：{part:?} / {card:?}"
+            );
+        }
+        assert!(
+            !title.intersects(&agent),
+            "宽 {width}：标题压住智能体名：{title:?} / {agent:?}"
+        );
+        assert!(
+            !agent.intersects(&status),
+            "宽 {width}：智能体名压住状态：{agent:?} / {status:?}"
+        );
+        assert!(
+            title.size.width >= px(95.5),
+            "宽 {width}：标题被挤没：{title:?}"
+        );
+    }
 }
 
 /// 场景：Norma 长回复（截图中第四行压住下一张卡/输入框）。
@@ -103,6 +133,19 @@ fn staff_norma_prose_height_covers_wrapped_lines() {
 /// 预期结果：正文容纳全部换行及22px署名+8px间隙，建议再留24px，卡片包住按钮。
 #[test]
 fn staff_norma_paragraphs_reserve_height_before_proposal() {
+    assert_prose_reserves_height_before_card(false);
+}
+
+/// 场景：同一段长说明之后是已派发的紧凑卡（截图中回复末尾被「Ethan · Claude ✓ 已派发」压住）。
+/// 数据构造：与上一用例相同的正文，提议已有 dispatch_id；视口240px高。
+/// 执行过程：依次缩放320/520/900/320px，读取正文与紧凑卡边界。
+/// 预期结果：正文容纳全部换行，卡片在正文下方留24px，不与正文重叠。
+#[test]
+fn staff_norma_paragraphs_reserve_height_before_dispatched_card() {
+    assert_prose_reserves_height_before_card(true);
+}
+
+fn assert_prose_reserves_height_before_card(dispatched: bool) {
     use norma::protocol::{StaffProposal, TaskMessage};
     let dir = tempfile::tempdir().expect("isolated project");
     let paths = storage::DatabasePaths::isolated_test(dir.path());
@@ -120,52 +163,11 @@ fn staff_norma_paragraphs_reserve_height_before_proposal() {
         why: "保留建议的完整理由".into(),
         prompt: "只修复消息与卡片的布局重叠".into(),
         model: None,
-        approved: false,
+        approved: dispatched,
         ignored: false,
-        dispatch_id: None,
+        dispatch_id: dispatched.then(|| "d1".into()),
     });
     task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
-    struct Host {
-        app: Entity<MultisoulApp>,
-        task: Task,
-        text: String,
-    }
-    impl gpui::Render for Host {
-        fn render(
-            &mut self,
-            window: &mut gpui::Window,
-            cx: &mut Context<Self>,
-        ) -> impl gpui::IntoElement {
-            use gpui::{div, prelude::*, relative};
-            let list = self
-                .app
-                .update(cx, |app, cx| app.staff_message_list(&self.task, window, cx));
-            div()
-                .size_full()
-                .flex()
-                .flex_col()
-                .child(
-                    div()
-                        .absolute()
-                        .top_0()
-                        .left(px(20.))
-                        .right(px(20.))
-                        .flex()
-                        .justify_center()
-                        .opacity(0.)
-                        .child(
-                            div()
-                                .w_full()
-                                .max_w(px(760.))
-                                .text_size(px(14.))
-                                .line_height(relative(1.7))
-                                .debug_selector(|| "prose-reference".into())
-                                .child(self.text.clone()),
-                        ),
-                )
-                .child(list)
-        }
-    }
     let mut test = TestAppContext::single();
     let (_, cx) = test.add_window_view(|_, cx| {
         let app = cx.new(|cx| {
@@ -189,7 +191,6 @@ fn staff_norma_paragraphs_reserve_height_before_proposal() {
         let card = cx
             .debug_bounds("staff-proposal-card-1")
             .expect("完整建议卡");
-        let adopt = cx.debug_bounds("staff-adopt-1").expect("采用按钮");
         let reference = cx
             .debug_bounds("prose-reference")
             .expect("同宽自然文字高度");
@@ -205,6 +206,10 @@ fn staff_norma_paragraphs_reserve_height_before_proposal() {
             card.top() >= prose.bottom() + px(23.5),
             "建议须在正文下留24px：{prose:?} / {card:?}"
         );
+        if dispatched {
+            continue;
+        }
+        let adopt = cx.debug_bounds("staff-adopt-1").expect("采用按钮");
         assert!(
             adopt.bottom() <= card.bottom(),
             "建议完整包住操作行：{adopt:?} / {card:?}"
@@ -214,5 +219,120 @@ fn staff_norma_paragraphs_reserve_height_before_proposal() {
             card.size.height > px(200.),
             "完整建议不能被挤成薄片：{card:?}"
         );
+    }
+}
+
+/// 场景：本轮实时时间线里，长回复之后紧跟已派发卡（防止截图中回复末尾被卡片压住的形态回归）。
+/// 数据构造：已结束的一轮，时间线为 [长回复文字, 卡片 p1]；提议已派发；视口240px高。
+/// 执行过程：依次缩放320/520/900px，读取回复与卡片边界。
+/// 预期结果：回复高度不小于按字宽估算的行数×行高，卡片顶部在回复底部之下。
+#[test]
+fn staff_live_reply_is_not_covered_by_dispatched_card() {
+    use crate::app::staff::activity::{TaskActivity, TimelineEntry};
+    use norma::protocol::{StaffProposal, TaskMessage};
+    let dir = tempfile::tempdir().expect("isolated project");
+    let paths = storage::DatabasePaths::isolated_test(dir.path());
+    let mut task = Task::new("t", "w", "p", "布局验收");
+    let text = "归档成功那条提示不该再出现。截图里那条「已归档…仍在进行，可在已归档中查看」会整条去掉，撤销一起不显示。归档本身还在，任务照样进已归档。已交给 Ethan 在 pr-235 上改，改完我再告诉你「归档不显示这条提示」。";
+    task.proposals.push(StaffProposal {
+        id: 1,
+        round: 0,
+        auto: false,
+        downgrade: None,
+        agent: "Ethan".into(),
+        title: "归档不显示这条提示".into(),
+        why: "w".into(),
+        prompt: "p".into(),
+        model: None,
+        approved: true,
+        ignored: false,
+        dispatch_id: Some("d1".into()),
+    });
+    task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
+    let mut test = TestAppContext::single();
+    let (_, cx) = test.add_window_view(|_, cx| {
+        let app = cx.new(|cx| {
+            let mut app = MultisoulApp::new_with_pty_factory_and_database_paths(
+                cx,
+                Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+                paths,
+            );
+            let mut activity = TaskActivity::default();
+            activity.turn = 1;
+            activity.timeline = vec![
+                TimelineEntry::Text(text.into()),
+                TimelineEntry::Card("p1".into()),
+            ];
+            app.staff.activity.insert(task.id.clone(), activity);
+            app
+        });
+        Host {
+            app,
+            task,
+            text: text.into(),
+        }
+    });
+    for width in [320., 520., 900.] {
+        cx.simulate_resize(size(px(width), px(240.)));
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear());
+        let reply = cx.debug_bounds("staff-streaming-reply").expect("回复");
+        let card = cx.debug_bounds("staff-proposal-card-1").expect("已派发卡");
+        let reference = cx.debug_bounds("prose-reference").expect("同宽自然文字");
+        assert!(
+            (reference.size.width - reply.size.width).abs() < px(0.5),
+            "基准与回复必须同宽"
+        );
+        assert!(
+            reply.size.height + px(0.5) >= reference.size.height,
+            "宽 {width}：回复不能超出盒子：{reply:?} / 自然文字 {reference:?}"
+        );
+        assert!(
+            card.top() >= reply.bottom() + px(11.5),
+            "宽 {width}：卡片压住回复：{reply:?} / {card:?}"
+        );
+    }
+}
+
+/// 消息列表旁放一段同宽、同字号行高的原生文字，作为正文自然高度基准。
+struct Host {
+    app: Entity<MultisoulApp>,
+    task: Task,
+    text: String,
+}
+impl gpui::Render for Host {
+    fn render(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) -> impl gpui::IntoElement {
+        use gpui::{div, prelude::*, relative};
+        let list = self
+            .app
+            .update(cx, |app, cx| app.staff_message_list(&self.task, window, cx));
+        div()
+            .size_full()
+            .flex()
+            .flex_col()
+            .child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .left(px(20.))
+                    .right(px(20.))
+                    .flex()
+                    .justify_center()
+                    .opacity(0.)
+                    .child(
+                        div()
+                            .w_full()
+                            .max_w(px(760.))
+                            .text_size(px(14.))
+                            .line_height(relative(1.7))
+                            .debug_selector(|| "prose-reference".into())
+                            .child(self.text.clone()),
+                    ),
+            )
+            .child(list)
     }
 }
