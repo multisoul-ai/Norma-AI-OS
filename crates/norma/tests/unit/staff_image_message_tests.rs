@@ -11,7 +11,7 @@ fn sample(ext: &str) -> String {
 #[test]
 fn image_message_round_trips_visible_text_and_store_paths() {
     let path = sample("png");
-    let packed = compose_image_message("看这张", &[path.clone()]).expect("应能打包");
+    let packed = compose_image_message("看这张", std::slice::from_ref(&path)).expect("应能打包");
     assert!(
         packed.contains(&format!("[\"{path}\"]")),
         "路径必须是 JSON 字符串，避免空格或括号被改写"
@@ -24,7 +24,7 @@ fn image_message_round_trips_visible_text_and_store_paths() {
         "展示层不能把协议原文当作用户正文"
     );
 
-    let only = compose_image_message("", &[path.clone()]).expect("纯图片也应能打包");
+    let only = compose_image_message("", std::slice::from_ref(&path)).expect("纯图片也应能打包");
     let (visible, paths) = parse_image_message(&only).expect("纯图片应能解析");
     assert_eq!(visible, "", "纯图片没有正文");
     assert_eq!(paths, vec![path], "纯图片仍要保留路径");

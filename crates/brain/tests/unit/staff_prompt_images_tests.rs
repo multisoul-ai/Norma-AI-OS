@@ -25,7 +25,9 @@ fn latest_user_image_becomes_a_prompt_block_when_the_hash_matches() {
     fs::write(&path, PNG).expect("写入图片");
     let stored = path.to_str().expect("路径应为 utf-8").to_owned();
     let mut task = Task::new("t", "w", "p", "图");
-    task.user_message(&compose_image_message("看logo", &[stored.clone()]).expect("打包"));
+    task.user_message(
+        &compose_image_message("看logo", std::slice::from_ref(&stored)).expect("打包"),
+    );
     let attached = attachments(&task);
     assert!(attached.missing.is_empty(), "匹配哈希的文件不应报缺失");
     assert_eq!(attached.blocks.len(), 1, "只附最近一条里的一张图");
