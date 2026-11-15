@@ -12,6 +12,10 @@ impl BrainHostState {
     pub(super) fn token(&self) -> Option<String> {
         self.client.as_ref().and_then(owner::BrainClient::token)
     }
+
+    pub(super) fn tokens(&self) -> Option<brain::staff::gate::Tokens> {
+        self.client.as_ref().and_then(owner::BrainClient::tokens)
+    }
 }
 
 impl MultisoulApp {

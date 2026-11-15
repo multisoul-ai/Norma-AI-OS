@@ -43,7 +43,7 @@ fn fixture() -> Fixture {
         app.install_brain_host_for_test(super::super::BrainHost {
             service: None,
             status,
-            token: "handoff-token".into(),
+            tokens: brain::staff::gate::Tokens::new("handoff-token", "staff-token"),
         });
         let mut settings = config::BrainSettings::default();
         settings.autonomy.assign_followups = true;

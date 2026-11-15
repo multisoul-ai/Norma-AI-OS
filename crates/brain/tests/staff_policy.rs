@@ -259,3 +259,17 @@ fn staff_may_only_run_whitelisted_commands() {
         "archive after done"
     );
 }
+
+/// 场景：降级原因要以稳定的代码回给模型，模型据此决定怎么向用户解释。
+/// 数据构造：四种原因，其中风险带两个类别。
+/// 预期结果：代码分别为 autonomy_ask、not_follow_up、limit_reached、risk:release,destructive。
+#[test]
+fn downgrade_reasons_have_stable_codes() {
+    assert_eq!(ProposeReason::AutonomyAsk.code(), "autonomy_ask");
+    assert_eq!(ProposeReason::NotFollowUp.code(), "not_follow_up");
+    assert_eq!(ProposeReason::LimitReached.code(), "limit_reached");
+    assert_eq!(
+        ProposeReason::Risk(vec![RiskCategory::Release, RiskCategory::Destructive]).code(),
+        "risk:release,destructive"
+    );
+}

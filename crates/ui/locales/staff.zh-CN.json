@@ -109,5 +109,16 @@
   "staff.archived_note": "已归档 · 不再出现在任务列表。发送新消息会自动取消归档。",
   "staff.archive_named": "归档 %{title}",
   "staff.archive_empty": "还没有归档的任务",
-  "staff.archive_empty_hint": "完成的任务可以收进这里"
+  "staff.archive_empty_hint": "完成的任务可以收进这里",
+  "staff.denied.decide": "幕僚不能处理审批，请告诉用户去处理这条审批。",
+  "staff.denied.answer": "幕僚不能直接回答问题，请用 propose-answer 提出建议，等用户采用。",
+  "staff.denied.legacy_assign": "幕僚不能用普通 assign 命令，请对本任务使用 task assign 或 task propose。",
+  "staff.denied.task_scope": "幕僚只处理当前这一轮的任务，不能新建或列出任务。",
+  "staff.denied.user_message": "幕僚不能冒充用户发消息。",
+  "staff.denied.adopt": "只有用户才能采用提议。",
+  "staff.denied.unarchive": "只有用户才能恢复已归档的任务。",
+  "staff.denied.archive_not_done": "任务完成后才能归档。",
+  "staff.denied.other_task": "这条命令针对的不是当前这一轮的任务，请只处理当前任务。",
+  "staff.denied.history_scope": "幕僚只能读本任务派出过的 Agent 的对话。",
+  "staff.denied.report_rate": "这个任务的主动播报太频繁了，请把内容写进任务回复里。"
 }

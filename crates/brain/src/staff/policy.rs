@@ -102,6 +102,24 @@ pub enum ProposeReason {
     LimitReached,
 }
 
+impl ProposeReason {
+    /// 回给模型的结构化原因，不含面向用户的文案。
+    pub fn code(&self) -> String {
+        match self {
+            Self::AutonomyAsk => "autonomy_ask".into(),
+            Self::NotFollowUp => "not_follow_up".into(),
+            Self::LimitReached => "limit_reached".into(),
+            Self::Risk(categories) => {
+                let names: Vec<_> = categories
+                    .iter()
+                    .map(|c| format!("{c:?}").to_lowercase())
+                    .collect();
+                format!("risk:{}", names.join(","))
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AssignDecision {
     Dispatch,

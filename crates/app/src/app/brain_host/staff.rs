@@ -3,6 +3,7 @@ use super::*;
 use norma::protocol::StaffOp;
 use std::sync::Arc;
 
+mod assign;
 mod decisions;
 mod dispatch;
 mod events;
@@ -35,7 +36,7 @@ impl MultisoulApp {
         {
             return self.dispatch_staff_worker(task_id, proposal_id, token.to_owned(), cx);
         }
-        if let StaffOp::Propose { agent, .. } = &op {
+        if let StaffOp::Propose { agent, .. } | StaffOp::Assign { agent, .. } = &op {
             if !self
                 .agent_roster_for_provider()
                 .iter()
@@ -43,6 +44,9 @@ impl MultisoulApp {
             {
                 return Err("staff.agent_unavailable".to_owned());
             }
+        }
+        if matches!(op, StaffOp::Assign { .. }) {
+            return self.assign_staff_worker(op, token.to_owned(), cx);
         }
         self.write_staff_operation(op, false, cx)
     }

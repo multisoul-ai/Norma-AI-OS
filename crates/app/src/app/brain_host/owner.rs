@@ -286,10 +286,15 @@ impl BrainClient {
         self.generation().is_some()
     }
 
+    /// 主大脑 token；App 自己代用户调用大脑能力时使用。
     pub(super) fn token(&self) -> Option<String> {
+        self.tokens().map(|tokens| tokens.main().to_owned())
+    }
+
+    pub(super) fn tokens(&self) -> Option<brain::staff::gate::Tokens> {
         let owner = self.owner.0.borrow();
         self.live(&owner)
-            .then(|| owner.host.as_ref().map(|host| host.token.clone()))
+            .then(|| owner.host.as_ref().map(|host| host.tokens.clone()))
             .flatten()
     }
 

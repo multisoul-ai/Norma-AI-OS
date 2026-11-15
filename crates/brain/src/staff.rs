@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex, OnceLock, Weak};
 static STORES: OnceLock<Mutex<BTreeMap<PathBuf, Weak<TaskStore>>>> = OnceLock::new();
 mod assign;
 mod delivery;
+pub mod gate;
 pub mod policy;
 mod proposals;
 mod questions;

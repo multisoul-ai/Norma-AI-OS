@@ -109,5 +109,16 @@
   "staff.archived_note": "Archived · hidden from the task list. A new message unarchives it.",
   "staff.archive_named": "Archive %{title}",
   "staff.archive_empty": "No archived tasks yet",
-  "staff.archive_empty_hint": "Finished tasks can be put here"
+  "staff.archive_empty_hint": "Finished tasks can be put here",
+  "staff.denied.decide": "Staff cannot decide approvals. Tell the user to handle this approval.",
+  "staff.denied.answer": "Staff cannot answer a question directly. Use propose-answer and wait for the user.",
+  "staff.denied.legacy_assign": "Staff cannot use the plain assign command. Use task assign or task propose for this task.",
+  "staff.denied.task_scope": "Staff only works on the task of the current turn. Do not create or list tasks.",
+  "staff.denied.user_message": "Staff cannot post messages as the user.",
+  "staff.denied.adopt": "Only the user can adopt a proposal.",
+  "staff.denied.unarchive": "Only the user can restore an archived task.",
+  "staff.denied.archive_not_done": "Archive a task only after it is done.",
+  "staff.denied.other_task": "This command targets a different task than the current turn. Work on the current task only.",
+  "staff.denied.history_scope": "Staff can only read conversations of agents dispatched in this task.",
+  "staff.denied.report_rate": "Too many proactive reports for this task. Put the content in your task reply instead."
 }

@@ -321,6 +321,26 @@ fn drain_requests(cx: &mut App) {
     }
 }
 
+/// 大脑命令在分发前统一按 token 角色授权；路由失败交给后面的各条路径处理。
+fn brain_authorization_error(
+    request: &norma::protocol::WireRequest,
+    cx: &mut App,
+) -> Option<norma::protocol::CardCommandError> {
+    let CardCommand::Brain { token, op } = &request.command else {
+        return None;
+    };
+    let target = resolve_targets(request, cx).ok()?.target;
+    match target
+        .app
+        .update(cx, |app, _| app.authorize_brain(token, op))
+    {
+        Ok(Err(code)) => Some(norma::protocol::CardCommandError::Unsupported {
+            message: crate::app::staff::error_message(code).to_string(),
+        }),
+        _ => None,
+    }
+}
+
 fn dispatch_request(server_request: NormaServerRequest, cx: &mut App) {
     let request_id = server_request.request.request_id;
     let response = server_request.response;
@@ -355,6 +375,10 @@ fn dispatch_request(server_request: NormaServerRequest, cx: &mut App) {
             "App 全局编排健康检查尚未完成",
             true,
         ));
+        return;
+    }
+    if let Some(denied) = brain_authorization_error(&request, cx) {
+        let _ = response.send(WireResponse::new(request_id, Err(denied)));
         return;
     }
     if matches!(

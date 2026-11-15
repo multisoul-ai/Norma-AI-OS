@@ -214,7 +214,7 @@ fn only_the_issued_token_authorizes_brain_commands() {
     state.install_brain_host_for_test(super::BrainHost {
         service: None,
         status,
-        token: "abc".into(),
+        tokens: brain::staff::gate::Tokens::new("abc", "staff-token"),
     });
     assert!(state.token_matches("abc"), "正确令牌应通过");
     for wrong in ["abd", "", "ABC", "abcd"] {

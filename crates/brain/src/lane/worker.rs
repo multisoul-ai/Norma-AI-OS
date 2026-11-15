@@ -43,6 +43,7 @@ pub struct LaneEnv {
     pub open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
     pub stop: Arc<AtomicBool>,
     pub env: Vec<(String, String)>,
+    pub staff_token: Option<String>,
     pub prompt_timeout: Duration,
     pub retry_backoff: Duration,
     /// 超过这个轮数就重建会话，避免上下文无限增长。
@@ -50,13 +51,17 @@ pub struct LaneEnv {
 }
 
 impl LaneEnv {
-    fn session_options(&self) -> SessionOptions {
+    fn session_options(&self, staff: bool) -> SessionOptions {
+        let env = match (&self.staff_token, staff) {
+            (Some(token), true) => crate::staff::gate::staff_env(&self.env, token),
+            _ => self.env.clone(),
+        };
         SessionOptions {
             kind: self.backend.kind,
             program: self.backend.program.clone(),
             args: self.backend.args.clone(),
             cwd: self.project_root.clone(),
-            env: self.env.clone(),
+            env,
             meta: backend::session_meta(self.backend.kind, self.model.as_deref()),
             mode: backend::session_mode(self.backend.kind).map(str::to_string),
             model: self.model.clone(),
@@ -188,9 +193,9 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             session = None;
             let connecting = Instant::now();
             let started = if job.task_id.is_some() {
-                AcpSession::start_staff_cancellable(&env.session_options(), &cancelled)
+                AcpSession::start_staff_cancellable(&env.session_options(true), &cancelled)
             } else {
-                AcpSession::start_cancellable(&env.session_options(), &cancelled)
+                AcpSession::start_cancellable(&env.session_options(false), &cancelled)
             };
             match started {
                 Ok(started) => {
