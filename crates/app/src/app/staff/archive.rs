@@ -9,7 +9,7 @@ use ui::component::{
 use ui::i18n::text as t;
 
 pub(super) enum StaffArchiveNotice {
-    Archived { title: String, active: bool },
+    Archived,
     Undone,
     MovedBack,
 }
@@ -98,45 +98,29 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let (text, undo) = match &notice {
-            StaffArchiveNotice::Archived { title, active } => {
-                // 以提交时的任务状态为准。问题会在两分钟后超时，点击瞬间读到的状态可能已经变掉。
-                let active = self
-                    .staff
-                    .tasks
-                    .get(&id)
-                    .map(|task| task.archive_note_active())
-                    .unwrap_or(*active);
-                (
-                    ui::i18n::message(
-                        if active {
-                            "staff.archive_toast_active"
-                        } else {
-                            "staff.archive_toast"
-                        },
-                        &[("title", title.clone())],
-                    ),
-                    Some(id.clone()),
-                )
-            }
-            StaffArchiveNotice::Undone => (ui::i18n::message("staff.archive_undone", &[]), None),
-            StaffArchiveNotice::MovedBack => {
-                (ui::i18n::message("staff.unarchived_toast", &[]), None)
-            }
+        // 归档成功不弹提示；只有撤销与移回才提示。
+        let toast = match &notice {
+            StaffArchiveNotice::Archived => None,
+            StaffArchiveNotice::Undone => Some(ui::i18n::message("staff.archive_undone", &[])),
+            StaffArchiveNotice::MovedBack => Some(ui::i18n::message("staff.unarchived_toast", &[])),
         };
         if let Some(host) = self.desktop_host.clone() {
             let _ = host.update(cx, |host, cx| {
                 if let Some(task) = host.staff.tasks.get_mut(&id) {
                     task.archived = archived;
                 }
-                host.show_staff_toast(text, undo, cx);
+                if let Some(text) = toast {
+                    host.show_staff_toast(text, None, cx);
+                }
                 host.focus_after_archive(&id, &notice, window, cx);
             });
         } else {
             if let Some(task) = self.staff.tasks.get_mut(&id) {
                 task.archived = archived;
             }
-            self.show_staff_toast(text, undo, cx);
+            if let Some(text) = toast {
+                self.show_staff_toast(text, None, cx);
+            }
             self.focus_after_archive(&id, &notice, window, cx);
         }
         self.notify_staff(cx);
@@ -151,7 +135,7 @@ impl MultisoulApp {
     ) {
         self.staff.busy = false;
         let next = match notice {
-            StaffArchiveNotice::Archived { .. } | StaffArchiveNotice::MovedBack
+            StaffArchiveNotice::Archived | StaffArchiveNotice::MovedBack
                 if self.staff.selected.as_deref() == Some(id) =>
             {
                 self.staff_visible_ids().into_iter().find(|next| next != id)
@@ -160,7 +144,7 @@ impl MultisoulApp {
                 self.staff.archive_view = false;
                 Some(id.to_owned())
             }
-            StaffArchiveNotice::Archived { .. } | StaffArchiveNotice::MovedBack => return,
+            StaffArchiveNotice::Archived | StaffArchiveNotice::MovedBack => return,
         };
         if let Some(area) = next
             .as_ref()
@@ -336,7 +320,6 @@ impl MultisoulApp {
     pub(super) fn staff_archive_header(&self, task: &Task, cx: &mut Context<Self>) -> Div {
         let archived = task.archived;
         let id = task.id.clone();
-        let title = task.title.clone();
         let on_container = self.staff_tonal_colors().1;
         div().flex_none().child(
             Button::new(if archived {
@@ -382,15 +365,10 @@ impl MultisoulApp {
                         cx,
                     );
                 } else {
-                    let task = app.staff.tasks.get(&id);
-                    let active = task.is_some_and(|task| task.archive_note_active());
-                    let title = task
-                        .map(|task| task.title.clone())
-                        .unwrap_or_else(|| title.clone());
                     app.request_staff_archive(
                         id.clone(),
                         true,
-                        StaffArchiveNotice::Archived { title, active },
+                        StaffArchiveNotice::Archived,
                         window,
                         cx,
                     );

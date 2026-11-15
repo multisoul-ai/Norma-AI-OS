@@ -169,7 +169,7 @@ impl MultisoulApp {
     }
 
     pub(super) fn staff_image_chips(&self, cx: &mut Context<Self>) -> gpui::Div {
-        let mut row = div().flex().flex_wrap().gap(px(10.)).pb(px(8.));
+        let mut row = div().flex().flex_none().flex_wrap().gap(px(10.)).pb(px(8.));
         for (index, path) in self.staff.images.iter().cloned().enumerate() {
             row = row.child(
                 div()
@@ -177,11 +177,17 @@ impl MultisoulApp {
                     .debug_selector(move || format!("staff-image-{index}"))
                     .w(px(104.))
                     .h(px(78.))
+                    .flex_none()
+                    .overflow_hidden()
                     .child(
                         img(PathBuf::from(path))
-                            .size_full()
+                            .debug_selector(move || format!("staff-preview-content-{index}"))
+                            .w_full()
+                            .h(px(78.))
+                            // The image's intrinsic aspect ratio can otherwise override block height.
+                            .max_h(px(78.))
                             .rounded(px(10.))
-                            .object_fit(ObjectFit::Cover),
+                            .object_fit(ObjectFit::Contain),
                     )
                     .child(
                         div().absolute().top(px(4.)).right(px(4.)).child(

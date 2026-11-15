@@ -304,14 +304,30 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 env.status.clone(),
             )
         }));
+        let mut segments = task.as_ref().zip(job.task_id.as_deref()).map(|(task, id)| {
+            super::staff::Segments::new(
+                env.tasks.clone(),
+                &job.scope.workspace_id,
+                id,
+                task.messages.len(),
+            )
+        });
         let result = active.prompt_observed(
             &text,
             &images,
             &cancelled,
             env.prompt_timeout,
             &mut |item| env.trace(&job.scope, this_turn, &job.trigger, item),
-            &mut |item| env.task_update(&job, this_turn, TaskUpdate::Update(item.clone())),
+            &mut |item| {
+                if let Some(segments) = &mut segments {
+                    segments.observe(item);
+                }
+                env.task_update(&job, this_turn, TaskUpdate::Update(item.clone()))
+            },
         );
+        let segments = segments
+            .map(super::staff::Segments::into_items)
+            .unwrap_or_default();
         match result {
             Ok(reply) => {
                 if let Some(task) = &task {
@@ -320,6 +336,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                         match super::staff::save_reply(
                             &env.tasks,
                             task,
+                            &segments,
                             &reply,
                             active.session_id(),
                         ) {

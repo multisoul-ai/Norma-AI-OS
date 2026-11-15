@@ -4,8 +4,19 @@ use brain::event::TaskUpdate;
 use norma::protocol::{Task, TaskMessage};
 use std::time::Instant;
 
+/// 一轮里按到达顺序追加的条目；只追加，已显示条目的相对顺序不变。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum TimelineEntry {
+    Text(String),
+    /// `TaskActivity::tools` 下标。
+    Tool(usize),
+    /// 建议卡/问答卡的稳定标识（见 `card_key`）；落盘插入 Norma 回复会改变消息下标，所以不能存下标。
+    Card(String),
+}
+
 #[derive(Default)]
 pub(crate) struct TaskActivity {
+    pub timeline: Vec<TimelineEntry>,
     pub turn: u64,
     pub queued: usize,
     pub active: bool,
@@ -38,8 +49,18 @@ impl TaskActivity {
                 };
             }
             TaskUpdate::Update(item) if turn == self.turn && self.active => match item.kind {
-                TraceKind::Reply if !self.committed => self.reply.push_str(&item.text),
-                TraceKind::Prompt if !self.committed => self.reply.clear(),
+                TraceKind::Reply if !self.committed => {
+                    self.reply.push_str(&item.text);
+                    match self.timeline.last_mut() {
+                        Some(TimelineEntry::Text(text)) => text.push_str(&item.text),
+                        _ => self.timeline.push(TimelineEntry::Text(item.text)),
+                    }
+                }
+                TraceKind::Prompt if !self.committed => {
+                    self.reply.clear();
+                    self.timeline
+                        .retain(|entry| !matches!(entry, TimelineEntry::Text(_)));
+                }
                 TraceKind::Plan => {
                     self.plan = item
                         .text
@@ -83,6 +104,7 @@ impl TaskActivity {
 
     fn update_tool(&mut self, item: TraceItem) {
         let Some(meta) = item.tool else { return };
+        let known = self.tools.len();
         let index = self
             .tools
             .iter()
@@ -98,7 +120,8 @@ impl TaskActivity {
                     started: Instant::now(),
                     elapsed_ms: None,
                 });
-                self.tools.len() - 1
+                self.timeline.push(TimelineEntry::Tool(known));
+                known
             });
         let tool = &mut self.tools[index];
         if let Some(name) = meta.name {
@@ -143,15 +166,43 @@ impl TaskActivity {
     }
 
     pub fn reconcile(&mut self, task: &Task) {
-        if task
-            .messages
-            .iter()
-            .skip(self.baseline)
-            .any(|m| matches!(m, TaskMessage::Norma { .. }))
-        {
+        // 排队阶段（尚未 Started）的基线是占位值，不能据此认领历史消息。
+        if self.turn == 0 {
+            return;
+        }
+        let mut saved = Vec::new();
+        for message in task.messages.iter().skip(self.baseline) {
+            if let Some(key) = card_key(message) {
+                if !self.timeline.contains(&TimelineEntry::Card(key.clone())) {
+                    self.timeline.push(TimelineEntry::Card(key));
+                }
+            } else if let TaskMessage::Norma { text } = message {
+                saved.push(text.as_str());
+            }
+        }
+        if !saved.is_empty() && !self.committed {
+            // 模型自己用 task reply 写回时没有流式片段，把落盘文字追加到末尾。
+            if !self
+                .timeline
+                .iter()
+                .any(|entry| matches!(entry, TimelineEntry::Text(_)))
+            {
+                self.timeline.push(TimelineEntry::Text(saved.join("\n\n")));
+            }
             self.reply.clear();
             self.committed = true;
         }
+    }
+
+    /// 本轮的 Norma 回复和卡片由时间线渲染，消息列表须跳过。
+    pub fn owns(&self, index: usize, message: &TaskMessage) -> bool {
+        self.turn != 0
+            && index >= self.baseline
+            && match message {
+                TaskMessage::Norma { .. } => self.committed,
+                _ => card_key(message)
+                    .is_some_and(|key| self.timeline.contains(&TimelineEntry::Card(key))),
+            }
     }
 
     pub fn interrupt(&mut self) {
@@ -161,6 +212,14 @@ impl TaskActivity {
         self.active = false;
         self.queued = 0;
         self.finish_tools();
+    }
+}
+
+pub(crate) fn card_key(message: &TaskMessage) -> Option<String> {
+    match message {
+        TaskMessage::Proposal { proposal_id } => Some(format!("p{proposal_id}")),
+        TaskMessage::Question { question } => Some(format!("q{}", question.id)),
+        _ => None,
     }
 }
 

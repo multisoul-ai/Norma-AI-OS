@@ -103,8 +103,6 @@
   "staff.unarchive": "取消归档",
   "staff.archived": "已归档",
   "staff.back_to_tasks": "返回任务列表",
-  "staff.archive_toast": "已归档「%{title}」",
-  "staff.archive_toast_active": "已归档「%{title}」（仍在进行，可在已归档中查看）",
   "staff.undo": "撤销",
   "staff.archive_undone": "已撤销归档",
   "staff.unarchived_toast": "已移回任务列表",

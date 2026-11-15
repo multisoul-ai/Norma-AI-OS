@@ -4,10 +4,14 @@ import E2EKit
 public enum StaffModule {
     public static let manifest = DesktopModule(
         name: "staff",
-        scenarioNames: [StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name, StaffArchive.name, StaffArchive.englishName, StaffProtocolRecovery.name, StaffProtocolRecovery.englishName],
-        visualScenarioNames: [StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name, StaffArchive.name, StaffArchive.englishName, StaffProtocolRecovery.name, StaffProtocolRecovery.englishName],
+        scenarioNames: [StaffComposerImages.name, StaffComposerImages.englishName, StaffProposalLayout.name, StaffProposalLayout.englishName, StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name, StaffArchive.name, StaffArchive.englishName, StaffProtocolRecovery.name, StaffProtocolRecovery.englishName],
+        visualScenarioNames: [StaffComposerImages.name, StaffComposerImages.englishName, StaffProposalLayout.name, StaffProposalLayout.englishName, StaffWorkspaceStreaming.name, StaffWorkspaceStreaming.englishName, StaffWorkflow.name, StaffWorkflow.englishName, StaffOpenCodeDispatch.name, StaffArchive.name, StaffArchive.englishName, StaffProtocolRecovery.name, StaffProtocolRecovery.englishName],
         run: { scenario, session in
             switch scenario {
+            case StaffComposerImages.name: try await StaffComposerImages.run(session); return true
+            case StaffComposerImages.englishName: try await StaffComposerImages.run(session, english: true); return true
+            case StaffProposalLayout.name: try await StaffProposalLayout.run(session); return true
+            case StaffProposalLayout.englishName: try await StaffProposalLayout.run(session, english: true); return true
             case StaffWorkflow.name: try await StaffWorkflow.run(session); return true
             case StaffWorkflow.englishName: try await StaffWorkflow.run(session, english: true); return true
             case StaffWorkspaceStreaming.name: try await StaffWorkspaceStreaming.run(session); return true

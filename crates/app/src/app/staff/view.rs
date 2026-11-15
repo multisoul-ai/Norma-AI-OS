@@ -199,13 +199,18 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .gap(px(messages::tokens::SPACE_24));
+        let activity = self.staff.activity.get(&task.id);
         for (index, message) in task.messages.iter().enumerate() {
+            if activity.is_some_and(|activity| activity.owns(index, message)) {
+                continue;
+            }
             messages = messages.child(self.render_message(task, index, message, window, cx));
         }
 
-        if let Some(activity) = self.staff.activity.get(&task.id) {
+        if let Some(activity) = activity {
             messages = messages.child(
-                messages::message_column().child(self.staff_activity_view(&task.id, activity, cx)),
+                messages::message_column()
+                    .child(self.staff_activity_view(task, activity, window, cx)),
             );
         }
         messages

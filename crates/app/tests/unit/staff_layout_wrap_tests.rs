@@ -94,3 +94,121 @@ fn staff_norma_prose_height_covers_wrapped_lines() {
         );
     }
 }
+
+/// 场景：长 Norma 说明后紧接待采用建议，滚动区不能压缩正文或卡片。
+/// 数据构造：截图中含行内代码路径的两段说明与完整建议，视口仅240px高；原生文字作同宽高度基准。
+/// 执行过程：渲染生产消息列表，依次缩放320/520/900/320px并读取正文、建议与按钮边界。
+/// 预期结果：正文容纳全部换行及22px署名+8px间隙，建议再留24px，卡片包住按钮。
+#[test]
+fn staff_norma_paragraphs_reserve_height_before_proposal() {
+    use norma::protocol::{StaffProposal, TaskMessage};
+    let dir = tempfile::tempdir().expect("isolated project");
+    let paths = storage::DatabasePaths::isolated_test(dir.path());
+    let mut task = Task::new("t", "w", "p", "布局验收");
+    let text = "归档成功那条提示不该再出现。我先看现在有哪些 Agent 能接着改 pr-235。截图里那条「已归档…仍在进行，可在已归档中查看」会整条去掉，撤销一起不显示。归档本身还在。交给 Ethan 在 pr-235 上改。已提议交给 Ethan，在 `/Users/openclawd/Documents/code/norma-os/pr-235` 里改：归档后不再弹出截图里那条「已归档…仍在进行，可在已归档中查看」，右边的撤销也一起去掉。\n\n归档本身还在，任务照样进已归档。你点采用就派给他。若只想删括号里那句、撤销还要留，跟我说一声再改。".to_owned();
+    task.messages
+        .push(TaskMessage::Norma { text: text.clone() });
+    task.proposals.push(StaffProposal {
+        id: 1,
+        round: 0,
+        agent: "Simon".into(),
+        title: "归档不显示这条提示".into(),
+        why: "保留建议的完整理由".into(),
+        prompt: "只修复消息与卡片的布局重叠".into(),
+        model: None,
+        approved: false,
+        ignored: false,
+        dispatch_id: None,
+    });
+    task.messages.push(TaskMessage::Proposal { proposal_id: 1 });
+    struct Host {
+        app: Entity<MultisoulApp>,
+        task: Task,
+        text: String,
+    }
+    impl gpui::Render for Host {
+        fn render(
+            &mut self,
+            window: &mut gpui::Window,
+            cx: &mut Context<Self>,
+        ) -> impl gpui::IntoElement {
+            use gpui::{div, prelude::*, relative};
+            let list = self
+                .app
+                .update(cx, |app, cx| app.staff_message_list(&self.task, window, cx));
+            div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .left(px(20.))
+                        .right(px(20.))
+                        .flex()
+                        .justify_center()
+                        .opacity(0.)
+                        .child(
+                            div()
+                                .w_full()
+                                .max_w(px(760.))
+                                .text_size(px(14.))
+                                .line_height(relative(1.7))
+                                .debug_selector(|| "prose-reference".into())
+                                .child(self.text.clone()),
+                        ),
+                )
+                .child(list)
+        }
+    }
+    let mut test = TestAppContext::single();
+    let (_, cx) = test.add_window_view(|_, cx| {
+        let app = cx.new(|cx| {
+            MultisoulApp::new_with_pty_factory_and_database_paths(
+                cx,
+                Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+                paths,
+            )
+        });
+        Host {
+            app,
+            task,
+            text: text.replace('`', "").replace("\n\n", "\n"),
+        }
+    });
+    for width in [320., 520., 900., 320.] {
+        cx.simulate_resize(size(px(width), px(240.)));
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear());
+        let prose = cx.debug_bounds("staff-message-body-0").expect("Norma正文");
+        let card = cx
+            .debug_bounds("staff-proposal-card-1")
+            .expect("完整建议卡");
+        let adopt = cx.debug_bounds("staff-adopt-1").expect("采用按钮");
+        let reference = cx
+            .debug_bounds("prose-reference")
+            .expect("同宽自然文字高度");
+        assert!(
+            (reference.size.width - prose.size.width).abs() < px(0.5),
+            "基准与正文必须同宽"
+        );
+        assert!(
+            prose.size.height + px(0.5) >= reference.size.height + px(30.),
+            "正文不能超出盒子：{prose:?} / 自然文字 {reference:?}"
+        );
+        assert!(
+            card.top() >= prose.bottom() + px(23.5),
+            "建议须在正文下留24px：{prose:?} / {card:?}"
+        );
+        assert!(
+            adopt.bottom() <= card.bottom(),
+            "建议完整包住操作行：{adopt:?} / {card:?}"
+        );
+        // 六行各按20px，加5×12px间距与32px内边距共212px；200px取保守下限。
+        assert!(
+            card.size.height > px(200.),
+            "完整建议不能被挤成薄片：{card:?}"
+        );
+    }
+}

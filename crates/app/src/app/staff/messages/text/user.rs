@@ -14,13 +14,18 @@ impl MessageBlock for User<'_> {
         let index = ctx.index;
         let theme = ctx.app.staff_theme();
         let message = self.0;
-        let mut row = div().w_full().flex().flex_col().gap(px(tokens::SPACE_8));
+        let mut row = div()
+            .w_full()
+            // Intrinsic height must use the same reading width as the final message column.
+            .max_w(px(tokens::READING_WIDTH))
+            .flex()
+            .flex_col()
+            .gap(px(tokens::SPACE_8));
         if let TaskMessage::User { text } = message {
             let (visible, paths) = norma::protocol::image_message_parts(text);
             let mut bubble = div()
-                .flex()
-                .flex_col()
-                .gap(px(tokens::SPACE_8))
+                .flex_none()
+                .min_w_0()
                 .debug_selector(move || format!("staff-user-bubble-{index}"))
                 .max_w(relative(0.78))
                 .px(px(tokens::SPACE_16))
@@ -29,8 +34,14 @@ impl MessageBlock for User<'_> {
                 .rounded_br(px(tokens::SPACE_4))
                 .bg(rgba(theme.panel_high));
             if !visible.is_empty() {
-                bubble = bubble.child(visible);
+                bubble = bubble.child(
+                    div()
+                        .debug_selector(move || format!("staff-user-text-{index}"))
+                        .when(!paths.is_empty(), |text| text.mb(px(tokens::SPACE_8)))
+                        .child(visible),
+                );
             }
+            let image_count = paths.len();
             for (image_index, path) in paths.into_iter().enumerate() {
                 bubble = bubble.child(
                     div()
@@ -40,11 +51,21 @@ impl MessageBlock for User<'_> {
                         ))
                         .debug_selector(move || format!("staff-user-image-{index}-{image_index}"))
                         .w(px(220.))
+                        .max_w_full()
                         .h(px(160.))
+                        .flex_none()
+                        .when(image_index + 1 < image_count, |image| {
+                            image.mb(px(tokens::SPACE_8))
+                        })
                         .rounded(px(12.))
                         .child(
                             img(PathBuf::from(path))
-                                .size_full()
+                                .debug_selector(move || {
+                                    format!("staff-user-image-content-{index}-{image_index}")
+                                })
+                                .w_full()
+                                .h(px(160.))
+                                .max_h(px(160.))
                                 .rounded(px(12.))
                                 .object_fit(ObjectFit::Contain)
                                 .with_fallback(|| {
@@ -59,7 +80,7 @@ impl MessageBlock for User<'_> {
                         ),
                 );
             }
-            row = row.flex_row().justify_end().child(bubble);
+            row = row.items_end().child(bubble);
         }
         row.into_any_element()
     }

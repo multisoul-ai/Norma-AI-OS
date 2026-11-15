@@ -206,3 +206,7 @@ mod card_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/staff_keyboard_tests.rs"]
 mod keyboard_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/staff_content_layout_tests.rs"]
+mod content_layout_tests;

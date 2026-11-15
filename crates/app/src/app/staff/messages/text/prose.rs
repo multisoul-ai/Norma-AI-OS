@@ -17,6 +17,8 @@ impl MessageBlock for Prose<'_> {
         let theme = ctx.app.staff_theme();
         let message = self.0;
         let mut row = div().w_full().flex().flex_col().gap(px(tokens::SPACE_8));
+        // Keep Markdown height intrinsic instead of resolving its nested percentages against flex stretch.
+        row.style().align_self = Some(gpui::AlignSelf::FlexStart);
         if let TaskMessage::Norma { text } = message {
             row = row
                 .child(

@@ -80,7 +80,10 @@ enum StaffAdapter {
                 tid = task['id']
                 users = [m['User']['text'] for m in task['messages'] if 'User' in m]
                 last = users[-1] if users else ''
-                if 'STREAM-FAIL' in last:
+                if 'PROPOSAL-LAYOUT' in last and not task['proposals']:
+                    run(sid, base + ['task','propose',tid,'Claude','--title','归档不显示这条提示','--prompt','保持卡片完整可读。说明文字与建议卡分开排列，不修改归档提示逻辑。','--why','仅修复布局重叠，保留标题、理由、指令和交给谁。'])
+                    reply = '归档成功那条提示不该再出现。我先看现在有哪些 Agent 能接着改 pr-235。截图里那条「已归档…仍在进行，可在已归档中查看」会整条去掉，撤销一起不显示。归档本身还在。交给 Ethan 在 pr-235 上改。已提议交给 Ethan，在 `/Users/openclawd/Documents/code/norma-os/pr-235` 里改：归档后不再弹出截图里那条「已归档…仍在进行，可在已归档中查看」，右边的撤销也一起去掉。\n\n归档本身还在，任务照样进已归档。你点采用就派给他。若只想删括号里那句、撤销还要留，跟我说一声再改。 LAYOUT END'
+                elif 'STREAM-FAIL' in last:
                     send({'jsonrpc':'2.0','id':mid,'error':{'code':-32602,'message':'Fixture permanent failure'}})
                     continue
                 elif 'STREAM-ALPHA' in last:
@@ -89,6 +92,11 @@ enum StaffAdapter {
                         {'content':'Inspect Alpha project','priority':'high','status':'completed'},
                         {'content':'Prepare acceptance result','priority':'medium','status':'in_progress'}]})
                     update(sid, {'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':'ALPHA PARTIAL: project inspected. '}})
+                    # 本场景没有可用 Agent，用原生问答卡验证“卡片中途入库只往后追加”；不等待回答，轮次结束时由宿主按超时收口。
+                    send({'jsonrpc':'2.0','id':950,'method':'elicitation/create','params':{'sessionId':sid,
+                        'toolCallId':'staff-question-stream','mode':'form','message':'Please choose',
+                        'requestedSchema':{'type':'object','properties':{'analytics': {'type':'string','title':'ALPHA QUESTION','_meta':{'codex':{'isOther':True,'isSecret':False}},
+                            'oneOf':[{'const':'Yes','title':'Yes'}, {'const':'No','title':'No'}]}}}}})
                     hold('release-partial')
                     update(sid, {'sessionUpdate':'plan','entries':[
                         {'content':'Inspect Alpha project','priority':'high','status':'completed'},

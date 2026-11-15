@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::app::staff::activity::TaskActivity;
+use crate::app::staff::activity::{card_key, TaskActivity, TimelineEntry};
 use gpui::{div, px, relative, rgba, Div};
 use ui::component::{spinner::Spinner, Icon, IconName, Sizable, StyledExt};
 use ui::i18n::text as t;
@@ -7,10 +7,12 @@ use ui::i18n::text as t;
 impl MultisoulApp {
     pub(in crate::app::staff) fn staff_activity_view(
         &self,
-        task_id: &str,
+        task: &Task,
         activity: &TaskActivity,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
+        let task_id = task.id.as_str();
         let theme = self.staff_theme();
         let mut body = div()
             .w_full()
@@ -22,6 +24,7 @@ impl MultisoulApp {
             || !activity.reply.is_empty()
             || activity.failed
             || !activity.tools.is_empty()
+            || !activity.timeline.is_empty()
         {
             let status = if activity.failed && !activity.waiting() {
                 "staff.response_failed"
@@ -100,15 +103,40 @@ impl MultisoulApp {
                 )
             };
             body = body.child(byline).child(header.child(summary));
-            body = body.children(self.staff_tool_rows(task_id, activity, cx));
-            if !activity.reply.is_empty() {
-                body = body.child(
-                    div()
-                        .id("staff-streaming-reply")
-                        .debug_selector(|| "staff-streaming-reply".into())
-                        .line_height(relative(tokens::BODY_LEADING))
-                        .child(activity.reply.clone()),
-                );
+            // 只追加：条目按到达顺序排列，卡片入库后新的文字和工具都排在它下面。
+            let last_text = activity
+                .timeline
+                .iter()
+                .rposition(|entry| matches!(entry, TimelineEntry::Text(_)));
+            for (position, entry) in activity.timeline.iter().enumerate() {
+                body = match entry {
+                    TimelineEntry::Tool(index) => {
+                        body.child(self.staff_tool_row(task_id, activity, *index, cx))
+                    }
+                    TimelineEntry::Card(key) => match task
+                        .messages
+                        .iter()
+                        .position(|message| card_key(message).as_ref() == Some(key))
+                    {
+                        Some(index) => body.child(self.render_message(
+                            task,
+                            index,
+                            &task.messages[index],
+                            window,
+                            cx,
+                        )),
+                        None => body,
+                    },
+                    TimelineEntry::Text(text) => body.child(
+                        div()
+                            .id(("staff-streaming-reply", position))
+                            .when(last_text == Some(position), |text| {
+                                text.debug_selector(|| "staff-streaming-reply".into())
+                            })
+                            .line_height(relative(tokens::BODY_LEADING))
+                            .child(text.clone()),
+                    ),
+                };
             }
         }
         if !activity.plan.is_empty() {
