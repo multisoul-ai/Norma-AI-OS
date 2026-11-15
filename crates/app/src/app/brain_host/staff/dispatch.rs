@@ -34,6 +34,17 @@ impl MultisoulApp {
                 return Ok(serde_json::json!({"task":task.id,"dispatch_id":dispatch,"status":"already_dispatched"}).to_string());
             }
             context.snapshot().await.map_err(|error| error.to_string())?;
+            if proposal.target_worker.is_some() {
+                return super::resume::resume_staff_worker(
+                    &entity,
+                    cx,
+                    store,
+                    context,
+                    (scope, token),
+                    (task, proposal),
+                )
+                .await;
+            }
             let current_scope = scope.clone();
             let current_token = token.clone();
             let reserved = entity.update(cx, |app, cx| {
@@ -117,7 +128,7 @@ impl MultisoulApp {
         }))
     }
 
-    fn check_staff_source(
+    pub(super) fn check_staff_source(
         &self,
         token: &str,
         scope: &norma::protocol::BrainScope,

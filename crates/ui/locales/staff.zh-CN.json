@@ -40,6 +40,7 @@
   "staff.retry": "重新加载",
   "staff.invalid_source": "任务来源已失效，请重新打开项目。",
   "staff.agent_unavailable": "此 Agent 不存在或已停用。",
+  "staff.worker_card_gone": "这个 Worker 的卡片已关闭，无法继续。请改为新建一个 Worker。",
   "staff.proposal_unavailable": "这条提议已不可用。",
   "staff.approval_required": "请先在任务中采用这条提议。",
   "staff.worker_starting": "启动中",

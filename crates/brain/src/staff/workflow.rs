@@ -88,6 +88,7 @@ impl TaskStore {
                         auto: false,
                         downgrade: None,
                         superseded: false,
+                        target_worker: None,
                     });
                     task.attach_card(StaffPart::Proposal(id));
                 }
@@ -205,6 +206,49 @@ impl TaskStore {
             task.set_phase(TaskPhase::Active, false);
             task.updated_at = norma::protocol::timestamp();
             Ok(task.clone())
+        })
+    }
+
+    /// 续派：已批准的提议绑定到它指向的已结束 Worker，卡片和 dispatch_id 都不变。
+    /// 进程的环境变量里带着原 dispatch_id，换新会让它之后的 hook 全被拒收。
+    pub fn rebind_worker(
+        &self,
+        workspace: &str,
+        id: &str,
+        proposal_id: u64,
+        launch_prompt: &str,
+    ) -> io::Result<Task> {
+        self.update(workspace, id, |task| {
+            let proposal = task
+                .proposals
+                .iter_mut()
+                .find(|p| p.id == proposal_id)
+                .ok_or_else(missing)?;
+            let Some(target) = proposal.target_worker.clone() else {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "proposal has no target worker",
+                ));
+            };
+            if proposal.ignored || !proposal.approved || proposal.dispatch_id.is_some() {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "proposal not approved or already dispatched",
+                ));
+            }
+            let worker = task
+                .workers
+                .iter_mut()
+                .find(|w| w.dispatch_id == target && w.outcome.is_some())
+                .ok_or_else(missing)?;
+            worker.outcome = None;
+            worker.needs_input = false;
+            worker.state = norma::protocol::WorkerState::Active;
+            worker.prompt_delivered = false;
+            worker.launch_prompt = launch_prompt.into();
+            proposal.dispatch_id = Some(target);
+            task.set_phase(TaskPhase::Active, false);
+            Ok(())
         })
     }
 

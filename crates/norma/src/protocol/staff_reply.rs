@@ -211,6 +211,14 @@ impl Task {
             .unwrap_or(false)
     }
 
+    /// 进行中的回合是否由用户消息触发；事件触发的回合没有用户指令。
+    pub fn user_turn_running(&self) -> bool {
+        self.messages.iter().rev().any(|message| {
+            matches!(message, TaskMessage::Staff(reply)
+                if reply.is_running() && reply.trigger == ReplyTrigger::User)
+        })
+    }
+
     pub fn running_reply_mut(&mut self) -> Option<&mut StaffReply> {
         self.messages
             .iter_mut()

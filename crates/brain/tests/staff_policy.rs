@@ -174,6 +174,7 @@ fn staff_may_only_run_whitelisted_commands() {
             title: "t".into(),
             prompt: "p".into(),
             why: "w".into(),
+            worker: None,
         }),
     ];
     for op in &allowed {

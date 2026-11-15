@@ -38,6 +38,9 @@ pub enum StaffOp {
         title: String,
         prompt: String,
         why: String,
+        /// 续派给该 dispatch_id 的已有 Worker（同一张卡片），不新建。
+        #[serde(default)]
+        worker: Option<String>,
     },
     /// 归档或取消归档。模型命令只开放归档，取消归档只由用户在面板里操作。
     Archive {
@@ -176,6 +179,9 @@ pub struct StaffProposal {
     /// 更新的完整方案出现后，旧的待采用提议保留在原回合里，只标记为已替换。
     #[serde(default)]
     pub superseded: bool,
+    /// 续派目标：该 dispatch_id 的 Worker 继续做这条提议，而不是新建卡片。
+    #[serde(default)]
+    pub target_worker: Option<String>,
 }
 
 impl Worker {

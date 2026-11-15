@@ -292,6 +292,7 @@ fn stale_proposals_are_marked_not_deleted() {
         auto: false,
         downgrade: None,
         superseded: false,
+        target_worker: None,
     };
     task.round = 1;
     task.begin_reply(ReplyTrigger::User)

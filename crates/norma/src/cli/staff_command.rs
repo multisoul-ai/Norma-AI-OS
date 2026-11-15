@@ -44,6 +44,9 @@ enum StaffCommand {
         prompt: String,
         #[arg(long, value_parser = non_blank_task)]
         why: String,
+        /// 续派给这个 dispatch_id 的已有 Worker（同一张卡片），不新建。
+        #[arg(long)]
+        worker: Option<String>,
     },
     /// 只能归档；取消归档只在面板里由用户操作。
     Archive {
@@ -83,12 +86,14 @@ impl StaffArgs {
                 title,
                 prompt,
                 why,
+                worker,
             } => StaffOp::Assign {
                 task_id,
                 agent,
                 title,
                 prompt,
                 why,
+                worker,
             },
             StaffCommand::Archive { task_id } => StaffOp::Archive {
                 task_id,

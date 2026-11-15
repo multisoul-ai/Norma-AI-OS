@@ -40,6 +40,7 @@
   "staff.retry": "Reload",
   "staff.invalid_source": "The task source expired. Reopen the project.",
   "staff.agent_unavailable": "This agent is missing or disabled.",
+  "staff.worker_card_gone": "This worker's card was closed, so it cannot continue. Start a new worker instead.",
   "staff.proposal_unavailable": "This proposal is no longer available.",
   "staff.approval_required": "Adopt this proposal in the task first.",
   "staff.worker_starting": "Starting",

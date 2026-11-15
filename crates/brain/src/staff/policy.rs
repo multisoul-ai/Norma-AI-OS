@@ -183,6 +183,19 @@ pub fn decide_assign(context: &AssignContext, agent: &str, text: &str) -> Assign
     AssignDecision::Dispatch
 }
 
+/// 续派已有 Worker：用户这一轮发过话就不再问（也不要求它刚完成、不计自动次数），
+/// 否则按「后续任务」设置；风险词照旧降级为提议。
+pub fn decide_continue(auto: bool, user_turn: bool, text: &str) -> AssignDecision {
+    if !user_turn && !auto {
+        return AssignDecision::Propose(ProposeReason::AutonomyAsk);
+    }
+    let risks = risk_categories(text);
+    if !risks.is_empty() {
+        return AssignDecision::Propose(ProposeReason::Risk(risks));
+    }
+    AssignDecision::Dispatch
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Verdict {
     Allow,

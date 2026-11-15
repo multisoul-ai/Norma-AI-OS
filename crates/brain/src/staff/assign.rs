@@ -1,5 +1,5 @@
 //! 幕僚自己派活：宿主传入自主权开关，由策略决定直接派发还是降级为提议。
-use super::policy::{decide_assign, AssignContext, AssignDecision, ProposeReason};
+use super::policy::{decide_assign, decide_continue, AssignContext, AssignDecision, ProposeReason};
 use super::TaskStore;
 use norma::protocol::{StaffOp, StaffPart, StaffProposal, Task, WorkerOutcome};
 use std::io;
@@ -29,6 +29,7 @@ impl TaskStore {
             title,
             prompt,
             why,
+            worker,
         } = op
         else {
             return Err(io::Error::new(
@@ -46,12 +47,21 @@ impl TaskStore {
                 .rev()
                 .find(|worker| worker.outcome == Some(WorkerOutcome::Succeeded))
                 .map(|worker| worker.agent.as_str());
-            let context = AssignContext {
-                auto,
-                last_finished_agent: last_finished,
-                auto_dispatches: task.auto_dispatches,
+            let continuing = worker.is_some();
+            decision = match &worker {
+                Some(dispatch_id) => {
+                    check_continuable(task, dispatch_id, &agent)?;
+                    decide_continue(auto, task.user_turn_running(), &text)
+                }
+                None => {
+                    let context = AssignContext {
+                        auto,
+                        last_finished_agent: last_finished,
+                        auto_dispatches: task.auto_dispatches,
+                    };
+                    decide_assign(&context, &agent, &text)
+                }
             };
-            decision = decide_assign(&context, &agent, &text);
             let dispatch = decision == AssignDecision::Dispatch;
             proposal_id = task.proposals.iter().map(|p| p.id).max().unwrap_or(0) + 1;
             task.proposals.push(StaffProposal {
@@ -71,9 +81,10 @@ impl TaskStore {
                     AssignDecision::Dispatch => None,
                 },
                 superseded: false,
+                target_worker: worker,
             });
             task.attach_card(StaffPart::Proposal(proposal_id));
-            if dispatch {
+            if dispatch && !continuing {
                 task.auto_dispatches += 1;
             }
             task.updated_at = norma::protocol::timestamp();
@@ -87,5 +98,16 @@ impl TaskStore {
             },
         };
         Ok((task, outcome))
+    }
+}
+
+/// 续派目标必须是本任务里已经结束的同一 Agent 的 Worker；执行中的不能再塞第二条 prompt。
+fn check_continuable(task: &Task, dispatch_id: &str, agent: &str) -> io::Result<()> {
+    let refuse = |code: &'static str| Err(io::Error::new(io::ErrorKind::InvalidInput, code));
+    match task.worker_for_dispatch(dispatch_id) {
+        None => refuse("staff.worker_unknown"),
+        Some(worker) if worker.agent != agent => refuse("staff.worker_agent_mismatch"),
+        Some(worker) if worker.outcome.is_none() => refuse("staff.worker_busy"),
+        Some(_) => Ok(()),
     }
 }

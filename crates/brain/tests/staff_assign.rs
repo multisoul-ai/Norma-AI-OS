@@ -9,6 +9,7 @@ fn assign_op(agent: &str, prompt: &str) -> StaffOp {
         title: "Next".into(),
         prompt: prompt.into(),
         why: "Follow up".into(),
+        worker: None,
     }
 }
 

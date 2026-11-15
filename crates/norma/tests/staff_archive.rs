@@ -32,6 +32,7 @@ fn needs_you(id: &str) -> Task {
         auto: false,
         downgrade: None,
         superseded: false,
+        target_worker: None,
     });
     let mut worker = Worker::new("Mia", "Claude", "Review", 4, "d-need");
     worker.needs_input = true;

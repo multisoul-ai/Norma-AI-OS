@@ -369,6 +369,7 @@ fn staff_messages_do_not_overlap_when_content_overflows() {
         auto: false,
         downgrade: None,
         superseded: false,
+        target_worker: None,
     });
     for index in 0..3 {
         task.messages.push(TaskMessage::User { text: long.clone() });
