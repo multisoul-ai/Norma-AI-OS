@@ -214,6 +214,11 @@ impl BrainHostState {
         self.role(token).is_some()
     }
 
+    /// 幕僚 token 属于哪个任务（每个幕僚会话只服务一个任务）。
+    pub(crate) fn staff_task(&self, token: &str) -> Option<String> {
+        self.tokens()?.staff_task(token)
+    }
+
     /// 主大脑与幕僚各有独立 token；陌生 token 没有角色。
     pub(crate) fn role(&self, token: &str) -> Option<brain::staff::gate::BrainRole> {
         self.tokens()?.role(token)

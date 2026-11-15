@@ -1,6 +1,8 @@
 //! 一条 lane 的工作线程：串行处理 prompt，会话失败时退避重建。
 
 use super::prompt::{primer, primer_with_skill, Role};
+pub use super::session::Idle;
+use super::session::SessionToken;
 use crate::acp::client::{AcpError, AcpSession, SessionOptions};
 use crate::acp::trace::{AcpTrace, TraceItem, TraceKind};
 use crate::backend::{self, Backend};
@@ -43,7 +45,7 @@ pub struct LaneEnv {
     pub open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
     pub stop: Arc<AtomicBool>,
     pub env: Vec<(String, String)>,
-    pub staff_token: Option<String>,
+    pub staff_tokens: Option<crate::staff::gate::StaffTokens>,
     pub skill_ready: bool,
     pub prompt_timeout: Duration,
     pub retry_backoff: Duration,
@@ -52,9 +54,9 @@ pub struct LaneEnv {
 }
 
 impl LaneEnv {
-    fn session_options(&self, staff: bool) -> SessionOptions {
+    fn session_options(&self, staff_token: Option<&str>, staff: bool) -> SessionOptions {
         let env = if staff {
-            crate::staff::gate::staff_env(&self.env, self.staff_token.as_deref())
+            crate::staff::gate::staff_env(&self.env, staff_token)
         } else {
             self.env.clone()
         };
@@ -170,27 +172,47 @@ impl LaneEnv {
 /// 多个 worker 共用一个队列：谁空闲谁取下一条，所以并行度就是 worker 个数。
 pub type SharedJobs = Arc<Mutex<Receiver<Job>>>;
 
-pub fn run(env: LaneEnv, jobs: SharedJobs) {
+pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
+    let mut session_token = SessionToken {
+        tokens: env.staff_tokens.clone(),
+        token: None,
+    };
     let mut session: Option<AcpSession> = None;
     let mut turns = 0u32;
     let mut session_staff = false;
     let mut primed = false;
     let mut failures = 0u32;
     let mut retrying: Option<(Job, u32)> = None;
-    while !env.stop.load(Ordering::Relaxed) {
+    'lane: while !env.stop.load(Ordering::Relaxed) {
+        // 回到这里就是上一条处理完了；空闲时长从此刻算起。
+        let idle_since = Instant::now();
         let (job, attempts) = match retrying.take() {
             Some(again) => again,
-            None => {
+            None => loop {
+                if env.stop.load(Ordering::Relaxed) {
+                    break 'lane;
+                }
                 let received = jobs
                     .lock()
                     .unwrap_or_else(|poisoned| poisoned.into_inner())
                     .recv_timeout(Duration::from_millis(100));
                 match received {
-                    Ok(job) => (job, 0),
-                    Err(RecvTimeoutError::Timeout) => continue,
-                    Err(RecvTimeoutError::Disconnected) => break,
+                    Ok(job) => break (job, 0),
+                    Err(RecvTimeoutError::Timeout) => {
+                        let Some(idle) = idle
+                            .as_ref()
+                            .filter(|idle| idle_since.elapsed() >= idle.after)
+                        else {
+                            continue;
+                        };
+                        match (idle.retire)() {
+                            Some(job) => break (job, 0),
+                            None => break 'lane,
+                        }
+                    }
+                    Err(RecvTimeoutError::Disconnected) => break 'lane,
                 }
-            }
+            },
         };
         let cancelled = job.cancelled.clone();
         if cancelled.load(Ordering::Relaxed) {
@@ -232,10 +254,19 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
         if session.is_none() || turns >= env.max_turns || session_staff != job.task_id.is_some() {
             session = None;
             let connecting = Instant::now();
+            // 每个幕僚会话为自己的任务铸一把 token；换会话时上一把随之撤销。
+            let minted = job
+                .task_id
+                .as_deref()
+                .and_then(|task| env.staff_tokens.as_ref().map(|tokens| tokens.mint(task)));
+            session_token.token = minted.clone();
             let started = if job.task_id.is_some() {
-                AcpSession::start_staff_cancellable(&env.session_options(true), &cancelled)
+                AcpSession::start_staff_cancellable(
+                    &env.session_options(minted.as_deref(), true),
+                    &cancelled,
+                )
             } else {
-                AcpSession::start_cancellable(&env.session_options(false), &cancelled)
+                AcpSession::start_cancellable(&env.session_options(None, false), &cancelled)
             };
             match started {
                 Ok(started) => {

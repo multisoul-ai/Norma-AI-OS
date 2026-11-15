@@ -2,7 +2,7 @@ use brain::{Backend, BackendKind, BrainConfig, BrainEventKind, BrainService, Bra
 use norma::protocol::{BrainScope, ReplyStatus, Task, TaskMessage};
 use std::time::{Duration, Instant};
 
-/// 任务轮次限制写入目标与播报；同一个主会话串行重放两个任务且回复归属正确。
+/// 任务轮次限制写入目标与播报；两个任务各有自己的会话并行重放，且回复归属正确。
 ///
 /// 数据构造：ws/route 内 task-a 和 task-b，消息分别 ALPHA_ONLY 与 BETA_ONLY。
 /// 执行过程：1. 两个任务入队。2. 等两个 TaskChanged 的 Norma 回复。3. 关闭服务并核对重放和权限。
@@ -79,20 +79,21 @@ fn shared_lane_replays_task_messages_and_scopes_mutations() {
         2,
         "exactly two task prompts must reach the adapter"
     );
+    // 两个任务现在并行，各自的会话写同一份日志，先后顺序不固定；按内容找各自的那条。
+    let alpha = turns
+        .iter()
+        .find(|turn| turn.contains("ALPHA_ONLY"))
+        .expect("task A prompt must reach the adapter");
+    let beta = turns
+        .iter()
+        .find(|turn| turn.contains("BETA_ONLY"))
+        .expect("task B prompt must reach the adapter");
     assert!(
-        turns[0].contains("ALPHA_ONLY"),
-        "first prompt must replay task A messages"
-    );
-    assert!(
-        !turns[0].contains("BETA_ONLY"),
+        !alpha.contains("BETA_ONLY"),
         "B content must not be included in A prompt"
     );
     assert!(
-        turns[1].contains("BETA_ONLY"),
-        "second prompt must replay task B messages"
-    );
-    assert!(
-        !turns[1].contains("ALPHA_ONLY"),
+        !beta.contains("ALPHA_ONLY"),
         "A content must not be included in B prompt"
     );
     let a = store.get("ws", "task-a").expect("A");

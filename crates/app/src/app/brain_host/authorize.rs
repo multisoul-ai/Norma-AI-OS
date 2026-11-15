@@ -11,7 +11,7 @@ impl MultisoulApp {
             .brain
             .role(token)
             .ok_or_else(|| "staff.invalid_source".to_owned())?;
-        let active_task = self.single_active_task();
+        let active_task = self.token_active_task(token);
         // 幕僚自己设的 done 不算数：归档要等用户确认完成。
         let task_done = match op {
             BrainOp::Task { op } => op
@@ -37,16 +37,15 @@ impl MultisoulApp {
         Ok(())
     }
 
-    /// 恰好一个任务正在进行一轮时返回它；一个都没有或同时有多个，都当作没有（失败即拒绝）。
-    fn single_active_task(&self) -> Option<String> {
-        let mut active = self
-            .staff
+    /// 幕僚会话的 token 属于哪个任务，并且该任务此刻正在进行一轮时返回它。
+    /// 并行时每个会话只能操作自己的任务；没有进行中的轮次（空闲会话）一律当作没有。
+    fn token_active_task(&self, token: &str) -> Option<String> {
+        let id = self.brain.staff_task(token)?;
+        self.staff
             .tasks
-            .values()
-            .filter(|task| task.has_running_reply())
-            .map(|task| task.id.clone());
-        let first = active.next()?;
-        active.next().is_none().then_some(first)
+            .get(&id)
+            .is_some_and(|task| task.has_running_reply())
+            .then_some(id)
     }
 
     /// 白名单之外的幕僚限制：history 只读本任务派出过的 Agent，主动 report 有频率上限。
