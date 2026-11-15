@@ -64,3 +64,64 @@ fn model_cli_cannot_send_user_messages() {
         "brain task message must not exist for the model"
     );
 }
+
+/// 幕僚自己派活走 `task assign`，必须带任务 ID、Agent、标题、完整指令和理由。
+///
+/// 数据构造：task-a、Simon，标题 Implement，指令 implement and test，理由 Required。
+/// 执行过程：解析 `norma brain task assign`，再解析缺 `--why` 的调用。
+/// 预期结果：产生 StaffOp::Assign 并保留全部字段；缺字段被拒绝。
+#[test]
+fn staff_can_assign_follow_up_work_to_an_agent() {
+    let assigned = parse_command_from([
+        "norma",
+        "brain",
+        "task",
+        "assign",
+        "task-a",
+        "Simon",
+        "--title",
+        "Implement",
+        "--prompt",
+        "implement and test",
+        "--why",
+        "Required",
+    ])
+    .expect("task assign");
+    assert!(
+        matches!(
+            assigned.brain_op(),
+            Some(BrainOp::Task { op: StaffOp::Assign { task_id, agent, title, prompt, why } })
+                if task_id == "task-a" && agent == "Simon" && title == "Implement"
+                    && prompt == "implement and test" && why == "Required"
+        ),
+        "task assign must carry every field"
+    );
+    assert!(
+        parse_command_from([
+            "norma", "brain", "task", "assign", "task-a", "Simon", "--title", "T", "--prompt", "P",
+        ])
+        .is_err(),
+        "assign without --why must be rejected"
+    );
+}
+
+/// 幕僚可以归档任务，但只能归档，不能取消归档。
+///
+/// 数据构造：`norma brain task archive task-a`。
+/// 预期结果：产生 archived=true 的 StaffOp::Archive；带 --undo 之类的取消归档参数被拒绝。
+#[test]
+fn staff_can_archive_but_not_unarchive_a_task() {
+    let archived =
+        parse_command_from(["norma", "brain", "task", "archive", "task-a"]).expect("task archive");
+    assert!(
+        matches!(
+            archived.brain_op(),
+            Some(BrainOp::Task { op: StaffOp::Archive { task_id, archived: true } }) if task_id == "task-a"
+        ),
+        "task archive must archive the named task"
+    );
+    assert!(
+        parse_command_from(["norma", "brain", "task", "archive", "task-a", "--undo"]).is_err(),
+        "the model must not be able to unarchive"
+    );
+}

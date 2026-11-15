@@ -6,10 +6,14 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 static STORES: OnceLock<Mutex<BTreeMap<PathBuf, Weak<TaskStore>>>> = OnceLock::new();
+mod assign;
 mod delivery;
+pub mod policy;
 mod proposals;
 mod questions;
 mod workflow;
+
+pub use assign::AssignOutcome;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TaskEventResult {

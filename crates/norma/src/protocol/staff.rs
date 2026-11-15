@@ -30,7 +30,15 @@ pub enum StaffOp {
         task_id: String,
         proposal_id: u64,
     },
-    /// 用户归档或取消归档。不开放给任务轮次里的模型命令。
+    /// 幕僚自己派活：是否直接派发由宿主按策略决定，不满足条件时降级为提议。
+    Assign {
+        task_id: String,
+        agent: String,
+        title: String,
+        prompt: String,
+        why: String,
+    },
+    /// 归档或取消归档。模型命令只开放归档，取消归档只由用户在面板里操作。
     Archive {
         task_id: String,
         archived: bool,
@@ -46,6 +54,7 @@ impl StaffOp {
             | Self::Phase { task_id, .. }
             | Self::Propose { task_id, .. }
             | Self::Adopt { task_id, .. }
+            | Self::Assign { task_id, .. }
             | Self::Archive { task_id, .. } => Some(task_id),
         }
     }
@@ -225,6 +234,9 @@ pub struct Task {
     /// 幕僚已开始的轮次数；每轮开始 +1。
     #[serde(default)]
     pub round: u64,
+    /// 幕僚未经用户采用自动派发的次数；用户采用任意一条提议后清零。旧快照缺字段时为 0。
+    #[serde(default)]
+    pub auto_dispatches: u32,
 }
 
 impl Task {
@@ -246,6 +258,7 @@ impl Task {
             proposals: Vec::new(),
             archived: false,
             round: 0,
+            auto_dispatches: 0,
         }
     }
 

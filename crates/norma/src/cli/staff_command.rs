@@ -35,6 +35,20 @@ enum StaffCommand {
         #[arg(long, value_parser = non_blank_task)]
         why: String,
     },
+    Assign {
+        task_id: String,
+        agent: String,
+        #[arg(long, value_parser = non_blank_task)]
+        title: String,
+        #[arg(long, value_parser = non_blank_task)]
+        prompt: String,
+        #[arg(long, value_parser = non_blank_task)]
+        why: String,
+    },
+    /// 只能归档；取消归档只在面板里由用户操作。
+    Archive {
+        task_id: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -62,6 +76,23 @@ impl StaffArgs {
                 title,
                 prompt,
                 why,
+            },
+            StaffCommand::Assign {
+                task_id,
+                agent,
+                title,
+                prompt,
+                why,
+            } => StaffOp::Assign {
+                task_id,
+                agent,
+                title,
+                prompt,
+                why,
+            },
+            StaffCommand::Archive { task_id } => StaffOp::Archive {
+                task_id,
+                archived: true,
             },
             StaffCommand::Phase { task_id, phase } => StaffOp::Phase {
                 task_id,
