@@ -65,6 +65,10 @@ mod brain_data_tests;
 mod brain_dispatch_tests;
 
 #[cfg(test)]
+#[path = "../../tests/unit/staff_engine_resolve_tests.rs"]
+mod staff_engine_resolve_tests;
+
+#[cfg(test)]
 #[path = "../../tests/unit/brain_decision_copy_tests.rs"]
 mod decision_copy_tests;
 

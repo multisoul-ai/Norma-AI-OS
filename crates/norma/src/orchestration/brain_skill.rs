@@ -34,14 +34,18 @@ Staff works on exactly one task: the task of the current turn. Replies to the us
 plain text in the turn, not through a command.
 
 - `agents`: list the Agents available in this project.
-- `task propose <task_id> <agent> --title <t> --prompt <full instruction and done criteria> --why <w>`:
+- `<agent>` in `task propose` / `task assign` is an engine id such as `claude`, `codex` or
+  `opencode`, not a person's name: pick the engine and optionally `--model <model>`; the host opens
+  a new card for it. Omit `--model` to use that CLI's default. An unavailable engine fails with
+  `staff.agent_unavailable` and lists the engines you can use; choose one of those and send again.
+- `task propose <task_id> <agent> --title <t> --prompt <full instruction and done criteria> --why <w> [--model <m>]`:
   propose work; the user adopts it before anything runs. `--title` and `--why` together stay within
   50 characters.
-- `task assign <task_id> <agent> --title <t> --prompt <p> --why <w>`: dispatch follow-up work.
+- `task assign <task_id> <agent> --title <t> --prompt <p> --why <w> [--model <m>]`: dispatch follow-up work.
   It runs immediately only when all of these hold; otherwise the host turns it into a proposal and
   the receipt says `status: proposed` with a `reason`:
   1. the user's "follow-up tasks" setting is Automatic (`autonomy_ask` means it is not),
-  2. the target is the Agent that just finished work in this task (`not_follow_up`),
+  2. the target engine is the one that just finished work in this task (`not_follow_up`),
   3. fewer than 3 automatic dispatches since the user last adopted something (`limit_reached`),
   4. the instruction is not high risk (`risk:<category>`).
 - `task assign <task_id> <agent> --worker <dispatch_id> --title <t> --prompt <p> --why <w>`: hand

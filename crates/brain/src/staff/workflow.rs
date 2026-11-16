@@ -41,6 +41,7 @@ impl TaskStore {
                     title,
                     prompt,
                     why,
+                    model,
                     ..
                 } => {
                     require_text(&agent)?;
@@ -80,7 +81,7 @@ impl TaskStore {
                         title,
                         prompt,
                         why,
-                        model: None,
+                        model: model.filter(|m| !m.trim().is_empty()),
                         approved: false,
                         ignored: false,
                         dispatch_id: None,
@@ -90,6 +91,7 @@ impl TaskStore {
                         superseded: false,
                         target_worker: None,
                     });
+                    super::proposals::supersede_same_title(task, id);
                     task.attach_card(StaffPart::Proposal(id));
                 }
                 StaffOp::Adopt { .. } | StaffOp::Assign { .. } => {
@@ -257,7 +259,7 @@ impl TaskStore {
                 .iter_mut()
                 .find(|w| w.dispatch_id == target && w.outcome.is_some())
                 .ok_or_else(missing)?;
-            if worker.agent != proposal.agent {
+            if !worker.is_agent(&proposal.agent) {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "staff.worker_agent_mismatch",

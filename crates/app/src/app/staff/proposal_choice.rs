@@ -32,22 +32,32 @@ impl MultisoulApp {
             .unwrap_or_else(|| proposal.agent.clone())
     }
 
-    /// 已启用的智能体（名字、类型），顺序同名册。
+    /// 已启用的执行类型（engine 标识、类型），同一类型只出现一次，顺序同名册。
     pub(crate) fn staff_agent_choices(&self) -> Vec<(String, AgentProfile)> {
-        self.agent_roster_for_provider()
-            .into_iter()
-            .filter(|entry| entry.enabled)
-            .map(|entry| (entry.name, entry.profile))
-            .collect()
+        let mut choices: Vec<(String, AgentProfile)> = Vec::new();
+        for entry in self.agent_roster_for_provider() {
+            let engine = format!("{:?}", entry.profile).to_lowercase();
+            if entry.enabled && !choices.iter().any(|(id, _)| *id == engine) {
+                choices.push((engine, entry.profile));
+            }
+        }
+        choices
     }
 
-    /// 该智能体可选的模型 (id, 显示名)；没有已知列表的类型返回空，只能用 CLI 默认。
-    pub(crate) fn staff_model_choices(&self, agent: &str) -> Vec<(String, String)> {
-        let Some((_, profile)) = self
-            .staff_agent_choices()
+    /// 提案里的 agent（engine 标识或旧的具名智能体名）对应的类型。
+    pub(crate) fn staff_engine_profile(&self, agent: &str) -> Option<AgentProfile> {
+        self.agent_roster_for_provider()
             .into_iter()
-            .find(|(name, _)| name == agent)
-        else {
+            .find_map(|entry| {
+                let engine = format!("{:?}", entry.profile);
+                (entry.name.eq_ignore_ascii_case(agent) || engine.eq_ignore_ascii_case(agent))
+                    .then_some(entry.profile)
+            })
+    }
+
+    /// 该类型可选的模型 (id, 显示名)；没有已知列表的类型返回空，只能用 CLI 默认。
+    pub(crate) fn staff_model_choices(&self, agent: &str) -> Vec<(String, String)> {
+        let Some(profile) = self.staff_engine_profile(agent) else {
             return Vec::new();
         };
         match profile {

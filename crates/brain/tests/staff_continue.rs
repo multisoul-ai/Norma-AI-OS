@@ -9,6 +9,7 @@ fn continue_op(agent: &str, worker: &str, prompt: &str) -> StaffOp {
         title: "Keep going".into(),
         prompt: prompt.into(),
         why: "Unfinished".into(),
+        model: None,
         worker: Some(worker.into()),
     }
 }
@@ -29,6 +30,7 @@ fn store_with_worker(outcome: Option<WorkerOutcome>) -> (tempfile::TempDir, Task
                 title: "Build".into(),
                 prompt: "Build".into(),
                 why: "Required".into(),
+                model: None,
             },
         )
         .expect("propose");
@@ -346,4 +348,40 @@ fn rebind_reuses_the_worker_card_and_dispatch() {
         store.rebind_worker("ws", "a", 2, "again").is_err(),
         "同一条提议不能重复续派"
     );
+}
+
+/// [场景描述]：续派用 engine 标识而不是 Worker 的名字，预检通过后重绑也必须成功。
+///
+/// 数据构造：
+///   Worker 名字 AgentC，engine OpenCode，dispatch d-1，已经结束
+///   续派的 agent 字段写 "opencode"（小写 engine），不是 "AgentC"
+///
+/// 执行过程：
+///   1. assign 用 is_agent 认 engine，生成已批准的续派提议
+///   2. rebind 必须用同一规则，不能再拿 "AgentC" != "opencode" 拒绝
+///
+/// 预期结果：
+///   - rebind 成功，仍是原来那张卡和 d-1
+///   - 无关名字的拒绝仍由既有用例覆盖（approve 改成 AgentA 后 rebind 返回 staff.worker_agent_mismatch）
+#[test]
+fn rebind_accepts_the_worker_engine() {
+    let (_dir, store) = store_with_worker(Some(WorkerOutcome::Succeeded));
+    store
+        .begin_turn("ws", "a", ReplyTrigger::User)
+        .expect("turn");
+    store
+        .assign(
+            "ws",
+            continue_op("opencode", "d-1", "Finish the snake"),
+            true,
+        )
+        .expect("assign");
+    let task = store
+        .rebind_worker("ws", "a", 2, "handoff text")
+        .expect("engine id must rebind the same worker");
+    assert_eq!(
+        task.workers[0].dispatch_id, "d-1",
+        "engine 续派不能换 dispatch"
+    );
+    assert_eq!(task.workers[0].card_id, Some(10), "engine 续派不能换卡片");
 }

@@ -197,7 +197,8 @@ impl MultisoulApp {
 }
 
 pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
-    let key = match reason.as_str() {
+    let (code, engines) = reason.split_once('\n').unwrap_or((reason.as_str(), ""));
+    let key = match code {
         "staff.proposal_superseded" => "staff.proposal_superseded",
         "staff.question_invalid" | "incomplete_answers" | "invalid_answer_cardinality" => {
             "staff.question_invalid"
@@ -238,6 +239,12 @@ pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
             "staff.operation_failed"
         }
     };
+    if key == "staff.agent_unavailable" && !engines.is_empty() {
+        return ui::i18n::message(
+            "staff.agent_unavailable_choices",
+            &[("engines", engines.to_owned())],
+        );
+    }
     ui::i18n::message(key, &[])
 }
 
