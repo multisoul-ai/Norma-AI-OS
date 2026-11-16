@@ -296,3 +296,39 @@ fn follow_up_by_engine_id_dispatches_and_keeps_the_model() {
         "model chosen by staff must be stored for the host to launch with"
     );
 }
+
+/// 场景：用户采用了写 engine 名的提议，宿主按 engine 挑了具名 Agent 建 Worker。
+/// 数据构造：提议 agent 为 "codex"，Worker 的 agent 为 "Codex-1"、engine 为 "Codex"。
+/// 预期结果：bind_worker 成功并记录 dispatch_id，而不是报 "proposal not approved"。
+#[test]
+fn bind_accepts_engine_named_proposal_for_named_agent_worker() {
+    let dir = tempfile::tempdir().expect("root");
+    let store = TaskStore::new(dir.path().to_owned());
+    store
+        .create(Task::new("a", "ws", "project", "Ship"))
+        .expect("create");
+    store
+        .execute(
+            "ws",
+            StaffOp::Propose {
+                task_id: "a".into(),
+                agent: "codex".into(),
+                title: "Build".into(),
+                prompt: "Build".into(),
+                why: "Required".into(),
+                model: None,
+            },
+        )
+        .expect("propose");
+    store.approve("ws", "a", 1, None, None).expect("approve");
+    let task = store
+        .bind_worker(
+            "ws",
+            "a",
+            1,
+            Worker::new("Codex-1", "Codex", "Build", 10, "d-1"),
+        )
+        .expect("bind by engine");
+    let proposal = task.proposals.iter().find(|p| p.id == 1).expect("proposal");
+    assert_eq!(proposal.dispatch_id.as_deref(), Some("d-1"));
+}
