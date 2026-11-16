@@ -1,5 +1,5 @@
 use super::*;
-use gpui::{AppContext as _, TestAppContext};
+use gpui::TestAppContext;
 
 fn definition(
     id: i64,
@@ -76,17 +76,21 @@ fn resolve_staff_entry_picks_an_enabled_engine_and_keeps_old_names() {
         let disabled = app
             .resolve_staff_entry("Chloe")
             .expect_err("disabled name must not resolve");
-        assert!(
-            disabled.starts_with("staff.agent_unavailable"),
-            "失败必须带回 staff.agent_unavailable，实际：{disabled}"
+        let (code, listed) = disabled
+            .split_once('\n')
+            .expect("unavailable error keeps a code and the engine list");
+        assert_eq!(code, "staff.agent_unavailable", "展示边界只认这个错误码");
+        assert_eq!(
+            listed, "claude, codex",
+            "可选项只含已启用类型，且按类型名排序"
         );
-        assert!(
-            disabled.contains("claude") && disabled.contains("codex"),
-            "可选项必须包含已启用的类型，实际：{disabled}"
-        );
-        assert!(
-            !disabled.contains("chloe"),
-            "停用的智能体名字不能出现在可选类型里，实际：{disabled}"
+        assert_eq!(
+            crate::app::staff::error_message(disabled),
+            ui::i18n::message(
+                "staff.agent_unavailable_choices",
+                &[("engines", "claude, codex".into())],
+            ),
+            "用户和幕僚必须看到已翻译的说明以及可选类型，不能落到笼统的操作失败"
         );
     });
 }

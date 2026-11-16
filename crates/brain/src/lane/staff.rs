@@ -88,7 +88,7 @@ mod tests {
 
     /// 场景：幕僚提示词保留角色、提问与提议规则、底线和身份；命令用法交给 skill。
     /// 数据构造：skill 已安装；任务 t1。
-    /// 预期结果：含底线与高风险规则和 skill 指引，不含命令参数细节，也不再说“不能直接 assign”。
+    /// 预期结果：含底线与高风险规则、不要重复提议的规则和 skill 指引，不含命令参数细节，也不再说“不能直接 assign”。
     #[test]
     fn staff_prompt_keeps_rules_and_points_to_the_skill() {
         let text = staff_prompt(true);

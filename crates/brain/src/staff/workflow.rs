@@ -259,7 +259,7 @@ impl TaskStore {
                 .iter_mut()
                 .find(|w| w.dispatch_id == target && w.outcome.is_some())
                 .ok_or_else(missing)?;
-            if worker.agent != proposal.agent {
+            if !worker.is_agent(&proposal.agent) {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "staff.worker_agent_mismatch",

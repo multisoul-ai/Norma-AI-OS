@@ -67,10 +67,7 @@ impl MultisoulApp {
             .collect();
         engines.sort();
         engines.dedup();
-        Err(format!(
-            "staff.agent_unavailable: unknown or disabled engine; available: {}",
-            engines.join(", ")
-        ))
+        Err(format!("staff.agent_unavailable\n{}", engines.join(", ")))
     }
 
     pub(crate) fn write_staff_operation(
