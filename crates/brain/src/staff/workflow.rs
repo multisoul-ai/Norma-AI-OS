@@ -197,7 +197,7 @@ impl TaskStore {
             if proposal.ignored
                 || !proposal.approved
                 || proposal.dispatch_id.is_some()
-                || proposal.agent != worker.agent
+                || !worker.is_agent(&proposal.agent)
             {
                 return Err(io::Error::new(
                     io::ErrorKind::PermissionDenied,
