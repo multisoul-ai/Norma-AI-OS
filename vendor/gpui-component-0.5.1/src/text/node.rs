@@ -1082,10 +1082,25 @@ impl Node {
                                                             this.border_r_1()
                                                                 .border_color(cx.theme().border)
                                                         })
-                                                        .truncate()
+                                                        // norma patch: wrap long cell content instead of clipping it.
+                                                        .min_w_0()
+                                                        .overflow_hidden()
                                                         .child(
-                                                            cell.children
-                                                                .render(node_cx, window, cx),
+                                                            // A definite cell width makes the text wrap there; an auto-width flex item measures at max-content and gets clipped.
+                                                            div()
+                                                                .flex_1()
+                                                                .min_w_0()
+                                                                .when(
+                                                                    align == ColumnumnAlign::Center,
+                                                                    |this| this.text_center(),
+                                                                )
+                                                                .when(
+                                                                    align == ColumnumnAlign::Right,
+                                                                    |this| this.text_right(),
+                                                                )
+                                                                .child(cell.children.render(
+                                                                    node_cx, window, cx,
+                                                                )),
                                                         ),
                                                 )
                                             }

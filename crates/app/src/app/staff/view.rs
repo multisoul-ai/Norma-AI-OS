@@ -109,6 +109,14 @@ impl MultisoulApp {
             if task.archived {
                 center = center.child(self.staff_archived_banner());
             }
+            // max_offset 要到本帧布局才更新。贴底时 near_bottom 仍是上一帧的真，
+            // 但这一帧内容可能已经更高；标记必须在本帧打上，否则没有下一帧时最后几行停在视口下面。
+            if self.staff.pinned {
+                self.staff.scroll.scroll_to_bottom();
+                if !self.staff_near_bottom() {
+                    cx.notify();
+                }
+            }
             let messages = self.staff_message_list(task, window, cx);
             let theme = self.staff_theme();
             // 用户上翻后不抢滚动；离开底部时给出「回到最新」，点一下回到底部并恢复跟随。
@@ -131,6 +139,7 @@ impl MultisoulApp {
                             .bg(rgba(theme.panel_high))
                             .label(t("staff.scroll_latest"))
                             .on_click(cx.listener(|app, _, _, cx| {
+                                app.staff.pinned = true;
                                 app.staff.scroll.scroll_to_bottom();
                                 app.notify_staff(cx);
                             })),
@@ -228,7 +237,11 @@ impl MultisoulApp {
             .id("staff-messages")
             .track_scroll(&self.staff.scroll)
             // 滚动位置不触发重绘；通知一次，「回到最新」才能随位置出现或消失。
-            .on_scroll_wheel(cx.listener(|app, _, _, cx| app.notify_staff(cx)))
+            .on_scroll_wheel(cx.listener(|app, event: &gpui::ScrollWheelEvent, _, cx| {
+                // 监听在 GPUI 改偏移之前，用这一笔之后的位置判断。
+                app.staff_note_scroll_wheel(event.delta.pixel_delta(px(20.)).y);
+                app.notify_staff(cx)
+            }))
             .debug_selector(|| "staff-messages".into())
             .flex_1()
             .min_h_0()

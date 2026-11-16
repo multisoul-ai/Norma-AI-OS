@@ -266,8 +266,8 @@ fn staff_user_bubbles_contain_wrapped_text_and_images() {
     }
 }
 
-struct ConversationColumnHost {
-    app: Entity<MultisoulApp>,
+pub(super) struct ConversationColumnHost {
+    pub(super) app: Entity<MultisoulApp>,
 }
 
 impl gpui::Render for ConversationColumnHost {
@@ -293,7 +293,7 @@ impl gpui::Render for ConversationColumnHost {
     }
 }
 
-fn done_reply(text: &str) -> TaskMessage {
+pub(super) fn done_reply(text: &str) -> TaskMessage {
     let mut reply = norma::protocol::StaffReply::new(0, norma::protocol::ReplyTrigger::User);
     reply.push_text(text);
     reply.finish(norma::protocol::ReplyStatus::Done, 1_000);
