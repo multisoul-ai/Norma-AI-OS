@@ -77,6 +77,19 @@ enum StaffAdapter {
             if rich_dir and 'RICH-LINK' in text:
                 reply = 'RICH-LINK 验收：打开 `' + rich_dir + '/rich-link.html`，笔记 `' + rich_dir + '/notes.md`，缺失 `' + rich_dir + '/missing.md`，外链 [Example](https://example.com)。'
                 send({'jsonrpc':'2.0','method':'session/update','params':{'sessionId':sid,'update':{'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':reply}}}})
+            # 工具步骤路径验收：Read 带 locations，cd 只有命令，rg 命令里带查询路径。
+            steps_dir = os.environ.get('NORMA_E2E_TOOL_STEPS_DIR')
+            if steps_dir and 'TOOL-STEPS' in text:
+                calls = [
+                    ('s1', dict(title='Read', kind='read', locations=[dict(path=steps_dir + '/notes.md', line=3)], rawInput=dict(file_path=steps_dir + '/notes.md'))),
+                    ('s2', dict(title='cd ' + steps_dir + '/docs/plans && ls', kind='execute', rawInput=dict(command='cd ' + steps_dir + '/docs/plans && ls'))),
+                    ('s3', dict(title='rg', kind='search', rawInput=dict(command='rg -n needle docs/plans'))),
+                ]
+                for call_id, body in calls:
+                    update(sid, dict(sessionUpdate='tool_call', toolCallId=call_id, status='in_progress', **body))
+                    update(sid, dict(sessionUpdate='tool_call_update', toolCallId=call_id, status='completed', rawOutput='ok'))
+                reply = 'TOOL-STEPS 验收：三步已完成。'
+                update(sid, {'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':reply}})
             match = None if reply else re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})', text)
             if match:
                 scope, task = json.loads(match[1]), json.loads(match[2])

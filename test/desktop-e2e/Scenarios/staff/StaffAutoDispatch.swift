@@ -61,11 +61,11 @@ public enum StaffAutoDispatch {
                 let proposals = try task(root)?["proposals"] as? [[String: Any]] ?? []
                 return proposals.count == 2 && proposals[1]["auto"] as? Bool == true && proposals[1]["dispatch_id"] is String
             }
-            let task = try task(root) ?? [:]
-            let proposals = task["proposals"] as? [[String: Any]] ?? []
-            let workers = task["workers"] as? [[String: Any]] ?? []
+            let current = try task(root) ?? [:]
+            let proposals = current["proposals"] as? [[String: Any]] ?? []
+            let workers = current["workers"] as? [[String: Any]] ?? []
             guard workers.count == 2, workers[0]["agent"] as? String == workers[1]["agent"] as? String,
-                  proposals[1]["approved"] as? Bool == true, task["auto_dispatches"] as? Int == 1 else {
+                  proposals[1]["approved"] as? Bool == true, current["auto_dispatches"] as? Int == 1 else {
                 throw E2EError.product("自动派发的 Worker、批准状态或计数不符：\(workers), \(proposals)")
             }
             try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -3000)

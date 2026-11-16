@@ -35,6 +35,8 @@ pub enum StepTitle {
     /// `norma` 子命令词，如 ["brain", "agents"]；不含路径与参数值。
     Norma(Vec<String>),
     Tool(String),
+    /// 工具名加它碰的文件或目录（已缩短为末三段）；旧快照没有这个变体。
+    ToolAt(String, String),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -312,6 +314,76 @@ pub fn step_title(name: Option<&str>, input: Option<&str>) -> StepTitle {
     StepTitle::Tool(first.chars().take(40).collect())
 }
 
+/// 在 [`step_title`] 之上补充工具碰的文件或目录：优先 ACP `locations` 的路径，
+/// 其次 `rawInput` 的 `file_path`/`path`，再从命令里取 `cd` 目录或最后一个路径参数，最后才是查询模式。
+/// 全都没有时不编造，返回纯工具名；路径只留末三段，绝对前缀不进快照。
+pub fn step_title_at(name: Option<&str>, input: Option<&str>, path: Option<&str>) -> StepTitle {
+    let title = step_title(name, input);
+    let StepTitle::Tool(tool) = title else {
+        return title;
+    };
+    match tool_detail(input, path) {
+        Some(detail) => StepTitle::ToolAt(tool, detail),
+        None => StepTitle::Tool(tool),
+    }
+}
+
+fn tool_detail(input: Option<&str>, path: Option<&str>) -> Option<String> {
+    let value = input.and_then(|input| serde_json::from_str::<serde_json::Value>(input).ok());
+    let field = |keys: &[&str]| {
+        let value = value.as_ref()?;
+        keys.iter()
+            .find_map(|key| value.get(*key)?.as_str().filter(|text| !text.is_empty()))
+            .map(str::to_owned)
+    };
+    let raw = path
+        .filter(|path| !path.is_empty())
+        .map(str::to_owned)
+        .or_else(|| field(&["file_path", "path", "filePath", "notebook_path"]))
+        .or_else(|| command_of(input?).and_then(|command| command_target(&command)))
+        .or_else(|| field(&["pattern", "query"]))?;
+    Some(shorten(&raw))
+}
+
+/// 命令里的目标：`cd` 取目录；其余取最后一个非参数词（搜索命令有两个以上时即路径，只有一个时是模式）。
+fn command_target(command: &str) -> Option<String> {
+    let mut words = split_words(command);
+    // `zsh -lc 'cd x && ...'`：穿透外壳，引号里的整条命令重新拆词。
+    if words
+        .first()
+        .is_some_and(|word| matches!(word.rsplit('/').next(), Some("zsh" | "bash" | "sh")))
+    {
+        words.remove(0);
+        while words.first().is_some_and(|word| word.starts_with('-')) {
+            words.remove(0);
+        }
+        if words.len() == 1 {
+            words = split_words(&words[0]);
+        }
+    }
+    let first = words.first()?;
+    if first == "cd" {
+        return words.get(1).cloned();
+    }
+    let args: Vec<&String> = words[1..]
+        .iter()
+        .take_while(|word| !matches!(word.as_str(), "&&" | "||" | ";" | "|"))
+        .filter(|word| !word.starts_with('-'))
+        .collect();
+    args.last().map(|word| (*word).clone())
+}
+
+/// 路径只留末三段，超过时以「…/」开头；总长不超过 80 个字符。
+fn shorten(raw: &str) -> String {
+    let parts: Vec<&str> = raw.split('/').collect();
+    let short = if parts.len() > 4 {
+        format!("…/{}", parts[parts.len() - 3..].join("/"))
+    } else {
+        raw.to_owned()
+    };
+    short.chars().take(80).collect()
+}
+
 /// ACP 的 `rawInput` 里的命令：字符串，或拆开的字符串数组。
 fn command_of(input: &str) -> Option<String> {
     let value: serde_json::Value = serde_json::from_str(input).ok()?;
@@ -329,6 +401,26 @@ fn command_of(input: &str) -> Option<String> {
 }
 
 fn norma_words(text: &str) -> Vec<String> {
+    let tokens = split_words(text);
+    let Some(at) = tokens
+        .iter()
+        .position(|token| token.rsplit('/').next() == Some("norma"))
+    else {
+        return Vec::new();
+    };
+    tokens[at + 1..]
+        .iter()
+        .take_while(|token| {
+            !token.is_empty() && token.chars().all(|c| c.is_ascii_lowercase() || c == '-')
+        })
+        .take(3)
+        .filter(|token| !token.starts_with('-'))
+        .cloned()
+        .collect()
+}
+
+/// 按空白拆词，引号内的空白保留。
+fn split_words(text: &str) -> Vec<String> {
     let mut tokens = Vec::new();
     let mut current = String::new();
     let mut quote = None;
@@ -348,19 +440,5 @@ fn norma_words(text: &str) -> Vec<String> {
     if !current.is_empty() {
         tokens.push(current);
     }
-    let Some(at) = tokens
-        .iter()
-        .position(|token| token.rsplit('/').next() == Some("norma"))
-    else {
-        return Vec::new();
-    };
-    tokens[at + 1..]
-        .iter()
-        .take_while(|token| {
-            !token.is_empty() && token.chars().all(|c| c.is_ascii_lowercase() || c == '-')
-        })
-        .take(3)
-        .filter(|token| !token.starts_with('-'))
-        .cloned()
-        .collect()
+    tokens
 }

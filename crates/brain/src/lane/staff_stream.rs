@@ -4,7 +4,7 @@ use crate::acp::trace::{TraceItem, TraceKind};
 use crate::event::{BrainStatus, BrainStatusKind};
 use crate::staff::TaskStore;
 use norma::protocol::{
-    step_title, BrainScope, PlanItem, StaffReply, StepStatus, Task, TaskMessage,
+    step_title_at, BrainScope, PlanItem, StaffReply, StepStatus, Task, TaskMessage,
 };
 use std::{
     collections::HashMap,
@@ -111,7 +111,13 @@ impl ReplyWriter {
                 // 完成事件常常不带 title/rawInput：没有新信息就不更新，免得用占位名盖掉已有标题。
                 let informative = meta.name.is_some() || meta.input.is_some();
                 let title = (informative && (item.kind != TraceKind::Permission || first_seen))
-                    .then(|| step_title(meta.name.as_deref(), meta.input.as_deref()));
+                    .then(|| {
+                        step_title_at(
+                            meta.name.as_deref(),
+                            meta.input.as_deref(),
+                            meta.path.as_deref(),
+                        )
+                    });
                 let elapsed = finished.then(|| started.elapsed().as_millis() as u64);
                 let id = meta.id.clone();
                 Some(Change {
@@ -233,6 +239,7 @@ mod tests {
             input: None,
             description: None,
             status: status.map(str::to_owned),
+            path: None,
         }));
         item
     }
