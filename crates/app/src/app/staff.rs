@@ -20,6 +20,8 @@ mod composer;
 mod detail;
 mod images;
 mod messages;
+mod open_link;
+pub(crate) use open_link::{install_link_handler, register_link_target};
 mod proposal_choice;
 mod questions;
 mod task_list;

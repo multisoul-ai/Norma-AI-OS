@@ -61,6 +61,7 @@ impl MessageBlock for Reply<'_> {
             .parts
             .iter()
             .rposition(|part| matches!(part, StaffPart::Text(_)));
+        crate::app::staff::register_link_target(window, cx);
         for (position, part) in reply.parts.iter().enumerate() {
             body = match part {
                 StaffPart::Text(text) if running && last_text == Some(position) => body.child(
@@ -77,7 +78,7 @@ impl MessageBlock for Reply<'_> {
                             "staff-markdown-{}-{index}-{position}",
                             task.id
                         )),
-                        text.clone(),
+                        crate::preview::rich_link::linkify_inline_paths(text),
                         window,
                         cx,
                     )
