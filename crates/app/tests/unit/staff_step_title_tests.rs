@@ -32,3 +32,20 @@ fn known_commands_are_translated_and_unknown_ones_stay_command_words() {
         assert!(!title.contains('/'), "标题不能含路径：{title}");
     }
 }
+
+/// 场景：带路径的工具步骤，名称与详情分开展示，详情不污染名称。
+/// 数据构造：ToolAt("Read", "…/app/src/lib.rs:42") 与纯 Tool("Read")。
+/// 预期结果：两者的名称都是「Read」；前者 detail 为路径，后者为 None（不显示空占位）。
+#[test]
+fn tool_steps_show_detail_separately_from_the_name() {
+    let with_path = StepTitle::ToolAt("Read".into(), "…/app/src/lib.rs:42".into());
+    assert_eq!(label(&with_path), "Read", "名称只含工具名");
+    assert_eq!(
+        detail(&with_path),
+        Some("…/app/src/lib.rs:42"),
+        "详情是路径"
+    );
+    let bare = StepTitle::Tool("Read".into());
+    assert_eq!(label(&bare), "Read", "纯工具名不变");
+    assert_eq!(detail(&bare), None, "没有路径时不显示详情");
+}

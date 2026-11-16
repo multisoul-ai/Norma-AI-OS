@@ -35,6 +35,8 @@ pub enum StepTitle {
     /// `norma` 子命令词，如 ["brain", "agents"]；不含路径与参数值。
     Norma(Vec<String>),
     Tool(String),
+    /// 工具名加它碰的文件或目录（已缩短为末三段）；旧快照没有这个变体。
+    ToolAt(String, String),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -131,7 +133,7 @@ impl StaffReply {
             return;
         };
         if let Some(title) = title {
-            *old_title = title;
+            *old_title = merge_title(old_title, title);
         }
         if *old_status == StepStatus::Denied {
             return;
@@ -292,8 +294,30 @@ impl Task {
     }
 }
 
+/// 后续事件常常只带部分信息：没有路径的同名或占位名标题不覆盖已知详情，占位名也不覆盖已知工具名。
+fn merge_title(old: &StepTitle, new: StepTitle) -> StepTitle {
+    let placeholder = |name: &str| name == "tool";
+    match (old, new) {
+        (StepTitle::ToolAt(old_name, detail), StepTitle::Tool(name))
+            if *old_name == name || placeholder(&name) =>
+        {
+            StepTitle::ToolAt(old_name.clone(), detail.clone())
+        }
+        (StepTitle::Tool(old_name) | StepTitle::ToolAt(old_name, _), StepTitle::Tool(name))
+            if placeholder(&name) =>
+        {
+            StepTitle::Tool(old_name.clone())
+        }
+        (
+            StepTitle::Tool(old_name) | StepTitle::ToolAt(old_name, _),
+            StepTitle::ToolAt(name, detail),
+        ) if placeholder(&name) => StepTitle::ToolAt(old_name.clone(), detail),
+        (_, new) => new,
+    }
+}
+
 /// 由工具调用的名称和入参得到结构化步骤标题：`norma` 子命令只保留命令词，
-/// 其余只保留工具名；绝对路径、参数与参数值都不进入快照。
+/// 其余只保留工具名；参数与参数值都不进入快照，工具碰的路径另由 [`step_title_at`] 补充。
 pub fn step_title(name: Option<&str>, input: Option<&str>) -> StepTitle {
     // 入参通常是 `{"command": "..."}` 这样的 JSON；先取出命令再找 norma 子命令。
     let command = input.and_then(command_of);
@@ -310,6 +334,87 @@ pub fn step_title(name: Option<&str>, input: Option<&str>) -> StepTitle {
         .filter(|token| !token.is_empty())
         .unwrap_or("tool");
     StepTitle::Tool(first.chars().take(40).collect())
+}
+
+/// 在 [`step_title`] 之上补充工具碰的文件或目录：优先 ACP `locations` 的路径，
+/// 其次 `rawInput` 的 `file_path`/`path`，再从命令里取 `cd` 目录或最后一个路径参数，最后才是查询模式。
+/// 全都没有时不编造，返回纯工具名；路径只留末三段，绝对前缀不进快照。
+pub fn step_title_at(name: Option<&str>, input: Option<&str>, path: Option<&str>) -> StepTitle {
+    let title = step_title(name, input);
+    let StepTitle::Tool(tool) = title else {
+        return title;
+    };
+    match tool_detail(input, path) {
+        Some(detail) => StepTitle::ToolAt(tool, detail),
+        None => StepTitle::Tool(tool),
+    }
+}
+
+fn tool_detail(input: Option<&str>, path: Option<&str>) -> Option<String> {
+    let value = input.and_then(|input| serde_json::from_str::<serde_json::Value>(input).ok());
+    let field = |keys: &[&str]| {
+        let value = value.as_ref()?;
+        keys.iter()
+            .find_map(|key| value.get(*key)?.as_str().filter(|text| !text.is_empty()))
+            .map(str::to_owned)
+    };
+    let raw = path
+        .filter(|path| !path.is_empty())
+        .map(str::to_owned)
+        .or_else(|| field(&["file_path", "path", "filePath", "notebook_path"]))
+        .or_else(|| command_of(input?).and_then(|command| command_target(&command)))?;
+    Some(shorten(&raw))
+}
+
+/// 命令里的目标：`cd` 取目录；其余取最后一个像路径的词。参数、URL、`KEY=值` 赋值和搜索模式都不是路径，不进快照。
+fn command_target(command: &str) -> Option<String> {
+    let mut words = split_words(command);
+    // `zsh -lc 'cd x && ...'`：穿透外壳，引号里的整条命令重新拆词。
+    if words
+        .first()
+        .is_some_and(|word| matches!(word.rsplit('/').next(), Some("zsh" | "bash" | "sh")))
+    {
+        words.remove(0);
+        while words.first().is_some_and(|word| word.starts_with('-')) {
+            words.remove(0);
+        }
+        if words.len() == 1 {
+            words = split_words(&words[0]);
+        }
+    }
+    let first = words.first()?;
+    if first == "cd" {
+        return words.get(1).filter(|dir| !dir.starts_with('-')).cloned();
+    }
+    let args: Vec<&String> = words[1..]
+        .iter()
+        .take_while(|word| {
+            !matches!(word.as_str(), "&&" | "||" | ";" | "|") && !word.starts_with(['>', '<'])
+        })
+        .collect();
+    args.into_iter()
+        .rev()
+        .find(|word| looks_like_path(word))
+        .cloned()
+}
+
+/// 带目录分隔符或以 `.`、`~` 开头的词才算路径；URL、`KEY=值`、带 `?` 的词与参数不算。
+fn looks_like_path(word: &str) -> bool {
+    !word.starts_with('-')
+        && !word.contains("://")
+        && !word.contains(['=', '?'])
+        && (word.contains('/') || word.starts_with(['.', '~']))
+}
+
+/// 路径只留末三段，超过时以「…/」开头；总长不超过 80 个字符。
+fn shorten(raw: &str) -> String {
+    let parts: Vec<&str> = raw.split('/').collect();
+    let short = if parts.len() > 4 {
+        format!("…/{}", parts[parts.len() - 3..].join("/"))
+    } else {
+        raw.to_owned()
+    };
+    short.chars().take(80).collect()
 }
 
 /// ACP 的 `rawInput` 里的命令：字符串，或拆开的字符串数组。
@@ -329,6 +434,26 @@ fn command_of(input: &str) -> Option<String> {
 }
 
 fn norma_words(text: &str) -> Vec<String> {
+    let tokens = split_words(text);
+    let Some(at) = tokens
+        .iter()
+        .position(|token| token.rsplit('/').next() == Some("norma"))
+    else {
+        return Vec::new();
+    };
+    tokens[at + 1..]
+        .iter()
+        .take_while(|token| {
+            !token.is_empty() && token.chars().all(|c| c.is_ascii_lowercase() || c == '-')
+        })
+        .take(3)
+        .filter(|token| !token.starts_with('-'))
+        .cloned()
+        .collect()
+}
+
+/// 按空白拆词，引号内的空白保留。
+fn split_words(text: &str) -> Vec<String> {
     let mut tokens = Vec::new();
     let mut current = String::new();
     let mut quote = None;
@@ -348,19 +473,5 @@ fn norma_words(text: &str) -> Vec<String> {
     if !current.is_empty() {
         tokens.push(current);
     }
-    let Some(at) = tokens
-        .iter()
-        .position(|token| token.rsplit('/').next() == Some("norma"))
-    else {
-        return Vec::new();
-    };
-    tokens[at + 1..]
-        .iter()
-        .take_while(|token| {
-            !token.is_empty() && token.chars().all(|c| c.is_ascii_lowercase() || c == '-')
-        })
-        .take(3)
-        .filter(|token| !token.starts_with('-'))
-        .cloned()
-        .collect()
+    tokens
 }

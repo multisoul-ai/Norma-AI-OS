@@ -168,12 +168,15 @@ fn step_row(
                 .with_size(px(tokens::LABEL_TEXT))
                 .text_color(rgba(color)),
         )
+        .child(div().flex_none().child(step_title::label(title)))
         .child(
             div()
                 .flex_1()
                 .min_w_0()
                 .truncate()
-                .child(step_title::label(title)),
+                .text_size(px(tokens::META_TEXT))
+                .text_color(rgba(theme.text_tertiary))
+                .children(step_title::detail(title).map(str::to_owned)),
         )
         .children(note.map(|key| {
             div()

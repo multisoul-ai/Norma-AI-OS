@@ -200,3 +200,24 @@ fn tool_description_comes_from_raw_input() {
         Some("列出文件")
     );
 }
+
+/// 场景：ACP 工具事件的 `locations` 进入 ToolTrace.path；没有 locations（如 cd）时为 None。
+/// 数据构造：tool_call 带 locations [{path:"/p/a.rs", line:7}]；另一条 tool_call 只有 rawInput。
+/// 预期结果：前者 path = "/p/a.rs:7"；后者 path = None，不从别处编造。
+#[test]
+fn tool_locations_become_the_trace_path() {
+    let with = classify_update(&serde_json::json!({
+        "sessionUpdate": "tool_call", "toolCallId": "t1", "title": "Read",
+        "locations": [{"path": "/p/a.rs", "line": 7}]
+    }))
+    .and_then(|item| item.tool)
+    .expect("tool trace");
+    assert_eq!(with.path.as_deref(), Some("/p/a.rs:7"), "路径带行号");
+    let without = classify_update(&serde_json::json!({
+        "sessionUpdate": "tool_call", "toolCallId": "t2", "title": "cd",
+        "rawInput": {"command": "cd /x"}
+    }))
+    .and_then(|item| item.tool)
+    .expect("tool trace");
+    assert_eq!(without.path, None, "没有 locations 时为 None");
+}

@@ -41,6 +41,7 @@ pub(super) fn answer(
             input: Some(wanted.into()),
             description: None,
             status: Some("in_progress".into()),
+            path: None,
         })
     });
     sink(item);
