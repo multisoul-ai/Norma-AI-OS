@@ -133,7 +133,7 @@ impl StaffReply {
             return;
         };
         if let Some(title) = title {
-            *old_title = title;
+            *old_title = merge_title(old_title, title);
         }
         if *old_status == StepStatus::Denied {
             return;
@@ -294,8 +294,30 @@ impl Task {
     }
 }
 
+/// 后续事件常常只带部分信息：没有路径的同名或占位名标题不覆盖已知详情，占位名也不覆盖已知工具名。
+fn merge_title(old: &StepTitle, new: StepTitle) -> StepTitle {
+    let placeholder = |name: &str| name == "tool";
+    match (old, new) {
+        (StepTitle::ToolAt(old_name, detail), StepTitle::Tool(name))
+            if *old_name == name || placeholder(&name) =>
+        {
+            StepTitle::ToolAt(old_name.clone(), detail.clone())
+        }
+        (StepTitle::Tool(old_name) | StepTitle::ToolAt(old_name, _), StepTitle::Tool(name))
+            if placeholder(&name) =>
+        {
+            StepTitle::Tool(old_name.clone())
+        }
+        (
+            StepTitle::Tool(old_name) | StepTitle::ToolAt(old_name, _),
+            StepTitle::ToolAt(name, detail),
+        ) if placeholder(&name) => StepTitle::ToolAt(old_name.clone(), detail),
+        (_, new) => new,
+    }
+}
+
 /// 由工具调用的名称和入参得到结构化步骤标题：`norma` 子命令只保留命令词，
-/// 其余只保留工具名；绝对路径、参数与参数值都不进入快照。
+/// 其余只保留工具名；参数与参数值都不进入快照，工具碰的路径另由 [`step_title_at`] 补充。
 pub fn step_title(name: Option<&str>, input: Option<&str>) -> StepTitle {
     // 入参通常是 `{"command": "..."}` 这样的 JSON；先取出命令再找 norma 子命令。
     let command = input.and_then(command_of);
@@ -340,12 +362,11 @@ fn tool_detail(input: Option<&str>, path: Option<&str>) -> Option<String> {
         .filter(|path| !path.is_empty())
         .map(str::to_owned)
         .or_else(|| field(&["file_path", "path", "filePath", "notebook_path"]))
-        .or_else(|| command_of(input?).and_then(|command| command_target(&command)))
-        .or_else(|| field(&["pattern", "query"]))?;
+        .or_else(|| command_of(input?).and_then(|command| command_target(&command)))?;
     Some(shorten(&raw))
 }
 
-/// 命令里的目标：`cd` 取目录；其余取最后一个非参数词（搜索命令有两个以上时即路径，只有一个时是模式）。
+/// 命令里的目标：`cd` 取目录；其余取最后一个像路径的词。参数、URL、`KEY=值` 赋值和搜索模式都不是路径，不进快照。
 fn command_target(command: &str) -> Option<String> {
     let mut words = split_words(command);
     // `zsh -lc 'cd x && ...'`：穿透外壳，引号里的整条命令重新拆词。
@@ -363,14 +384,26 @@ fn command_target(command: &str) -> Option<String> {
     }
     let first = words.first()?;
     if first == "cd" {
-        return words.get(1).cloned();
+        return words.get(1).filter(|dir| !dir.starts_with('-')).cloned();
     }
     let args: Vec<&String> = words[1..]
         .iter()
-        .take_while(|word| !matches!(word.as_str(), "&&" | "||" | ";" | "|"))
-        .filter(|word| !word.starts_with('-'))
+        .take_while(|word| {
+            !matches!(word.as_str(), "&&" | "||" | ";" | "|") && !word.starts_with(['>', '<'])
+        })
         .collect();
-    args.last().map(|word| (*word).clone())
+    args.into_iter()
+        .rev()
+        .find(|word| looks_like_path(word))
+        .cloned()
+}
+
+/// 带目录分隔符或以 `.`、`~` 开头的词才算路径；URL、`KEY=值`、带 `?` 的词与参数不算。
+fn looks_like_path(word: &str) -> bool {
+    !word.starts_with('-')
+        && !word.contains("://")
+        && !word.contains(['=', '?'])
+        && (word.contains('/') || word.starts_with(['.', '~']))
 }
 
 /// 路径只留末三段，超过时以「…/」开头；总长不超过 80 个字符。

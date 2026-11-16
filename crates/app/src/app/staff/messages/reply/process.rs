@@ -175,6 +175,7 @@ fn step_row(
                 .min_w_0()
                 .truncate()
                 .text_size(px(tokens::META_TEXT))
+                .text_color(rgba(theme.text_tertiary))
                 .children(step_title::detail(title).map(str::to_owned)),
         )
         .children(note.map(|key| {

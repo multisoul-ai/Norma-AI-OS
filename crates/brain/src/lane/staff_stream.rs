@@ -109,7 +109,8 @@ impl ReplyWriter {
                 let finished = status.is_some();
                 // 权限请求的名称可能是占位值：已知步骤的标题不被它覆盖。
                 // 完成事件常常不带 title/rawInput：没有新信息就不更新，免得用占位名盖掉已有标题。
-                let informative = meta.name.is_some() || meta.input.is_some();
+                let informative =
+                    meta.name.is_some() || meta.input.is_some() || meta.path.is_some();
                 let title = (informative && (item.kind != TraceKind::Permission || first_seen))
                     .then(|| {
                         step_title_at(
@@ -286,6 +287,75 @@ mod tests {
             steps,
             vec![(StepTitle::Tool("skill".into()), StepStatus::Completed)],
             "完成事件只更新状态，不覆盖标题"
+        );
+    }
+
+    /// 场景：路径可能晚于 title 到达，完成事件也常常只带 title；两种序列都不能丢掉已知的文件。
+    /// 数据构造：步骤 call-1 先收到只有 title「Read」的 ToolCall（运行中），再收到只带 locations 路径
+    ///   `/a/b/c/d.rs:3`、没有 title 的 ToolResult（运行中），最后收到只带 title「Read」的完成事件。
+    /// 执行过程：依次 observe 三个事件，读回存储里的回复。
+    /// 预期结果：只有一个步骤，标题是 ToolAt("Read", "…/b/c/d.rs:3")，状态 Completed；
+    ///   路径事件补上详情（没有 title 也算有新信息），完成事件不把详情覆盖回纯工具名。
+    #[test]
+    fn a_late_path_is_kept_after_a_title_only_completion() {
+        let dir = tempfile::tempdir().expect("root");
+        let store = Arc::new(TaskStore::new(dir.path().into()));
+        store
+            .create(Task::new("t", "ws", "p", "x"))
+            .expect("create");
+        store
+            .begin_turn("ws", "t", ReplyTrigger::User)
+            .expect("begin");
+        let (status, _statuses) = std::sync::mpsc::channel();
+        let scope = BrainScope {
+            workspace_id: "ws".into(),
+            route_id: "r".into(),
+        };
+        let mut writer = ReplyWriter::new(store.clone(), scope, "t".into(), status);
+        let with_path = |kind, name: Option<&str>, path: Option<&str>, status: &str| {
+            let mut item = tool_item(kind, name, Some(status));
+            if let Some(tool) = item.tool.as_mut() {
+                tool.path = path.map(str::to_owned);
+            }
+            item
+        };
+        writer.observe(&with_path(
+            TraceKind::ToolCall,
+            Some("Read"),
+            None,
+            "in_progress",
+        ));
+        writer.observe(&with_path(
+            TraceKind::ToolResult,
+            None,
+            Some("/a/b/c/d.rs:3"),
+            "in_progress",
+        ));
+        writer.observe(&with_path(
+            TraceKind::ToolResult,
+            Some("Read"),
+            None,
+            "completed",
+        ));
+        let task = store.get("ws", "t").expect("task");
+        let Some(TaskMessage::Staff(reply)) = task.messages.last() else {
+            panic!("staff reply")
+        };
+        let steps: Vec<_> = reply
+            .parts
+            .iter()
+            .filter_map(|part| match part {
+                StaffPart::Step { title, status, .. } => Some((title.clone(), *status)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            steps,
+            vec![(
+                StepTitle::ToolAt("Read".into(), "…/b/c/d.rs:3".into()),
+                StepStatus::Completed
+            )],
+            "路径晚到要补上，之后只带 title 的完成事件不能把它盖掉"
         );
     }
 }
