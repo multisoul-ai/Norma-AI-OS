@@ -83,6 +83,8 @@ pub(crate) struct StaffState {
     pub remove_ask: Option<WorkerRemoveAsk>,
     pub toast_generation: u64,
     pub scroll: gpui::ScrollHandle,
+    /// 贴底跟随中：内容之后变高（表格换行、流式文字转 Markdown）时补滚到底；用户上翻即退出。
+    pub pinned: bool,
     pub error: Option<ui::i18n::LocalizedText>,
     pub pending: BTreeMap<u64, PendingWorker>,
     pub events: std::cell::RefCell<std::collections::VecDeque<brain::BrainEvent>>,
@@ -138,6 +140,7 @@ impl MultisoulApp {
                                 Some(norma::protocol::TaskMessage::User { .. })
                             ))
                     {
+                        self.staff.pinned = true;
                         self.staff.scroll.scroll_to_bottom();
                     }
                 }
@@ -174,7 +177,8 @@ impl MultisoulApp {
             return;
         };
         *old = reply;
-        if self.staff.selected.as_deref() == Some(task_id) && self.staff_near_bottom() {
+        // 只看 pinned，不看 near_bottom。上翻 30px 仍在 48px 内，下一块不能把视图拽回去。
+        if self.staff.selected.as_deref() == Some(task_id) && self.staff.pinned {
             self.staff.scroll.scroll_to_bottom();
         }
         self.notify_staff(cx);
@@ -184,6 +188,19 @@ impl MultisoulApp {
     pub(crate) fn staff_near_bottom(&self) -> bool {
         f32::from(self.staff.scroll.max_offset().height) + f32::from(self.staff.scroll.offset().y)
             <= 48.0
+    }
+
+    /// 滚轮监听发生在 GPUI 改偏移之前。上翻退出跟随；下翻用这一笔之后的位置决定是否恢复。
+    pub(crate) fn staff_note_scroll_wheel(&mut self, delta_y: gpui::Pixels) {
+        if delta_y > gpui::px(0.) {
+            self.staff.pinned = false;
+        } else if delta_y < gpui::px(0.) {
+            let max_h = self.staff.scroll.max_offset().height;
+            let next = (self.staff.scroll.offset().y + delta_y).clamp(-max_h, gpui::px(0.));
+            if f32::from(max_h) + f32::from(next) <= 48.0 {
+                self.staff.pinned = true;
+            }
+        }
     }
 
     pub(crate) fn notify_staff(&self, cx: &mut Context<Self>) {
@@ -268,6 +285,10 @@ mod keyboard_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/staff_content_layout_tests.rs"]
 mod content_layout_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/staff_rich_reply_tests.rs"]
+mod rich_reply_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/staff_reply_tests.rs"]

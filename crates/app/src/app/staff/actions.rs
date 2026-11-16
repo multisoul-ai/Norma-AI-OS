@@ -94,6 +94,7 @@ impl MultisoulApp {
             .as_ref()
             .is_some_and(|id| self.staff.tasks.contains_key(id))
         {
+            self.staff.pinned = true;
             self.staff.scroll.scroll_to_bottom();
         }
         self.staff.selected = id;

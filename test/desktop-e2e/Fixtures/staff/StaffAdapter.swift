@@ -77,6 +77,14 @@ enum StaffAdapter {
             if rich_dir and 'RICH-LINK' in text:
                 reply = 'RICH-LINK 验收：打开 `' + rich_dir + '/rich-link.html`，笔记 `' + rich_dir + '/notes.md`，缺失 `' + rich_dir + '/missing.md`，外链 [Example](https://example.com)。'
                 send({'jsonrpc':'2.0','method':'session/update','params':{'sessionId':sid,'update':{'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':reply}}}})
+            # 长富文本验收：标题、含长路径的表格与列表、带软换行的长段落，滚到底必须完整可见。
+            if 'LONG-REPLY' in text:
+                root = '/Users/example/Documents/norma-ai-os'
+                rows = ''.join('| 原型 %d | `%s/docs/prototypes/norma-long-path-prototype-number-%d-with-a-very-long-name.html` |\n' % (i, root, i) for i in range(1, 6))
+                bullets = ''.join('- 条目 %d：`%s/docs/product-specs/norma-ios-prototypes-2026-09-%02d/overview-with-long-name.md`\n' % (i, root, i) for i in range(1, 6))
+                reply = ('LONG-REPLY 验收\n\n## 原型文件\n\n| 文件 | 绝对路径 |\n| --- | --- |\n' + rows + '\n其他相关的：\n\n' + bullets +
+                    '\n## 实施计划\n\n| 文件 | 绝对路径 |\n| --- | --- |\n' + rows + '\n另外还有 HTML 版计划，比如 `' + root + '/docs/exec-plans/2026-10-24-brain-propose-next-step.html`。\n和你这个富文本测试最贴的是幕僚架构设计稿：`' + root + '/docs/design-docs/2026-11-12-norma-staff-architecture.html`\n原因是消息行被撑成了很高的虚高，滚动按虚高算，首条就被顶出首屏。\n还没验收，是因为他只用布局边界测试验证过，没有在真实 App 里看过。\nLONG-REPLY END')
+                update(sid, {'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':reply}})
             # 工具步骤路径验收：Read 带 locations，cd 只有命令，rg 命令里带查询路径。
             steps_dir = os.environ.get('NORMA_E2E_TOOL_STEPS_DIR')
             if steps_dir and 'TOOL-STEPS' in text:
