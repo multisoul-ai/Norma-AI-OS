@@ -22,6 +22,7 @@ fn proposal_requires_user_adoption_and_dispatch_is_once() {
                 title: "Build".into(),
                 prompt: "Build and test".into(),
                 why: "Required".into(),
+                model: None,
             },
         )
         .expect("propose");
@@ -110,6 +111,7 @@ fn approval_persists_user_agent_and_model_choice() {
                 title: "Build".into(),
                 prompt: "Build and test".into(),
                 why: "Required".into(),
+                model: None,
             },
         )
         .expect("propose");
@@ -132,6 +134,7 @@ fn propose(store: &TaskStore, agent: &str, prompt: &str) {
                 title: "T".into(),
                 prompt: prompt.into(),
                 why: "W".into(),
+                model: None,
             },
         )
         .expect("propose");

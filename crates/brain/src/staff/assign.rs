@@ -30,6 +30,7 @@ impl TaskStore {
             prompt,
             why,
             worker,
+            model,
         } = op
         else {
             return Err(io::Error::new(
@@ -46,7 +47,13 @@ impl TaskStore {
                 .iter()
                 .rev()
                 .find(|worker| worker.outcome == Some(WorkerOutcome::Succeeded))
-                .map(|worker| worker.agent.as_str());
+                .map(|worker| {
+                    if worker.is_agent(&agent) {
+                        agent.as_str()
+                    } else {
+                        worker.agent.as_str()
+                    }
+                });
             let user_turn = task.user_turn_running();
             // 用户发话触发的续派不计数；其余直接派发都计入自动次数。
             let counts = worker.is_none() || !user_turn;
@@ -72,7 +79,7 @@ impl TaskStore {
                 title,
                 prompt,
                 why,
-                model: None,
+                model: model.filter(|m| !m.trim().is_empty()),
                 approved: dispatch,
                 ignored: false,
                 dispatch_id: None,
@@ -109,7 +116,7 @@ fn check_continuable(task: &Task, dispatch_id: &str, agent: &str) -> io::Result<
     let refuse = |code: &'static str| Err(io::Error::new(io::ErrorKind::InvalidInput, code));
     match task.worker_for_dispatch(dispatch_id) {
         None => refuse("staff.worker_unknown"),
-        Some(worker) if worker.agent != agent => refuse("staff.worker_agent_mismatch"),
+        Some(worker) if !worker.is_agent(agent) => refuse("staff.worker_agent_mismatch"),
         Some(worker) if worker.outcome.is_none() => refuse("staff.worker_busy"),
         Some(_)
             if task.proposals.iter().any(|p| {

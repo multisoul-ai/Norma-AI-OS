@@ -41,6 +41,7 @@ impl TaskStore {
                     title,
                     prompt,
                     why,
+                    model,
                     ..
                 } => {
                     require_text(&agent)?;
@@ -80,7 +81,7 @@ impl TaskStore {
                         title,
                         prompt,
                         why,
-                        model: None,
+                        model: model.filter(|m| !m.trim().is_empty()),
                         approved: false,
                         ignored: false,
                         dispatch_id: None,

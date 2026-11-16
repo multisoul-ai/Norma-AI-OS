@@ -147,10 +147,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Result<(Worker, String), String> {
         let entry = self
-            .agent_roster_for_provider()
-            .into_iter()
-            .find(|entry| entry.name == proposal.agent && entry.enabled)
-            .ok_or_else(|| "staff.agent_unavailable".to_owned())?;
+            .resolve_staff_entry(&proposal.agent)
+            .map_err(|_| "staff.agent_unavailable".to_owned())?;
         let area = self.mobile_canvas_area(None);
         let zoom = self.runtime.document.viewport.zoom;
         let bounds = self.next_tiled_node_bounds_for_area(area, zoom);

@@ -33,6 +33,7 @@ fn needs_attention_redelivers_the_same_card() {
                 title: "Build".into(),
                 prompt: "build it".into(),
                 why: "Needed".into(),
+                model: None,
             },
         )
         .expect("propose");
@@ -103,6 +104,7 @@ fn needs_attention_redelivers_the_same_card() {
                 title: "Again".into(),
                 prompt: "build it".into(),
                 why: "Retry".into(),
+                model: None,
             },
         )
         .expect("same proposal");
@@ -120,6 +122,7 @@ fn needs_attention_redelivers_the_same_card() {
                 title: "Other".into(),
                 prompt: "write docs".into(),
                 why: "Separate".into(),
+                model: None,
             },
         )
         .expect("other proposal");

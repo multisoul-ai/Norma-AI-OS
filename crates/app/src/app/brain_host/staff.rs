@@ -38,18 +38,39 @@ impl MultisoulApp {
             return self.dispatch_staff_worker(task_id, proposal_id, token.to_owned(), cx);
         }
         if let StaffOp::Propose { agent, .. } | StaffOp::Assign { agent, .. } = &op {
-            if !self
-                .agent_roster_for_provider()
-                .iter()
-                .any(|entry| entry.name == *agent && entry.enabled)
-            {
-                return Err("staff.agent_unavailable".to_owned());
-            }
+            self.resolve_staff_entry(agent)?;
         }
         if matches!(op, StaffOp::Assign { .. }) {
             return self.assign_staff_worker(op, token.to_owned(), cx);
         }
         self.write_staff_operation(op, false, cx)
+    }
+
+    /// 幕僚用 engine（如 claude）或旧的具名智能体名指向执行者；同类型优先挑不忙的。
+    /// 找不到时的错误带上当前可选的类型，回给幕僚改选。
+    pub(super) fn resolve_staff_entry(&self, id: &str) -> Result<agent::AgentRosterEntry, String> {
+        let roster = self.agent_roster_for_provider();
+        let engine = |entry: &agent::AgentRosterEntry| format!("{:?}", entry.profile);
+        let mut found: Vec<_> = roster
+            .iter()
+            .filter(|e| e.enabled)
+            .filter(|e| e.name.eq_ignore_ascii_case(id) || engine(e).eq_ignore_ascii_case(id))
+            .collect();
+        found.sort_by_key(|entry| entry.busy);
+        if let Some(entry) = found.first() {
+            return Ok((*entry).clone());
+        }
+        let mut engines: Vec<_> = roster
+            .iter()
+            .filter(|e| e.enabled)
+            .map(|e| engine(e).to_lowercase())
+            .collect();
+        engines.sort();
+        engines.dedup();
+        Err(format!(
+            "staff.agent_unavailable: unknown or disabled engine; available: {}",
+            engines.join(", ")
+        ))
     }
 
     pub(crate) fn write_staff_operation(

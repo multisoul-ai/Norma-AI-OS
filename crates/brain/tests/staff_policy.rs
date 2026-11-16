@@ -167,6 +167,7 @@ fn staff_may_only_run_whitelisted_commands() {
             title: "t".into(),
             prompt: "p".into(),
             why: "w".into(),
+            model: None,
         }),
         task(StaffOp::Assign {
             task_id: "a".into(),
@@ -174,6 +175,7 @@ fn staff_may_only_run_whitelisted_commands() {
             title: "t".into(),
             prompt: "p".into(),
             why: "w".into(),
+            model: None,
             worker: None,
         }),
     ];

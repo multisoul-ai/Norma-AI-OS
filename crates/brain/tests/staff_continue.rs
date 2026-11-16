@@ -9,6 +9,7 @@ fn continue_op(agent: &str, worker: &str, prompt: &str) -> StaffOp {
         title: "Keep going".into(),
         prompt: prompt.into(),
         why: "Unfinished".into(),
+        model: None,
         worker: Some(worker.into()),
     }
 }
@@ -29,6 +30,7 @@ fn store_with_worker(outcome: Option<WorkerOutcome>) -> (tempfile::TempDir, Task
                 title: "Build".into(),
                 prompt: "Build".into(),
                 why: "Required".into(),
+                model: None,
             },
         )
         .expect("propose");

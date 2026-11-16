@@ -9,6 +9,7 @@ fn assign_op(agent: &str, prompt: &str) -> StaffOp {
         title: "Next".into(),
         prompt: prompt.into(),
         why: "Follow up".into(),
+        model: None,
         worker: None,
     }
 }
@@ -29,6 +30,7 @@ fn store_with_finished_worker(agent: &str) -> (tempfile::TempDir, TaskStore) {
                 title: "Build".into(),
                 prompt: "Build".into(),
                 why: "Required".into(),
+                model: None,
             },
         )
         .expect("propose");
@@ -238,5 +240,59 @@ fn generic_execute_refuses_assign_so_policy_cannot_be_skipped() {
         store.get("ws", "a").expect("task").proposals.len(),
         1,
         "check: store.get('ws', 'a').expect('task').proposals.len("
+    );
+}
+
+/// [场景描述]：幕僚用 engine 标识（而非具名智能体名）派后续活，并指定模型。
+///
+/// 数据构造：
+///   Worker 名字 "Simon"，engine "Codex"，已完成第 1 条提议
+///   assign 的 agent 字段写 "codex"（小写 engine），model = "gpt-5"
+///
+/// 执行过程：
+///   1. assign 判断「刚完成的是否同一个」：Worker.engine 与 "codex" 忽略大小写相等 → 视为同一执行者
+///   2. 无风险、自动开启、次数未超限 → 直接派发
+///
+/// 预期结果：
+///   - 结果是 Dispatch，而不是降级为 NotFollowUp
+///   - 新提议（id=2）的 model 为 Some("gpt-5")，宿主据此给卡片加 --model
+#[test]
+fn follow_up_by_engine_id_dispatches_and_keeps_the_model() {
+    let (_dir, store) = store_with_finished_worker("Simon");
+    let op = match assign_op("codex", "Add the missing test") {
+        StaffOp::Assign {
+            task_id,
+            agent,
+            title,
+            prompt,
+            why,
+            worker,
+            ..
+        } => StaffOp::Assign {
+            task_id,
+            agent,
+            title,
+            prompt,
+            why,
+            worker,
+            model: Some("gpt-5".into()),
+        },
+        other => other,
+    };
+    let (task, outcome) = store.assign("ws", op, true).expect("assign");
+    assert_eq!(
+        outcome,
+        AssignOutcome::Dispatch { proposal_id: 2 },
+        "engine id equal (case-insensitive) to the finished worker's engine counts as a follow-up"
+    );
+    let proposal = task
+        .proposals
+        .iter()
+        .find(|p| p.id == 2)
+        .expect("proposal 2");
+    assert_eq!(
+        proposal.model.as_deref(),
+        Some("gpt-5"),
+        "model chosen by staff must be stored for the host to launch with"
     );
 }

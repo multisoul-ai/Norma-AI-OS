@@ -39,7 +39,7 @@
   "staff.error": "Could not complete: %{reason}",
   "staff.retry": "Reload",
   "staff.invalid_source": "The task source expired. Reopen the project.",
-  "staff.agent_unavailable": "This agent is missing or disabled.",
+  "staff.agent_unavailable": "This agent type is missing or disabled.",
   "staff.denied.remove_worker": "Staff cannot remove workers; the user does that from the task.",
   "staff.worker_card_gone": "This worker's card was closed, so it cannot continue. Start a new worker instead.",
   "staff.proposal_unavailable": "This proposal is no longer available.",

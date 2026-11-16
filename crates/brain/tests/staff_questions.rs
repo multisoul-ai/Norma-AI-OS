@@ -158,6 +158,7 @@ fn ignore_is_per_proposal_and_restore_rejects_superseded_proposals() {
         title: "Ship".into(),
         prompt: prompt.into(),
         why: "Ready".into(),
+        model: None,
     };
     store.execute("w", propose("first")).expect("first");
     store

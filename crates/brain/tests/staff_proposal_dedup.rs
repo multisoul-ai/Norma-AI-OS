@@ -8,6 +8,7 @@ fn propose(agent: &str, title: &str, prompt: &str) -> StaffOp {
         title: title.into(),
         prompt: prompt.into(),
         why: "Required".into(),
+        model: None,
     }
 }
 

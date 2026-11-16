@@ -26,6 +26,9 @@ pub enum StaffOp {
         title: String,
         prompt: String,
         why: String,
+        /// 幕僚指定的模型；None 沿用该 CLI 的默认模型。
+        #[serde(default)]
+        model: Option<String>,
     },
     Adopt {
         task_id: String,
@@ -41,6 +44,8 @@ pub enum StaffOp {
         /// 续派给该 dispatch_id 的已有 Worker（同一张卡片），不新建。
         #[serde(default)]
         worker: Option<String>,
+        #[serde(default)]
+        model: Option<String>,
     },
     /// 用户移除 / 撤销移除一个 Worker（按 dispatch_id）；幕僚命令里没有这两个。
     RemoveWorker {
@@ -196,6 +201,11 @@ pub struct StaffProposal {
 }
 
 impl Worker {
+    /// 幕僚用 engine（如 claude）或具名智能体名指向 Worker，忽略大小写。
+    pub fn is_agent(&self, id: &str) -> bool {
+        self.agent.eq_ignore_ascii_case(id) || self.engine.eq_ignore_ascii_case(id)
+    }
+
     pub fn new(agent: &str, engine: &str, role: &str, node_id: u64, dispatch_id: &str) -> Self {
         Self {
             agent: agent.into(),
