@@ -73,20 +73,27 @@ impl MessageBlock for Reply<'_> {
                         .child(text.clone()),
                 ),
                 StaffPart::Text(text) => body.child(
-                    ui::component::text::TextView::markdown(
-                        gpui::SharedString::from(format!(
-                            "staff-markdown-{}-{index}-{position}",
-                            task.id
-                        )),
-                        crate::preview::rich_link::linkify_inline_paths(text),
-                        window,
-                        cx,
-                    )
-                    .selectable(true)
-                    // TextView defaults to `size_full()`; a percentage height inside the auto-height
-                    // message stack must not decide how much room the wrapped text gets.
-                    .h_auto()
-                    .flex_none(),
+                    div()
+                        .debug_selector(move || format!("staff-reply-text-{index}-{position}"))
+                        .w_full()
+                        .block()
+                        .flex_none()
+                        .child(
+                            ui::component::text::TextView::markdown(
+                                gpui::SharedString::from(format!(
+                                    "staff-markdown-{}-{index}-{position}",
+                                    task.id
+                                )),
+                                crate::preview::rich_link::linkify_inline_paths(text),
+                                window,
+                                cx,
+                            )
+                            .selectable(true)
+                            // TextView defaults to `size_full()`; a percentage height inside the auto-height
+                            // message stack must not decide how much room the wrapped text gets.
+                            .h_auto()
+                            .flex_none(),
+                        ),
                 ),
                 StaffPart::Proposal(id) => {
                     body.child(card::proposal::Proposal(*id).render(ctx, window, cx))

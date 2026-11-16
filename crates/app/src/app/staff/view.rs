@@ -98,6 +98,7 @@ impl MultisoulApp {
             }
             center = center.child(
                 div()
+                    .debug_selector(|| "staff-conversation-header".into())
                     .flex_none()
                     .flex()
                     .justify_center()
