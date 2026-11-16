@@ -72,7 +72,12 @@ enum StaffAdapter {
             record('prompts.jsonl', dict(text=text))
             sid = message['params']['sessionId']
             reply = ''
-            match = re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})', text)
+            # 富文本点击验收不需要 brain 命令，直接回复，不依赖提示词里的命令说明。
+            rich_dir = os.environ.get('NORMA_E2E_RICH_LINK_DIR')
+            if rich_dir and 'RICH-LINK' in text:
+                reply = 'RICH-LINK 验收：打开 `' + rich_dir + '/rich-link.html`，笔记 `' + rich_dir + '/notes.md`，缺失 `' + rich_dir + '/missing.md`，外链 [Example](https://example.com)。'
+                send({'jsonrpc':'2.0','method':'session/update','params':{'sessionId':sid,'update':{'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':reply}}}})
+            match = None if reply else re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})', text)
             if match:
                 scope, task = json.loads(match[1]), json.loads(match[2])
                 binary = shlex.split(re.search(r'只能执行 (.*?) brain 命令', text)[1])[0]

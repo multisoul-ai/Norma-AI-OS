@@ -10,9 +10,10 @@ mod editing_actions;
 pub(crate) mod local_content;
 pub(crate) use editing::{PreviewEditCommand, PreviewEditCommandKind, PreviewEditor};
 mod image_viewer;
-mod terminal_open;
+pub(crate) mod rich_link;
+pub(crate) mod terminal_open;
 pub(crate) mod terminal_path;
-mod terminal_route;
+pub(crate) mod terminal_route;
 use image_viewer::ImageViewerSession;
 #[cfg(test)]
 pub(crate) use image_viewer::{drag_scroll_offset, ImageViewerState};

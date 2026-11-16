@@ -8,8 +8,8 @@ impl MessageBlock for User<'_> {
     fn render(
         &self,
         ctx: &BlockCtx,
-        _window: &mut Window,
-        _cx: &mut Context<MultisoulApp>,
+        window: &mut Window,
+        cx: &mut Context<MultisoulApp>,
     ) -> AnyElement {
         let index = ctx.index;
         let theme = ctx.app.staff_theme();
@@ -38,7 +38,23 @@ impl MessageBlock for User<'_> {
                     div()
                         .debug_selector(move || format!("staff-user-text-{index}"))
                         .when(!paths.is_empty(), |text| text.mb(px(tokens::SPACE_8)))
-                        .child(visible),
+                        .child(
+                            if visible.contains("http://") || visible.contains("https://") {
+                                crate::app::staff::register_link_target(window, cx);
+                                ui::component::text::TextView::markdown(
+                                    gpui::SharedString::from(format!("staff-user-md-{index}")),
+                                    crate::preview::rich_link::linkify_plain_text(&visible),
+                                    window,
+                                    cx,
+                                )
+                                .selectable(true)
+                                .h_auto()
+                                .flex_none()
+                                .into_any_element()
+                            } else {
+                                visible.into_any_element()
+                            },
+                        ),
                 );
             }
             let image_count = paths.len();
