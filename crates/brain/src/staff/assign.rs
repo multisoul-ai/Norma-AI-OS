@@ -85,6 +85,7 @@ impl TaskStore {
                 superseded: false,
                 target_worker: worker,
             });
+            super::proposals::supersede_same_title(task, proposal_id);
             task.attach_card(StaffPart::Proposal(proposal_id));
             if dispatch && counts {
                 task.auto_dispatches += 1;

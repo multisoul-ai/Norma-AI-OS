@@ -90,6 +90,7 @@ impl TaskStore {
                         superseded: false,
                         target_worker: None,
                     });
+                    super::proposals::supersede_same_title(task, id);
                     task.attach_card(StaffPart::Proposal(id));
                 }
                 StaffOp::Adopt { .. } | StaffOp::Assign { .. } => {

@@ -54,6 +54,7 @@ pub(super) fn prompt_with(
 - 看到结果后判断：全部可信、可以验收 → 阶段设为 merging；用户确认完成 → done；拿不准 → 保持 active。用户手动设置的阶段不能覆盖。
 - 失败或没有可信结果时，说清缺什么，建议用户怎么处理，不自动重试。
 - Worker 处于 NeedsAttention 时，不要为同一 Agent 和同一指令再提派发，用户会在原卡片上重新投递。
+- 同一件事不要重复 propose 或 assign：提议或派发前先看本任务已有的待采用提议；已有同一件事的，不要再发一条，要修改就在 --why 里说明替换哪一条。
 
 ## 不能越过的线
 - 高风险的活一律用 task propose 等用户采用，不能直接 task assign：推送、合并、部署、发布；删除或不可逆的数据操作；密钥、凭据或项目目录之外；对外沟通、花钱，以及用户说过“先给我看”的事。
@@ -102,6 +103,10 @@ mod tests {
         assert!(
             text.contains("task propose") && text.contains("高风险"),
             "check: text.contains('task propose') && text.contains('高风"
+        );
+        assert!(
+            text.contains("不要重复") && text.contains("待采用"),
+            "提示词必须要求同一件事不重复 propose/assign，已有待采用提议时说明替换哪一条"
         );
         assert!(
             text.contains("\"workspace_id\":\"w\""),

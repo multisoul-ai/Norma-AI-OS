@@ -96,7 +96,7 @@ const KEYWORDS: [(RiskCategory, &[&str]); 4] = [
 ];
 
 /// 去掉零宽字符、全角转半角、空白折叠并转小写，让简单的混淆写法不能绕过关键词。
-fn normalize(text: &str) -> String {
+pub(super) fn normalize(text: &str) -> String {
     let half_width = text.chars().filter_map(|c| match c {
         '\u{200b}'..='\u{200d}' | '\u{2060}' | '\u{feff}' => None,
         '\u{ff01}'..='\u{ff5e}' => char::from_u32(c as u32 - 0xfee0),
