@@ -81,7 +81,7 @@ impl MultisoulApp {
         provider: norma::orchestration::OrchestrationProvider,
     ) -> agent::AgentRosterEntry {
         let profile = provider.profile();
-        let mut found: Vec<_> = self
+        let found: Vec<_> = self
             .agent_roster_for_provider()
             .into_iter()
             .filter(|entry| entry.enabled && entry.profile == profile)

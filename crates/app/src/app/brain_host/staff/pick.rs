@@ -42,14 +42,14 @@ mod tests {
     fn spreads_across_names_by_card_count() {
         let (alan, bella) = (entry("Alan", false), entry("Bella", false));
         let load = |e: &AgentRosterEntry| usize::from(e.name == "Alan");
-        let picked = least_loaded(&mut vec![&alan, &bella], load).unwrap();
+        let picked = least_loaded(&mut [&alan, &bella], load).unwrap();
         assert_eq!(
             picked.name, "Bella",
             "Alan already has a card; Bella must be chosen"
         );
 
         let busy_bella = entry("Bella", true);
-        let picked = least_loaded(&mut vec![&alan, &busy_bella], load).unwrap();
+        let picked = least_loaded(&mut [&alan, &busy_bella], load).unwrap();
         assert_eq!(picked.name, "Alan", "busy outranks card count");
     }
 }
