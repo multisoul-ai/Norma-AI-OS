@@ -8,11 +8,13 @@ mod actions;
 mod archive;
 mod delivery;
 pub(crate) use delivery::{
-    delivery_action, delivery_confirmed, output_is_quiet, DeliveryAction, DeliveryStage,
+    delivery_action, delivery_confirmed, output_is_quiet, quiet_allows_typing, DeliveryAction,
+    DeliveryStage,
 };
 #[cfg(test)]
 pub(crate) use delivery::{
-    AGENT_ENTER_DELAY, AGENT_OUTPUT_QUIET, AGENT_STARTUP_GRACE, WORKER_DELIVERY_CONFIRM,
+    emits_ready_signal, AGENT_ENTER_DELAY, AGENT_OUTPUT_QUIET, AGENT_STARTUP_GRACE,
+    WORKER_DELIVERY_CONFIRM, WORKER_ENTER_RETRY,
 };
 mod activity;
 mod appearance;
@@ -87,6 +89,8 @@ pub(crate) struct StaffState {
     pub pinned: bool,
     pub error: Option<ui::i18n::LocalizedText>,
     pub pending: BTreeMap<u64, PendingWorker>,
+    /// 已判「任务还没送达」的 (节点 → dispatch)：确认晚到时据此收回，重新投递或换派发即清除。
+    pub unconfirmed: BTreeMap<u64, String>,
     pub events: std::cell::RefCell<std::collections::VecDeque<brain::BrainEvent>>,
     pub saving_event: bool,
     pub recorded: std::cell::RefCell<

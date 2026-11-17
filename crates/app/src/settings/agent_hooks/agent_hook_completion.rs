@@ -26,6 +26,11 @@ impl AgentHookServer {
         self.ingest_process_probes(runtime, now_ms, &mut report);
         for event in self.receiver.try_iter() {
             if !event_matches_card_profile(runtime, &event) || !runtime.accepts_staff_hook(&event) {
+                tracing::debug!(
+                    node = event.node_id,
+                    event = %event.provider_event,
+                    "agent hook dropped: card profile or staff dispatch mismatch"
+                );
                 continue;
             }
             let actions = self.completion.borrow_mut().observe(&event, now_ms);
