@@ -304,3 +304,7 @@ mod reply_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/staff_timeline_flow_tests.rs"]
 mod timeline_flow_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/staff_wide_column_tests.rs"]
+mod wide_column_tests;

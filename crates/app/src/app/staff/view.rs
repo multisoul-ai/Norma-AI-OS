@@ -263,7 +263,7 @@ impl MultisoulApp {
             .is_some_and(|a| a.queued > 0);
         let running = task.has_running_reply();
         if waiting && !running {
-            messages = messages.child(
+            messages = messages.child(messages::message_row(
                 messages::message_column().child(
                     div()
                         .id("staff-response-queued")
@@ -272,7 +272,7 @@ impl MultisoulApp {
                         .text_color(rgba(self.staff_theme().text_secondary))
                         .child(t("staff.response_queued")),
                 ),
-            );
+            ));
         }
         messages
     }
