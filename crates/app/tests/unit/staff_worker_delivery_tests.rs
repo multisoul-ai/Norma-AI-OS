@@ -1,7 +1,9 @@
 use super::{
-    delivery_action, delivery_confirmed, output_is_quiet, DeliveryAction, DeliveryStage,
-    AGENT_ENTER_DELAY, AGENT_OUTPUT_QUIET, AGENT_STARTUP_GRACE, WORKER_DELIVERY_CONFIRM,
+    delivery_action, delivery_confirmed, emits_ready_signal, output_is_quiet, quiet_allows_typing,
+    DeliveryAction, DeliveryStage, AGENT_ENTER_DELAY, AGENT_OUTPUT_QUIET, AGENT_STARTUP_GRACE,
+    WORKER_DELIVERY_CONFIRM, WORKER_ENTER_RETRY,
 };
+use canvas::AgentProfile;
 use std::time::{Duration, Instant};
 
 fn starting(since: Instant, grace_spent: bool) -> DeliveryStage {
@@ -105,16 +107,19 @@ fn startup_types_on_grace_ready_or_quiet_output() {
     );
 }
 
-/// Enter 后只等本轮送达；15 秒没有 UserPromptSubmit 就转为需要你。
+/// Enter 后只等本轮送达；已补过回车后 15 秒没有 UserPromptSubmit 就转为需要你。
 ///
 /// 数据构造：Typed 与 Submitted 的起点都是 now。Enter 延迟 100 毫秒，确认窗口 15 秒。
 /// 执行过程：Typed 未满 100 毫秒、满 100 毫秒、满 100 毫秒但拒收输入、Submitted 14 秒、15 秒且拒收输入，以及各阶段的送达判断。
-/// 预期结果：未满延迟或卡片拒收继续等，到点且能接收输入才按 Enter；14 秒仍等，15 秒 NeedsYou 且不再重试；只有 Submitted 且 dispatch 匹配才算出送达。
+/// 预期结果：未满延迟或卡片拒收继续等，到点且能接收输入才按 Enter；14 秒仍等（已补过回车），15 秒 NeedsYou 且不再重试；只有 Submitted 且 dispatch 匹配才算出送达。
 #[test]
 fn enter_then_delivery_timeout_needs_the_user() {
     let now = Instant::now();
     let typed = DeliveryStage::Typed { at: now };
-    let submitted = DeliveryStage::Submitted { at: now };
+    let submitted = DeliveryStage::Submitted {
+        at: now,
+        retried: true,
+    };
     assert_eq!(
         AGENT_ENTER_DELAY,
         Duration::from_millis(100),
@@ -222,5 +227,117 @@ fn quiet_requires_output_then_one_and_a_half_seconds() {
     assert!(
         output_is_quiet(Some(now - Duration::from_millis(1500)), now),
         "1500 milliseconds after the last PTY output is quiet enough to type"
+    );
+}
+
+/// 回车后 5 秒仍无确认，补一次回车；只补一次，之后等满 15 秒才判未送达。
+///
+/// 数据构造：第一次回车时间 now；重试窗口 5 秒、确认窗口 15 秒；retried 分别为 false 与 true。
+/// 执行过程：未重试时判 4 秒、5 秒、5 秒但卡片拒收输入、15 秒；已重试时判 5 秒、14 秒。
+/// 预期结果：未重试 4 秒等待，5 秒 Enter，拒收输入时等待，15 秒 NeedsYou；已重试 5 秒与 14 秒都等待，不再按第二次。
+#[test]
+fn enter_is_retried_once_before_needs_you() {
+    let now = Instant::now();
+    let fresh = DeliveryStage::Submitted {
+        at: now,
+        retried: false,
+    };
+    let retried = DeliveryStage::Submitted {
+        at: now,
+        retried: true,
+    };
+    assert_eq!(
+        WORKER_ENTER_RETRY,
+        Duration::from_secs(5),
+        "retry window stays 5 seconds"
+    );
+    let act = |stage, secs, accepts| {
+        delivery_action(
+            stage,
+            now + Duration::from_secs(secs),
+            false,
+            false,
+            true,
+            accepts,
+        )
+    };
+    assert_eq!(
+        act(fresh, 4, true),
+        DeliveryAction::Wait,
+        "4 seconds is too early to retry"
+    );
+    assert_eq!(
+        act(fresh, 5, true),
+        DeliveryAction::Enter,
+        "unconfirmed after 5 seconds retries Enter"
+    );
+    assert_eq!(
+        act(fresh, 5, false),
+        DeliveryAction::Wait,
+        "a card holding input is not poked"
+    );
+    assert_eq!(
+        act(fresh, 15, true),
+        DeliveryAction::NeedsYou,
+        "the 15 second deadline still wins"
+    );
+    assert_eq!(
+        act(retried, 5, true),
+        DeliveryAction::Wait,
+        "Enter is retried at most once"
+    );
+    assert_eq!(
+        act(retried, 14, true),
+        DeliveryAction::Wait,
+        "retried round waits out the window"
+    );
+}
+
+/// 有 Ready 信号的 Agent 不能靠静默放行；没有 Ready 信号的仍可以。
+///
+/// 数据构造：Claude/Codex/Cursor 有 Ready；OpenCode/Kimi/ZCode 没有；quiet 为真。
+/// 执行过程：分别在“尚未报告任何状态”和“已报告状态（续派）”下判断静默是否放行。
+/// 预期结果：有 Ready 的 Agent 未报告状态时不放行，已报告状态或无 Ready 的 Agent 放行；quiet 为假永不放行；未知卡片按无 Ready 处理。
+#[test]
+fn quiet_output_does_not_replace_a_ready_signal() {
+    for profile in [
+        AgentProfile::Claude,
+        AgentProfile::Codex,
+        AgentProfile::Cursor,
+    ] {
+        assert!(
+            emits_ready_signal(profile),
+            "{profile:?} reports SessionStart"
+        );
+        assert!(
+            !quiet_allows_typing(Some(profile), false, true),
+            "{profile:?} must wait for Ready"
+        );
+        assert!(
+            quiet_allows_typing(Some(profile), true, true),
+            "{profile:?} already reported, quiet is fine"
+        );
+        assert!(
+            !quiet_allows_typing(Some(profile), true, false),
+            "no quiet, no pass"
+        );
+    }
+    for profile in [
+        AgentProfile::OpenCode,
+        AgentProfile::Kimi,
+        AgentProfile::ZCode,
+    ] {
+        assert!(
+            !emits_ready_signal(profile),
+            "{profile:?} has no dependable Ready"
+        );
+        assert!(
+            quiet_allows_typing(Some(profile), false, true),
+            "{profile:?} keeps the quiet fallback"
+        );
+    }
+    assert!(
+        quiet_allows_typing(None, false, true),
+        "unknown card keeps the quiet fallback"
     );
 }
