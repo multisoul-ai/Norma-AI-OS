@@ -91,6 +91,11 @@ impl OrchestrationSettingsState {
         self.integrations = integrations;
     }
 
+    #[cfg(test)]
+    pub(crate) fn set_integrations_for_test(&mut self, integrations: Vec<ProviderIntegration>) {
+        self.integrations = integrations;
+    }
+
     fn begin_operation(
         &mut self,
         provider: OrchestrationProvider,

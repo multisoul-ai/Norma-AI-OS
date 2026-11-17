@@ -32,27 +32,49 @@ impl MultisoulApp {
             .unwrap_or_else(|| proposal.agent.clone())
     }
 
-    /// 已启用的执行类型（engine 标识、类型），同一类型只出现一次，顺序同名册。
-    pub(crate) fn staff_agent_choices(&self) -> Vec<(String, AgentProfile)> {
-        let mut choices: Vec<(String, AgentProfile)> = Vec::new();
-        for entry in self.agent_roster_for_provider() {
-            let engine = format!("{:?}", entry.profile).to_lowercase();
-            if entry.enabled && !choices.iter().any(|(id, _)| *id == engine) {
-                choices.push((engine, entry.profile));
-            }
-        }
-        choices
+    /// 编排里注册成功的引擎，顺序同设置页，不看画布上有没有卡片。
+    pub(crate) fn registered_staff_engines(
+        &self,
+    ) -> Vec<norma::orchestration::OrchestrationProvider> {
+        norma::orchestration::OrchestrationProvider::ALL
+            .into_iter()
+            .filter(|provider| {
+                self.orchestration_settings
+                    .integration(*provider)
+                    .aggregate_status
+                    == norma::orchestration::AggregateStatus::Ready
+            })
+            .collect()
     }
 
-    /// 提案里的 agent（engine 标识或旧的具名智能体名）对应的类型。
-    pub(crate) fn staff_engine_profile(&self, agent: &str) -> Option<AgentProfile> {
-        self.agent_roster_for_provider()
+    /// 建议指派可选的执行类型（engine 标识、类型）。只含注册成功的引擎。
+    pub(crate) fn staff_agent_choices(&self) -> Vec<(String, AgentProfile)> {
+        self.registered_staff_engines()
             .into_iter()
-            .find_map(|entry| {
-                let engine = format!("{:?}", entry.profile);
-                (entry.name.eq_ignore_ascii_case(agent) || engine.eq_ignore_ascii_case(agent))
-                    .then_some(entry.profile)
-            })
+            .map(|provider| (provider.slug().to_owned(), provider.profile()))
+            .collect()
+    }
+
+    /// 建议指派按钮上的类型名。注册成功时用编排显示名，否则保留原文，不借卡片改名。
+    pub(crate) fn staff_engine_label(&self, agent: &str) -> String {
+        self.registered_provider(agent)
+            .map(|provider| provider.display_name().to_owned())
+            .unwrap_or_else(|| agent.to_owned())
+    }
+
+    /// 提案里的 engine 标识对应的类型。不拿名册名字或画布卡片推断。
+    pub(crate) fn staff_engine_profile(&self, agent: &str) -> Option<AgentProfile> {
+        self.registered_provider(agent)
+            .map(|provider| provider.profile())
+    }
+
+    fn registered_provider(
+        &self,
+        agent: &str,
+    ) -> Option<norma::orchestration::OrchestrationProvider> {
+        self.registered_staff_engines()
+            .into_iter()
+            .find(|provider| provider.slug().eq_ignore_ascii_case(agent))
     }
 
     /// 该类型可选的模型 (id, 显示名)；没有已知列表的类型返回空，只能用 CLI 默认。
