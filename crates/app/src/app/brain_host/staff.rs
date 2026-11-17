@@ -8,6 +8,7 @@ mod decisions;
 mod dispatch;
 mod events;
 mod input;
+mod pick;
 mod resume;
 mod worker_questions;
 
@@ -80,15 +81,26 @@ impl MultisoulApp {
         provider: norma::orchestration::OrchestrationProvider,
     ) -> agent::AgentRosterEntry {
         let profile = provider.profile();
-        let mut found: Vec<_> = self
+        let found: Vec<_> = self
             .agent_roster_for_provider()
             .into_iter()
             .filter(|entry| entry.enabled && entry.profile == profile)
             .collect();
-        found.sort_by_key(|entry| entry.busy);
-        found
-            .into_iter()
-            .next()
+        // 幕僚派出的卡不挂 definition_id，busy 看不到它们；按同名卡数量分散，避免全派给同一个名字。
+        let load = |entry: &agent::AgentRosterEntry| {
+            self.runtime
+                .document
+                .nodes()
+                .iter()
+                .filter(|node| {
+                    matches!(&node.kind, canvas::CanvasNodeKind::Agent(spec)
+                        if spec.alias.as_deref() == Some(entry.name.as_str()))
+                })
+                .count()
+        };
+        let mut candidates: Vec<_> = found.iter().collect();
+        pick::least_loaded(&mut candidates, load)
+            .cloned()
             .unwrap_or_else(|| agent::AgentRosterEntry {
                 definition_id: 0,
                 name: provider.display_name().to_owned(),
