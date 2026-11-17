@@ -26,7 +26,7 @@ fn main() {
     };
     let state = std::env::temp_dir().join("brain-smoke-state");
     let mut config = BrainConfig::new(backend, norma.into(), project.clone().into(), state);
-    config.prompt_timeout = Duration::from_secs(120);
+    config.prompt_timeout = Some(Duration::from_secs(120));
     let (service, status) = BrainService::start(config);
     let scope = norma::protocol::BrainScope {
         workspace_id: "smoke".into(),

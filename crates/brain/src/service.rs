@@ -40,7 +40,8 @@ pub struct BrainConfig {
     pub task_idle: Duration,
     /// norma-brain skill 已装好：提示词不再内联命令用法。默认 false，会话带命令速查。
     pub skill_ready: bool,
-    pub prompt_timeout: Duration,
+    /// 一轮 prompt 的截止。`None` 表示一直等到适配器结束或用户取消，不再使用固定秒数。
+    pub prompt_timeout: Option<Duration>,
     pub retry_backoff: Duration,
     pub max_turns: u32,
 }
@@ -67,7 +68,7 @@ impl BrainConfig {
             staff_tokens: None,
             task_idle: Duration::from_secs(300),
             skill_ready: false,
-            prompt_timeout: Duration::from_secs(180),
+            prompt_timeout: None,
             retry_backoff: Duration::from_secs(1),
             max_turns: 30,
         }
