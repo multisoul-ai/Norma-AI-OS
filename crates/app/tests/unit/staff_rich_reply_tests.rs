@@ -197,6 +197,70 @@ fn staff_wheel_pins_from_position_after_delta() {
     });
 }
 
+/// 真机 `staff-long-reply` 的回复原文：两张 5 行表格、5 条列表、软换行段落和收尾。
+fn e2e_long_reply() -> String {
+    let root = "/Users/example/Documents/norma-ai-os";
+    let rows: String = (1..=5)
+        .map(|i| format!("| 原型 {i} | `{root}/docs/prototypes/norma-long-path-prototype-number-{i}-with-a-very-long-name.html` |\n"))
+        .collect();
+    let bullets: String = (1..=5)
+        .map(|i| format!("- 条目 {i}：`{root}/docs/product-specs/norma-ios-prototypes-2026-09-{i:02}/overview-with-long-name.md`\n"))
+        .collect();
+    format!(
+        "LONG-REPLY 验收\n\n## 原型文件\n\n| 文件 | 绝对路径 |\n| --- | --- |\n{rows}\n其他相关的：\n\n{bullets}\n## 实施计划\n\n| 文件 | 绝对路径 |\n| --- | --- |\n{rows}\n另外还有 HTML 版计划，比如 `{root}/docs/exec-plans/2026-10-24-brain-propose-next-step.html`。\n和你这个富文本测试最贴的是幕僚架构设计稿：`{root}/docs/design-docs/2026-11-12-norma-staff-architecture.html`\n原因是消息行被撑成了很高的虚高，滚动按虚高算，首条就被顶出首屏。\n还没验收，是因为他只用布局边界测试验证过，没有在真实 App 里看过。\nLONG-REPLY END"
+    )
+}
+
+/// 场景：真机看图里，长富文本回复贴底后视口停在表格中间，最后一行不在画面里，也没有「回到最新」。
+///
+/// 数据构造：
+///   窗口 1280×800 与 1000×700，一条回复含两张 5 行表格、5 条列表和 4 行收尾（与 e2e fixture 同文）
+///   pinned = true，滚动偏移 0
+///
+/// 执行过程：
+///   1. 绘制一帧，贴底跟随在本帧把偏移设到 −max_offset
+///   2. 读取视口、回复正文、操作行的边界以及 max_offset / offset
+///
+/// 预期结果：
+///   - near_bottom 为真（max_offset + offset ≤ 48）
+///   - 回复正文底边不低于视口底边 −16 内边距之外，即不越过视口底
+///   - 操作行在视口内，也就是最后一块内容完整可见
+#[test]
+fn staff_e2e_long_reply_ends_inside_viewport() {
+    for (width, height) in [(1280., 800.), (1000., 700.)] {
+        let mut test = TestAppContext::single();
+        let (_dir, host, cx) = open_staff(&mut test, &e2e_long_reply(), true);
+        cx.simulate_resize(size(px(width), px(height)));
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear());
+        let (max_h, offset) = host.update(cx, |host, cx| {
+            host.app.update(cx, |app, _| {
+                (
+                    f32::from(app.staff.scroll.max_offset().height),
+                    f32::from(app.staff.scroll.offset().y),
+                )
+            })
+        });
+        let viewport = cx.debug_bounds("staff-messages").expect("viewport");
+        let text = cx.debug_bounds("staff-reply-text-0-0").expect("reply text");
+        let actions = cx
+            .debug_bounds("staff-reply-actions-0")
+            .expect("reply actions");
+        assert!(
+            is_near_bottom(&host, cx),
+            "{width}x{height}：贴底后 max_offset {max_h} + offset {offset} 应 ≤ 48"
+        );
+        assert!(
+            text.bottom() <= viewport.bottom() + px(0.5),
+            "{width}x{height}：回复正文底边越过视口底：正文 {text:?} / 视口 {viewport:?} / max {max_h} / offset {offset}"
+        );
+        assert!(
+            actions.bottom() <= viewport.bottom() + px(0.5),
+            "{width}x{height}：操作行不在视口内：操作 {actions:?} / 视口 {viewport:?}"
+        );
+    }
+}
+
 fn is_near_bottom(
     host: &gpui::Entity<ConversationColumnHost>,
     cx: &mut gpui::VisualTestContext,

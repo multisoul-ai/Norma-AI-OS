@@ -28,7 +28,7 @@ impl MessageBlock for Reply<'_> {
             .flex()
             .flex_col()
             .gap(px(tokens::SPACE_12));
-        // Keep Markdown height intrinsic instead of resolving its nested percentages against flex stretch.
+        // 这条回复是横向行里的一项。交叉轴用内容高度，避免百分比高度去对行高。
         body.style().align_self = Some(gpui::AlignSelf::FlexStart);
         body = body
             .child(super::text::staff_byline(ctx.app))
