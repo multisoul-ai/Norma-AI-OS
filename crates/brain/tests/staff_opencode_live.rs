@@ -22,7 +22,7 @@ fn native_question_roundtrip_through_brain_service() {
         root.path().join("state"),
     );
     config.router.summary_every = None;
-    config.prompt_timeout = Duration::from_secs(120);
+    config.prompt_timeout = Some(Duration::from_secs(120));
     let (service, statuses) = BrainService::start(config);
     let store = service.tasks();
     let mut task = Task::new("live-question", "w", "p", "Question regression");

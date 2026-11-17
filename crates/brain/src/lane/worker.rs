@@ -47,7 +47,7 @@ pub struct LaneEnv {
     pub env: Vec<(String, String)>,
     pub staff_tokens: Option<crate::staff::gate::StaffTokens>,
     pub skill_ready: bool,
-    pub prompt_timeout: Duration,
+    pub prompt_timeout: Option<Duration>,
     pub retry_backoff: Duration,
     /// 超过这个轮数就重建会话，避免上下文无限增长。
     pub max_turns: u32,
@@ -147,18 +147,10 @@ impl LaneEnv {
         }
     }
 
-    fn finish(&self, job: &Job, turn: u64, failed: bool, started: Instant) {
-        // 成功路径已经把回复记为 Done；这里只兜住所有提前退出的路径，不让回复永远停在 Running。
-        self.settle(
-            job,
-            if failed {
-                ReplyStatus::Failed
-            } else {
-                ReplyStatus::Done
-            },
-            started,
-            None,
-        );
+    fn finish(&self, job: &Job, turn: u64, status: ReplyStatus, started: Instant) {
+        // 成功路径已经记为 Done。提前退出在这里收口；用户取消必须传 Stopped。
+        self.settle(job, status, started, None);
+        let failed = status != ReplyStatus::Done;
         self.task_update(job, turn, TaskUpdate::Finished { failed });
         if let Some(id) = &job.approval_id {
             self.send(
@@ -243,7 +235,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                     },
                 );
                 env.task_update(&job, turn_no, TaskUpdate::Started);
-                env.finish(&job, turn_no, true, turn_started);
+                env.finish(&job, turn_no, ReplyStatus::Failed, turn_started);
                 continue;
             }
         };
@@ -300,7 +292,12 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                     if !matches!(error, AcpError::Cancelled) {
                         down(&env, &job.scope, &error);
                     }
-                    env.finish(&job, turn_no, true, turn_started);
+                    let status = if matches!(error, AcpError::Cancelled) {
+                        ReplyStatus::Stopped
+                    } else {
+                        ReplyStatus::Failed
+                    };
+                    env.finish(&job, turn_no, status, turn_started);
                     env.sleep(
                         (env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF),
                         &cancelled,
@@ -311,7 +308,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
         }
         if cancelled.load(Ordering::Relaxed) {
             session = None;
-            env.finish(&job, turn_no, true, turn_started);
+            env.finish(&job, turn_no, ReplyStatus::Stopped, turn_started);
             continue;
         }
         let mut text = if let Some(task) = &task {
@@ -430,7 +427,12 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                         env.sleep(env.retry_backoff, &cancelled);
                     };
                     if !saved {
-                        env.finish(&job, turn_no, true, turn_started);
+                        let status = if cancelled.load(Ordering::Relaxed) {
+                            ReplyStatus::Stopped
+                        } else {
+                            ReplyStatus::Failed
+                        };
+                        env.finish(&job, turn_no, status, turn_started);
                         continue;
                     }
                 }
@@ -455,7 +457,8 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                     down(&env, &job.scope, &error);
                 }
                 if matches!(error, AcpError::Cancelled) {
-                    env.settle(&job, ReplyStatus::Stopped, turn_started, None);
+                    env.finish(&job, turn_no, ReplyStatus::Stopped, turn_started);
+                    continue;
                 }
                 if matches!(error, AcpError::Transient(_)) && attempts < MAX_TRANSIENT_RETRIES {
                     // 限流等临时故障：退避后用新会话重发同一条任务，不能把它丢掉。
@@ -468,11 +471,11 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                             env.send(&job.scope, BrainStatusKind::TaskChanged(task));
                         }
                     }
-                    env.finish(&job, turn_no, true, turn_started);
+                    env.finish(&job, turn_no, ReplyStatus::Failed, turn_started);
                     env.task_update(&job, turn_no, TaskUpdate::Queued);
                     retrying = Some((job, attempts + 1));
                 } else {
-                    env.finish(&job, turn_no, true, turn_started);
+                    env.finish(&job, turn_no, ReplyStatus::Failed, turn_started);
                 }
                 env.sleep(
                     (env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF),
@@ -481,7 +484,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                 continue;
             }
         }
-        env.finish(&job, turn_no, false, turn_started);
+        env.finish(&job, turn_no, ReplyStatus::Done, turn_started);
     }
 }
 

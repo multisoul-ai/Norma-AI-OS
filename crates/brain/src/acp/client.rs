@@ -169,16 +169,17 @@ impl AcpSession {
         timeout: Duration,
         sink: &mut dyn FnMut(TraceItem),
     ) -> Result<String, AcpError> {
-        self.prompt_observed(text, &[], cancel, timeout, sink, &mut |_| {})
+        self.prompt_observed(text, &[], cancel, Some(timeout), sink, &mut |_| {})
     }
 
     /// Observe raw progress before audit trace coalescing; observations are not persisted replies.
+    /// `timeout == None` 时没有截止，只靠适配器结束或 `cancel`。
     pub fn prompt_observed(
         &mut self,
         text: &str,
         images: &[super::content::PromptImage],
         cancel: &AtomicBool,
-        timeout: Duration,
+        timeout: Option<Duration>,
         sink: &mut dyn FnMut(TraceItem),
         progress: &mut dyn FnMut(&TraceItem),
     ) -> Result<String, AcpError> {
@@ -198,14 +199,16 @@ impl AcpSession {
                     super::content::session_prompt(&self.session_id, text, images),
                 )
                 .map_err(|_| AcpError::Closed)?;
-            let mut deadline = Instant::now() + timeout;
+            let mut deadline = timeout.map(|limit| Instant::now() + limit);
             let mut tick = Instant::now();
             let mut reply = String::new();
             loop {
                 let now = Instant::now();
                 if let Some(questions) = &mut self.questions {
                     if questions.waiting() {
-                        deadline += now.duration_since(tick);
+                        if let Some(deadline) = deadline.as_mut() {
+                            *deadline += now.duration_since(tick);
+                        }
                     }
                     questions.poll(&mut self.conn, false)?;
                 }
@@ -214,7 +217,7 @@ impl AcpSession {
                     self.abort();
                     return Err(AcpError::Cancelled);
                 }
-                if Instant::now() >= deadline {
+                if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
                     self.abort();
                     return Err(AcpError::Timeout);
                 }
@@ -233,10 +236,12 @@ impl AcpSession {
                     .as_ref()
                     .is_some_and(|questions| questions.waiting())
                 {
-                    deadline += received_at.duration_since(tick);
+                    if let Some(deadline) = deadline.as_mut() {
+                        *deadline += received_at.duration_since(tick);
+                    }
                     tick = received_at;
                 }
-                if received_at >= deadline {
+                if deadline.is_some_and(|deadline| received_at >= deadline) {
                     self.abort();
                     return Err(AcpError::Timeout);
                 }

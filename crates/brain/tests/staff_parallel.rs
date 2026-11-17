@@ -131,6 +131,40 @@ fn different_tasks_run_in_parallel_with_their_own_tokens() {
     harness.service.shutdown();
 }
 
+/// 场景：用户放开这条路由时，卡住的幕僚回复记为已停止，而不是失败。
+///
+/// 数据构造：任务 a 的消息含 FAKE_HOLD。假适配器一直睡到放行文件出现；
+/// 本测试不创建该文件，也不设置 prompt_timeout（默认不限时，不会在 180 秒被掐掉）。
+///
+/// 执行过程：
+///   1. 请求任务，等到回复状态为 Running
+///   2. release_scope 置上这条路由的取消位
+///   3. 等到回复离开 Running
+///
+/// 预期结果：
+///   - 正断言：状态是 ReplyStatus::Stopped
+///   - 负断言：不是 ReplyStatus::Failed，也不是仍在 Running
+#[test]
+fn releasing_scope_stops_the_turn_instead_of_failing_it() {
+    let harness = start(None);
+    add_task(&harness, "a", "FAKE_HOLD alpha");
+    request(&harness, "a");
+    wait_for(&harness, "a", ReplyStatus::Running);
+    harness.service.release_scope(&scope());
+    wait_for(&harness, "a", ReplyStatus::Stopped);
+    assert_eq!(
+        reply_status(&harness, "a"),
+        Some(ReplyStatus::Stopped),
+        "用户取消必须记为已停止"
+    );
+    assert_ne!(
+        reply_status(&harness, "a"),
+        Some(ReplyStatus::Failed),
+        "用户取消不能记成响应未完成"
+    );
+    harness.service.shutdown();
+}
+
 /// 场景：同一个任务的两条请求要按顺序处理，不能同时开两个会话。
 /// 数据构造：任务 a 的第一条消息含 FAKE_HOLD；卡住期间再请求一次 a。
 /// 预期结果：卡住期间只有一个会话进程；放行后两条请求都完成，仍然只用同一个会话（token 日志一行）。

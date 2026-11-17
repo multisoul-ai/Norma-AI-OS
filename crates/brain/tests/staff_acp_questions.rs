@@ -39,7 +39,7 @@ fn concurrent_questions(kind: BackendKind, provider: &str, pause: bool) {
     );
     config.router.summary_every = None;
     if pause {
-        config.prompt_timeout = Duration::from_millis(50);
+        config.prompt_timeout = Some(Duration::from_millis(50));
     }
     config.env = vec![
         ("FAKE_QUESTION_FIRST".into(), provider.into()),
