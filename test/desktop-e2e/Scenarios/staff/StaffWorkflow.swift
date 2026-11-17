@@ -143,12 +143,8 @@ public enum StaffWorkflow {
                 VisualCriterion(id: "worker-result-pet", text: "Worker 结果卡（含 STAFF RESULT 的卡片）头部最左侧是彩色宠物头像（与 Worker 卡条同款圆润造型、可见眼睛与表情），其后才是 Agent 名称与绿色的已返回结果/Result received；不是字母缩写圆或纯色圆点。")
             ]), "04-result.png")
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "result-collapsed", text: "Worker 结果卡默认折叠：正文最多 3 行，`tank.html` 为行内代码样式，不显示反引号或 ** 标记；正文下方有圆角「展开」/Expand 按钮，与正文间距清楚（不贴住文字）、不被卡片边缘裁切，卡片未与上下消息重叠、文字无溢出。")
-            ]), "04-result-collapsed.png")
-            try await session.visualClick("点击 Worker 结果卡里的展开/Expand 按钮")
-            try session.save(try await session.visualCheck([
-                VisualCriterion(id: "result-expanded", text: "展开后完整显示：加粗的「操作」「地图」「其他」与三条列表均按 Markdown 渲染，没有原样显示 ** 或 - 标记；正文与底部「收起」/Collapse 按钮之间有明显空白，按钮不贴正文、不贴卡片底边，卡片未与相邻消息重叠，文字无溢出。")
-            ]), "04-result-expanded.png")
+                VisualCriterion(id: "result-flow", text: "Worker 结果卡按正文撑开，不截成三行，也没有「展开/收起」或 Expand/Collapse 按钮。加粗的「操作」「地图」「其他」与三条列表按 Markdown 渲染，没有原样显示 ** 或 -。卡片底边在下一条 Norma 消息之上：头像、步骤条和正文都不画进卡片里。文字无溢出、无重叠。若卡高于视口，滚动后仍能读完最后一行，且下一条从卡片下方开始。")
+            ]), "04-result-flow.png")
             return "同名 Agent 新卡；dispatch 精确匹配；恰好一次送达；自动推进待验收"
         }
 

@@ -300,3 +300,7 @@ mod rich_reply_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/staff_reply_tests.rs"]
 mod reply_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/staff_timeline_flow_tests.rs"]
+mod timeline_flow_tests;

@@ -147,8 +147,6 @@
   "staff.proposal_superseded_note": "Replaced by a newer plan",
   "staff.worker_needs_attention_short": "Task not delivered",
   "staff.scroll_latest": "Back to latest",
-  "staff.result_expand": "Show all",
-  "staff.result_collapse": "Show less",
   "staff.worker_menu": "Worker actions",
   "staff.worker_remove": "Remove from task",
   "staff.worker_remove_close": "Remove and close card",

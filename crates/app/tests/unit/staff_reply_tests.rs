@@ -128,12 +128,21 @@ fn running_reply_stays_expanded_and_event_replies_cannot_regenerate() {
     );
 }
 
-/// 场景：Worker 的长结果默认只显示前 3 行摘要，展开后显示全文；短结果没有展开按钮。
-/// 数据构造：一条 5 行的成功结果和一条 1 行的成功结果；窗口 900×700。
-/// 执行过程：先渲染折叠态，再把该结果的展开键放进 expanded 重绘。
-/// 预期结果：长结果有展开按钮、第 5 行未出现在布局里之前按钮存在；短结果没有按钮；展开后按钮仍在（变为收起）。
+/// 场景：Worker 长结果整段留在卡片里，下一条从卡片下方开始；短结果也不出现截断按钮。
+///
+/// 数据构造：
+///   窗口 900×700
+///   长结果把「已创建文件……」重复 40 次，约 800 字，按 13px/20px 行高在 760 列里远超 3×20=60px
+///   短结果只有「只有一行」
+///
+/// 执行过程：渲染生产消息列表，读取两条结果正文和下一条消息的边界。
+///
+/// 预期结果：
+///   - 两条都没有展开/收起按钮
+///   - 长正文高于 60px，且高于短正文
+///   - 短结果的顶不高于长正文的底
 #[test]
-fn long_worker_results_collapse_to_three_lines() {
+fn long_worker_results_keep_their_own_height() {
     use norma::protocol::WorkerOutcome;
     let finished = |node: u64, text: &str| TaskMessage::WorkerFinished {
         node_id: node,
@@ -142,73 +151,33 @@ fn long_worker_results_collapse_to_three_lines() {
         text: text.into(),
     };
     let mut task = Task::new("t", "w", "p", "结果");
-    task.messages.push(finished(1, "一\n二\n三\n四\n五"));
+    task.messages.push(finished(
+        1,
+        &"已创建文件，单文件即可在浏览器里打开运行。".repeat(40),
+    ));
     task.messages.push(finished(2, "只有一行"));
     let mut test = TestAppContext::single();
-    let (app, cx) = window!(test, task);
+    let (_app, cx) = window!(test, task);
     assert!(
-        cx.debug_bounds("staff-result-toggle-0").is_some(),
-        "超过 3 行的结果有展开按钮"
+        cx.debug_bounds("staff-result-toggle-0").is_none(),
+        "长结果不再截成三行，不应有展开按钮"
     );
     assert!(
         cx.debug_bounds("staff-result-toggle-1").is_none(),
-        "不超过 3 行的结果没有展开按钮"
+        "短结果没有展开按钮"
     );
-    let collapsed = cx
-        .debug_bounds("staff-message-body-0")
-        .expect("body")
-        .size
-        .height;
-    app.update(cx, |app, _| {
-        app.staff.expanded.insert("worker-result-t-0".into());
-    });
-    cx.update(|window, cx| window.draw(cx).clear());
-    let expanded = cx
-        .debug_bounds("staff-message-body-0")
-        .expect("body")
-        .size
-        .height;
+    let long = cx.debug_bounds("staff-result-body-0").expect("long body");
+    let short = cx.debug_bounds("staff-result-body-1").expect("short body");
     assert!(
-        expanded > collapsed,
-        "展开后内容更高：折叠 {collapsed:?}，展开 {expanded:?}（多出第 4、5 行）"
+        long.size.height > px(60.),
+        "800 字不能停在 3 行的 60px：{long:?}"
     );
-}
-
-/// 场景：Worker 的结果是一整段很长的话（没有换行），折行后超过 3 行。
-/// 数据构造：一条 800 多字的单行结果；窗口 900×700。
-/// 预期结果：有展开按钮；折叠时正文比展开时矮，不会顶到按钮上。
-#[test]
-fn one_long_paragraph_is_clamped_and_expandable() {
-    let text = "已创建文件，单文件即可在浏览器里打开运行。".repeat(40);
-    let mut task = Task::new("t", "w", "p", "结果");
-    task.messages.push(TaskMessage::WorkerFinished {
-        node_id: 1,
-        dispatch_id: "d".into(),
-        outcome: norma::protocol::WorkerOutcome::Succeeded,
-        text,
-    });
-    let mut test = TestAppContext::single();
-    let (app, cx) = window!(test, task);
     assert!(
-        cx.debug_bounds("staff-result-toggle-0").is_some(),
-        "长段落有展开按钮"
+        long.size.height > short.size.height,
+        "长结果必须高于一行：长 {long:?} / 短 {short:?}"
     );
-    let collapsed = cx
-        .debug_bounds("staff-message-body-0")
-        .expect("body")
-        .size
-        .height;
-    app.update(cx, |app, _| {
-        app.staff.expanded.insert("worker-result-t-0".into());
-    });
-    cx.update(|window, cx| window.draw(cx).clear());
-    let expanded = cx
-        .debug_bounds("staff-message-body-0")
-        .expect("body")
-        .size
-        .height;
     assert!(
-        expanded > collapsed,
-        "展开后更高：折叠 {collapsed:?}，展开 {expanded:?}"
+        short.top() + px(0.5) >= long.bottom(),
+        "下一条不能画进长结果：短 {short:?} / 长 {long:?}"
     );
 }

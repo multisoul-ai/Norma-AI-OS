@@ -45,9 +45,16 @@ struct TextViewElement {
 
 impl RenderOnce for TextViewElement {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let scrollable = self.list_state.is_some();
         self.state.update(cx, |state, cx| {
-            v_flex()
-                .size_full()
+            // A scrolling view fills its parent. Otherwise the column is as tall as the
+            // markdown, so a parent with height:auto can include it in normal flow.
+            let column = if scrollable {
+                v_flex().size_full()
+            } else {
+                v_flex().w_full().h_auto().flex_none()
+            };
+            column
                 .map(|this| match &mut state.parsed_result {
                     Some(Ok(content)) => this.child(content.root_node.render_root(
                         self.list_state.clone(),
@@ -648,11 +655,19 @@ impl Element for TextView {
             .as_ref()
             .expect("focus_handle should init by TextViewState::new");
 
-        let mut el = div()
+        let el = div()
             .key_context(CONTEXT)
             .track_focus(focus_handle)
-            .size_full()
-            .relative()
+            .relative();
+        // size_full() is a percentage height. Inside an auto-height timeline that
+        // percentage does not grow the parent, so the next row starts too high and
+        // paints over the text. Only the scrolling mode should fill its parent.
+        let el = if self.scrollable {
+            el.size_full()
+        } else {
+            el.w_full().h_auto().flex_none()
+        };
+        let mut el = el
             .on_action({
                 let state = self.state.clone();
                 move |_: &input::Copy, _, cx| {
