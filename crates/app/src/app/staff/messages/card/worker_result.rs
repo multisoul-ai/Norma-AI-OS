@@ -9,8 +9,15 @@ use ui::i18n::text as t;
 const SUMMARY_LINES: usize = 3;
 /// 摘要的固定行高；折叠高度 = 行数 × 行高，折行的长段落也只占 3 行。
 const SUMMARY_LINE_HEIGHT: f32 = 20.;
-/// 一段话折行后可能超过摘要行数，约这么多字就算长。
-const SUMMARY_CHARS: usize = 120;
+/// 卡片一行大约能放的字数（按中文宽度保守估计），用来估算折行后的显示行数。
+const CHARS_PER_LINE: usize = 40;
+
+/// 按段落估算折行后的显示行数，空行占一行。
+fn display_lines(body: &str) -> usize {
+    body.lines()
+        .map(|line| line.chars().count().div_ceil(CHARS_PER_LINE).max(1))
+        .sum()
+}
 
 pub(in crate::app::staff::messages) struct WorkerResult<'a>(pub &'a TaskMessage);
 
@@ -18,7 +25,7 @@ impl MessageBlock for WorkerResult<'_> {
     fn render(
         &self,
         ctx: &BlockCtx,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<MultisoulApp>,
     ) -> AnyElement {
         let task = ctx.task;
@@ -78,19 +85,32 @@ impl MessageBlock for WorkerResult<'_> {
                     };
                     // 默认只显示 3 行（按显示行数截断，长段落折行后也不会顶到按钮），长结果可以展开。
                     let key = format!("worker-result-{}-{}", task.id, ctx.index);
-                    let long = body.lines().count() > SUMMARY_LINES
-                        || body.chars().count() > SUMMARY_CHARS;
+                    let long = display_lines(&body) > SUMMARY_LINES;
                     let open = ctx.app.staff.expanded.contains(&key);
                     let index = ctx.index;
+                    crate::app::staff::register_link_target(window, cx);
                     row.child(
                         div()
+                            .debug_selector(move || format!("staff-result-body-{index}"))
+                            .w_full()
+                            .block()
                             .text_size(px(tokens::LABEL_TEXT))
                             .line_height(px(SUMMARY_LINE_HEIGHT))
                             .when(long && !open, |text| {
                                 text.max_h(px(SUMMARY_LINE_HEIGHT * SUMMARY_LINES as f32))
                                     .overflow_hidden()
                             })
-                            .child(body),
+                            .child(
+                                ui::component::text::TextView::markdown(
+                                    gpui::SharedString::from(format!("staff-result-md-{key}")),
+                                    crate::preview::rich_link::linkify_inline_paths(&body),
+                                    window,
+                                    cx,
+                                )
+                                .selectable(true)
+                                .h_auto()
+                                .flex_none(),
+                            ),
                     )
                     .when(long, |row| {
                         // 放进横向容器里，按钮只占内容宽度，不再撑满整行。
@@ -124,3 +144,7 @@ impl MessageBlock for WorkerResult<'_> {
         row.into_any_element()
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../../tests/unit/staff_result_summary_tests.rs"]
+mod tests;
