@@ -260,10 +260,7 @@ fn choice_row(
         .unwrap_or_else(|| t("staff.model_default").to_string());
     let busy = ctx.app.staff.busy;
     let agents = ctx.app.staff_agent_choices();
-    let engine_label = ctx
-        .app
-        .staff_engine_profile(&agent)
-        .map_or_else(|| agent.clone(), |profile| profile_title(&profile));
+    let engine_label = ctx.app.staff_engine_label(&agent);
     let app = cx.weak_entity();
     let agent_menu = {
         let (task_id, agent, app) = (task_id.to_owned(), agent.clone(), app.clone());
@@ -336,7 +333,11 @@ fn choice_row(
 }
 
 fn profile_title(profile: &norma::protocol::AgentProfile) -> String {
-    format!("{profile:?}")
+    norma::orchestration::OrchestrationProvider::ALL
+        .into_iter()
+        .find(|provider| provider.profile() == *profile)
+        .map(|provider| provider.display_name().to_owned())
+        .unwrap_or_else(|| format!("{profile:?}"))
 }
 
 /// 降级原因码转成面向用户的文案；未知码按风险处理。

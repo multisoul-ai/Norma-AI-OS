@@ -46,28 +46,60 @@ impl MultisoulApp {
         self.write_staff_operation(op, false, cx)
     }
 
-    /// 幕僚用 engine（如 claude）或旧的具名智能体名指向执行者；同类型优先挑不忙的。
-    /// 找不到时的错误带上当前可选的类型，回给幕僚改选。
+    /// 幕僚用 engine（如 claude）或旧的具名智能体名指向执行者。
+    /// 可派类型只看编排里注册成功的引擎；同类型优先挑不忙的名册项。
+    /// 没有名册时仍可派，宿主会按引擎另开一张卡片。找不到时列出可派引擎。
     pub(super) fn resolve_staff_entry(&self, id: &str) -> Result<agent::AgentRosterEntry, String> {
-        let roster = self.agent_roster_for_provider();
-        let engine = |entry: &agent::AgentRosterEntry| format!("{:?}", entry.profile);
-        let mut found: Vec<_> = roster
+        let registered = self.registered_staff_engines();
+        if let Some(provider) = registered
             .iter()
-            .filter(|e| e.enabled)
-            .filter(|e| e.name.eq_ignore_ascii_case(id) || engine(e).eq_ignore_ascii_case(id))
+            .copied()
+            .find(|provider| provider.slug().eq_ignore_ascii_case(id))
+        {
+            return Ok(self.staff_engine_binding(provider));
+        }
+        if let Some(entry) = self.agent_roster_for_provider().into_iter().find(|entry| {
+            entry.enabled
+                && entry.name.eq_ignore_ascii_case(id)
+                && registered
+                    .iter()
+                    .any(|provider| provider.profile() == entry.profile)
+        }) {
+            return Ok(entry);
+        }
+        let engines = registered
+            .iter()
+            .map(|provider| provider.slug())
+            .collect::<Vec<_>>()
+            .join(", ");
+        Err(format!("staff.agent_unavailable\n{engines}"))
+    }
+
+    fn staff_engine_binding(
+        &self,
+        provider: norma::orchestration::OrchestrationProvider,
+    ) -> agent::AgentRosterEntry {
+        let profile = provider.profile();
+        let mut found: Vec<_> = self
+            .agent_roster_for_provider()
+            .into_iter()
+            .filter(|entry| entry.enabled && entry.profile == profile)
             .collect();
         found.sort_by_key(|entry| entry.busy);
-        if let Some(entry) = found.first() {
-            return Ok((*entry).clone());
-        }
-        let mut engines: Vec<_> = roster
-            .iter()
-            .filter(|e| e.enabled)
-            .map(|e| engine(e).to_lowercase())
-            .collect();
-        engines.sort();
-        engines.dedup();
-        Err(format!("staff.agent_unavailable\n{}", engines.join(", ")))
+        found
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| agent::AgentRosterEntry {
+                definition_id: 0,
+                name: provider.display_name().to_owned(),
+                speech_alias: None,
+                profile,
+                enabled: true,
+                active_node_id: None,
+                tracking: agent::AgentTrackingMode::Untracked,
+                busy: false,
+                task_state: agent::AgentTaskState::Ready,
+            })
     }
 
     pub(crate) fn write_staff_operation(
