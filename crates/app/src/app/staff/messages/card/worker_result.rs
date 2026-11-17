@@ -25,7 +25,7 @@ impl MessageBlock for WorkerResult<'_> {
     fn render(
         &self,
         ctx: &BlockCtx,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<MultisoulApp>,
     ) -> AnyElement {
         let task = ctx.task;
@@ -88,15 +88,29 @@ impl MessageBlock for WorkerResult<'_> {
                     let long = display_lines(&body) > SUMMARY_LINES;
                     let open = ctx.app.staff.expanded.contains(&key);
                     let index = ctx.index;
+                    crate::app::staff::register_link_target(window, cx);
                     row.child(
                         div()
+                            .debug_selector(move || format!("staff-result-body-{index}"))
+                            .w_full()
+                            .block()
                             .text_size(px(tokens::LABEL_TEXT))
                             .line_height(px(SUMMARY_LINE_HEIGHT))
                             .when(long && !open, |text| {
                                 text.max_h(px(SUMMARY_LINE_HEIGHT * SUMMARY_LINES as f32))
                                     .overflow_hidden()
                             })
-                            .child(body),
+                            .child(
+                                ui::component::text::TextView::markdown(
+                                    gpui::SharedString::from(format!("staff-result-md-{key}")),
+                                    crate::preview::rich_link::linkify_inline_paths(&body),
+                                    window,
+                                    cx,
+                                )
+                                .selectable(true)
+                                .h_auto()
+                                .flex_none(),
+                            ),
                     )
                     .when(long, |row| {
                         // 放进横向容器里，按钮只占内容宽度，不再撑满整行。

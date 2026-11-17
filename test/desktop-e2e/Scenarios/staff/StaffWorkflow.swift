@@ -12,7 +12,7 @@ public enum StaffWorkflow {
     public static func run(_ session: Session, english: Bool = false) async throws {
         let root = try StaffFixture.install()
         var project: URL?
-        let keys = ["ZDOTDIR", "NORMA_BRAIN_DIR", "CLAUDE_CONFIG_DIR", "NORMA_E2E_STAFF_QUESTIONS"]
+        let keys = ["ZDOTDIR", "NORMA_BRAIN_DIR", "CLAUDE_CONFIG_DIR", "NORMA_E2E_STAFF_QUESTIONS", "NORMA_E2E_STAFF_LONG_RESULT"]
         let previous = Dictionary(uniqueKeysWithValues: keys.map { ($0, ProcessInfo.processInfo.environment[$0]) })
         defer {
             session.stop()
@@ -26,6 +26,7 @@ public enum StaffWorkflow {
         setenv("NORMA_BRAIN_DIR", root.path, 1)
         setenv("CLAUDE_CONFIG_DIR", root.appendingPathComponent("claude-config").path, 1)
         setenv("NORMA_E2E_STAFF_QUESTIONS", "1", 1)
+        setenv("NORMA_E2E_STAFF_LONG_RESULT", "1", 1)
         let language = english ? "en" : "zh-Hans"
         try session.launch(language: language)
         _ = try await session.capturePixels()
@@ -63,7 +64,7 @@ public enum StaffWorkflow {
             try await session.type("STAFF-M1 请生成验收文件")
             try await session.shortcut(key: 36, modifiers: [0x38])
             try await session.type("保留这一行补充要求")
-            _ = try await session.visualCheck([VisualCriterion(id: "multiline", text: "中央输入框保留两行尚未发送的文字：STAFF-M1 请生成验收文件和保留这一行补充要求；仍是新任务空态，Shift+Enter 只换行、没有发出任务；输入区有圆形上箭头和 Enter 发送、Shift + Enter 换行提示。")])
+            _ = try await session.visualCheck([VisualCriterion(id: "multiline", text: "中央输入框保留两行尚未发送的文字：STAFF-M1 请生成验收文件和保留这一行补充要求；仍是新任务空态，Shift+Enter 只换行、没有发出任务；输入区右下有圆形上箭头发送键（输入框下方不再有快捷键提示行）。")])
             guard try StaffFixture.tasks(root).isEmpty else { throw E2EError.product("Shift+Enter 意外发送了任务") }
             try await session.shortcut(key: 36, modifiers: [])
             // 提示词已到适配器说明本轮已开始；此状态下还没有任何工具步骤，用于核对无步骤活动行。
@@ -141,6 +142,13 @@ public enum StaffWorkflow {
                 VisualCriterion(id: "result", text: "任务处于待验收/In review，中央有 Worker 结果 STAFF RESULT 与 Norma 的 STAFF REVIEW 回复；标题下有独立 Worker 卡条，Worker为36px的色调胶囊，显示真实 Agent 名称与结果状态。消息区在 Worker 卡条下方；若消息在上方，允许滚动查看后重试。"),
                 VisualCriterion(id: "worker-result-pet", text: "Worker 结果卡（含 STAFF RESULT 的卡片）头部最左侧是彩色宠物头像（与 Worker 卡条同款圆润造型、可见眼睛与表情），其后才是 Agent 名称与绿色的已返回结果/Result received；不是字母缩写圆或纯色圆点。")
             ]), "04-result.png")
+            try session.save(try await session.visualCheck([
+                VisualCriterion(id: "result-collapsed", text: "Worker 结果卡默认折叠：正文最多 3 行，`tank.html` 为行内代码样式，不显示反引号或 ** 标记；正文下方有圆角「展开」/Expand 按钮，与正文间距清楚（不贴住文字）、不被卡片边缘裁切，卡片未与上下消息重叠、文字无溢出。")
+            ]), "04-result-collapsed.png")
+            try await session.visualClick("点击 Worker 结果卡里的展开/Expand 按钮")
+            try session.save(try await session.visualCheck([
+                VisualCriterion(id: "result-expanded", text: "展开后完整显示：加粗的「操作」「地图」「其他」与三条列表均按 Markdown 渲染，没有原样显示 ** 或 - 标记；正文与底部「收起」/Collapse 按钮之间有明显空白，按钮不贴正文、不贴卡片底边，卡片未与相邻消息重叠，文字无溢出。")
+            ]), "04-result-expanded.png")
             return "同名 Agent 新卡；dispatch 精确匹配；恰好一次送达；自动推进待验收"
         }
 

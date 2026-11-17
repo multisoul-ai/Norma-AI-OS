@@ -46,6 +46,9 @@ enum StaffWorker {
             print('\r\nSTAFF RESULT ready\r', flush=True)
             # 后续任务带 STAFF-HOLD 时停在这里，场景放行文件出现前不结束，用来点“撤回”。
             while 'STAFF-HOLD' in task and not os.path.exists(os.path.join(root, 'release-worker')): time.sleep(.05)
-            hook('Stop', last_assistant_message='STAFF RESULT: 需要你确认验收；文件 STAFF-RESULT.md 已生成。')
+            final = 'STAFF RESULT: 需要你确认验收；文件 STAFF-RESULT.md 已生成。'
+            if os.environ.get('NORMA_E2E_STAFF_LONG_RESULT') == '1':
+                final = 'STAFF RESULT: `tank.html` 已写好，JS 语法检查通过，但没在浏览器里实际玩过一局。\n\n写入时工具提示该文件已存在，我是直接覆盖的，没有还原内容。\n\n- **操作**：方向键或 WASD 移动，空格开炮。\n- **地图**：砖墙能打碎，钢墙打不碎。\n- **其他**：玩家同一时间只能有一发炮弹在飞。\n\n没部署，没推送。'
+            hook('Stop', last_assistant_message=final)
     """#
 }

@@ -29,3 +29,8 @@
 - worker-question：真实 Worker Hook 镜像到幕僚，提交后原 Hook 恰好消费一次，镜像进入已回答。
 - worker-needs-you-pet：Worker 提问时卡条显示橙色「需要你」，胶囊最左侧为带表情的宠物头像（不是字母圆）。
 - staff-conversation.mp4：连续真实窗口录像覆盖提问、提议、忽略/恢复、工具活动与 Worker 回答；检查统计 JSON、视频时长与抽帧方向。
+
+## Worker 结果卡样式
+
+- 04-result-collapsed：默认折叠至多 3 行，Markdown 已渲染（无原样 `**`/反引号），「展开」按钮与正文留有间距、不被裁切，卡片不与相邻消息重叠。
+- 04-result-expanded：展开后加粗标题与列表按 Markdown 渲染；正文与「收起」按钮之间有明显空白，按钮不贴文字或卡片底边；无溢出、无重叠。
