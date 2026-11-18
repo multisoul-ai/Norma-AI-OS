@@ -1,7 +1,7 @@
 use super::layout_tests::MessageListHost;
 use super::*;
 use gpui::{px, size, AppContext, Bounds, Pixels, TestAppContext};
-use norma::protocol::{ReplyStatus, ReplyTrigger, TaskMessage, Worker, WorkerOutcome, WorkerState};
+use norma::protocol::{ReplyStatus, ReplyTrigger, TaskMessage, Worker, WorkerOutcome, WorkerPhase};
 
 fn reply(text: &str) -> TaskMessage {
     let mut reply = norma::protocol::StaffReply::new(0, ReplyTrigger::User);
@@ -40,19 +40,9 @@ fn staff_wide_reading_column_keeps_every_line_inside_its_message() {
         "正常排查不再因为到点被 abort。".repeat(12)
     );
     let mut task = Task::new("t", "w", "p", "宽列");
-    task.workers.push(Worker {
-        agent: "Bella".into(),
-        engine: "claude".into(),
-        role: String::new(),
-        card_id: Some(7),
-        dispatch_id: "d1".into(),
-        engine_session_id: None,
-        state: WorkerState::Active,
-        needs_input: false,
-        outcome: Some(WorkerOutcome::Succeeded),
-        launch_prompt: String::new(),
-        prompt_delivered: true,
-    });
+    let mut worker = Worker::new("Bella", "claude", "", 7, "d1");
+    worker.phase = WorkerPhase::Finished(WorkerOutcome::Succeeded);
+    task.workers.push(worker);
     task.messages.push(reply(&long));
     task.messages.push(TaskMessage::User {
         text: "为什么要加这个限制".into(),

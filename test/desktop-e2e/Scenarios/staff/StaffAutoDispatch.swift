@@ -92,11 +92,12 @@ public enum StaffAutoDispatch {
             try await session.visualClick("点击「幕僚已派发」卡片右侧的\(withdraw)按钮")
             try await waitFor("Worker 被记为中断") {
                 let workers = try task(root)?["workers"] as? [[String: Any]] ?? []
-                return workers.count == 2 && workers[1]["outcome"] as? String == "Interrupted"
+                let phase = workers[1]["phase"] as? [String: String]
+                return workers.count == 2 && phase?["Finished"] == "Interrupted"
             }
             try Data().write(to: root.appendingPathComponent("release-worker"))
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "withdrawn", text: "第二条已派发卡不再有\(withdraw)按钮；对话里出现一条被中断的 Worker 结果，写明你已撤回这项任务；不是错误提示。")
+                VisualCriterion(id: "withdrawn", text: "第二条已派发卡不再有\(withdraw)按钮；对话里出现一条被中断的结果，写明用户撤回了派给某人的这项任务；不是错误提示。")
             ]), "02-withdrawn.png")
             return "撤回后 Worker 为 Interrupted，撤回按钮消失"
         }
@@ -144,7 +145,7 @@ public enum StaffAutoDispatch {
 
     /// 隔离库没有本机编排凭据的哈希，已安装的 Claude 会被当成未注册，名册上的人就派不出去。
     /// 只把现有凭据的哈希写进隔离库，不打印 token。
-    private static func copyEngineAuthorizations(into database: URL) throws {
+    static func copyEngineAuthorizations(into database: URL) throws {
         let credentials = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/Norma OS/orchestration")
         guard FileManager.default.fileExists(atPath: credentials.path) else {
@@ -180,7 +181,7 @@ if not found:
     }
 
     /// 名册写在项目库。App 已建库并停掉之后再插入 Grace，重启后点名才能命中。
-    private static func insertGrace(_ dataRoot: URL) throws {
+    static func insertGrace(_ dataRoot: URL) throws {
         let directory = dataRoot.appendingPathComponent("desktop-project-definitions", isDirectory: true)
         let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         let databases = files.filter { $0.pathExtension == "sqlite" }

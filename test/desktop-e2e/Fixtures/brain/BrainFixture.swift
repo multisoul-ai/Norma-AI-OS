@@ -48,7 +48,7 @@ public enum BrainFixture {
         let bin = root.appendingPathComponent("adapters/node_modules/.bin", isDirectory: true)
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
         let assign = mode == .assign ? "true" : "false"
-        try Data(#"{"enabled": true, "backend": "claude", "strategy": "speed", "autonomy": {"assign_followups": \#(assign)}}"#.utf8)
+        try Data(#"{"enabled": true, "backend": "claude", "strategy": "speed", "autonomy": {"assign_followups": \#(assign), "staff_auto_dispatch": true}}"#.utf8)
             .write(to: root.appendingPathComponent("config.json"))
         try Data(mode.rawValue.utf8).write(to: root.appendingPathComponent("mode"))
         let script = bin.appendingPathComponent("claude-agent-acp")

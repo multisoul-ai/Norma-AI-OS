@@ -368,8 +368,13 @@ fn rebind_reuses_the_worker_card_and_dispatch() {
         "dispatch 必须不变，hook 才会被接受"
     );
     assert_eq!(worker.card_id, Some(10), "必须是同一张卡片");
-    assert_eq!(worker.outcome, None, "续派后回到执行中");
-    assert!(!worker.prompt_delivered, "新 prompt 还没送达");
+    assert_eq!(
+        worker.phase,
+        norma::protocol::WorkerPhase::Submitted { retried: false },
+        "续派后等新 prompt 送达"
+    );
+    assert!(worker.outcome().is_none(), "续派清掉上一轮结果");
+    assert!(!worker.delivered(), "新 prompt 还没送达");
     assert_eq!(worker.launch_prompt, "handoff text", "check: launch prompt");
     let proposal = task.proposals.iter().find(|p| p.id == 2).expect("proposal");
     assert_eq!(

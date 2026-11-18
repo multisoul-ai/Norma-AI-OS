@@ -2,7 +2,7 @@ use super::*;
 use gpui::{div, prelude::*, px, relative, size, AppContext, TestAppContext};
 use norma::protocol::{
     ReplyStatus, ReplyTrigger, StepStatus, StepTitle, TaskMessage, Worker, WorkerOutcome,
-    WorkerState,
+    WorkerPhase,
 };
 
 struct FlowHost {
@@ -93,19 +93,9 @@ fn staff_timeline_items_keep_their_own_height() {
     let reply = "卡片上如果已经写完就以卡片为准。".repeat(10);
     let result = format!("{}触发链", "结果里这一段必须完整留在卡片里。".repeat(8));
     let mut task = Task::new("t", "w", "p", "重叠");
-    task.workers.push(Worker {
-        agent: "Bella".into(),
-        engine: "claude".into(),
-        role: String::new(),
-        card_id: Some(7),
-        dispatch_id: "d1".into(),
-        engine_session_id: None,
-        state: WorkerState::Active,
-        needs_input: false,
-        outcome: Some(WorkerOutcome::Succeeded),
-        launch_prompt: String::new(),
-        prompt_delivered: true,
-    });
+    let mut worker = Worker::new("Bella", "claude", "", 7, "d1");
+    worker.phase = WorkerPhase::Finished(WorkerOutcome::Succeeded);
+    task.workers.push(worker);
     task.messages.push(done_reply(&reply, 0, 1_000));
     task.messages.push(TaskMessage::User {
         text: "为什么要加这个限制".into(),

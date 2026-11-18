@@ -11,7 +11,7 @@ fn named(id: &str, title: &str) -> Task {
 fn running(id: &str) -> Task {
     let mut task = named(id, "执行中的接口");
     let mut worker = Worker::new("Alan", "Codex", "Build", 3, "d-run");
-    worker.prompt_delivered = true;
+    worker.phase = norma::protocol::WorkerPhase::Running;
     task.workers.push(worker);
     task
 }
@@ -35,7 +35,7 @@ fn needs_you(id: &str) -> Task {
         target_worker: None,
     });
     let mut worker = Worker::new("Mia", "Claude", "Review", 4, "d-need");
-    worker.needs_input = true;
+    worker.phase = norma::protocol::WorkerPhase::Waiting;
     task.workers.push(worker);
     task
 }
@@ -164,14 +164,14 @@ fn archived_tasks_leave_status_counts_but_stay_in_the_archive_count() {
 fn worker_is_found_by_dispatch_not_by_agent_name() {
     let mut task = norma::protocol::Task::new("a", "ws", "project", "Ship");
     let mut first = norma::protocol::Worker::new("Simon", "Codex", "Build", 10, "d-1");
-    first.outcome = Some(norma::protocol::WorkerOutcome::Succeeded);
+    first.phase = norma::protocol::WorkerPhase::Finished(norma::protocol::WorkerOutcome::Succeeded);
     task.workers.push(first);
-    task.workers.push(norma::protocol::Worker::new(
-        "Simon", "Codex", "Test", 11, "d-2",
-    ));
+    let mut second = norma::protocol::Worker::new("Simon", "Codex", "Test", 11, "d-2");
+    second.phase = norma::protocol::WorkerPhase::Running;
+    task.workers.push(second);
     let found = task.worker_for_dispatch("d-2").expect("d-2");
     assert_eq!(found.card_id, Some(11), "应取运行中的第二个 Worker");
-    assert!(found.outcome.is_none(), "运行中的 Worker 还没有结果");
+    assert!(found.outcome().is_none(), "运行中的 Worker 还没有结果");
     assert!(
         task.worker_for_dispatch("none").is_none(),
         "未知 dispatch 查不到"

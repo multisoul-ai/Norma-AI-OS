@@ -103,7 +103,7 @@ fn check_continuable(task: &Task, dispatch_id: &str, agent: &str) -> io::Result<
     match task.worker_for_dispatch(dispatch_id) {
         None => refuse("staff.worker_unknown"),
         Some(worker) if !worker.is_agent(agent) => refuse("staff.worker_agent_mismatch"),
-        Some(worker) if worker.outcome.is_none() => refuse("staff.worker_busy"),
+        Some(worker) if worker.outcome().is_none() => refuse("staff.worker_busy"),
         Some(_)
             if task.proposals.iter().any(|p| {
                 p.target_worker.as_deref() == Some(dispatch_id)

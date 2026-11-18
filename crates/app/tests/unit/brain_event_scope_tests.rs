@@ -239,8 +239,8 @@ fn disabled_brain_preserves_worker_completion_for_background_persistence() {
         .get("alpha", "task")
         .expect("durable settlement");
     assert_eq!(
-        saved.workers[0].state,
-        norma::protocol::WorkerState::Failed,
+        saved.workers[0].phase,
+        norma::protocol::WorkerPhase::Finished(norma::protocol::WorkerOutcome::Failed),
         "disabled service must not leave Worker running"
     );
     assert_eq!(

@@ -119,12 +119,26 @@ pub enum TaskMessage {
     },
 }
 
+/// 投递或重启失败。结果本身在 `WorkerPhase::Finished`。
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum WorkerState {
-    Active,
-    Failed,
-    Interrupted,
-    NeedsAttention,
+pub enum WorkerFailure {
+    /// 超时仍没收到 UserPromptSubmit。
+    Unconfirmed,
+    /// 加载任务时这个 Worker 还没结束，进程已经不在了。
+    Restarted,
+}
+
+/// 一张卡上这一轮派发走到哪一步。芯片、是否送达、是否在等用户都从这里派生。
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum WorkerPhase {
+    Reserved,
+    Spawning,
+    Typed,
+    Submitted { retried: bool },
+    Running,
+    Waiting,
+    Finished(WorkerOutcome),
+    Failed(WorkerFailure),
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -152,21 +166,13 @@ pub struct Worker {
     pub card_id: Option<u64>,
     pub dispatch_id: String,
     pub engine_session_id: Option<String>,
-    pub state: WorkerState,
-    #[serde(default)]
-    pub needs_input: bool,
-    /// Active 表示仍持有卡片；outcome 区分执行中与已取得本轮结果。
-    pub outcome: Option<WorkerOutcome>,
+    pub phase: WorkerPhase,
     /// 实际打进卡片的 prompt。旧快照没有该字段时为空，重投回退到提议原文。
     #[serde(default)]
     pub launch_prompt: String,
-    /// 本轮 UserPromptSubmit 已确认。旧快照缺字段时视为已送达，避免正在执行的 Worker 变成启动中。
-    #[serde(default = "prompt_delivered_by_default")]
-    pub prompt_delivered: bool,
-}
-
-fn prompt_delivered_by_default() -> bool {
-    true
+    /// 这轮派活复用了已经在画布上的卡。撤回时只中断，不关掉它。
+    #[serde(default)]
+    pub reused: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -214,26 +220,45 @@ impl Worker {
             card_id: Some(node_id),
             dispatch_id: dispatch_id.into(),
             engine_session_id: None,
-            state: WorkerState::Active,
-            needs_input: false,
-            outcome: None,
+            phase: WorkerPhase::Reserved,
             launch_prompt: String::new(),
-            prompt_delivered: false,
+            reused: false,
         }
     }
 
+    pub fn outcome(&self) -> Option<WorkerOutcome> {
+        match self.phase {
+            WorkerPhase::Finished(outcome) => Some(outcome),
+            _ => None,
+        }
+    }
+
+    /// `Running` 及之后都算 prompt 已经进了卡片。`Failed` 不算。
+    pub fn delivered(&self) -> bool {
+        matches!(
+            self.phase,
+            WorkerPhase::Running | WorkerPhase::Waiting | WorkerPhase::Finished(_)
+        )
+    }
+
+    /// 需要用户看一眼：在等输入、投递/重启失败，或这一轮没有成功结束。
+    pub fn needs_attention(&self) -> bool {
+        matches!(
+            self.phase,
+            WorkerPhase::Waiting
+                | WorkerPhase::Failed(_)
+                | WorkerPhase::Finished(
+                    WorkerOutcome::Failed | WorkerOutcome::Interrupted | WorkerOutcome::Unavailable,
+                )
+        )
+    }
+
     pub fn chip(&self) -> WorkerChip {
-        if self.needs_input
-            || matches!(
-                self.state,
-                WorkerState::Failed | WorkerState::Interrupted | WorkerState::NeedsAttention
-            )
-            || self.outcome == Some(WorkerOutcome::Unavailable)
-        {
+        if self.needs_attention() {
             WorkerChip::NeedsYou
-        } else if self.outcome.is_some() {
+        } else if matches!(self.phase, WorkerPhase::Finished(_)) {
             WorkerChip::Done
-        } else if self.prompt_delivered {
+        } else if matches!(self.phase, WorkerPhase::Running) {
             WorkerChip::Running
         } else {
             WorkerChip::Starting
@@ -377,17 +402,14 @@ impl Task {
         }
         if self.proposals.iter().any(|proposal| {
             proposal.dispatch_id.is_none() && !proposal.ignored && !proposal.superseded
-        }) || self.workers.iter().any(|worker| {
-            worker.needs_input
-                || worker.state != WorkerState::Active
-                || worker.outcome == Some(WorkerOutcome::Unavailable)
-        }) {
+        }) || self.workers.iter().any(|worker| worker.needs_attention())
+        {
             TaskDisplayStatus::NeedsYou
-        } else if self.workers.iter().any(|worker| {
-            worker.outcome.is_none()
-                && worker.prompt_delivered
-                && worker.state == WorkerState::Active
-        }) {
+        } else if self
+            .workers
+            .iter()
+            .any(|worker| matches!(worker.phase, WorkerPhase::Running))
+        {
             TaskDisplayStatus::Running
         } else {
             TaskDisplayStatus::Waiting
@@ -409,17 +431,11 @@ impl Task {
         let Some(worker) = self.workers.iter_mut().find(|worker| {
             worker.card_id == Some(node_id)
                 && worker.dispatch_id == dispatch_id
-                && worker.outcome.is_none()
+                && worker.outcome().is_none()
         }) else {
             return false;
         };
-        worker.outcome = Some(outcome);
-        worker.needs_input = false;
-        worker.state = match outcome {
-            WorkerOutcome::Failed => WorkerState::Failed,
-            WorkerOutcome::Interrupted => WorkerState::Interrupted,
-            _ => WorkerState::Active,
-        };
+        worker.phase = WorkerPhase::Finished(outcome);
         self.messages.push(TaskMessage::WorkerFinished {
             node_id,
             dispatch_id: dispatch_id.into(),
@@ -432,7 +448,7 @@ impl Task {
         }) && self
             .workers
             .iter()
-            .all(|worker| worker.outcome == Some(WorkerOutcome::Succeeded))
+            .all(|worker| worker.outcome() == Some(WorkerOutcome::Succeeded))
         {
             self.set_phase(TaskPhase::Merging, false);
         }

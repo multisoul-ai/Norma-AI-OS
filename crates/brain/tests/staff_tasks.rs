@@ -2,7 +2,7 @@ use brain::staff::TaskEventResult;
 use brain::staff::TaskStore;
 use brain::{BrainEventKind, Outcome};
 use norma::protocol::{Task, TaskPhase};
-use norma::protocol::{TaskDisplayStatus, Worker, WorkerOutcome, WorkerState};
+use norma::protocol::{TaskDisplayStatus, Worker, WorkerOutcome, WorkerPhase};
 
 /// 手动阶段在保存和重开后受到保护，新消息重新打开已完成任务。
 ///
@@ -135,15 +135,15 @@ fn events_are_durable_scoped_and_interrupted_wakes() {
     let a = loaded.get("ws-a", "a").expect("reload A");
     let b = loaded.get("ws-b", "b").expect("reload B");
     assert_eq!(
-        a.workers[0].state,
-        WorkerState::Interrupted,
+        a.workers[0].phase,
+        WorkerPhase::Finished(WorkerOutcome::Interrupted),
         "A must retain interruption"
     );
     assert_eq!(a.messages.len(), 1, "A must contain only its interruption");
     assert_eq!(b.messages.len(), 1, "B must contain only its failure");
     assert_ne!(
-        a.workers[0].state,
-        WorkerState::Failed,
+        a.workers[0].phase,
+        WorkerPhase::Finished(WorkerOutcome::Failed),
         "B failure must not alter A"
     );
 }
@@ -171,7 +171,7 @@ fn result_identity_deduplication_and_missing_result_are_explicit() {
         norma::protocol::WorkerChip::Starting,
         "the card is still starting until UserPromptSubmit"
     );
-    a.workers[0].prompt_delivered = true;
+    a.workers[0].phase = WorkerPhase::Running;
     assert_eq!(
         a.display_status(),
         TaskDisplayStatus::Running,
@@ -227,7 +227,7 @@ fn result_identity_deduplication_and_missing_result_are_explicit() {
         "missing result requires user attention"
     );
     assert_ne!(
-        b.workers[0].outcome,
+        b.workers[0].outcome(),
         Some(WorkerOutcome::Succeeded),
         "fallback is not a successful result"
     );
@@ -240,8 +240,8 @@ fn result_identity_deduplication_and_missing_result_are_explicit() {
         "failure must settle"
     );
     assert_eq!(
-        failed.workers[0].state,
-        WorkerState::Failed,
+        failed.workers[0].phase,
+        WorkerPhase::Finished(WorkerOutcome::Failed),
         "worker must expose failure"
     );
     assert_eq!(
@@ -266,7 +266,7 @@ fn waiting_for_user_is_task_attention_without_settling_worker() {
     let store = TaskStore::new(dir.path().into());
     let mut task = Task::new("waiting", "ws", "p", "Approve");
     let mut worker = Worker::new("Alan", "Claude", "Build", 30, "current");
-    worker.prompt_delivered = true;
+    worker.phase = WorkerPhase::Running;
     task.workers.push(worker);
     store.create(task).expect("create");
     let attention = |dispatch: &str, waiting| BrainEventKind::WorkerAttention {
@@ -286,7 +286,7 @@ fn waiting_for_user_is_task_attention_without_settling_worker() {
         store
             .record_event("ws", &attention("old", false))
             .expect("old"),
-        TaskEventResult::Ignored,
+        TaskEventResult::Unowned,
         "old dispatch cannot clear attention"
     );
     let waiting_summary: serde_json::Value = serde_json::from_str(
@@ -323,7 +323,7 @@ fn waiting_for_user_is_task_attention_without_settling_worker() {
         "accepted answer restores running state"
     );
     assert!(
-        task.workers[0].outcome.is_none(),
+        task.workers[0].outcome().is_none(),
         "waiting/resuming must not settle the Worker"
     );
     assert_ne!(

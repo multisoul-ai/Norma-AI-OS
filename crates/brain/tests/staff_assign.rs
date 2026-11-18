@@ -1,6 +1,6 @@
 use brain::staff::policy::{ProposeReason, RiskCategory};
 use brain::staff::{AssignOutcome, TaskStore};
-use norma::protocol::{StaffOp, Task, Worker, WorkerOutcome};
+use norma::protocol::{StaffOp, Task, Worker, WorkerOutcome, WorkerPhase};
 
 fn assign_op(agent: &str, prompt: &str) -> StaffOp {
     StaffOp::Assign {
@@ -130,7 +130,7 @@ fn interrupted_worker_does_not_block_an_unnamed_dispatch() {
     let (_dir, store) = store_with_finished_worker("Simon");
     store
         .update("ws", "a", |task| {
-            task.workers[0].outcome = Some(WorkerOutcome::Interrupted);
+            task.workers[0].phase = WorkerPhase::Finished(WorkerOutcome::Interrupted);
             Ok(())
         })
         .expect("interrupt");

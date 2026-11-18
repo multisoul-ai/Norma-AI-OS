@@ -77,19 +77,26 @@ impl MultisoulApp {
                 WorkerChip::Starting => theme.accent_violet,
                 WorkerChip::Done => theme.success,
             };
-            let status_text = worker.outcome.map(outcome_label).unwrap_or(match chip {
-                WorkerChip::Starting => t("staff.worker_starting"),
-                WorkerChip::Running => status_label(TaskDisplayStatus::Running),
-                WorkerChip::NeedsYou => status_label(TaskDisplayStatus::NeedsYou),
-                WorkerChip::Done => status_label(TaskDisplayStatus::Done),
-            });
+            let status_text = if matches!(
+                worker.phase,
+                norma::protocol::WorkerPhase::Failed(norma::protocol::WorkerFailure::Restarted)
+            ) {
+                t("staff.worker_restarted")
+            } else {
+                worker.outcome().map(outcome_label).unwrap_or(match chip {
+                    WorkerChip::Starting => t("staff.worker_starting"),
+                    WorkerChip::Running => status_label(TaskDisplayStatus::Running),
+                    WorkerChip::NeedsYou => status_label(TaskDisplayStatus::NeedsYou),
+                    WorkerChip::Done => status_label(TaskDisplayStatus::Done),
+                })
+            };
             let node = worker.card_id;
             let (app, task_id, dispatch_id) = (
                 cx.weak_entity(),
                 task.id.clone(),
                 worker.dispatch_id.clone(),
             );
-            let running = worker.outcome.is_none();
+            let running = worker.outcome().is_none();
             let title = format!("{} · {}", worker.agent, worker.engine);
             let (secondary, danger) = (theme.text_secondary, theme.destructive);
             strip = strip.child(
@@ -108,7 +115,7 @@ impl MultisoulApp {
                         &worker.agent,
                         &worker.engine,
                         24.,
-                        worker_mood(chip, worker.outcome),
+                        worker_mood(chip, worker.outcome()),
                         !self.motion.reduce_motion,
                     ))
                     .child(
