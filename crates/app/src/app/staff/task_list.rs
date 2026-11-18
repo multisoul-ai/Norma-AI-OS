@@ -1,10 +1,11 @@
+use super::list_type::{text, CALLOUT, SPACE_2, SPACE_3};
 use super::*;
 use gpui::{div, prelude::*, px, rgba, Div, Stateful, Window};
 use norma::protocol::{staff_chip_counts, staff_visible_tasks, Task, TaskDisplayStatus};
 use ui::component::{
     button::{Button, ButtonVariants},
     input::Input,
-    Disableable, Icon, IconName, Selectable, Sizable, StyledExt,
+    Disableable, Icon, IconName, Selectable, Sizable,
 };
 use ui::i18n::text as t;
 
@@ -109,15 +110,11 @@ impl MultisoulApp {
                             .child(
                                 div()
                                     .flex()
-                                    .items_center()
-                                    .gap(px(6.))
-                                    .text_size(px(13.))
-                                    .font_medium()
-                                    .child(label)
+                                    .items_baseline()
+                                    .gap(px(SPACE_2))
+                                    .child(text(CALLOUT).child(label))
                                     .child(
-                                        div()
-                                            .text_size(px(12.))
-                                            .when(key == "needs" && count > 0, |c| c.font_bold())
+                                        text(CALLOUT)
                                             .text_color(rgba(count_color))
                                             .child(count.to_string()),
                                     ),
@@ -136,8 +133,8 @@ impl MultisoulApp {
             .flex_1()
             .min_h_0()
             .overflow_y_scroll()
-            .px(px(8.))
-            .pb(px(12.));
+            .px(px(SPACE_2))
+            .pb(px(SPACE_3));
         let visible_tasks = staff_visible_tasks(
             &owned,
             self.staff.archive_view,
@@ -149,25 +146,35 @@ impl MultisoulApp {
         for (status, tasks) in norma::protocol::staff_status_groups(&visible_tasks) {
             groups = groups.child(super::task_row::group_header(status, tasks.len(), theme));
             for task in tasks {
-                groups = groups.child(self.staff_task_row(task, project_name, list_w - 90., cx));
+                groups = groups.child(self.staff_task_row(
+                    task,
+                    project_name,
+                    super::task_row::task_text_width(list_w, !self.staff.archive_view),
+                    cx,
+                ));
             }
         }
         if visible == 0 {
             groups = groups.child(
                 div()
                     .p(px(24.))
-                    .text_size(px(13.))
                     .text_color(rgba(theme.text_tertiary))
-                    .child(
+                    .child(text(CALLOUT).child(
                         if self.staff.archive_view && self.staff.query.trim().is_empty() {
                             t("staff.archive_empty")
                         } else {
                             t("staff.no_matches")
                         },
-                    )
+                    ))
                     .when(
                         self.staff.archive_view && self.staff.query.trim().is_empty(),
-                        |empty| empty.child(div().pt(px(4.)).child(t("staff.archive_empty_hint"))),
+                        |empty| {
+                            empty.child(
+                                div()
+                                    .pt(px(4.))
+                                    .child(text(CALLOUT).child(t("staff.archive_empty_hint"))),
+                            )
+                        },
                     ),
             );
         }
@@ -198,11 +205,8 @@ impl MultisoulApp {
                         .rounded(px(12.))
                         .justify_center()
                         .icon(Icon::empty().path(crate::assets::TOOLBAR_PLUS_ASSET))
-                        .text_size(px(13.))
                         .child(
-                            div()
-                                .text_size(px(13.))
-                                .font_medium()
+                            text(CALLOUT)
                                 .text_color(rgba(0xffffffff))
                                 .child(t("staff.new_task")),
                         )
@@ -229,7 +233,7 @@ impl MultisoulApp {
                                 Input::new(search)
                                     .appearance(false)
                                     .prefix(Icon::new(IconName::Search).with_size(px(16.)))
-                                    .text_size(px(13.))
+                                    .text_size(px(CALLOUT.size))
                                     .cleanable(true),
                             ),
                         )

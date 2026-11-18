@@ -19,6 +19,7 @@ mod images;
 mod messages;
 mod open_link;
 pub(crate) use open_link::{install_link_handler, register_link_target};
+mod list_type;
 mod proposal_choice;
 mod questions;
 mod task_list;

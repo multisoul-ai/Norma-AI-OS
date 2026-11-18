@@ -1,12 +1,13 @@
 //! 侧栏任务行：头像带状态点、标题加时间、状态加参与者；按状态分组。
 use super::archive::StaffArchiveNotice;
+use super::list_type::{text, AVATAR, BODY, CAPTION, HIT, SPACE_1, SPACE_2, SPACE_3};
 use super::task_time::{avatar_color, avatar_initial, task_time_now};
 use super::{view::status_label, *};
 use gpui::{div, prelude::*, px, rgba, Div};
 use norma::protocol::{Task, TaskDisplayStatus};
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
-    Disableable, Icon, Selectable, StyledExt,
+    Disableable, Icon, Selectable,
 };
 use ui::i18n::text as t;
 
@@ -37,21 +38,28 @@ pub(super) fn selected_tint(light: bool) -> u32 {
     }
 }
 
+/// 标题列宽度。分组左右各 SPACE_2，行左右各 SPACE_3，头像后一条 SPACE_3。
+/// 有归档按钮时再留出命中列和它前面的间隙，文字在按钮左边结束。
+pub(super) fn task_text_width(list_w: f32, reserve_archive: bool) -> f32 {
+    let archive = if reserve_archive { HIT + SPACE_3 } else { 0. };
+    (list_w - SPACE_2 * 2. - SPACE_3 * 2. - AVATAR - SPACE_3 - archive).max(0.)
+}
+
 pub(super) fn group_header(status: TaskDisplayStatus, count: usize, theme: ui::Theme) -> Div {
     div()
         .flex()
-        .items_center()
-        .gap(px(6.))
-        .px(px(10.))
-        .pt(px(14.))
-        .pb(px(6.))
-        .text_size(px(12.))
-        .font_semibold()
-        .text_color(rgba(theme.text_secondary))
-        .child(status_label(status))
+        .items_baseline()
+        .gap(px(SPACE_2))
+        .px(px(SPACE_3))
+        .pt(px(SPACE_3))
+        .pb(px(SPACE_2))
         .child(
-            div()
-                .font_normal()
+            text(CAPTION)
+                .text_color(rgba(theme.text_secondary))
+                .child(status_label(status)),
+        )
+        .child(
+            text(CAPTION)
                 .text_color(rgba(theme.text_tertiary))
                 .child(count.to_string()),
         )
@@ -66,17 +74,18 @@ fn avatar(task: &Task, status_color: u32, ring: u32) -> Div {
     div()
         .relative()
         .flex_none()
-        .w(px(36.))
-        .h(px(36.))
+        .w(px(AVATAR))
+        .h(px(AVATAR))
         .rounded_full()
         .flex()
         .items_center()
         .justify_center()
         .bg(rgba(avatar_color(name)))
-        .text_size(px(14.))
-        .font_semibold()
-        .text_color(rgba(0x111111ff))
-        .child(avatar_initial(name))
+        .child(
+            text(BODY)
+                .text_color(rgba(0x111111ff))
+                .child(avatar_initial(name)),
+        )
         .child(
             div()
                 .absolute()
@@ -154,16 +163,14 @@ impl MultisoulApp {
                 move || format!("staff-task-{id}")
             })
             .group(group.clone())
-            .relative()
             .custom(variant)
             .w_full()
-            .h(px(60.))
-            .px(px(10.))
-            .py(px(10.))
-            .mt(px(2.))
-            .rounded(px(12.))
+            .px(px(SPACE_3))
+            .py(px(SPACE_2))
+            .mt(px(SPACE_1))
+            .rounded(px(SPACE_3))
             .justify_start()
-            .gap(px(12.))
+            .gap(px(SPACE_3))
             .selected(selected)
             .disabled(self.staff.busy)
             .child(avatar(
@@ -172,55 +179,74 @@ impl MultisoulApp {
                 if selected { 0x0a2f5eff } else { theme.graphite },
             ))
             .child(
-                // Button 内容按内容收缩；固定宽度才能让时间靠右。
                 div()
-                    .w(px(text_width))
+                    .w(px(text_width.max(0.)))
+                    .min_w_0()
                     .flex()
                     .flex_col()
                     .items_start()
-                    .gap(px(2.))
+                    .gap(px(SPACE_1))
                     .child(
                         div()
                             .w_full()
+                            .min_w_0()
                             .flex()
                             .items_baseline()
-                            .gap(px(8.))
+                            .gap(px(SPACE_2))
                             .child(
-                                div()
+                                text(BODY)
                                     .flex_1()
                                     .min_w_0()
-                                    .text_size(px(14.))
-                                    .font_medium()
-                                    .whitespace_nowrap()
-                                    .overflow_hidden()
-                                    .text_ellipsis()
+                                    .truncate()
                                     .child(task.title.clone()),
                             )
-                            .child(
-                                // 悬停时让位给归档按钮。
-                                div()
+                            .child({
+                                let time = text(BODY)
                                     .flex_none()
-                                    .text_size(px(12.))
                                     .text_color(rgba(theme.text_tertiary))
-                                    .group_hover(group.clone(), |style| style.opacity(0.))
-                                    .child(task_time_now(task.updated_at)),
-                            ),
+                                    .child(task_time_now(task.updated_at));
+                                if self.staff.archive_view {
+                                    time
+                                } else {
+                                    time.group_hover(group.clone(), |style| style.hidden())
+                                }
+                            })
+                            .when(!self.staff.archive_view, |line| {
+                                // 悬停时替掉时间，留在标题行里，不盖住下一行，也不伸出侧栏。
+                                line.child(
+                                    text(BODY)
+                                        .hidden()
+                                        .min_w_0()
+                                        .truncate()
+                                        .text_color(rgba(theme.text_secondary))
+                                        .group_hover(group.clone(), |style| {
+                                            style.flex().flex_1().min_w_0()
+                                        })
+                                        .child(ui::i18n::format(
+                                            "staff.archive_named",
+                                            &[("title", title.clone())],
+                                        )),
+                                )
+                            }),
                     )
                     .child(
                         div()
                             .w_full()
+                            .min_w_0()
                             .flex()
-                            .gap(px(4.))
-                            .text_size(px(12.))
-                            .text_color(rgba(theme.text_secondary))
-                            .child(div().flex_none().text_color(rgba(color)).child(status_text))
+                            .items_baseline()
+                            .gap(px(SPACE_1))
                             .child(
-                                div()
+                                text(CAPTION)
+                                    .flex_none()
+                                    .text_color(rgba(color))
+                                    .child(status_text),
+                            )
+                            .child(
+                                text(CAPTION)
                                     .flex_1()
                                     .min_w_0()
-                                    .whitespace_nowrap()
-                                    .overflow_hidden()
-                                    .text_ellipsis()
+                                    .truncate()
                                     .child(format!("· {who} · {project}")),
                             ),
                     ),
@@ -234,16 +260,13 @@ impl MultisoulApp {
                 )))
                 .debug_selector(move || format!("staff-archive-row-{selector_id}"))
                 .custom(self.staff_button_style(false, cx))
-                .absolute()
-                .right(px(4.))
-                .top(px(14.))
-                .w(px(32.))
-                .h(px(32.))
-                .rounded(px(16.))
+                .flex_none()
+                .w(px(HIT))
+                .h(px(HIT))
+                .rounded(px(HIT / 2.))
                 .opacity(0.)
                 // 只在悬停这一行时显示。不用聚焦样式：点空白处后三行的按钮会一起亮出来。
                 .group_hover(group, |style| style.opacity(1.))
-                .tooltip(ui::i18n::format("staff.archive_named", &[("title", title)]))
                 .icon(Icon::empty().path("icons/archive.svg"))
                 .disabled(self.staff.busy)
                 .on_click(cx.listener(move |app, _, window, cx| {
@@ -261,5 +284,52 @@ impl MultisoulApp {
         row.on_click(cx.listener(move |app, _, window, cx| {
             app.select_staff_task(Some(task_id.clone()), window, cx)
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::task_text_width;
+
+    /// 归档命中列从标题列里扣掉，文字在按钮左边结束。
+    ///
+    /// 数据构造（list_w = 280，sidebar_width 的桌面宽度）：
+    ///   分组左右 SPACE_2：8 * 2 = 16
+    ///   行左右 SPACE_3：12 * 2 = 24
+    ///   头像 AVATAR = 36，头像后间隙 SPACE_3 = 12
+    ///   无按钮：280 - 16 - 24 - 36 - 12 = 192
+    ///   有按钮再减 HIT 36 + 间隙 12 = 48 → 144
+    ///
+    /// 执行过程：
+    ///   1. task_text_width(280, false) 只减内边距、头像和一条间隙
+    ///   2. task_text_width(280, true) 再减归档命中列
+    ///   3. task_text_width(0, true) 宽度不够时落到 0
+    ///
+    /// 预期结果：
+    ///   - 无按钮是 192，不预留命中列
+    ///   - 有按钮是 144，比无按钮少的正好是 36 + 12
+    ///   - 侧栏宽度为 0 时不是负数
+    #[test]
+    fn archive_slot_narrows_the_title_column() {
+        assert_eq!(
+            task_text_width(280., false),
+            192.,
+            "without the archive button the title column keeps the full remainder"
+        );
+        assert_eq!(
+            task_text_width(280., true),
+            144.,
+            "the 36px hit target plus its 12px gap must come out of the title column"
+        );
+        assert_ne!(
+            task_text_width(280., true),
+            task_text_width(280., false),
+            "reserving the archive button must narrow the title column"
+        );
+        assert_eq!(
+            task_text_width(0., true),
+            0.,
+            "a vanished sidebar must not produce a negative title width"
+        );
     }
 }
