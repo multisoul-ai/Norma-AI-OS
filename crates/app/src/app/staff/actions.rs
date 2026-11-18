@@ -3,6 +3,19 @@ use gpui::{ClickEvent, Focusable, KeyDownEvent, Window};
 use norma::protocol::StaffOp;
 
 impl MultisoulApp {
+    /// 底栏头像入口：项目实体把请求转交宿主，宿主在已有工作空间时进入幕僚。
+    pub(crate) fn enter_staff_mode(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            window.defer(cx, move |window, cx| {
+                host.update(cx, |host, cx| host.enter_staff_mode(window, cx));
+            });
+            return;
+        }
+        if self.desktop_workspace.active_id.is_some() {
+            self.set_staff_mode(true, window, cx);
+        }
+    }
+
     pub(crate) fn set_staff_mode(
         &mut self,
         enabled: bool,

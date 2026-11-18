@@ -1,7 +1,8 @@
 {
   "staff.mode": "Staff",
   "staff.connection_unavailable": "Can’t reach Norma’s local service. Another copy of this build may be running; close it, then reload.",
-  "staff.canvas": "Canvas",
+  "staff.enter": "Enter Staff",
+  "staff.back_to_canvas": "Back to canvas",
   "staff.tasks": "Tasks",
   "staff.new_task": "New task",
   "staff.choose_project": "Open a project to start a task.",

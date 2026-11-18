@@ -47,7 +47,7 @@ public enum StaffAutoDispatch {
             try await session.type("/new claude")
             try await session.shortcut(key: 36, modifiers: [])
             try await waitFor("真实 Agent 启动") { try StaffFixture.records(root, "starts.jsonl").count == 1 }
-            try await session.visualClick("点击顶部幕僚或 Staff 按钮进入幕僚模式")
+            try await session.visualClick("点击底栏最左侧的浅紫发圆形头像进入幕僚模式")
             try await session.visualClick("点击中央任务对话底部的消息输入框，不是左侧搜索框")
             try await session.type("AUTO-DISPATCH 请生成验收文件")
             try await session.shortcut(key: 36, modifiers: [])

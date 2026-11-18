@@ -1,7 +1,8 @@
 {
   "staff.mode": "幕僚",
   "staff.connection_unavailable": "无法连接 Norma 本地服务，可能有同版本应用已在运行。关闭多余窗口后重新加载。",
-  "staff.canvas": "画布",
+  "staff.enter": "进入幕僚",
+  "staff.back_to_canvas": "返回画布",
   "staff.tasks": "任务",
   "staff.new_task": "新任务",
   "staff.choose_project": "打开项目后开始任务。",

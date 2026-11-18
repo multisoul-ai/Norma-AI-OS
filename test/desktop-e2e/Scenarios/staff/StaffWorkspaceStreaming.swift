@@ -41,10 +41,10 @@ public enum StaffWorkspaceStreaming {
         try session.launch(language: language)
         try await session.step("从工作空间总览直接开始幕僚任务") {
             try await session.visualClick("点击 Staff Workspace 工作空间卡片")
-            try await session.visualClick("保持所有项目总览，点击顶部幕僚/Staff分段按钮；不要进入项目")
+            try await session.visualClick("保持所有项目总览，点击底栏最左侧的浅紫发圆形头像；不要进入项目")
             try session.save(try await session.visualCheck([
                 VisualCriterion(id: "workspace", text: "窗口顶栏有唯一Staff Workspace工作空间选择器，左侧搜索胶囊内有所有项目项目选择器。中央有可用新任务输入框与项目目标选择器，没有必须打开项目的错误。"),
-                VisualCriterion(id: "prototype", text: "只有一个顶部导航，中央为画布/幕僚分段胶囊；左栏约280px：整行新任务按钮、含项目选择器的单个搜索胶囊、等宽筛选芯片；Material色调表面与圆角对话区。没有第二行Norma标题或底部重复统计。"),
+                VisualCriterion(id: "prototype", text: "只有一个顶部导航，右侧有返回画布按钮、没有画布/幕僚分段胶囊；左栏约280px：整行新任务按钮、含项目选择器的单个搜索胶囊、等宽筛选芯片；Material色调表面与圆角对话区。没有第二行Norma标题或底部重复统计。"),
                 VisualCriterion(id: "language", text: english ? "控制文案为英文：All projects、New task、Give Norma a task；项目名Alpha/Beta保持原文。" : "控制文案为中文：所有项目、新任务、交给Norma一件事；项目名Alpha/Beta保持原文。")
             ]), "01-workspace.png")
             try await session.visualClick("点击中央新任务所属项目的下拉框，不是左栏项目筛选器")
@@ -93,7 +93,7 @@ public enum StaffWorkspaceStreaming {
             try await session.visualClick("点击右侧Alpha.md文件")
             _ = try await session.visualCheck([
                 VisualCriterion(id: "alpha-file", text: "文件工作台项目为Alpha，打开Alpha.md并显示Alpha project；中央仍是Alpha任务。"),
-                VisualCriterion(id: "drawer-frame", text: "右侧抽屉与画布模式的抽屉位置、背景、外框完全一致，没有幕僚专属的偏移或主题；窗口最顶栏铺满全宽，模式开关居中。")
+                VisualCriterion(id: "drawer-frame", text: "右侧抽屉与画布模式的抽屉位置、背景、外框完全一致，没有幕僚专属的偏移或主题；窗口最顶栏铺满全宽，返回画布按钮靠右。")
             ])
             try await session.visualClick("点击左侧STREAM-BETA任务行")
             _ = try await session.visualCheck([VisualCriterion(id: "beta-files", text: "文件工作台项目自动跟随为Beta，树中列出Beta.md，不能继续显示Alpha.md旧正文；中央是Beta任务和BETA RESULT。")])
