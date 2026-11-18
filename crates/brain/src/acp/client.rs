@@ -41,6 +41,8 @@ pub struct SessionOptions {
     /// Codex 的推理强度，用 `session/set_config_option` 的 `reasoning_effort` 设置。
     pub effort: Option<String>,
     pub handshake_timeout: Duration,
+    /// 幕僚会话才设置。有值时权限回调只放行这个绝对路径下的 `norma brain`。
+    pub staff_shell: Option<PathBuf>,
 }
 
 pub struct AcpSession {
@@ -49,6 +51,8 @@ pub struct AcpSession {
     /// `session/new` 的回复，用来读出可选的模型。
     created: Value,
     questions: Option<super::questions::QuestionHost>,
+    cwd: PathBuf,
+    staff_shell: Option<PathBuf>,
 }
 
 impl AcpSession {
@@ -145,6 +149,8 @@ impl AcpSession {
             session_id,
             created,
             questions: None,
+            cwd: options.cwd.clone(),
+            staff_shell: options.staff_shell.clone(),
         })
     }
 
@@ -184,6 +190,7 @@ impl AcpSession {
         progress: &mut dyn FnMut(&TraceItem),
     ) -> Result<String, AcpError> {
         let started = Instant::now();
+        let staff_gate = self.staff_shell.clone().map(|bin| (bin, self.cwd.clone()));
         let mut merger = Merger::default();
         let mut stop_reason = None;
         let mut system_error = false;
@@ -289,10 +296,19 @@ impl AcpSession {
                                 }
                             }
                         }
-                        permission::answer(&mut self.conn, &id, &method, &params, &mut |item| {
-                            progress(&item);
-                            sink(item);
-                        })?;
+                        permission::answer(
+                            &mut self.conn,
+                            &id,
+                            &method,
+                            &params,
+                            staff_gate
+                                .as_ref()
+                                .map(|(bin, cwd)| (bin.as_path(), cwd.as_path())),
+                            &mut |item| {
+                                progress(&item);
+                                sink(item);
+                            },
+                        )?;
                     }
                     _ => {}
                 }
@@ -370,8 +386,9 @@ pub fn discover_models(
         args: backend.args.clone(),
         cwd,
         env,
-        meta: crate::backend::session_meta(backend.kind, None),
+        meta: crate::backend::session_meta(backend.kind, None, false),
         mode: None,
+        staff_shell: None,
         model: None,
         effort: None,
         handshake_timeout: Duration::from_secs(60),

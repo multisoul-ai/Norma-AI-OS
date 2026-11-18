@@ -101,7 +101,7 @@ enum StaffAdapter {
             match = None if reply else re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})', text)
             if match:
                 scope, task = json.loads(match[1]), json.loads(match[2])
-                binary = shlex.split(re.search(r'只能执行 (.*?) brain 命令', text)[1])[0]
+                binary = shlex.split(re.search(r'命令速查（都以 (.*?) brain 开头）', text)[1])[0]
                 base = [binary,'brain','--workspace',scope['workspace_id'],'--route',scope['route_id']]
                 tid = task['id']
                 users = [m['user'] for m in task['messages'] if 'user' in m]
@@ -137,6 +137,9 @@ enum StaffAdapter {
                 elif os.environ.get('NORMA_E2E_STAFF_ARCHIVE') == '1' and not task['proposals']:
                     run(sid, base + ['task','propose',tid,'Claude','--title','下一步','--prompt','继续 ARCHIVE-KEEP','--why','请确认'])
                     reply = 'STAFF PLAN：已提出下一步。'
+                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and 'NAMED-RISK' in last:
+                    run(sid, base + ['task','assign',tid,'Grace','--title','点名发布','--prompt','git push origin main','--why','用户点名 Grace'])
+                    reply = 'STAFF NAMED：已直接派给 Grace。'
                 elif not task['proposals']:
                     roster = run(sid, base + ['agents'])
                     # Production CLI wraps Brain output in the response envelope.

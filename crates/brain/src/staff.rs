@@ -9,6 +9,7 @@ static STORES: OnceLock<Mutex<BTreeMap<PathBuf, Weak<TaskStore>>>> = OnceLock::n
 mod assign;
 mod delivery;
 pub mod gate;
+pub mod naming;
 pub mod policy;
 mod proposals;
 mod questions;
@@ -261,6 +262,7 @@ impl TaskStore {
         self.update(workspace, id, |task| {
             // 新一轮开始时仍在运行的回复一定是上一个服务实例遗留的，记为失败，不留永远转圈的回复。
             task.recover_interrupted();
+            task.user_words = naming::user_words(&task.messages);
             task.round += 1;
             task.begin_reply(trigger);
             Ok(())

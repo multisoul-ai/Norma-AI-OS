@@ -201,6 +201,7 @@ fn unlimited_prompt_finishes_slow_turn_and_cancel_stays_cancelled() {
         mode: None,
         model: None,
         effort: None,
+        staff_shell: None,
         handshake_timeout: Duration::from_secs(5),
     };
     let mut session = AcpSession::start(&options).expect("建立真实 ACP 管道");
@@ -282,6 +283,7 @@ fn every_abnormal_prompt_exit_finishes_once() {
         mode: None,
         model: None,
         effort: None,
+        staff_shell: None,
         handshake_timeout: Duration::from_secs(5),
     };
     for (text, stop) in [

@@ -59,13 +59,7 @@ impl MultisoulApp {
         {
             return Ok(self.staff_engine_binding(provider));
         }
-        if let Some(entry) = self.agent_roster_for_provider().into_iter().find(|entry| {
-            entry.enabled
-                && entry.name.eq_ignore_ascii_case(id)
-                && registered
-                    .iter()
-                    .any(|provider| provider.profile() == entry.profile)
-        }) {
+        if let Some(entry) = self.roster_entry_by_name(id) {
             return Ok(entry);
         }
         let engines = registered
@@ -74,6 +68,33 @@ impl MultisoulApp {
             .collect::<Vec<_>>()
             .join(", ");
         Err(format!("staff.agent_unavailable\n{engines}"))
+    }
+
+    /// 引擎 id 和没有名册的回退卡片都不算点名目标。
+    pub(super) fn roster_entry_if_named_target(&self, id: &str) -> Option<agent::AgentRosterEntry> {
+        if self
+            .registered_staff_engines()
+            .iter()
+            .any(|provider| provider.slug().eq_ignore_ascii_case(id))
+        {
+            return None;
+        }
+        self.roster_entry_by_name(id)
+            .filter(|entry| entry.definition_id != 0)
+    }
+
+    fn roster_entry_by_name(&self, id: &str) -> Option<agent::AgentRosterEntry> {
+        let registered = self.registered_staff_engines();
+        self.agent_roster_for_provider().into_iter().find(|entry| {
+            entry.enabled
+                && registered
+                    .iter()
+                    .any(|provider| provider.profile() == entry.profile)
+                && (entry.name.eq_ignore_ascii_case(id)
+                    || entry.speech_alias.as_deref().is_some_and(|alias| {
+                        alias.chars().count() >= 2 && alias.eq_ignore_ascii_case(id)
+                    }))
+        })
     }
 
     fn staff_engine_binding(

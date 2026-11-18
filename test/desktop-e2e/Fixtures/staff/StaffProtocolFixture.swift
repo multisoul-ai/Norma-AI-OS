@@ -77,7 +77,7 @@ public enum StaffProtocolFixture {
                     record('question-replies.jsonl',answer)
                 else:
                     assert any('Dark' in row.get('answer','') for row in task['messages']), task
-                    binary = shlex.split(re.search(r'只能执行 (.*?) brain 命令',text)[1])[0]
+                    binary = shlex.split(re.search(r'命令速查（都以 (.*?) brain 开头）', text)[1])[0]
                     base = [binary,'brain','--workspace',scope['workspace_id'],'--route',scope['route_id']]
                     roster = command(shlex.join(base+['agents']),'Read agents')
                     agents = json.loads(roster['result']['Brain']['output'])['agents']

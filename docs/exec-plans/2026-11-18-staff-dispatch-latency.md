@@ -160,13 +160,20 @@
 - 内存：Claude 幕僚会话最多 4 个，约 1.5GB 封顶。
 - 文件行数：所有改动后的 Rust 文件不超过 500 行。
 
-## 10. 风险与未决（实施前先做的实验）
+## 10. 风险与实验结论（2026-11-18）
 
-- **Claude 按会话传 env**：确认 `_meta.claudeCode.options.env` 是合并进进程环境还是整体替换（整体替换会丢 PATH）。会话建好后先跑一次 `norma brain agents` 自检，失败就退回每个任务一个进程；工具收紧、增量提示、派活规则照常交付，只是内存和首次启动不做优化。
-- **Codex 补丁**：确认 `shell_environment_policy.set` 按线程生效，shell 命令能看到 token。不成立就退回每个任务一个进程，其余同上。
-- **工具权限可见性**：确认 Claude `default` 模式下哪些工具会走权限回调，以及 Codex plan 模式下读命令是否走审批（见 6.5）。Codex 收不紧时只靠提示词约束，第 11 节「只出现 `norma brain` 命令和 Read」这一条只对 Claude 幕僚强制。
+实验代码在 `spikes/staff-acp-multisession/`，不进生产。Claude 用 `claude-agent-acp@0.94.0`，一条进程两个会话；Codex 用本机适配器 `codex-acp@2.2.2`，加载器在生产补丁之外把 `_meta.norma.config` 浅合并进 `newSession` 的 `thread/start` config。
+
+- **Claude 按会话传 env：成立，任务 9 可以共用连接。** 适配器把 `options.env` 合并进 `process.env`（`{...process.env, ...options.env}`），不是整体替换。会话 A 的 shell 只看到 `spike-token-a`，会话 B 只看到 `spike-token-b`；B 跑完后再问 A，仍是 `spike-token-a`。两边 PATH 长度都是父进程的 1495，且含 `/usr/bin`。`tools: ["Bash","Read"]` 生效：白名单会话里没有 Grep 的 `tool_call`，Read 和 Bash 可以调用。
+- **Codex 补丁：成立，任务 9 可以共用连接。** 两个线程各自看到自己的 `NORMA_BRAIN_TOKEN`，之后再问第一个线程仍是它自己的值。PATH 没有被清掉（仍含 `/usr/bin`）。第一次 shell 的 PATH 比父进程长（前面多了 Codex 自带的 vendor 目录，1766），同线程下一次变成 1281，但 token 没有串。自检 `norma brain agents` 留到任务 9 会话建好后做；这次实验失败时的退路（每个任务一个进程）不采用。
+- **工具权限可见性**
+  - 历史库 `~/Library/Application Support/Norma OS/app.sqlite`（lane 只有 Main）：`tool_call` 1350，`permission` 1339。`bash` 560 对 `Bash：` 560，`Read File` 56 对 `read：` 56，`Terminal` 725 对 `execute：` 722。有工具调用且零权限请求的轮次是 0。权限文本里 100 条提到 `rg`，20 条提到 `sqlite3`。`Load skill` 7 条和 1 条提问没有权限请求。
+  - 活体 Claude `default`，不额外设置时：项目目录里的 `echo`、`rg` 不进 `session/request_permission`；读项目内文件也不进。读 `/etc/hosts` 会进回调（`Read`，`file_path`）。离开家目录的 `ls /Users/alan` 会进回调，选项是 `allow_once` / `allow_always` / `reject_once`。
+  - 同一条 `_meta` 加上 `settings.permissions.ask: ["Bash"]` 后，项目内连续两次 `echo` 都会进回调。再加上 `permissions.blockReadsOutsideWorkingDirectories: true` 后，读 `/etc/hosts` 被 CLI 直接拒绝（错误写明该开关），不进回调；读项目内 `fixture.txt` 放行且不进回调。
+  - Codex `plan`：`printf`、项目内搜索都不进 `session/request_permission`。模型报告没有 Read / Grep 工具，搜索是用 shell 做的。Codex 收不紧，只靠提示词。第 11 节「只出现 `norma brain` 命令和 Read」只对 Claude 幕僚强制。
+- **任务 3 因此这样收紧 Claude**：`session_meta` 写 `tools: ["Bash","Read"]`、`permissions.ask: ["Bash"]`、`blockReadsOutsideWorkingDirectories: true`。Bash 在权限回调里用 argv 判定；项目外 Read 由这个目录开关拦住，回调里若再看到项目外 Read 也拒绝。占位符沿用现有 i18n 写法 `%{limit}`，不是裸 `{limit}`。
 - 风险词仍然是关键词匹配，不是安全边界，代码注释里已经这样写明。点名授权后，高风险操作的最后一道防线是 Worker 自己在终端里的权限审批。
-- 2026-11-18 11:27–11:30 的 8 次「会话创建失败 Invalid params (-32602)」原因未查，需单独排查。
+- 2026-11-18 11:27–11:30 的 8 次「会话创建失败 Invalid params (-32602)」原因未查，需单独排查。不挡本次派活规则和工具收紧。
 
 ## 11. 验收
 

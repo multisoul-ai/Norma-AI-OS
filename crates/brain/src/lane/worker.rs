@@ -66,7 +66,8 @@ impl LaneEnv {
             args: self.backend.args.clone(),
             cwd: self.project_root.clone(),
             env,
-            meta: backend::session_meta(self.backend.kind, self.model.as_deref()),
+            meta: backend::session_meta(self.backend.kind, self.model.as_deref(), staff),
+            staff_shell: staff.then(|| self.norma_bin.clone()),
             mode: backend::session_mode(self.backend.kind).map(str::to_string),
             model: self.model.clone(),
             effort: self.effort.clone(),
@@ -312,7 +313,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
             continue;
         }
         let mut text = if let Some(task) = &task {
-            super::staff::prompt_with(task, &job.scope, &env.norma_bin, env.skill_ready)
+            super::staff::prompt_with(task, &job.scope, &env.norma_bin)
         } else if primed {
             job.text.clone()
         } else {

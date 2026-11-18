@@ -274,9 +274,12 @@ pub struct Task {
     /// 幕僚已开始的轮次数；每轮开始 +1。
     #[serde(default)]
     pub round: u64,
-    /// 幕僚未经用户采用自动派发的次数；用户采用任意一条提议后清零。旧快照缺字段时为 0。
+    /// 幕僚在事件轮自动派发的次数。用户任何一次发话清零。旧快照缺字段时为 0。
     #[serde(default)]
     pub auto_dispatches: u32,
+    /// 本轮开始前、上一轮结束后的用户原话。旧快照缺字段时为空。
+    #[serde(default)]
+    pub user_words: String,
     /// 用户移除的 Worker，保留到下次清理，供撤销。
     #[serde(default)]
     pub removed_workers: Vec<super::RemovedWorker>,
@@ -303,6 +306,7 @@ impl Task {
             archived: false,
             round: 0,
             auto_dispatches: 0,
+            user_words: String::new(),
             removed_workers: Vec::new(),
         }
     }
@@ -357,6 +361,8 @@ impl Task {
             self.messages.push(TaskMessage::Reopened);
         }
         self.messages.push(TaskMessage::User { text: text.into() });
+        // 任何一次用户发话都重新给事件轮 5 次自动派发额度。回答选项不走这里。
+        self.auto_dispatches = 0;
         self.updated_at = timestamp();
     }
 

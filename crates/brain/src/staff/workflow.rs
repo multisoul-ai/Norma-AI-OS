@@ -161,8 +161,6 @@ impl TaskStore {
             }
             proposal.model = model.map(|m| m.trim().to_owned()).filter(|m| !m.is_empty());
             proposal.approved = true;
-            // 用户的决定让幕僚重新获得自动派发额度。
-            task.auto_dispatches = 0;
             Ok(())
         })
     }

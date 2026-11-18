@@ -344,8 +344,13 @@ fn profile_title(profile: &norma::protocol::AgentProfile) -> String {
 fn downgrade_text(code: &str) -> String {
     match code {
         "autonomy_ask" => t("staff.downgrade.autonomy_ask").to_string(),
-        "not_follow_up" => t("staff.downgrade.not_follow_up").to_string(),
-        "limit_reached" => t("staff.downgrade.limit_reached").to_string(),
+        "limit_reached" => ui::i18n::format(
+            "staff.downgrade.limit_reached",
+            &[(
+                "limit",
+                brain::staff::policy::AUTO_DISPATCH_LIMIT.to_string(),
+            )],
+        ),
         _ => t("staff.downgrade.risk").to_string(),
     }
 }

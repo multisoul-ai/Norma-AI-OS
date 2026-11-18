@@ -40,8 +40,10 @@ pub(crate) struct Autonomy {
     pub readonly_commands: bool,
     /// 批准在项目目录内写文件。
     pub project_writes: bool,
-    /// 给空闲的 Agent 派后续任务。
+    /// 主会话 `BrainOp::Assign` 能否自己派活。不管幕僚。
     pub assign_followups: bool,
+    /// 幕僚没点名时能否直接派活。点名不看这个开关。
+    pub staff_auto_dispatch: bool,
 }
 
 /// 一个后端的主会话与审批会话模型；`None` 交给后端自己的默认值或策略。
@@ -105,8 +107,9 @@ impl Default for BrainSettings {
             autonomy: Autonomy {
                 readonly_commands: true,
                 project_writes: true,
-                // 默认只提议下一步，用户在概览里确认后才派发。
+                // 主会话默认只提议下一步。幕僚默认可以直接派没点名、非高风险的活。
                 assign_followups: false,
+                staff_auto_dispatch: true,
             },
             slow_reminder: SlowReminder::OverviewOnly,
             parallel_approvals: true,
@@ -189,6 +192,7 @@ pub(super) fn parse_settings(text: &str) -> BrainSettings {
             readonly_commands: flag(&["autonomy", "readonly_commands"], true),
             project_writes: flag(&["autonomy", "project_writes"], true),
             assign_followups: flag(&["autonomy", "assign_followups"], false),
+            staff_auto_dispatch: flag(&["autonomy", "staff_auto_dispatch"], true),
         },
         slow_reminder: match value["slow_reminder"].as_str() {
             Some("voice60") => SlowReminder::VoiceAfter60s,
@@ -265,6 +269,7 @@ fn settings_json(settings: &BrainSettings) -> std::io::Result<String> {
             "readonly_commands": settings.autonomy.readonly_commands,
             "project_writes": settings.autonomy.project_writes,
             "assign_followups": settings.autonomy.assign_followups,
+            "staff_auto_dispatch": settings.autonomy.staff_auto_dispatch,
         },
         "slow_reminder": match settings.slow_reminder {
             SlowReminder::OverviewOnly => "overview",

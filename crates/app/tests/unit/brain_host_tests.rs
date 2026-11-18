@@ -243,6 +243,7 @@ fn extended_settings_round_trip_and_defaults() {
             readonly_commands: true,
             project_writes: false,
             assign_followups: false,
+            staff_auto_dispatch: false,
         },
         slow_reminder: SlowReminder::VoiceAfter60s,
         parallel_approvals: false,
@@ -260,9 +261,16 @@ fn extended_settings_round_trip_and_defaults() {
         Autonomy {
             readonly_commands: true,
             project_writes: true,
-            assign_followups: false
+            assign_followups: false,
+            staff_auto_dispatch: true,
         },
-        "默认只提议下一步，由用户确认后派发"
+        "主会话默认不自动派；幕僚开关缺省为开"
+    );
+    assert!(
+        !parse_settings(r#"{"autonomy":{"staff_auto_dispatch":false}}"#)
+            .autonomy
+            .staff_auto_dispatch,
+        "显式 false 不能被默认 true 盖掉"
     );
     assert_eq!(defaults.slow_reminder, SlowReminder::OverviewOnly);
     assert!(defaults.parallel_approvals, "默认并行处理审批");
@@ -288,6 +296,7 @@ fn autonomy_switches_apply_per_tool_category() {
         readonly_commands: true,
         project_writes: false,
         assign_followups: true,
+        staff_auto_dispatch: true,
     };
     assert!(
         autonomy_allows(&commands_only, "Bash"),
@@ -305,6 +314,7 @@ fn autonomy_switches_apply_per_tool_category() {
         readonly_commands: false,
         project_writes: true,
         assign_followups: true,
+        staff_auto_dispatch: true,
     };
     assert!(
         !autonomy_allows(&writes_only, "Bash"),
@@ -315,7 +325,8 @@ fn autonomy_switches_apply_per_tool_category() {
         &Autonomy {
             readonly_commands: false,
             project_writes: false,
-            assign_followups: false
+            assign_followups: false,
+            staff_auto_dispatch: true,
         },
         "Read"
     ));

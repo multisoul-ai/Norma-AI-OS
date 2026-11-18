@@ -54,11 +54,11 @@ fn store_with_worker(outcome: Option<WorkerOutcome>) -> (tempfile::TempDir, Task
     (dir, store)
 }
 
-/// 场景：用户这一轮发话要求继续，幕僚把活交回没有可信结果的 AgentC，设置为「询问」。
-/// 数据构造：AgentC 的 Worker 结果为 Unavailable；用户触发的回合进行中；auto=false。
-/// 预期结果：直接续派，提议指向同一个 Worker，不计入自动次数，也没有新增 Worker。
+/// 场景：用户这一轮发话但没有点名。开关关闭时仍要问；开关打开且无风险时直接续派，不占事件额度。
+/// 数据构造：AgentC 的 Worker 结果为 Unavailable；用户触发的回合进行中。先 auto=false，再换一份 auto=true。
+/// 预期结果：关闭时原因是 autonomy_ask，提议仍指向原 Worker；打开时已批准，计数保持 0，不新增 Worker。
 #[test]
-fn user_turn_continues_a_resultless_worker_without_asking() {
+fn unnamed_user_turn_continue_follows_the_switch() {
     let (_dir, store) = store_with_worker(Some(WorkerOutcome::Unavailable));
     store
         .begin_turn("ws", "a", ReplyTrigger::User)
@@ -68,12 +68,16 @@ fn user_turn_continues_a_resultless_worker_without_asking() {
             "ws",
             continue_op("AgentC", "d-1", "Finish the snake"),
             false,
+            false,
         )
         .expect("assign");
     assert_eq!(
         outcome,
-        AssignOutcome::Dispatch { proposal_id: 2 },
-        "check: outcome"
+        AssignOutcome::Proposed {
+            proposal_id: 2,
+            reason: ProposeReason::AutonomyAsk
+        },
+        "没点名且开关关闭，用户轮也要问"
     );
     let proposal = task.proposals.iter().find(|p| p.id == 2).expect("proposal");
     assert_eq!(
@@ -81,8 +85,24 @@ fn user_turn_continues_a_resultless_worker_without_asking() {
         Some("d-1"),
         "提议必须指向要续做的 Worker"
     );
-    assert!(proposal.approved, "用户这一轮已发话，续派不再确认");
-    assert_eq!(task.auto_dispatches, 0, "续派不计入自动派发次数");
+    let (_dir, store) = store_with_worker(Some(WorkerOutcome::Unavailable));
+    store
+        .begin_turn("ws", "a", ReplyTrigger::User)
+        .expect("turn");
+    let (task, outcome) = store
+        .assign(
+            "ws",
+            continue_op("AgentC", "d-1", "Finish the snake"),
+            true,
+            false,
+        )
+        .expect("assign");
+    assert_eq!(
+        outcome,
+        AssignOutcome::Dispatch { proposal_id: 2 },
+        "开关打开且无风险时直接续派"
+    );
+    assert_eq!(task.auto_dispatches, 0, "用户轮不计入自动派发次数");
     assert_eq!(task.workers.len(), 1, "续派不新增 Worker");
 }
 
@@ -99,6 +119,7 @@ fn event_turn_follows_the_followup_setting() {
         .assign(
             "ws",
             continue_op("AgentC", "d-1", "Finish the snake"),
+            false,
             false,
         )
         .expect("assign");
@@ -122,7 +143,12 @@ fn event_turn_follows_the_followup_setting() {
         .begin_turn("ws", "a", ReplyTrigger::Event)
         .expect("turn");
     let (_, outcome) = store
-        .assign("ws", continue_op("AgentC", "d-1", "Finish the snake"), true)
+        .assign(
+            "ws",
+            continue_op("AgentC", "d-1", "Finish the snake"),
+            true,
+            false,
+        )
         .expect("assign");
     assert_eq!(
         outcome,
@@ -145,6 +171,7 @@ fn risky_continue_is_still_downgraded_in_a_user_turn() {
             "ws",
             continue_op("AgentC", "d-1", "Finish it then git push --force"),
             true,
+            false,
         )
         .expect("assign");
     assert!(
@@ -160,7 +187,7 @@ fn risky_continue_is_still_downgraded_in_a_user_turn() {
 fn unusable_targets_are_refused_without_leaving_a_proposal() {
     let refused = |store: &TaskStore, op| {
         store
-            .assign("ws", op, true)
+            .assign("ws", op, true, false)
             .expect_err("worker must be refused")
             .to_string()
     };
@@ -195,7 +222,7 @@ fn unusable_targets_are_refused_without_leaving_a_proposal() {
         .begin_turn("ws", "a", ReplyTrigger::Event)
         .expect("turn");
     store
-        .assign("ws", continue_op("AgentC", "d-1", "first"), false)
+        .assign("ws", continue_op("AgentC", "d-1", "first"), false, false)
         .expect("first continue");
     assert_eq!(
         refused(&store, continue_op("AgentC", "d-1", "second")),
@@ -204,17 +231,17 @@ fn unusable_targets_are_refused_without_leaving_a_proposal() {
 }
 
 /// 场景：事件触发的回合（Worker 完成事件）自动续派不能无限循环。
-/// 数据构造：auto=true、事件回合；连续续派并绑定 3 次后第 4 次；用户回合里同样的第 4 次。
-/// 预期结果：事件回合的前 3 次直接派发并计数，第 4 次因次数上限降级；用户回合不受上限影响。
+/// 数据构造：auto=true、事件回合；连续续派并绑定 5 次后第 6 次；用户回合里把计数设成 5。
+/// 预期结果：事件回合的前 5 次直接派发并计数，第 6 次因次数上限降级；用户回合不受上限影响。
 #[test]
 fn event_turn_continues_are_capped_but_user_turns_are_not() {
     let (_dir, store) = store_with_worker(Some(WorkerOutcome::Unavailable));
     store
         .begin_turn("ws", "a", ReplyTrigger::Event)
         .expect("turn");
-    for round in 0..3u64 {
+    for round in 0..5u64 {
         let (task, outcome) = store
-            .assign("ws", continue_op("AgentC", "d-1", "again"), true)
+            .assign("ws", continue_op("AgentC", "d-1", "again"), true, false)
             .expect("assign");
         assert!(
             matches!(outcome, AssignOutcome::Dispatch { .. }),
@@ -235,7 +262,7 @@ fn event_turn_continues_are_capped_but_user_turns_are_not() {
             .expect("finish");
     }
     let (_, outcome) = store
-        .assign("ws", continue_op("AgentC", "d-1", "again"), true)
+        .assign("ws", continue_op("AgentC", "d-1", "again"), true, false)
         .expect("assign");
     assert!(
         matches!(
@@ -250,7 +277,7 @@ fn event_turn_continues_are_capped_but_user_turns_are_not() {
     let (_dir, store) = store_with_worker(Some(WorkerOutcome::Unavailable));
     store
         .update("ws", "a", |task| {
-            task.auto_dispatches = 3;
+            task.auto_dispatches = 5;
             Ok(())
         })
         .expect("cap reached");
@@ -258,7 +285,12 @@ fn event_turn_continues_are_capped_but_user_turns_are_not() {
         .begin_turn("ws", "a", ReplyTrigger::User)
         .expect("turn");
     let (_, outcome) = store
-        .assign("ws", continue_op("AgentC", "d-1", "user says go"), true)
+        .assign(
+            "ws",
+            continue_op("AgentC", "d-1", "user says go"),
+            true,
+            false,
+        )
         .expect("assign");
     assert!(
         matches!(outcome, AssignOutcome::Dispatch { .. }),
@@ -276,7 +308,7 @@ fn adopted_continue_proposal_still_targets_the_worker() {
         .begin_turn("ws", "a", ReplyTrigger::Event)
         .expect("turn");
     store
-        .assign("ws", continue_op("AgentC", "d-1", "go on"), false)
+        .assign("ws", continue_op("AgentC", "d-1", "go on"), false, false)
         .expect("assign");
     store.approve("ws", "a", 2, None, None).expect("approve");
     let task = store.get("ws", "a").expect("task");
@@ -294,7 +326,7 @@ fn adopted_continue_proposal_still_targets_the_worker() {
         .begin_turn("ws", "a", ReplyTrigger::Event)
         .expect("turn");
     store
-        .assign("ws", continue_op("AgentC", "d-1", "go on"), false)
+        .assign("ws", continue_op("AgentC", "d-1", "go on"), false, false)
         .expect("assign");
     store
         .approve("ws", "a", 2, Some("AgentA".into()), None)
@@ -322,6 +354,7 @@ fn rebind_reuses_the_worker_card_and_dispatch() {
         .assign(
             "ws",
             continue_op("AgentC", "d-1", "Finish the snake"),
+            true,
             false,
         )
         .expect("assign");
@@ -374,6 +407,7 @@ fn rebind_accepts_the_worker_engine() {
             "ws",
             continue_op("opencode", "d-1", "Finish the snake"),
             true,
+            false,
         )
         .expect("assign");
     let task = store

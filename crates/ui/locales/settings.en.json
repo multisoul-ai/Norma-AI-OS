@@ -261,7 +261,7 @@
   "settings.brain_summary_hint": "Summarize overall progress on a schedule",
   "settings.brain_slow_hint": "How to remind you when an approval takes over 60 s",
   "settings.brain_followups": "Follow-up tasks",
-  "settings.brain_followups_hint": "What to do with the next step after an agent finishes. Dispatch lets staff hand follow-up work to the same agent on its own, up to 3 times per task; risky work always asks you first",
+  "settings.brain_followups_hint": "Without a name, staff can dispatch to a free engine; risky work asks you first. Naming someone dispatches directly. Event follow-ups are capped at 5 per task and reset when you speak",
   "settings.brain_followups_ask": "Ask me",
   "settings.brain_followups_auto": "Dispatch",
   "settings.brain_autonomy_readonly_hint": "For example cargo test, git status",

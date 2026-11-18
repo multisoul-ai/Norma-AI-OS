@@ -110,26 +110,53 @@ pub(super) fn normalize(text: &str) -> String {
         .join(" ")
 }
 
+/// 英文关键词按单词边界整词匹配，多词短语要求整段命中；中文仍是子串。
+fn keyword_matches(text: &str, keyword: &str) -> bool {
+    if !keyword.is_ascii() {
+        return text.contains(keyword);
+    }
+    let mut from = 0;
+    while let Some(offset) = text[from..].find(keyword) {
+        let start = from + offset;
+        let end = start + keyword.len();
+        let before = text[..start]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !c.is_ascii_alphanumeric() && c != '_');
+        let after = text[end..]
+            .chars()
+            .next()
+            .is_none_or(|c| !c.is_ascii_alphanumeric() && c != '_');
+        if before && after {
+            return true;
+        }
+        from = end;
+    }
+    false
+}
+
 /// 返回文本命中的全部风险类别，按类别顺序，不重复。
 pub fn risk_categories(text: &str) -> Vec<RiskCategory> {
     let text = normalize(text);
     KEYWORDS
         .iter()
-        .filter(|(_, words)| words.iter().any(|word| text.contains(word)))
+        .filter(|(_, words)| words.iter().any(|word| keyword_matches(&text, word)))
         .map(|(category, _)| *category)
         .collect()
 }
 
-/// 每个任务最多自动派发的次数；用户采用任意一条提议后清零。
-pub const AUTO_DISPATCH_LIMIT: u32 = 3;
+/// 事件触发的自动派发上限。用户任何一次发话清零，不在采用提议时清零。
+pub const AUTO_DISPATCH_LIMIT: u32 = 5;
 
-/// 派活时需要的任务状态。`auto` 是设置里的「后续任务」是否为「自动」。
+/// 这一轮该直接派还是降级。`named` 只在用户轮有意义。
 #[derive(Clone, Copy, Debug)]
-pub struct AssignContext<'a> {
-    pub auto: bool,
-    /// 最近一个已出结果的 Worker 的 Agent；还没有时为 `None`。
-    pub last_finished_agent: Option<&'a str>,
+pub struct DispatchContext<'a> {
+    pub user_turn: bool,
+    pub named: bool,
+    /// `autonomy.staff_auto_dispatch`。点名时不看这个开关。
+    pub auto_dispatch: bool,
     pub auto_dispatches: u32,
+    pub text: &'a str,
 }
 
 /// 不能直接派发的原因，按判断顺序只报第一个。
@@ -137,7 +164,6 @@ pub struct AssignContext<'a> {
 pub enum ProposeReason {
     AutonomyAsk,
     Risk(Vec<RiskCategory>),
-    NotFollowUp,
     LimitReached,
 }
 
@@ -146,7 +172,6 @@ impl ProposeReason {
     pub fn code(&self) -> String {
         match self {
             Self::AutonomyAsk => "autonomy_ask".into(),
-            Self::NotFollowUp => "not_follow_up".into(),
             Self::LimitReached => "limit_reached".into(),
             Self::Risk(categories) => {
                 let names: Vec<_> = categories
@@ -165,42 +190,20 @@ pub enum AssignDecision {
     Propose(ProposeReason),
 }
 
-/// 直接派发要同时满足：设置为自动、无风险、派给刚完成任务的同一个 Agent、次数未超限。
-pub fn decide_assign(context: &AssignContext, agent: &str, text: &str) -> AssignDecision {
-    if !context.auto {
+/// 按 SPEC 第 4 节派活。点名的用户轮不看风险和开关；次数上限只约束事件轮。
+pub fn decide_dispatch(context: &DispatchContext) -> AssignDecision {
+    if context.user_turn && context.named {
+        return AssignDecision::Dispatch;
+    }
+    if !context.auto_dispatch {
         return AssignDecision::Propose(ProposeReason::AutonomyAsk);
     }
-    let risks = risk_categories(text);
+    let risks = risk_categories(context.text);
     if !risks.is_empty() {
         return AssignDecision::Propose(ProposeReason::Risk(risks));
     }
-    if context.last_finished_agent != Some(agent) {
-        return AssignDecision::Propose(ProposeReason::NotFollowUp);
-    }
-    if context.auto_dispatches >= AUTO_DISPATCH_LIMIT {
+    if !context.user_turn && context.auto_dispatches >= AUTO_DISPATCH_LIMIT {
         return AssignDecision::Propose(ProposeReason::LimitReached);
-    }
-    AssignDecision::Dispatch
-}
-
-/// 续派已有 Worker：用户这一轮发过话就不再问（也不要求它刚完成、不计自动次数），
-/// 否则按「后续任务」设置；风险词照旧降级为提议。
-/// 事件触发的回合（没有用户发话）仍受自动次数上限约束，避免「Worker 完成 → 续派 → 完成」无限循环。
-pub fn decide_continue(
-    auto: bool,
-    user_turn: bool,
-    auto_dispatches: u32,
-    text: &str,
-) -> AssignDecision {
-    if !user_turn && !auto {
-        return AssignDecision::Propose(ProposeReason::AutonomyAsk);
-    }
-    if !user_turn && auto_dispatches >= AUTO_DISPATCH_LIMIT {
-        return AssignDecision::Propose(ProposeReason::LimitReached);
-    }
-    let risks = risk_categories(text);
-    if !risks.is_empty() {
-        return AssignDecision::Propose(ProposeReason::Risk(risks));
     }
     AssignDecision::Dispatch
 }
