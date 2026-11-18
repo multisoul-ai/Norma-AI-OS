@@ -39,7 +39,7 @@ public enum StaffProposalLayout {
         try await session.step("长说明之后完整显示建议卡") {
             try await session.visualClick("点击 Proposal Layout 工作空间卡片")
             try await session.visualClick("点击 E2E Project 项目进入画布")
-            try await session.visualClick("点击顶部幕僚/Staff按钮")
+            try await session.visualClick("点击底栏最左侧的浅紫发圆形头像进入幕僚")
             try await session.visualClick("点击中央任务消息输入框")
             try await session.type("PROPOSAL-LAYOUT 请检查说明与建议卡的间距")
             try await session.shortcut(key: 36, modifiers: [])

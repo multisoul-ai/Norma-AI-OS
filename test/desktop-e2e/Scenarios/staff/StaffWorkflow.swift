@@ -50,10 +50,10 @@ public enum StaffWorkflow {
             try await session.type("/new claude")
             try await session.shortcut(key: 36, modifiers: [])
             try await waitFor("真实 Agent 启动") { try StaffFixture.records(root, "starts.jsonl").count == 1 }
-            _ = try await session.visualCheck([VisualCriterion(id: "seed", text: "E2E Project 画布有一张 Claude 卡片，显示 STAFF WORKER READY；顶部有幕僚或 Staff 按钮，右侧内容抽屉可见。若 Agent 仍启动，判 wait。")])
-            try await session.visualClick("点击顶部幕僚或 Staff 按钮进入幕僚模式")
+            _ = try await session.visualCheck([VisualCriterion(id: "seed", text: "E2E Project 画布有一张 Claude 卡片，显示 STAFF WORKER READY；底栏最左侧有浅紫发圆形头像入口，右侧内容抽屉可见。若 Agent 仍启动，判 wait。")])
+            try await session.visualClick("点击底栏最左侧的浅紫发圆形头像进入幕僚模式")
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "empty", text: "按已选双栏原型：顶栏中央为画布/Canvas、幕僚/Staff分段胶囊，幕僚选中；无第二行Norma标题栏或重复统计页脚。左栏约280px：整行宽的新任务按钮，其下单个搜索胶囊（搜索图标、搜索任务占位文字完整、项目选择器在同一胶囊内），再下为等宽的筛选芯片；中央圆角对话区和输入框清晰，右抽屉与画布模式一致。E2E Project名称可见，不是临时UUID。"),
+                VisualCriterion(id: "empty", text: "按已选双栏原型：顶栏右侧有返回画布/Back to canvas按钮，不再有画布/幕僚分段胶囊；无第二行Norma标题栏或重复统计页脚。左栏约280px：整行宽的新任务按钮，其下单个搜索胶囊（搜索图标、搜索任务占位文字完整、项目选择器在同一胶囊内），再下为等宽的筛选芯片；中央圆角对话区和输入框清晰，右抽屉与画布模式一致。E2E Project名称可见，不是临时UUID。"),
                 VisualCriterion(id: "locale", text: english ? "界面控制文案为英文，包含 New task、Give Norma a task；用户项目名称不翻译。" : "界面控制文案为中文，包含新任务、交给 Norma 一件事。")
             ]), "01-empty.png")
             return "空态三栏和双语控制可见"
@@ -215,7 +215,7 @@ public enum StaffWorkflow {
             try session.save(try await session.visualCheck([VisualCriterion(id: "full", text: "幕僚任务界面填满窗口，保留一套顶部工作空间/模式导航和退出全屏按钮；任务列表收起以放大对话，任务内容与右侧文件仍在；顶部控件不与macOS窗口按钮重叠。")]), "07-fullscreen.png")
             try await session.shortcut(key: 53, modifiers: [])
             _ = try await session.visualCheck([VisualCriterion(id: "escape", text: "Escape 已退出幕僚全屏，任务列表恢复，任务和打开的文件保留。")])
-            try await session.visualClick("点击幕僚标题栏中的画布/Canvas按钮返回画布")
+            try await session.visualClick("点击幕僚顶栏右侧的返回画布/Back to canvas按钮")
             try session.save(try await session.visualCheck([VisualCriterion(id: "canvas", text: "原画布恢复，有两张独立 Claude 卡片；右侧 STAFF-RESULT.md 仍打开，没有重复创建第三张卡。")]), "08-canvas.png")
             guard try StaffFixture.records(root, "starts.jsonl").count == 2 else { throw E2EError.product("切换页面重启了 Worker") }
             return "全屏与模式切换保留原 Runtime 和文件标签"

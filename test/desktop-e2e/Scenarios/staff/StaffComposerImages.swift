@@ -41,7 +41,7 @@ public enum StaffComposerImages {
         try await session.step("空草稿显示添加图片的加号") {
             try await session.visualClick("点击 Composer Images 工作空间卡片进入")
             try await session.visualClick("点击 E2E Project 项目进入画布")
-            try await session.visualClick("点击顶部幕僚或 Staff 按钮进入幕僚模式")
+            try await session.visualClick("点击底栏最左侧的浅紫发圆形头像进入幕僚模式")
             try session.save(try await session.visualCheck([icon, hint]), "01-empty.png")
             return "空草稿左侧加号可见，发送箭头和快捷键提示保留"
         }

@@ -43,7 +43,7 @@ public enum StaffProtocolRecovery {
                 try await session.type("/new claude")
                 try await session.shortcut(key: 36, modifiers: [])
                 try await waitFor("Worker 名册准备好") { try StaffFixture.records(root, "starts.jsonl").count == 1 }
-                try await session.visualClick("点击顶部幕僚/Staff 按钮")
+                try await session.visualClick("点击底栏最左侧的浅紫发圆形头像进入幕僚")
                 try await session.visualClick("点击中央对话底部的消息输入框")
                 try await session.type("PROTOCOL Please ask about theme, then propose a review.")
                 try await session.shortcut(key: 36, modifiers: [])

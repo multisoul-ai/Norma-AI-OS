@@ -20,8 +20,6 @@ pub(crate) const BRAND_LOGO_SIZE: f32 = 22.0;
 pub(crate) const BRAND_LOGO_LEFT: f32 = BRAND_TOGGLE_LEFT + 32.0 + 10.0;
 // logo right edge + 12px gap.
 const BRAND_BREADCRUMB_LEFT: f32 = BRAND_LOGO_LEFT + BRAND_LOGO_SIZE + 12.0;
-/// 画布 / 幕僚切换器的固定左边距：两种模式下位置不变，面包屑与工作区选择器都排在它左边。
-const MODE_SWITCH_LEFT: f32 = 400.0;
 
 pub(crate) fn brand_logo() -> Div {
     div()
@@ -113,8 +111,7 @@ impl MultisoulApp {
             .map(|area| area.display_name.clone());
         let reserve = if wide { 380.0 } else { 250.0 };
         // The logo sits at the canvas edge and the breadcrumb hugs it instead of centering.
-        let title_width = (width - BRAND_BREADCRUMB_LEFT - reserve)
-            .clamp(1.0, MODE_SWITCH_LEFT - 16.0 - BRAND_BREADCRUMB_LEFT);
+        let title_width = (width - BRAND_BREADCRUMB_LEFT - reserve).max(1.0);
         let title = desktop_top_bar_title(workspace, project, title_width, theme)
             .absolute()
             .left(px(BRAND_BREADCRUMB_LEFT));
@@ -132,16 +129,6 @@ impl MultisoulApp {
                     .top(px((TOP_BAR_HEIGHT - BRAND_LOGO_SIZE) / 2.0)),
             )
             .when(!self.staff.enabled, |bar| bar.child(title))
-            .child(
-                div()
-                    .absolute()
-                    .top_0()
-                    .left(px(MODE_SWITCH_LEFT))
-                    .h(px(TOP_BAR_HEIGHT))
-                    .flex()
-                    .items_center()
-                    .child(self.desktop_mode_switch(cx)),
-            )
             .when(self.staff.enabled, |bar| {
                 bar.child(
                     div()
@@ -229,6 +216,21 @@ impl MultisoulApp {
                                 );
                             })),
                     )
+                    .when(self.staff.enabled, |row| {
+                        row.child(
+                            Button::new("staff-back-to-canvas")
+                                .debug_selector(|| "staff-back-to-canvas".into())
+                                .icon(IconName::ArrowLeft)
+                                .label(ui::i18n::text("staff.back_to_canvas"))
+                                .h(px(32.))
+                                .px(px(12.))
+                                .rounded_full()
+                                .custom(self.staff_neutral_style(cx))
+                                .on_click(cx.listener(|app, _, window, cx| {
+                                    app.set_staff_mode(false, window, cx)
+                                })),
+                        )
+                    })
                     .when(
                         !self.staff.enabled && self.desktop_workspace.expanded_area_id.is_none(),
                         |row| {

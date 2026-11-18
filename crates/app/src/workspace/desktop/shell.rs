@@ -247,3 +247,7 @@ mod dispatch_receipt_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_layout_menu_tests.rs"]
 mod layout_menu_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/staff_entry_tests.rs"]
+mod staff_entry_tests;
