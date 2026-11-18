@@ -198,6 +198,21 @@ These checks prevent the known regressions; they are not a proof of absence of
 all memory leaks, ownership cycles, unbounded caches or growth in third-party
 libraries. Such regressions still require targeted heap/footprint profiling.
 
+## R8 · Staff List Type Stays On The Design Scale
+
+| | |
+|---|---|
+| Script | [`scripts/check-staff-list-type.py`](../../scripts/check-staff-list-type.py) |
+| Scope | Staff task list, task row, and `staff_archive_bar` |
+| Rule | Font sizes come from `docs/design.md` §4.2. The task row must not absolute-position a control over its meta line, and must not use a cursor tooltip that leaves the sidebar. |
+| Failure signal | `ERROR: staff list type violations found.` |
+| Fix | Use `list_type` roles. Give the archive button its own slot and keep the label inside the row. |
+
+```bash
+python3 scripts/check-staff-list-type.py --self-test
+python3 scripts/check-staff-list-type.py
+```
+
 ## Local Pre-Commit Hook
 
 Install the tracked native Git hook:
@@ -207,7 +222,7 @@ bash scripts/install-git-hooks.sh
 ```
 
 The hook runs staged file-size, `#[allow(...)]`, agent-guide line, performance,
-video and resource-lifecycle checks first. When staged Rust (including vendored
+video, resource-lifecycle, and staff-list type checks first. When staged Rust (including vendored
 GPUI), Cargo, or toolchain files change, it also runs:
 
 ```bash
