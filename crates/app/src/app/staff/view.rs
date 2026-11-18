@@ -256,13 +256,16 @@ impl MultisoulApp {
                 messages.child(self.render_message(task, index, &task.messages[index], window, cx));
         }
         // 已入队但还没开始的轮次：回复行还不存在，先给出等待反馈。
-        let waiting = self
-            .staff
-            .activity
-            .get(&task.id)
-            .is_some_and(|a| a.queued > 0);
+        let activity = self.staff.activity.get(&task.id);
+        let session_wait = activity.is_some_and(|item| item.session_wait);
+        let waiting = activity.is_some_and(|item| item.queued > 0);
         let running = task.has_running_reply();
-        if waiting && !running {
+        if (session_wait || waiting) && !running {
+            let queued_text = if session_wait {
+                t("staff.worker_queued")
+            } else {
+                t("staff.response_queued")
+            };
             messages = messages.child(messages::message_row(
                 messages::message_column().child(
                     div()
@@ -270,7 +273,7 @@ impl MultisoulApp {
                         .debug_selector(|| "staff-response-queued".into())
                         .text_size(px(12.))
                         .text_color(rgba(self.staff_theme().text_secondary))
-                        .child(t("staff.response_queued")),
+                        .child(queued_text),
                 ),
             ));
         }

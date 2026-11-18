@@ -134,6 +134,26 @@ pub fn session_meta(kind: BackendKind, model: Option<&str>, staff: bool) -> Opti
     Some(json!({"claudeCode": {"options": options}}))
 }
 
+/// 共用进程时，token 不能放进进程环境（那会被所有会话看见）。
+/// Claude 走 `options.env`，Codex 走 `norma.config`，由加载器合并进该会话。
+pub fn shared_staff_meta(kind: BackendKind, model: Option<&str>, token: &str) -> Option<Value> {
+    match kind {
+        BackendKind::ClaudeCode => {
+            let mut meta = session_meta(kind, model, true)?;
+            meta["claudeCode"]["options"]["env"] = json!({ "NORMA_BRAIN_TOKEN": token });
+            Some(meta)
+        }
+        BackendKind::Codex => Some(json!({
+            "norma": {
+                "config": {
+                    "shell_environment_policy": { "set": { "NORMA_BRAIN_TOKEN": token } }
+                }
+            }
+        })),
+        BackendKind::OpenCode => None,
+    }
+}
+
 /// Claude 使用 default；Codex 使用 auto（可写工作区）。权限请求都会被放行。
 pub fn session_mode(kind: BackendKind) -> Option<&'static str> {
     match kind {

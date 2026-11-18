@@ -34,6 +34,9 @@ enum StaffWorker {
             task = buffer.replace(b'\x1b[200~', b'').replace(b'\x1b[201~', b'').rstrip(b'\r').decode('utf-8')
             buffer = b''
             record('received.jsonl', dict(node=node, dispatch=dispatch, task=task))
+            # 撤回场景：收到 prompt 后先不发 UserPromptSubmit，Worker 一直停在“还没跑起来”，
+            # 场景放行文件出现前不会进入 Running，用来点“撤回”。
+            while ('withdraw-new' in task or 'withdraw-again' in task or 'STAFF-HOLD' in task) and not os.path.exists(os.path.join(root, 'release-worker')): time.sleep(.05)
             hook('UserPromptSubmit', prompt=task)
             if os.environ.get('NORMA_E2E_STAFF_QUESTIONS') == '1':
                 items = [{'question':'Record acceptance notes?', 'header':'Notes', 'options':[{'label':'Yes','description':'Include notes in the result'}, {'label':'No','description':'Only the artifact'}]}]

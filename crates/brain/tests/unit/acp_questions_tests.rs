@@ -1,4 +1,5 @@
 use super::*;
+use crate::acp::wire::Connection;
 
 /// 场景：三种真实适配器的原生form保持题目与选项，自定义入口不重复。
 /// 数据构造：已抓取的Claude/Codex/OpenCode请求；执行：解析params；预期：一题、两个有说明的选项并允许自定义。

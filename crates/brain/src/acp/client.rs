@@ -1,8 +1,10 @@
 //! 一个 ACP 会话：握手、创建会话、发 prompt，并处理期间的权限请求。
 
+use super::handshake::handshake;
+use super::hub::Port;
 use super::permission;
 use super::trace::{classify_update, Merger, TraceItem};
-use super::wire::{Connection, Incoming};
+use super::wire::{Connection, Incoming, Rpc};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -45,14 +47,51 @@ pub struct SessionOptions {
     pub staff_shell: Option<PathBuf>,
 }
 
+enum SessionLink {
+    Owned(Connection),
+    Shared(Port),
+}
+
+impl Rpc for SessionLink {
+    fn send_request(&mut self, method: &str, params: Value) -> std::io::Result<u64> {
+        match self {
+            Self::Owned(conn) => conn.send_request(method, params),
+            Self::Shared(port) => port.send_request(method, params),
+        }
+    }
+
+    fn respond(&mut self, id: &Value, result: Value) -> std::io::Result<()> {
+        match self {
+            Self::Owned(conn) => conn.respond(id, result),
+            Self::Shared(port) => port.respond(id, result),
+        }
+    }
+
+    fn respond_error(&mut self, id: &Value, code: i64, message: &str) -> std::io::Result<()> {
+        match self {
+            Self::Owned(conn) => conn.respond_error(id, code, message),
+            Self::Shared(port) => port.respond_error(id, code, message),
+        }
+    }
+
+    fn recv(&mut self, timeout: Duration) -> Result<Incoming, std::sync::mpsc::RecvTimeoutError> {
+        match self {
+            Self::Owned(conn) => conn.recv(timeout),
+            Self::Shared(port) => port.recv(timeout),
+        }
+    }
+}
+
 pub struct AcpSession {
-    conn: Connection,
+    conn: SessionLink,
     session_id: String,
     /// `session/new` 的回复，用来读出可选的模型。
     created: Value,
     questions: Option<super::questions::QuestionHost>,
     cwd: PathBuf,
     staff_shell: Option<PathBuf>,
+    /// 共用连接上被取消或超时的上一轮 prompt：它的响应和尾部通知还没排干。
+    stale_prompt: Option<u64>,
 }
 
 impl AcpSession {
@@ -90,68 +129,38 @@ impl AcpSession {
             options.kind,
         )
         .map_err(AcpError::Spawn)?;
-        let deadline = Instant::now() + options.handshake_timeout;
-        let mut capabilities =
-            json!({"fs": {"readTextFile": false, "writeTextFile": false}, "terminal": false});
-        if staff {
-            capabilities["elicitation"] = json!({"form": {}});
-        }
-        call(
-            &mut conn,
-            "initialize",
-            json!({"protocolVersion": 1, "clientCapabilities": capabilities}),
-            deadline,
-            cancel,
-        )?;
-        let mut params = json!({"cwd": options.cwd, "mcpServers": []});
-        if let Some(meta) = &options.meta {
-            params["_meta"] = meta.clone();
-        }
-        let created = call(&mut conn, "session/new", params, deadline, cancel)?;
-        let session_id = created["sessionId"]
-            .as_str()
-            .ok_or_else(|| AcpError::Remote("session/new 没有返回 sessionId".into()))?
-            .to_string();
-        if let Some(mode) = &options.mode {
-            call(
-                &mut conn,
-                "session/set_mode",
-                json!({"sessionId": session_id, "modeId": mode}),
-                deadline,
-                cancel,
-            )?;
-        }
-        let collaboration = (staff && options.kind == crate::backend::BackendKind::Codex)
-            .then(|| "plan".to_owned());
-        let configs = [
-            ("collaboration_mode", &collaboration),
-            ("model", &options.model),
-            ("reasoning_effort", &options.effort),
-        ];
-        for (config_id, value) in configs {
-            let Some(value) = value else { continue };
-            // 切不过去时沿用适配器的默认值，不让会话因此建不起来。
-            if let Err(error) = call(
-                &mut conn,
-                "session/set_config_option",
-                json!({"sessionId": session_id, "configId": config_id, "value": value}),
-                deadline,
-                cancel,
-            ) {
-                if matches!(error, AcpError::Cancelled) {
-                    return Err(error);
-                }
-                tracing::warn!(%error, config_id, value, "大脑会话设置失败");
-            }
-        }
+        let (session_id, created) = handshake(&mut conn, options, cancel, staff, true, &mut || {})?;
         Ok(Self {
-            conn,
+            conn: SessionLink::Owned(conn),
             session_id,
             created,
             questions: None,
             cwd: options.cwd.clone(),
             staff_shell: options.staff_shell.clone(),
+            stale_prompt: None,
         })
+    }
+
+    pub(crate) fn from_shared(
+        port: Port,
+        session_id: String,
+        created: Value,
+        cwd: PathBuf,
+        staff_shell: Option<PathBuf>,
+    ) -> Self {
+        Self {
+            conn: SessionLink::Shared(port),
+            session_id,
+            created,
+            questions: None,
+            cwd,
+            staff_shell,
+            stale_prompt: None,
+        }
+    }
+
+    pub(crate) fn is_shared(&self) -> bool {
+        matches!(self.conn, SessionLink::Shared(_))
     }
 
     pub fn set_question_host(&mut self, host: Option<super::questions::QuestionHost>) {
@@ -189,7 +198,9 @@ impl AcpSession {
         sink: &mut dyn FnMut(TraceItem),
         progress: &mut dyn FnMut(&TraceItem),
     ) -> Result<String, AcpError> {
+        self.drain_stale()?;
         let started = Instant::now();
+        let mut sent: Option<u64> = None;
         let staff_gate = self.staff_shell.clone().map(|bin| (bin, self.cwd.clone()));
         let mut merger = Merger::default();
         let mut stop_reason = None;
@@ -206,6 +217,7 @@ impl AcpSession {
                     super::content::session_prompt(&self.session_id, text, images),
                 )
                 .map_err(|_| AcpError::Closed)?;
+            sent = Some(id);
             let mut deadline = timeout.map(|limit| Instant::now() + limit);
             let mut tick = Instant::now();
             let mut reply = String::new();
@@ -314,6 +326,12 @@ impl AcpSession {
                 }
             }
         })();
+        if self.is_shared()
+            && stop_reason.is_none()
+            && matches!(result, Err(AcpError::Cancelled | AcpError::Timeout))
+        {
+            self.stale_prompt = sent;
+        }
         if let Some(questions) = &mut self.questions {
             questions.poll(&mut self.conn, true)?;
         }
@@ -332,44 +350,34 @@ impl AcpSession {
         result
     }
 
-    fn abort(&mut self) {
-        let _ = self
-            .conn
-            .notify("session/cancel", json!({"sessionId": self.session_id}));
-        self.conn.kill();
+    /// 上一轮被取消后，等它的响应回来，丢掉尾部通知，并拒绝它遗留的权限请求；
+    /// 否则这些尾巴会串进下一轮的回复。排不干说明适配器卡住了，让上层重建会话。
+    fn drain_stale(&mut self) -> Result<(), AcpError> {
+        let Some(old) = self.stale_prompt.take() else {
+            return Ok(());
+        };
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            match self.conn.recv(Duration::from_millis(100)) {
+                Ok(Incoming::Response { id, .. }) if id == old => return Ok(()),
+                Ok(Incoming::Request { id, .. }) => {
+                    let _ = self.conn.respond_error(&id, -32000, "cancelled");
+                }
+                Ok(_) | Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                Err(_) => return Err(AcpError::Closed),
+            }
+        }
+        Err(AcpError::Closed)
     }
-}
 
-fn call(
-    conn: &mut Connection,
-    method: &str,
-    params: Value,
-    deadline: Instant,
-    cancel: &AtomicBool,
-) -> Result<Value, AcpError> {
-    if cancel.load(Ordering::Relaxed) {
-        return Err(AcpError::Cancelled);
-    }
-    let id = conn
-        .send_request(method, params)
-        .map_err(|_| AcpError::Closed)?;
-    loop {
-        if cancel.load(Ordering::Relaxed) {
-            return Err(AcpError::Cancelled);
-        }
-        let wait = deadline.saturating_duration_since(Instant::now());
-        if wait.is_zero() {
-            return Err(AcpError::Timeout);
-        }
-        match conn.recv(wait.min(Duration::from_millis(200))) {
-            Ok(Incoming::Response { id: rid, result }) if rid == id => {
-                return result.map_err(|e| AcpError::Remote(e.to_string()));
+    fn abort(&mut self) {
+        match &mut self.conn {
+            // 共用连接上还有别的会话，只取消这一轮。
+            SessionLink::Shared(port) => port.cancel(),
+            SessionLink::Owned(conn) => {
+                let _ = conn.notify("session/cancel", json!({"sessionId": self.session_id}));
+                conn.kill();
             }
-            Ok(Incoming::Request { id, .. }) => {
-                let _ = conn.respond_error(&id, -32601, "unsupported");
-            }
-            Ok(_) | Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-            Err(_) => return Err(AcpError::Closed),
         }
     }
 }

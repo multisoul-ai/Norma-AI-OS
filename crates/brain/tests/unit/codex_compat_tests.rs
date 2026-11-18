@@ -18,7 +18,7 @@ fn loader_failure_is_visible_on_the_acp_channel() {
     let entry = dir.path().join("dist/index.js");
     std::fs::write(
         &entry,
-        "// command: stripShellPrefix(params.command)\n// method: \"thread/start\", params }\nthrow new Error('probe-load-failure');",
+        "// command: stripShellPrefix(params.command)\n// method: \"thread/start\", params }\nconst _hold = `const response = await this.codexClient.threadStart({\n      config: sessionConfig.config,`;\nthrow new Error('probe-load-failure');",
     )
     .unwrap();
     let adapter = Adapter::prepare(&entry, &[]).unwrap();
@@ -64,10 +64,7 @@ fn loader_preserves_authoritative_command_and_module_location() {
     )
     .expect("写包身份");
     let entry = dir.path().join("dist/index.js");
-    let source = r#"const params = {command: process.argv[2]};
-function stripShellPrefix() { return "lossy"; }
-function threadStart(params) { return { method: "thread/start", params }; }
-console.log(JSON.stringify({command: stripShellPrefix(params.command), thread: threadStart({cwd: "/p"}), url: import.meta.url}));"#;
+    let source = "const params = {command: process.argv[2]};\nfunction stripShellPrefix() { return \"lossy\"; }\nfunction threadStart(params) { return { method: \"thread/start\", params }; }\nconst _shared = `const response = await this.codexClient.threadStart({\n      config: sessionConfig.config,`;\nconsole.log(JSON.stringify({command: stripShellPrefix(params.command), thread: threadStart({cwd: \"/p\"}), url: import.meta.url}));";
     std::fs::write(&entry, source).expect("写适配器");
     let command = r#"/bin/zsh -lc "/opt/norma/bin/norma brain report --text '完成'""#;
     let adapter = Adapter::prepare(&entry, &[command.into()]).expect("准备兼容加载器");

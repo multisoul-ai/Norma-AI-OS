@@ -32,6 +32,20 @@ pub struct Connection {
     _adapter: Option<super::codex_compat::Adapter>,
 }
 
+pub(crate) struct Spawned {
+    pub child: Child,
+    pub stdin: ChildStdin,
+    pub stdout: std::process::ChildStdout,
+    pub(super) adapter: Option<super::codex_compat::Adapter>,
+}
+
+pub(crate) trait Rpc {
+    fn send_request(&mut self, method: &str, params: Value) -> io::Result<u64>;
+    fn respond(&mut self, id: &Value, result: Value) -> io::Result<()>;
+    fn respond_error(&mut self, id: &Value, code: i64, message: &str) -> io::Result<()>;
+    fn recv(&mut self, timeout: Duration) -> Result<Incoming, RecvTimeoutError>;
+}
+
 impl Connection {
     pub fn spawn(
         program: &Path,
@@ -40,31 +54,9 @@ impl Connection {
         env: &[(String, String)],
         kind: crate::backend::BackendKind,
     ) -> io::Result<Self> {
-        let adapter = (kind == crate::backend::BackendKind::Codex)
-            .then(|| super::codex_compat::Adapter::prepare(program, args))
-            .transpose()?;
-        let (program, args) = adapter.as_ref().map_or((program, args), |adapter| {
-            (adapter.program.as_path(), adapter.args.as_slice())
-        });
-        let mut command = Command::new(program);
-        command
-            .args(args)
-            .current_dir(cwd)
-            .envs(env.iter().map(|(k, v)| (k, v)))
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(adapter_stderr());
-        super::claude_auth::configure(&mut command, kind)?;
-        let mut child = command.spawn()?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| io::Error::other("no stdin"))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| io::Error::other("no stdout"))?;
+        let spawned = spawn_child(program, args, cwd, env, kind)?;
         let (tx, rx) = mpsc::channel();
+        let stdout = spawned.stdout;
         std::thread::spawn(move || {
             for line in BufReader::new(stdout).lines() {
                 let Ok(line) = line else { break };
@@ -77,11 +69,11 @@ impl Connection {
             }
         });
         Ok(Self {
-            child,
-            stdin,
+            child: spawned.child,
+            stdin: spawned.stdin,
             rx,
             next_id: 0,
-            _adapter: adapter,
+            _adapter: spawned.adapter,
         })
     }
 
@@ -142,7 +134,64 @@ fn adapter_stderr() -> Stdio {
         .map_or_else(Stdio::null, Stdio::from)
 }
 
-fn parse(line: &str) -> Option<Incoming> {
+pub(crate) fn spawn_child(
+    program: &Path,
+    args: &[String],
+    cwd: &Path,
+    env: &[(String, String)],
+    kind: crate::backend::BackendKind,
+) -> io::Result<Spawned> {
+    let adapter = (kind == crate::backend::BackendKind::Codex)
+        .then(|| super::codex_compat::Adapter::prepare(program, args))
+        .transpose()?;
+    let (program, args) = adapter.as_ref().map_or((program, args), |adapter| {
+        (adapter.program.as_path(), adapter.args.as_slice())
+    });
+    let mut command = Command::new(program);
+    command
+        .args(args)
+        .current_dir(cwd)
+        .envs(env.iter().map(|(k, v)| (k, v)))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(adapter_stderr());
+    super::claude_auth::configure(&mut command, kind)?;
+    let mut child = command.spawn()?;
+    let stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| io::Error::other("no stdin"))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| io::Error::other("no stdout"))?;
+    Ok(Spawned {
+        child,
+        stdin,
+        stdout,
+        adapter,
+    })
+}
+
+impl Rpc for Connection {
+    fn send_request(&mut self, method: &str, params: Value) -> io::Result<u64> {
+        Connection::send_request(self, method, params)
+    }
+
+    fn respond(&mut self, id: &Value, result: Value) -> io::Result<()> {
+        Connection::respond(self, id, result)
+    }
+
+    fn respond_error(&mut self, id: &Value, code: i64, message: &str) -> io::Result<()> {
+        Connection::respond_error(self, id, code, message)
+    }
+
+    fn recv(&mut self, timeout: Duration) -> Result<Incoming, RecvTimeoutError> {
+        Connection::recv(self, timeout)
+    }
+}
+
+pub(crate) fn parse(line: &str) -> Option<Incoming> {
     let value: Value = serde_json::from_str(line).ok()?;
     let method = value
         .get("method")

@@ -45,7 +45,7 @@ enum StaffWithdrawLaunch {
 import json, sqlite3, sys
 from pathlib import Path
 root, want = Path(sys.argv[1]), int(sys.argv[2])
-for db in root.glob('projects/**/*.sqlite'):
+for db in root.glob('desktop-canvases/*.sqlite'):
     try:
         row = sqlite3.connect(f'file:{db}?mode=ro', uri=True).execute('select json from canvas_snapshots where id=1').fetchone()
     except sqlite3.Error:
@@ -96,19 +96,27 @@ public enum StaffWithdrawNewCard {
                 return workers.count == 1 && workers[0]["reused"] as? Bool != true && !running && workers[0]["card_id"] is Int
             }
             let node = ((try StaffFixture.tasks(root).first?["workers"] as? [[String: Any]])?.first?["card_id"] as? Int) ?? 0
+            guard let dataRoot = session.dataRoot else { throw E2EError.env("缺少隔离数据根目录") }
+            // 先确认这张卡已经写进画布快照，后面“消失”才不是读到一份还没保存的空快照。
+            try await StaffWithdrawLaunch.waitFor("新卡已写进画布快照") {
+                StaffWithdrawLaunch.canvasContains(dataRoot, node: node)
+            }
             try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -800)
             try await session.visualClick("点击「新开撤回」这行右侧的撤回按钮")
             try await StaffWithdrawLaunch.waitFor("Worker 记为中断") {
                 let phase = (try StaffFixture.tasks(root).first?["workers"] as? [[String: Any]])?.first?["phase"] as? [String: String]
                 return phase?["Finished"] == "Interrupted"
             }
-            guard let dataRoot = session.dataRoot else { throw E2EError.env("缺少隔离数据根目录") }
             try await StaffWithdrawLaunch.waitFor("画布快照里这张卡消失") {
                 !StaffWithdrawLaunch.canvasContains(dataRoot, node: node)
             }
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "new-gone", text: "对话里有一行写明用户撤回了派给 Grace 的新开撤回。画布上没有这张刚派发的 Grace 卡片。没有错误提示。")
-            ]), "01-new-gone.png")
+                VisualCriterion(id: "withdraw-note", text: "对话里有一张 Grace 已中断的卡，写明用户撤回了派给 Grace 的新开撤回。撤回按钮已消失，没有错误提示。")
+            ]), "01-withdraw-note.png")
+            try await session.visualClick("点击右上角的「返回画布」按钮回到画布")
+            try session.save(try await session.visualCheck([
+                VisualCriterion(id: "new-gone", text: "画布上没有刚派发的 Grace 卡片，画布是空的。没有错误提示。")
+            ]), "02-new-gone.png")
             return "新开的卡撤回后从画布消失"
         }
     }
@@ -150,12 +158,18 @@ public enum StaffWithdrawReuse {
                 return workers.count == 2 && phase?["Finished"] == "Interrupted"
             }
             guard let dataRoot = session.dataRoot else { throw E2EError.env("缺少隔离数据根目录") }
+            // 给画布快照留出刷新的时间，再要求这张复用的卡仍在。
+            try await Task.sleep(nanoseconds: 4_000_000_000)
             guard StaffWithdrawLaunch.canvasContains(dataRoot, node: node) else {
                 throw E2EError.product("复用的卡 \(node) 被关掉了")
             }
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "reuse-kept", text: "对话里有一行写明用户撤回了派给 Grace 的再派一次。画布上 Grace 的卡片还在，没有被关掉。")
-            ]), "01-reuse-kept.png")
+                VisualCriterion(id: "withdraw-note", text: "对话里有一张 Grace 已中断的卡，写明用户撤回了派给 Grace 的再派一次。撤回按钮已消失，没有错误提示。")
+            ]), "01-withdraw-note.png")
+            try await session.visualClick("点击右上角的「返回画布」按钮回到画布")
+            try session.save(try await session.visualCheck([
+                VisualCriterion(id: "reuse-kept", text: "画布上 Grace 的卡片还在，没有被关掉。没有错误提示。")
+            ]), "02-reuse-kept.png")
             return "复用的卡撤回后仍在画布上"
         }
     }

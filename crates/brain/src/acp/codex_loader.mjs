@@ -8,6 +8,11 @@ const target = pathToFileURL(entry).href;
 const patches = [
   ["command: stripShellPrefix(params.command)", "command: {normaShellCommand: params.command}"],
   ['method: "thread/start", params }', 'method: "thread/start", params: { ...params, ephemeral: true } }'],
+  // 共用进程时，每个会话的 token 从 _meta.norma.config 浅合并进 thread/start，不进进程环境。
+  [
+    "const response = await this.codexClient.threadStart({\n      config: sessionConfig.config,",
+    "const response = await this.codexClient.threadStart({\n      config: { ...sessionConfig.config, ...(((request._meta || {}).norma || {}).config || {}) },",
+  ],
 ];
 try {
 const { registerHooks } = await import("node:module");

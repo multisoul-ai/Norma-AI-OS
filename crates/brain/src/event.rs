@@ -228,6 +228,10 @@ impl Trigger {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TaskUpdate {
     Queued,
+    /// 4 个 Claude 会话都在忙，这一轮在等空位。面板显示「排队中」。
+    SessionWait,
     Started,
-    Finished { failed: bool },
+    Finished {
+        failed: bool,
+    },
 }

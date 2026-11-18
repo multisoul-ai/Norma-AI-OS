@@ -3,13 +3,13 @@ use super::staff_shell::{command_text, read_inside_project, staff_command_allowe
 use super::{
     client::AcpError,
     trace::{ToolTrace, TraceItem, TraceKind},
-    wire::Connection,
+    wire::Rpc,
 };
 use serde_json::{json, Value};
 use std::path::Path;
 
 pub(super) fn answer(
-    conn: &mut Connection,
+    conn: &mut dyn Rpc,
     id: &Value,
     method: &str,
     params: &Value,
