@@ -59,7 +59,12 @@ fn store_with_finished_worker(agent: &str) -> (tempfile::TempDir, TaskStore) {
 fn follow_up_to_the_same_agent_is_dispatched_directly() {
     let (_dir, store) = store_with_finished_worker("Simon");
     let (task, outcome) = store
-        .assign("ws", assign_op("Simon", "Add the missing test"), true)
+        .assign(
+            "ws",
+            assign_op("Simon", "Add the missing test"),
+            true,
+            false,
+        )
         .expect("assign");
     assert_eq!(
         outcome,
@@ -84,7 +89,12 @@ fn follow_up_to_the_same_agent_is_dispatched_directly() {
 fn assign_is_downgraded_to_a_proposal_when_settings_ask() {
     let (_dir, store) = store_with_finished_worker("Simon");
     let (task, outcome) = store
-        .assign("ws", assign_op("Simon", "Add the missing test"), false)
+        .assign(
+            "ws",
+            assign_op("Simon", "Add the missing test"),
+            false,
+            false,
+        )
         .expect("assign");
     assert_eq!(
         outcome,
@@ -112,11 +122,11 @@ fn assign_is_downgraded_to_a_proposal_when_settings_ask() {
     );
 }
 
-/// 场景：用户撤回（或 Worker 失败）后，幕僚不能把它当成「刚完成」的后续来源再自动重派。
-/// 数据构造：Simon 的 Worker 结果为 Interrupted；auto=true，assign 给 Simon 一条普通后续。
-/// 预期结果：降级为未批准提议，原因是不是后续，自动派发计数仍为 0。
+/// 场景：Worker 被中断不再单独挡住自动派发；事件轮只看风险、开关和次数。
+/// 数据构造：Simon 的 Worker 结果改为 Interrupted；auto=true，未点名，内容无风险。
+/// 预期结果：直接派发，计数变成 1。撤回后不立刻重派由「不唤醒幕僚」保证，不在这条策略里。
 #[test]
-fn interrupted_worker_is_not_a_follow_up_source() {
+fn interrupted_worker_does_not_block_an_unnamed_dispatch() {
     let (_dir, store) = store_with_finished_worker("Simon");
     store
         .update("ws", "a", |task| {
@@ -125,17 +135,48 @@ fn interrupted_worker_is_not_a_follow_up_source() {
         })
         .expect("interrupt");
     let (task, outcome) = store
-        .assign("ws", assign_op("Simon", "Add the missing test"), true)
+        .assign(
+            "ws",
+            assign_op("Simon", "Add the missing test"),
+            true,
+            false,
+        )
         .expect("assign");
     assert_eq!(
         outcome,
-        AssignOutcome::Proposed {
-            proposal_id: 2,
-            reason: ProposeReason::NotFollowUp
-        },
-        "撤回后的 Agent 不能被自动重派"
+        AssignOutcome::Dispatch { proposal_id: 2 },
+        "中断不是降级原因"
     );
-    assert_eq!(task.auto_dispatches, 0, "check: task.auto_dispatches");
+    assert_eq!(task.auto_dispatches, 1, "事件轮的直接派发计入次数");
+}
+
+/// 场景：用户点名后，高风险也直接派，不看开关。
+/// 数据构造：用户回合进行中；named=true；auto=false；指令含 git push。
+/// 预期结果：已批准的派发，计数不加（用户轮不占事件额度）。
+#[test]
+fn named_user_turn_dispatches_risky_work_even_when_the_switch_is_off() {
+    let (_dir, store) = store_with_finished_worker("Simon");
+    store
+        .begin_turn("ws", "a", norma::protocol::ReplyTrigger::User)
+        .expect("turn");
+    let (task, outcome) = store
+        .assign(
+            "ws",
+            assign_op("Grace", "git push the fix to main"),
+            false,
+            true,
+        )
+        .expect("assign");
+    assert_eq!(
+        outcome,
+        AssignOutcome::Dispatch { proposal_id: 2 },
+        "点名就是授权"
+    );
+    assert_eq!(task.auto_dispatches, 0, "用户轮不计数");
+    assert!(
+        task.proposals.iter().any(|p| p.id == 2 && p.approved),
+        "提议应已批准"
+    );
 }
 
 /// 场景：内容命中高风险关键词，即使设置为自动也只能提议。
@@ -145,7 +186,12 @@ fn interrupted_worker_is_not_a_follow_up_source() {
 fn risky_assign_is_downgraded_even_when_auto() {
     let (_dir, store) = store_with_finished_worker("Simon");
     let (task, outcome) = store
-        .assign("ws", assign_op("Simon", "git push the fix to main"), true)
+        .assign(
+            "ws",
+            assign_op("Simon", "git push the fix to main"),
+            true,
+            false,
+        )
         .expect("assign");
     assert_eq!(
         outcome,
@@ -161,18 +207,20 @@ fn risky_assign_is_downgraded_even_when_auto() {
     );
 }
 
-/// 场景：一个任务里连续自动派发，第 4 次要被拦下；用户采用一条提议后计数清零，又可以自动派。
-/// 数据构造：auto=true；直接派发 3 次（用 approve 之外的方式不会清零，所以只靠 assign）。
-/// 预期结果：前 3 次派发、第 4 次原因为次数上限；用户采用后计数为 0，下一次又能直接派发。
+/// 场景：事件轮连续自动派发，第 5 次之后转提议；用户发话清零，采用提议不清零。
+/// 数据构造：上限是 5。前 5 次 assign 的 proposal id 从 2 到 6（第 1 条是夹具里已采用的提议）。
+/// 第 6 次新派发的 id 是 7。然后 approve 那条提议，计数应仍为 5；再写入一条用户消息后变为 0。
+/// 预期结果：前 5 次直接派发，第 6 次原因是次数上限；采用不清零，用户消息清零后又能直接派。
 #[test]
-fn automatic_dispatches_are_capped_until_the_user_adopts_something() {
+fn automatic_dispatches_stop_after_five_until_the_user_speaks() {
     let (_dir, store) = store_with_finished_worker("Simon");
-    for expected in 2..=4 {
+    for expected in 2..=6 {
         let (_, outcome) = store
             .assign(
                 "ws",
                 assign_op("Simon", &format!("Follow up {expected}")),
                 true,
+                false,
             )
             .expect("assign");
         assert_eq!(
@@ -180,35 +228,47 @@ fn automatic_dispatches_are_capped_until_the_user_adopts_something() {
             AssignOutcome::Dispatch {
                 proposal_id: expected
             },
-            "check: outcome"
+            "第 {} 次仍应直接派发",
+            expected - 1
         );
     }
     let (task, outcome) = store
-        .assign("ws", assign_op("Simon", "One more"), true)
-        .expect("fourth assign");
+        .assign("ws", assign_op("Simon", "One more"), true, false)
+        .expect("sixth assign");
     assert_eq!(
         outcome,
         AssignOutcome::Proposed {
-            proposal_id: 5,
+            proposal_id: 7,
             reason: ProposeReason::LimitReached
         },
-        "check: outcome"
+        "第 5 次之后转提议"
     );
-    assert_eq!(task.auto_dispatches, 3, "check: task.auto_dispatches");
+    assert_eq!(task.auto_dispatches, 5, "被拦住的那次不继续加计数");
     let task = store
-        .approve("ws", "a", 5, None, None)
+        .approve("ws", "a", 7, None, None)
         .expect("user adopts");
-    assert_eq!(
-        task.auto_dispatches, 0,
-        "a user decision resets the counter"
-    );
+    assert_eq!(task.auto_dispatches, 5, "采用提议不清零");
+    store
+        .execute(
+            "ws",
+            StaffOp::Message {
+                task_id: "a".into(),
+                text: "继续".into(),
+            },
+        )
+        .expect("user message");
+    let task = store.get("ws", "a").expect("task");
+    assert_eq!(task.auto_dispatches, 0, "用户发话清零");
+    store
+        .begin_turn("ws", "a", norma::protocol::ReplyTrigger::Event)
+        .expect("event turn");
     let (_, outcome) = store
-        .assign("ws", assign_op("Simon", "After the reset"), true)
+        .assign("ws", assign_op("Simon", "After the reset"), true, false)
         .expect("assign after reset");
     assert_eq!(
         outcome,
-        AssignOutcome::Dispatch { proposal_id: 6 },
-        "check: outcome"
+        AssignOutcome::Dispatch { proposal_id: 8 },
+        "清零后又能直接派发"
     );
 }
 
@@ -279,7 +339,7 @@ fn follow_up_by_engine_id_dispatches_and_keeps_the_model() {
         },
         other => other,
     };
-    let (task, outcome) = store.assign("ws", op, true).expect("assign");
+    let (task, outcome) = store.assign("ws", op, true, false).expect("assign");
     assert_eq!(
         outcome,
         AssignOutcome::Dispatch { proposal_id: 2 },

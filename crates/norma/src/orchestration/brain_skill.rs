@@ -34,27 +34,28 @@ Staff works on exactly one task: the task of the current turn. Replies to the us
 plain text in the turn, not through a command.
 
 - `agents`: list the Agents available in this project.
-- `<agent>` in `task propose` / `task assign` is an engine id such as `claude`, `codex` or
-  `opencode`, not a person's name: pick the engine and optionally `--model <model>`; the host opens
-  a new card for it. Omit `--model` to use that CLI's default. An unavailable engine fails with
-  `staff.agent_unavailable` and lists the engines you can use; choose one of those and send again.
-- `task propose <task_id> <agent> --title <t> --prompt <full instruction and done criteria> --why <w> [--model <m>]`:
-  propose work; the user adopts it before anything runs. `--title` and `--why` together stay within
-  50 characters.
-- `task assign <task_id> <agent> --title <t> --prompt <p> --why <w> [--model <m>]`: dispatch follow-up work.
-  It runs immediately only when all of these hold; otherwise the host turns it into a proposal and
-  the receipt says `status: proposed` with a `reason`:
-  1. the user's "follow-up tasks" setting is Automatic (`autonomy_ask` means it is not),
-  2. the target engine is the one that just finished work in this task (`not_follow_up`),
-  3. fewer than 3 automatic dispatches since the user last adopted something (`limit_reached`),
-  4. the instruction is not high risk (`risk:<category>`).
+- When the user names a person, `<agent>` in `task assign` / `task propose` is that roster name
+  or speech alias. Otherwise `<agent>` is an engine id such as `claude`, `codex` or `opencode`;
+  the host picks a free person of that engine. Omit `--model` to use that CLI's default. An
+  unknown name fails with `staff.agent_unavailable` and lists the engines you can use; choose one
+  and send again.
+- Default to `task assign`. Use `task propose` only for high-risk work when the user did not name
+  anyone, or when the user asked to see the work first. `--title` and `--why` together stay within
+  50 characters. `task propose <task_id> <agent> --title <t> --prompt <full instruction and done criteria> --why <w> [--model <m>]`.
+- `task assign <task_id> <agent> --title <t> --prompt <p> --why <w> [--model <m>]`: dispatch now.
+  The host turns it into a proposal when the receipt says `status: proposed` with a `reason`:
+  1. this is not a named user turn and staff auto-dispatch is off (`autonomy_ask`),
+  2. the user did not name anyone and the instruction is high risk (`risk:<category>`),
+  3. this turn was not started by the user and staff already auto-dispatched 5 times since the
+     user last spoke (`limit_reached`).
+  Naming someone on a user turn dispatches directly, including high-risk work.
 - `task assign <task_id> <agent> --worker <dispatch_id> --title <t> --prompt <p> --why <w>`: hand
   more work to a Worker that already ran in this task (`dispatch_id` and `agent` come from
   `workers` in the task snapshot). The Worker must have finished its last run; it continues on the
   same card and no new card is created. Use it, not a plain `assign`, whenever the user wants that
-  Worker to carry on. When the user spoke this turn it runs immediately unless the instruction is
-  high risk; otherwise it follows rules 1 and 4 above. It does not count toward the 3 automatic
-  dispatches. A closed card fails with `staff.worker_card_gone`: use a plain `assign` instead.
+  Worker to carry on. It follows the same three reasons above. A user turn does not count toward
+  the 5 automatic dispatches; an event turn does. A closed card fails with `staff.worker_card_gone`:
+  use a plain `assign` instead. A refused shell command means dispatch a Worker; do not rephrase it.
 - `task phase <task_id> active|merging|done`: move the task forward. Never override a phase the
   user set by hand.
 - `task archive <task_id>`: archive a task, only after it is done.
@@ -71,7 +72,7 @@ plain text in the turn, not through a command.
 - `context --ref <context_ref_json>`: read a shared-context reference; it does not authorize
   anything.
 
-High risk always means propose, never assign: pushing, merging, deploying or publishing; deleting
+High risk without a named person means propose, not assign: pushing, merging, deploying or publishing; deleting
 data or any irreversible operation; secrets, credentials, privilege changes or anything outside
 the project directory; contacting people outside, spending money, or anything the user said they
 want to see first.

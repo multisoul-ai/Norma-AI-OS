@@ -7,6 +7,7 @@ mod codex_compat;
 mod content;
 mod permission;
 pub mod questions;
+mod staff_shell;
 pub mod trace;
 pub mod wire;
 

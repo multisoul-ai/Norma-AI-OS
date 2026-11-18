@@ -1,7 +1,7 @@
 //! 幕僚自己派活：宿主传入自主权开关，由策略决定直接派发还是降级为提议。
-use super::policy::{decide_assign, decide_continue, AssignContext, AssignDecision, ProposeReason};
+use super::policy::{decide_dispatch, AssignDecision, DispatchContext, ProposeReason};
 use super::TaskStore;
-use norma::protocol::{StaffOp, StaffPart, StaffProposal, Task, WorkerOutcome};
+use norma::protocol::{StaffOp, StaffPart, StaffProposal, Task};
 use std::io;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -16,12 +16,14 @@ pub enum AssignOutcome {
 }
 
 impl TaskStore {
-    /// `auto` 是设置里的「后续任务」是否为「自动」。`op` 必须是 `StaffOp::Assign`。
+    /// `auto` 是幕僚开关 `staff_auto_dispatch`。`named` 表示这次派活点了名册里的人。
+    /// `op` 必须是 `StaffOp::Assign`。
     pub fn assign(
         &self,
         workspace: &str,
         op: StaffOp,
         auto: bool,
+        named: bool,
     ) -> io::Result<(Task, AssignOutcome)> {
         let StaffOp::Assign {
             task_id,
@@ -42,35 +44,19 @@ impl TaskStore {
         let mut decision = AssignDecision::Dispatch;
         let task = self.update(workspace, &task_id, |task| {
             let text = format!("{title}\n{prompt}\n{why}");
-            let last_finished = task
-                .workers
-                .iter()
-                .rev()
-                .find(|worker| worker.outcome == Some(WorkerOutcome::Succeeded))
-                .map(|worker| {
-                    if worker.is_agent(&agent) {
-                        agent.as_str()
-                    } else {
-                        worker.agent.as_str()
-                    }
-                });
             let user_turn = task.user_turn_running();
-            // 用户发话触发的续派不计数；其余直接派发都计入自动次数。
-            let counts = worker.is_none() || !user_turn;
-            decision = match &worker {
-                Some(dispatch_id) => {
-                    check_continuable(task, dispatch_id, &agent)?;
-                    decide_continue(auto, user_turn, task.auto_dispatches, &text)
-                }
-                None => {
-                    let context = AssignContext {
-                        auto,
-                        last_finished_agent: last_finished,
-                        auto_dispatches: task.auto_dispatches,
-                    };
-                    decide_assign(&context, &agent, &text)
-                }
-            };
+            if let Some(dispatch_id) = &worker {
+                check_continuable(task, dispatch_id, &agent)?;
+            }
+            // 次数只记事件轮。用户轮在发话时已经清零，这次派活不再占用额度。
+            let counts = !user_turn;
+            decision = decide_dispatch(&DispatchContext {
+                user_turn,
+                named: user_turn && named,
+                auto_dispatch: auto,
+                auto_dispatches: task.auto_dispatches,
+                text: &text,
+            });
             let dispatch = decision == AssignDecision::Dispatch;
             proposal_id = task.proposals.iter().map(|p| p.id).max().unwrap_or(0) + 1;
             task.proposals.push(StaffProposal {

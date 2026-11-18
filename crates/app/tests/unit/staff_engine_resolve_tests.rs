@@ -285,3 +285,62 @@ fn staff_assignable_types_follow_registered_engines_not_canvas_cards() {
         }
     });
 }
+
+/// 场景：语音别名能选中名册里的人；引擎 id 即使原话里写了别人的名字也不算点名。
+///
+/// 数据构造：Bella / Claude / 启用，语音别名「小王」。编排里 Claude 已注册。
+/// 执行过程：用别名解析执行者，再用原话判断是否点名。
+/// 预期结果：
+///   - 正断言：「小王」解析到 Bella；「让小王删一下」算点名
+///   - 负断言：「claude」仍走引擎挑选且不算点名；「用 claude 做」对 Bella 也不算点名
+#[test]
+fn speech_alias_selects_the_person_but_engine_ids_are_unnamed() {
+    let mut test = TestAppContext::single();
+    let (session, cx) = test.add_window_view(|_, cx| {
+        MultisoulApp::new_with_pty_factory(
+            cx,
+            Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+        )
+    });
+    session.update(cx, |app, _| {
+        app.orchestration_settings
+            .set_integrations_for_test(vec![ready(OrchestrationProvider::Claude)]);
+        let mut bella = definition(2, "Bella", canvas::AgentProfile::Claude, true);
+        bella.speech_alias = Some("小王".into());
+        app.agent_definitions
+            .replace_definitions_for_test(vec![bella]);
+        let picked = app
+            .resolve_staff_entry("小王")
+            .expect("speech alias must resolve");
+        assert_eq!(
+            picked.definition_id, 2,
+            "别名必须落到 Bella，不能另开引擎卡"
+        );
+        assert_eq!(picked.name, "Bella", "选中的仍是名册名");
+        let named = |app: &MultisoulApp, id: &str, words: &str| {
+            app.roster_entry_if_named_target(id).is_some_and(|entry| {
+                brain::staff::naming::named_in(
+                    words,
+                    brain::staff::naming::NameRef {
+                        name: &entry.name,
+                        speech_alias: entry.speech_alias.as_deref(),
+                    },
+                )
+            })
+        };
+        assert!(named(app, "小王", "让小王删一下"), "原话里的别名算点名");
+        assert!(named(app, "Bella", "让 Bella 合并"), "原话里的名册名算点名");
+        let engine = app
+            .resolve_staff_entry("claude")
+            .expect("engine id still resolves");
+        assert_eq!(engine.definition_id, 2, "引擎 id 仍挑这张 Claude 卡");
+        assert!(
+            app.roster_entry_if_named_target("claude").is_none(),
+            "引擎 id 按没点名处理，即使原话写了人名"
+        );
+        assert!(
+            !named(app, "Bella", "用 claude 做"),
+            "只说引擎名不算点了 Bella"
+        );
+    });
+}

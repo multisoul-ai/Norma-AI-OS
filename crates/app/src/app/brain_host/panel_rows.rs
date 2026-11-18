@@ -333,7 +333,7 @@ impl MultisoulApp {
         self.update_brain_settings_with(
             move |settings| {
                 if key == ASSIGN_KEY {
-                    settings.autonomy.assign_followups = false;
+                    settings.autonomy.staff_auto_dispatch = false;
                 } else if !settings
                     .always_ask
                     .iter()
