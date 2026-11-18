@@ -13,6 +13,10 @@ impl Dispatcher {
             self.wake_task(scope, task_id, TriggerKind::UserRequest);
             return None;
         }
+        if let BrainEventKind::WorkerRestarted { task_id } = event {
+            self.wake_task(scope, task_id, TriggerKind::AgentFinished);
+            return None;
+        }
         match recorded
             .map(Ok)
             .unwrap_or_else(|| self.tasks.record_event(&scope.workspace_id, event))

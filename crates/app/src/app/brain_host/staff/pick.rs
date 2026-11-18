@@ -1,5 +1,25 @@
 use agent::AgentRosterEntry;
 
+/// 一张可以复用的卡。用户自己开的卡只有进程身份能认领时才算。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct CardCandidate {
+    pub node: u64,
+    pub name: String,
+    pub busy: bool,
+    pub user_opened: bool,
+    pub claimable: bool,
+}
+
+/// 点名时优先用同名空闲卡。正忙，或用户开的卡认领不了，就不当成可复用。
+pub(super) fn reusable_card<'a>(
+    name: &str,
+    cards: &'a [CardCandidate],
+) -> Option<&'a CardCandidate> {
+    cards.iter().find(|card| {
+        card.name.eq_ignore_ascii_case(name) && !card.busy && (!card.user_opened || card.claimable)
+    })
+}
+
 /// 先挑不忙的，再挑画布上同名卡最少的；并列时保持名册顺序。
 pub(super) fn least_loaded<'a>(
     found: &mut [&'a AgentRosterEntry],
@@ -12,6 +32,45 @@ pub(super) fn least_loaded<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 场景：点名 Grace 时画布上已有她的卡。
+    /// 数据构造：一张空闲的幕僚卡、一张正忙的同名卡、一张用户开的但没有进程身份的卡。
+    /// 执行过程：按名字找可复用的卡。
+    /// 预期结果：用空闲的那张；忙的和认领不了的都跳过。
+    #[test]
+    fn named_reuse_skips_busy_and_unclaimable_cards() {
+        let cards = [
+            CardCandidate {
+                node: 1,
+                name: "Grace".into(),
+                busy: true,
+                user_opened: false,
+                claimable: true,
+            },
+            CardCandidate {
+                node: 2,
+                name: "Grace".into(),
+                busy: false,
+                user_opened: true,
+                claimable: false,
+            },
+            CardCandidate {
+                node: 3,
+                name: "Grace".into(),
+                busy: false,
+                user_opened: false,
+                claimable: true,
+            },
+        ];
+        let picked = reusable_card("grace", &cards).expect("idle card");
+        assert_eq!(picked.node, 3, "空闲的幕僚卡可以复用");
+        assert!(reusable_card("Alan", &cards).is_none(), "没有同名卡就新开");
+        let only_busy = [cards[0].clone()];
+        assert!(
+            reusable_card("Grace", &only_busy).is_none(),
+            "正忙就新开，不抢正在跑的卡"
+        );
+    }
 
     fn entry(name: &str, busy: bool) -> AgentRosterEntry {
         AgentRosterEntry {

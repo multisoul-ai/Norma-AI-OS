@@ -1,7 +1,11 @@
 use super::*;
-use crate::app::staff::{DeliveryStage, PendingWorker};
 use agent::context::ContextOperation;
 use norma::protocol::{StaffProposal, Worker};
+
+/// 新开的卡 `card` 是 None。复用时记下改绑前的编号，绑失败就改回去；用户自己开的卡没有旧编号。
+struct ReservedCard {
+    card: Option<Option<String>>,
+}
 
 impl MultisoulApp {
     pub(super) fn dispatch_staff_worker(
@@ -55,7 +59,7 @@ impl MultisoulApp {
                     app.reserve_staff_worker(&proposal, prompt, cx).map_err(agent::AdapterError::Rejected)
                 }).map_err(|error| error.to_string())
             }).map_err(|_| "staff.invalid_source".to_owned())??;
-            let (worker, prompt) = reserved;
+            let (worker, prompt, reused) = reserved;
             let node = worker.card_id.expect("host reserved card");
             let dispatch = worker.dispatch_id.clone();
             let worker_agent = worker.agent.clone();
@@ -66,21 +70,36 @@ impl MultisoulApp {
             let bound = match bound {
                 Ok(task) => task,
                 Err(error) => {
-                    let _ = entity.update(cx, |app, cx| { app.runtime.remove_node(node); app.notify_staff(cx); });
+                    let _ = entity.update(cx, |app, cx| {
+                        app.release_reserved_card(node, &reused);
+                        app.notify_staff(cx);
+                    });
                     return Err(error.to_string());
                 }
             };
             let prepared = entity.update(cx, |app, cx| {
                 app.check_staff_source(&token, &scope)?;
                 app.receive_staff_tasks(vec![bound], cx);
+                if reused.card.is_some() {
+                    app.brain.own_prompts.remember(&prompt);
+                    app.arm_staff_delivery(node, dispatch.clone(), prompt.clone(), true);
+                    app.tick_staff_workers(Instant::now(), cx);
+                    app.mark_canvas_dirty();
+                    app.mark_session_dirty();
+                    app.notify_staff(cx);
+                    return Ok(None);
+                }
                 // Recheck effective restrictions immediately before accepting the launch.
                 context.execute_with_state(ContextOperation::DispatchTask, None, |_| {
                     app.runtime.prepare_native_agent_terminal(node, 80, 24)
                         .map_err(|error| agent::AdapterError::Failed(error.to_string()))
-                }).map_err(|error| error.to_string())
+                }).map(Some).map_err(|error| error.to_string())
             }).map_err(|_| "staff.invalid_source".to_owned()).and_then(|result| result);
             let result = match prepared {
-                Ok(launch) => {
+                Ok(None) => {
+                    return Ok(serde_json::json!({"task":task_id,"node_id":node,"dispatch_id":dispatch,"status":"starting"}).to_string());
+                }
+                Ok(Some(launch)) => {
                     let run = launch.run_id().to_owned();
                     let spawned = cx.background_executor().spawn(async move { launch.spawn() }).await;
                     entity.update(cx, |app, cx| {
@@ -88,11 +107,7 @@ impl MultisoulApp {
                         let live = spawned.and_then(|prepared| prepared.into_live());
                         app.runtime.complete_native_agent_terminal(node, &run, live).map_err(|error| error.to_string())?;
                         app.brain.own_prompts.remember(&prompt);
-                        app.staff.pending.insert(node, PendingWorker {
-                            dispatch: dispatch.clone(),
-                            prompt,
-                            stage: DeliveryStage::Starting { since: Instant::now(), grace_spent: false },
-                        });
+                        app.arm_staff_delivery(node, dispatch.clone(), prompt, false);
                         app.tick_staff_workers(Instant::now(), cx);
                         app.mark_canvas_dirty();
                         app.mark_session_dirty();
@@ -109,7 +124,7 @@ impl MultisoulApp {
                     outcome: Outcome::Failed, excerpt: "staff.worker_failed".into(), from_result: true,
                 }};
                 if entity.update(cx, |app, cx| {
-                    app.staff.pending.remove(&node);
+                    app.staff.clocks.remove(&node);
                     app.staff.events.borrow_mut().push_back(failure.clone());
                     app.save_staff_events(store.clone(), cx);
                     app.notify_staff(cx);
@@ -145,18 +160,33 @@ impl MultisoulApp {
         proposal: &StaffProposal,
         prompt: String,
         cx: &mut Context<Self>,
-    ) -> Result<(Worker, String), String> {
+    ) -> Result<(Worker, String, ReservedCard), String> {
         let entry = self.resolve_staff_entry(&proposal.agent)?;
-        let area = self.mobile_canvas_area(None);
-        let zoom = self.runtime.document.viewport.zoom;
-        let bounds = self.next_tiled_node_bounds_for_area(area, zoom);
         let dispatch = uuid::Uuid::new_v4().to_string();
-        let profile =
-            crate::app::agent_runtime::command_support::canvas_agent_profile(entry.profile);
-        let node =
-            self.runtime
-                .create_staff_worker(profile, entry.name.clone(), bounds, dispatch.clone());
-        self.apply_layout_for_new_node_for_area(node, area, zoom);
+        let named = self.roster_entry_if_named_target(&proposal.agent).is_some();
+        let (node, reused) = if named {
+            if let Some(existing) = self.reusable_named_node(&entry.name) {
+                let previous = self.runtime.staff_dispatch_id(existing).map(str::to_owned);
+                self.runtime
+                    .rebind_staff_dispatch(existing, dispatch.clone());
+                (
+                    existing,
+                    ReservedCard {
+                        card: Some(previous),
+                    },
+                )
+            } else {
+                (
+                    self.open_staff_card(&entry, &dispatch)?,
+                    ReservedCard { card: None },
+                )
+            }
+        } else {
+            (
+                self.open_staff_card(&entry, &dispatch)?,
+                ReservedCard { card: None },
+            )
+        };
         self.notify_staff(cx);
         let mut worker = Worker::new(
             &entry.name,
@@ -166,10 +196,74 @@ impl MultisoulApp {
             &dispatch,
         );
         worker.launch_prompt = prompt.clone();
+        worker.reused = reused.card.is_some();
         if let Some(model) = proposal.model.clone() {
             self.runtime.set_staff_model(node, model);
         }
-        Ok((worker, prompt))
+        Ok((worker, prompt, reused))
+    }
+
+    fn open_staff_card(
+        &mut self,
+        entry: &agent::AgentRosterEntry,
+        dispatch: &str,
+    ) -> Result<u64, String> {
+        let area = self.mobile_canvas_area(None);
+        let zoom = self.runtime.document.viewport.zoom;
+        let bounds = self.next_tiled_node_bounds_for_area(area, zoom);
+        let profile =
+            crate::app::agent_runtime::command_support::canvas_agent_profile(entry.profile);
+        let node = self.runtime.create_staff_worker(
+            profile,
+            entry.name.clone(),
+            bounds,
+            dispatch.to_owned(),
+        );
+        self.apply_layout_for_new_node_for_area(node, area, zoom);
+        Ok(node)
+    }
+
+    /// 点名时找同名空闲卡。进程已经退出的卡不算空闲。
+    fn reusable_named_node(&self, name: &str) -> Option<u64> {
+        let cards: Vec<pick::CardCandidate> = self
+            .runtime
+            .document
+            .nodes()
+            .iter()
+            .filter_map(|node| {
+                let canvas::CanvasNodeKind::Agent(spec) = &node.kind else {
+                    return None;
+                };
+                let alias = spec.alias.clone()?;
+                let busy = matches!(
+                    self.runtime.agent_task_state(node.id),
+                    Some(
+                        runtime::AgentTaskState::Thinking
+                            | runtime::AgentTaskState::RunningTool { .. }
+                            | runtime::AgentTaskState::WaitingApproval { .. }
+                            | runtime::AgentTaskState::WaitingQuestion
+                    )
+                ) || self.runtime.terminal_has_exited(node.id);
+                Some(pick::CardCandidate {
+                    node: node.id,
+                    name: alias,
+                    busy,
+                    user_opened: self.runtime.staff_spawn_id(node.id).is_none(),
+                    claimable: self.runtime.staff_card_claimable(node.id),
+                })
+            })
+            .collect();
+        pick::reusable_card(name, &cards).map(|card| card.node)
+    }
+
+    fn release_reserved_card(&mut self, node: u64, reused: &ReservedCard) {
+        match &reused.card {
+            None => {
+                self.runtime.remove_node(node);
+            }
+            Some(Some(previous)) => self.runtime.rebind_staff_dispatch(node, previous.clone()),
+            Some(None) => self.runtime.clear_staff_dispatch(node),
+        }
     }
 
     pub(crate) fn approve_staff_proposal(

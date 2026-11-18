@@ -222,7 +222,11 @@ impl Router {
                 trigger: Trigger::new(TriggerKind::UserRequest, ""),
             }],
             // 目标由 Dispatcher 记录，随后续提示一起发给大脑，这里不触发一轮。
-            BrainEventKind::Goal { .. } | BrainEventKind::ProposalDeclined { .. } => vec![],
+            // 重启唤醒也由 Dispatcher 直接开一轮，这里不再排一次。
+            BrainEventKind::Goal { .. }
+            | BrainEventKind::ProposalDeclined { .. }
+            | BrainEventKind::WorkerRestarted { .. }
+            | BrainEventKind::WorkerWithdrawn { .. } => vec![],
         }
     }
 

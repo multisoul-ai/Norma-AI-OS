@@ -2,7 +2,7 @@
 use super::super::*;
 use super::shell;
 use gpui::rgba;
-use norma::protocol::WorkerState;
+use norma::protocol::{WorkerFailure, WorkerPhase};
 use ui::component::Disableable;
 use ui::i18n::text as t;
 
@@ -26,7 +26,10 @@ impl MessageBlock for Event<'_> {
                 let open = ctx.task.workers.iter().any(|worker| {
                     worker.card_id == Some(*node_id)
                         && worker.dispatch_id == *dispatch_id
-                        && worker.state == WorkerState::NeedsAttention
+                        && matches!(
+                            worker.phase,
+                            WorkerPhase::Failed(WorkerFailure::Unconfirmed)
+                        )
                 });
                 let dot = if open {
                     theme.accent_warm

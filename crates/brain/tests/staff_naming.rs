@@ -119,7 +119,8 @@ fn user_words_drop_prior_rounds_answers_and_image_paths() {
         .expect("settle");
     let hash = "ab".repeat(32);
     let path = format!("/tmp/Grace/.mobile-images/{hash}.png");
-    let image = compose_image_message("看一下", &[path.clone()]).expect("image message");
+    let image =
+        compose_image_message("看一下", std::slice::from_ref(&path)).expect("image message");
     assert!(
         image.contains("Grace"),
         "图片路径里确实写着 Grace，用来证明它被剔除"

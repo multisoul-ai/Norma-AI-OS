@@ -80,38 +80,41 @@ impl MultisoulApp {
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(task) = self.staff.tasks.get(task_id) else {
+        let Some((dispatch, node, effects)) = self.staff.tasks.get(task_id).and_then(|task| {
+            let proposal = task.proposals.iter().find(|p| p.id == proposal_id)?;
+            let dispatch = proposal.dispatch_id.clone()?;
+            let worker = task.worker_for_dispatch(&dispatch)?;
+            let node = worker.card_id?;
+            let (next, effects) = brain::staff::worker_life::step(
+                worker.phase,
+                brain::staff::worker_life::Input::Withdraw {
+                    close_card: !worker.reused,
+                },
+            );
+            // 已经跑起来，或这一轮已经结束：撤回不再处理。
+            (next != worker.phase).then_some((dispatch, node, effects))
+        }) else {
             return;
         };
-        let Some(proposal) = task.proposals.iter().find(|p| p.id == proposal_id) else {
-            return;
-        };
-        let Some(dispatch) = proposal.dispatch_id.as_deref() else {
-            return;
-        };
-        let Some(node) = task
-            .worker_for_dispatch(dispatch)
-            .filter(|w| w.outcome.is_none())
-            .and_then(|w| w.card_id)
-        else {
-            return;
-        };
-        // 连点或卡片已被关掉：不再推第二条空事件。
         if self.runtime.document.node(node).is_none() {
             return;
         }
-        let agent = self.agent_announcement_name(node).unwrap_or_default();
-        let dispatch_id = self.runtime.staff_dispatch_id(node).map(str::to_owned);
-        self.staff.pending.remove(&node);
-        self.push_brain(BrainEventKind::AgentFinished {
+        self.staff.clocks.remove(&node);
+        for effect in effects {
+            match effect {
+                brain::staff::worker_life::Effect::Interrupt => {
+                    self.interrupt_agent_by_user(node);
+                }
+                brain::staff::worker_life::Effect::CloseCard => {
+                    self.remove_node_and_reflow(node, window);
+                }
+                _ => {}
+            }
+        }
+        self.push_brain(BrainEventKind::WorkerWithdrawn {
             node_id: node,
-            dispatch_id,
-            agent,
-            outcome: Outcome::Interrupted,
-            excerpt: "staff.worker_cancelled".into(),
-            from_result: true,
+            dispatch_id: dispatch,
         });
-        self.remove_node_and_reflow(node, window);
         self.mark_session_dirty();
         self.notify_staff(cx);
     }

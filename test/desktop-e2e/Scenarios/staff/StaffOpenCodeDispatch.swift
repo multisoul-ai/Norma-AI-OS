@@ -66,7 +66,8 @@ public enum StaffOpenCodeDispatch {
             let dispatch = workers[0]["dispatch_id"] as? String
             try await waitFor("送达超时转为需要你") {
                 let worker = (try task(root)["workers"] as? [[String: Any]])?.first
-                return worker?["state"] as? String == "NeedsAttention"
+                let phase = worker?["phase"] as? [String: String]
+                return phase?["Failed"] == "Unconfirmed"
             }
             let hooks = try StaffFixture.records(root, "hooks.jsonl")
             guard !hooks.contains(where: { $0["event"] as? String == "SessionStart" || $0["event"] as? String == "UserPromptSubmit" }) else {
@@ -83,7 +84,8 @@ public enum StaffOpenCodeDispatch {
             try await waitFor("第二次粘贴被 UserPromptSubmit 确认") {
                 let worker = (try task(root)["workers"] as? [[String: Any]])?.first
                 let confirmed = try StaffFixture.records(root, "hooks.jsonl").filter { $0["event"] as? String == "UserPromptSubmit" }.count == 1
-                return confirmed && worker?["prompt_delivered"] as? Bool == true
+                let phase = worker?["phase"] as? String
+                return confirmed && phase == "Running"
             }
             let after = try task(root)
             let afterWorkers = after["workers"] as? [[String: Any]] ?? []

@@ -135,6 +135,49 @@ fn legacy_staff_hook_requires_exact_current_process_identity() {
     runtime.kill_all();
 }
 
+/// 场景：同一张卡先做完 d-one，再改绑给 d-next。
+/// 数据构造：Grok 卡启动编号 d-one，随后改绑为 d-next。
+/// 执行过程：用启动编号和当前编号分别做 hook，并读当前派发编号。
+/// 预期结果：进程里的 d-one 仍被接受；d-next 不在进程里所以拒绝；路由编号已经是 d-next。
+#[test]
+fn rebound_card_accepts_the_spawn_dispatch_and_routes_current() {
+    let mut runtime = Runtime::new_for_workspace("/tmp");
+    let node = runtime.create_staff_worker(
+        AgentProfile::Grok,
+        "Grace".into(),
+        CanvasRect::new(0., 0., 640., 400.),
+        "d-one".into(),
+    );
+    runtime.rebind_staff_dispatch(node, "d-next".into());
+    let hook = |dispatch: &str| {
+        norma::agent_hook::parse_hook_event(
+            norma::agent_hook::HookSource::Grok,
+            node,
+            serde_json::json!({"hook_event_name":"Stop","_norma_dispatch_id":dispatch}),
+        )
+        .expect("hook")
+    };
+    assert!(
+        runtime.accepts_staff_hook(&hook("d-one")),
+        "进程启动时的编号仍然接受"
+    );
+    assert!(
+        !runtime.accepts_staff_hook(&hook("d-next")),
+        "进程里没有的新编号不能冒充启动编号"
+    );
+    assert_eq!(
+        runtime.staff_dispatch_id(node),
+        Some("d-next"),
+        "接受之后按当前编号路由"
+    );
+    assert_eq!(
+        runtime.staff_spawn_id(node),
+        Some("d-one"),
+        "启动编号不随改绑变化"
+    );
+    runtime.kill_all();
+}
+
 /// 幕僚指派选定的模型必须进入该 Worker 的启动命令，且不影响其他卡片。
 ///
 /// 数据构造：选了 `opus` 的 Claude 卡、未选模型的 Codex 卡、选了模型的 Hermes 卡（无已验证的 --model）。

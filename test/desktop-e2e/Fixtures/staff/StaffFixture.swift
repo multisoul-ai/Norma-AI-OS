@@ -7,7 +7,7 @@ public enum StaffFixture {
         for directory in ["bin", "adapters/node_modules/.bin"] {
             try FileManager.default.createDirectory(at: root.appendingPathComponent(directory), withIntermediateDirectories: true)
         }
-        try Data(#"{"enabled":true,"backend":"claude","strategy":"speed","speak":false,"summary":"off","autonomy":{"assign_followups":false}}"#.utf8).write(to: root.appendingPathComponent("config.json"))
+        try Data(#"{"enabled":true,"backend":"claude","strategy":"speed","speak":false,"summary":"off","autonomy":{"assign_followups":false,"staff_auto_dispatch":true}}"#.utf8).write(to: root.appendingPathComponent("config.json"))
         try Data("export PATH=\"\(root.path)/bin:$PATH\"\n".utf8).write(to: root.appendingPathComponent(".zshrc"))
         for (path, script) in [("bin/claude", StaffWorker.script), ("bin/opencode", StaffOpenCode.script), ("adapters/node_modules/.bin/claude-agent-acp", StaffAdapter.script)] {
             let file = root.appendingPathComponent(path)

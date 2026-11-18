@@ -13,6 +13,7 @@ pub mod naming;
 pub mod policy;
 mod proposals;
 mod questions;
+pub mod worker_life;
 mod workflow;
 
 pub use assign::AssignOutcome;
@@ -31,8 +32,8 @@ struct Snapshot {
     tasks: Vec<Task>,
 }
 
-/// v2：每轮一条幕僚回复、问题本体在 `Task.questions`。旧版不迁移，加载时备份后从空库开始。
-const SNAPSHOT_VERSION: u32 = 2;
+/// v3：Worker 只保留 `phase`。v1 备份为 `tasks.v1.bak.json`，v2 备份为 `tasks.v2.bak.json`，都不迁移。
+const SNAPSHOT_VERSION: u32 = 3;
 
 #[derive(Deserialize)]
 struct SnapshotHeader {
@@ -42,6 +43,8 @@ struct SnapshotHeader {
 pub struct TaskStore {
     root: PathBuf,
     snapshots: Mutex<BTreeMap<String, Snapshot>>,
+    /// 本次加载把未结束 Worker 收成重启失败的任务。宿主取走后唤醒幕僚一次。
+    restart_wakes: Mutex<Vec<(String, String)>>,
 }
 
 impl TaskStore {
@@ -75,6 +78,13 @@ impl TaskStore {
         {
             return self.record_attention(workspace, *node_id, dispatch_id, *waiting);
         }
+        if let BrainEventKind::WorkerWithdrawn {
+            node_id,
+            dispatch_id,
+        } = event
+        {
+            return self.record_withdraw(workspace, *node_id, dispatch_id);
+        }
         if let BrainEventKind::WorkerDelivery {
             node_id,
             dispatch_id,
@@ -95,11 +105,12 @@ impl TaskStore {
             return Ok(TaskEventResult::Unowned);
         };
         let tasks = self.list(workspace)?;
-        let Some(task) = tasks.iter().find(|task| {
-            task.workers
-                .iter()
-                .any(|worker| worker.card_id == Some(*node_id))
-        }) else {
+        let task_id = match locate_worker(&tasks, *node_id, dispatch_id.as_deref()) {
+            WorkerLocate::Found(id) => id,
+            WorkerLocate::Unowned => return Ok(TaskEventResult::Unowned),
+            WorkerLocate::Ignored => return Ok(TaskEventResult::Ignored),
+        };
+        let Some(task) = tasks.iter().find(|task| task.id == task_id) else {
             return Ok(TaskEventResult::Unowned);
         };
         let Some(dispatch_id) = dispatch_id.as_deref() else {
@@ -131,7 +142,16 @@ impl TaskStore {
         Self {
             root,
             snapshots: Mutex::default(),
+            restart_wakes: Mutex::default(),
         }
+    }
+
+    /// 取走加载时产生的重启唤醒。每个任务只出现一次，不增加 `auto_dispatches`。
+    pub fn take_restart_wakes(&self) -> Vec<(String, String)> {
+        self.restart_wakes
+            .lock()
+            .map(|mut queue| std::mem::take(&mut *queue))
+            .unwrap_or_default()
     }
 
     pub fn path(&self, workspace: &str) -> PathBuf {
@@ -150,13 +170,17 @@ impl TaskStore {
         };
         let mut snapshot: Snapshot = match std::fs::read(&path) {
             // 先只读版本号：旧版的消息格式已不存在，整体反序列化必然失败，不能当成损坏文件。
-            Ok(bytes)
-                if serde_json::from_slice::<SnapshotHeader>(&bytes)?.version < SNAPSHOT_VERSION =>
-            {
-                std::fs::rename(&path, path.with_file_name("tasks.v1.bak.json"))?;
-                fresh()
-            }
-            Ok(bytes) => serde_json::from_slice(&bytes)?,
+            Ok(bytes) => match serde_json::from_slice::<SnapshotHeader>(&bytes)?.version {
+                version if version < 2 => {
+                    std::fs::rename(&path, path.with_file_name("tasks.v1.bak.json"))?;
+                    fresh()
+                }
+                version if version < SNAPSHOT_VERSION => {
+                    std::fs::rename(&path, path.with_file_name("tasks.v2.bak.json"))?;
+                    fresh()
+                }
+                _ => serde_json::from_slice(&bytes)?,
+            },
             Err(error) if error.kind() == io::ErrorKind::NotFound => fresh(),
             Err(error) => return Err(error),
         };
@@ -175,10 +199,13 @@ impl TaskStore {
             ));
         }
         let mut expired = false;
+        let mut wakes = Vec::new();
         for task in &mut snapshot.tasks {
             // 崩溃遗留：仍是 Running 的幕僚回复记为 Failed，与过期的待答问题一起修复一次。
+            // 没结束的 Worker 进程已经不在了，记为重启失败；这一次只唤醒，不加自动派发次数。
+            let restarted = worker_life::fail_restarted(task);
             let recovered = task.recover_interrupted();
-            if task.expire_pending_questions() || recovered {
+            if task.expire_pending_questions() || recovered || restarted {
                 task.revision = task
                     .revision
                     .checked_add(1)
@@ -186,9 +213,19 @@ impl TaskStore {
                 task.updated_at = norma::protocol::timestamp();
                 expired = true;
             }
+            if restarted {
+                wakes.push(task.id.clone());
+            }
         }
         if expired {
             crate::persistence::atomic_write(&path, &serde_json::to_vec(&snapshot)?)?;
+        }
+        if !wakes.is_empty() {
+            if let Ok(mut queue) = self.restart_wakes.lock() {
+                for id in wakes {
+                    queue.push((workspace.to_owned(), id));
+                }
+            }
         }
         Ok(snapshot)
     }
@@ -371,4 +408,34 @@ impl TaskStore {
 
 fn missing() -> io::Error {
     io::Error::new(io::ErrorKind::NotFound, "staff task not found")
+}
+
+pub(super) enum WorkerLocate {
+    Unowned,
+    Ignored,
+    Found(String),
+}
+
+/// 卡片和派发编号一起才能定位。缺派发编号是这条卡上的过期事件；对不上任何一对则不能落到别的任务。
+pub(super) fn locate_worker(tasks: &[Task], node: u64, dispatch: Option<&str>) -> WorkerLocate {
+    let has_card = tasks.iter().any(|task| {
+        task.workers
+            .iter()
+            .any(|worker| worker.card_id == Some(node))
+    });
+    if !has_card {
+        return WorkerLocate::Unowned;
+    }
+    let Some(dispatch) = dispatch.filter(|dispatch| !dispatch.is_empty()) else {
+        return WorkerLocate::Ignored;
+    };
+    tasks
+        .iter()
+        .find(|task| {
+            task.workers
+                .iter()
+                .any(|worker| worker.card_id == Some(node) && worker.dispatch_id == dispatch)
+        })
+        .map(|task| WorkerLocate::Found(task.id.clone()))
+        .unwrap_or(WorkerLocate::Unowned)
 }
