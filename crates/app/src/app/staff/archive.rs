@@ -1,4 +1,5 @@
 //! 归档入口、提示和写回。列表投影在 norma，这里只做界面和宿主路由。
+use super::list_type::{text, CALLOUT, HIT, SPACE_2, SPACE_3};
 use super::*;
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Div, Window};
 use norma::protocol::{StaffOp, Task};
@@ -416,38 +417,33 @@ impl MultisoulApp {
 
     pub(super) fn staff_archive_bar(&mut self, count: usize, cx: &mut Context<Self>) -> Div {
         let theme = self.staff_theme();
+        // 三项都是 36 高的 callout，文字在盒子里居中，所以共用一条基线。
+        let slot = |node: Div| div().h(px(HIT)).flex().items_center().child(node);
         div()
             .flex()
             .items_center()
-            .gap(px(8.))
-            .px(px(8.))
-            .pb(px(12.))
+            .gap(px(SPACE_2))
+            .px(px(SPACE_2))
+            .pb(px(SPACE_3))
             .child(
                 Button::new("staff-archive-back")
                     .debug_selector(|| "staff-archive-back".into())
                     .custom(self.staff_button_style(false, cx))
-                    .h(px(32.))
-                    .px(px(10.))
-                    .rounded(px(16.))
-                    .text_size(px(13.))
-                    .label(t("staff.back_to_tasks"))
+                    .h(px(HIT))
+                    .px(px(SPACE_3))
+                    .rounded(px(HIT / 2.))
+                    .child(text(CALLOUT).child(t("staff.back_to_tasks")))
                     .disabled(self.staff.busy)
                     .on_click(cx.listener(|app, _, window, cx| {
                         app.set_staff_archive_view(false, window, cx);
                     })),
             )
-            .child(
-                div()
-                    .text_size(px(14.))
-                    .font_medium()
-                    .child(t("staff.archived")),
-            )
-            .child(
-                div()
-                    .text_size(px(12.))
+            .child(slot(text(CALLOUT).child(t("staff.archived"))))
+            .child(slot(
+                text(CALLOUT)
                     .text_color(rgba(theme.text_secondary))
                     .child(count.to_string()),
-            )
+            ))
     }
 
     pub(super) fn staff_archive_link(&mut self, cx: &mut Context<Self>) -> Div {
