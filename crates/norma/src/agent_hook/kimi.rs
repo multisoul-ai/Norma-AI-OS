@@ -10,8 +10,12 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub(super) const BLOCK_BEGIN: &str = "# >>> multisoul-agent-hook managed (do not edit) >>>";
-pub(super) const BLOCK_END: &str = "# <<< multisoul-agent-hook managed <<<";
+pub(super) const BLOCK_BEGIN: &str = "# >>> norma-hook managed (do not edit) >>>";
+pub(super) const BLOCK_END: &str = "# <<< norma-hook managed <<<";
+// 改名前的旧标记，仅用于识别并替换存量区块。
+const LEGACY_BLOCK_BEGIN: &str =
+    concat!("# >>> multisoul", "-agent-hook managed (do not edit) >>>");
+const LEGACY_BLOCK_END: &str = concat!("# <<< multisoul", "-agent-hook managed <<<");
 const HOOK_TIMEOUT_SECONDS: u32 = 10;
 
 /// `KIMI_CODE_HOME` 非空时优先，否则 `~/.kimi-code/config.toml`。
@@ -48,10 +52,10 @@ fn strip_block(text: &str, path: &Path) -> Result<(String, bool), AgentHookError
     let mut found = false;
     for line in text.split_inclusive('\n') {
         let trimmed = line.trim();
-        if !inside && trimmed == BLOCK_BEGIN {
+        if !inside && (trimmed == BLOCK_BEGIN || trimmed == LEGACY_BLOCK_BEGIN) {
             inside = true;
             found = true;
-        } else if inside && trimmed == BLOCK_END {
+        } else if inside && (trimmed == BLOCK_END || trimmed == LEGACY_BLOCK_END) {
             inside = false;
         } else if !inside {
             kept.push_str(line);
@@ -63,7 +67,7 @@ fn strip_block(text: &str, path: &Path) -> Result<(String, bool), AgentHookError
             path.display()
         )));
     }
-    if !found && text.contains(BLOCK_END) {
+    if !found && (text.contains(BLOCK_END) || text.contains(LEGACY_BLOCK_END)) {
         return Err(invalid(format!(
             "refusing to edit {}: stray managed Kimi hook end marker",
             path.display()

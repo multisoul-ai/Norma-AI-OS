@@ -29,6 +29,11 @@ extension ContentWorkbench {
             try await session.type(server.address)
             try await session.shortcut(key: 36, modifiers: [])
             _ = try await session.wait(Expectation(allOf: ["BROWSER FIRST E2E", "Session marker"], timeout: 15))
+            // 原生 WKWebView 收不到 GPUI 合成事件：网页内的选择、复制与输入改走 AppKit 级输入。
+            session.appKitInputOverride = true
+            defer { session.appKitInputOverride = false }
+            let copiedPage = try await copyWebHeading(session, candidates: ["BROWSER FIRST E2E", "BROWSER FIRST", "BROWSER"])
+            guard copiedPage.contains("BROWSER FIRST E2E") else { throw E2EError.product("网页 Cmd+C 未复制到正文，剪贴板：\(copiedPage.prefix(80))") }
             try await session.click(matching: ["Session marker"], pick: .bottom)
             try await session.type("RETAINED E2E")
             try session.save(try await session.capture(), "09-browser-first.png")
@@ -75,12 +80,12 @@ extension ContentWorkbench {
             _ = try await session.wait(Expectation(allOf: ["BROWSER SECOND E2E"], timeout: 8))
             return "HTTP 页面、会话保留、导航与窄栏地址输入通过；最终地址已写入 SQLite"
         }
-        try await session.step("浅色主题下的文件工作台") {
+        try await session.step("切换主题后的文件工作台") {
             try await session.shortcut(key: 43, modifiers: [0x37])
             _ = try await session.wait(Expectation(anyOf: ["交流风格", "Communication Style"], timeout: 10))
-            _ = try await SettingsSupport.select(session, labels: ["主题", "Themes"], content: ["Paper Blue", "纸白蓝"])
-            try await session.click(matching: ["Paper Blue", "纸白蓝"], pick: .right)
-            try await SettingsSupport.prove(session, key: "appearance.theme.v1", value: "paper-blue")
+            _ = try await SettingsSupport.select(session, labels: ["主题", "Themes"], content: ["Graphite", "石墨灰"])
+            try await session.click(matching: ["Graphite", "石墨灰"], pick: .right)
+            try await SettingsSupport.prove(session, key: "appearance.theme.v1", value: "graphite")
             try await session.shortcut(key: 53, modifiers: [])
             _ = try await session.wait(Expectation(allOf: ["BROWSER SECOND E2E"], timeout: 8))
             try await selectTab(session, label: "文件", rightOffset: 384)
@@ -88,7 +93,7 @@ extension ContentWorkbench {
             try session.save(try await session.capture(), "12-light-document.png")
             try await showDirectory(session)
             try session.save(try await session.capture(), "13-light-file-tree.png")
-            return "真实 Settings 已持久化 Paper Blue，浅色文件正文和目录可见"
+            return "真实 Settings 已持久化 Graphite，文件正文和目录可见"
         }
     }
 }

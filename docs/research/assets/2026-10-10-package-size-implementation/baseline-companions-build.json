@@ -10,9 +10,9 @@
   "build_finished_success": true,
   "artifacts": [
     {
-      "target": "multisoul-agent-hook",
+      "target": "norma-hook",
       "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/baseline-source/crates/norma#0.1.73",
-      "artifact": "build/package-size-reduction/baseline-target/release/multisoul-agent-hook",
+      "artifact": "build/package-size-reduction/baseline-target/release/norma-hook",
       "fresh": false,
       "features": [],
       "profile": {
@@ -24,7 +24,7 @@
       },
       "bytes": 1093920,
       "sha256": "57a843b1919dea6ec207c95231d7f45d664fc5b8f6234f74afedc80142acb69f",
-      "macho_build_version": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/baseline-target/release/multisoul-agent-hook:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
+      "macho_build_version": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/baseline-target/release/norma-hook:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
     },
     {
       "target": "norma",

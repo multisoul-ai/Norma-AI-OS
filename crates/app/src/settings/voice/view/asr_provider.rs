@@ -115,9 +115,7 @@ impl MultisoulApp {
         if !self.voice_settings.activate_local_recognition() {
             self.voice_settings
                 .open_setup_destination(crate::settings::voice::VoiceSetupDestination::AsrOnDevice);
-            if !self.voice_settings.advanced_expanded() {
-                self.voice_settings.toggle_advanced_expanded();
-            }
+            self.voice_settings.expand_advanced();
             self.refresh_a1_requirement(cx);
         }
         self.persist_voice_settings_in_background(cx);

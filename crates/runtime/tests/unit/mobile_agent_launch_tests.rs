@@ -79,7 +79,7 @@ fn mobile_cursor_card_launches_existing_cli_with_bound_hook_identity() {
         commands[0]
             .env
             .iter()
-            .any(|(key, value)| key == "MULTISOUL_AGENT_PROFILE" && value == "cursor"),
+            .any(|(key, value)| key == "NORMA_AGENT_PROFILE" && value == "cursor"),
         "Cursor PTY 必须注入准确 Hook Provider，实际环境：{:?}",
         commands[0].env
     );

@@ -10,6 +10,7 @@ fn project() -> ProjectSnapshot {
         task_timing: None,
         task_progress: None,
         task_summary: None,
+        last_tool: None,
         state: "idle".into(),
         run_id: None,
         session_id: None,

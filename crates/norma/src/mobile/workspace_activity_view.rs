@@ -14,6 +14,7 @@ pub struct WorkspaceActivityAgentEntry {
     pub latest_prompt: Option<String>,
     /// 运行中途的实时动作（思考中、调用某工具）。
     pub task_summary: Option<String>,
+    pub last_tool: Option<crate::mobile::RecentTool>,
     pub progress: Option<super::TaskProgress>,
     pub started_at_unix_ms: Option<u64>,
     pub run_id: Option<String>,
@@ -296,6 +297,7 @@ pub(super) fn unbounded_projection(
                 task_title: card.task_title.clone(),
                 latest_prompt: card.latest_prompt.clone(),
                 task_summary: card.task_summary.clone(),
+                last_tool: card.last_tool.clone(),
                 progress: progress.clone(),
                 started_at_unix_ms: card.task_timing.map(|timing| timing.started_at_unix_ms),
                 run_id: card.run_id.clone(),

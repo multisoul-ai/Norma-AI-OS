@@ -22,6 +22,8 @@ pub(super) struct BrainArgs {
 
 #[derive(Debug, Subcommand)]
 enum BrainCliCommand {
+    /// 幕僚任务：对话、阶段与需要用户采用的提议。
+    Task(super::staff_command::StaffArgs),
     /// 列出当前项目的待答问题。
     Questions,
     /// 提出答案建议；用户采用后才提交。
@@ -75,9 +77,13 @@ enum BrainCliCommand {
     Agents,
     /// 给一个空闲的 Agent 派任务。
     Assign {
-        agent: String,
+        #[arg(required_unless_present = "proposal", conflicts_with = "proposal")]
+        agent: Option<String>,
         #[arg(long, value_parser = non_blank_task)]
         task: String,
+        /// 与 --task <任务ID> 一起使用，只采用用户已确认的提议。
+        #[arg(long)]
+        proposal: Option<u64>,
     },
     /// 提议下一步，用户在概览里确认后才派发。
     Propose {
@@ -145,6 +151,7 @@ impl BrainArgs {
                 route_id,
             });
         let op = match self.command {
+            BrainCliCommand::Task(args) => BrainOp::Task { op: args.into_op() },
             BrainCliCommand::Questions => BrainOp::Questions,
             BrainCliCommand::ProposeAnswer {
                 target,
@@ -197,7 +204,22 @@ impl BrainArgs {
                 reason,
             },
             BrainCliCommand::Agents => BrainOp::Agents,
-            BrainCliCommand::Assign { agent, task } => BrainOp::Assign { agent, task },
+            BrainCliCommand::Assign {
+                agent,
+                task,
+                proposal,
+            } => match proposal {
+                Some(proposal_id) => BrainOp::Task {
+                    op: crate::protocol::StaffOp::Adopt {
+                        task_id: task,
+                        proposal_id,
+                    },
+                },
+                None => BrainOp::Assign {
+                    agent: agent.expect("clap requires agent without proposal"),
+                    task,
+                },
+            },
             BrainCliCommand::Propose {
                 agent,
                 title,

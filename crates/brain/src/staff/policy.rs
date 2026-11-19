@@ -1,0 +1,257 @@
+//! 幕僚自己派活的策略。纯函数，不读存储也不依赖 UI。
+
+use norma::protocol::{BrainOp, StaffOp};
+
+/// 高风险类别。命中任意一类，幕僚都不能直接派活，只能提议等用户采用。
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum RiskCategory {
+    /// 推送、合并、部署、发布。
+    Release,
+    /// 删除或其他不可逆的数据操作。
+    Destructive,
+    /// 密钥、凭据、提权、项目目录以外。
+    Sensitive,
+    /// 对外沟通、产生费用。
+    External,
+}
+
+/// 关键词只降低概率，不是安全边界：改写、拼接、混写都能绕过。
+const KEYWORDS: [(RiskCategory, &[&str]); 4] = [
+    (
+        RiskCategory::Release,
+        &[
+            "push",
+            "merge",
+            "deploy",
+            "release",
+            "publish",
+            "terraform apply",
+            "kubectl apply",
+            "部署",
+            "发布",
+            "发版",
+            "上线",
+            "推送",
+            "合并",
+        ],
+    ),
+    (
+        RiskCategory::Destructive,
+        &[
+            "rm -rf",
+            "rm -fr",
+            "rm -r",
+            "git clean",
+            "branch -d",
+            "drop table",
+            "drop database",
+            "truncate",
+            "reset --hard",
+            "delete",
+            "删除",
+            "清空",
+            "清库",
+        ],
+    ),
+    (
+        RiskCategory::Sensitive,
+        &[
+            "secret",
+            "credential",
+            "password",
+            "api key",
+            "private key",
+            "bearer",
+            "access token",
+            "auth token",
+            ".env",
+            "| sh",
+            "| bash",
+            "chmod",
+            "chown",
+            "/etc/",
+            "sudo",
+            "~/.ssh",
+            "密钥",
+            "凭据",
+            "密码",
+            "提权",
+        ],
+    ),
+    (
+        RiskCategory::External,
+        &[
+            "email",
+            "slack",
+            "payment",
+            "purchase",
+            "billing",
+            "邮件",
+            "发消息",
+            "付款",
+            "购买",
+            "花钱",
+        ],
+    ),
+];
+
+/// 去掉零宽字符、全角转半角、空白折叠并转小写，让简单的混淆写法不能绕过关键词。
+pub(super) fn normalize(text: &str) -> String {
+    let half_width = text.chars().filter_map(|c| match c {
+        '\u{200b}'..='\u{200d}' | '\u{2060}' | '\u{feff}' => None,
+        '\u{ff01}'..='\u{ff5e}' => char::from_u32(c as u32 - 0xfee0),
+        c => Some(c),
+    });
+    half_width
+        .collect::<String>()
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// 英文关键词按单词边界整词匹配，多词短语要求整段命中；中文仍是子串。
+fn keyword_matches(text: &str, keyword: &str) -> bool {
+    if !keyword.is_ascii() {
+        return text.contains(keyword);
+    }
+    let mut from = 0;
+    while let Some(offset) = text[from..].find(keyword) {
+        let start = from + offset;
+        let end = start + keyword.len();
+        let before = text[..start]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !c.is_ascii_alphanumeric() && c != '_');
+        let after = text[end..]
+            .chars()
+            .next()
+            .is_none_or(|c| !c.is_ascii_alphanumeric() && c != '_');
+        if before && after {
+            return true;
+        }
+        from = end;
+    }
+    false
+}
+
+/// 返回文本命中的全部风险类别，按类别顺序，不重复。
+pub fn risk_categories(text: &str) -> Vec<RiskCategory> {
+    let text = normalize(text);
+    KEYWORDS
+        .iter()
+        .filter(|(_, words)| words.iter().any(|word| keyword_matches(&text, word)))
+        .map(|(category, _)| *category)
+        .collect()
+}
+
+/// 事件触发的自动派发上限。用户任何一次发话清零，不在采用提议时清零。
+pub const AUTO_DISPATCH_LIMIT: u32 = 5;
+
+/// 这一轮该直接派还是降级。`named` 只在用户轮有意义。
+#[derive(Clone, Copy, Debug)]
+pub struct DispatchContext<'a> {
+    pub user_turn: bool,
+    pub named: bool,
+    /// `autonomy.staff_auto_dispatch`。点名时不看这个开关。
+    pub auto_dispatch: bool,
+    pub auto_dispatches: u32,
+    pub text: &'a str,
+}
+
+/// 不能直接派发的原因，按判断顺序只报第一个。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ProposeReason {
+    AutonomyAsk,
+    Risk(Vec<RiskCategory>),
+    LimitReached,
+}
+
+impl ProposeReason {
+    /// 回给模型的结构化原因，不含面向用户的文案。
+    pub fn code(&self) -> String {
+        match self {
+            Self::AutonomyAsk => "autonomy_ask".into(),
+            Self::LimitReached => "limit_reached".into(),
+            Self::Risk(categories) => {
+                let names: Vec<_> = categories
+                    .iter()
+                    .map(|c| format!("{c:?}").to_lowercase())
+                    .collect();
+                format!("risk:{}", names.join(","))
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AssignDecision {
+    Dispatch,
+    Propose(ProposeReason),
+}
+
+/// 按 SPEC 第 4 节派活。点名的用户轮不看风险和开关；次数上限只约束事件轮。
+pub fn decide_dispatch(context: &DispatchContext) -> AssignDecision {
+    if context.user_turn && context.named {
+        return AssignDecision::Dispatch;
+    }
+    if !context.auto_dispatch {
+        return AssignDecision::Propose(ProposeReason::AutonomyAsk);
+    }
+    let risks = risk_categories(context.text);
+    if !risks.is_empty() {
+        return AssignDecision::Propose(ProposeReason::Risk(risks));
+    }
+    if !context.user_turn && context.auto_dispatches >= AUTO_DISPATCH_LIMIT {
+        return AssignDecision::Propose(ProposeReason::LimitReached);
+    }
+    AssignDecision::Dispatch
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Verdict {
+    Allow,
+    /// `code` 是结构化的拒绝码，宿主在展示边界翻译成中英文，并给出替代做法。
+    Denied {
+        code: &'static str,
+    },
+}
+
+/// 幕僚能执行哪些命令。`task_done` 是该任务当前是否已完成，只影响归档。
+///
+/// 对 `BrainOp` 穷举匹配：以后新增命令必须先决定幕僚能不能用。
+pub fn authorize_staff(op: &BrainOp, task_done: bool) -> Verdict {
+    let denied = |code| Verdict::Denied { code };
+    match op {
+        BrainOp::Agents
+        | BrainOp::Approvals
+        | BrainOp::Questions
+        | BrainOp::History { .. }
+        | BrainOp::Propose { .. }
+        | BrainOp::Report { .. }
+        | BrainOp::ProposeAnswer { .. }
+        | BrainOp::Context { .. } => Verdict::Allow,
+        BrainOp::Decide { .. } => denied("staff.denied.decide"),
+        BrainOp::Answer { .. } => denied("staff.denied.answer"),
+        BrainOp::Assign { .. } => denied("staff.denied.legacy_assign"),
+        BrainOp::Task { op } => match op {
+            StaffOp::Phase { .. } | StaffOp::Propose { .. } | StaffOp::Assign { .. } => {
+                Verdict::Allow
+            }
+            // 回复正文只来自流式文字；`task reply` 会造成同一句话两个来源。
+            StaffOp::Reply { .. } => denied("staff.denied.reply"),
+            StaffOp::Create { .. } | StaffOp::List => denied("staff.denied.task_scope"),
+            StaffOp::Message { .. } => denied("staff.denied.user_message"),
+            StaffOp::Adopt { .. } => denied("staff.denied.adopt"),
+            // 暂只给用户；以后开放给幕僚时改这里，并在 skill 里加命令。
+            StaffOp::RemoveWorker { .. } | StaffOp::RestoreWorker { .. } => {
+                denied("staff.denied.remove_worker")
+            }
+            StaffOp::Archive {
+                archived: false, ..
+            } => denied("staff.denied.unarchive"),
+            StaffOp::Archive { .. } if !task_done => denied("staff.denied.archive_not_done"),
+            StaffOp::Archive { .. } => Verdict::Allow,
+        },
+    }
+}

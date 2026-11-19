@@ -1,6 +1,6 @@
 use super::{
-    AgentProviderKind, AsrModelManagerState, TtsModelManagerState, VoiceSettingsState,
-    VoiceSetupDestination,
+    AdvancedGroup, AgentProviderKind, AsrModelManagerState, TtsModelManagerState,
+    VoiceSettingsState, VoiceSetupDestination,
 };
 use std::path::PathBuf;
 
@@ -39,7 +39,7 @@ impl VoiceSettingsState {
         self.readiness_override = Some(crate::settings::voice::VoiceEntryState::Ready);
         self.reviewing_setup = true;
         self.setup_destination = VoiceSetupDestination::Overview;
-        self.advanced_expanded = true;
+        self.open_advanced_group(AdvancedGroup::Model);
         self.saved.agent_provider = Some(AgentProviderKind::OpenAiCompatible);
         self.saved.openai_profile.api_key = Some("synthetic-preview-key".to_string());
         self.saved.openai_profile.credential_ref = Some("visual-preview".to_string());
@@ -50,7 +50,7 @@ impl VoiceSettingsState {
         self.readiness_override = Some(crate::settings::voice::VoiceEntryState::Ready);
         self.reviewing_setup = true;
         self.setup_destination = VoiceSetupDestination::Overview;
-        self.advanced_expanded = true;
+        self.open_advanced_group(AdvancedGroup::Recognition);
         self.saved.azure_asr_region = Some("eastus".to_string());
         self.saved.azure_asr_locale = Some("zh-CN".to_string());
         self.saved.azure_asr_credential_ref = Some("visual-preview".to_string());

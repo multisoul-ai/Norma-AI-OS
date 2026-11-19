@@ -130,3 +130,28 @@ fn spaced_norma_bin_gets_a_shell_safe_link() {
     let plain = std::path::PathBuf::from("/bin/norma");
     assert_eq!(super::shell_safe_bin(&state, plain.clone()), plain);
 }
+
+/// 场景：切换大脑后端后，norma-brain skill 只留在当前后端，旧后端里的托管副本被卸载。
+/// 数据构造：隔离 home；先给 Claude 装好，再把当前后端换成 Codex 同步一次。
+/// 预期结果：返回 true；Codex 有 skill，Claude 的被删除。
+#[test]
+fn brain_skill_follows_the_current_backend() {
+    use norma::orchestration::{ensure_brain_skill, InstallPaths, OrchestrationProvider};
+    let root = tempfile::tempdir().unwrap();
+    let paths = InstallPaths::for_home_and_bundle_bin(root.path(), &root.path().join("bundle"));
+    let bin = std::path::Path::new("/app/norma");
+    ensure_brain_skill(&paths, OrchestrationProvider::Claude, bin).unwrap();
+    assert!(
+        sync_brain_skill(&paths, BackendKind::Codex, bin),
+        "check: sync_brain_skill(&paths, BackendKind::Codex, bin)"
+    );
+    let exists = |provider| paths.brain_skill_path(provider).unwrap().exists();
+    assert!(
+        exists(OrchestrationProvider::Codex),
+        "check: exists(OrchestrationProvider::Codex)"
+    );
+    assert!(
+        !exists(OrchestrationProvider::Claude),
+        "check: !exists(OrchestrationProvider::Claude)"
+    );
+}

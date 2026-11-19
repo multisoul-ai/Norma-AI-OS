@@ -19,6 +19,7 @@ fn agent(name: &str, node: u64, presence: RunOverviewPresence, raw: &str) -> Run
         task: Some(format!("{name} task")),
         latest_prompt: None,
         action: Some("step".into()),
+        last_tool: None,
         progress: None,
         started_at_unix_ms: None,
     }
@@ -387,4 +388,43 @@ fn proposal_moves_a_known_agent_and_synthesizes_an_unknown_one() {
     );
     assert!(step.select_alert.is_none(), "提议编号不能拿去选提醒");
     assert!(step.hold_review, "成果要按住提醒形态");
+}
+
+/// 场景：运行列表一行要同时给出会话名、用户最近一次输入和最近工具。
+/// 数据：Grace 有会话名、最近输入与最近工具；Daisy 只有会话名，没有输入也没有工具。
+/// 执行：collect。
+/// 预期：三个字段各归其位；没有最近输入时 `last_input` 为空，不得退回会话名；没有工具时 `tool` 为空。
+#[test]
+fn face_carries_session_last_input_and_last_tool() {
+    let mut grace = agent("Grace", 1, RunOverviewPresence::Running, "running_tool");
+    grace.task = Some("支持打开项目外部文件".into());
+    grace.latest_prompt = Some("/implement 开始实施吧".into());
+    grace.last_tool = Some(norma::mobile::RecentTool {
+        name: "Edit".into(),
+        arg: Some("mod.rs".into()),
+    });
+    let daisy = agent("Daisy", 2, RunOverviewPresence::Idle, "idle");
+    let faces = collect(&[workspace(vec![grace], vec![daisy], vec![], vec![])]);
+    let face = |name: &str| faces.iter().find(|face| face.name == name).expect(name);
+    assert_eq!(
+        face("Grace").session,
+        "支持打开项目外部文件",
+        "标题是会话名"
+    );
+    assert_eq!(
+        face("Grace").last_input,
+        "/implement 开始实施吧",
+        "第二行是最近输入"
+    );
+    assert_eq!(
+        face("Grace")
+            .tool
+            .as_ref()
+            .map(|t| (t.name.as_str(), t.arg.as_deref())),
+        Some(("Edit", Some("mod.rs"))),
+        "第三行是最近工具"
+    );
+    assert_eq!(face("Daisy").session, "Daisy task");
+    assert_eq!(face("Daisy").last_input, "", "没有最近输入时不得退回会话名");
+    assert!(face("Daisy").tool.is_none(), "没有工具记录时不画第三行");
 }

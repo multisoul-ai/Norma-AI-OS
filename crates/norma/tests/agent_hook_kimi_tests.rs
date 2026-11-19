@@ -17,7 +17,7 @@ fn paths(root: &Path) -> HookInstallPaths {
         codex_hooks: root.join("codex-hooks.json"),
         cursor_hooks: root.join("cursor-hooks.json"),
         grok_hooks: root.join("grok-hooks.json"),
-        opencode_plugin: root.join("multisoul-agent-hook.js"),
+        opencode_plugin: root.join("norma-hook.js"),
         infcode_settings: root.join(".infcode/settings.json"),
         kimi_config: root.join("kimi-home").join("config.toml"),
         pi_extension: root.join("pi-agent/extensions/norma-agent-hook.ts"),
@@ -214,7 +214,7 @@ fn kimi_install_is_idempotent_and_uninstall_keeps_user_content() {
     fs::create_dir_all(paths.kimi_config.parent().unwrap()).unwrap();
     let original = "# my kimi config\n[tui]\ntheme = \"dark\"\n\n[[hooks]]\nevent = \"Stop\"\ncommand = \"echo mine\"\n";
     fs::write(&paths.kimi_config, original).unwrap();
-    let command_path = temp.path().join("bin dir").join("multisoul-agent-hook");
+    let command_path = temp.path().join("bin dir").join("norma-hook");
 
     install_hook_config(HookTarget::Kimi, &command_path, &paths).expect("首次安装");
     install_hook_config(HookTarget::Kimi, &command_path, &paths).expect("重复安装");
@@ -238,7 +238,7 @@ fn kimi_install_is_idempotent_and_uninstall_keeps_user_content() {
         "Kimi 问答 hook 超时必须是 125 秒，实际={text}"
     );
     assert_eq!(
-        text.matches(">>> multisoul-agent-hook managed").count(),
+        text.matches(">>> norma-hook managed").count(),
         1,
         "区块只能有一个"
     );
@@ -289,11 +289,11 @@ fn kimi_install_is_idempotent_and_uninstall_keeps_user_content() {
 #[test]
 fn kimi_install_refuses_unmergeable_config() {
     let temp = tempfile::tempdir().expect("临时目录");
-    let command_path = temp.path().join("multisoul-agent-hook");
+    let command_path = temp.path().join("norma-hook");
     let cases = [
         "hooks = [{ event = \"Stop\", command = \"x\" }]\n",
         "[hooks]\nfoo = 1\n",
-        "# >>> multisoul-agent-hook managed (do not edit) >>>\n[[hooks]]\n",
+        "# >>> norma-hook managed (do not edit) >>>\n[[hooks]]\n",
     ];
     for (index, body) in cases.iter().enumerate() {
         let mut paths = paths(temp.path());

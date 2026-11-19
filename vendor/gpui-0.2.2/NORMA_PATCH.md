@@ -1,5 +1,19 @@
 # Norma OS GPUI 0.2.2 patch
 
+## Intrinsic text measurement after wrapping (2026-11-13)
+
+Text layout caching now requires an exact `wrap_width` match. Previously a
+MaxContent pass (`None`) could reuse the size of an earlier zero-width wrapped
+pass (`Some(0)`), collapsing Markdown list text and its clip to zero width.
+The text and color remained intact, so parser or height-only tests missed it.
+Nowrap measurement and the existing truncation-width check stay unchanged.
+
+Regression: `cargo test -p app --lib staff_markdown_text_recovers_intrinsic_size`
+measures the same production `StyledText` at natural, zero, then natural width.
+Before the fix, its final size was 0×466 instead of the initial 173×26.
+Native Markdown rendering is also checked by `staff-workflow --visual` in the
+desktop E2E module; unit tests alone do not establish native text visibility.
+
 ## Shared display clock lifecycle (2026-11-06)
 
 `CVDisplayLinkStop` does not join CoreVideo's IO thread. Releasing the native

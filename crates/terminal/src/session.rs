@@ -22,6 +22,7 @@ pub struct TerminalSession {
     pty: Box<dyn PtyBackend>,
     grid: TerminalGrid,
     rx: Receiver<PtyEvent>,
+    last_output_at: Option<std::time::Instant>,
 }
 
 impl TerminalSession {
@@ -51,6 +52,7 @@ impl TerminalSession {
             pty,
             grid,
             rx,
+            last_output_at: None,
         })
     }
 
@@ -74,6 +76,7 @@ impl TerminalSession {
             pty: backend,
             grid,
             rx,
+            last_output_at: None,
         }
     }
 
@@ -83,6 +86,7 @@ impl TerminalSession {
         loop {
             match self.rx.try_recv() {
                 Ok(PtyEvent::Output(bytes)) => {
+                    self.last_output_at = Some(std::time::Instant::now());
                     let replies = self.grid.advance(&bytes);
                     if !replies.is_empty() {
                         let _ = self.write_pty(&replies);
@@ -187,6 +191,10 @@ impl TerminalSession {
         if self.status == TerminalStatus::Running {
             self.status = TerminalStatus::Exited { code: None };
         }
+    }
+
+    pub fn last_output_at(&self) -> Option<std::time::Instant> {
+        self.last_output_at
     }
 
     pub fn child_pid(&self) -> Option<u32> {

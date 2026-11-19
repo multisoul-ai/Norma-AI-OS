@@ -1,6 +1,6 @@
 import Foundation
 
-/// 脚本化 Grok / Kimi / ZCode / InfCode。进程调用生产 `multisoul-agent-hook`，不启动真实模型。
+/// 脚本化 Grok / Kimi / ZCode / InfCode。进程调用生产 `norma-hook`，不启动真实模型。
 public enum HookQuestionFixture {
     public static func install(hookBinary: String) throws -> (shell: URL, root: URL) {
         let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)

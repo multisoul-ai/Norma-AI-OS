@@ -43,7 +43,7 @@ fn setup(root: &Path) -> OrchestrationInstaller {
     let bundle = root.join("bundle");
     fs::create_dir_all(&bundle).expect("应创建 bundle 目录");
     fs::write(bundle.join("norma"), b"norma-bin").expect("应写入 norma");
-    fs::write(bundle.join("multisoul-agent-hook"), b"hook-bin").expect("应写入 hook");
+    fs::write(bundle.join("norma-hook"), b"hook-bin").expect("应写入 hook");
     let paths = InstallPaths::for_home_bundle_bin_and_env(
         &root.join("home"),
         &bundle,

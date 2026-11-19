@@ -1,27 +1,32 @@
 //! 原题旁的采用、编辑与原卡片入口共享宿主授权和投递服务。
-use norma::protocol::{PendingQuestion, QuestionAnswer};
+use norma::protocol::{validate_question_answers, QuestionAnswer, QuestionItem, QuestionRef};
 mod editor;
 pub(crate) use editor::QuestionEditor;
 
 #[derive(Clone)]
 struct AnswerDraft {
-    question: PendingQuestion,
+    items: Vec<QuestionItem>,
+    target: Option<QuestionRef>,
     selected: Vec<Vec<String>>,
     custom: Vec<bool>,
 }
 
 impl AnswerDraft {
-    fn new(question: &PendingQuestion, initial: &[QuestionAnswer]) -> Self {
-        let valid = question.validate_answers(initial).is_ok();
+    fn new(
+        items: &[QuestionItem],
+        target: Option<QuestionRef>,
+        initial: &[QuestionAnswer],
+    ) -> Self {
+        let valid = validate_question_answers(items, initial).is_ok();
         let answer = |key: &str| {
             valid
                 .then(|| initial.iter().find(|a| a.key == key))
                 .flatten()
         };
         Self {
-            question: question.clone(),
-            selected: question
-                .items
+            items: items.to_vec(),
+            target,
+            selected: items
                 .iter()
                 .map(|item| {
                     answer(&item.key)
@@ -29,8 +34,7 @@ impl AnswerDraft {
                         .unwrap_or_default()
                 })
                 .collect(),
-            custom: question
-                .items
+            custom: items
                 .iter()
                 .map(|item| answer(&item.key).is_some_and(|a| a.text.is_some()))
                 .collect(),
@@ -38,7 +42,7 @@ impl AnswerDraft {
     }
 
     fn choose(&mut self, index: usize, key: &str) {
-        let Some(item) = self.question.items.get(index) else {
+        let Some(item) = self.items.get(index) else {
             return;
         };
         if !item.options.iter().any(|option| option.key == key) {
@@ -57,7 +61,7 @@ impl AnswerDraft {
     }
 
     fn custom(&mut self, index: usize, enabled: bool) {
-        let Some(item) = self.question.items.get(index) else {
+        let Some(item) = self.items.get(index) else {
             return;
         };
         if !item.allow_custom {
@@ -70,8 +74,7 @@ impl AnswerDraft {
     }
 
     fn answers(&self, text: &[String]) -> Vec<QuestionAnswer> {
-        self.question
-            .items
+        self.items
             .iter()
             .enumerate()
             .map(|(index, item)| QuestionAnswer {

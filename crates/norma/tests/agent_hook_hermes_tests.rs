@@ -116,14 +116,14 @@ fn hermes_source_and_target_parse() {
 /// 安装写入带标记的插件目录，卸载只删自有文件。
 ///
 /// 数据构造：临时目录下的 hermes_plugin_dir；先安装再卸载。
-/// 预期：正断言——两个文件存在、含标记与 MULTISOUL_HOOK_ENDPOINT、安装检测为真；
+/// 预期：正断言——两个文件存在、含标记与 NORMA_HOOK_ENDPOINT、安装检测为真；
 /// 负断言——插件源码不含 conversation_history/request_messages/user_message/tool_input
 /// （隐私白名单）；只装 Hermes 时 All 不为真；卸载后目录消失且检测为假。
 #[test]
 fn hermes_install_writes_marked_plugin_and_uninstall_removes_it() {
     let temp = tempfile::tempdir().expect("临时目录");
     let paths = paths_in(temp.path());
-    let command = temp.path().join("multisoul-agent-hook");
+    let command = temp.path().join("norma-hook");
     assert!(
         !agent_hooks_installed_for_source(HookSource::Hermes, &paths),
         "安装前应为未安装"
@@ -132,11 +132,11 @@ fn hermes_install_writes_marked_plugin_and_uninstall_removes_it() {
     let init =
         std::fs::read_to_string(paths.hermes_plugin_dir.join("__init__.py")).expect("插件源码");
     assert!(
-        init.starts_with("# multisoul-hermes-plugin-marker"),
+        init.starts_with("# norma-hermes-plugin-marker"),
         "首行必须是标记"
     );
     assert!(
-        init.contains("MULTISOUL_HOOK_ENDPOINT"),
+        init.contains("NORMA_HOOK_ENDPOINT"),
         "插件应读取 Norma 端点环境变量"
     );
     assert!(
@@ -185,7 +185,7 @@ fn hermes_refuses_to_overwrite_or_remove_unmanaged_plugin() {
     std::fs::create_dir_all(&paths.hermes_plugin_dir).expect("建目录");
     let init = paths.hermes_plugin_dir.join("__init__.py");
     std::fs::write(&init, "user plugin").expect("写用户插件");
-    let command = temp.path().join("multisoul-agent-hook");
+    let command = temp.path().join("norma-hook");
     let result = install_hook_config(HookTarget::Hermes, &command, &paths);
     assert!(result.is_err(), "非自有目录必须拒绝覆盖");
     assert_eq!(

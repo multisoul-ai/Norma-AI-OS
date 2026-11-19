@@ -340,7 +340,7 @@ mod tests {
     /// 安装 hook 后，Settings 必须提示用户重启既有 Agent，避免旧 Codex 进程遗漏运行态事件。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   command_path = "/tmp/Norma OS Dev.app/Contents/MacOS/multisoul-agent-hook"
+    ///   command_path = "/tmp/Norma OS Dev.app/Contents/MacOS/norma-hook"
     ///   该路径模拟 cargo run 开发 bundle 中刚安装的 bridge 二进制
     ///   已运行 Agent 在安装前启动，Codex 只在会话启动时读取 hooks.json，不能热加载
     ///
@@ -355,7 +355,7 @@ mod tests {
     ///   - 负断言：文本不能只报告 Installed，否则用户会误以为旧进程已自动生效
     #[test]
     fn test_hook_install_success_message_requires_restarting_existing_agents() {
-        let command_path = Path::new("/tmp/Norma OS Dev.app/Contents/MacOS/multisoul-agent-hook");
+        let command_path = Path::new("/tmp/Norma OS Dev.app/Contents/MacOS/norma-hook");
 
         let message = hook_install_success_message(HookTarget::Codex, command_path);
 

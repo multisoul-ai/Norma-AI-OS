@@ -8,7 +8,7 @@
 - bundle id: `com.norma.os`
 - formats: `app`, `dmg`
 - binary: `target/release/norma-os`
-- secondary binary: `target/release/multisoul-agent-hook`
+- secondary binary: `target/release/norma-hook`
 - minimum macOS: `12.0`
 
 所有打包模式默认使用轻量媒体；正式发布使用仓库入口：

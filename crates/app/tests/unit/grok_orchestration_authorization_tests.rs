@@ -58,7 +58,7 @@ fn installed_grok_orchestration_authorization_validates_token_source_and_revocat
     let temp = tempfile::tempdir().expect("应创建隔离安装目录");
     let bundle = temp.path().join("bundle");
     std::fs::create_dir_all(&bundle).expect("应创建 bundle");
-    for name in ["norma", "multisoul-agent-hook"] {
+    for name in ["norma", "norma-hook"] {
         std::fs::write(bundle.join(name), name).expect("应写入安装器二进制夹具");
     }
     let paths = InstallPaths::for_home_bundle_bin_and_env(

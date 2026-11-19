@@ -5,8 +5,8 @@ use std::os::unix::fs::PermissionsExt;
 fn original() -> PtyCommand {
     PtyCommand::new("/bin/zsh")
         .args(["-lic", "exec codex -c disable_paste_burst=true"])
-        .env("MULTISOUL_AGENT_PROFILE", "codex")
-        .env("MULTISOUL_NODE_ID", "7")
+        .env("NORMA_AGENT_PROFILE", "codex")
+        .env("NORMA_NODE_ID", "7")
         .env(norma::agent_hook::ENV_CONTROL_RUN_ID, "owned-process")
 }
 

@@ -5,7 +5,7 @@
 //! Norma 命令字符串精确增删，保留所有用户字段；格式异常时拒绝覆盖。
 
 use super::atomic_file;
-use super::install::{is_multisoul_hook_command, read_json_or_empty};
+use super::install::{is_managed_hook_command, is_norma_hook_command, read_json_or_empty};
 use super::{build_hook_command, hook_events_for_source, AgentHookError, HookSource};
 use serde_json::{json, Map, Value};
 use std::path::Path;
@@ -168,14 +168,14 @@ fn group_commands(group: &Value) -> impl Iterator<Item = &str> {
 }
 
 fn is_norma_command(command: &str) -> bool {
-    is_multisoul_hook_command(command, SOURCE)
+    is_norma_hook_command(command, SOURCE)
 }
 
 fn is_norma_handler(handler: &Value) -> bool {
     handler
         .get("command")
         .and_then(Value::as_str)
-        .is_some_and(is_norma_command)
+        .is_some_and(|command| is_managed_hook_command(command, SOURCE))
 }
 
 #[cfg(test)]

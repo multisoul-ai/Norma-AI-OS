@@ -25,7 +25,7 @@
       "artifact_metadata": [
         {
           "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/app#0.1.73",
-          "executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/multisoul-agent-hook",
+          "executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma-hook",
           "fresh": false,
           "features": [
             "production-data"
@@ -37,7 +37,7 @@
             "overflow_checks": false,
             "test": false
           },
-          "target": "multisoul-agent-hook"
+          "target": "norma-hook"
         },
         {
           "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/app#0.1.73",
@@ -81,7 +81,7 @@
       "artifact_metadata": [
         {
           "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/norma#0.1.73",
-          "executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/multisoul-agent-hook",
+          "executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma-hook",
           "fresh": false,
           "features": [],
           "profile": {
@@ -91,7 +91,7 @@
             "overflow_checks": false,
             "test": false
           },
-          "target": "multisoul-agent-hook"
+          "target": "norma-hook"
         },
         {
           "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/norma#0.1.73",
@@ -112,14 +112,14 @@
   ],
   "final_binaries": [
     {
-      "target": "multisoul-agent-hook",
+      "target": "norma-hook",
       "final_producer_log": "candidate-companions-build.log",
-      "artifact": "target/release/multisoul-agent-hook",
+      "artifact": "target/release/norma-hook",
       "bytes": 1093920,
       "sha256": "ef25593f9fb8a2c60df8f2e0a9eaa3ee4068feb633552b157695bfb608178669",
       "features": [],
       "fresh": false,
-      "macho_build_version": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/multisoul-agent-hook:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
+      "macho_build_version": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma-hook:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
     },
     {
       "target": "norma",
@@ -156,7 +156,7 @@
       "macho_build_version": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma-os:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
     }
   ],
-  "hook_note": "Both packages emit multisoul-agent-hook; the later norma --bins invocation is the final producer, matching the packaging hook order",
+  "hook_note": "Both packages emit norma-hook; the later norma --bins invocation is the final producer, matching the packaging hook order",
   "comparison_note": "Compiler matrix and earlier candidate snapshots retain their own hashes; matching file sizes do not mean matching artifact hashes",
   "source_note": "Rust/Cargo inputs were unchanged during these builds; report scripts and documents changed after the six-group matrix ended"
 }

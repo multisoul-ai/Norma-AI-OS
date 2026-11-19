@@ -193,3 +193,35 @@ fn global_effect_load_is_independent_of_early_speed_edit() {
         );
     });
 }
+
+/// 场景：偏好尚未从库里读入时的修改必须被拒绝，否则默认值会覆盖库里的真实偏好。
+/// 数据构造：默认状态（glow_loaded=false），尝试改成光环；随后标记已读入再改一次。
+/// 执行过程：两次调用 apply_glow_edit。
+/// 预期结果：第一次返回 false 且缓存、序号、状态行都不变；第二次返回 true 并写入缓存与序号。
+#[test]
+fn glow_edit_is_rejected_until_prefs_are_loaded() {
+    use crate::effects::voice_glow::{VoiceGlowPrefs, VoiceGlowStyle};
+    let mut state = EffectsSettingsState::default();
+    let halo = VoiceGlowPrefs {
+        style: VoiceGlowStyle::Halo,
+        ..VoiceGlowPrefs::default()
+    };
+    assert!(
+        !state.apply_glow_edit(halo, None, "x".into(), 7),
+        "读入前的修改应被拒绝"
+    );
+    assert_eq!(
+        state.voice_glow,
+        VoiceGlowPrefs::default(),
+        "被拒绝时缓存不变"
+    );
+    assert_eq!(state.glow_generation, 0, "被拒绝时序号不变");
+    assert!(state.glow_status.is_none(), "被拒绝时不应出现状态行");
+    state.glow_loaded = true;
+    assert!(
+        state.apply_glow_edit(halo, None, "ok".into(), 7),
+        "读入后应接受修改"
+    );
+    assert_eq!(state.voice_glow, halo, "接受后缓存更新");
+    assert_eq!(state.glow_generation, 7, "接受后序号更新");
+}

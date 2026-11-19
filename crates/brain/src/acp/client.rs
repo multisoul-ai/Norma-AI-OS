@@ -1,7 +1,7 @@
 //! 一个 ACP 会话：握手、创建会话、发 prompt，并处理期间的权限请求。
 
-use super::gate::{pick_option, Gate, PermissionRequest, Verdict};
-use super::trace::{classify_update, Merger, TraceItem, TraceKind};
+use super::permission;
+use super::trace::{classify_update, Merger, TraceItem};
 use super::wire::{Connection, Incoming};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -41,6 +41,8 @@ pub struct SessionOptions {
     /// Codex 的推理强度，用 `session/set_config_option` 的 `reasoning_effort` 设置。
     pub effort: Option<String>,
     pub handshake_timeout: Duration,
+    /// 幕僚会话才设置。有值时权限回调只放行这个绝对路径下的 `norma brain`。
+    pub staff_shell: Option<PathBuf>,
 }
 
 pub struct AcpSession {
@@ -48,6 +50,9 @@ pub struct AcpSession {
     session_id: String,
     /// `session/new` 的回复，用来读出可选的模型。
     created: Value,
+    questions: Option<super::questions::QuestionHost>,
+    cwd: PathBuf,
+    staff_shell: Option<PathBuf>,
 }
 
 impl AcpSession {
@@ -58,6 +63,21 @@ impl AcpSession {
     pub fn start_cancellable(
         options: &SessionOptions,
         cancel: &AtomicBool,
+    ) -> Result<Self, AcpError> {
+        Self::start_with_questions(options, cancel, false)
+    }
+
+    pub fn start_staff_cancellable(
+        options: &SessionOptions,
+        cancel: &AtomicBool,
+    ) -> Result<Self, AcpError> {
+        Self::start_with_questions(options, cancel, true)
+    }
+
+    fn start_with_questions(
+        options: &SessionOptions,
+        cancel: &AtomicBool,
+        staff: bool,
     ) -> Result<Self, AcpError> {
         if cancel.load(Ordering::Relaxed) {
             return Err(AcpError::Cancelled);
@@ -71,10 +91,15 @@ impl AcpSession {
         )
         .map_err(AcpError::Spawn)?;
         let deadline = Instant::now() + options.handshake_timeout;
+        let mut capabilities =
+            json!({"fs": {"readTextFile": false, "writeTextFile": false}, "terminal": false});
+        if staff {
+            capabilities["elicitation"] = json!({"form": {}});
+        }
         call(
             &mut conn,
             "initialize",
-            json!({"protocolVersion": 1, "clientCapabilities": {"fs": {"readTextFile": false, "writeTextFile": false}, "terminal": false}}),
+            json!({"protocolVersion": 1, "clientCapabilities": capabilities}),
             deadline,
             cancel,
         )?;
@@ -96,7 +121,10 @@ impl AcpSession {
                 cancel,
             )?;
         }
+        let collaboration = (staff && options.kind == crate::backend::BackendKind::Codex)
+            .then(|| "plan".to_owned());
         let configs = [
+            ("collaboration_mode", &collaboration),
             ("model", &options.model),
             ("reasoning_effort", &options.effort),
         ];
@@ -120,7 +148,14 @@ impl AcpSession {
             conn,
             session_id,
             created,
+            questions: None,
+            cwd: options.cwd.clone(),
+            staff_shell: options.staff_shell.clone(),
         })
+    }
+
+    pub fn set_question_host(&mut self, host: Option<super::questions::QuestionHost>) {
+        self.questions = host;
     }
 
     pub fn session_id(&self) -> &str {
@@ -132,16 +167,30 @@ impl AcpSession {
         crate::backend::model_choices(&self.created)
     }
 
-    /// 发一条 prompt，返回助手的文字回复。期间的权限请求交给 `gate`。
+    /// 发一条 prompt，返回助手的文字回复。期间的权限请求一律放行。
     pub fn prompt(
         &mut self,
         text: &str,
-        gate: &Gate,
         cancel: &AtomicBool,
         timeout: Duration,
         sink: &mut dyn FnMut(TraceItem),
     ) -> Result<String, AcpError> {
+        self.prompt_observed(text, &[], cancel, Some(timeout), sink, &mut |_| {})
+    }
+
+    /// Observe raw progress before audit trace coalescing; observations are not persisted replies.
+    /// `timeout == None` 时没有截止，只靠适配器结束或 `cancel`。
+    pub fn prompt_observed(
+        &mut self,
+        text: &str,
+        images: &[super::content::PromptImage],
+        cancel: &AtomicBool,
+        timeout: Option<Duration>,
+        sink: &mut dyn FnMut(TraceItem),
+        progress: &mut dyn FnMut(&TraceItem),
+    ) -> Result<String, AcpError> {
         let started = Instant::now();
+        let staff_gate = self.staff_shell.clone().map(|bin| (bin, self.cwd.clone()));
         let mut merger = Merger::default();
         let mut stop_reason = None;
         let mut system_error = false;
@@ -151,20 +200,31 @@ impl AcpSession {
                 return Err(AcpError::Cancelled);
             }
             let id = self
-            .conn
-            .send_request(
-                "session/prompt",
-                json!({"sessionId": self.session_id, "prompt": [{"type": "text", "text": text}]}),
-            )
-            .map_err(|_| AcpError::Closed)?;
-            let deadline = Instant::now() + timeout;
+                .conn
+                .send_request(
+                    "session/prompt",
+                    super::content::session_prompt(&self.session_id, text, images),
+                )
+                .map_err(|_| AcpError::Closed)?;
+            let mut deadline = timeout.map(|limit| Instant::now() + limit);
+            let mut tick = Instant::now();
             let mut reply = String::new();
             loop {
+                let now = Instant::now();
+                if let Some(questions) = &mut self.questions {
+                    if questions.waiting() {
+                        if let Some(deadline) = deadline.as_mut() {
+                            *deadline += now.duration_since(tick);
+                        }
+                    }
+                    questions.poll(&mut self.conn, false)?;
+                }
+                tick = now;
                 if cancel.load(Ordering::Relaxed) {
                     self.abort();
                     return Err(AcpError::Cancelled);
                 }
-                if Instant::now() >= deadline {
+                if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
                     self.abort();
                     return Err(AcpError::Timeout);
                 }
@@ -176,6 +236,21 @@ impl AcpSession {
                 if cancel.load(Ordering::Relaxed) {
                     self.abort();
                     return Err(AcpError::Cancelled);
+                }
+                let received_at = Instant::now();
+                if self
+                    .questions
+                    .as_ref()
+                    .is_some_and(|questions| questions.waiting())
+                {
+                    if let Some(deadline) = deadline.as_mut() {
+                        *deadline += received_at.duration_since(tick);
+                    }
+                    tick = received_at;
+                }
+                if deadline.is_some_and(|deadline| received_at >= deadline) {
+                    self.abort();
+                    return Err(AcpError::Timeout);
                 }
                 match incoming {
                     Incoming::Response { id: rid, result } if rid == id => {
@@ -204,6 +279,7 @@ impl AcpSession {
                             reply.push_str(update["content"]["text"].as_str().unwrap_or_default());
                         }
                         if let Some(item) = classify_update(update) {
+                            progress(&item);
                             for out in merger.push(item) {
                                 sink(out);
                             }
@@ -213,73 +289,47 @@ impl AcpSession {
                         if let Some(item) = merger.flush() {
                             sink(item);
                         }
-                        self.answer(&id, &method, &params, gate, sink)?;
+                        if method == "elicitation/create" {
+                            if let Some(questions) = &mut self.questions {
+                                if questions.open(&id, &params)? {
+                                    continue;
+                                }
+                            }
+                        }
+                        permission::answer(
+                            &mut self.conn,
+                            &id,
+                            &method,
+                            &params,
+                            staff_gate
+                                .as_ref()
+                                .map(|(bin, cwd)| (bin.as_path(), cwd.as_path())),
+                            &mut |item| {
+                                progress(&item);
+                                sink(item);
+                            },
+                        )?;
                     }
                     _ => {}
                 }
             }
         })();
+        if let Some(questions) = &mut self.questions {
+            questions.poll(&mut self.conn, true)?;
+        }
         if let Some(item) = merger.flush() {
             sink(item);
         }
-        let stop = stop_reason.as_deref().unwrap_or(match &result {
+        let stop = match &result {
             Err(AcpError::Cancelled) => "cancelled",
             Err(AcpError::Timeout) => "timeout",
-            _ => "error",
-        });
+            _ => stop_reason.as_deref().unwrap_or("error"),
+        };
         sink(TraceItem::turn_end(
             stop,
             started.elapsed().as_millis() as u64,
         ));
         result
-    }
-
-    fn answer(
-        &mut self,
-        id: &Value,
-        method: &str,
-        params: &Value,
-        gate: &Gate,
-        sink: &mut dyn FnMut(TraceItem),
-    ) -> Result<(), AcpError> {
-        let sent = if method == "session/request_permission" {
-            let request = PermissionRequest::from_params(params);
-            let verdict = gate.judge(&request);
-            let wanted = request
-                .command
-                .clone()
-                .or_else(|| request.path.clone())
-                // 解码失败仍保留请求原文；用于审计，绝不拿它重新做放行判定。
-                .or_else(|| {
-                    params["toolCall"]["rawInput"]
-                        .get("command")
-                        .map(Value::to_string)
-                })
-                .unwrap_or_default();
-            let (title, result) = match &verdict {
-                Verdict::Allow => ("权限请求：放行".to_string(), String::new()),
-                Verdict::Reject(reason) => {
-                    ("权限请求：拒绝".to_string(), format!("\n原因：{reason}"))
-                }
-            };
-            sink(TraceItem::new(
-                TraceKind::Permission,
-                title,
-                format!("{}：{wanted}{result}", request.tool),
-            ));
-            if let Verdict::Reject(reason) = &verdict {
-                tracing::info!(session_id = %self.session_id, permission_id = %id,
-                    %reason, wanted = %wanted, "大脑的权限请求被拒绝");
-            }
-            let outcome = match pick_option(params, &verdict) {
-                Some(option_id) => json!({"outcome": "selected", "optionId": option_id}),
-                None => json!({"outcome": "cancelled"}),
-            };
-            self.conn.respond(id, json!({"outcome": outcome}))
-        } else {
-            self.conn.respond_error(id, -32601, "unsupported")
-        };
-        sent.map_err(|_| AcpError::Closed)
     }
 
     fn abort(&mut self) {
@@ -335,12 +385,10 @@ pub fn discover_models(
         program: backend.program.clone(),
         args: backend.args.clone(),
         cwd,
-        env: env
-            .into_iter()
-            .chain(crate::backend::session_env(backend.kind))
-            .collect(),
-        meta: crate::backend::session_meta(backend.kind, None),
+        env,
+        meta: crate::backend::session_meta(backend.kind, None, false),
         mode: None,
+        staff_shell: None,
         model: None,
         effort: None,
         handshake_timeout: Duration::from_secs(60),

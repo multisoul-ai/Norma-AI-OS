@@ -441,3 +441,49 @@ fn native_launch_cancellation_blocks_spawn_and_late_attach() {
     );
     assert_eq!(runtime.live_len(), 0, "迟到结果不能注册活动终端");
 }
+
+/// 快速 CLI 的 Ready 在后台 spawn 交回前到达，完成注册不能把它清掉。
+///
+/// 数据构造：一个幕僚 Codex 卡、80×24 默认终端、echo PTY，无真实子进程。
+/// 执行过程：prepare → Ready hook → spawn 结果回来 → complete → 读状态和事件。
+/// 预期结果：Ready 和会话绑定保留，不能退回未知/启动中，只有一次 NodeRegistered。
+#[test]
+fn early_ready_survives_native_launch_completion() {
+    let mut runtime = Runtime::new_for_workspace("/tmp");
+    runtime.set_pty_factory(Box::new(|_, _, _, tx| {
+        Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+    }));
+    let node = runtime.create_staff_worker(
+        AgentProfile::Codex,
+        "Fast".into(),
+        CanvasRect::new(0., 0., 640., 400.),
+        "dispatch".into(),
+    );
+    // 80×24 is the standard terminal size; no timing sleep is used to hide ordering.
+    let launch = runtime
+        .prepare_native_agent_terminal(node, 80, 24)
+        .expect("prepare");
+    let run_id = launch.run_id().to_owned();
+    ready_native_card(&mut runtime, node);
+    let live = launch.spawn_with_factory(runtime.pty_factory.as_ref());
+    runtime
+        .complete_native_agent_terminal(node, &run_id, live)
+        .expect("complete");
+    assert_eq!(
+        runtime.agent_task_state(node),
+        Some(AgentTaskState::Ready),
+        "early Ready must survive background spawn completion"
+    );
+    assert!(
+        runtime.agent_session_id(node).is_some(),
+        "early session binding must survive"
+    );
+    let registrations = runtime.take_events().iter().filter(|event| matches!(event, RuntimeEvent::NodeRegistered { node_id, .. } if *node_id == node)).count();
+    assert_eq!(registrations, 1, "launch must register exactly once");
+    assert_ne!(
+        runtime.agent_task_state(node),
+        None,
+        "launch completion cannot erase confirmed Ready"
+    );
+    runtime.kill_all();
+}

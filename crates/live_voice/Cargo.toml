@@ -12,6 +12,7 @@ audio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
 base64 = "0.22"
 tokio = { workspace = true, features = ["net"] }
 tokio-util.workspace = true

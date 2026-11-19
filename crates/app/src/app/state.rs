@@ -51,11 +51,30 @@ pub(crate) fn native_window_allows_voice_inset(visible: bool, minimized: bool) -
 }
 
 impl MultisoulApp {
-    pub(crate) fn sync_voice_window_inset_enabled(&mut self) -> bool {
-        self.voice_window_inset_events.set_enabled(
-            self.voice_settings.values().voice_window_inset_enabled()
-                && self.voice_window_inset_window_visible,
-        )
+    /// 把设置里的光晕偏好、窗口可见性与聆听/思考相位同步到光晕总线。
+    pub(crate) fn sync_voice_glow(&mut self, cx: &gpui::App) {
+        use crate::effects::voice_glow::{VoiceGlowPhase, VoiceGlowStyle};
+        let prefs = cx
+            .try_global::<crate::settings::effects::state::EffectsSettingsState>()
+            .map(|state| state.voice_glow)
+            .unwrap_or_default();
+        let bus = &self.voice_window_inset_events;
+        bus.set_prefs(prefs);
+        bus.set_enabled(
+            prefs.style != VoiceGlowStyle::Off && self.voice_window_inset_window_visible,
+        );
+        let phase = match self.voice.phase() {
+            crate::app::voice::control::VoicePhase::Recording { .. } => VoiceGlowPhase::Listening,
+            crate::app::voice::control::VoicePhase::Transcribing => VoiceGlowPhase::Thinking,
+            _ if self.doubao.listening.is_some() || self.doubao.recording.is_some() => {
+                VoiceGlowPhase::Listening
+            }
+            _ if self.doubao.status == crate::app::doubao::DoubaoStatus::Thinking => {
+                VoiceGlowPhase::Thinking
+            }
+            _ => VoiceGlowPhase::Idle,
+        };
+        bus.set_phase(phase);
     }
 }
 

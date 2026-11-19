@@ -143,7 +143,7 @@ if '--version' in argv:
 if 'app-server' in argv or 'serve' in argv:
     time.sleep(3600)
 root = os.environ.get('NORMA_ISLAND_FIXTURE', '')
-node = os.environ.get('MULTISOUL_NODE_ID', '')
+node = os.environ.get('NORMA_NODE_ID', '')
 def log(text):
     try:
         open(root + '/agent.log', 'a').write(text + '\n')
@@ -162,9 +162,9 @@ roster = {
     '7': ('run', '推送重试单测', 'npm test'),
 }
 role, task, step = roster[node]
-profile = {'claude': 'Claude', 'codex': 'Codex', 'cursor': 'Cursor', 'opencode': 'OpenCode', 'kimi': 'Kimi'}[os.environ['MULTISOUL_AGENT_PROFILE']]
-endpoint = os.environ['MULTISOUL_HOOK_ENDPOINT']
-token = os.environ['MULTISOUL_HOOK_TOKEN']
+profile = {'claude': 'Claude', 'codex': 'Codex', 'cursor': 'Cursor', 'opencode': 'OpenCode', 'kimi': 'Kimi'}[os.environ['NORMA_AGENT_PROFILE']]
+endpoint = os.environ['NORMA_HOOK_ENDPOINT']
+token = os.environ['NORMA_HOOK_TOKEN']
 session = 'island-' + node
 
 def post(path, payload, timeout):

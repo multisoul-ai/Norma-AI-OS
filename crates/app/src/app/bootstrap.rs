@@ -59,6 +59,7 @@ impl MultisoulApp {
         // 测试 / e2e 不经 `run_norma_os` 时也要装好组件库（幂等）。
         ui::init_components(cx);
         init_multisoul_key_bindings(cx);
+        crate::app::staff::install_link_handler(cx);
         cx.on_release(|app, cx| {
             app.release_clone_task_if_owned(cx);
             app.unregister_workspace_window_if_needed(cx);
@@ -168,6 +169,7 @@ impl MultisoulApp {
             theme_settings,
             performance_settings,
             brain: super::brain_host::BrainHostState::new(),
+            staff: super::staff::StaffState::default(),
             interaction: InteractionState::default(),
             motion: MotionStore::from_env(),
             previews: PreviewStore::default(),

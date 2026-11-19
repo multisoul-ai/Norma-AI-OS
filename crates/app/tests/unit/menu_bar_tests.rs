@@ -136,3 +136,48 @@ fn item_labels(items: &[MenuItemSpec]) -> Vec<&'static str> {
         })
         .collect()
 }
+
+/// 「编辑 → 复制」必须是标准 Copy 菜单项，原生网页获得焦点时才能响应 ⌘C。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   原生菜单栏 = `menu_bar()`，Edit 菜单当前只含 1 个动作（Copy），其余菜单都不含 Copy。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造原生菜单栏，遍历所有菜单项。
+///   2. 收集 `os_action == Some(Copy)` 的项及其所在菜单。
+///   3. 读取其动作名，确认仍派发 `CopyCardContent`。
+///
+/// 预期结果：
+///   - 断言 A：恰好 1 个标准 Copy 项。若为 0，菜单项选择器不是 `copy:`，
+///     焦点在 WKWebView 时 ⌘C 不会走响应链，右抽屉网页内容无法复制。
+///   - 断言 B：它的动作是 `CopyCardContent`，焦点在 GPUI（终端选区）时仍走原有复制逻辑。
+#[test]
+fn test_edit_copy_is_a_standard_os_copy_item_dispatching_copy_card_content() {
+    use crate::app::CopyCardContent;
+    use gpui::{Action, MenuItem, OsAction};
+
+    let mut copies = Vec::new();
+    for menu in crate::menu_bar::menu_bar() {
+        for item in menu.items {
+            if let MenuItem::Action {
+                action,
+                os_action: Some(OsAction::Copy),
+                ..
+            } = item
+            {
+                copies.push(action.name().to_string());
+            }
+        }
+    }
+
+    assert_eq!(
+        copies.len(),
+        1,
+        "必须恰好有一个标准 Copy 菜单项（selector copy:），实际 {copies:?}"
+    );
+    assert_eq!(
+        copies[0],
+        CopyCardContent.name(),
+        "标准 Copy 项必须仍派发 CopyCardContent，终端选区复制才不退化"
+    );
+}

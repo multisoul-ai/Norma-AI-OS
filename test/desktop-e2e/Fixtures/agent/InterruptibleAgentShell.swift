@@ -23,12 +23,12 @@ public enum InterruptibleAgentShell {
     tty.setraw(sys.stdin.fileno())
     root = os.environ["NORMA_FAKE_ROOT"]
     def hook(event, message=None):
-        body = {"node_id": int(os.environ["MULTISOUL_NODE_ID"]), "profile": "Claude",
+        body = {"node_id": int(os.environ["NORMA_NODE_ID"]), "profile": "Claude",
                 "provider_event": event, "session_id": "interruptible-session", "turn_id": None,
                 "tool_name": "Bash" if event == "PermissionRequest" else None, "message": message,
                 "raw_json": {"hook_event_name": event, "session_id": "interruptible-session", "prompt": message}}
-        request = urllib.request.Request(os.environ["MULTISOUL_HOOK_ENDPOINT"], json.dumps(body).encode(),
-            {"Authorization": "Bearer " + os.environ["MULTISOUL_HOOK_TOKEN"], "Content-Type": "application/json"})
+        request = urllib.request.Request(os.environ["NORMA_HOOK_ENDPOINT"], json.dumps(body).encode(),
+            {"Authorization": "Bearer " + os.environ["NORMA_HOOK_TOKEN"], "Content-Type": "application/json"})
         urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=3).read()
     def output(text):
         os.write(1, (text + "\r\n").encode())
@@ -36,7 +36,7 @@ public enum InterruptibleAgentShell {
     hook("SessionStart")
     output("INTERRUPTIBLE AGENT READY")
     with open(root + "/identity.json", "w") as f:
-        json.dump({"pid": os.getpid(), "node_id": int(os.environ["MULTISOUL_NODE_ID"]), "session_id": "interruptible-session"}, f)
+        json.dump({"pid": os.getpid(), "node_id": int(os.environ["NORMA_NODE_ID"]), "session_id": "interruptible-session"}, f)
     def request_approval():
         while not os.path.exists(root + "/request-approval"): time.sleep(0.05)
         hook("PermissionRequest")

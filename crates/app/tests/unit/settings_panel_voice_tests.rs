@@ -127,7 +127,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("settings-voice-trace-toggle");
     assert_anchor!("settings-agent-task-announcements-toggle");
     assert_anchor!("voice.agent_task_announcements");
-    assert_anchor!("settings-voice-window-inset-toggle");
+    assert_anchor!("settings-voice-glow-open-effects");
     assert_anchor!("voice.speech_glow");
     assert_anchor!("on_mouse_down");
     assert_anchor!("begin_edit");

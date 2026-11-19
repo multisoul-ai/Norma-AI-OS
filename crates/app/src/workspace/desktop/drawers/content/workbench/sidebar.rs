@@ -174,7 +174,7 @@ impl MultisoulApp {
             }));
         }
         items.push(Item::FilesHead);
-        if !s.files_section_closed {
+        if s.files_section_open {
             if s.rows.is_empty() {
                 items.push(Item::Note(if s.project.is_none() {
                     s.error
@@ -234,10 +234,10 @@ impl MultisoulApp {
             Item::FilesHead => self.section_head(
                 "files-section-all",
                 ui::i18n::text("drawers.all_files"),
-                !s.files_section_closed,
+                s.files_section_open,
                 true,
                 Rc::new(|app, _, cx| {
-                    app.desktop_workspace.workbench.files_section_closed ^= true;
+                    app.desktop_workspace.workbench.files_section_open ^= true;
                     cx.notify();
                 }),
                 cx,

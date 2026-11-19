@@ -141,6 +141,7 @@ impl RestoreCtx<'_> {
     fn make_hook_env(&self, node_id: NodeId, profile: AgentProfile) -> Option<AgentHookEnv> {
         self.agent_hook_config.map(|config| AgentHookEnv {
             control_run_id: self.question_processes.get(&node_id).cloned(),
+            dispatch_id: None,
             node_id,
             profile,
             endpoint: config.endpoint.clone(),

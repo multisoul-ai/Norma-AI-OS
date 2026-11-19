@@ -90,6 +90,9 @@ pub enum NativeQuestionHost {
 pub trait LiveNode {
     fn caps(&self) -> Caps;
     fn drain(&mut self) -> bool;
+    fn last_output_at(&self) -> Option<std::time::Instant> {
+        None
+    }
     fn native_question_host_pending(&self) -> bool {
         false
     }

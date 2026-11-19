@@ -16,7 +16,7 @@
 各家问答工具（本机核对）：
 | Agent | 工具 | 证据 | 当前 Norma hook |
 |---|---|---|---|
-| Grok (grok 1.0.54) | AskUserQuestion，schema 与 Claude 同（questions[]/options/multiSelect/preview）；另有 ACP ext_method ask_user_question；env GROK_ASK_USER_QUESTION_TIMEOUT_SECS | ~/.grok/bin/grok strings | ~/.grok/hooks/multisoul-agent-hook.json 只有生命周期转发，timeout 5，无 matcher、无 --request-question |
+| Grok (grok 1.0.54) | AskUserQuestion，schema 与 Claude 同（questions[]/options/multiSelect/preview）；另有 ACP ext_method ask_user_question；env GROK_ASK_USER_QUESTION_TIMEOUT_SECS | ~/.grok/bin/grok strings | ~/.grok/hooks/norma-hook.json 只有生命周期转发，timeout 5，无 matcher、无 --request-question |
 | Kimi (~/.kimi-code) | AskUserQuestion | 会话 wire.jsonl 出现 | 见 install.rs 中 Kimi 分支 |
 | ZCode (~/.local/share/zcode-source) | AskUserQuestion | zcode.cjs bundle | 见 install.rs ZCode 分支 |
 | InfCode (@infcode/cli) | AskUserQuestion | bin/*.js.map | 见 install.rs InfCode 分支 |

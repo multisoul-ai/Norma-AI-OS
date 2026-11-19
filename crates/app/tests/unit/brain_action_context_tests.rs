@@ -67,7 +67,7 @@ fn assign_fixture(address: String, fail_receipt: bool) {
         app.install_brain_host_for_test(super::super::BrainHost {
             service: None,
             status,
-            token: "action-token".into(),
+            tokens: brain::staff::gate::Tokens::new("action-token"),
         });
         let mut settings = config::BrainSettings::default();
         settings.autonomy.assign_followups = true;

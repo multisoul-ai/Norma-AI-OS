@@ -29,6 +29,7 @@ pub(super) fn card_from_status(
         task_timing: None,
         task_progress: None,
         task_summary: None,
+        last_tool: None,
     });
     card.state = agent.state.clone();
     card.task_title = agent.task.clone();

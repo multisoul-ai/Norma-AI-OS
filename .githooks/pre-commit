@@ -14,6 +14,8 @@ bash scripts/check-codesign-readiness.sh
 python3 scripts/check-video-wallpaper-performance.py --staged
 python3 scripts/check-resource-lifecycle.py --staged
 python3 scripts/test-check-resource-lifecycle.py
+python3 scripts/check-staff-list-type.py --self-test
+python3 scripts/check-staff-list-type.py
 
 staged_rust=$(
   git diff --cached --name-only --diff-filter=ACMR |

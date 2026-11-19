@@ -15,8 +15,8 @@ fn command(cwd: &Path, home: &Path, extra: &str) -> PtyCommand {
         .args(["-lic", &format!("exec codex -c disable_paste_burst=true -c check_for_update_on_startup=false --dangerously-bypass-approvals-and-sandbox --disable hooks --no-alt-screen{extra}")])
         .cwd(cwd)
         .env("CODEX_HOME", home.to_string_lossy())
-        .env("MULTISOUL_AGENT_PROFILE", "codex")
-        .env("MULTISOUL_NODE_ID", "7")
+        .env("NORMA_AGENT_PROFILE", "codex")
+        .env("NORMA_NODE_ID", "7")
         .env(norma::agent_hook::ENV_CONTROL_RUN_ID, "owned-process")
 }
 

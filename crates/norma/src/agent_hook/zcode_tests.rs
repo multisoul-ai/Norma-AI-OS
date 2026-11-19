@@ -33,7 +33,7 @@ fn install_writes_seven_verified_events_and_enables_hooks() {
     let paths = paths_in(dir.path());
     install_hook_config(
         HookTarget::ZCode,
-        Path::new("/opt/Norma OS/multisoul-agent-hook"),
+        Path::new("/opt/Norma OS/norma-hook"),
         &paths,
     )
     .unwrap();
@@ -94,7 +94,7 @@ fn install_is_idempotent_and_uninstall_keeps_user_data() {
         "hooks": {"enabled": true, "events": {"Stop": [{"hooks": [{"type": "command", "command": "echo mine"}]}]}}
     });
     std::fs::write(&paths.zcode_config, user.to_string()).unwrap();
-    let bin = PathBuf::from("/a/multisoul-agent-hook");
+    let bin = PathBuf::from("/a/norma-hook");
     install_hook_config(HookTarget::ZCode, &bin, &paths).unwrap();
     install_hook_config(HookTarget::ZCode, &bin, &paths).unwrap();
     let root = read(&paths.zcode_config);
@@ -135,11 +135,7 @@ fn install_refuses_to_overwrite_foreign_or_malformed_config() {
         r#"{"hooks":5}"#,
     ] {
         std::fs::write(&paths.zcode_config, original).unwrap();
-        let result = install_hook_config(
-            HookTarget::ZCode,
-            Path::new("/a/multisoul-agent-hook"),
-            &paths,
-        );
+        let result = install_hook_config(HookTarget::ZCode, Path::new("/a/norma-hook"), &paths);
         assert!(result.is_err(), "应拒绝: {original}");
         assert_eq!(
             std::fs::read_to_string(&paths.zcode_config).unwrap(),
@@ -154,12 +150,7 @@ fn install_refuses_to_overwrite_foreign_or_malformed_config() {
 fn installed_requires_enabled_flag() {
     let dir = tempfile::tempdir().unwrap();
     let paths = paths_in(dir.path());
-    install_hook_config(
-        HookTarget::ZCode,
-        Path::new("/a/multisoul-agent-hook"),
-        &paths,
-    )
-    .unwrap();
+    install_hook_config(HookTarget::ZCode, Path::new("/a/norma-hook"), &paths).unwrap();
     let mut root = read(&paths.zcode_config);
     root["hooks"].as_object_mut().unwrap().remove("enabled");
     std::fs::write(&paths.zcode_config, root.to_string()).unwrap();
@@ -233,12 +224,7 @@ fn uninstall_keeps_user_owned_empty_groups_and_events() {
         "PreToolUse": []
     }}});
     std::fs::write(&paths.zcode_config, user.to_string()).unwrap();
-    install_hook_config(
-        HookTarget::ZCode,
-        Path::new("/a/multisoul-agent-hook"),
-        &paths,
-    )
-    .unwrap();
+    install_hook_config(HookTarget::ZCode, Path::new("/a/norma-hook"), &paths).unwrap();
     uninstall_hook_config(HookTarget::ZCode, &paths).unwrap();
     let root = read(&paths.zcode_config);
     assert_eq!(
@@ -267,7 +253,7 @@ fn install_refuses_when_dormant_user_hooks_would_be_activated() {
     std::fs::create_dir_all(paths.zcode_config.parent().unwrap()).unwrap();
     let original = r#"{"hooks":{"enabled":false,"events":{"Stop":[{"hooks":[{"type":"command","command":"echo mine"}]}]}}}"#;
     std::fs::write(&paths.zcode_config, original).unwrap();
-    let bin = Path::new("/a/multisoul-agent-hook");
+    let bin = Path::new("/a/norma-hook");
     assert!(
         install_hook_config(HookTarget::ZCode, bin, &paths).is_err(),
         "休眠的用户 hook 不得被安装悄悄激活"

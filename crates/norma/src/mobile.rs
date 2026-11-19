@@ -51,5 +51,5 @@ pub use terminal::{
 
 pub use identity::ServerIdentity;
 pub use pairing::{PairingCodeReply, PairingPending, PairingQr, PairingRequest, PairingSession};
-pub use snapshot::{CardSnapshot, ProjectSnapshot, TaskProgress, TaskTiming};
+pub use snapshot::{CardSnapshot, ProjectSnapshot, RecentTool, TaskProgress, TaskTiming};
 pub use transport::{accept_mobile_websocket, MobileSocket, MobileTcp};

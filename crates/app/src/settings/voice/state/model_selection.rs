@@ -1,6 +1,6 @@
 use super::super::models::AsrModelManagerState;
 use super::super::tts_models::TtsModelManagerState;
-use super::{VoiceSettingsState, VoiceSettingsValues};
+use super::{AdvancedGroup, VoiceSettingsState, VoiceSettingsValues};
 use asr::AsrModelId;
 use voice_sherpa::SpeechError;
 
@@ -17,6 +17,14 @@ pub(crate) enum VoiceSetupDestination {
 }
 
 impl VoiceSettingsState {
+    pub(crate) fn advanced_group(&self) -> Option<AdvancedGroup> {
+        self.advanced_group
+    }
+
+    pub(crate) fn toggle_advanced_group(&mut self, group: AdvancedGroup) {
+        self.advanced_group = (self.advanced_group != Some(group)).then_some(group);
+    }
+
     pub(crate) fn advanced_expanded(&self) -> bool {
         self.advanced_expanded
     }
@@ -25,8 +33,15 @@ impl VoiceSettingsState {
         self.advanced_expanded = !self.advanced_expanded;
     }
 
-    pub(crate) fn expand_advanced(&mut self) {
+    /// 展开「更多设置」并只打开指定分组。
+    pub(crate) fn open_advanced_group(&mut self, group: AdvancedGroup) {
         self.advanced_expanded = true;
+        self.advanced_group = Some(group);
+    }
+
+    /// 主界面状态行的跳转落点：识别服务分组。
+    pub(crate) fn expand_advanced(&mut self) {
+        self.open_advanced_group(AdvancedGroup::Recognition);
     }
 
     pub(crate) fn setup_models_expanded(&self) -> bool {

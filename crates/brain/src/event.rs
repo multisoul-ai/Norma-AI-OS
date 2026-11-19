@@ -39,13 +39,36 @@ pub struct ApprovalRequest {
     pub subject: ApprovalSubject,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DeliveryPhase {
+    Accepted,
+    NeedsAttention,
+    Redeliver,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BrainEventKind {
+    /// 用户消息已经在 TaskStore 持久化，排队处理该任务的最新消息。
+    TaskRequest {
+        task_id: String,
+    },
+    WorkerAttention {
+        node_id: u64,
+        dispatch_id: String,
+        waiting: bool,
+    },
+    WorkerDelivery {
+        node_id: u64,
+        dispatch_id: String,
+        phase: DeliveryPhase,
+    },
     AgentProgress {
         agent: String,
         text: String,
     },
     AgentFinished {
+        node_id: u64,
+        dispatch_id: Option<String>,
         agent: String,
         outcome: Outcome,
         excerpt: String,
@@ -99,6 +122,22 @@ pub enum BrainEventKind {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BrainStatusKind {
+    /// Live task feedback; never persisted as conversation history.
+    TaskActivity {
+        task_id: String,
+        turn: u64,
+        update: TaskUpdate,
+    },
+    TaskChanged(norma::protocol::Task),
+    /// 流式期间本轮幕僚回复的增量：只改内存、不加 revision；落盘后的 `TaskChanged` 会覆盖它。
+    TaskReplyChanged {
+        task_id: String,
+        index: usize,
+        reply: norma::protocol::StaffReply,
+    },
+    TaskError {
+        reason: String,
+    },
     Ready,
     BackendDown {
         reason: String,
@@ -174,4 +213,12 @@ impl Trigger {
     pub fn unknown() -> Self {
         Self::new(TriggerKind::Unknown, "")
     }
+}
+
+/// Ephemeral progress of one task turn, independent of merged audit traces.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TaskUpdate {
+    Queued,
+    Started,
+    Finished { failed: bool },
 }

@@ -26,6 +26,7 @@ impl PartialEq for LiveAgent {
             && self.card.task_timing == other.card.task_timing
             && self.card.task_progress == other.card.task_progress
             && self.card.task_summary == other.card.task_summary
+            && self.card.last_tool == other.card.last_tool
             && self.presentation == other.presentation
     }
 }

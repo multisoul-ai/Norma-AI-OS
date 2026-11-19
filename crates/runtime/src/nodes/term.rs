@@ -168,6 +168,10 @@ impl LiveNode for TermLive {
         dirty
     }
 
+    fn last_output_at(&self) -> Option<std::time::Instant> {
+        self.session.last_output_at()
+    }
+
     fn terminal_status(&self) -> Option<terminal::TerminalStatus> {
         Some(self.session.status)
     }

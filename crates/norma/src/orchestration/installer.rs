@@ -6,8 +6,8 @@ use super::file_ops::{atomic_write, remove_matching_binary, set_mode};
 use super::model::{ComponentState, InstallPaths, OrchestrationProvider, ProviderIntegration};
 use crate::agent_hook::{
     agent_hooks_installed_for_source, disable_hermes_plugin_blocking,
-    enable_hermes_plugin_blocking, install_hook_config, uninstall_hook_config, unmanaged_hook_path,
-    AgentHookError, OPENCODE_PLUGIN_MARKER,
+    enable_hermes_plugin_blocking, has_opencode_marker, install_hook_config, uninstall_hook_config,
+    unmanaged_hook_path, AgentHookError,
 };
 use std::fmt;
 use std::fs::{self, File};
@@ -280,7 +280,7 @@ impl OrchestrationInstaller {
         if provider == OrchestrationProvider::OpenCode {
             let path = self.paths.hook_paths.opencode_plugin.clone();
             match fs::read_to_string(&path) {
-                Ok(source) if !source.contains(OPENCODE_PLUGIN_MARKER) => {
+                Ok(source) if !has_opencode_marker(&source) => {
                     return ComponentState::Conflict {
                         path,
                         reason:

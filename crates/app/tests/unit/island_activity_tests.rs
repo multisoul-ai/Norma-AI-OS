@@ -111,16 +111,16 @@ fn island_activity_includes_inactive_workspace_and_retained_host() {
     );
 }
 
-/// 场景：Launchpad 删除一个从未打开的空间，没有项目事件或窗口刷新循环可代为更新。
-/// 数据：隔离数据库仅有一个空空间；宿主停在 Launchpad，先发布一次目录。
-/// 执行：调用现有确认删除入口，等待后台操作完成，再读取全局岛模型。
-/// 预期：空间从全局缓存消失，不需要打开工作空间或等新的 Agent 事件。
+/// 场景：Launchpad 上存在一个从未打开的空间。
+/// 数据：隔离数据库仅有一个空空间；宿主停在 Launchpad，没有活动空间也没有实时会话。
+/// 执行：触发一次目录刷新，等待后台投影完成，再读取全局岛模型。
+/// 预期：岛只加载已打开的工作空间，未打开的空间不出现在岛缓存中。
 #[test]
-fn island_activity_removes_unopened_workspace_after_catalog_delete() {
+fn island_activity_skips_unopened_workspace() {
     let temp = tempfile::tempdir().expect("创建隔离目录");
     let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
     let store = storage::AppStore::initialize(&paths).expect("初始化存储");
-    let workspace = store
+    store
         .desktop_workspace_store()
         .create("Unopened")
         .expect("创建空间");
@@ -130,22 +130,7 @@ fn island_activity_removes_unopened_workspace_after_catalog_delete() {
     host.update(&mut cx, |app, cx| app.refresh_desktop_previews(cx));
     cx.run_until_parked();
     model.read_with(&cx, |model, _| {
-        assert_eq!(model.workspaces.len(), 1, "删除前空间应可见")
-    });
-    host.update(&mut cx, |app, cx| {
-        app.desktop_workspace.pending_delete =
-            Some(crate::workspace::desktop::DesktopDeleteTarget::Workspace {
-                id: workspace.id,
-                name: workspace.name,
-            });
-        app.confirm_desktop_delete(cx);
-    });
-    cx.run_until_parked();
-    model.read_with(&cx, |model, _| {
-        assert!(
-            model.workspaces.is_empty(),
-            "删除后的目录必须立即反映在岛缓存"
-        )
+        assert!(model.workspaces.is_empty(), "未打开的空间不能进入岛缓存")
     });
 }
 

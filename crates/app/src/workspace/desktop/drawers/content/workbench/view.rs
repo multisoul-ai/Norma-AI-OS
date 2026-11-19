@@ -16,6 +16,7 @@ impl MultisoulApp {
     ) -> AnyElement {
         let theme = self.desktop_theme();
         self.ensure_file_workbench(window, cx);
+        self.sync_workbench_read_input(window, cx);
         let layout = explorer_layout(width);
         if !layout.compact {
             self.desktop_workspace.workbench.sidebar_open = false;

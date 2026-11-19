@@ -171,13 +171,13 @@ impl MultisoulApp {
 }
 
 /// 后台一次性算好的呈现方案：解析结果、分流目标与（工作台用的）项目归属。
-pub(super) struct TerminalPathPlan {
-    hit: TerminalPathHit,
-    route: TerminalPathRoute,
-    location: Option<(String, String)>,
+pub(crate) struct TerminalPathPlan {
+    pub(crate) hit: TerminalPathHit,
+    pub(crate) route: TerminalPathRoute,
+    pub(crate) location: Option<(String, String)>,
 }
 
-fn plan_terminal_path(
+pub(crate) fn plan_terminal_path(
     hit: TerminalPathHit,
     areas: &[(String, PathBuf)],
     preferred: Option<&str>,

@@ -145,7 +145,7 @@
 ## 6. 已排除的误删候选
 
 - `crates/app/src/settings/keyboard.rs` 通过 `crates/app/src/settings/panel.rs:7` 的 path 覆盖与 `crates/app/src/settings/content.rs:17` 加载；其布局测试也已挂载。仅看通常的文件夹推导会误判。
-- `crates/app/src/bin/multisoul_agent_hook.rs` 与 `crates/norma/src/bin/multisoul_agent_hook.rs` 虽相同，但 App 单包构建需要产生 helper。`scripts/test-app-release-hook-binary-config.sh` 明确保护这一约定，不能只保留 norma 包入口后直接删 App 入口。
+- `crates/app/src/bin/norma_hook.rs` 与 `crates/norma/src/bin/norma_hook.rs` 虽相同，但 App 单包构建需要产生 helper。`scripts/test-app-release-hook-binary-config.sh` 明确保护这一约定，不能只保留 norma 包入口后直接删 App 入口。
 - `crates/app/src/settings/agent_hooks.rs`、`crates/app/src/settings/agent_hook_ingress.rs` 是现行运行服务，与旧 Hooks 设置文件职责不同。
 - `crates/app/src/workspace/legacy_agent_migration.rs` 仍由项目打开流程调用；旧数据升级与数据库 migrations 需要保留。
 - `crates/license/` 与 Chromium 后端是显式可选功能；默认关闭不代表已退役。

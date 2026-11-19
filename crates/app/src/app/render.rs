@@ -18,7 +18,7 @@ impl Render for MultisoulApp {
         self.sync_feature_guide_blockers(cx);
         self.sync_command_drawer(window);
         self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
-        self.sync_voice_window_inset_enabled();
+        self.sync_voice_glow(cx);
         let performance_state = self.performance_state(cx);
         self.performance.set_state(performance_state);
         self.performance.record_repaint();
@@ -47,6 +47,7 @@ impl Render for MultisoulApp {
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)
+            .capture_key_down(cx.listener(Self::capture_staff_key))
             .capture_key_down(cx.listener(Self::capture_home_key))
             .capture_key_down(cx.listener(Self::capture_directory_key))
             .capture_key_down(cx.listener(Self::capture_command_dock_key))
@@ -109,6 +110,9 @@ impl Render for MultisoulApp {
                 if self.desktop_directory_zoom_active() {
                     root = root.child(self.render_desktop_workspace(window, cx));
                 }
+            }
+            AppScreen::DesktopWorkspace if self.staff.enabled => {
+                root = root.child(self.render_staff_workspace(window, cx));
             }
             AppScreen::DesktopWorkspace => {
                 root = root.child(self.render_workspace_backdrop());
@@ -176,6 +180,7 @@ impl Render for MultisoulApp {
         {
             if matches!(self.screen, AppScreen::DesktopWorkspace)
                 && !self.desktop_directory_zoom_active()
+                && !self.staff.enabled
             {
                 let layout = self.desktop_assistant_layout(window);
                 root = root.child(
@@ -189,7 +194,7 @@ impl Render for MultisoulApp {
                         .right(px(layout.right_space))
                         .child(self.render_desktop_dock(window, cx)),
                 );
-            } else {
+            } else if !self.staff.enabled {
                 root = root.child(self.render_desktop_dock(window, cx));
             }
             if matches!(self.screen, AppScreen::DesktopWorkspace) {

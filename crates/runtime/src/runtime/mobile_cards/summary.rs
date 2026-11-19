@@ -1,4 +1,6 @@
+use super::recent_tool::recent_tool;
 use norma::agent_hook::{observe_conversation, AgentHookEvent, ConversationObservationKind};
+use norma::mobile::RecentTool;
 use serde_json::Value;
 
 /// One bounded excerpt of observed work, not an invented completion or a second LLM request.
@@ -6,6 +8,7 @@ use serde_json::Value;
 pub(super) struct TaskSummary {
     turn: Option<String>,
     text: Option<String>,
+    tool: Option<RecentTool>,
 }
 
 impl TaskSummary {
@@ -13,10 +16,15 @@ impl TaskSummary {
         self.text.clone()
     }
 
+    pub(super) fn last_tool(&self) -> Option<RecentTool> {
+        self.tool.clone()
+    }
+
     fn start(&mut self, turn: Option<&str>) {
         if turn.is_none() || self.turn.as_deref() != turn {
             self.turn = turn.map(str::to_owned);
             self.text = None;
+            self.tool = None;
         }
     }
 
@@ -28,6 +36,9 @@ impl TaskSummary {
             _ if self.turn.is_some() && self.turn == event.turn_id => {
                 match event.provider_event.as_str() {
                     "PreToolUse" | "PermissionRequest" => {
+                        if let Some(tool) = recent_tool(&event.raw_json) {
+                            self.tool = Some(tool);
+                        }
                         // Provider-supplied human description only; never copy command bodies,
                         // file contents, tool results or a subagent's output into the task card.
                         self.text = event.raw_json["tool_input"]["description"]
@@ -81,7 +92,7 @@ impl TaskSummary {
     }
 }
 
-fn bounded_excerpt(raw: &str) -> Option<String> {
+pub(super) fn bounded_excerpt(raw: &str) -> Option<String> {
     // ponytail: at most 4096 source scalars inspected and 240 retained (<=960 UTF-8 bytes).
     // This is a preview; full text remains in the existing conversation, with no new polling/IO.
     let mut text = String::new();

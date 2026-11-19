@@ -56,7 +56,7 @@ public enum SettingsGrokOrchestration {
                         throw E2EError.product("安装后缺少 \(name) 技能")
                     }
                 }
-                let hook = home.appendingPathComponent(".grok/hooks/multisoul-agent-hook.json")
+                let hook = home.appendingPathComponent(".grok/hooks/norma-hook.json")
                 guard try String(contentsOf: hook, encoding: .utf8).contains("forward --source grok") else {
                     throw E2EError.product("Grok 原生 Hook 未安装")
                 }

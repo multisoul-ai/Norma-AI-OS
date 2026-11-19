@@ -258,13 +258,13 @@ fn test_zsh_login_shell_loads_profile_path_before_zshrc_zoxide_init() {
 /// `env_remove` 必须在 spawn 时从子进程环境删掉父进程同名变量。
 ///
 /// 数据构造：
-///   父进程 `MULTISOUL_NODE_ID=424`，模拟卡片终端里启动的 App 继承了来源节点。
-///   被移除的命令：`/bin/sh -c 'printf %s "${MULTISOUL_NODE_ID-unset}"'`
+///   父进程 `NORMA_NODE_ID=424`，模拟卡片终端里启动的 App 继承了来源节点。
+///   被移除的命令：`/bin/sh -c 'printf %s "${NORMA_NODE_ID-unset}"'`
 ///   对照命令不调用 `env_remove`，仍应看到 424。
 ///
 /// 执行过程：
 ///   1. 设置父进程变量并记下原值，测试结束恢复。
-///   2. spawn 带 `env_remove("MULTISOUL_NODE_ID")` 的命令，读到退出。
+///   2. spawn 带 `env_remove("NORMA_NODE_ID")` 的命令，读到退出。
 ///   3. spawn 不移除该变量的对照命令。
 ///
 /// 预期结果：
@@ -272,7 +272,7 @@ fn test_zsh_login_shell_loads_profile_path_before_zshrc_zoxide_init() {
 ///   - 负断言：不移除时子进程输出 `424`，证明变量确实从父进程继承，是 `env_remove` 把它删掉的。
 #[test]
 fn test_spawn_command_env_remove_drops_inherited_node_identity() {
-    const KEY: &str = "MULTISOUL_NODE_ID";
+    const KEY: &str = "NORMA_NODE_ID";
     let previous = std::env::var(KEY).ok();
     struct Restore<'a> {
         key: &'a str,
@@ -294,7 +294,7 @@ fn test_spawn_command_env_remove_drops_inherited_node_identity() {
 
     assert_eq!(
         removed, "unset",
-        "env_remove 后子进程不得再看到父进程的 MULTISOUL_NODE_ID=424"
+        "env_remove 后子进程不得再看到父进程的 NORMA_NODE_ID=424"
     );
     assert_eq!(
         inherited, "424",
@@ -306,9 +306,9 @@ fn test_spawn_command_env_remove_drops_inherited_node_identity() {
 fn spawn_printed_env(remove_node_id: bool) -> String {
     let (tx, rx) = unbounded();
     let mut command =
-        PtyCommand::new("/bin/sh").args(["-c", "printf '%s' \"${MULTISOUL_NODE_ID-unset}\""]);
+        PtyCommand::new("/bin/sh").args(["-c", "printf '%s' \"${NORMA_NODE_ID-unset}\""]);
     if remove_node_id {
-        command = command.env_remove("MULTISOUL_NODE_ID");
+        command = command.env_remove("NORMA_NODE_ID");
     }
     let _pty = PtyHandle::spawn_command(command, 80, 24, tx).expect("spawn env probe");
     let mut acc = Vec::new();

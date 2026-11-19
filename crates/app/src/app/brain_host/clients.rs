@@ -12,6 +12,10 @@ impl BrainHostState {
     pub(super) fn token(&self) -> Option<String> {
         self.client.as_ref().and_then(owner::BrainClient::token)
     }
+
+    pub(super) fn tokens(&self) -> Option<brain::staff::gate::Tokens> {
+        self.client.as_ref().and_then(owner::BrainClient::tokens)
+    }
 }
 
 impl MultisoulApp {
@@ -33,7 +37,19 @@ impl MultisoulApp {
         self.brain.client = Some(owner::shared(cx).register(scope, root));
     }
 
+    /// 大脑服务被释放或重启：排队清零，仍在运行的回复在本地记为失败（存储里的由下一轮开始时修复）。
+    fn interrupt_staff_turns(&mut self) {
+        for activity in self.staff.activity.values_mut() {
+            activity.interrupt();
+        }
+        for task in self.staff.tasks.values_mut() {
+            task.recover_interrupted();
+        }
+    }
+
     pub(crate) fn release_brain_client(&mut self) {
+        self.staff.worker_answers.clear();
+        self.interrupt_staff_turns();
         self.brain.client = None;
         self.brain.active_generation = None;
         self.brain.tracked.clear();
@@ -52,9 +68,24 @@ impl MultisoulApp {
             .as_ref()
             .and_then(owner::BrainClient::generation);
         if self.brain.active_generation != generation {
+            if self.brain.active_generation.is_some() {
+                self.interrupt_staff_turns();
+            }
             self.brain.active_generation = generation;
             self.brain.tracked.clear();
             self.brain.last_turn.clear();
+            if generation.is_some() {
+                if ["island.staff_loading", "island.staff_disabled"]
+                    .iter()
+                    .any(|key| {
+                        self.staff.error.as_ref() == Some(&ui::i18n::LocalizedText::new(key))
+                    })
+                {
+                    self.staff.error = None;
+                }
+                self.load_staff_tasks(cx);
+            }
+            self.notify_staff(cx);
         }
         if generation.is_some() {
             let pending: Vec<_> = self.brain.pending_events.borrow_mut().drain(..).collect();

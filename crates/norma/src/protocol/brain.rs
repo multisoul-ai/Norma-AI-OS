@@ -39,6 +39,9 @@ pub enum BrainDecision {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum BrainOp {
+    Task {
+        op: super::StaffOp,
+    },
     Questions,
     ProposeAnswer {
         target: super::QuestionRef,

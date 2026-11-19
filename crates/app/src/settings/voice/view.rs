@@ -17,6 +17,7 @@ use diagnostics::trace_row;
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Window};
 use ui::Theme;
 
+mod advanced;
 mod asr_provider;
 pub(crate) mod capabilities;
 mod command_policy;
@@ -68,7 +69,7 @@ pub(crate) fn voice_settings(
         .flex()
         .flex_col()
         .gap(px(SECTION_GAP))
-        .child(desktop_mode_picker(theme, state, cx));
+        .child(desktop_mode_picker(theme, state, voice_shortcut_label, cx));
     if state.values().desktop_mode() == super::DesktopVoiceMode::GptLive {
         return page
             .child(gpt_live::gpt_live_settings(
@@ -279,15 +280,14 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(crate) fn on_voice_settings_toggle_window_inset(
+    /// 「语音光晕」已移到 设置 → 特效；语音页只保留跳转入口。
+    pub(crate) fn on_voice_glow_open_effects(
         &mut self,
-        _: &bool,
-        _window: &mut Window,
+        _: &ClickEvent,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.voice_settings.toggle_voice_window_inset();
-        self.sync_voice_window_inset_enabled();
-        self.persist_voice_settings_in_background(cx);
+        self.select_settings_section(crate::settings::panel::SettingsSection::Effects, window, cx);
         cx.notify();
     }
 
@@ -440,7 +440,6 @@ fn advanced_group(
 
 pub(super) fn settings_group(theme: Theme, title: &'static str) -> Div {
     div()
-        .w_full()
         .min_w(px(0.0))
         .flex()
         .flex_col()

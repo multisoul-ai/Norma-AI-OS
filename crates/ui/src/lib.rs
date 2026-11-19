@@ -63,8 +63,10 @@ pub fn sync_component_theme(id: ThemeId, cx: &mut App) {
     colors.link_hover = rgba(with_alpha(theme.accent, 0xe8)).into();
     colors.link_active = rgba(with_alpha(theme.accent, 0xc8)).into();
     colors.primary = rgba(theme.accent).into();
-    colors.primary_hover = rgba(primary_state_fill(theme.accent, 12, id.is_dark())).into();
-    colors.primary_active = rgba(primary_state_fill(theme.accent, 24, id.is_dark())).into();
+    // Mix 64/255 ≈ 25% for hover, 128/255 ≈ 50% for pressed.
+    // The former 12/255 blend changed silver by only two RGB levels.
+    colors.primary_hover = rgba(primary_state_fill(theme.accent, 64, id.is_dark())).into();
+    colors.primary_active = rgba(primary_state_fill(theme.accent, 128, id.is_dark())).into();
     // Bright dark-theme accents need a dark foreground (silver/champagne included).
     colors.primary_foreground = rgba(if id.is_dark() {
         theme.canvas_from

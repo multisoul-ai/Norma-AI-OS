@@ -55,17 +55,16 @@ pub(super) fn voice_status_overview(
         .map(|requirement| state.requirement_state(requirement))
         .to_vec()
     };
-    let completed = requirements
-        .iter()
-        .filter(|requirement| **requirement == VoiceRequirementState::Ready)
-        .count();
     let failed = requirements.contains(&VoiceRequirementState::Failed);
+    let setting_up = matches!(state.readiness(), VoiceEntryState::SettingUp { .. });
     let color = if ready {
         theme.accent_green
     } else if failed {
         theme.destructive
-    } else {
+    } else if setting_up {
         theme.accent_blue
+    } else {
+        theme.accent_orange
     };
     let (title, hint) = if ready {
         (
@@ -109,17 +108,30 @@ pub(super) fn voice_status_overview(
             if failed {
                 ui::i18n::text("voice.voice_needs_attention")
             } else {
-                ui::i18n::text("voice.finish_setting_up_voice")
+                ui::i18n::text("voice.almost_ready")
             }
             .to_string(),
-            ui::i18n::format(
-                "voice.completed_of_requirements_ready_configure_the_sections_below_to_get_started",
-                &[
-                    ("completed", (completed).to_string()),
-                    ("arg0", (requirements.len()).to_string()),
-                ],
-            ),
+            ui::i18n::text("voice.finish_required_items").to_string(),
         )
+    };
+    let missing = if doubao || ready || setting_up {
+        Vec::new()
+    } else {
+        [
+            (VoiceRequirement::Microphone, "voice.microphone_permission"),
+            (
+                VoiceRequirement::SpeechRecognition,
+                "voice.speech_recognition",
+            ),
+            (VoiceRequirement::AgentProvider, "voice.command_model"),
+            (VoiceRequirement::SpokenReplies, "voice.spoken_replies"),
+        ]
+        .into_iter()
+        .filter(|(requirement, _)| {
+            state.requirement_state(*requirement) != VoiceRequirementState::Ready
+        })
+        .map(|(_, key)| ui::i18n::text(key))
+        .collect()
     };
     div()
         .id("voice-status-overview")
@@ -144,7 +156,7 @@ pub(super) fn voice_status_overview(
                 .text_color(rgba(color))
                 .child(if ready {
                     "✓"
-                } else if failed {
+                } else if failed || !setting_up {
                     "!"
                 } else {
                     "i"
@@ -158,7 +170,21 @@ pub(super) fn voice_status_overview(
                 .flex_col()
                 .gap(px(3.0))
                 .child(div().settings_text(TextRole::RowTitle, theme).child(title))
-                .child(div().settings_text(TextRole::Helper, theme).child(hint)),
+                .child(div().settings_text(TextRole::Helper, theme).child(hint))
+                .when(!missing.is_empty(), |col| {
+                    col.child(div().flex().flex_wrap().gap(px(8.0)).pt(px(4.0)).children(
+                        missing.into_iter().map(|label| {
+                            div()
+                                .px(px(10.0))
+                                .py(px(3.0))
+                                .rounded(px(8.0))
+                                .border_1()
+                                .border_color(rgba(with_alpha(theme.text_primary, 0x28)))
+                                .settings_text(TextRole::Caption, theme)
+                                .child(label)
+                        }),
+                    ))
+                }),
         )
         .children(next_setup_action(theme, state, cx))
 }
@@ -180,7 +206,7 @@ fn next_setup_action(
         VoiceRequirement::Microphone => component_action(
             theme,
             "voice-status-next",
-            ui::i18n::text("voice.grant_access"),
+            ui::i18n::text("voice.grant_microphone"),
             cx,
             cx.listener(MultisoulApp::on_voice_setup_request_microphone),
         ),

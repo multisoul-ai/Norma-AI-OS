@@ -12,6 +12,9 @@ pub(crate) mod sources;
 pub(crate) mod state;
 pub(crate) mod ui_state;
 mod view;
+mod voice_glow_options;
+mod voice_glow_scene;
+mod voice_glow_section;
 
 pub(crate) use view::effects_settings;
 

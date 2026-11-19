@@ -17,18 +17,31 @@ pub(super) struct Projection {
 }
 
 pub(super) fn project_workspaces(mut capture: ActivityCapture) -> Projection {
+    let active = capture
+        .current
+        .as_ref()
+        .map(|input| input.facts.workspace.id.clone());
     let current = capture.current.take().map(project_activity);
     Projection {
         current,
-        islands: project_islands(capture),
+        islands: project_islands(capture, active),
     }
 }
 
-fn project_islands(capture: ActivityCapture) -> storage::StorageResult<Vec<IslandWorkspace>> {
+/// Only opened workspaces (the active one or any with a live session) reach the island.
+fn project_islands(
+    capture: ActivityCapture,
+    active: Option<String>,
+) -> storage::StorageResult<Vec<IslandWorkspace>> {
     let store = DesktopWorkspaceStore::new(capture.database.clone());
     let status_store = DesktopAreaStatusStore::new(capture.database.clone());
     let mut outputs = Vec::new();
     for workspace in store.list()? {
+        let opened = active.as_deref() == Some(workspace.id.as_str())
+            || capture.live.keys().any(|(id, _)| *id == workspace.id);
+        if !opened {
+            continue;
+        }
         let areas = store.list_projects(&workspace.id)?;
         let statuses = status_store.list(&workspace.id)?;
         let artifacts = super::super::artifacts::load_desktop_artifacts(

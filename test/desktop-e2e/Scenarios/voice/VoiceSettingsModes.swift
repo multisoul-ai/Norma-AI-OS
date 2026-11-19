@@ -28,7 +28,7 @@ public enum VoiceSettingsModes {
                 try await session.shortcut(key: 43, modifiers: [0x37])
                 try await session.visualClick("点击设置左侧栏 Norma 分组中的「语音」一行。不要点「快捷键」或「音效」")
                 let top = try await session.visualCheck([
-                    VisualCriterion(id: "mode", text: "语音指令为选中态，能看到「语音输入」一组。\(label)下文字与背景对比清楚"),
+                    VisualCriterion(id: "mode", text: "语音指令为选中态（顶部分段条），能看到状态横幅与「语音输入」一组，每行左侧有圆形图标。\(label)下文字与背景对比清楚"),
                     VisualCriterion(id: "secret", text: "画面上没有明文 API Key，也没有把已保存的 Key 显示成可读字符")
                 ])
                 try session.save(top, "0\(index)-command-top-\(theme).png")
@@ -43,7 +43,7 @@ public enum VoiceSettingsModes {
                 return "\(label) 语音指令已看图"
             }
             try await session.step("\(label)下切到豆包 2.0") {
-                try await session.visualClick("点击「对话模式」里标题为「豆包 2.0 语音」的卡片中心，不要点侧栏")
+                try await session.visualClick("点击页面顶部分段条里的「豆包 2.0 语音」一格中心，不要点侧栏")
                 let page = try await session.visualCheck([
                     VisualCriterion(id: "doubao", text: "豆包 2.0 语音为选中态，能看到火山方舟 API Key 的凭据行：未配置或已保存状态、保存按钮。\(label)下状态文字可读"),
                     VisualCriterion(id: "secret", text: "凭据行没有回显任何真实 Key 或一长串密钥字符")
@@ -54,7 +54,7 @@ public enum VoiceSettingsModes {
                 return "\(label) 豆包已看图"
             }
             try await session.step("\(label)下切到 GPT-Live") {
-                try await session.visualClick("点击「对话模式」里标题为「GPT-Live」的卡片中心，不要点侧栏")
+                try await session.visualClick("点击页面顶部分段条里的「GPT-Live」一格中心，不要点侧栏")
                 let page = try await session.visualCheck([
                     VisualCriterion(id: "live", text: "GPT-Live 为选中态，能看到 OpenAI API Key 的凭据行和保存按钮。\(label)下按钮与文字可辨，没有铺满的通话控制"),
                     VisualCriterion(id: "secret", text: "OpenAI 凭据行没有回显 Key")

@@ -156,6 +156,25 @@ pub(super) fn card_heading(
     color: u32,
     mood: Mood,
 ) -> Div {
+    card_heading_with(
+        name,
+        provider,
+        context,
+        title,
+        chip(badge.to_owned(), color),
+        mood,
+    )
+}
+
+/// `trailing` is the right-hand end of the heading, e.g. a badge preceded by an action.
+pub(super) fn card_heading_with(
+    name: &str,
+    provider: &str,
+    context: String,
+    title: &str,
+    trailing: impl IntoElement,
+    mood: Mood,
+) -> Div {
     div()
         .flex()
         .items_center()
@@ -194,7 +213,7 @@ pub(super) fn card_heading(
                         .child(context),
                 ),
         )
-        .child(chip(badge.to_owned(), color))
+        .child(trailing)
 }
 
 pub(super) fn empty(title: &'static str, detail: &'static str) -> Div {

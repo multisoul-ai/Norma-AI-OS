@@ -18,7 +18,7 @@ pub(super) fn owned_identity(command: &PtyCommand) -> Option<(u64, String)> {
             .find(|(name, _)| name == key)
             .map(|(_, value)| value.as_str())
     };
-    if env("MULTISOUL_AGENT_PROFILE")? != "codex"
+    if env("NORMA_AGENT_PROFILE")? != "codex"
         || command.args.len() != 2
         || command.args[0] != "-lic"
         || !command.args[1].starts_with("exec codex ")
@@ -30,7 +30,7 @@ pub(super) fn owned_identity(command: &PtyCommand) -> Option<(u64, String)> {
     if process.is_empty() || process.len() > 128 {
         return None;
     }
-    Some((env("MULTISOUL_NODE_ID")?.parse().ok()?, process.into()))
+    Some((env("NORMA_NODE_ID")?.parse().ok()?, process.into()))
 }
 
 /// Returns server, native TUI and whether the relay must carry YOLO on session requests.

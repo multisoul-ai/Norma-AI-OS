@@ -15,7 +15,7 @@ public enum CanvasPresentationFixture {
         import json, os, pathlib, subprocess, time
         root = pathlib.Path(__file__).resolve().parent.parent
         cfg = json.loads((root / "config.json").read_text())
-        node = os.environ.get("MULTISOUL_NODE_ID", "unknown")
+        node = os.environ.get("NORMA_NODE_ID", "unknown")
         (root / ("agent-" + node)).write_text(node)
         print("LAYOUT AGENT " + node, flush=True)
         seen = set()

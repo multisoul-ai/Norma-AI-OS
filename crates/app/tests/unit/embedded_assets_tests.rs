@@ -1,5 +1,70 @@
 use super::*;
 
+/// 场景：输入框左下角的添加图片按钮在空草稿和带图片草稿中都要显示加号。
+/// 数据构造：使用生产按钮的 IconName::Plus 路径，以及一个不存在的相邻路径。
+/// 执行过程：从真实 EmbeddedAssets 加载并枚举该图标，确认 SVG 有绘制内容。
+/// 预期结果：加号可加载、可枚举；未知路径仍返回 None，不会误用占位资源。
+#[test]
+fn staff_attach_image_plus_icon_is_embedded() {
+    use ui::component::{IconName, IconNamed};
+
+    let assets = EmbeddedAssets;
+    let path = IconName::Plus.path();
+    let bytes = assets
+        .load(&path)
+        .expect("加号图标资源查找不能出错")
+        .expect("添加图片按钮的加号必须嵌入，不能只剩蓝色背景");
+    let svg = std::str::from_utf8(&bytes).expect("加号应是 SVG 文本");
+    assert!(
+        svg.starts_with("<svg") && svg.contains("<path"),
+        "加号 SVG 必须包含实际绘制路径"
+    );
+    assert!(
+        assets
+            .list("icons")
+            .expect("图标目录可枚举")
+            .iter()
+            .any(|name| format!("icons/{name}") == path.as_ref()),
+        "添加图片使用的加号必须出现在资源目录中"
+    );
+    assert!(
+        assets
+            .load("icons/plus-missing.svg")
+            .expect("查询未知图标")
+            .is_none(),
+        "未知图标不能误命中加号"
+    );
+}
+
+/// 场景：600px幕僚窗口只能通过菜单图标重新打开任务列表。
+/// 数据构造：生产IconName::Menu引用icons/menu.svg，缺失资源为icons/menu-missing.svg。
+/// 执行过程：调用生产AssetSource加载并枚举菜单图标，再查询缺失路径。
+/// 预期结果：菜单为非空SVG且可枚举；缺失路径仍返回None，不能留下不可见按钮。
+#[test]
+fn staff_compact_task_menu_icon_is_embedded() {
+    let assets = EmbeddedAssets;
+    let bytes = assets.load("icons/menu.svg").expect("资源查找不能出错");
+    assert!(
+        bytes.is_some_and(|bytes| bytes.starts_with(b"<svg")),
+        "任务列表入口必须有实际SVG图标"
+    );
+    assert!(
+        assets
+            .list("icons")
+            .expect("可枚举图标")
+            .iter()
+            .any(|name| name.as_ref() == "menu.svg"),
+        "菜单图标必须可枚举"
+    );
+    assert!(
+        assets
+            .load("icons/menu-missing.svg")
+            .expect("缺失资源查询")
+            .is_none(),
+        "未知图标不得误命中菜单"
+    );
+}
+
 /// 旧版内置壁纸只由 bundle Resources 分发，不应重复嵌入主二进制。
 ///
 /// 数据构造（含关键数值的推导过程）：

@@ -8,7 +8,7 @@ use std::time::Duration;
 /// 数据构造：隔离存储中一个空间、一个空项目；窗口1280×800；/theme包含6个候选。
 ///   推进220ms等于命令抽屉完整展开时长；初始候选索引0，Down后为1。
 /// 执行过程：展开项目 → 确认底部原 Command Dock 常驻 → Cmd+K 输入/theme → 推进抽屉 → Down → Esc → /new codex → 返回目录。
-/// 预期结果：底部保留原输入和语音条；项目首屏收起左栏，手动展开可用；命令建议和键盘有效。
+/// 预期结果：底部保留原输入和语音条；左侧对话栏已移除，不再有左栏入口；命令建议和键盘有效。
 #[test]
 fn desktop_command_dock_keeps_suggestions_and_keyboard_on_the_project() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -47,19 +47,6 @@ fn desktop_command_dock_keeps_suggestions_and_keyboard_on_the_project() {
         "项目底部应保留原 Command Dock"
     );
     assert!(
-        cx.debug_bounds("desktop-assistant-chat-input").is_none(),
-        "项目首屏应收起左侧对话"
-    );
-    let reopen = cx
-        .debug_bounds("desktop-open-left-drawer")
-        .expect("应有左栏重开按钮");
-    cx.simulate_click(reopen.center(), Modifiers::none());
-    cx.update(|window, cx| window.draw(cx).clear());
-    assert!(
-        cx.debug_bounds("desktop-assistant-chat-input").is_some(),
-        "手动展开后应显示同一对话输入"
-    );
-    assert!(
         cx.debug_bounds("command-dock-input").is_some(),
         "底部原输入应常驻"
     );
@@ -67,14 +54,14 @@ fn desktop_command_dock_keeps_suggestions_and_keyboard_on_the_project() {
         cx.debug_bounds("workspace-voice-control").is_some(),
         "底部原语音入口应保留"
     );
-    // 场景：键盘 Tab 可直接聚焦左侧输入，不产生父容器的鼠标按下事件。
-    // 数据构造：项目输入与左栏共用同一个 InputState，初始不调用 Cmd+K。
+    // 场景：键盘聚焦命令输入的 focus handle，不产生父容器的鼠标按下事件。
+    // 数据构造：项目持有命令输入 InputState，初始不调用 Cmd+K。
     // 执行过程：用 focus handle 模拟键盘聚焦，随后重绘宿主。
-    // 预期结果：左栏输入保持对话来源；底部原输入仍可见。
+    // 预期结果：底部原输入仍可见。
     project.update_in(cx, |app, window, cx| {
         app.command_dock
             .as_ref()
-            .expect("左栏必须初始化命令输入")
+            .expect("项目必须初始化命令输入")
             .input
             .focus_handle(cx)
             .focus(window);
@@ -82,7 +69,7 @@ fn desktop_command_dock_keeps_suggestions_and_keyboard_on_the_project() {
     cx.update(|window, cx| window.draw(cx).clear());
     assert!(
         cx.debug_bounds("command-dock-input").is_some(),
-        "左栏获得焦点后底部原输入仍应可见"
+        "输入获得焦点后底部原输入仍应可见"
     );
     cx.simulate_keystrokes("cmd-k");
     cx.update(|window, cx| window.draw(cx).clear());

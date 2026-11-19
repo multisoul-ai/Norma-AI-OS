@@ -261,7 +261,7 @@
   "settings.brain_summary_hint": "按间隔汇总一次整体进度",
   "settings.brain_slow_hint": "审批超过 60 秒还没结论时怎么提醒",
   "settings.brain_followups": "后续任务",
-  "settings.brain_followups_hint": "Agent 完成后，幕僚拟好的下一步怎么处理",
+  "settings.brain_followups_hint": "没点名时，幕僚可以直接派给空闲的引擎；高风险的活先问你。点名则直接派。事件触发的续派每个任务最多 5 次，你再发话就重新计数",
   "settings.brain_followups_ask": "先问我",
   "settings.brain_followups_auto": "直接派发",
   "settings.brain_autonomy_readonly_hint": "例如 cargo test、git status",

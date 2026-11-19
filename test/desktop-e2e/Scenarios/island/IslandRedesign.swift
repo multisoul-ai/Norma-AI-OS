@@ -99,7 +99,7 @@ public enum IslandRedesign {
             let running = try await waitSize(session, width: 660, minHeight: 120, maxHeight: 700)
             guard abs(running.height - 52) > 2 else { throw E2EError.product("展开后只有头部，没有列表") }
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "expanded-running", text: "对照 expanded-running：宽 660，顶栏约 52pt，标题运行概览。三个页签，运行中选中且徽章为 4。筛选条有全部、运行中、等你、完成和右侧一排约 20pt 头像。分组为 Norma-AI-OS、norma-cloud、multisoul。行内头像约 30pt。排队的 Daisy 芯片是待开始，没有定位按钮。")
+                VisualCriterion(id: "expanded-running", text: "对照 expanded-running：宽 660，顶栏约 52pt，标题运行概览。三个页签，运行中选中且徽章为 4。筛选条有全部、运行中、等你、完成和右侧一排约 20pt 头像。分组为 Norma-AI-OS、norma-cloud、multisoul。行内头像约 30pt。每个有记录的行是三层：第一行 名称 · provider · 会话名；第二行是人形小图标加用户最近一次输入；第三行是等宽字体的最近工具，如 Bash 加说明，运行中的行前是青色空心圈，其余是灰点，运行中行右侧有耗时。三行都单行截断不换行。排队的 Daisy 第二行是尚未开始，没有第三行，芯片是待开始，没有定位按钮。")
             ]), "07-expanded-running.png")
             try await session.visualClick("点击筛选条里的等你，不要点页签")
             try session.save(try await session.visualCheck([

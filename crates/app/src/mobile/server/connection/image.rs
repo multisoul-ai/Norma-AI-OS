@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use std::{
     fs,
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -23,6 +23,45 @@ const CHUNK: usize = 64 * 1024;
 struct Chunk {
     offset: usize,
     data: String,
+}
+
+/// 把一张已校验的聊天图片写入既有 `.mobile-images` 目录，返回绝对路径。
+pub(crate) fn accept_chat_image(
+    database: &Path,
+    workspace: &str,
+    bytes: &[u8],
+) -> Result<String, &'static str> {
+    if bytes.is_empty() || bytes.len() > LIMIT {
+        return Err("invalid_image");
+    }
+    let extension = store::validate(bytes)?;
+    let id = format!("{:x}", Sha256::digest(bytes));
+    let folder = database
+        .with_extension("mobile-images")
+        .join(image_workspace_folder(workspace)?);
+    store::save(&folder, &id, extension, bytes)
+}
+
+/// 桌面幕僚工作区是 `desktop:<工作空间>:<项目>`。冒号不能进手机那套 id 规则，目录名改成下划线。
+fn image_workspace_folder(workspace: &str) -> Result<String, &'static str> {
+    if workspace.is_empty()
+        || workspace.len() > 128
+        || workspace.contains(['/', '\\', '\0'])
+        || workspace
+            .split(':')
+            .any(|part| part.is_empty() || part == "." || part == "..")
+    {
+        return Err("invalid_image");
+    }
+    let folder: String = workspace
+        .chars()
+        .map(|ch| if ch == ':' { '_' } else { ch })
+        .collect();
+    if crate::mobile::command::valid_id(&folder) {
+        Ok(folder)
+    } else {
+        Err("invalid_image")
+    }
 }
 
 pub(super) fn serve(

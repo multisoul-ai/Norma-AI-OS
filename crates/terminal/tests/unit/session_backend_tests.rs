@@ -64,6 +64,46 @@ fn test_spawn_with_backend_echo_drives_session() {
     );
 }
 
+/// PTY 输出记下最后时间；进程退出本身不是新的输出。
+///
+/// 数据构造：recording 后端不回吐写入；测试侧用同一 Sender 注入 4 字节 Output，再注入退出码 0。
+/// 执行过程：1. 未输出时读取时间。2. 注入 Output 并 drain。3. 注入 Exited 并 drain。
+/// 预期结果：输出前没有时间；输出后有时间；退出后时间不变，且状态是 Exited。
+#[test]
+fn output_stamps_last_output_at_and_exit_does_not() {
+    let (tx, rx) = unbounded();
+    let writes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let backend = TestPtyBackend::recording(tx.clone(), writes);
+    let mut session = TerminalSession::spawn_with_backend(3, 80, 24, Box::new(backend), rx);
+    assert!(
+        session.last_output_at().is_none(),
+        "a session with no PTY output has no output time"
+    );
+    tx.send(PtyEvent::Output(b"banner".to_vec()))
+        .expect("inject output");
+    assert!(session.drain(), "output must dirty the session");
+    let stamped = session
+        .last_output_at()
+        .expect("the first PTY output records an instant");
+    tx.send(PtyEvent::Exited { code: Some(0) })
+        .expect("inject exit");
+    assert!(session.drain(), "exit must dirty the session");
+    assert_eq!(
+        session.last_output_at(),
+        Some(stamped),
+        "process exit is not PTY output and must not move the quiet clock"
+    );
+    assert!(
+        matches!(session.status, TerminalStatus::Exited { code: Some(0) }),
+        "the exit event still updates terminal status"
+    );
+    assert_ne!(
+        session.status,
+        TerminalStatus::Running,
+        "an exited session must not stay running"
+    );
+}
+
 /// 已停止的 Agent 会话不得继续接受输入并报告派工成功。
 ///
 /// 数据构造（含关键数值的推导过程）：

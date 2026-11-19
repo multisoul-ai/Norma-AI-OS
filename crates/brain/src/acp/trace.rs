@@ -16,7 +16,7 @@ pub enum TraceKind {
     ToolCall,
     ToolResult,
     Plan,
-    /// 权限请求与闸门的判断。
+    /// 权限请求及其处理结果。
     Permission,
     /// 一轮的耗时与停止原因。
     Turn,
@@ -35,11 +35,24 @@ pub struct TurnEnd {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ToolTrace {
+    pub id: String,
+    pub name: Option<String>,
+    pub input: Option<String>,
+    /// Model-written one-line summary (`rawInput.description`); absent for most non-Claude adapters.
+    pub description: Option<String>,
+    pub status: Option<String>,
+    /// ACP `locations[0]`：绝对路径，有行号时以 `:行号` 结尾；cd 之类的命令通常没有。
+    pub path: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TraceItem {
     pub kind: TraceKind,
     pub title: String,
     pub text: String,
     pub end: Option<TurnEnd>,
+    pub tool: Option<Box<ToolTrace>>,
 }
 
 impl TraceItem {
@@ -49,6 +62,7 @@ impl TraceItem {
             title: title.into(),
             text: text.into(),
             end: None,
+            tool: None,
         }
     }
 
@@ -119,10 +133,19 @@ fn tool_output(update: &Value) -> String {
     }
 }
 
+fn location_of(update: &Value) -> Option<String> {
+    let first = update["locations"].as_array()?.first()?;
+    let path = first["path"].as_str().filter(|path| !path.is_empty())?;
+    Some(match first["line"].as_u64() {
+        Some(line) => format!("{path}:{line}"),
+        None => path.to_owned(),
+    })
+}
+
 /// 把一条 `session/update` 的 `update` 对象分类。没有类型字段的返回 `None`。
 pub fn classify_update(update: &Value) -> Option<TraceItem> {
     let kind = update["sessionUpdate"].as_str()?;
-    Some(match kind {
+    let mut item = match kind {
         "agent_message_chunk" => TraceItem::new(TraceKind::Reply, "", text_of(&update["content"])),
         "agent_thought_chunk" => {
             TraceItem::new(TraceKind::Thought, "", text_of(&update["content"]))
@@ -166,7 +189,26 @@ pub fn classify_update(update: &Value) -> Option<TraceItem> {
             TraceItem::new(TraceKind::Plan, "计划", lines.join("\n"))
         }
         other => TraceItem::new(TraceKind::Unknown, other, cap(update.to_string())),
-    })
+    };
+    if matches!(item.kind, TraceKind::ToolCall | TraceKind::ToolResult) {
+        item.tool = update["toolCallId"].as_str().map(|id| {
+            Box::new(ToolTrace {
+                id: id.into(),
+                name: update["title"].as_str().map(str::to_owned),
+                input: update
+                    .get("rawInput")
+                    .filter(|value| !value.is_null())
+                    .map(Value::to_string),
+                description: update["rawInput"]["description"]
+                    .as_str()
+                    .filter(|text| !text.is_empty())
+                    .map(str::to_owned),
+                status: update["status"].as_str().map(str::to_owned),
+                path: location_of(update),
+            })
+        });
+    }
+    Some(item)
 }
 
 /// 把相邻的流式片段合并：回复、思考片段拼成一条；同标题的未知状态更新（如 usage_update）只留最新。

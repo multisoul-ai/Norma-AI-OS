@@ -36,6 +36,23 @@ pub(crate) use preferences::install;
 pub(crate) use windows::has_workspace_windows;
 
 use gpui::{App, AppContext, Entity, Global};
+
+/// Island pet for other surfaces (staff workers), same engine and colors as the island avatars.
+pub(crate) fn pet(
+    name: &str,
+    provider: &str,
+    size: f32,
+    mood: runtime::island::bloub::Mood,
+    animate: bool,
+) -> gpui::Div {
+    style::avatar(
+        name,
+        provider,
+        size,
+        runtime::island::roster::AvatarFace { mood, opacity: 1. },
+        animate,
+    )
+}
 pub(crate) use model::{
     IslandModel, IslandProject, IslandProposal, IslandProposalBlock, IslandWorkspace,
 };

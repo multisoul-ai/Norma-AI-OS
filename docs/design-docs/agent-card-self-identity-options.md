@@ -11,7 +11,7 @@
 建议采用“**方案一作为不可省略的安全底座，再实施兼容性优化后的方案三**”：
 
 1. **P0：方案一——指令性拒绝 + Skill 确定性停止规则。**先阻断换 `operation_id` 重试的循环，并保证两条自派发拒绝路径给出同一身份解释。
-2. **P1：方案三——`norma agent self` 主动自查。**优先复用现有、已鉴权的 `ListAgents` 协议，并在 CLI 侧按 `MULTISOUL_NODE_ID == active_node_id` 投影出自身，避免为一个只读查询新增 wire command 和协议升级。
+2. **P1：方案三——`norma agent self` 主动自查。**优先复用现有、已鉴权的 `ListAgents` 协议，并在 CLI 侧按 `NORMA_NODE_ID == active_node_id` 投影出自身，避免为一个只读查询新增 wire command 和协议升级。
 3. **P3：方案二——Hook 身份注入。**先做逐 Provider 能力探针；P2 先补重复拒绝的可观测性。不要直接承诺一次实现覆盖 Claude、Codex、Cursor、OpenCode。Hook 可以成为后续体验增强，但当前不适合作为跨 Provider 主解。
 
 最重要的边界是：**“自己”由 `(workspace_id, definition_id)` 判定，名称和语音别名只用于显示与寻址，不能单独定义身份。**因此，另一个 Workspace 中同名的“浩宇”不是自己。
@@ -30,7 +30,7 @@ Provider 会话读取共享的静态 norma-orchestration Skill
 Provider 调用 norma agent task assign 浩宇 ...
     |
     v
-CLI 只把 MULTISOUL_NODE_ID 放进 WireRequest，LLM 本身没有读到该身份
+CLI 只把 NORMA_NODE_ID 放进 WireRequest，LLM 本身没有读到该身份
     |
     +--> 全局账本路径：storage::validate_lineage -> SelfDispatch
     |
@@ -44,7 +44,7 @@ CLI 只把 MULTISOUL_NODE_ID 放进 WireRequest，LLM 本身没有读到该身�
 
 - 共享 Skill 是静态字符串，见 `crates/norma/src/orchestration/skill.rs:38-127`；同 Workspace 派发规则在 `:66-71`，只规定了发现目标和执行 `assign`。
 - Skill 只对 `outcome_unknown` 规定复用原 `operation_id`，见 `skill.rs:99-112`；没有 `self_dispatch_forbidden` 的停止规则。
-- CLI 从进程环境读取 `MULTISOUL_NODE_ID`，见 `crates/norma/src/client.rs:165-188`。该值用于鉴权/路由，不会自动进入模型上下文。
+- CLI 从进程环境读取 `NORMA_NODE_ID`，见 `crates/norma/src/client.rs:165-188`。该值用于鉴权/路由，不会自动进入模型上下文。
 - 全局账本在 `crates/storage/src/orchestration_task_route_store.rs:324-368` 用 Workspace + definition 判定自派发和祖先环。
 - Workspace 内协调器在 `crates/agent/src/coordination/delegation.rs:248-277` 用 definition 判定自派发和当前祖先链环。
 - 全局自派发错误目前是泛化文本，见 `crates/app/src/norma/endpoint/task_dispatch.rs:146-161`。
@@ -202,13 +202,13 @@ Ruby 建议给 `AgentHookEnv` 增加 name/alias 环境变量，并在 Hook stdou
 2. **OpenCode 不走当前 Hook 二进制 stdout。**仓库的 OpenCode 插件在 `crates/norma/src/agent_hook/install.rs:365-440` 内直接监听事件并 POST；要注入模型上下文，需要改插件的 request/session API，而不是只改 `cli.rs/forward.rs`。
 3. **进程环境中的 name/alias 会在活跃 Agent 改名后变旧。**当前设置允许活跃卡片改名，并只同步 Canvas alias，见 `crates/app/src/settings/agents/actions.rs:54-80`。SessionStart 快照不能宣称始终是最新身份。
 
-因此，若选择方案二，推荐 Hook 在 SessionStart 时通过现有受管身份验证查询 App 的权威身份，而不是把可变名称复制进长期环境变量。`MULTISOUL_NODE_ID`、Workspace、route、socket 和 provider 已经足够定位来源。若仍采用 env 快照，必须把“改名后重启 Agent Session”写成产品限制。
+因此，若选择方案二，推荐 Hook 在 SessionStart 时通过现有受管身份验证查询 App 的权威身份，而不是把可变名称复制进长期环境变量。`NORMA_NODE_ID`、Workspace、route、socket 和 provider 已经足够定位来源。若仍采用 env 快照，必须把“改名后重启 Agent Session”写成产品限制。
 
 ### 6.3 Provider 能力矩阵与实施闸门
 
 | Provider | 当前仓库入口 | 身份上下文注入判断 | 进入实现前的闸门 |
 |---|---|---|---|
-| Claude | command Hook -> `multisoul-agent-hook forward` | 官方支持 SessionStart stdout/`hookSpecificOutput.additionalContext` | 单元 golden + 真 CLI SessionStart 探针。 |
+| Claude | command Hook -> `norma-hook forward` | 官方支持 SessionStart stdout/`hookSpecificOutput.additionalContext` | 单元 golden + 真 CLI SessionStart 探针。 |
 | Codex | command Hook，启动时带 `--dangerously-bypass-hook-trust` | 当前官方配置列出 SessionStart 与 `additionalContextLimit`，可行性较高 | 固定项目支持的 Codex 版本做真 CLI 探针，锁定精确输出 schema。 |
 | Cursor | command Hook，事件名 `sessionStart` | 返回字段和实际注入时序不能从仓库证明 | 必须先做真 CLI 探针；失败则仅使用方案一/三。 |
 | OpenCode | 生成的 JS 插件直接 POST 事件 | 当前路径没有 stdout 注入点；V2 request hook 可改 system/messages，但 API 仍标为 beta | 独立插件实现与兼容性测试，不与 command Hook 共用假设。 |
@@ -291,7 +291,7 @@ Ruby 初稿建议新增 protocol command。独立审视后，更推荐以下实�
 
 1. `agent self` 在 CLI 命令树中仍映射为现有 `CardCommand::ListAgents`。
 2. App 继续执行现有来源鉴权并返回 roster。
-3. CLI 用进程中的 `MULTISOUL_NODE_ID` 精确匹配唯一的 `AgentSummary.active_node_id`，把该项投影成 `result.self`。
+3. CLI 用进程中的 `NORMA_NODE_ID` 精确匹配唯一的 `AgentSummary.active_node_id`，把该项投影成 `result.self`。
 4. 匹配数不是恰好 1 时返回非重试的 `source_agent_unavailable`，绝不猜测名称。
 
 优点：不改 `CURRENT_PROTOCOL_VERSION=3`，不增加旧 App 无法反序列化的新 enum variant，也不复制 App 中已有的 roster 查询。当前 `ListAgents` 已带所有必需字段，唯独 `workspace_id` 可从经过服务端验证的 `NORMA_WORKSPACE_ID` 加入输出。

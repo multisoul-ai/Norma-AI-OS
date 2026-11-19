@@ -3,11 +3,11 @@
 #
 # Scenario:
 #   Packager.toml packages target/release/norma-os as the main macOS bundle
-#   executable and target/release/multisoul-agent-hook as a secondary helper.
+#   executable and target/release/norma-hook as a secondary helper.
 #
 # Data construction:
 #   main binary path     = target/release/norma-os
-#   hook binary path     = target/release/multisoul-agent-hook
+#   hook binary path     = target/release/norma-hook
 #   planner helper path  = sidecars/openai-card-planner/openai-card-planner.mjs
 #   release build hook   = before-packaging-command in Packager.toml
 #   required cargo target = -p app（app package now owns both release binaries）
@@ -105,8 +105,8 @@ if grep -Fq 'path = "target/release/multisoul"' "$config"; then
   fail "Packager.toml must not package the old target/release/multisoul app binary"
 fi
 
-if ! grep -Fq 'path = "target/release/multisoul-agent-hook"' "$config"; then
-  fail "Packager.toml must package target/release/multisoul-agent-hook"
+if ! grep -Fq 'path = "target/release/norma-hook"' "$config"; then
+  fail "Packager.toml must package target/release/norma-hook"
 fi
 
 for resource_config in "$config" "$dev_config"; do

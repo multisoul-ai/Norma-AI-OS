@@ -130,7 +130,7 @@ fn finished_prompts_require_a_next_step_verdict() {
     }
 }
 
-/// 路径含空格时，提示里的命令必须加引号，闸门才能解析出完整的可执行文件路径。
+/// 路径含空格时，提示里的命令必须加引号，shell 才能解析出完整的可执行文件路径。
 /// 数据构造：App 包路径 `/Applications/Norma OS.app/Contents/MacOS/norma`。
 /// 预期结果：primer 中的命令被单引号包住，普通路径保持原样。
 #[test]
@@ -142,4 +142,58 @@ fn bin_path_with_spaces_is_quoted_in_primer() {
     );
     assert!(text.contains("'/Applications/Norma OS.app/Contents/MacOS/norma' brain report"));
     assert!(primer(Role::Main, "/bin/norma", None).contains("`/bin/norma` 命令"));
+}
+
+/// skill 装好后，主大脑和审批助手的首条说明只保留职责和底线，命令用法交给 norma-brain skill。
+///
+/// 数据构造：主大脑与审批助手各一份说明，目标为“发版”。
+/// 预期结果：含职责、skill 指引和目标；不含命令参数细节；装不上 skill 时的旧说明仍保留完整用法。
+#[test]
+fn primer_with_skill_drops_command_usage() {
+    for (role, duty) in [(Role::Main, "后台大脑"), (Role::Approval, "审批助手")] {
+        let text = primer_with_skill(role, Some("发版"));
+        assert!(
+            text.contains(duty) && text.contains("norma-brain") && text.contains("发版"),
+            "check: text.contains(duty) && text.contains('norma-brain'"
+        );
+        assert!(
+            !text.contains("--title") && !text.contains("--context-ref"),
+            "用法在 skill 里：{text}"
+        );
+    }
+    assert!(
+        primer(Role::Main, "/bin/norma", None).contains("--title"),
+        "check: primer(Role::Main, '/bin/norma', None).contains('-"
+    );
+}
+
+/// 审批提示保留审批数据和风险判断规则，不再内联 decide 的完整用法。
+///
+/// 数据构造：Codex 申请 cargo test，审批 id 为 a1。
+/// 预期结果：含审批 id、原始命令、风险规则和 skill 指引；不含 allow|deny|escalate 用法串。
+#[test]
+fn approval_with_skill_keeps_data_and_rules_but_not_usage() {
+    let request = ApprovalRequest {
+        id: "a1".into(),
+        agent: "Codex".into(),
+        subject: crate::risk::ApprovalSubject {
+            tool_name: "Bash".into(),
+            command: Some("cargo test -p norma".into()),
+            file_path: None,
+            project_root: "/work/project".into(),
+        },
+    };
+    let text = approval_with_skill(&request);
+    assert!(
+        text.contains("a1") && text.contains("cargo test -p norma"),
+        "check: text.contains('a1') && text.contains('cargo test -"
+    );
+    assert!(
+        text.contains("可逆吗") && text.contains("拿不准就 escalate"),
+        "check: text.contains('可逆吗') && text.contains('拿不准就 escala"
+    );
+    assert!(
+        text.contains("norma-brain") && !text.contains("allow|deny|escalate --reason"),
+        "check: text.contains('norma-brain') && !text.contains('al"
+    );
 }

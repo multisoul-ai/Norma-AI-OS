@@ -39,6 +39,8 @@ public final class Session {
     public let artifactRoot: URL
     public let visualReview: Bool
     var visualCheckCount = 0
+    /// 为真时鼠标/键盘/文字改走 AppKit `NSWindow.sendEvent`，能到达原生 WKWebView（GPUI 合成事件到不了）。
+    public var appKitInputOverride = false
     public private(set) var output: URL?
     public private(set) var dataRoot: URL?
     public private(set) var app: Process?

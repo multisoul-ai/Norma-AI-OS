@@ -33,7 +33,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let theme = self.desktop_theme();
-        let frost = self.render_drawer_frost(false, width, edge_inset, window);
+        let (top, bottom) = (TOP, BOTTOM);
+        let frost = Some(self.render_drawer_frost(false, width, edge_inset, window));
         let new_tab_page = self.desktop_workspace.content_browser.new_tab_page;
         let selected = self
             .desktop_workspace
@@ -46,8 +47,8 @@ impl MultisoulApp {
             .debug_selector(|| "desktop-assistant-right".to_string())
             .absolute()
             .right(px(edge_inset))
-            .top(px(TOP))
-            .bottom(px(BOTTOM))
+            .top(px(top))
+            .bottom(px(bottom))
             .w(px(width))
             .opacity(opacity)
             .flex()
@@ -67,7 +68,7 @@ impl MultisoulApp {
             }])
             .text_color(rgba(theme.text_primary))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(frost)
+            .when_some(frost, |drawer, frost| drawer.child(frost))
             .child(self.render_reader_chrome(cx))
             .when(
                 selected

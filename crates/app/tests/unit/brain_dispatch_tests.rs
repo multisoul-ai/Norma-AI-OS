@@ -163,7 +163,7 @@ fn speaking_changes_do_not_strand_a_starting_session() {
             Ok(BrainHost {
                 service: None,
                 status,
-                token: "fixture".into(),
+                tokens: brain::staff::gate::Tokens::new("fixture"),
             }),
         );
         assert!(app.brain.is_running(), "语音开关变化不能丢弃有效启动结果");
@@ -221,7 +221,7 @@ fn stale_start_results_never_replace_a_new_generation() {
             Ok(BrainHost {
                 service: None,
                 status: std::sync::mpsc::channel().1,
-                token: "fixture".into(),
+                tokens: brain::staff::gate::Tokens::new("fixture"),
             })
         };
         owner.complete_start(old, host());

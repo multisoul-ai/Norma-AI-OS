@@ -9,6 +9,8 @@ mod orb_frames;
 pub const APP_ICON_ASSET: &str = "icons/app-icon.png";
 pub const APP_LOGO_ASSET: &str = "icons/logo.png";
 pub const HOME_BACKGROUND_ASSET: &str = "home/earth-horizon.png";
+/// 默认动态壁纸 `norma-awake.mp4` 的静帧，仅供设置页的语音光晕预览使用。
+pub const DEFAULT_WALLPAPER_STILL_ASSET: &str = "home/voice-glow-wallpaper.jpg";
 /// Embedded still used whenever a wallpaper image is needed but the selection has none
 /// (video before its first frame, missing files, frosted-material fallback).
 pub const DEFAULT_WALLPAPER_ASSET: &str = HOME_BACKGROUND_ASSET;
@@ -44,9 +46,12 @@ pub const SETTINGS_NAV_HOOKS_ASSET: &str = "icons/settings-nav-hooks.svg";
 pub const SETTINGS_CHECK_UPDATES_ASSET: &str = "icons/settings-check-updates.svg";
 const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/icons/app-icon.png");
 pub const NORMA_CALM_ASSET: &str = "icons/norma-calm.png";
+/// 画布底栏「进入幕僚」入口：用户提供头像原图的裁切（保留圆环与右下绿点）。
+pub const STAFF_AVATAR_ASSET: &str = "icons/staff-avatar.png";
 
 const APP_LOGO_BYTES: &[u8] = include_bytes!("../assets/icons/logo.png");
 const HOME_BACKGROUND_BYTES: &[u8] = include_bytes!("../assets/home/earth-horizon.png");
+const WALLPAPER_STILL_BYTES: &[u8] = include_bytes!("../assets/home/voice-glow-wallpaper.jpg");
 const TOOLBAR_SCROLL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-scroll.svg");
 const TOOLBAR_LAYOUT_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-layout.svg");
 const TOOLBAR_PLUS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-plus.svg");
@@ -146,6 +151,27 @@ impl AssetSource for EmbeddedAssets {
             "icons/chevron-up.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/chevron-up.svg"
             )))),
+            "icons/maximize.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/maximize.svg"
+            )))),
+            "icons/menu.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/menu.svg"
+            )))),
+            "icons/minimize.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/minimize.svg"
+            )))),
+            "icons/arrow-left.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/arrow-left.svg"
+            )))),
+            "icons/chevron-right.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/chevron-right.svg"
+            )))),
+            "icons/archive.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/archive.svg"
+            )))),
+            "icons/unarchive.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/unarchive.svg"
+            )))),
             "icons/check.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/check.svg"
             )))),
@@ -176,6 +202,9 @@ impl AssetSource for EmbeddedAssets {
             "icons/settings-2.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/settings-2.svg"
             )))),
+            "icons/message-square.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/message-square.svg"
+            )))),
             "icons/copy.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/copy.svg"
             )))),
@@ -195,11 +224,15 @@ impl AssetSource for EmbeddedAssets {
             NORMA_CALM_ASSET => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/norma-calm.png"
             )))),
+            STAFF_AVATAR_ASSET => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/staff-avatar.png"
+            )))),
             APP_LOGO_ASSET => Ok(Some(Cow::Borrowed(APP_LOGO_BYTES))),
             HOME_BACKGROUND_ASSET => Ok(Some(Cow::Borrowed(HOME_BACKGROUND_BYTES))),
+            DEFAULT_WALLPAPER_STILL_ASSET => Ok(Some(Cow::Borrowed(WALLPAPER_STILL_BYTES))),
             TOOLBAR_SCROLL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SCROLL_BYTES))),
             TOOLBAR_LAYOUT_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_LAYOUT_BYTES))),
-            TOOLBAR_PLUS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PLUS_BYTES))),
+            "icons/plus.svg" | TOOLBAR_PLUS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PLUS_BYTES))),
             TOOLBAR_TERMINAL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_TERMINAL_BYTES))),
             TOOLBAR_BROWSER_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_BROWSER_BYTES))),
             TOOLBAR_CLAUDE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CLAUDE_BYTES))),
@@ -247,6 +280,13 @@ impl AssetSource for EmbeddedAssets {
                     SharedString::from("chevron-down.svg"),
                     SharedString::from("chevron-up.svg"),
                     SharedString::from("check.svg"),
+                    SharedString::from("maximize.svg"),
+                    SharedString::from("menu.svg"),
+                    SharedString::from("minimize.svg"),
+                    SharedString::from("arrow-left.svg"),
+                    SharedString::from("chevron-right.svg"),
+                    SharedString::from("archive.svg"),
+                    SharedString::from("unarchive.svg"),
                     SharedString::from("folder.svg"),
                     SharedString::from("diff.svg"),
                     SharedString::from("grid.svg"),
@@ -265,9 +305,11 @@ impl AssetSource for EmbeddedAssets {
                     SharedString::from("app-icon.png"),
                     SharedString::from("logo.png"),
                     SharedString::from("norma-calm.png"),
+                    SharedString::from("staff-avatar.png"),
                     SharedString::from("toolbar-scroll.svg"),
                     SharedString::from("toolbar-layout.svg"),
                     SharedString::from("toolbar-plus.svg"),
+                    SharedString::from("plus.svg"),
                     SharedString::from("toolbar-terminal.svg"),
                     SharedString::from("toolbar-browser.svg"),
                     SharedString::from("toolbar-claude.svg"),

@@ -26,7 +26,7 @@ fn main() {
     };
     let state = std::env::temp_dir().join("brain-smoke-state");
     let mut config = BrainConfig::new(backend, norma.into(), project.clone().into(), state);
-    config.prompt_timeout = Duration::from_secs(120);
+    config.prompt_timeout = Some(Duration::from_secs(120));
     let (service, status) = BrainService::start(config);
     let scope = norma::protocol::BrainScope {
         workspace_id: "smoke".into(),
@@ -35,6 +35,8 @@ fn main() {
     if std::env::var("SMOKE_EVENT").as_deref() == Ok("finished") {
         service.push(
             BrainEventKind::AgentFinished {
+                node_id: 0,
+                dispatch_id: None,
                 agent: "Alan".into(),
                 outcome: brain::Outcome::Succeeded,
                 excerpt: "登录页已经做完，12 个测试全部通过。".into(),

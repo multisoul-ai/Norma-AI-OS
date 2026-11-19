@@ -15,10 +15,6 @@ pub(super) fn input_device_row(
     let is_live = state.values().desktop_mode() == DesktopVoiceMode::GptLive;
     let microphone_ready =
         state.requirement_state(VoiceRequirement::Microphone) == VoiceRequirementState::Ready;
-    let recognition_ready = microphone_ready
-        && (is_live
-            || state.requirement_state(VoiceRequirement::SpeechRecognition)
-                == VoiceRequirementState::Ready);
     let selected_id = state.values().input_device_id();
     let selected_label = selected_id
         .and_then(|selected| {
@@ -101,6 +97,7 @@ pub(super) fn input_device_row(
                 .items_center()
                 .justify_between()
                 .gap(px(16.0))
+                .child(super::interaction::row_icon(theme, "icons/microphone.svg"))
                 .child(
                     div()
                         .flex_1()
@@ -125,26 +122,24 @@ pub(super) fn input_device_row(
                 )
                 .child(picker),
         )
-        .child(
-            div()
-                .id("settings-voice-legacy-recognition-status")
-                .debug_selector(|| "settings-voice-legacy-recognition-status".to_string())
-                .settings_font(TextRole::Label)
-                .text_color(rgba(if !recognition_ready {
-                    theme.accent_orange
-                } else {
-                    theme.accent_green
-                }))
-                .child(ui::i18n::text(if !is_live && !recognition_ready {
-                    "voice.recognition_needs_setup"
-                } else if !is_live {
-                    "voice.speech_recognition_ready"
-                } else if microphone_ready {
-                    "voice.microphone_permission_authorized"
-                } else {
-                    "voice.microphone_permission_required_2"
-                })),
-        )
+        .when(is_live, |row| {
+            row.child(
+                div()
+                    .id("settings-voice-legacy-recognition-status")
+                    .debug_selector(|| "settings-voice-legacy-recognition-status".to_string())
+                    .settings_font(TextRole::Label)
+                    .text_color(rgba(if microphone_ready {
+                        theme.accent_green
+                    } else {
+                        theme.accent_orange
+                    }))
+                    .child(ui::i18n::text(if microphone_ready {
+                        "voice.microphone_permission_authorized"
+                    } else {
+                        "voice.microphone_permission_required_2"
+                    })),
+            )
+        })
         .when(state.input_device_picker_expanded(), |row| {
             row.child(expanded_device_options(theme, options, cx))
         })

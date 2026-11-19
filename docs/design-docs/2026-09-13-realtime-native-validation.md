@@ -265,7 +265,7 @@ v17 首次通过真实点击检查讨论草稿空状态，截图 `cua-discussion
 - Computer Use 打开两个独立空项目、开启各自回环手机服务、检查真实 Done 卡片并主动 Quit。两次实例的端口 57684 / 62746 都已停止；临时手机授权已撤销，原生 Keychain 精确测试身份已移除。没有修改真实配对、部署网关或调用付费模型。
 - 本轮额外修复测试设施：`OpenedMultisoulWindow.app` 与 `Entity` 在普通单测构建也可见，解决未启用 e2e feature 时的编译错误；实时协议测试共用一个 `wire` 模块，解决 Clippy duplicate_mod。现有派工单测 16/0；其余最新回归结果以 Goal G4 为准。
 
-复跑前置：通过 `scripts/run-norma-mobile-desktop-l3.sh` 启动新的独立实例，设置 `NORMA_NATIVE_FIXTURE_ROOT` 指向只含测试 `.zshrc` 与 `realtime_delivery_provider.py` 的目录；该目录下创建空 Git 项目 `Realtime Delivery`，`hook-path` 写本次包内 `multisoul-agent-hook` 的绝对路径。设置 `NORMA_REALTIME_L3_UPSTREAM=127.0.0.1:9` 仅开启既有隔离身份导出（本测试走 gateway 票据，不连接此 GPT 地址）。Computer Use 打开项目并启用手机服务，将观察到的回环地址写入本次 App 根目录 `mobile-address`，然后执行：
+复跑前置：通过 `scripts/run-norma-mobile-desktop-l3.sh` 启动新的独立实例，设置 `NORMA_NATIVE_FIXTURE_ROOT` 指向只含测试 `.zshrc` 与 `realtime_delivery_provider.py` 的目录；该目录下创建空 Git 项目 `Realtime Delivery`，`hook-path` 写本次包内 `norma-hook` 的绝对路径。设置 `NORMA_REALTIME_L3_UPSTREAM=127.0.0.1:9` 仅开启既有隔离身份导出（本测试走 gateway 票据，不连接此 GPT 地址）。Computer Use 打开项目并启用手机服务，将观察到的回环地址写入本次 App 根目录 `mobile-address`，然后执行：
 
 ```sh
 NORMA_DOUBAO_DESKTOP_ROOT=<本次 /tmp/norma-mobile-desktop-l3.* 目录> \

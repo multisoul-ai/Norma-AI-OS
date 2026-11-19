@@ -2,7 +2,7 @@ use super::*;
 use crate::app::MultisoulApp;
 use gpui::{AppContext, Context, Focusable, Window};
 use std::path::Path;
-use ui::component::input::{InputEvent, InputState};
+use ui::component::input::{InputEvent, InputState, Position};
 
 impl MultisoulApp {
     pub(crate) fn edit_workbench_file(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -46,6 +46,35 @@ impl MultisoulApp {
         s.drafts[&key].input.focus_handle(cx).focus(window);
         self.hide_desktop_content_browsers();
         cx.notify();
+    }
+
+    /// 为当前文件维护一个禁用（只读）的 Input：原生支持鼠标选区与 Cmd+C，
+    /// 虚拟化行 `div` 无法选中。版本变化才重建，跳转行只消费一次。
+    pub(crate) fn sync_workbench_read_input(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let s = &mut self.desktop_workspace.workbench;
+        let Some(file) = s.file.clone() else {
+            s.read_input = None;
+            return;
+        };
+        if s.read_input.as_ref().map(|(v, _)| v) != Some(&file.version) {
+            let input = cx.new(|cx| {
+                InputState::new(window, cx)
+                    .code_editor("text")
+                    .line_number(true)
+                    .soft_wrap(false)
+                    .default_value(file.text.clone())
+            });
+            s.read_input = Some((file.version.clone(), input));
+        }
+        if let (Some(line), Some((_, input))) = (s.read_jump.take(), s.read_input.as_ref()) {
+            input.update(cx, |input, cx| {
+                input.set_cursor_position(Position::new(line as u32, 0), window, cx)
+            });
+        }
     }
 
     pub(crate) fn save_workbench_file(&mut self, cx: &mut Context<Self>) {

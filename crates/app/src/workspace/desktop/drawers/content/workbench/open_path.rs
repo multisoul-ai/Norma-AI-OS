@@ -148,11 +148,7 @@ impl MultisoulApp {
         if !self.desktop_workspace.areas.iter().any(|a| a.id == area_id) {
             return false;
         }
-        let current = self
-            .desktop_workspace
-            .expanded_area_id
-            .clone()
-            .or(self.desktop_workspace.active_area_id.clone());
+        let current = self.desktop_content_area_id();
         let s = &mut self.desktop_workspace.workbench;
         s.turn_paths = None;
         s.lock_area = false;
@@ -218,6 +214,7 @@ impl MultisoulApp {
         };
         let index = jump_index(line + 1, &file.text);
         s.jump_line = Some(index);
+        s.read_jump = Some(index);
         self.workbench_text_scroll
             .scroll_to_item_strict(index, ScrollStrategy::Center);
     }

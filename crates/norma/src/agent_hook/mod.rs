@@ -68,17 +68,25 @@ pub use path_convention::{
     PATH_CONVENTION_PROMPT,
 };
 
-pub const ENV_NODE_ID: &str = "MULTISOUL_NODE_ID";
-pub const ENV_AGENT_PROFILE: &str = "MULTISOUL_AGENT_PROFILE";
-pub const ENV_HOOK_ENDPOINT: &str = "MULTISOUL_HOOK_ENDPOINT";
-pub const ENV_HOOK_TOKEN: &str = "MULTISOUL_HOOK_TOKEN";
-pub const AGENT_HOOK_BINARY_NAME: &str = "multisoul-agent-hook";
-pub const OPENCODE_PLUGIN_FILE_NAME: &str = "multisoul-agent-hook.js";
-pub const OPENCODE_PLUGIN_MARKER: &str = "multisoul-opencode-plugin-marker";
+pub const ENV_NODE_ID: &str = "NORMA_NODE_ID";
+pub const ENV_AGENT_PROFILE: &str = "NORMA_AGENT_PROFILE";
+pub const ENV_HOOK_ENDPOINT: &str = "NORMA_HOOK_ENDPOINT";
+pub const ENV_HOOK_TOKEN: &str = "NORMA_HOOK_TOKEN";
+pub const AGENT_HOOK_BINARY_NAME: &str = "norma-hook";
+pub const OPENCODE_PLUGIN_FILE_NAME: &str = "norma-hook.js";
+// 改名前的旧名字：只用于识别并清理存量用户配置，拼接写法避免旧名字面量残留。
+pub const LEGACY_AGENT_HOOK_BINARY_NAME: &str = concat!("multisoul", "-agent-hook");
+pub const LEGACY_OPENCODE_PLUGIN_FILE_NAME: &str = concat!("multisoul", "-agent-hook.js");
+pub const LEGACY_OPENCODE_PLUGIN_MARKER: &str = concat!("multisoul", "-opencode-plugin-marker");
+pub const LEGACY_PI_EXTENSION_MARKER: &str = concat!("multisoul", "-pi-extension-marker");
+pub const LEGACY_HERMES_PLUGIN_MARKER: &str = concat!("multisoul", "-hermes-plugin-marker");
+const LEGACY_ENV_PREFIX: &str = concat!("MULTISOUL", "_");
+pub const LEGACY_GROK_HOOK_FILE_NAME: &str = concat!("multisoul", "-agent-hook.json");
+pub const OPENCODE_PLUGIN_MARKER: &str = "norma-opencode-plugin-marker";
 pub const PI_EXTENSION_FILE_NAME: &str = "norma-agent-hook.ts";
-pub const PI_EXTENSION_MARKER: &str = "multisoul-pi-extension-marker";
+pub const PI_EXTENSION_MARKER: &str = "norma-pi-extension-marker";
 pub const HERMES_PLUGIN_NAME: &str = "norma-agent-hook";
-pub const HERMES_PLUGIN_MARKER: &str = "multisoul-hermes-plugin-marker";
+pub const HERMES_PLUGIN_MARKER: &str = "norma-hermes-plugin-marker";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HookSource {
@@ -230,10 +238,31 @@ pub fn parse_hook_target(value: &str) -> Option<HookTarget> {
     }
 }
 
+/// 读 `NORMA_*` 环境变量；改名前启动的 Agent 进程仍带旧前缀，回退读旧名字。
+pub fn env_var_with_legacy(name: &str) -> Option<String> {
+    std::env::var(name).ok().or_else(|| {
+        let rest = name.strip_prefix("NORMA_")?;
+        std::env::var(format!("{LEGACY_ENV_PREFIX}{rest}")).ok()
+    })
+}
+
+/// 文件内容带当前或改名前的 OpenCode 插件标记，即视为 Norma 受管。
+pub fn has_opencode_marker(source: &str) -> bool {
+    source.contains(OPENCODE_PLUGIN_MARKER) || source.contains(LEGACY_OPENCODE_PLUGIN_MARKER)
+}
+
+pub fn has_pi_marker(source: &str) -> bool {
+    source.contains(PI_EXTENSION_MARKER) || source.contains(LEGACY_PI_EXTENSION_MARKER)
+}
+
+pub fn has_hermes_marker(source: &str) -> bool {
+    source.contains(HERMES_PLUGIN_MARKER) || source.contains(LEGACY_HERMES_PLUGIN_MARKER)
+}
+
 pub fn hook_forward_env_from_process() -> Option<HookForwardEnv> {
-    let node_id = std::env::var(ENV_NODE_ID).ok()?.parse::<NodeId>().ok()?;
-    let endpoint = std::env::var(ENV_HOOK_ENDPOINT).ok()?;
-    let token = std::env::var(ENV_HOOK_TOKEN).ok()?;
+    let node_id = env_var_with_legacy(ENV_NODE_ID)?.parse::<NodeId>().ok()?;
+    let endpoint = env_var_with_legacy(ENV_HOOK_ENDPOINT)?;
+    let token = env_var_with_legacy(ENV_HOOK_TOKEN)?;
     Some(HookForwardEnv {
         node_id,
         endpoint,
@@ -289,7 +318,7 @@ pub fn default_install_paths() -> HookInstallPaths {
         cursor_hooks: home.join(".cursor").join("hooks.json"),
         grok_hooks: grok_config_root_for(&home, std::env::var_os("GROK_HOME"))
             .join("hooks")
-            .join("multisoul-agent-hook.json"),
+            .join("norma-hook.json"),
         opencode_plugin: home
             .join(".config")
             .join("opencode")

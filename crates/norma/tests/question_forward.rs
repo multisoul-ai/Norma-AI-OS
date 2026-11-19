@@ -92,11 +92,11 @@ fn real_question_bridge_returns_answer_to_native_stdout() {
         .answer_output(&answers)
         .unwrap();
     let (env, worker) = respond(output.to_string(), "200 OK");
-    let mut child = Command::new(env!("CARGO_BIN_EXE_multisoul-agent-hook"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_norma-hook"))
         .args(["forward", "--source", "claude", "--request-question"])
-        .env("MULTISOUL_NODE_ID", "7")
-        .env("MULTISOUL_HOOK_TOKEN", &env.token)
-        .env("MULTISOUL_HOOK_ENDPOINT", &env.endpoint)
+        .env("NORMA_NODE_ID", "7")
+        .env("NORMA_HOOK_TOKEN", &env.token)
+        .env("NORMA_HOOK_ENDPOINT", &env.endpoint)
         .env("NORMA_CONTROL_RUN_ID", "run")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -184,6 +184,10 @@ fn unsupported_question_notifies_host_before_returning_to_native_tui() {
                 _ => return None,
             }
         };
+        // macOS accepted sockets inherit the listener's nonblocking mode.
+        socket
+            .set_nonblocking(false)
+            .expect("blocking request reader");
         socket
             .set_read_timeout(Some(std::time::Duration::from_secs(2)))
             .unwrap();

@@ -36,7 +36,7 @@ impl MultisoulApp {
                         app.voice_settings_inputs
                             .sync_from_state(&app.voice_settings, cx);
                     }
-                    app.sync_voice_window_inset_enabled();
+                    app.sync_voice_glow(cx);
                 }
                 let first_runtime_check = refresh_runtime && !app.voice_runtime_checked;
                 if first_runtime_check {

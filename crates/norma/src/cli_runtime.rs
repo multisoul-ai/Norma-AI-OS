@@ -240,8 +240,7 @@ fn render_self(format: OutputFormat, request_id: String, result: &CardCommandRes
 }
 
 fn self_process_context() -> Result<(u64, String), CardCommandError> {
-    let node_id = std::env::var("MULTISOUL_NODE_ID")
-        .ok()
+    let node_id = crate::agent_hook::env_var_with_legacy("NORMA_NODE_ID")
         .and_then(|value| value.parse::<u64>().ok())
         .ok_or_else(|| {
             CardCommandError::agent(

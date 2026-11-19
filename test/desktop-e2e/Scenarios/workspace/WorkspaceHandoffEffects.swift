@@ -98,8 +98,8 @@ public enum WorkspaceHandoffEffects {
             body = {"node_id": int(node), "profile": "Claude", "provider_event": "UserPromptSubmit",
                     "session_id": "e2e-session", "turn_id": "e2e-turn", "tool_name": None, "message": None, "raw_json": raw}
             import urllib.request
-            request = urllib.request.Request(os.environ["MULTISOUL_HOOK_ENDPOINT"], json.dumps(body).encode(),
-                {"Authorization": "Bearer " + os.environ["MULTISOUL_HOOK_TOKEN"], "Content-Type": "application/json"})
+            request = urllib.request.Request(os.environ["NORMA_HOOK_ENDPOINT"], json.dumps(body).encode(),
+                {"Authorization": "Bearer " + os.environ["NORMA_HOOK_TOKEN"], "Content-Type": "application/json"})
             urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=3).read()
         posted = False
         while True:

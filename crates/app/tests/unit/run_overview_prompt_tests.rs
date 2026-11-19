@@ -15,6 +15,7 @@ fn agent(task: Option<&str>, latest: Option<&str>) -> RunOverviewAgent {
         task: task.map(str::to_string),
         latest_prompt: latest.map(str::to_string),
         action: None,
+        last_tool: None,
         progress: None,
         started_at_unix_ms: None,
     }

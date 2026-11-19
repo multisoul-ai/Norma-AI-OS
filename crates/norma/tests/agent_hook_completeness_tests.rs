@@ -10,9 +10,9 @@ fn hook_paths(root: &std::path::Path) -> HookInstallPaths {
         cursor_hooks: root.join("cursor-hooks.json"),
         grok_hooks: root.join("grok-hooks.json"),
         pi_extension: root.join("norma-agent-hook.ts"),
-        opencode_plugin: root.join("multisoul-agent-hook.js"),
+        opencode_plugin: root.join("norma-hook.js"),
         infcode_settings: root.join(".infcode/settings.json"),
-        kimi_config: (root.join("multisoul-agent-hook.js")).with_file_name("kimi-config.toml"),
+        kimi_config: (root.join("norma-hook.js")).with_file_name("kimi-config.toml"),
         hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
         zcode_config: root.join(".zcode/cli/config.json"),
     }
@@ -38,7 +38,7 @@ fn hook_paths(root: &std::path::Path) -> HookInstallPaths {
 fn codex_requires_every_hook_event_and_repair_restores_missing_event() {
     let temp = tempfile::tempdir().expect("Codex Hook 完整性测试必须创建临时目录");
     let paths = hook_paths(temp.path());
-    let command = temp.path().join("multisoul-agent-hook");
+    let command = temp.path().join("norma-hook");
     install_hook_config(HookTarget::Codex, &command, &paths).expect("Codex 全量 Hook 安装必须成功");
     let events = hook_events_for_source(HookSource::Codex);
     let removed = events.last().expect("Codex 必须至少声明一个 Hook 事件");
@@ -92,7 +92,7 @@ fn codex_requires_every_hook_event_and_repair_restores_missing_event() {
 fn cursor_requires_every_flat_hook_event() {
     let temp = tempfile::tempdir().expect("Cursor Hook 完整性测试必须创建临时目录");
     let paths = hook_paths(temp.path());
-    let command = temp.path().join("multisoul-agent-hook");
+    let command = temp.path().join("norma-hook");
     install_hook_config(HookTarget::Cursor, &command, &paths)
         .expect("Cursor 全量 Hook 安装必须成功");
     let removed = hook_events_for_source(HookSource::Cursor)

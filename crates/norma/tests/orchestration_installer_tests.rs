@@ -51,7 +51,7 @@ fn install_paths(root: &Path) -> InstallPaths {
     InstallPaths {
         managed_root: root.join("managed"),
         bundled_cli: root.join("bundle").join("norma"),
-        bundled_hook: root.join("bundle").join("multisoul-agent-hook"),
+        bundled_hook: root.join("bundle").join("norma-hook"),
         hook_paths: HookInstallPaths {
             claude_settings: root.join(".claude").join("settings.json"),
             codex_hooks: root.join(".codex").join("hooks.json"),
@@ -62,7 +62,7 @@ fn install_paths(root: &Path) -> InstallPaths {
                 .join(".config")
                 .join("opencode")
                 .join("plugins")
-                .join("multisoul-agent-hook.js"),
+                .join("norma-hook.js"),
             infcode_settings: root.join(".infcode/settings.json"),
             kimi_config: root.join(".kimi-code").join("config.toml"),
             hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
@@ -97,7 +97,7 @@ fn install_paths(root: &Path) -> InstallPaths {
 /// 数据构造（含关键数值的推导过程）：
 ///   home = `<temp>/home`
 ///   bundle bin = `<temp>/bundle`
-///   共享二进制数 = 2：norma + multisoul-agent-hook
+///   共享二进制数 = 2：norma + norma-hook
 ///   Provider 能力路径数 = 4：Claude、Codex、Cursor、OpenCode
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -123,7 +123,7 @@ fn default_install_paths_are_user_scoped_and_provider_native() {
     );
     assert_eq!(
         paths.bundled_hook,
-        bundle_bin.join("multisoul-agent-hook"),
+        bundle_bin.join("norma-hook"),
         "Hook 安装源必须指向 App bundle 的同级二进制"
     );
     assert_eq!(
@@ -430,7 +430,7 @@ fn uninstall_removes_only_managed_provider_content_and_preserves_user_hook() {
         "卸载必须保留用户原有的第三方 Claude Hook"
     );
     assert!(
-        !settings.contains("multisoul-agent-hook"),
+        !settings.contains("norma-hook"),
         "卸载后 Claude 配置不得残留 Norma 受管 Hook"
     );
     assert!(

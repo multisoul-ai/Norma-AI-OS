@@ -53,7 +53,7 @@ node docs/prototypes/voice-command-settings/check-render.mjs
 
 ## 设计依据
 
-参考 `.agents/skills/prototype/SKILL.md` 与固定 Picker 规范。
+采用多方案原型比较，并遵循固定 Picker 规范。
 Picker 样式和键盘逻辑按规范复制，静态比较不显示回放按钮。
 参考 `.agents/skills/apple-design/SKILL.md` 的平台习惯与可访问性。
 参考 `.agents/skills/emil-design-eng/SKILL.md` 的必要反馈与克制动效。

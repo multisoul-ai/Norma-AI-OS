@@ -1,10 +1,12 @@
 //! 把 `brain` 接到项目窗口：事件进、状态出、审批和播报的落地。
 
 mod activity_feed;
+pub(crate) use activity_feed::{civil_month_day, local_offset_secs};
 mod activity_sink;
 mod activity_view;
 pub(crate) use activity_view::{recent_activity_lines, ActivityLine};
 mod approvals;
+mod authorize;
 mod away;
 mod clients;
 mod config;
@@ -28,6 +30,7 @@ mod proposal_actions;
 pub(crate) mod proposals;
 mod questions;
 mod settings;
+mod staff;
 mod startup;
 mod trace_state;
 
@@ -62,6 +65,10 @@ mod brain_data_tests;
 mod brain_dispatch_tests;
 
 #[cfg(test)]
+#[path = "../../tests/unit/staff_engine_resolve_tests.rs"]
+mod staff_engine_resolve_tests;
+
+#[cfg(test)]
 #[path = "../../tests/unit/brain_decision_copy_tests.rs"]
 mod decision_copy_tests;
 
@@ -81,7 +88,7 @@ pub(crate) struct Tracked {
 struct BrainHost {
     service: Option<BrainService>,
     status: Receiver<BrainStatus>,
-    token: String,
+    tokens: brain::staff::gate::Tokens,
 }
 
 impl Drop for BrainHost {
@@ -126,6 +133,8 @@ pub(crate) struct BrainHostState {
     /// 窗口失焦与回来的跟踪，以及等着通知大脑的“回来”事件。
     pub(crate) away: away::AwayTracker,
     pub(crate) pending_return: Option<std::time::Duration>,
+    /// 幕僚主动 report 的频率上限，按任务计。
+    report_limiter: brain::staff::gate::ReportLimiter,
     /// 活动窗口自己的焦点：打开时抢走焦点，Esc 才不会被聚焦的终端吃掉。
     pub(crate) trace_focus: Option<gpui::FocusHandle>,
     /// 大脑提议、等用户确认的下一步；读过文件后 `proposals_path` 才有值。
@@ -166,6 +175,10 @@ impl BrainHostState {
             trace_open: false,
             away: away::AwayTracker::default(),
             pending_return: None,
+            report_limiter: brain::staff::gate::ReportLimiter::new(
+                brain::staff::gate::REPORT_WINDOW,
+                brain::staff::gate::REPORT_LIMIT,
+            ),
             trace_focus: None,
             proposals: proposals::Proposals::default(),
             proposals_path: None,
@@ -202,7 +215,17 @@ impl BrainHostState {
     }
 
     pub(crate) fn token_matches(&self, token: &str) -> bool {
-        !token.is_empty() && self.token().as_deref() == Some(token)
+        self.role(token).is_some()
+    }
+
+    /// 幕僚 token 属于哪个任务（每个幕僚会话只服务一个任务）。
+    pub(crate) fn staff_task(&self, token: &str) -> Option<String> {
+        self.tokens()?.staff_task(token)
+    }
+
+    /// 主大脑与幕僚各有独立 token；陌生 token 没有角色。
+    pub(crate) fn role(&self, token: &str) -> Option<brain::staff::gate::BrainRole> {
+        self.tokens()?.role(token)
     }
 }
 
@@ -214,9 +237,11 @@ impl MultisoulApp {
         excerpts: &[(u64, Option<String>)],
         cx: &mut Context<Self>,
     ) {
+        self.flush_staff_events(cx);
         self.sync_brain_client(cx);
         self.flush_question_receipts(cx);
         self.poll_brain_questions();
+        self.mirror_staff_questions(cx);
         self.poll_brain_proposal_save(cx);
         self.drain_brain_status(cx);
         if self.brain.settings.is_none() {
@@ -291,8 +316,19 @@ impl MultisoulApp {
         let Some(agent) = self.agent_announcement_name(*node_id) else {
             return;
         };
+        if let Some(dispatch_id) = self.runtime.staff_dispatch_id(*node_id) {
+            self.push_brain(BrainEventKind::WorkerAttention {
+                node_id: *node_id,
+                dispatch_id: dispatch_id.to_owned(),
+                waiting: matches!(
+                    to,
+                    AgentTaskState::WaitingApproval { .. } | AgentTaskState::WaitingQuestion
+                ),
+            });
+        }
         let outcome = match to {
             AgentTaskState::Done => Outcome::Succeeded,
+            AgentTaskState::Ended => Outcome::Interrupted,
             AgentTaskState::Failed { .. } => Outcome::Failed,
             AgentTaskState::Thinking => {
                 let prompt = self.runtime.agent_latest_prompt(*node_id);
@@ -322,6 +358,8 @@ impl MultisoulApp {
             .or_else(|| self.runtime.agent_latest_prompt(*node_id))
             .unwrap_or_default();
         self.push_brain(BrainEventKind::AgentFinished {
+            node_id: *node_id,
+            dispatch_id: self.runtime.staff_dispatch_id(*node_id).map(str::to_owned),
             agent,
             outcome,
             excerpt,

@@ -8,6 +8,7 @@ mod brain_command;
 mod invocation;
 mod operation;
 mod output;
+mod staff_command;
 mod task_command;
 mod value;
 

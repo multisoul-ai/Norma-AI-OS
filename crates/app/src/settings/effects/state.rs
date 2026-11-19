@@ -1,5 +1,6 @@
 //! 特效设置的缓存与纯逻辑：谁生效、怎么改。渲染与派发只读这里的缓存，不碰 SQLite。
 
+use crate::effects::voice_glow::VoiceGlowPrefs;
 use crate::motion::run_style::RunStyle;
 use crate::motion::StyleSelection;
 use storage::DispatchEffectPreference as Pref;
@@ -82,11 +83,38 @@ pub(crate) struct EffectsSettingsState {
     pub run_saved: RunStyle,
     pub run_saved_generation: u64,
     pub run_generation: u64,
+    /// 语音光晕：全局偏好，所有项目共用；状态行、撤销与写入序号和运行特效同构。
+    pub voice_glow: VoiceGlowPrefs,
+    pub glow_status: Option<String>,
+    pub glow_undo: Option<VoiceGlowPrefs>,
+    pub glow_saved: VoiceGlowPrefs,
+    pub glow_saved_generation: u64,
+    pub glow_generation: u64,
+    /// 库里的偏好已读入缓存。读入前的修改会按默认值覆盖库里的真实值，所以一律忽略。
+    pub glow_loaded: bool,
 }
 
 impl gpui::Global for EffectsSettingsState {}
 
 impl EffectsSettingsState {
+    /// 应用一次语音光晕修改；偏好尚未读入时拒绝并返回 `false`。
+    pub(crate) fn apply_glow_edit(
+        &mut self,
+        next: VoiceGlowPrefs,
+        undo: Option<VoiceGlowPrefs>,
+        label: String,
+        generation: u64,
+    ) -> bool {
+        if !self.glow_loaded {
+            return false;
+        }
+        self.glow_generation = generation;
+        self.voice_glow = next;
+        self.glow_undo = undo;
+        self.glow_status = Some(label);
+        true
+    }
+
     pub(crate) fn selection(&self) -> StyleSelection {
         self.global
             .as_ref()

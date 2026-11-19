@@ -12,7 +12,7 @@ use serde_json::json;
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source=Claude → profile=AgentProfile::Claude
-///   node_id=7 来自 MULTISOUL_NODE_ID
+///   node_id=7 来自 NORMA_NODE_ID
 ///   raw.hook_event_name="UserPromptSubmit"
 ///   raw.session_id="s1"，raw.turn_id="t1"
 ///
@@ -170,7 +170,7 @@ fn test_permission_and_failure_events_map_to_expected_task_hints() {
 /// hook install 应追加 Multisoul command 且重复执行不重复添加。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   command_path="/tmp/multisoul-agent-hook"
+///   command_path="/tmp/norma-hook"
 ///   target=All → Claude 与 Codex 都写入
 ///   install 执行 2 次，期望 command 出现次数仍等于 provider event 数
 ///
@@ -195,14 +195,13 @@ fn test_install_hook_config_is_idempotent_for_claude_and_codex() {
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
         pi_extension: temp.path().join("norma-agent-hook.ts"),
-        opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        opencode_plugin: temp.path().join("norma-hook.js"),
         infcode_settings: temp.path().join("infcode-settings.json"),
-        kimi_config: (temp.path().join("multisoul-agent-hook.js"))
-            .with_file_name("kimi-config.toml"),
+        kimi_config: (temp.path().join("norma-hook.js")).with_file_name("kimi-config.toml"),
         hermes_plugin_dir: temp.path().join("hermes-plugin"),
         zcode_config: temp.path().join("zcode-config.json"),
     };
-    let command_path = temp.path().join("multisoul-agent-hook");
+    let command_path = temp.path().join("norma-hook");
 
     install_hook_config(HookTarget::All, &command_path, &paths).expect("第一次 install 应成功");
     install_hook_config(HookTarget::All, &command_path, &paths).expect("第二次 install 应成功");
@@ -239,7 +238,7 @@ fn test_install_hook_config_is_idempotent_for_claude_and_codex() {
 /// hook bridge 缺少 Multisoul env 时应 no-op 成功，避免影响 provider。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   env=None，表示缺少 MULTISOUL_NODE_ID / endpoint / token
+///   env=None，表示缺少 NORMA_NODE_ID / endpoint / token
 ///   raw.hook_event_name="UserPromptSubmit"
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -310,10 +309,10 @@ fn test_forward_hook_ignores_unreachable_endpoint() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   app_executable=/tmp/bin/norma-os
-///   sibling=/tmp/bin/multisoul-agent-hook
+///   sibling=/tmp/bin/norma-hook
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 在临时目录创建 multisoul-agent-hook 空文件
+///   1. 在临时目录创建 norma-hook 空文件
 ///   2. 调用 resolve_agent_hook_command_path_from("/tmp/bin/norma-os")
 ///   3. 确认返回 sibling 路径
 ///
@@ -332,7 +331,7 @@ fn test_resolve_agent_hook_command_path_from_sibling_binary() {
     assert_eq!(
         resolved,
         Some(hook_binary.clone()),
-        "应优先返回与 Multisoul 同目录的 multisoul-agent-hook"
+        "应优先返回与 Multisoul 同目录的 norma-hook"
     );
     assert_ne!(
         resolved,
@@ -344,7 +343,7 @@ fn test_resolve_agent_hook_command_path_from_sibling_binary() {
 /// install 后应检测到 Multisoul hooks 已安装，uninstall 后应恢复未安装状态。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   command_path=/tmp/multisoul-agent-hook
+///   command_path=/tmp/norma-hook
 ///   target=Codex，event 数 = hook_events_for_source(Codex).len()
 ///   第三方 hook command="echo keep-me" 与 Multisoul hook 共存
 ///
@@ -360,7 +359,7 @@ fn test_resolve_agent_hook_command_path_from_sibling_binary() {
 ///   - 负断言：uninstall 后不应仍报告 installed
 ///   - 正断言：第三方 hook command 不应被删除
 #[test]
-fn test_uninstall_hook_config_removes_only_multisoul_hooks() {
+fn test_uninstall_hook_config_removes_only_norma_hooks() {
     let temp = tempfile::tempdir().expect("应能创建临时目录");
     let codex_path = temp.path().join("codex-hooks.json");
     let paths = HookInstallPaths {
@@ -369,14 +368,13 @@ fn test_uninstall_hook_config_removes_only_multisoul_hooks() {
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
         pi_extension: temp.path().join("norma-agent-hook.ts"),
-        opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        opencode_plugin: temp.path().join("norma-hook.js"),
         infcode_settings: temp.path().join("infcode-settings.json"),
-        kimi_config: (temp.path().join("multisoul-agent-hook.js"))
-            .with_file_name("kimi-config.toml"),
+        kimi_config: (temp.path().join("norma-hook.js")).with_file_name("kimi-config.toml"),
         hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
         zcode_config: temp.path().join("zcode-config.json"),
     };
-    let command_path = temp.path().join("multisoul-agent-hook");
+    let command_path = temp.path().join("norma-hook");
     std::fs::write(
         &codex_path,
         r#"{
@@ -418,7 +416,7 @@ fn test_uninstall_hook_config_removes_only_multisoul_hooks() {
     );
     assert!(
         !codex_json.contains(AGENT_HOOK_BINARY_NAME),
-        "uninstall 后 Codex config 不应再包含 multisoul-agent-hook"
+        "uninstall 后 Codex config 不应再包含 norma-hook"
     );
 }
 
@@ -443,10 +441,9 @@ fn test_uninstall_hook_config_is_idempotent_when_missing_or_clean() {
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
         pi_extension: temp.path().join("norma-agent-hook.ts"),
-        opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        opencode_plugin: temp.path().join("norma-hook.js"),
         infcode_settings: temp.path().join("infcode-settings.json"),
-        kimi_config: (temp.path().join("multisoul-agent-hook.js"))
-            .with_file_name("kimi-config.toml"),
+        kimi_config: (temp.path().join("norma-hook.js")).with_file_name("kimi-config.toml"),
         hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
         zcode_config: temp.path().join("zcode-config.json"),
     };

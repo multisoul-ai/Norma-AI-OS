@@ -127,3 +127,40 @@ fn dark_accent_button_foregrounds_remain_readable() {
         }
     });
 }
+
+/// 场景：主操作按钮的 hover 与 pressed 必须在六套当前主题中有可辨认的亮度变化。
+///
+/// 数据构造：读取组件真正使用的 rest/hover/active RGB；最低通道差 = 9 / 255。
+///   旧墨黑银灰 hover 仅变化 2 / 255，真实 staff E2E 已判定不可辨认。
+/// 执行过程：逐个同步当前主题，比较 rest→hover 和 hover→pressed 的最大通道差。
+/// 预期结果：两次变化均至少 9 / 255；hover、pressed 保持不透明，不能靠壁纸碰巧可见。
+#[test]
+fn primary_button_feedback_is_visible_across_current_themes() {
+    fn distance(a: gpui::Hsla, b: gpui::Hsla) -> f32 {
+        let a: gpui::Rgba = a.into();
+        let b: gpui::Rgba = b.into();
+        (a.r - b.r)
+            .abs()
+            .max((a.g - b.g).abs())
+            .max((a.b - b.b).abs())
+    }
+    let cx = TestAppContext::single();
+    cx.update(|cx| {
+        for id in ThemeId::ALL {
+            sync_component_theme(id, cx);
+            let colors = &crate::component::Theme::global(cx).colors;
+            // 9 levels out of 255 rejects the observed 2-level silver hover.
+            let minimum = 9.0 / 255.0;
+            assert!(
+                distance(colors.primary, colors.primary_hover) >= minimum,
+                "{id:?} hover 必须明显区别于静止状态"
+            );
+            assert!(
+                distance(colors.primary_hover, colors.primary_active) >= minimum,
+                "{id:?} pressed 不能与 hover 近似相同"
+            );
+            assert_eq!(colors.primary_hover.a, 1.0, "{id:?} hover 不得透出壁纸");
+            assert_eq!(colors.primary_active.a, 1.0, "{id:?} pressed 不得透出壁纸");
+        }
+    });
+}

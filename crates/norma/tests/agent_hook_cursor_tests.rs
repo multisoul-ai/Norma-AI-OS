@@ -9,7 +9,7 @@ use serde_json::json;
 /// Cursor CLI 的小写 lifecycle payload 应转换成既有的标准任务状态。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source=Cursor → profile=AgentProfile::Cursor；node_id=12 来自 MULTISOUL_NODE_ID。
+///   source=Cursor → profile=AgentProfile::Cursor；node_id=12 来自 NORMA_NODE_ID。
 ///   conversation_id="cursor-session-12" 是 Cursor 的可恢复会话标识。
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -170,14 +170,13 @@ fn test_cursor_hook_config_is_idempotent_and_preserves_user_hooks() {
         cursor_hooks: cursor_path.clone(),
         grok_hooks: temp.path().join("grok-hooks.json"),
         pi_extension: temp.path().join("norma-agent-hook.ts"),
-        opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        opencode_plugin: temp.path().join("norma-hook.js"),
         infcode_settings: temp.path().join("infcode-settings.json"),
-        kimi_config: (temp.path().join("multisoul-agent-hook.js"))
-            .with_file_name("kimi-config.toml"),
+        kimi_config: (temp.path().join("norma-hook.js")).with_file_name("kimi-config.toml"),
         hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
         zcode_config: temp.path().join("zcode-config.json"),
     };
-    let command_path = temp.path().join("multisoul-agent-hook");
+    let command_path = temp.path().join("norma-hook");
     let cursor_command = build_hook_command(&command_path, HookSource::Cursor);
     let codex_command = build_hook_command(&command_path, HookSource::Codex);
 

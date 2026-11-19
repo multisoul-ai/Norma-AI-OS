@@ -1,7 +1,7 @@
 use super::AnswerDraft;
 use crate::app::OverviewQuestion;
 use gpui::{App, AppContext, Context, Entity, Subscription, Window};
-use norma::protocol::{QuestionAnswer, QuestionRef};
+use norma::protocol::{QuestionAnswer, QuestionItem, QuestionRef};
 use ui::component::input::{InputEvent, InputState};
 
 pub(crate) struct QuestionEditor {
@@ -22,7 +22,7 @@ impl QuestionEditor {
             .as_ref()
             .map(|s| s.answers.as_slice())
             .unwrap_or_default();
-        let draft = AnswerDraft::new(question, initial);
+        let draft = AnswerDraft::new(&question.items, Some(question.target.clone()), initial);
         let texts = question
             .items
             .iter()
@@ -35,6 +35,20 @@ impl QuestionEditor {
             })
             .collect();
         Self::mount(draft, texts, window, cx)
+    }
+
+    pub(crate) fn from_items<T: 'static>(
+        items: &[QuestionItem],
+        window: &mut Window,
+        cx: &mut Context<T>,
+    ) -> Self {
+        let mut draft = AnswerDraft::new(items, None, &[]);
+        for (index, item) in items.iter().enumerate() {
+            if item.options.is_empty() {
+                draft.custom(index, true);
+            }
+        }
+        Self::mount(draft, vec![String::new(); items.len()], window, cx)
     }
 
     /// A FocusHandle and InputState's listeners belong to their original Window.
@@ -55,7 +69,6 @@ impl QuestionEditor {
         cx: &mut Context<T>,
     ) -> Self {
         let inputs: Vec<_> = draft
-            .question
             .items
             .iter()
             .zip(texts)
@@ -94,7 +107,10 @@ impl QuestionEditor {
     }
 
     pub(crate) fn target(&self) -> &QuestionRef {
-        &self.draft.question.target
+        self.draft
+            .target
+            .as_ref()
+            .expect("native editor has question identity")
     }
 
     pub(crate) fn answers(&self, cx: &App) -> Vec<QuestionAnswer> {

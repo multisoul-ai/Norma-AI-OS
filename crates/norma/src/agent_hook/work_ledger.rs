@@ -429,9 +429,11 @@ fn background_task_ids(raw: &Value) -> Option<HashSet<String>> {
 }
 
 fn background_task_still_open(task: &Value) -> bool {
-    !string_at(task, "status").is_some_and(|status| {
-        matches!(status.to_ascii_lowercase().as_str(), "completed" | "failed")
-    })
+    // Grok 的 monitor 是常驻监视（可跑数小时），有事件才唤醒新回合，不算本回合未结清的工作。
+    string_at(task, "type").as_deref() != Some("monitor")
+        && !string_at(task, "status").is_some_and(|status| {
+            matches!(status.to_ascii_lowercase().as_str(), "completed" | "failed")
+        })
 }
 
 fn prompt_text(raw: &Value) -> Option<String> {

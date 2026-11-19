@@ -13,6 +13,65 @@ fn session_start(node_id: u64, session_id: &str) -> AgentHookEvent {
     .expect("测试 SessionStart 应可解析")
 }
 
+/// 场景：已安装的旧版 Hook 没有 dispatch 字段，仍须凭当前进程身份唤醒幕僚派发。
+///
+/// 数据构造：1 个 Alan/Codex Worker，1 次派发；80×24 为默认终端尺寸。
+///   旧 helper 已转发 control_run_id，但尚不认识新增的 _norma_dispatch_id。
+/// 执行过程：创建 Worker → 启动测试 PTY → 原 SessionStart 经生产 Hook drain → 重放。
+/// 预期结果：仅首次报告 Ready，幕僚可发送正文；无失败/完成事件，重放不重复派发。
+#[test]
+fn staff_worker_ready_from_installed_legacy_hook_reaches_dispatch_queue() {
+    let mut runtime = Runtime::new_for_workspace("/tmp");
+    runtime.set_agent_hook_config(Some(AgentHookRuntimeConfig {
+        endpoint: "http://127.0.0.1:1/agent-hooks".into(),
+        token: "test".into(),
+        workspace_id: "w".into(),
+        workspace_route_id: "r".into(),
+        norma_socket: "/tmp/staff-test.sock".into(),
+    }));
+    runtime.set_pty_factory(Box::new(|_, _, _, tx| {
+        Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+    }));
+    let node = runtime.create_staff_worker(
+        CanvasAgentProfile::Codex,
+        "Alan".into(),
+        CanvasRect::new(0., 0., 640., 400.),
+        "dispatch-current".into(),
+    );
+    runtime
+        .start_native_agent_terminal(node, 80, 24)
+        .expect("启动 Worker");
+    let event = norma::agent_hook::parse_hook_event(
+        norma::agent_hook::HookSource::Codex,
+        node,
+        serde_json::json!({
+            "hook_event_name":"SessionStart", "session_id":"staff-codex-session",
+            "_norma_control_run_id": runtime.mobile_agent_run_id(node).expect("当前进程身份")
+        }),
+    )
+    .expect("旧版 helper 真实载荷格式");
+    let (sender, receiver) = unbounded();
+    let server = hook_server_for_test(receiver);
+    sender.send(event.clone()).expect("首个就绪事件");
+    let first = server.drain_into_runtime(&mut runtime, Some("p"));
+    sender.send(event).expect("重复事件");
+    let duplicate = server.drain_into_runtime(&mut runtime, Some("p"));
+    runtime.kill_all();
+    assert_eq!(
+        first.ready_node_ids,
+        vec![node],
+        "当前进程已就绪，必须唤醒幕僚派发而不是等待超时"
+    );
+    assert!(
+        first.terminal_tasks.is_empty(),
+        "就绪不应被报告成任务失败或完成"
+    );
+    assert!(
+        duplicate.ready_node_ids.is_empty(),
+        "重复 SessionStart 不得再次派发正文"
+    );
+}
+
 /// Hook drain 必须把纯 session 绑定变化单独报告给持久化调度器。
 ///
 /// 数据构造（含关键数值的推导过程）：

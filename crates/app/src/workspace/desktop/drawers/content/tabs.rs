@@ -48,13 +48,7 @@ impl MultisoulApp {
                 ui::i18n::text("drawers.no_workspace").into(),
             ));
         }
-        self.open_desktop_content_tab(
-            kind,
-            resource,
-            title,
-            self.desktop_workspace.expanded_area_id.clone(),
-            cx,
-        );
+        self.open_desktop_content_tab(kind, resource, title, self.desktop_content_area_id(), cx);
         Ok(())
     }
 

@@ -65,7 +65,7 @@ public enum FakeStartupAgentShell {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true
         )
-        let command = "/usr/local/bin/multisoul-agent-hook forward --source \(source)"
+        let command = "/usr/local/bin/norma-hook forward --source \(source)"
         var hooks: [String: Any] = [:]
         for event in events {
             hooks[event] = [["hooks": [["type": "command", "command": command]]]]
@@ -83,13 +83,13 @@ public enum FakeStartupAgentShell {
     #!/usr/bin/env python3
     import json, os, sys, urllib.request
     profile = sys.argv[1]
-    body = {"node_id": int(os.environ["MULTISOUL_NODE_ID"]), "profile": profile,
+    body = {"node_id": int(os.environ["NORMA_NODE_ID"]), "profile": profile,
             "provider_event": "SessionStart", "session_id": "e2e-session", "turn_id": None,
             "tool_name": None, "message": None,
             "raw_json": {"hook_event_name": "SessionStart", "session_id": "e2e-session", "source": "startup"}}
     request = urllib.request.Request(
-        os.environ["MULTISOUL_HOOK_ENDPOINT"], json.dumps(body).encode(),
-        {"Authorization": "Bearer " + os.environ["MULTISOUL_HOOK_TOKEN"], "Content-Type": "application/json"})
+        os.environ["NORMA_HOOK_ENDPOINT"], json.dumps(body).encode(),
+        {"Authorization": "Bearer " + os.environ["NORMA_HOOK_TOKEN"], "Content-Type": "application/json"})
     urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=3).read()
     """
 }

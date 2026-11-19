@@ -18,6 +18,21 @@ extension Session {
     public func contentTabs(workspaceName: String) throws -> [ContentTabRow] {
         try Catalog.contentTabs(database: databaseURL(), workspaceName: workspaceName)
     }
+
+    /// 库文件创建早于迁移完成；停机播种前必须等到 desktop_content_tabs 已含 project_files。
+    public func waitContentSchema(timeout: TimeInterval) async throws {
+        let url = try databaseURL()
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let db = try? SQLiteDB(path: url.path, write: false) {
+                defer { db.close() }
+                let sql = (try? db.query("SELECT sql FROM sqlite_master WHERE name='desktop_content_tabs'") { column($0, 0) }) ?? []
+                if sql.contains(where: { $0.contains("project_files") }) { return }
+            }
+            try await Task.sleep(nanoseconds: 120_000_000)
+        }
+        throw E2EError.env("等待内容标签表迁移超时")
+    }
 }
 
 extension Catalog {

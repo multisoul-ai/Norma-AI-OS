@@ -26,46 +26,20 @@ impl IslandView {
             workspace: face.workspace_id.clone(),
             area: face.area_id.clone(),
         };
-        let mut detail = div()
+        let input = div()
             .flex()
             .items_center()
             .gap(px(6.))
             .text_size(px(11.5))
             .line_height(px(14.))
-            .text_color(rgb(style::MUTED));
-        detail = match face.activity {
-            AgentActivity::Running => {
-                let mut line = detail
-                    .child(
-                        div()
-                            .size(px(10.))
-                            .rounded(px(5.))
-                            .border_1()
-                            .border_color(rgb(style::RUN)),
-                    )
-                    .child(div().truncate().child(running_detail(face)));
-                if let Some(start) = face.started_at_unix_ms {
-                    line = line.child(div().flex_none().child(ui::i18n::format(
-                        "island.elapsed_minutes",
-                        &[("count", elapsed_minutes(start).to_string())],
-                    )));
-                }
-                line
-            }
-            AgentActivity::Done => detail
-                .child(
-                    ui::component::Icon::new(ui::component::IconName::Check)
-                        .size(px(12.))
-                        .text_color(rgb(style::OK)),
-                )
-                .child(div().truncate().child(if face.detail.is_empty() {
-                    face.task.clone()
-                } else {
-                    face.detail.clone()
-                })),
-            AgentActivity::Waiting => detail.child(text("island.awaiting_reply")),
-            AgentActivity::Queued => detail.child(text("island.not_started")),
-        };
+            .text_color(rgb(style::MUTED))
+            .child(
+                ui::component::Icon::new(ui::component::IconName::User)
+                    .size(px(12.))
+                    .text_color(rgb(style::FAINT)),
+            )
+            .child(div().truncate().child(input_text(face)));
+        let running = face.activity == AgentActivity::Running;
         let queued = face.activity == AgentActivity::Queued;
         div()
             .id(gpui::SharedString::from(format!(
@@ -105,9 +79,20 @@ impl IslandView {
                                     .text_color(rgb(style::FAINT))
                                     .child(face.provider.clone()),
                             )
-                            .child(div().truncate().child(face.task.clone())),
+                            .child(div().truncate().child(if face.session.is_empty() {
+                                face.task.clone()
+                            } else {
+                                face.session.clone()
+                            })),
                     )
-                    .child(detail)
+                    .child(input)
+                    .when(face.tool.is_some() || running, |column| {
+                        column.child(tool_line(
+                            face.tool.as_ref(),
+                            running,
+                            face.started_at_unix_ms,
+                        ))
+                    })
                     .when_some(face.progress, |column, (done, total)| {
                         column.child(
                             div()
@@ -213,16 +198,67 @@ pub(super) fn matches_filter(filter: RunFilter, face: &Face) -> bool {
     accepts(filter, face.activity)
 }
 
-fn running_detail(face: &Face) -> String {
-    let mut line = if face.detail.is_empty() {
-        text("island.running").to_string()
-    } else {
-        face.detail.clone()
-    };
-    if let Some((done, total)) = face.progress {
-        line.push_str(&format!(" · {done}/{total}"));
+/// Second row: the latest user input. Without one, say why instead of claiming "not started"
+/// for a session that is already running, waiting or done.
+fn input_text(face: &Face) -> String {
+    if !face.last_input.is_empty() {
+        return face.last_input.clone();
     }
-    line
+    match face.activity {
+        AgentActivity::Queued => text("island.not_started").to_string(),
+        AgentActivity::Waiting => text("island.awaiting_reply").to_string(),
+        AgentActivity::Done if !face.detail.is_empty() => face.detail.clone(),
+        _ => face.task.clone(),
+    }
+}
+
+/// Third row: the latest tool (or just "running" before the first one). Mono, one line;
+/// the elapsed time only while running.
+fn tool_line(
+    tool: Option<&norma::mobile::RecentTool>,
+    running: bool,
+    started_at_unix_ms: Option<u64>,
+) -> AnyElement {
+    div()
+        .flex()
+        .items_center()
+        .gap(px(6.))
+        .font_family("Menlo")
+        .text_size(px(11.))
+        .line_height(px(14.))
+        .text_color(rgb(style::FAINT))
+        .child(if running {
+            div()
+                .flex_none()
+                .size(px(10.))
+                .rounded(px(5.))
+                .border_1()
+                .border_color(rgb(style::RUN))
+        } else {
+            div()
+                .flex_none()
+                .mx(px(2.))
+                .size(px(6.))
+                .rounded(px(3.))
+                .bg(rgb(style::FAINT))
+        })
+        .child(
+            div()
+                .flex_none()
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(rgb(style::MUTED))
+                .child(tool.map_or_else(|| text("island.running").to_string(), |t| t.name.clone())),
+        )
+        .when_some(tool.and_then(|t| t.arg.clone()), |line, arg| {
+            line.child(div().truncate().child(arg))
+        })
+        .when_some(started_at_unix_ms.filter(|_| running), |line, start| {
+            line.child(div().flex_none().ml_auto().child(ui::i18n::format(
+                "island.elapsed_minutes",
+                &[("count", elapsed_minutes(start).to_string())],
+            )))
+        })
+        .into_any_element()
 }
 
 fn elapsed_minutes(start: u64) -> u64 {

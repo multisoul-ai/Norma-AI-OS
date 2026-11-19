@@ -5,7 +5,9 @@
 //! 启用/停用走 `hermes plugins enable|disable`（实测约 3 秒），一律放后台线程，
 //! 不得阻塞 GPUI 前台。
 
-use super::{atomic_file, AgentHookError, HERMES_PLUGIN_MARKER, HERMES_PLUGIN_NAME};
+use super::{
+    atomic_file, has_hermes_marker, AgentHookError, HERMES_PLUGIN_MARKER, HERMES_PLUGIN_NAME,
+};
 use std::fs;
 use std::path::Path;
 
@@ -33,7 +35,7 @@ fn conflict(dir: &Path) -> AgentHookError {
 /// 目录存在但不是 Norma 受管（无标记）时返回 true。
 pub(super) fn is_unmanaged(dir: &Path) -> Result<bool, AgentHookError> {
     match fs::read_to_string(dir.join(PLUGIN_INIT_FILE)) {
-        Ok(source) => Ok(!source.contains(HERMES_PLUGIN_MARKER)),
+        Ok(source) => Ok(!has_hermes_marker(&source)),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => match fs::read_dir(dir) {
             Ok(mut entries) => Ok(entries.next().is_some()),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),

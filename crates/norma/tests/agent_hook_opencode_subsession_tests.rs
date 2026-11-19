@@ -16,9 +16,9 @@ const server = http.createServer((req, res) => {
   });
 });
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-process.env.MULTISOUL_NODE_ID = "5";
-process.env.MULTISOUL_HOOK_TOKEN = "t";
-process.env.MULTISOUL_HOOK_ENDPOINT = `http://127.0.0.1:${server.address().port}/hook`;
+process.env.NORMA_NODE_ID = "5";
+process.env.NORMA_HOOK_TOKEN = "t";
+process.env.NORMA_HOOK_ENDPOINT = `http://127.0.0.1:${server.address().port}/hook`;
 const plugin = await (await import(process.argv[2])).default();
 const fire = (type, properties) => plugin.event({ event: { type, properties } });
 await fire("session.created", { info: { id: "root", directory: "/w" } });
@@ -47,7 +47,7 @@ fn opencode_child_session_lifecycle_does_not_reach_parent_card() {
         return;
     }
     let temp = tempfile::tempdir().expect("应能创建临时目录");
-    let plugin_path = temp.path().join("multisoul-agent-hook.js");
+    let plugin_path = temp.path().join("norma-hook.js");
     let paths = HookInstallPaths {
         claude_settings: temp.path().join("claude-settings.json"),
         codex_hooks: temp.path().join("codex-hooks.json"),
@@ -62,7 +62,7 @@ fn opencode_child_session_lifecycle_does_not_reach_parent_card() {
     };
     install_hook_config(
         HookTarget::OpenCode,
-        &temp.path().join("multisoul-agent-hook"),
+        &temp.path().join("norma-hook"),
         &paths,
     )
     .expect("OpenCode 插件应能安装");
@@ -103,7 +103,7 @@ fn opencode_child_session_lifecycle_does_not_reach_parent_card() {
 fn stale_managed_opencode_plugin_is_refreshed() {
     use norma::agent_hook::{agent_hooks_installed_at, HookSource, OPENCODE_PLUGIN_MARKER};
     let temp = tempfile::tempdir().expect("应能创建临时目录");
-    let plugin_path = temp.path().join("multisoul-agent-hook.js");
+    let plugin_path = temp.path().join("norma-hook.js");
     let stale = format!("{OPENCODE_PLUGIN_MARKER}\nexport default async () => ({{}});\n");
     std::fs::write(&plugin_path, &stale).expect("应能写入旧插件");
     assert!(

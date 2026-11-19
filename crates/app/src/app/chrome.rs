@@ -1,9 +1,10 @@
 //! Workspace overlay chrome for the GPUI app shell.
 
 mod dock;
+mod dock_probe;
 mod top_bar;
 
-pub(crate) use top_bar::{top_bar_theme, TOP_BAR_HEIGHT};
+pub(crate) use top_bar::{brand_logo, top_bar_theme, TOP_BAR_HEIGHT};
 
 use super::MultisoulApp;
 use crate::app::wallpaper_resolvers::WallpaperKind;

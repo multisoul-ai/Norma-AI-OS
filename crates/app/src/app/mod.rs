@@ -133,7 +133,8 @@ mod optional_media;
 pub(crate) mod run_effects_actions;
 #[cfg(all(debug_assertions, not(feature = "production-data")))]
 pub(crate) mod run_effects_fixture;
-mod voice_window_inset;
+pub(crate) mod voice_glow_actions;
+pub(crate) mod voice_window_inset;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
 pub use actions::*;
@@ -211,6 +212,7 @@ pub struct MultisoulApp {
     pub(crate) workspace_route_id: Option<String>,
     agent_announcements: agent_announcements::AgentAnnouncements,
     brain: brain_host::BrainHostState,
+    pub(crate) staff: staff::StaffState,
     agent_announcement_playback: agent_announcements::AgentAnnouncementPlayback,
     agent_announcement_audio_cache: agent_announcements::AgentAnnouncementAudioCache,
     pub(crate) screen: AppScreen,
@@ -490,3 +492,5 @@ impl MultisoulApp {
 mod focusable;
 #[cfg(test)]
 mod test_modules;
+
+pub(crate) mod staff;

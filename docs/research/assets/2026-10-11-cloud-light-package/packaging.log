@@ -19,7 +19,7 @@ generated release Info.plist at /Users/cengwei/Documents/code/Norma-AI-OS-worktr
  INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate with identity "-"
  INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Autoupdate with identity "-"
  INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Sparkle with identity "-"
- INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/multisoul-agent-hook with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma-hook with identity "-"
  INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma with identity "-"
  INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma-browser-auth-host with identity "-"
  INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma-os with identity "-"
@@ -35,8 +35,8 @@ generated release Info.plist at /Users/cengwei/Documents/code/Norma-AI-OS-worktr
 [0;32m[release-local][0m 验证 build/dev/Norma OS.app
 --prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma-browser-auth-host
 --validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma-browser-auth-host
---prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/multisoul-agent-hook
---validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/multisoul-agent-hook
+--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma-hook
+--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma-hook
 --prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma
 --validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma
 --prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.

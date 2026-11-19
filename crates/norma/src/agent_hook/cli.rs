@@ -8,7 +8,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
-#[command(name = "multisoul-agent-hook")]
+#[command(name = "norma-hook")]
 #[command(about = "Bridge Claude/Codex/OpenCode lifecycle hooks back to Norma OS")]
 struct Args {
     #[command(subcommand)]
@@ -77,6 +77,10 @@ fn forward_from_stdin(
         return super::HookForwardOutcome::Noop;
     };
     if let Some(object) = raw_json.as_object_mut() {
+        object.remove("_norma_dispatch_id");
+        if let Ok(id) = std::env::var("NORMA_DISPATCH_ID") {
+            object.insert("_norma_dispatch_id".into(), Value::String(id));
+        }
         object.remove("_norma_control_run_id");
         if let Ok(run_id) = std::env::var(super::ENV_CONTROL_RUN_ID) {
             object.insert("_norma_control_run_id".into(), Value::String(run_id));
@@ -98,7 +102,7 @@ fn forward_from_stdin(
             Ok(Some(output)) => println!("{output}"),
             Ok(None) => {}
             Err(error) => {
-                eprintln!("multisoul-agent-hook: interaction bridge unavailable: {error}");
+                eprintln!("norma-hook: interaction bridge unavailable: {error}");
                 return super::HookForwardOutcome::FailedButIgnored;
             }
         }

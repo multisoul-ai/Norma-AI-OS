@@ -30,16 +30,6 @@ pub struct Models {
     pub approval: Option<String>,
 }
 
-/// 大脑不应使用的写类和联网工具，作为权限闸门之外的第二道防线。
-const DISALLOWED_TOOLS: [&str; 6] = [
-    "Write",
-    "Edit",
-    "MultiEdit",
-    "NotebookEdit",
-    "WebFetch",
-    "WebSearch",
-];
-
 impl BackendKind {
     pub fn label(self) -> &'static str {
         match self {
@@ -70,7 +60,13 @@ pub fn detect(adapter_dir: &Path, path_dirs: &[PathBuf]) -> Vec<Backend> {
             args: vec![],
         });
     }
-    if let Some(program) = find("opencode") {
+    // 只有 2.x 才有原生问答；1.x 排在 PATH 前面时不能遮住后面的新版。
+    let opencode = dirs
+        .iter()
+        .map(|d| d.join("opencode"))
+        .filter(|p| p.is_file())
+        .find(|p| opencode_major(p).is_some_and(|major| major >= 2));
+    if let Some(program) = opencode {
         found.push(Backend {
             kind: BackendKind::OpenCode,
             program,
@@ -78,6 +74,17 @@ pub fn detect(adapter_dir: &Path, path_dirs: &[PathBuf]) -> Vec<Backend> {
         });
     }
     found
+}
+
+/// `opencode --version` 的主版本号，兼容 `1.19.3` 与 `opencode v2.1.3` 两种输出。
+fn opencode_major(program: &Path) -> Option<u32> {
+    let output = std::process::Command::new(program)
+        .arg("--version")
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&output.stdout)
+        .split_whitespace()
+        .find_map(|word| word.trim_start_matches('v').split('.').next()?.parse().ok())
 }
 
 /// 策略到模型别名：Claude Code 接受 opus / sonnet / haiku；其他后端沿用 CLI 默认。
@@ -99,48 +106,41 @@ pub fn models_for(kind: BackendKind, strategy: Strategy) -> Models {
     }
 }
 
-/// `session/new` 的 `_meta`：仅暴露逐文件 Read 和 Bash，且每次都必须向 ACP 请求权限。
-/// 默认安全读取也可能不触发 canUseTool，所以除了隔离用户设置，还需要显式 ask 规则。
-pub fn session_meta(kind: BackendKind, model: Option<&str>) -> Option<Value> {
+/// `session/new` 的 `_meta`。主会话和审批会话不限制工具。
+/// 幕僚会话只留 Bash 与 Read，并要求每次 Bash 都进权限回调。
+pub fn session_meta(kind: BackendKind, model: Option<&str>, staff: bool) -> Option<Value> {
     if kind != BackendKind::ClaudeCode {
         return None;
     }
     let mut options = json!({
         "settingSources": [],
-        "disallowedTools": DISALLOWED_TOOLS,
-        "tools": ["Bash", "Read"],
         "strictMcpConfig": true,
         // 大脑会话不写 ~/.claude/projects，避免挤进用户的 /resume 列表。
         "persistSession": false,
-        "allowDangerouslySkipPermissions": false,
-        "settings": {"permissions": {
-            "ask": ["Bash", "Read"],
-            "disableBypassPermissionsMode": "disable"
-        }}
+        "allowDangerouslySkipPermissions": false
     });
     if let Some(model) = model {
         options["model"] = json!(model);
     }
+    if staff {
+        options["tools"] = json!(["Bash", "Read"]);
+        options["settings"] = json!({
+            "permissions": {
+                "ask": ["Bash"],
+                "blockReadsOutsideWorkingDirectories": true
+            }
+        });
+    }
     Some(json!({"claudeCode": {"options": options}}))
 }
 
-/// Claude 使用 default，并由 session_meta 的逐次 ask 规则补齐默认只读工具。
-/// Codex 使用 read-only：只限制写入，不限制读取，已知的读取隔离缺口由用户接受。
+/// Claude 使用 default；Codex 使用 auto（可写工作区）。权限请求都会被放行。
 pub fn session_mode(kind: BackendKind) -> Option<&'static str> {
     match kind {
         BackendKind::ClaudeCode => Some("default"),
-        BackendKind::Codex => Some("read-only"),
+        BackendKind::Codex => Some("auto"),
         BackendKind::OpenCode => None,
     }
-}
-
-/// OpenCode 的候选配置；它可能被 Agent 级权限覆盖，不能据此保证逐次询问。
-pub fn session_env(kind: BackendKind) -> Vec<(String, String)> {
-    if kind != BackendKind::OpenCode {
-        return Vec::new();
-    }
-    let config = json!({"permission": {"bash": "ask", "edit": "deny", "webfetch": "deny"}});
-    vec![("OPENCODE_CONFIG_CONTENT".into(), config.to_string())]
 }
 
 /// Codex 的推理强度：主会话随策略取 low、medium、high，审批会话始终 low。其他后端不设。

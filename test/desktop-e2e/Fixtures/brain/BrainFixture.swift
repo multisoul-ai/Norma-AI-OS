@@ -128,7 +128,7 @@ public enum BrainFixture {
     private static let claude = """
     #!/usr/bin/env python3
     import json, os, re, sys, threading, time, urllib.request
-    node = int(os.environ["MULTISOUL_NODE_ID"])
+    node = int(os.environ["NORMA_NODE_ID"])
     def receive():
         for line in sys.stdin:
             task = re.sub(r"\\x1b\\[(?:200|201)~", "", line).strip()
@@ -143,8 +143,8 @@ public enum BrainFixture {
                 "session_id": "brain-e2e", "turn_id": "brain-e2e-turn", "tool_name": None,
                 "message": None, "raw_json": raw}
         request = urllib.request.Request(
-            os.environ["MULTISOUL_HOOK_ENDPOINT"], json.dumps(body).encode(),
-            {"Authorization": "Bearer " + os.environ["MULTISOUL_HOOK_TOKEN"], "Content-Type": "application/json"})
+            os.environ["NORMA_HOOK_ENDPOINT"], json.dumps(body).encode(),
+            {"Authorization": "Bearer " + os.environ["NORMA_HOOK_TOKEN"], "Content-Type": "application/json"})
         urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=3).read()
     # 第一张卡片会完成任务；其余卡片一直待命，用来接后续任务。
     if node != 1:

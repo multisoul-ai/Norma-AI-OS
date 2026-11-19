@@ -8,8 +8,8 @@
 # Data construction:
 #   app manifest  = crates/app/Cargo.toml
 #   app bin       = norma-os
-#   required bin  = multisoul-agent-hook
-#   wrapper path  = src/bin/multisoul_agent_hook.rs
+#   required bin  = norma-hook
+#   wrapper path  = src/bin/norma_hook.rs
 #   auth bin      = norma-browser-auth-host
 #   auth wrapper  = src/bin/norma_browser_auth_host.rs
 #   extension id  = SHA-256(manifest public key DER) first 16 bytes, nibble a-p
@@ -24,7 +24,7 @@
 #
 # Expected result:
 #   - Positive: app manifest contains a `norma-os` main bin target.
-#   - Positive: app manifest contains a `multisoul-agent-hook` bin target.
+#   - Positive: app manifest contains a `norma-hook` bin target.
 #   - Positive: app manifest sets `default-run = "norma-os"`.
 #   - Positive: wrapper source exists and calls `norma::agent_hook::cli::main`.
 #   - Positive: release package includes `norma-browser-auth-host` and extension resources.
@@ -37,7 +37,7 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 manifest="$repo_root/crates/app/Cargo.toml"
-wrapper="$repo_root/crates/app/src/bin/multisoul_agent_hook.rs"
+wrapper="$repo_root/crates/app/src/bin/norma_hook.rs"
 auth_wrapper="$repo_root/crates/app/src/bin/norma_browser_auth_host.rs"
 packager="$repo_root/Packager.toml"
 extension_manifest="$repo_root/crates/app/assets/browser-auth-extension/manifest.json"
@@ -52,8 +52,8 @@ if ! grep -Fq 'name = "norma-os"' "$manifest"; then
   fail "crates/app/Cargo.toml must declare a norma-os main bin target"
 fi
 
-if ! grep -Fq 'name = "multisoul-agent-hook"' "$manifest"; then
-  fail "crates/app/Cargo.toml must declare a multisoul-agent-hook bin target"
+if ! grep -Fq 'name = "norma-hook"' "$manifest"; then
+  fail "crates/app/Cargo.toml must declare a norma-hook bin target"
 fi
 
 if ! grep -Fq 'default-run = "norma-os"' "$manifest"; then
@@ -68,8 +68,8 @@ if grep -Fq 'name = "multisoul"' "$manifest"; then
   fail "crates/app/Cargo.toml must not keep the old multisoul main bin target"
 fi
 
-if ! grep -Fq 'path = "src/bin/multisoul_agent_hook.rs"' "$manifest"; then
-  fail "app hook bin target must point at src/bin/multisoul_agent_hook.rs"
+if ! grep -Fq 'path = "src/bin/norma_hook.rs"' "$manifest"; then
+  fail "app hook bin target must point at src/bin/norma_hook.rs"
 fi
 
 if [ ! -f "$wrapper" ]; then

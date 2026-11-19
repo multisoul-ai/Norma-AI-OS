@@ -141,7 +141,7 @@
       "symlinks": 0
     },
     {
-      "source": "target/release/multisoul-agent-hook",
+      "source": "target/release/norma-hook",
       "kind": "companion_binary",
       "target": null,
       "exists": true,

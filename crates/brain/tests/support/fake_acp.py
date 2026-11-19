@@ -56,6 +56,9 @@ def main():
     if os.environ.get("FAKE_PID_LOG"):
         with open(os.environ["FAKE_PID_LOG"], "a", encoding="utf-8") as f:
             f.write(str(os.getpid()) + "\n")
+    if os.environ.get("FAKE_TOKEN_LOG"):
+        with open(os.environ["FAKE_TOKEN_LOG"], "a", encoding="utf-8") as f:
+            f.write(os.environ.get("NORMA_BRAIN_TOKEN", "") + "\n")
     if os.environ.get("FAKE_HANDSHAKE_RELEASE"):
         while not os.path.exists(os.environ["FAKE_HANDSHAKE_RELEASE"]):
             time.sleep(0.01)
@@ -77,6 +80,20 @@ def main():
         elif method == "session/prompt":
             text = "".join(p.get("text", "") for p in msg["params"]["prompt"])
             log("prompt: " + text)
+            if "FAKE_STREAM_HOLD" in text:
+                def update(body):
+                    send({"jsonrpc": "2.0", "method": "session/update", "params": {
+                        "sessionId": session_id, "update": body}})
+                update({"sessionUpdate": "plan", "entries": [
+                    {"content": "读取项目", "status": "completed"},
+                    {"content": "整理建议", "status": "in_progress"}]})
+                update({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "第一段"}})
+                log("stream-first-sent")
+                while not os.path.exists(os.environ["FAKE_RELEASE"]):
+                    time.sleep(0.01)
+                update({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "第二段"}})
+                send({"jsonrpc": "2.0", "id": mid, "result": {"stopReason": "end_turn"}})
+                continue
             if "FAKE_HOLD" in text:
                 while not os.path.exists(os.environ["FAKE_RELEASE"]):
                     time.sleep(0.01)

@@ -52,11 +52,7 @@ impl MultisoulApp {
                 ))
             }));
         }
-        let current = self
-            .desktop_workspace
-            .expanded_area_id
-            .clone()
-            .or(self.desktop_workspace.active_area_id.clone());
+        let current = self.desktop_content_area_id();
         let state = &mut self.desktop_workspace.workbench;
         if !state.lock_area {
             let follow = state.followed_area != current && current.is_some();

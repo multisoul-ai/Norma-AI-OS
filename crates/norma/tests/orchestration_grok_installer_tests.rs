@@ -42,7 +42,7 @@ fn installer_with_overrides(
     let bundle = root.join("bundle");
     fs::create_dir_all(&bundle).expect("应创建隔离 bundle");
     fs::write(bundle.join("norma"), "norma-cli").expect("应写 CLI 夹具");
-    fs::write(bundle.join("multisoul-agent-hook"), "norma-hook").expect("应写 Hook 夹具");
+    fs::write(bundle.join("norma-hook"), "norma-hook").expect("应写 Hook 夹具");
     OrchestrationInstaller::new(
         InstallPaths::for_home_bundle_bin_and_env(root, &bundle, overrides),
         "1.0.0",
@@ -68,7 +68,7 @@ fn grok_installation_honors_process_home_override() {
         );
         assert_eq!(
             paths.hook_paths.grok_hooks,
-            expected.join("hooks/multisoul-agent-hook.json"),
+            expected.join("hooks/norma-hook.json"),
             "生产路径入口必须遵循 GROK_HOME，不能仅让测试显式覆盖生效"
         );
         if expected != home.join(".grok") {
@@ -177,7 +177,7 @@ fn grok_install_repair_uninstall_uses_native_discovery_paths() {
         AggregateStatus::NotInstalled,
         "未安装的 Grok 必须可安装，不能被标为 Unsupported"
     );
-    let hook_path = temp.path().join(".grok/hooks/multisoul-agent-hook.json");
+    let hook_path = temp.path().join(".grok/hooks/norma-hook.json");
     fs::create_dir_all(hook_path.parent().expect("Hook 父目录")).expect("应创建 Hook 目录");
     fs::write(
         &hook_path,

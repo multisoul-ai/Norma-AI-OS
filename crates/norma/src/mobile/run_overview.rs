@@ -75,6 +75,8 @@ pub struct RunOverviewAgent {
     /// Latest user prompt of the session; `task` stays the session's first prompt.
     pub latest_prompt: Option<String>,
     pub action: Option<String>,
+    /// Most recent tool of the current turn; kept after the tool finishes.
+    pub last_tool: Option<crate::mobile::RecentTool>,
     pub progress: Option<TaskProgress>,
     pub started_at_unix_ms: Option<u64>,
 }
@@ -239,6 +241,7 @@ fn agent_row(
         task: agent.task_title.clone(),
         latest_prompt: agent.latest_prompt.clone(),
         action,
+        last_tool: agent.last_tool.clone(),
         progress,
         started_at_unix_ms: agent.started_at_unix_ms,
     }

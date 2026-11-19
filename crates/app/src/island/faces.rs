@@ -19,6 +19,11 @@ pub(super) struct Face {
     pub activity: AgentActivity,
     pub slot: SlotKind,
     pub task: String,
+    /// Session title, the row's headline in the running list.
+    pub session: String,
+    /// The user's latest prompt; empty when the session has none.
+    pub last_input: String,
+    pub tool: Option<norma::mobile::RecentTool>,
     pub detail: String,
     pub files: usize,
     pub progress: Option<(u32, u32)>,
@@ -400,6 +405,9 @@ fn face_from_agent(
             .clone()
             .or_else(|| agent.task.clone())
             .unwrap_or_default(),
+        session: agent.task.clone().unwrap_or_default(),
+        last_input: agent.latest_prompt.clone().unwrap_or_default(),
+        tool: agent.last_tool.clone(),
         detail: agent.action.clone().unwrap_or_default(),
         files: 0,
         progress: agent
@@ -443,6 +451,9 @@ fn ensure_face(
         activity: AgentActivity::Queued,
         slot: SlotKind::Hidden,
         task: String::new(),
+        session: String::new(),
+        last_input: String::new(),
+        tool: None,
         detail: String::new(),
         files: 0,
         progress: None,
