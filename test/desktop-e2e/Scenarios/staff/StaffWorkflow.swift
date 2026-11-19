@@ -12,7 +12,7 @@ public enum StaffWorkflow {
     public static func run(_ session: Session, english: Bool = false) async throws {
         let root = try StaffFixture.install()
         var project: URL?
-        let keys = ["ZDOTDIR", "NORMA_BRAIN_DIR", "CLAUDE_CONFIG_DIR", "NORMA_E2E_STAFF_QUESTIONS"]
+        let keys = ["ZDOTDIR", "NORMA_BRAIN_DIR", "CLAUDE_CONFIG_DIR", "NORMA_E2E_STAFF_QUESTIONS", "NORMA_E2E_STAFF_LONG_RESULT"]
         let previous = Dictionary(uniqueKeysWithValues: keys.map { ($0, ProcessInfo.processInfo.environment[$0]) })
         defer {
             session.stop()
@@ -26,6 +26,7 @@ public enum StaffWorkflow {
         setenv("NORMA_BRAIN_DIR", root.path, 1)
         setenv("CLAUDE_CONFIG_DIR", root.appendingPathComponent("claude-config").path, 1)
         setenv("NORMA_E2E_STAFF_QUESTIONS", "1", 1)
+        setenv("NORMA_E2E_STAFF_LONG_RESULT", "1", 1)
         let language = english ? "en" : "zh-Hans"
         try session.launch(language: language)
         _ = try await session.capturePixels()
@@ -49,10 +50,10 @@ public enum StaffWorkflow {
             try await session.type("/new claude")
             try await session.shortcut(key: 36, modifiers: [])
             try await waitFor("真实 Agent 启动") { try StaffFixture.records(root, "starts.jsonl").count == 1 }
-            _ = try await session.visualCheck([VisualCriterion(id: "seed", text: "E2E Project 画布有一张 Claude 卡片，显示 STAFF WORKER READY；顶部有幕僚或 Staff 按钮，右侧内容抽屉可见。若 Agent 仍启动，判 wait。")])
-            try await session.visualClick("点击顶部幕僚或 Staff 按钮进入幕僚模式")
+            _ = try await session.visualCheck([VisualCriterion(id: "seed", text: "E2E Project 画布有一张 Claude 卡片，显示 STAFF WORKER READY；底栏最左侧有浅紫发圆形头像入口，右侧内容抽屉可见。若 Agent 仍启动，判 wait。")])
+            try await session.visualClick("点击底栏最左侧的浅紫发圆形头像进入幕僚模式")
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "empty", text: "按已选双栏原型：顶栏中央为画布/Canvas、幕僚/Staff分段胶囊，幕僚选中；无第二行Norma标题栏或重复统计页脚。左栏约280px：整行宽的新任务按钮，其下单个搜索胶囊（搜索图标、搜索任务占位文字完整、项目选择器在同一胶囊内），再下为等宽的筛选芯片；中央圆角对话区和输入框清晰，右抽屉与画布模式一致。E2E Project名称可见，不是临时UUID。"),
+                VisualCriterion(id: "empty", text: "按已选双栏原型：顶栏右侧有返回画布/Back to canvas按钮，不再有画布/幕僚分段胶囊；无第二行Norma标题栏或重复统计页脚。左栏约280px：整行宽的新任务按钮，其下单个搜索胶囊（搜索图标、搜索任务占位文字完整、项目选择器在同一胶囊内），再下为等宽的筛选芯片；中央圆角对话区和输入框清晰，右抽屉与画布模式一致。E2E Project名称可见，不是临时UUID。"),
                 VisualCriterion(id: "locale", text: english ? "界面控制文案为英文，包含 New task、Give Norma a task；用户项目名称不翻译。" : "界面控制文案为中文，包含新任务、交给 Norma 一件事。")
             ]), "01-empty.png")
             return "空态三栏和双语控制可见"
@@ -63,7 +64,7 @@ public enum StaffWorkflow {
             try await session.type("STAFF-M1 请生成验收文件")
             try await session.shortcut(key: 36, modifiers: [0x38])
             try await session.type("保留这一行补充要求")
-            _ = try await session.visualCheck([VisualCriterion(id: "multiline", text: "中央输入框保留两行尚未发送的文字：STAFF-M1 请生成验收文件和保留这一行补充要求；仍是新任务空态，Shift+Enter 只换行、没有发出任务；输入区有圆形上箭头和 Enter 发送、Shift + Enter 换行提示。")])
+            _ = try await session.visualCheck([VisualCriterion(id: "multiline", text: "中央输入框保留两行尚未发送的文字：STAFF-M1 请生成验收文件和保留这一行补充要求；仍是新任务空态，Shift+Enter 只换行、没有发出任务；输入区右下有圆形上箭头发送键（输入框下方不再有快捷键提示行）。")])
             guard try StaffFixture.tasks(root).isEmpty else { throw E2EError.product("Shift+Enter 意外发送了任务") }
             try await session.shortcut(key: 36, modifiers: [])
             // 提示词已到适配器说明本轮已开始；此状态下还没有任何工具步骤，用于核对无步骤活动行。
@@ -141,6 +142,9 @@ public enum StaffWorkflow {
                 VisualCriterion(id: "result", text: "任务处于待验收/In review，中央有 Worker 结果 STAFF RESULT 与 Norma 的 STAFF REVIEW 回复；标题下有独立 Worker 卡条，Worker为36px的色调胶囊，显示真实 Agent 名称与结果状态。消息区在 Worker 卡条下方；若消息在上方，允许滚动查看后重试。"),
                 VisualCriterion(id: "worker-result-pet", text: "Worker 结果卡（含 STAFF RESULT 的卡片）头部最左侧是彩色宠物头像（与 Worker 卡条同款圆润造型、可见眼睛与表情），其后才是 Agent 名称与绿色的已返回结果/Result received；不是字母缩写圆或纯色圆点。")
             ]), "04-result.png")
+            try session.save(try await session.visualCheck([
+                VisualCriterion(id: "result-flow", text: "Worker 结果卡按正文撑开，不截成三行，也没有「展开/收起」或 Expand/Collapse 按钮。加粗的「操作」「地图」「其他」与三条列表按 Markdown 渲染，没有原样显示 ** 或 -。卡片底边在下一条 Norma 消息之上：头像、步骤条和正文都不画进卡片里。文字无溢出、无重叠。若卡高于视口，滚动后仍能读完最后一行，且下一条从卡片下方开始。")
+            ]), "04-result-flow.png")
             return "同名 Agent 新卡；dispatch 精确匹配；恰好一次送达；自动推进待验收"
         }
 
@@ -211,7 +215,7 @@ public enum StaffWorkflow {
             try session.save(try await session.visualCheck([VisualCriterion(id: "full", text: "幕僚任务界面填满窗口，保留一套顶部工作空间/模式导航和退出全屏按钮；任务列表收起以放大对话，任务内容与右侧文件仍在；顶部控件不与macOS窗口按钮重叠。")]), "07-fullscreen.png")
             try await session.shortcut(key: 53, modifiers: [])
             _ = try await session.visualCheck([VisualCriterion(id: "escape", text: "Escape 已退出幕僚全屏，任务列表恢复，任务和打开的文件保留。")])
-            try await session.visualClick("点击幕僚标题栏中的画布/Canvas按钮返回画布")
+            try await session.visualClick("点击幕僚顶栏右侧的返回画布/Back to canvas按钮")
             try session.save(try await session.visualCheck([VisualCriterion(id: "canvas", text: "原画布恢复，有两张独立 Claude 卡片；右侧 STAFF-RESULT.md 仍打开，没有重复创建第三张卡。")]), "08-canvas.png")
             guard try StaffFixture.records(root, "starts.jsonl").count == 2 else { throw E2EError.product("切换页面重启了 Worker") }
             return "全屏与模式切换保留原 Runtime 和文件标签"

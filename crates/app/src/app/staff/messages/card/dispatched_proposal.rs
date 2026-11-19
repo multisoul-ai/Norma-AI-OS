@@ -23,6 +23,16 @@ pub(super) fn render(
     });
     let running = proposal.auto && worker.is_some_and(|w| w.outcome.is_none());
     let (task_id, proposal_id) = (ctx.task.id.clone(), proposal.id);
+    let dispatched = t(if proposal.auto {
+        "staff.dispatched_by_staff"
+    } else {
+        "staff.dispatched"
+    });
+    let status_text = if worker.is_none() && proposal.dispatch_id.is_some() {
+        t("staff.worker_gone").to_owned()
+    } else {
+        format!("✓ {dispatched}")
+    };
     shell::card(ctx, false)
         .debug_selector(move || format!("staff-proposal-card-{id}"))
         .flex_row()
@@ -57,14 +67,7 @@ pub(super) fn render(
             div()
                 .text_size(px(tokens::META_TEXT))
                 .text_color(rgba(theme.success))
-                .child(format!(
-                    "✓ {}",
-                    t(if proposal.auto {
-                        "staff.dispatched_by_staff"
-                    } else {
-                        "staff.dispatched"
-                    })
-                )),
+                .child(status_text),
         )
         .when(running, |row| {
             row.child(

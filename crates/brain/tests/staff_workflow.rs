@@ -22,6 +22,7 @@ fn proposal_requires_user_adoption_and_dispatch_is_once() {
                 title: "Build".into(),
                 prompt: "Build and test".into(),
                 why: "Required".into(),
+                model: None,
             },
         )
         .expect("propose");
@@ -110,6 +111,7 @@ fn approval_persists_user_agent_and_model_choice() {
                 title: "Build".into(),
                 prompt: "Build and test".into(),
                 why: "Required".into(),
+                model: None,
             },
         )
         .expect("propose");
@@ -132,6 +134,7 @@ fn propose(store: &TaskStore, agent: &str, prompt: &str) {
                 title: "T".into(),
                 prompt: prompt.into(),
                 why: "W".into(),
+                model: None,
             },
         )
         .expect("propose");
@@ -155,9 +158,23 @@ fn proposal_messages(task: &Task) -> Vec<u64> {
     task.messages
         .iter()
         .filter_map(|m| match m {
-            norma::protocol::TaskMessage::Proposal { proposal_id } => Some(*proposal_id),
+            norma::protocol::TaskMessage::Staff(reply) => Some(reply),
             _ => None,
         })
+        .flat_map(|reply| reply.parts.iter())
+        .filter_map(|part| match part {
+            norma::protocol::StaffPart::Proposal(id) => Some(*id),
+            _ => None,
+        })
+        .collect()
+}
+
+/// 仍然有效（没有被新方案替换）的提议编号。
+fn live_ids(task: &Task) -> Vec<u64> {
+    task.proposals
+        .iter()
+        .filter(|p| !p.superseded)
+        .map(|p| p.id)
         .collect()
 }
 
@@ -170,17 +187,18 @@ fn fresh() -> (tempfile::TempDir, TaskStore) {
     (dir, store)
 }
 
-/// 并行提议共存；下一轮只提新的 -> 旧的整批被替换，消息同步删除，新 id 不与旧 id 重复。
+/// 并行提议共存；下一轮只提新的 -> 旧的整批标记为已替换，卡片保留在原回合里，新 id 不与旧 id 重复。
 #[test]
-fn new_round_replaces_pending_proposals_and_ids_stay_unique() {
+fn new_round_supersedes_pending_proposals_and_ids_stay_unique() {
     let (_dir, store) = fresh();
     let t = round(&store, &[("Simon", "p1"), ("Kimi", "p2")]);
-    assert_eq!(t.proposals.iter().map(|p| p.id).collect::<Vec<_>>(), [1, 2]);
+    assert_eq!(live_ids(&t), [1, 2], "第一轮两个提议都有效");
     let t = round(&store, &[("Codex", "p3")]);
-    assert_eq!(t.proposals.iter().map(|p| p.id).collect::<Vec<_>>(), [3]);
-    assert_eq!(proposal_messages(&t), [3]);
+    assert_eq!(live_ids(&t), [3], "第二轮只剩新提议有效");
+    assert_eq!(t.proposals.len(), 3, "旧提议不删除，只标记");
+    assert_eq!(proposal_messages(&t), [1, 2, 3], "旧卡片引用保留在原回合");
     let t = round(&store, &[("Codex", "p4")]);
-    assert_eq!(t.proposals.iter().map(|p| p.id).collect::<Vec<_>>(), [4]);
+    assert_eq!(live_ids(&t), [4], "id 单调递增，不与旧 id 重复");
 }
 
 /// 原样重提保留原 id；本轮不提则旧提议不变；已 approved/派发的不被删。
@@ -192,18 +210,18 @@ fn resubmitted_proposal_keeps_id_and_silent_round_changes_nothing() {
     assert_eq!(
         t.proposals
             .iter()
+            .filter(|p| !p.superseded)
             .map(|p| (p.id, p.prompt.as_str()))
             .collect::<Vec<_>>(),
-        [(2, "p2"), (3, "p3")]
+        [(2, "p2"), (3, "p3")],
+        "原样重提的 p2 保留原 id 且仍有效，p1 被替换"
     );
-    assert_eq!(proposal_messages(&t), [2, 3]);
     let silent = round(&store, &[]);
     assert_eq!(
-        silent.proposals.len(),
-        2,
-        "silent round keeps old proposals"
+        live_ids(&silent),
+        [2, 3],
+        "silent round keeps old proposals valid"
     );
-    assert_eq!(proposal_messages(&silent), [2, 3]);
 }
 
 #[test]
@@ -216,14 +234,13 @@ fn approved_and_dispatched_proposals_survive_replacement() {
         .bind_worker("ws", "a", 2, Worker::new("Kimi", "Kimi", "r", 10, "d-1"))
         .expect("bind");
     let t = round(&store, &[("Codex", "p9")]);
-    let ids: Vec<u64> = t.proposals.iter().map(|p| p.id).collect();
     assert_eq!(
-        ids,
+        live_ids(&t),
         [1, 2, 4],
         "approved(1) and dispatched(2) stay, pending(3) replaced"
     );
     assert!(
         store.approve("ws", "a", 3, None, None).is_err(),
-        "removed proposal cannot be adopted"
+        "superseded proposal cannot be adopted"
     );
 }

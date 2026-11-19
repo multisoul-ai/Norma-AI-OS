@@ -8,6 +8,8 @@ mod decisions;
 mod dispatch;
 mod events;
 mod input;
+mod pick;
+mod resume;
 mod worker_questions;
 
 impl MultisoulApp {
@@ -37,18 +39,100 @@ impl MultisoulApp {
             return self.dispatch_staff_worker(task_id, proposal_id, token.to_owned(), cx);
         }
         if let StaffOp::Propose { agent, .. } | StaffOp::Assign { agent, .. } = &op {
-            if !self
-                .agent_roster_for_provider()
-                .iter()
-                .any(|entry| entry.name == *agent && entry.enabled)
-            {
-                return Err("staff.agent_unavailable".to_owned());
-            }
+            self.resolve_staff_entry(agent)?;
         }
         if matches!(op, StaffOp::Assign { .. }) {
             return self.assign_staff_worker(op, token.to_owned(), cx);
         }
         self.write_staff_operation(op, false, cx)
+    }
+
+    /// 幕僚用 engine（如 claude）或旧的具名智能体名指向执行者。
+    /// 可派类型只看编排里注册成功的引擎；同类型优先挑不忙的名册项。
+    /// 没有名册时仍可派，宿主会按引擎另开一张卡片。找不到时列出可派引擎。
+    pub(super) fn resolve_staff_entry(&self, id: &str) -> Result<agent::AgentRosterEntry, String> {
+        let registered = self.registered_staff_engines();
+        if let Some(provider) = registered
+            .iter()
+            .copied()
+            .find(|provider| provider.slug().eq_ignore_ascii_case(id))
+        {
+            return Ok(self.staff_engine_binding(provider));
+        }
+        if let Some(entry) = self.roster_entry_by_name(id) {
+            return Ok(entry);
+        }
+        let engines = registered
+            .iter()
+            .map(|provider| provider.slug())
+            .collect::<Vec<_>>()
+            .join(", ");
+        Err(format!("staff.agent_unavailable\n{engines}"))
+    }
+
+    /// 引擎 id 和没有名册的回退卡片都不算点名目标。
+    pub(super) fn roster_entry_if_named_target(&self, id: &str) -> Option<agent::AgentRosterEntry> {
+        if self
+            .registered_staff_engines()
+            .iter()
+            .any(|provider| provider.slug().eq_ignore_ascii_case(id))
+        {
+            return None;
+        }
+        self.roster_entry_by_name(id)
+            .filter(|entry| entry.definition_id != 0)
+    }
+
+    fn roster_entry_by_name(&self, id: &str) -> Option<agent::AgentRosterEntry> {
+        let registered = self.registered_staff_engines();
+        self.agent_roster_for_provider().into_iter().find(|entry| {
+            entry.enabled
+                && registered
+                    .iter()
+                    .any(|provider| provider.profile() == entry.profile)
+                && (entry.name.eq_ignore_ascii_case(id)
+                    || entry.speech_alias.as_deref().is_some_and(|alias| {
+                        alias.chars().count() >= 2 && alias.eq_ignore_ascii_case(id)
+                    }))
+        })
+    }
+
+    fn staff_engine_binding(
+        &self,
+        provider: norma::orchestration::OrchestrationProvider,
+    ) -> agent::AgentRosterEntry {
+        let profile = provider.profile();
+        let found: Vec<_> = self
+            .agent_roster_for_provider()
+            .into_iter()
+            .filter(|entry| entry.enabled && entry.profile == profile)
+            .collect();
+        // 幕僚派出的卡不挂 definition_id，busy 看不到它们；按同名卡数量分散，避免全派给同一个名字。
+        let load = |entry: &agent::AgentRosterEntry| {
+            self.runtime
+                .document
+                .nodes()
+                .iter()
+                .filter(|node| {
+                    matches!(&node.kind, canvas::CanvasNodeKind::Agent(spec)
+                        if spec.alias.as_deref() == Some(entry.name.as_str()))
+                })
+                .count()
+        };
+        let mut candidates: Vec<_> = found.iter().collect();
+        pick::least_loaded(&mut candidates, load)
+            .cloned()
+            .unwrap_or_else(|| agent::AgentRosterEntry {
+                definition_id: 0,
+                name: provider.display_name().to_owned(),
+                speech_alias: None,
+                profile,
+                enabled: true,
+                active_node_id: None,
+                tracking: agent::AgentTrackingMode::Untracked,
+                busy: false,
+                task_state: agent::AgentTaskState::Ready,
+            })
     }
 
     pub(crate) fn write_staff_operation(

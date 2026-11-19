@@ -1,7 +1,3 @@
-mod activity;
-mod activity_tools;
-pub(super) mod notice;
-pub(super) mod prose;
 pub(super) mod user;
 
 use super::tokens;
@@ -9,7 +5,7 @@ use gpui::{div, img, linear_color_stop, linear_gradient, prelude::*, px, rgba, D
 use ui::component::StyledExt;
 
 /// Norma 署名：与桌面首页一致的渐变描边头像、在线点和紫色名字。
-fn staff_byline(app: &crate::app::MultisoulApp) -> Div {
+pub(in crate::app::staff::messages) fn staff_byline(app: &crate::app::MultisoulApp) -> Div {
     let theme = app.staff_theme();
     let light = app.theme.is_light();
     div()

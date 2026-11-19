@@ -74,3 +74,16 @@ fn status_rank(status: TaskDisplayStatus) -> u8 {
         TaskDisplayStatus::Done => 4,
     }
 }
+
+/// 已按状态排序的任务列表，连续同状态的归为一组，供侧栏分组标题使用。
+pub fn staff_status_groups<'a>(tasks: &[&'a Task]) -> Vec<(TaskDisplayStatus, Vec<&'a Task>)> {
+    let mut groups: Vec<(TaskDisplayStatus, Vec<&'a Task>)> = Vec::new();
+    for task in tasks {
+        let status = task.display_status();
+        match groups.last_mut() {
+            Some((last, items)) if *last == status => items.push(task),
+            _ => groups.push((status, vec![task])),
+        }
+    }
+    groups
+}

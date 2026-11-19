@@ -33,11 +33,15 @@ pub struct BrainConfig {
     pub router: RouterConfig,
     /// 传给适配器进程的环境变量，例如让 `norma` CLI 找到 App 的 socket。
     pub env: Vec<(String, String)>,
-    /// 幕僚会话专用的 token；`None` 时幕僚会话不带任何 token（不会退回主大脑 token）。
-    pub staff_token: Option<String>,
+    /// 幕僚会话的任务 token 登记处：每个会话启动时为自己的任务铸一把；
+    /// `None` 时幕僚会话不带任何 token（不会退回主大脑 token）。
+    pub staff_tokens: Option<crate::staff::gate::StaffTokens>,
+    /// 幕僚任务会话空闲多久后回收进程（任务下一轮会再起新会话）。
+    pub task_idle: Duration,
     /// norma-brain skill 已装好：提示词不再内联命令用法。默认 false，会话带命令速查。
     pub skill_ready: bool,
-    pub prompt_timeout: Duration,
+    /// 一轮 prompt 的截止。`None` 表示一直等到适配器结束或用户取消，不再使用固定秒数。
+    pub prompt_timeout: Option<Duration>,
     pub retry_backoff: Duration,
     pub max_turns: u32,
 }
@@ -61,17 +65,20 @@ impl BrainConfig {
             state_dir,
             router: RouterConfig::default(),
             env: Vec::new(),
-            staff_token: None,
+            staff_tokens: None,
+            task_idle: Duration::from_secs(300),
             skill_ready: false,
-            prompt_timeout: Duration::from_secs(180),
+            prompt_timeout: None,
             retry_backoff: Duration::from_secs(1),
             max_turns: 30,
         }
     }
 }
 
+mod runners;
 mod scopes;
 mod staff;
+use runners::TaskRunners;
 use scopes::Scopes;
 
 enum Command {
@@ -85,6 +92,7 @@ pub struct BrainService {
     scopes: Scopes,
     threads: Vec<JoinHandle<()>>,
     tasks: Arc<TaskStore>,
+    runners: TaskRunners,
 }
 
 impl BrainService {
@@ -99,36 +107,37 @@ impl BrainService {
         let mut models = backend::models_for(config.backend.kind, config.strategy);
         models.main = config.main_model.clone().or(models.main);
         models.approval = config.approval_model.clone().or(models.approval);
-        let lane = |role: Role, model: Option<String>| LaneEnv {
-            role,
-            backend: config.backend.clone(),
-            model,
-            effort: backend::effort_for(config.backend.kind, config.strategy, role == Role::Main)
-                .map(str::to_string),
-            norma_bin: config.norma_bin.clone(),
-            project_root: config.project_root.clone(),
+        let shared = LaneShared {
+            config: config.clone(),
             goal: goal.clone(),
             tasks: tasks.clone(),
             status: status_tx.clone(),
             open: open.clone(),
             stop: stop.clone(),
-            env: config.env.clone(),
-            staff_token: config.staff_token.clone(),
-            skill_ready: config.skill_ready,
-            prompt_timeout: config.prompt_timeout,
-            retry_backoff: config.retry_backoff,
-            max_turns: config.max_turns,
+        };
+        let lane = |role: Role, model: Option<String>| shared.env(role, model);
+        // 幕僚任务各有自己的会话线程，用主模型。
+        let runners = {
+            let (shared, model) = (shared.clone(), models.main.clone());
+            TaskRunners::new(
+                Arc::new(move || shared.env(Role::Main, model.clone())),
+                config.task_idle,
+            )
         };
         let (main_tx, main_rx) = mpsc::channel();
         let (approval_tx, approval_rx) = mpsc::channel();
         let main_env = lane(Role::Main, models.main);
         let main_jobs = Arc::new(Mutex::new(main_rx));
-        let mut threads = vec![std::thread::spawn(move || worker::run(main_env, main_jobs))];
+        let mut threads = vec![std::thread::spawn(move || {
+            worker::run(main_env, main_jobs, None)
+        })];
         let approval_jobs = Arc::new(Mutex::new(approval_rx));
         for _ in 0..config.approval_workers.max(1) {
             let approval_env = lane(Role::Approval, models.approval.clone());
             let jobs = approval_jobs.clone();
-            threads.push(std::thread::spawn(move || worker::run(approval_env, jobs)));
+            threads.push(std::thread::spawn(move || {
+                worker::run(approval_env, jobs, None)
+            }));
         }
         let dispatcher = Dispatcher {
             scopes: scopes.clone(),
@@ -145,6 +154,7 @@ impl BrainService {
             open,
             main: main_tx,
             approval: approval_tx,
+            runners: runners.clone(),
             stop: stop.clone(),
         };
         threads.push(std::thread::spawn(move || dispatcher.run(inbox)));
@@ -154,6 +164,7 @@ impl BrainService {
                 scopes,
                 threads,
                 tasks,
+                runners,
             },
             status_rx,
         )
@@ -192,6 +203,7 @@ impl BrainService {
         for thread in self.threads {
             let _ = thread.join();
         }
+        self.runners.join_all();
     }
 }
 
@@ -206,6 +218,7 @@ struct Dispatcher {
     open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
     main: Sender<Job>,
     approval: Sender<Job>,
+    runners: TaskRunners,
     stop: Arc<AtomicBool>,
 }
 
@@ -225,6 +238,7 @@ impl Dispatcher {
                 Ok(Command::Recorded(event, result)) => self.handle(*event, Some(result)),
                 Ok(Command::Release(scope)) => {
                     self.router.remove(&scope);
+                    self.runners.release(&scope);
                     self.open
                         .lock()
                         .expect("open lock")
@@ -327,17 +341,61 @@ impl Dispatcher {
                     },
                 });
             }
-            let _ = tx.send(Job {
-                task_id: match lane {
-                    Lane::Task(id) => Some(id),
-                    _ => None,
-                },
+            let task_id = match lane {
+                Lane::Task(id) => Some(id),
+                _ => None,
+            };
+            let job = Job {
+                task_id,
                 cancelled,
                 scope,
                 text,
                 approval_id,
                 trigger,
-            });
+            };
+            // 幕僚任务交给它自己的会话（不同任务并行）；其余照旧走共用队列。
+            if job.task_id.is_some() {
+                self.runners.submit(job);
+            } else {
+                let _ = tx.send(job);
+            }
+        }
+    }
+}
+
+/// 各条 lane 共用的依赖；按角色和模型生成每个 worker 的环境。
+#[derive(Clone)]
+struct LaneShared {
+    config: BrainConfig,
+    goal: Arc<GoalStore>,
+    tasks: Arc<TaskStore>,
+    status: Sender<BrainStatus>,
+    open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
+    stop: Arc<AtomicBool>,
+}
+
+impl LaneShared {
+    fn env(&self, role: Role, model: Option<String>) -> LaneEnv {
+        let config = &self.config;
+        LaneEnv {
+            role,
+            backend: config.backend.clone(),
+            model,
+            effort: backend::effort_for(config.backend.kind, config.strategy, role == Role::Main)
+                .map(str::to_string),
+            norma_bin: config.norma_bin.clone(),
+            project_root: config.project_root.clone(),
+            goal: self.goal.clone(),
+            tasks: self.tasks.clone(),
+            status: self.status.clone(),
+            open: self.open.clone(),
+            stop: self.stop.clone(),
+            env: config.env.clone(),
+            staff_tokens: config.staff_tokens.clone(),
+            skill_ready: config.skill_ready,
+            prompt_timeout: config.prompt_timeout,
+            retry_backoff: config.retry_backoff,
+            max_turns: config.max_turns,
         }
     }
 }

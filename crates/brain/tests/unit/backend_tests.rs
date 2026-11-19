@@ -4,7 +4,7 @@ use std::fs;
 /// 大脑不限制工具集，但仍隔离用户设置、不允许跳过权限开关或加载用户 MCP。
 #[test]
 fn claude_session_is_isolated_but_unrestricted() {
-    let meta = session_meta(BackendKind::ClaudeCode, None).expect("应有 Claude 配置");
+    let meta = session_meta(BackendKind::ClaudeCode, None, false).expect("应有 Claude 配置");
     let options = &meta["claudeCode"]["options"];
     assert!(options["tools"].is_null(), "不再限制工具集");
     assert!(options["disallowedTools"].is_null(), "不再禁用写类工具");
@@ -13,6 +13,38 @@ fn claude_session_is_isolated_but_unrestricted() {
         "不能允许跳过权限"
     );
     assert_eq!(options["strictMcpConfig"], true, "不能加载用户的 MCP 工具");
+}
+
+/// 场景：幕僚的 Claude 会话只留 Bash 和 Read，并且每次 Bash 都要进权限回调。
+///
+/// 数据构造：Claude Code，幕僚标记为真，不指定模型。
+/// 预期结果：
+///   - 正断言：tools 只有 Bash 与 Read；permissions.ask 是 Bash；项目外 Read 被目录开关拦住
+///   - 负断言：Codex 幕僚没有这套 meta，主会话的 tools 仍是空
+#[test]
+fn staff_claude_session_limits_tools_to_bash_and_read() {
+    let meta = session_meta(BackendKind::ClaudeCode, None, true).expect("幕僚 Claude 要有 meta");
+    let options = &meta["claudeCode"]["options"];
+    assert_eq!(
+        options["tools"],
+        serde_json::json!(["Bash", "Read"]),
+        "幕僚只能调用 Bash 和 Read"
+    );
+    assert_eq!(
+        options["settings"]["permissions"]["ask"],
+        serde_json::json!(["Bash"]),
+        "项目内 Bash 也必须进权限回调，否则命令门禁看不见它"
+    );
+    assert_eq!(
+        options["settings"]["permissions"]["blockReadsOutsideWorkingDirectories"], true,
+        "项目外 Read 由 CLI 直接拒绝"
+    );
+    assert!(
+        session_meta(BackendKind::ClaudeCode, None, false).expect("主会话")["claudeCode"]
+            ["options"]["tools"]
+            .is_null(),
+        "主会话不套用幕僚的工具白名单"
+    );
 }
 
 /// 写一个只回答 `--version` 的假 opencode 可执行文件。
@@ -119,7 +151,8 @@ fn strategies_map_to_models() {
 ///   - 负断言：其他后端没有 meta 与模式
 #[test]
 fn claude_sessions_ignore_user_settings() {
-    let meta = session_meta(BackendKind::ClaudeCode, Some("haiku")).expect("Claude 需要 meta");
+    let meta =
+        session_meta(BackendKind::ClaudeCode, Some("haiku"), false).expect("Claude 需要 meta");
     let options = &meta["claudeCode"]["options"];
     assert_eq!(
         options["settingSources"],
@@ -134,7 +167,7 @@ fn claude_sessions_ignore_user_settings() {
     assert_eq!(session_mode(BackendKind::ClaudeCode), Some("default"));
     assert_eq!(session_mode(BackendKind::Codex), Some("auto"));
     assert!(
-        session_meta(BackendKind::Codex, None).is_none()
+        session_meta(BackendKind::Codex, None, true).is_none()
             && session_mode(BackendKind::OpenCode).is_none()
     );
 }

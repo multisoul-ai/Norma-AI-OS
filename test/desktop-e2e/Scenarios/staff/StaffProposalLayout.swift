@@ -39,13 +39,13 @@ public enum StaffProposalLayout {
         try await session.step("长说明之后完整显示建议卡") {
             try await session.visualClick("点击 Proposal Layout 工作空间卡片")
             try await session.visualClick("点击 E2E Project 项目进入画布")
-            try await session.visualClick("点击顶部幕僚/Staff按钮")
+            try await session.visualClick("点击底栏最左侧的浅紫发圆形头像进入幕僚")
             try await session.visualClick("点击中央任务消息输入框")
             try await session.type("PROPOSAL-LAYOUT 请检查说明与建议卡的间距")
             try await session.shortcut(key: 36, modifiers: [])
             for _ in 0..<100 {
                 let tasks = try StaffFixture.tasks(root)
-                if let messages = tasks.first?["messages"] as? [[String: Any]], messages.contains(where: { $0["Norma"] != nil }) { break }
+                if let messages = tasks.first?["messages"] as? [[String: Any]], messages.contains(where: { StaffFixture.replyText($0) != nil }) { break }
                 try await Task.sleep(nanoseconds: 200_000_000)
             }
             for width in [1280, 900, 1280] {

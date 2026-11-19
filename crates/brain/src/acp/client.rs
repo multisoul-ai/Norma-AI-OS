@@ -41,6 +41,8 @@ pub struct SessionOptions {
     /// Codex 的推理强度，用 `session/set_config_option` 的 `reasoning_effort` 设置。
     pub effort: Option<String>,
     pub handshake_timeout: Duration,
+    /// 幕僚会话才设置。有值时权限回调只放行这个绝对路径下的 `norma brain`。
+    pub staff_shell: Option<PathBuf>,
 }
 
 pub struct AcpSession {
@@ -49,6 +51,8 @@ pub struct AcpSession {
     /// `session/new` 的回复，用来读出可选的模型。
     created: Value,
     questions: Option<super::questions::QuestionHost>,
+    cwd: PathBuf,
+    staff_shell: Option<PathBuf>,
 }
 
 impl AcpSession {
@@ -145,6 +149,8 @@ impl AcpSession {
             session_id,
             created,
             questions: None,
+            cwd: options.cwd.clone(),
+            staff_shell: options.staff_shell.clone(),
         })
     }
 
@@ -169,20 +175,22 @@ impl AcpSession {
         timeout: Duration,
         sink: &mut dyn FnMut(TraceItem),
     ) -> Result<String, AcpError> {
-        self.prompt_observed(text, &[], cancel, timeout, sink, &mut |_| {})
+        self.prompt_observed(text, &[], cancel, Some(timeout), sink, &mut |_| {})
     }
 
     /// Observe raw progress before audit trace coalescing; observations are not persisted replies.
+    /// `timeout == None` 时没有截止，只靠适配器结束或 `cancel`。
     pub fn prompt_observed(
         &mut self,
         text: &str,
         images: &[super::content::PromptImage],
         cancel: &AtomicBool,
-        timeout: Duration,
+        timeout: Option<Duration>,
         sink: &mut dyn FnMut(TraceItem),
         progress: &mut dyn FnMut(&TraceItem),
     ) -> Result<String, AcpError> {
         let started = Instant::now();
+        let staff_gate = self.staff_shell.clone().map(|bin| (bin, self.cwd.clone()));
         let mut merger = Merger::default();
         let mut stop_reason = None;
         let mut system_error = false;
@@ -198,14 +206,16 @@ impl AcpSession {
                     super::content::session_prompt(&self.session_id, text, images),
                 )
                 .map_err(|_| AcpError::Closed)?;
-            let mut deadline = Instant::now() + timeout;
+            let mut deadline = timeout.map(|limit| Instant::now() + limit);
             let mut tick = Instant::now();
             let mut reply = String::new();
             loop {
                 let now = Instant::now();
                 if let Some(questions) = &mut self.questions {
                     if questions.waiting() {
-                        deadline += now.duration_since(tick);
+                        if let Some(deadline) = deadline.as_mut() {
+                            *deadline += now.duration_since(tick);
+                        }
                     }
                     questions.poll(&mut self.conn, false)?;
                 }
@@ -214,7 +224,7 @@ impl AcpSession {
                     self.abort();
                     return Err(AcpError::Cancelled);
                 }
-                if Instant::now() >= deadline {
+                if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
                     self.abort();
                     return Err(AcpError::Timeout);
                 }
@@ -233,10 +243,12 @@ impl AcpSession {
                     .as_ref()
                     .is_some_and(|questions| questions.waiting())
                 {
-                    deadline += received_at.duration_since(tick);
+                    if let Some(deadline) = deadline.as_mut() {
+                        *deadline += received_at.duration_since(tick);
+                    }
                     tick = received_at;
                 }
-                if received_at >= deadline {
+                if deadline.is_some_and(|deadline| received_at >= deadline) {
                     self.abort();
                     return Err(AcpError::Timeout);
                 }
@@ -284,10 +296,19 @@ impl AcpSession {
                                 }
                             }
                         }
-                        permission::answer(&mut self.conn, &id, &method, &params, &mut |item| {
-                            progress(&item);
-                            sink(item);
-                        })?;
+                        permission::answer(
+                            &mut self.conn,
+                            &id,
+                            &method,
+                            &params,
+                            staff_gate
+                                .as_ref()
+                                .map(|(bin, cwd)| (bin.as_path(), cwd.as_path())),
+                            &mut |item| {
+                                progress(&item);
+                                sink(item);
+                            },
+                        )?;
                     }
                     _ => {}
                 }
@@ -365,8 +386,9 @@ pub fn discover_models(
         args: backend.args.clone(),
         cwd,
         env,
-        meta: crate::backend::session_meta(backend.kind, None),
+        meta: crate::backend::session_meta(backend.kind, None, false),
         mode: None,
+        staff_shell: None,
         model: None,
         effort: None,
         handshake_timeout: Duration::from_secs(60),

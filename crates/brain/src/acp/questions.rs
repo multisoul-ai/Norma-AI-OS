@@ -5,7 +5,7 @@ use crate::{
     staff::TaskStore,
 };
 use norma::protocol::{
-    BrainScope, QuestionItem, QuestionOption, StaffQuestion, StaffQuestionState, TaskMessage,
+    BrainScope, QuestionItem, QuestionOption, StaffQuestion, StaffQuestionState,
 };
 use serde_json::{json, Value};
 use std::{
@@ -84,8 +84,9 @@ impl QuestionHost {
         let mut index = 0;
         while index < self.pending.len() {
             let waiting = &self.pending[index];
-            let is_pending = task.messages.iter().any(|message| matches!(message,
-                TaskMessage::Question { question } if question.id == waiting.question_id && question.state == StaffQuestionState::Pending));
+            let is_pending = task.questions.iter().any(|question| {
+                question.id == waiting.question_id && question.state == StaffQuestionState::Pending
+            });
             if is_pending && !expire && Instant::now() < waiting.deadline {
                 index += 1;
                 continue;

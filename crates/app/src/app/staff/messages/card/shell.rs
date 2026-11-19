@@ -4,6 +4,7 @@ use gpui::{rgba, Div};
 pub(super) fn card(ctx: &BlockCtx, emphasis: bool) -> Div {
     div()
         .w_full()
+        .flex_none()
         .flex()
         .flex_col()
         .gap(px(tokens::SPACE_12))

@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 # Run vendored GPUI unit tests explicitly via its manifest, outside app-wide tests.
-exclude = ["vendor/gpui-0.2.2"]
+exclude = ["vendor/gpui-0.2.2", "vendor/gpui-component-0.5.1"]
 members = [
   "crates/media_store",
   "crates/model_store",
@@ -97,6 +97,8 @@ norma = { path = "crates/norma" }
 # reuse the window source. See vendor/gpui-0.2.2/NORMA_PATCH.md.
 [patch.crates-io]
 gpui = { path = "vendor/gpui-0.2.2" }
+# Link-click hook for TextView (see vendor/gpui-component-0.5.1/NORMA_PATCH.md).
+gpui-component = { path = "vendor/gpui-component-0.5.1" }
 sherpa-onnx-sys = { path = "vendor/sherpa-onnx-sys-1.13.3" }
 
 [profile.dev]

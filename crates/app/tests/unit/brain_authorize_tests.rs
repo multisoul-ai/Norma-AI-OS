@@ -1,5 +1,4 @@
 use super::*;
-use brain::event::TaskUpdate;
 use gpui::TestAppContext;
 use norma::protocol::{BrainDecision, ReportKind, ReportPriority, StaffOp, Task, Worker};
 
@@ -17,29 +16,30 @@ fn app_with_active_task<'a>(
         app.database_paths = storage::DatabasePaths::isolated_test(dir);
         app.enter_canvas_for_test(dir, cx);
         let (_, status) = std::sync::mpsc::channel();
+        // 幕僚 token 是会话为任务 a 铸的，宿主凭它认出任务。
+        let staff = brain::staff::gate::StaffTokens::default();
+        staff.bind("staff-token", "a");
+        staff.bind("staff-token-b", "b");
         app.install_brain_host_for_test(super::super::BrainHost {
             service: None,
             status,
-            tokens: brain::staff::gate::Tokens::new("main-token", "staff-token"),
+            tokens: brain::staff::gate::Tokens::with_staff("main-token", staff),
         });
         let mut task = Task::new("a", "ws", "p", "Ship");
         task.workers
             .push(Worker::new("Simon", "Codex", "Build", 10, "d-1"));
+        // 当前这一轮：任务里有一条正在运行的幕僚回复。
+        task.begin_reply(norma::protocol::ReplyTrigger::User);
         app.staff.tasks.insert("a".into(), task);
-        app.staff
-            .activity
-            .entry("a".into())
-            .or_default()
-            .apply(1, TaskUpdate::Started { message_count: 0 });
     });
     (entity, cx)
 }
 
 fn reply(task: &str) -> BrainOp {
     BrainOp::Task {
-        op: StaffOp::Reply {
+        op: StaffOp::Phase {
             task_id: task.into(),
-            text: "ok".into(),
+            phase: norma::protocol::TaskPhase::Merging,
         },
     }
 }
@@ -143,35 +143,6 @@ fn staff_history_is_task_scoped_and_reports_are_rate_limited() {
     });
 }
 
-/// 场景：同时有两个任务在进行一轮，宿主无法确定调用者属于哪个，一律拒绝，不能随便挑一个。
-/// 数据构造：在基础夹具上再让任务 b 也开始一轮。
-/// 预期结果：对 a 和 b 的幕僚命令都被拒绝（other_task）；主大脑不受影响。
-#[test]
-fn ambiguous_active_tasks_fail_closed() {
-    let mut test = TestAppContext::single();
-    let dir = tempfile::tempdir().unwrap();
-    let (entity, cx) = app_with_active_task(&mut test, dir.path());
-    entity.update(cx, |app, _| {
-        app.staff
-            .activity
-            .entry("b".into())
-            .or_default()
-            .apply(1, TaskUpdate::Started { message_count: 0 });
-        for task in ["a", "b"] {
-            assert_eq!(
-                app.authorize_brain("staff-token", &reply(task)),
-                Err("staff.denied.other_task".into()),
-                "task {task}"
-            );
-        }
-        assert_eq!(
-            app.authorize_brain("main-token", &reply("a")),
-            Ok(()),
-            "check: app.authorize_brain('main-token', &reply('a'))"
-        );
-    });
-}
-
 /// 场景：幕僚自己把任务设成 done 不能紧接着归档，要等用户确认完成。
 /// 数据构造：任务 a 的阶段为 Done 但不是用户手动设置；再改成用户手动设置。
 /// 预期结果：前者归档被拒绝（archive_not_done），后者放行。
@@ -203,6 +174,51 @@ fn staff_cannot_archive_a_task_it_marked_done_itself() {
             app.authorize_brain("staff-token", &archive),
             Ok(()),
             "check: app.authorize_brain('staff-token', &archive)"
+        );
+    });
+}
+
+/// 场景：两个任务同时进行，每个幕僚会话只能操作自己的任务。
+/// 数据构造：任务 a 和 b 都有正在运行的回复；a 的 token 是 staff-token，b 的是 staff-token-b；
+/// 再让 b 的回复结束，只留下一个空闲的 b 会话。
+/// 预期结果：a 的 token 只能操作 a，不能动 b（哪怕 b 也在跑）；b 的 token 只能操作 b；
+/// b 空闲（没有进行中的回复）时它的 token 什么任务命令都不能执行。
+#[test]
+fn parallel_sessions_are_each_bound_to_their_own_task() {
+    let mut test = TestAppContext::single();
+    let dir = tempfile::tempdir().unwrap();
+    let (entity, cx) = app_with_active_task(&mut test, dir.path());
+    entity.update(cx, |app, _| {
+        let mut other = Task::new("b", "ws", "p", "Second");
+        other.begin_reply(norma::protocol::ReplyTrigger::User);
+        app.staff.tasks.insert("b".into(), other);
+        assert_eq!(
+            app.authorize_brain("staff-token", &reply("a")),
+            Ok(()),
+            "a 的会话可以操作 a"
+        );
+        assert_eq!(
+            app.authorize_brain("staff-token", &reply("b")),
+            Err("staff.denied.other_task".into()),
+            "a 的会话不能动同时在跑的 b"
+        );
+        assert_eq!(
+            app.authorize_brain("staff-token-b", &reply("b")),
+            Ok(()),
+            "b 的会话可以操作 b"
+        );
+        assert_eq!(
+            app.authorize_brain("staff-token-b", &reply("a")),
+            Err("staff.denied.other_task".into()),
+            "b 的会话不能动 a"
+        );
+        if let Some(task) = app.staff.tasks.get_mut("b") {
+            task.recover_interrupted();
+        }
+        assert_eq!(
+            app.authorize_brain("staff-token-b", &reply("b")),
+            Err("staff.denied.other_task".into()),
+            "b 没有进行中的回复，空闲会话什么都不能做"
         );
     });
 }

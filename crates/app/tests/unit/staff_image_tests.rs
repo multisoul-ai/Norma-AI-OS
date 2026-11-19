@@ -15,7 +15,7 @@ impl Render for ComposerHost {
         div().size_full().child(self.app.update(cx, |app, cx| {
             app.ensure_staff_inputs(window, cx);
             let task = app.staff.tasks.values().next().cloned();
-            let composer = app.staff_composer(None, "Project", window, cx);
+            let composer = app.staff_composer(window, cx);
             let message = task
                 .as_ref()
                 .map(|task| app.render_message(task, 0, &task.messages[0], window, cx));

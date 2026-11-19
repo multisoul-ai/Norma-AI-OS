@@ -111,13 +111,13 @@ public enum BrainAutonomy {
             let deadline = Date().addingTimeInterval(6)
             while Date() < deadline {
                 if let text = try? String(contentsOf: config, encoding: .utf8),
-                   text.contains("\"assign_followups\": false") {
+                   text.contains("\"staff_auto_dispatch\": false") {
                     return text
                 }
                 try await Task.sleep(nanoseconds: 200_000_000)
             }
             let text = (try? String(contentsOf: config, encoding: .utf8)) ?? ""
-            throw E2EError.product("配置里没有出现 assign_followups=false：\(text)")
+            throw E2EError.product("配置里没有出现 staff_auto_dispatch=false：\(text)")
         }
 
         try await session.step("点“来自第 N 轮”：跳到大脑那一轮并展开，看到它执行的命令") {

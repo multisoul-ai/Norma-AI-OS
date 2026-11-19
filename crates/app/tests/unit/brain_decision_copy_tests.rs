@@ -20,7 +20,7 @@ fn invalid_decision_copy_is_rejected_before_host_actions() {
         app.install_brain_host_for_test(BrainHost {
             service: None,
             status,
-            tokens: brain::staff::gate::Tokens::new("copy-test", "staff-token"),
+            tokens: brain::staff::gate::Tokens::new("copy-test"),
         });
         let error = app
             .execute_brain_command(

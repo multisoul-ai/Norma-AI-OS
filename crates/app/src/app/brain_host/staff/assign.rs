@@ -13,13 +13,34 @@ impl MultisoulApp {
         let scope = self
             .brain_scope()
             .ok_or_else(|| "island.staff_no_workspace".to_owned())?;
-        // 设置里的「后续任务」为「自动」时幕僚才可能直接派发。
-        let auto = self.brain_autonomy().assign_followups;
+        // 幕僚开关。主会话的 assign_followups 不在这里读。
+        let auto = self.brain_autonomy().staff_auto_dispatch;
         let task_id = op.task_id().unwrap_or_default().to_owned();
+        let agent = match &op {
+            StaffOp::Assign { agent, .. } => agent.clone(),
+            _ => String::new(),
+        };
+        let named_person = self
+            .roster_entry_if_named_target(&agent)
+            .map(|entry| (entry.name, entry.speech_alias));
         let workspace = scope.workspace_id.clone();
-        let work = cx
-            .background_executor()
-            .spawn(async move { store.assign(&workspace, op, auto) });
+        let words_task = task_id.clone();
+        let work = cx.background_executor().spawn(async move {
+            let named = named_person
+                .as_ref()
+                .and_then(|(name, alias)| {
+                    let words = store.get(&workspace, &words_task).ok()?.user_words;
+                    Some(brain::staff::naming::named_in(
+                        &words,
+                        brain::staff::naming::NameRef {
+                            name,
+                            speech_alias: alias.as_deref(),
+                        },
+                    ))
+                })
+                .unwrap_or(false);
+            store.assign(&workspace, op, auto, named)
+        });
         Ok(cx.spawn(async move |app, cx| {
             let (task, outcome) = work.await.map_err(|error| error.to_string())?;
             let work = app

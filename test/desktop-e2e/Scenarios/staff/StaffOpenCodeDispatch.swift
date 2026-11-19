@@ -42,7 +42,7 @@ public enum StaffOpenCodeDispatch {
         try await session.step("进入幕僚并采用 OpenCode 提议") {
             try await session.visualClick("点击 Staff M1 工作空间卡片进入")
             try await session.visualClick("点击 E2E Project 项目进入画布")
-            try await session.visualClick("点击顶部幕僚或 Staff 按钮进入幕僚模式")
+            try await session.visualClick("点击底栏最左侧的浅紫发圆形头像进入幕僚模式")
             try await session.visualClick("点击中央任务对话底部的消息输入框")
             try await session.type("OPENCODE-DISPATCH 请创建验收文件")
             try await session.shortcut(key: 36, modifiers: [])

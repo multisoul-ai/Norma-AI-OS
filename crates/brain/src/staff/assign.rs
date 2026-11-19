@@ -1,7 +1,7 @@
 //! 幕僚自己派活：宿主传入自主权开关，由策略决定直接派发还是降级为提议。
-use super::policy::{decide_assign, AssignContext, AssignDecision, ProposeReason};
+use super::policy::{decide_dispatch, AssignDecision, DispatchContext, ProposeReason};
 use super::TaskStore;
-use norma::protocol::{StaffOp, StaffProposal, Task, TaskMessage, WorkerOutcome};
+use norma::protocol::{StaffOp, StaffPart, StaffProposal, Task};
 use std::io;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -16,12 +16,14 @@ pub enum AssignOutcome {
 }
 
 impl TaskStore {
-    /// `auto` 是设置里的「后续任务」是否为「自动」。`op` 必须是 `StaffOp::Assign`。
+    /// `auto` 是幕僚开关 `staff_auto_dispatch`。`named` 表示这次派活点了名册里的人。
+    /// `op` 必须是 `StaffOp::Assign`。
     pub fn assign(
         &self,
         workspace: &str,
         op: StaffOp,
         auto: bool,
+        named: bool,
     ) -> io::Result<(Task, AssignOutcome)> {
         let StaffOp::Assign {
             task_id,
@@ -29,6 +31,8 @@ impl TaskStore {
             title,
             prompt,
             why,
+            worker,
+            model,
         } = op
         else {
             return Err(io::Error::new(
@@ -40,18 +44,19 @@ impl TaskStore {
         let mut decision = AssignDecision::Dispatch;
         let task = self.update(workspace, &task_id, |task| {
             let text = format!("{title}\n{prompt}\n{why}");
-            let last_finished = task
-                .workers
-                .iter()
-                .rev()
-                .find(|worker| worker.outcome == Some(WorkerOutcome::Succeeded))
-                .map(|worker| worker.agent.as_str());
-            let context = AssignContext {
-                auto,
-                last_finished_agent: last_finished,
+            let user_turn = task.user_turn_running();
+            if let Some(dispatch_id) = &worker {
+                check_continuable(task, dispatch_id, &agent)?;
+            }
+            // 次数只记事件轮。用户轮在发话时已经清零，这次派活不再占用额度。
+            let counts = !user_turn;
+            decision = decide_dispatch(&DispatchContext {
+                user_turn,
+                named: user_turn && named,
+                auto_dispatch: auto,
                 auto_dispatches: task.auto_dispatches,
-            };
-            decision = decide_assign(&context, &agent, &text);
+                text: &text,
+            });
             let dispatch = decision == AssignDecision::Dispatch;
             proposal_id = task.proposals.iter().map(|p| p.id).max().unwrap_or(0) + 1;
             task.proposals.push(StaffProposal {
@@ -60,7 +65,7 @@ impl TaskStore {
                 title,
                 prompt,
                 why,
-                model: None,
+                model: model.filter(|m| !m.trim().is_empty()),
                 approved: dispatch,
                 ignored: false,
                 dispatch_id: None,
@@ -70,9 +75,12 @@ impl TaskStore {
                     AssignDecision::Propose(reason) => Some(reason.code()),
                     AssignDecision::Dispatch => None,
                 },
+                superseded: false,
+                target_worker: worker,
             });
-            task.messages.push(TaskMessage::Proposal { proposal_id });
-            if dispatch {
+            super::proposals::supersede_same_title(task, proposal_id);
+            task.attach_card(StaffPart::Proposal(proposal_id));
+            if dispatch && counts {
                 task.auto_dispatches += 1;
             }
             task.updated_at = norma::protocol::timestamp();
@@ -86,5 +94,26 @@ impl TaskStore {
             },
         };
         Ok((task, outcome))
+    }
+}
+
+/// 续派目标必须是本任务里已经结束的同一 Agent 的 Worker；执行中的不能再塞第二条 prompt。
+fn check_continuable(task: &Task, dispatch_id: &str, agent: &str) -> io::Result<()> {
+    let refuse = |code: &'static str| Err(io::Error::new(io::ErrorKind::InvalidInput, code));
+    match task.worker_for_dispatch(dispatch_id) {
+        None => refuse("staff.worker_unknown"),
+        Some(worker) if !worker.is_agent(agent) => refuse("staff.worker_agent_mismatch"),
+        Some(worker) if worker.outcome.is_none() => refuse("staff.worker_busy"),
+        Some(_)
+            if task.proposals.iter().any(|p| {
+                p.target_worker.as_deref() == Some(dispatch_id)
+                    && p.dispatch_id.is_none()
+                    && !p.ignored
+                    && !p.superseded
+            }) =>
+        {
+            refuse("staff.worker_pending")
+        }
+        Some(_) => Ok(()),
     }
 }

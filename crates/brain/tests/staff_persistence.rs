@@ -177,3 +177,121 @@ fn service_generations_share_the_atomic_writer() {
         "neither generation's task may be lost"
     );
 }
+
+/// 旧版（v1）快照读不出新消息格式，升级时备份原件并从空库开始，而不是报错或丢失。
+///
+/// 数据构造：手写 version=1 的 tasks.json，里面是已不存在的 Norma 消息变体。
+/// 执行过程：用新 Store 列出任务 → 创建一个新任务 → 再用另一个 Store 重新加载。
+/// 预期结果：首次 list 为空；原件字节原样保存在 tasks.v1.bak.json；新任务写入 v2 快照后可重新加载。
+#[test]
+fn v1_snapshot_is_backed_up_and_store_starts_empty() {
+    let dir = tempfile::tempdir().expect("root");
+    let store = TaskStore::new(dir.path().into());
+    let path = store.path("ws");
+    std::fs::create_dir_all(path.parent().expect("parent")).expect("dirs");
+    let old = br#"{"version":1,"workspace_id":"ws","tasks":[{"id":"a","messages":[{"Norma":{"text":"hi"}}]}]}"#;
+    std::fs::write(&path, old).expect("v1 fixture");
+    assert!(
+        store
+            .list("ws")
+            .expect("v1 must not be an error")
+            .is_empty(),
+        "升级后从空库开始"
+    );
+    let backup = path.with_file_name("tasks.v1.bak.json");
+    assert_eq!(
+        std::fs::read(&backup).expect("backup"),
+        old.to_vec(),
+        "原件必须原样备份"
+    );
+    store
+        .create(Task::new("b", "ws", "project", "新任务"))
+        .expect("create");
+    let reloaded = TaskStore::new(dir.path().into());
+    assert_eq!(
+        reloaded.list("ws").expect("reload").len(),
+        1,
+        "新任务写入 v2 快照后可以重新加载"
+    );
+}
+
+/// 实时更新只改内存、不写盘、不加 revision；落盘更新才持久化。
+///
+/// 数据构造：任务 a；update_live 开一条回复并追加文字「流式」。
+/// 执行过程：读内存 → 用新 Store 读盘 → 再做一次普通 update。
+/// 预期结果：内存里有回复且 revision 不变；磁盘上没有；普通 update 之后磁盘上才有，revision 加 1。
+#[test]
+fn live_updates_stay_in_memory_until_a_durable_update() {
+    use norma::protocol::{ReplyTrigger, TaskMessage};
+    let dir = tempfile::tempdir().expect("root");
+    let store = TaskStore::new(dir.path().into());
+    let created = store
+        .create(Task::new("a", "ws", "project", "Ship"))
+        .expect("create");
+    store
+        .update_live("ws", "a", |task| {
+            task.begin_reply(ReplyTrigger::User).push_text("流式");
+        })
+        .expect("live");
+    let live = store.get("ws", "a").expect("memory");
+    assert_eq!(live.messages.len(), 1, "内存里能立刻看到流式回复");
+    assert_eq!(live.revision, created.revision, "实时更新不加 revision");
+    let disk = TaskStore::new(dir.path().into())
+        .get("ws", "a")
+        .expect("disk");
+    assert!(disk.messages.is_empty(), "实时更新不写盘");
+    let saved = store.update("ws", "a", |_| Ok(())).expect("durable");
+    assert_eq!(
+        saved.revision,
+        created.revision + 1,
+        "落盘更新才加 revision"
+    );
+    let disk = TaskStore::new(dir.path().into())
+        .get("ws", "a")
+        .expect("disk");
+    assert!(
+        matches!(disk.messages.as_slice(), [TaskMessage::Staff(_)]),
+        "落盘后磁盘上有回复"
+    );
+}
+
+/// 崩溃遗留的 Running 回复在加载时变成 Failed 并立即持久化，只修一次。
+///
+/// 数据构造：落盘一条 Running 回复（模拟流式中退出）。
+/// 执行过程：用新 Store 加载两次（第二次换新 Store）。
+/// 预期结果：第一次加载回复为 Failed 且 revision 加 1；第二次加载状态仍 Failed、revision 不再变。
+#[test]
+fn running_replies_fail_on_load_once() {
+    use norma::protocol::{ReplyStatus, ReplyTrigger, TaskMessage};
+    let dir = tempfile::tempdir().expect("root");
+    let store = TaskStore::new(dir.path().into());
+    store
+        .create(Task::new("a", "ws", "project", "Ship"))
+        .expect("create");
+    let saved = store
+        .update("ws", "a", |task| {
+            task.begin_reply(ReplyTrigger::User).push_text("半句");
+            Ok(())
+        })
+        .expect("save running");
+    let status = |task: &Task| match &task.messages[0] {
+        TaskMessage::Staff(reply) => reply.status,
+        other => panic!("unexpected {other:?}"),
+    };
+    let first = TaskStore::new(dir.path().into())
+        .get("ws", "a")
+        .expect("load");
+    assert_eq!(
+        status(&first),
+        ReplyStatus::Failed,
+        "Running 回复加载后变 Failed"
+    );
+    assert_eq!(first.revision, saved.revision + 1, "修复算一次写入");
+    let second = TaskStore::new(dir.path().into())
+        .get("ws", "a")
+        .expect("reload");
+    assert_eq!(
+        second.revision, first.revision,
+        "只修一次，不反复加 revision"
+    );
+}

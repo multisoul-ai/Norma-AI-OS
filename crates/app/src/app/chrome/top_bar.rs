@@ -129,18 +129,6 @@ impl MultisoulApp {
                     .top(px((TOP_BAR_HEIGHT - BRAND_LOGO_SIZE) / 2.0)),
             )
             .when(!self.staff.enabled, |bar| bar.child(title))
-            .child(
-                div()
-                    .absolute()
-                    .top_0()
-                    .left_0()
-                    .right_0()
-                    .h(px(TOP_BAR_HEIGHT))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .child(self.desktop_mode_switch(cx)),
-            )
             .when(self.staff.enabled, |bar| {
                 bar.child(
                     div()
@@ -228,6 +216,21 @@ impl MultisoulApp {
                                 );
                             })),
                     )
+                    .when(self.staff.enabled, |row| {
+                        row.child(
+                            Button::new("staff-back-to-canvas")
+                                .debug_selector(|| "staff-back-to-canvas".into())
+                                .icon(IconName::ArrowLeft)
+                                .label(ui::i18n::text("staff.back_to_canvas"))
+                                .h(px(32.))
+                                .px(px(12.))
+                                .rounded_full()
+                                .custom(self.staff_neutral_style(cx))
+                                .on_click(cx.listener(|app, _, window, cx| {
+                                    app.set_staff_mode(false, window, cx)
+                                })),
+                        )
+                    })
                     .when(
                         !self.staff.enabled && self.desktop_workspace.expanded_area_id.is_none(),
                         |row| {

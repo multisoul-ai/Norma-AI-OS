@@ -42,6 +42,8 @@ pub struct ToolTrace {
     /// Model-written one-line summary (`rawInput.description`); absent for most non-Claude adapters.
     pub description: Option<String>,
     pub status: Option<String>,
+    /// ACP `locations[0]`：绝对路径，有行号时以 `:行号` 结尾；cd 之类的命令通常没有。
+    pub path: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -131,6 +133,15 @@ fn tool_output(update: &Value) -> String {
     }
 }
 
+fn location_of(update: &Value) -> Option<String> {
+    let first = update["locations"].as_array()?.first()?;
+    let path = first["path"].as_str().filter(|path| !path.is_empty())?;
+    Some(match first["line"].as_u64() {
+        Some(line) => format!("{path}:{line}"),
+        None => path.to_owned(),
+    })
+}
+
 /// 把一条 `session/update` 的 `update` 对象分类。没有类型字段的返回 `None`。
 pub fn classify_update(update: &Value) -> Option<TraceItem> {
     let kind = update["sessionUpdate"].as_str()?;
@@ -193,6 +204,7 @@ pub fn classify_update(update: &Value) -> Option<TraceItem> {
                     .filter(|text| !text.is_empty())
                     .map(str::to_owned),
                 status: update["status"].as_str().map(str::to_owned),
+                path: location_of(update),
             })
         });
     }

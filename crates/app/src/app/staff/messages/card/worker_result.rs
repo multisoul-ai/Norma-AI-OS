@@ -4,14 +4,17 @@ use gpui::rgba;
 use norma::protocol::WorkerOutcome;
 use runtime::island::bloub::Mood;
 
+/// 结果正文行高。高度由内容自己撑开，不再按字数估行后截断。
+const BODY_LINE_HEIGHT: f32 = 20.;
+
 pub(in crate::app::staff::messages) struct WorkerResult<'a>(pub &'a TaskMessage);
 
 impl MessageBlock for WorkerResult<'_> {
     fn render(
         &self,
         ctx: &BlockCtx,
-        _window: &mut Window,
-        _cx: &mut Context<MultisoulApp>,
+        window: &mut Window,
+        cx: &mut Context<MultisoulApp>,
     ) -> AnyElement {
         let task = ctx.task;
         let theme = ctx.app.staff_theme();
@@ -57,19 +60,41 @@ impl MessageBlock for WorkerResult<'_> {
                         ),
                 )
                 .when(*outcome != WorkerOutcome::Unavailable, |row| {
-                    row.child(div().text_size(px(tokens::LABEL_TEXT)).child(
-                        if matches!(
-                            text.as_str(),
-                            "staff.worker_failed"
-                                | "staff.worker_cancelled"
-                                | "staff.worker_not_ready"
-                                | "staff.worker_needs_attention"
-                        ) {
-                            error_message(text.clone()).to_string()
-                        } else {
-                            text.clone()
-                        },
-                    ))
+                    let body = if matches!(
+                        text.as_str(),
+                        "staff.worker_failed"
+                            | "staff.worker_cancelled"
+                            | "staff.worker_not_ready"
+                            | "staff.worker_needs_attention"
+                    ) {
+                        error_message(text.clone()).to_string()
+                    } else {
+                        text.clone()
+                    };
+                    let index = ctx.index;
+                    crate::app::staff::register_link_target(window, cx);
+                    row.child(
+                        div()
+                            .debug_selector(move || format!("staff-result-body-{index}"))
+                            .w_full()
+                            .flex_none()
+                            .text_size(px(tokens::LABEL_TEXT))
+                            .line_height(px(BODY_LINE_HEIGHT))
+                            .child(
+                                ui::component::text::TextView::markdown(
+                                    gpui::SharedString::from(format!(
+                                        "staff-result-md-{}-{index}",
+                                        task.id
+                                    )),
+                                    crate::preview::rich_link::linkify_inline_paths(&body),
+                                    window,
+                                    cx,
+                                )
+                                .selectable(true)
+                                .h_auto()
+                                .flex_none(),
+                            ),
+                    )
                 });
         }
         row.into_any_element()

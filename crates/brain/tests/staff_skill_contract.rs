@@ -46,6 +46,7 @@ fn staff_section_lists_exactly_the_commands_staff_may_run() {
                     title: "t".into(),
                     prompt: "p".into(),
                     why: "w".into(),
+                    model: None,
                 },
             },
         ),
@@ -58,15 +59,8 @@ fn staff_section_lists_exactly_the_commands_staff_may_run() {
                     title: "t".into(),
                     prompt: "p".into(),
                     why: "w".into(),
-                },
-            },
-        ),
-        (
-            "`task reply ",
-            BrainOp::Task {
-                op: StaffOp::Reply {
-                    task_id: "a".into(),
-                    text: "t".into(),
+                    model: None,
+                    worker: None,
                 },
             },
         ),
@@ -105,6 +99,7 @@ fn staff_section_lists_exactly_the_commands_staff_may_run() {
         "`task create",
         "`task list",
         "`task message",
+        "`task reply",
     ] {
         assert!(
             !staff.contains(denied),

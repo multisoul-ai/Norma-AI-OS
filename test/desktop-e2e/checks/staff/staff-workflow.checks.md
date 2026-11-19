@@ -29,3 +29,7 @@
 - worker-question：真实 Worker Hook 镜像到幕僚，提交后原 Hook 恰好消费一次，镜像进入已回答。
 - worker-needs-you-pet：Worker 提问时卡条显示橙色「需要你」，胶囊最左侧为带表情的宠物头像（不是字母圆）。
 - staff-conversation.mp4：连续真实窗口录像覆盖提问、提议、忽略/恢复、工具活动与 Worker 回答；检查统计 JSON、视频时长与抽帧方向。
+
+## Worker 结果卡样式
+
+- 04-result-flow：结果卡按正文撑开，不截成三行，没有展开/收起按钮；Markdown 标题和列表已渲染；下一条 Norma 消息从卡片下方开始，头像和正文不画进卡片。

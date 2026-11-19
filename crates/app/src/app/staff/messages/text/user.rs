@@ -8,21 +8,23 @@ impl MessageBlock for User<'_> {
     fn render(
         &self,
         ctx: &BlockCtx,
-        _window: &mut Window,
-        _cx: &mut Context<MultisoulApp>,
+        window: &mut Window,
+        cx: &mut Context<MultisoulApp>,
     ) -> AnyElement {
         let index = ctx.index;
         let theme = ctx.app.staff_theme();
         let message = self.0;
+        // 块级行先拿到列宽，再让横向 flex 在这个确定宽度里把气泡收到 78% 并靠右。
+        // 直接用纵向 flex 时，百分比宽度在最小内容测量里不生效，中文会一字一行把行高撑开。
         let mut row = div()
+            .debug_selector(move || format!("staff-user-row-{index}"))
             .w_full()
-            // Intrinsic height must use the same reading width as the final message column.
             .max_w(px(tokens::READING_WIDTH))
-            .flex()
-            .flex_col()
-            .gap(px(tokens::SPACE_8));
+            .block()
+            .flex_none();
         if let TaskMessage::User { text } = message {
             let (visible, paths) = norma::protocol::image_message_parts(text);
+            let markdown = visible.contains("http://") || visible.contains("https://");
             let mut bubble = div()
                 .flex_none()
                 .min_w_0()
@@ -38,7 +40,21 @@ impl MessageBlock for User<'_> {
                     div()
                         .debug_selector(move || format!("staff-user-text-{index}"))
                         .when(!paths.is_empty(), |text| text.mb(px(tokens::SPACE_8)))
-                        .child(visible),
+                        .child(if markdown {
+                            crate::app::staff::register_link_target(window, cx);
+                            ui::component::text::TextView::markdown(
+                                gpui::SharedString::from(format!("staff-user-md-{index}")),
+                                crate::preview::rich_link::linkify_plain_text(&visible),
+                                window,
+                                cx,
+                            )
+                            .selectable(true)
+                            .h_auto()
+                            .flex_none()
+                            .into_any_element()
+                        } else {
+                            visible.into_any_element()
+                        }),
                 );
             }
             let image_count = paths.len();
@@ -80,7 +96,7 @@ impl MessageBlock for User<'_> {
                         ),
                 );
             }
-            row = row.items_end().child(bubble);
+            row = row.child(div().w_full().flex().justify_end().child(bubble));
         }
         row.into_any_element()
     }

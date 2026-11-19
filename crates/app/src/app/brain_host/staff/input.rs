@@ -1,13 +1,15 @@
 use super::*;
 use crate::app::agent_runtime::command_support::{submit_agent_enter, type_agent_task};
 use crate::app::staff::{
-    delivery_action, delivery_confirmed, output_is_quiet, DeliveryAction, DeliveryStage,
+    delivery_action, delivery_confirmed, output_is_quiet, quiet_allows_typing, DeliveryAction,
+    DeliveryStage,
 };
 use brain::DeliveryPhase;
 
 impl MultisoulApp {
     pub(crate) fn confirm_staff_delivery(&mut self, node: u64) {
         let Some(pending) = self.staff.pending.get(&node) else {
+            self.recover_late_delivery(node);
             return;
         };
         let matches = self.runtime.staff_dispatch_id(node) == Some(pending.dispatch.as_str());
@@ -16,6 +18,29 @@ impl MultisoulApp {
         }
         let dispatch = pending.dispatch.clone();
         self.staff.pending.remove(&node);
+        self.push_brain(BrainEventKind::WorkerDelivery {
+            node_id: node,
+            dispatch_id: dispatch,
+            phase: DeliveryPhase::Accepted,
+        });
+    }
+
+    fn staff_agent_profile(&self, node: u64) -> Option<canvas::AgentProfile> {
+        match self.runtime.document.node(node).map(|node| &node.kind) {
+            Some(canvas::CanvasNodeKind::Agent(spec)) => Some(spec.profile),
+            _ => None,
+        }
+    }
+
+    /// 15 秒窗口过后才到的 UserPromptSubmit：卡片其实收到了任务，把「未送达」收回。
+    fn recover_late_delivery(&mut self, node: u64) {
+        let Some(dispatch) = self.staff.unconfirmed.remove(&node) else {
+            return;
+        };
+        if self.runtime.staff_dispatch_id(node) != Some(dispatch.as_str()) {
+            return;
+        }
+        tracing::info!(node, %dispatch, "staff delivery confirmed after timeout; clearing needs-attention");
         self.push_brain(BrainEventKind::WorkerDelivery {
             node_id: node,
             dispatch_id: dispatch,
@@ -48,14 +73,20 @@ impl MultisoulApp {
             return;
         }
         let ready = self.runtime.agent_task_state(node) == Some(runtime::AgentTaskState::Ready);
-        let quiet = output_is_quiet(self.runtime.last_output_at(node), now);
+        let quiet = quiet_allows_typing(
+            self.staff_agent_profile(node),
+            self.runtime.agent_task_state(node).is_some(),
+            output_is_quiet(self.runtime.last_output_at(node), now),
+        );
         let accepts_input = !self.runtime.agent_task_input_held(node);
         match delivery_action(stage, now, ready, quiet, true, accepts_input) {
             DeliveryAction::Wait => {}
             DeliveryAction::Type => self.type_staff_prompt(node, &prompt, now, cx),
             DeliveryAction::Enter => self.enter_staff_prompt(node, now, cx),
             DeliveryAction::NeedsYou => {
+                tracing::warn!(node, %dispatch, "staff prompt not confirmed within the window");
                 self.staff.pending.remove(&node);
+                self.staff.unconfirmed.insert(node, dispatch.clone());
                 self.push_brain(BrainEventKind::WorkerDelivery {
                     node_id: node,
                     dispatch_id: dispatch,
@@ -112,7 +143,16 @@ impl MultisoulApp {
             return;
         }
         if let Some(pending) = self.staff.pending.get_mut(&node) {
-            pending.stage = DeliveryStage::Submitted { at: now };
+            pending.stage = match pending.stage {
+                DeliveryStage::Submitted { at, .. } => {
+                    tracing::info!(node, "staff prompt unconfirmed; retrying Enter once");
+                    DeliveryStage::Submitted { at, retried: true }
+                }
+                _ => DeliveryStage::Submitted {
+                    at: now,
+                    retried: false,
+                },
+            };
         }
     }
 
@@ -153,6 +193,7 @@ impl MultisoulApp {
             self.notify_staff(cx);
             return;
         }
+        self.staff.unconfirmed.remove(&node);
         self.staff.pending.insert(
             node,
             crate::app::staff::PendingWorker {

@@ -1,6 +1,6 @@
 use brain::staff::policy::{
-    authorize_staff, decide_assign, risk_categories, AssignContext, AssignDecision, ProposeReason,
-    RiskCategory, Verdict,
+    authorize_staff, decide_dispatch, risk_categories, AssignDecision, DispatchContext,
+    ProposeReason, RiskCategory, Verdict, AUTO_DISPATCH_LIMIT,
 };
 use norma::protocol::{
     AgentProfile, BrainDecision, BrainOp, QuestionAnswer, QuestionRef, QuestionRequestId,
@@ -46,55 +46,115 @@ fn risky_work_is_classified_by_category() {
     );
 }
 
-fn context(auto: bool, last: Option<&str>, count: u32) -> AssignContext<'_> {
-    AssignContext {
-        auto,
-        last_finished_agent: last,
-        auto_dispatches: count,
-    }
+fn dispatch(
+    user_turn: bool,
+    named: bool,
+    auto_dispatch: bool,
+    auto_dispatches: u32,
+    text: &str,
+) -> AssignDecision {
+    decide_dispatch(&DispatchContext {
+        user_turn,
+        named,
+        auto_dispatch,
+        auto_dispatches,
+        text,
+    })
 }
 
-/// 场景：幕僚想自己派活，四个条件缺一就降级为提议，并说明第一个不满足的原因。
-/// 数据构造：基准是自动开启、上一个完成的是 Simon、已自动派发 2 次、内容无风险。
-/// 预期结果：基准直接派发；逐项破坏条件各得到对应原因；多条同时不满足时先报设置，再报风险、归属、次数。
+/// 场景：派活按用户轮/事件轮、点名、风险和开关决定，不再要求「同一个 Agent 的后续」。
+/// 数据构造：普通文本 "Add the missing test"；高风险文本 "git push the fix"；上限取常量 5。
+/// 预期结果：点名的用户轮即使高风险、开关关闭也直接派；没点名时开关关闭一律询问；
+/// 事件轮在非高风险且次数小于 5 时直接派，风险优先于次数。
 #[test]
-fn assign_is_dispatched_only_when_every_condition_holds() {
+fn dispatch_follows_the_named_risk_and_switch_table() {
     let plain = "Add the missing test";
-    let base = context(true, Some("Simon"), 2);
+    let risky = "git push the fix";
+    let risk = AssignDecision::Propose(ProposeReason::Risk(vec![RiskCategory::Release]));
+    let ask = AssignDecision::Propose(ProposeReason::AutonomyAsk);
     assert_eq!(
-        decide_assign(&base, "Simon", plain),
+        dispatch(true, true, true, 0, risky),
         AssignDecision::Dispatch,
-        "check: decide_assign(&base, 'Simon', plain)"
+        "点名且开关开：高风险也直接派"
     );
     assert_eq!(
-        decide_assign(&context(false, Some("Simon"), 2), "Simon", plain),
-        AssignDecision::Propose(ProposeReason::AutonomyAsk),
-        "settings left on ask"
+        dispatch(true, true, false, AUTO_DISPATCH_LIMIT, risky),
+        AssignDecision::Dispatch,
+        "点名且开关关：点名本身就是授权"
     );
     assert_eq!(
-        decide_assign(&base, "Simon", "git push the fix"),
-        AssignDecision::Propose(ProposeReason::Risk(vec![RiskCategory::Release])),
-        "check: decide_assign(&base, 'Simon', 'git push the fix')"
+        dispatch(true, false, true, 0, plain),
+        AssignDecision::Dispatch,
+        "用户轮没点名、开关开、无风险：直接派"
     );
     assert_eq!(
-        decide_assign(&base, "Kai", plain),
-        AssignDecision::Propose(ProposeReason::NotFollowUp),
-        "a different agent is a new direction"
+        dispatch(true, false, true, 0, risky),
+        risk,
+        "用户轮没点名、开关开、高风险：转提议"
     );
     assert_eq!(
-        decide_assign(&context(true, None, 0), "Simon", plain),
-        AssignDecision::Propose(ProposeReason::NotFollowUp),
-        "the first dispatch in a task always needs the user"
+        dispatch(true, false, false, 0, plain),
+        ask,
+        "用户轮没点名、开关关：转提议"
     );
     assert_eq!(
-        decide_assign(&context(true, Some("Simon"), 3), "Simon", plain),
+        dispatch(true, false, false, 0, risky),
+        ask,
+        "开关关优先于风险"
+    );
+    assert_eq!(
+        dispatch(false, false, true, AUTO_DISPATCH_LIMIT - 1, plain),
+        AssignDecision::Dispatch,
+        "事件轮第 5 次（已有 4 次）仍直接派"
+    );
+    assert_eq!(
+        dispatch(false, true, true, 0, risky),
+        risk,
+        "事件轮不因 named 标志绕过风险"
+    );
+    assert_eq!(
+        dispatch(false, false, true, AUTO_DISPATCH_LIMIT, plain),
         AssignDecision::Propose(ProposeReason::LimitReached),
-        "the fourth automatic dispatch is held back"
+        "事件轮第 5 次之后转提议"
     );
     assert_eq!(
-        decide_assign(&context(false, Some("Kai"), 3), "Simon", "deploy it"),
-        AssignDecision::Propose(ProposeReason::AutonomyAsk),
-        "check: decide_assign(&context(false, Some('Kai'), 3), 'Si"
+        dispatch(false, false, true, AUTO_DISPATCH_LIMIT, risky),
+        risk,
+        "事件轮又高风险又超限时先报风险"
+    );
+    assert_eq!(
+        dispatch(false, false, false, 0, plain),
+        ask,
+        "事件轮开关关：转提议"
+    );
+}
+
+/// 场景：英文风险词按单词边界匹配，多词短语整段匹配；中文仍按子串。
+/// 数据构造：`merged` 含有 `merge` 的字母但不是独立单词；`git push` 含独立单词 push；「删除」是中文子串。
+/// 预期结果：`merged` 不命中，`git push` 命中 Release，「删除」命中 Destructive；`pushing` 也不命中。
+#[test]
+fn english_risk_words_use_boundaries_and_chinese_stays_substring() {
+    assert!(
+        risk_categories("the branch was merged").is_empty(),
+        "merged 不是 merge"
+    );
+    assert!(
+        risk_categories("pushing the docs").is_empty(),
+        "pushing 不是 push"
+    );
+    assert_eq!(
+        risk_categories("git push"),
+        vec![RiskCategory::Release],
+        "git push 里的 push 是独立单词"
+    );
+    assert!(
+        risk_categories("删掉旧的迁移代码").is_empty(),
+        "「删掉」不含关键词「删除」"
+    );
+    assert_eq!(
+        risk_categories("删除旧的迁移代码"),
+        vec![RiskCategory::Destructive],
+        "「删除」按子串命中 Destructive"
     );
 }
 
@@ -157,10 +217,6 @@ fn staff_may_only_run_whitelisted_commands() {
             answers: vec![],
             reason: "r".into(),
         },
-        task(StaffOp::Reply {
-            task_id: "a".into(),
-            text: "ok".into(),
-        }),
         task(StaffOp::Phase {
             task_id: "a".into(),
             phase: TaskPhase::Merging,
@@ -171,6 +227,7 @@ fn staff_may_only_run_whitelisted_commands() {
             title: "t".into(),
             prompt: "p".into(),
             why: "w".into(),
+            model: None,
         }),
         task(StaffOp::Assign {
             task_id: "a".into(),
@@ -178,6 +235,8 @@ fn staff_may_only_run_whitelisted_commands() {
             title: "t".into(),
             prompt: "p".into(),
             why: "w".into(),
+            model: None,
+            worker: None,
         }),
     ];
     for op in &allowed {
@@ -228,6 +287,13 @@ fn staff_may_only_run_whitelisted_commands() {
         ),
         (StaffOp::List, "staff.denied.task_scope"),
         (
+            StaffOp::Reply {
+                task_id: "a".into(),
+                text: "ok".into(),
+            },
+            "staff.denied.reply",
+        ),
+        (
             StaffOp::Message {
                 task_id: "a".into(),
                 text: "x".into(),
@@ -273,18 +339,13 @@ fn staff_may_only_run_whitelisted_commands() {
 
 /// 场景：降级原因要以稳定的代码回给模型，模型据此决定怎么向用户解释。
 /// 数据构造：四种原因，其中风险带两个类别。
-/// 预期结果：代码分别为 autonomy_ask、not_follow_up、limit_reached、risk:release,destructive。
+/// 预期结果：代码分别为 autonomy_ask、limit_reached、risk:release,destructive。不再有 not_follow_up。
 #[test]
 fn downgrade_reasons_have_stable_codes() {
     assert_eq!(
         ProposeReason::AutonomyAsk.code(),
         "autonomy_ask",
         "check: ProposeReason::AutonomyAsk.code()"
-    );
-    assert_eq!(
-        ProposeReason::NotFollowUp.code(),
-        "not_follow_up",
-        "check: ProposeReason::NotFollowUp.code()"
     );
     assert_eq!(
         ProposeReason::LimitReached.code(),

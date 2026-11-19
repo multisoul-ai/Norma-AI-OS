@@ -130,6 +130,138 @@ fn restarted_services_do_not_reuse_turn_ids() {
     assert_ne!(ids[0], ids[1], "重启不能将两个会话的输入、输出并入同轮");
 }
 
+/// 场景：默认配置不再给幕僚一轮 prompt 设秒数上限。
+///
+/// 数据构造：`BrainConfig::new` 只用临时目录和缺失适配器，不改 `prompt_timeout`。
+/// 旧默认是 `Duration::from_secs(180)`。
+///
+/// 执行：只读默认值，不启动会话。
+///
+/// 预期结果：
+///   - 正断言：`prompt_timeout` 为 None，这一轮没有固定截止
+///   - 负断言：不是 Some(180 秒)
+#[test]
+fn default_prompt_timeout_is_unlimited() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = BrainConfig::new(
+        Backend {
+            kind: BackendKind::ClaudeCode,
+            program: dir.path().join("missing-adapter"),
+            args: vec![],
+        },
+        NORMA.into(),
+        dir.path().into(),
+        dir.path().join("state"),
+    );
+    assert!(
+        config.prompt_timeout.is_none(),
+        "默认必须不限时，不能再写成任何秒数"
+    );
+    assert_ne!(
+        config.prompt_timeout,
+        Some(Duration::from_secs(180)),
+        "180 秒上限必须从默认配置去掉"
+    );
+}
+
+/// 场景：不传超时时，慢于旧 200 毫秒探测窗的部分输出仍能正常结束；中途取消记为 cancelled，不是 timeout。
+///
+/// 数据构造：
+///   FAKE_PARTIAL_SLEEP 先发「取消前的部分输出」，再睡 600 毫秒（fake_acp.py 的 time.sleep(0.6)），
+///   然后以 end_turn 结束。显式超时测试仍用 200 毫秒，会在这 600 毫秒里被掐掉。
+///   本测试传 None，不设截止。取消用例在进度回调看到这段文字后把 AtomicBool 设为 true。
+///
+/// 执行过程：
+///   1. prompt_observed(..., None) 等到适配器自己结束
+///   2. 另一次同样的 prompt，收到部分输出后置取消位
+///
+/// 预期结果：
+///   - 不限时：Ok，正文同时含「取消前的部分输出」和随后的「收到」，stop_reason 是 end_turn
+///   - 不限时：不是 Timeout，stop_reason 不是 timeout
+///   - 取消：Err(Cancelled)，stop_reason 是 cancelled
+///   - 取消：不是 Timeout，也不是 end_turn
+#[test]
+fn unlimited_prompt_finishes_slow_turn_and_cancel_stays_cancelled() {
+    use brain::acp::client::{AcpError, AcpSession, SessionOptions};
+    use brain::acp::trace::TraceKind;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    let dir = tempfile::tempdir().unwrap();
+    let options = SessionOptions {
+        kind: BackendKind::ClaudeCode,
+        program: "python3".into(),
+        args: vec![Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/support/fake_acp.py")
+            .display()
+            .to_string()],
+        cwd: dir.path().into(),
+        env: vec![("CLAUDE_CONFIG_DIR".into(), dir.path().display().to_string())],
+        meta: None,
+        mode: None,
+        model: None,
+        effort: None,
+        staff_shell: None,
+        handshake_timeout: Duration::from_secs(5),
+    };
+    let mut session = AcpSession::start(&options).expect("建立真实 ACP 管道");
+    let mut items = Vec::new();
+    let result = session.prompt_observed(
+        "FAKE_PARTIAL_SLEEP",
+        &[],
+        &AtomicBool::new(false),
+        None,
+        &mut |item| items.push(item),
+        &mut |_| {},
+    );
+    let reply = result.expect("不限时不能把 600 毫秒的部分输出收成超时");
+    assert!(
+        reply.contains("取消前的部分输出"),
+        "超时前已经流到的文字必须留在成功回复里，实际：{reply}"
+    );
+    assert!(
+        reply.contains("收到"),
+        "适配器睡完后的收尾文字也必须到达，说明没有中途 abort，实际：{reply}"
+    );
+    let ends: Vec<_> = items.iter().filter_map(|item| item.end.as_ref()).collect();
+    assert_eq!(ends.len(), 1, "不限时这一轮只能有一个结束记录");
+    assert_eq!(ends[0].stop_reason, "end_turn", "应由适配器正常结束");
+    assert_ne!(ends[0].stop_reason, "timeout", "不限时不能记成 timeout");
+
+    let mut session = AcpSession::start(&options).expect("取消用例再建立一条管道");
+    let cancel = Arc::new(AtomicBool::new(false));
+    let flag = Arc::clone(&cancel);
+    let mut items = Vec::new();
+    let result = session.prompt_observed(
+        "FAKE_PARTIAL_SLEEP",
+        &[],
+        cancel.as_ref(),
+        None,
+        &mut |item| items.push(item),
+        &mut |item| {
+            if item.kind == TraceKind::Reply && item.text == "取消前的部分输出" {
+                flag.store(true, Ordering::Relaxed);
+            }
+        },
+    );
+    assert!(
+        matches!(result, Err(AcpError::Cancelled)),
+        "用户取消必须是 Cancelled，实际：{result:?}"
+    );
+    assert!(
+        !matches!(result, Err(AcpError::Timeout)),
+        "取消不能被记成超时"
+    );
+    let ends: Vec<_> = items.iter().filter_map(|item| item.end.as_ref()).collect();
+    assert_eq!(ends.len(), 1, "取消这一轮只能有一个结束记录");
+    assert_eq!(ends[0].stop_reason, "cancelled", "停止原因必须是 cancelled");
+    assert_ne!(
+        ends[0].stop_reason, "timeout",
+        "取消的停止原因不能是 timeout"
+    );
+    assert_ne!(ends[0].stop_reason, "end_turn", "取消不能被记成正常结束");
+}
+
 /// 场景：适配器断连、超时与远端取消不能遗留进行中轮次，也不能被记成成功。
 /// 数据构造：真实 ACP 子进程分别崩溃、发送部分输出后延迟、返回 cancelled。
 /// 执行过程：通过公开 AcpSession 调用 prompt，收集状态出口。
@@ -151,6 +283,7 @@ fn every_abnormal_prompt_exit_finishes_once() {
         mode: None,
         model: None,
         effort: None,
+        staff_shell: None,
         handshake_timeout: Duration::from_secs(5),
     };
     for (text, stop) in [

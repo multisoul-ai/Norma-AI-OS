@@ -16,9 +16,9 @@ fn prompt_is_long(prompt: &str) -> bool {
     prompt.lines().count() > 4 || prompt.chars().count() > 160
 }
 
-pub(in crate::app::staff::messages) struct Proposal<'a>(pub &'a TaskMessage);
+pub(in crate::app::staff::messages) struct Proposal(pub u64);
 
-impl MessageBlock for Proposal<'_> {
+impl MessageBlock for Proposal {
     fn render(
         &self,
         ctx: &BlockCtx,
@@ -27,10 +27,13 @@ impl MessageBlock for Proposal<'_> {
     ) -> AnyElement {
         let task = ctx.task;
         let theme = ctx.app.staff_theme();
-        let message = self.0;
         let mut row = div().w_full().flex().flex_col().gap(px(tokens::SPACE_8));
-        if let TaskMessage::Proposal { proposal_id } = message {
+        {
+            let proposal_id = &self.0;
             if let Some(proposal) = task.proposals.iter().find(|p| p.id == *proposal_id) {
+                if proposal.superseded {
+                    return super::superseded_proposal::render(ctx, proposal);
+                }
                 if proposal.ignored {
                     return super::ignored_proposal::render(ctx, proposal, cx);
                 }
@@ -257,6 +260,7 @@ fn choice_row(
         .unwrap_or_else(|| t("staff.model_default").to_string());
     let busy = ctx.app.staff.busy;
     let agents = ctx.app.staff_agent_choices();
+    let engine_label = ctx.app.staff_engine_label(&agent);
     let app = cx.weak_entity();
     let agent_menu = {
         let (task_id, agent, app) = (task_id.to_owned(), agent.clone(), app.clone());
@@ -264,7 +268,7 @@ fn choice_row(
             .debug_selector(move || format!("staff-agent-pick-{proposal_id}"))
             .label(ui::i18n::format(
                 "staff.proposal_for",
-                &[("agent", agent.clone())],
+                &[("agent", engine_label.clone())],
             ))
             .dropdown_caret(true)
             .disabled(busy || locked)
@@ -273,8 +277,8 @@ fn choice_row(
                 for (name, profile) in &agents {
                     let (app, task_id, pick) = (app.clone(), task_id.clone(), name.clone());
                     menu = menu.item(
-                        PopupMenuItem::new(format!("{name} · {}", profile_title(profile)))
-                            .checked(*name == agent)
+                        PopupMenuItem::new(profile_title(profile))
+                            .checked(name.eq_ignore_ascii_case(&agent))
                             .on_click(move |_, _, cx| {
                                 let (task_id, pick) = (task_id.clone(), pick.clone());
                                 let _ = app.update(cx, |app, cx| {
@@ -329,15 +333,24 @@ fn choice_row(
 }
 
 fn profile_title(profile: &norma::protocol::AgentProfile) -> String {
-    format!("{profile:?}")
+    norma::orchestration::OrchestrationProvider::ALL
+        .into_iter()
+        .find(|provider| provider.profile() == *profile)
+        .map(|provider| provider.display_name().to_owned())
+        .unwrap_or_else(|| format!("{profile:?}"))
 }
 
 /// 降级原因码转成面向用户的文案；未知码按风险处理。
 fn downgrade_text(code: &str) -> String {
     match code {
         "autonomy_ask" => t("staff.downgrade.autonomy_ask").to_string(),
-        "not_follow_up" => t("staff.downgrade.not_follow_up").to_string(),
-        "limit_reached" => t("staff.downgrade.limit_reached").to_string(),
+        "limit_reached" => ui::i18n::format(
+            "staff.downgrade.limit_reached",
+            &[(
+                "limit",
+                brain::staff::policy::AUTO_DISPATCH_LIMIT.to_string(),
+            )],
+        ),
         _ => t("staff.downgrade.risk").to_string(),
     }
 }

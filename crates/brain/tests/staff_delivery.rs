@@ -33,6 +33,7 @@ fn needs_attention_redelivers_the_same_card() {
                 title: "Build".into(),
                 prompt: "build it".into(),
                 why: "Needed".into(),
+                model: None,
             },
         )
         .expect("propose");
@@ -103,6 +104,7 @@ fn needs_attention_redelivers_the_same_card() {
                 title: "Again".into(),
                 prompt: "build it".into(),
                 why: "Retry".into(),
+                model: None,
             },
         )
         .expect("same proposal");
@@ -120,6 +122,7 @@ fn needs_attention_redelivers_the_same_card() {
                 title: "Other".into(),
                 prompt: "write docs".into(),
                 why: "Separate".into(),
+                model: None,
             },
         )
         .expect("other proposal");
@@ -207,5 +210,73 @@ fn old_worker_snapshot_stays_delivered() {
         created.chip(),
         WorkerChip::Running,
         "a new Worker must not look like it is already running"
+    );
+}
+
+/// 15 秒窗口后才到的确认：已标成需要你的 Worker 直接收回到执行中，不需要重新投递。
+///
+/// 数据构造：任务 late，Agent Alan，node=9，dispatch=d-9，提议已采用并绑定。
+/// 执行过程：NeedsAttention → 不经 Redeliver 直接 Accepted → 再来一次 Accepted。
+/// 预期结果：超时后芯片是需要你；晚到确认被记录并回到执行中；重复确认被忽略；仍只有一个 Worker。
+#[test]
+fn late_acceptance_recovers_a_needs_attention_worker() {
+    let dir = tempfile::tempdir().expect("root");
+    let store = TaskStore::new(dir.path().into());
+    store
+        .create(Task::new("late", "ws", "project", "Late"))
+        .expect("create");
+    store
+        .execute(
+            "ws",
+            StaffOp::Propose {
+                task_id: "late".into(),
+                agent: "Alan".into(),
+                title: "Build".into(),
+                prompt: "build it".into(),
+                why: "Needed".into(),
+                model: None,
+            },
+        )
+        .expect("propose");
+    store.approve("ws", "late", 1, None, None).expect("approve");
+    store
+        .bind_worker(
+            "ws",
+            "late",
+            1,
+            Worker::new("Alan", "Claude", "Build", 9, "d-9"),
+        )
+        .expect("bind");
+    store
+        .record_event("ws", &delivery(9, "d-9", DeliveryPhase::NeedsAttention))
+        .expect("attention");
+    assert_eq!(
+        store.get("ws", "late").expect("timed out").workers[0].chip(),
+        WorkerChip::NeedsYou,
+        "the timeout marks the worker as needing the user"
+    );
+    assert_eq!(
+        store
+            .record_event("ws", &delivery(9, "d-9", DeliveryPhase::Accepted))
+            .expect("late accepted"),
+        TaskEventResult::Recorded {
+            task_id: "late".into(),
+            wake: false,
+        },
+        "a late confirmation is recorded"
+    );
+    let recovered = store.get("ws", "late").expect("recovered");
+    assert_eq!(
+        recovered.workers[0].chip(),
+        WorkerChip::Running,
+        "a late confirmation takes the worker back to running"
+    );
+    assert_eq!(recovered.workers.len(), 1, "recovery must not add a worker");
+    assert_eq!(
+        store
+            .record_event("ws", &delivery(9, "d-9", DeliveryPhase::Accepted))
+            .expect("repeat accepted"),
+        TaskEventResult::Ignored,
+        "a repeated confirmation changes nothing"
     );
 }

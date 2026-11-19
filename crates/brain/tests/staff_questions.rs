@@ -34,37 +34,35 @@ fn restarting_expires_pending_questions_durably() {
     let mut task = Task::new("t", "w", "p", "Ship");
     let mut answered = question("answered");
     answered.state = StaffQuestionState::Answered;
-    task.messages.push(TaskMessage::Question {
-        question: Box::new(answered),
-    });
-    task.messages.push(TaskMessage::Question {
-        question: Box::new(question("pending")),
-    });
+    task.questions.push(answered);
+    task.questions.push(question("pending"));
     store.create(task).expect("save");
     let loaded = TaskStore::new(root.path().into())
         .get("w", "t")
         .expect("restart");
     assert_eq!(loaded.pending_question_count(), 0, "重启不应遗留待答卡");
-    assert!(
-        matches!(&loaded.messages[0], TaskMessage::Question { question } if question.state == StaffQuestionState::Answered),
+    assert_eq!(
+        loaded.questions[0].state,
+        StaffQuestionState::Answered,
         "已回答终态保持不变"
     );
-    assert!(
-        matches!(&loaded.messages[1], TaskMessage::Question { question } if question.state == StaffQuestionState::TimedOut),
+    assert_eq!(
+        loaded.questions[1].state,
+        StaffQuestionState::TimedOut,
         "失去所有者的题立即过期"
     );
     let disk: serde_json::Value =
         serde_json::from_slice(&std::fs::read(store.path("w")).expect("snapshot")).expect("JSON");
     assert_eq!(
-        disk["tasks"][0]["messages"][1]["Question"]["question"]["state"], "TimedOut",
+        disk["tasks"][0]["questions"][1]["state"], "TimedOut",
         "重启过期必须落盘"
     );
 }
 
-/// 场景：同一待答卡的重复点击/并发提交只有一次能成为用户消息，秘密值不落盘。
+/// 场景：同一待答卡的重复点击/并发提交只有一次能成为回答，秘密值不落盘。
 /// 数据构造：一个 secret 自定义问题；两个线程同时提交相同答案。
 /// 执行过程：空答案先失败且不消费 → 两线程竞争提交 → 读取任务和原始磁盘。
-/// 预期结果：恰好一个提交获胜、恰好一条用户消息，状态Answered；不能在JSON里找到秘密值。
+/// 预期结果：恰好一个提交获胜、恰好一条 Answered 消息、没有用户消息，状态Answered；不能在JSON里找到秘密值。
 #[test]
 fn answer_claim_is_atomic_and_secret_values_stay_out_of_storage() {
     use norma::protocol::QuestionAnswer;
@@ -116,15 +114,22 @@ fn answer_claim_is_atomic_and_secret_values_stay_out_of_storage() {
         .into_iter()
         .map(|handle| usize::from(handle.join().expect("join")))
         .sum::<usize>();
-    assert_eq!(wins, 1, "首答者生效，不能重复写用户消息");
+    assert_eq!(wins, 1, "首答者生效，不能重复写回答");
     let task = store.get("w", "t").expect("task");
     assert_eq!(
         task.messages
             .iter()
-            .filter(|m| matches!(m, TaskMessage::User { .. }))
+            .filter(|m| matches!(m, TaskMessage::Answered { .. }))
             .count(),
         1,
-        "只有一条回答摘要"
+        "只有一条 Answered"
+    );
+    assert!(
+        !task
+            .messages
+            .iter()
+            .any(|m| matches!(m, TaskMessage::User { .. })),
+        "回答不再伪装成用户消息"
     );
     assert_eq!(task.pending_question_count(), 0, "已回答不再阻塞");
     let disk = std::fs::read_to_string(store.path("w")).expect("JSON");
@@ -132,10 +137,7 @@ fn answer_claim_is_atomic_and_secret_values_stay_out_of_storage() {
         !disk.contains("sensitive-test-value"),
         "秘密不得写进问答字段或用户摘要"
     );
-    assert!(
-        disk.contains("Answered") && disk.contains("••••"),
-        "终态和脱敏摘要仍保留"
-    );
+    assert!(disk.contains("Answered"), "终态仍保留");
 }
 
 /// 场景：忽略只影响点击的提议，恢复只能发生在没有更新提议时。
@@ -156,6 +158,7 @@ fn ignore_is_per_proposal_and_restore_rejects_superseded_proposals() {
         title: "Ship".into(),
         prompt: prompt.into(),
         why: "Ready".into(),
+        model: None,
     };
     store.execute("w", propose("first")).expect("first");
     store
@@ -233,19 +236,21 @@ fn skipped_and_timed_out_questions_reject_late_answers() {
             .any(|m| matches!(m, TaskMessage::User { .. })),
         "跳过和超时没有用户答案"
     );
-    assert!(
-        matches!(&task.messages[0], TaskMessage::Question{question} if question.state==StaffQuestionState::Skipped),
+    assert_eq!(
+        task.questions[0].state,
+        StaffQuestionState::Skipped,
         "跳过终态不变"
     );
-    assert!(
-        matches!(&task.messages[1], TaskMessage::Question{question} if question.state==StaffQuestionState::TimedOut),
+    assert_eq!(
+        task.questions[1].state,
+        StaffQuestionState::TimedOut,
         "超时终态不变"
     );
 }
 
-/// 场景：原生回执确认后，镜像必须记录一次脱敏用户摘要；镜像自身时钟不能推翻原生回执。
+/// 场景：原生回执确认后，镜像必须记录一次 Answered；镜像自身时钟不能推翻原生回执。
 /// 数据构造：绑定精确原题的待答卡，镜像expires_at已过但原生持有有效回执，答案Dark。
-/// 执行过程：用原生终态settle两次；预期：Answered、恰好一条用户摘要、重复回执不重复写消息。
+/// 执行过程：用原生终态settle两次；预期：Answered、恰好一条 Answered 消息、重复回执不重复写消息。
 #[test]
 fn worker_receipt_records_answer_once_without_reclaiming_native_delivery() {
     use norma::protocol::{AgentProfile, QuestionAnswer, QuestionRef, QuestionRequestId};
@@ -267,9 +272,7 @@ fn worker_receipt_records_answer_once_without_reclaiming_native_delivery() {
     q.worker = Some(target.clone());
     q.expires_at = 0;
     let mut task = Task::new("t", "w", "p", "Worker");
-    task.messages.push(TaskMessage::Question {
-        question: Box::new(q),
-    });
+    task.questions.push(q);
     store.create(task).expect("task");
     let answers = [QuestionAnswer {
         key: "theme".into(),
@@ -287,20 +290,23 @@ fn worker_receipt_records_answer_once_without_reclaiming_native_delivery() {
         0,
         "原生确认后镜像不可继续编辑"
     );
-    let TaskMessage::Question { question } = &task.messages[0] else {
-        panic!("question")
-    };
     assert_eq!(
-        question.state,
+        task.questions[0].state,
         StaffQuestionState::Answered,
         "原生回执是终态权威"
     );
     assert_eq!(
         task.messages
             .iter()
-            .filter(|m| matches!(m,TaskMessage::User{text} if text.contains("Dark")))
+            .filter(
+                |m| matches!(m, TaskMessage::Answered { question_id } if question_id == "worker-q")
+            )
             .count(),
         1,
-        "回执摘要恰好一次"
+        "回执只记录一次 Answered"
+    );
+    assert!(
+        task.questions[0].answers[0].selected == ["dark"],
+        "答案留在问题上，卡片原地显示"
     );
 }

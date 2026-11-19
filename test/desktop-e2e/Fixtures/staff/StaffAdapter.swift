@@ -72,13 +72,39 @@ enum StaffAdapter {
             record('prompts.jsonl', dict(text=text))
             sid = message['params']['sessionId']
             reply = ''
-            match = re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})', text)
+            # 富文本点击验收不需要 brain 命令，直接回复，不依赖提示词里的命令说明。
+            rich_dir = os.environ.get('NORMA_E2E_RICH_LINK_DIR')
+            if rich_dir and 'RICH-LINK' in text:
+                reply = 'RICH-LINK 验收：打开 `' + rich_dir + '/rich-link.html`，笔记 `' + rich_dir + '/notes.md`，缺失 `' + rich_dir + '/missing.md`，外链 [Example](https://example.com)。'
+                send({'jsonrpc':'2.0','method':'session/update','params':{'sessionId':sid,'update':{'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':reply}}}})
+            # 长富文本验收：标题、含长路径的表格与列表、带软换行的长段落，滚到底必须完整可见。
+            if 'LONG-REPLY' in text:
+                root = '/Users/example/Documents/norma-ai-os'
+                rows = ''.join('| 原型 %d | `%s/docs/prototypes/norma-long-path-prototype-number-%d-with-a-very-long-name.html` |\n' % (i, root, i) for i in range(1, 6))
+                bullets = ''.join('- 条目 %d：`%s/docs/product-specs/norma-ios-prototypes-2026-09-%02d/overview-with-long-name.md`\n' % (i, root, i) for i in range(1, 6))
+                reply = ('LONG-REPLY 验收\n\n## 原型文件\n\n| 文件 | 绝对路径 |\n| --- | --- |\n' + rows + '\n其他相关的：\n\n' + bullets +
+                    '\n## 实施计划\n\n| 文件 | 绝对路径 |\n| --- | --- |\n' + rows + '\n另外还有 HTML 版计划，比如 `' + root + '/docs/exec-plans/2026-10-24-brain-propose-next-step.html`。\n和你这个富文本测试最贴的是幕僚架构设计稿：`' + root + '/docs/design-docs/2026-11-12-norma-staff-architecture.html`\n原因是消息行被撑成了很高的虚高，滚动按虚高算，首条就被顶出首屏。\n还没验收，是因为他只用布局边界测试验证过，没有在真实 App 里看过。\nLONG-REPLY END')
+                update(sid, {'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':reply}})
+            # 工具步骤路径验收：Read 带 locations，cd 只有命令，rg 命令里带查询路径。
+            steps_dir = os.environ.get('NORMA_E2E_TOOL_STEPS_DIR')
+            if steps_dir and 'TOOL-STEPS' in text:
+                calls = [
+                    ('s1', dict(title='Read', kind='read', locations=[dict(path=steps_dir + '/notes.md', line=3)], rawInput=dict(file_path=steps_dir + '/notes.md'))),
+                    ('s2', dict(title='cd ' + steps_dir + '/docs/plans && ls', kind='execute', rawInput=dict(command='cd ' + steps_dir + '/docs/plans && ls'))),
+                    ('s3', dict(title='rg', kind='search', rawInput=dict(command='rg -n needle docs/plans'))),
+                ]
+                for call_id, body in calls:
+                    update(sid, dict(sessionUpdate='tool_call', toolCallId=call_id, status='in_progress', **body))
+                    update(sid, dict(sessionUpdate='tool_call_update', toolCallId=call_id, status='completed', rawOutput='ok'))
+                reply = 'TOOL-STEPS 验收：三步已完成。'
+                update(sid, {'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':reply}})
+            match = None if reply else re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})', text)
             if match:
                 scope, task = json.loads(match[1]), json.loads(match[2])
-                binary = shlex.split(re.search(r'只能执行 (.*?) brain 命令', text)[1])[0]
+                binary = shlex.split(re.search(r'命令速查（都以 (.*?) brain 开头）', text)[1])[0]
                 base = [binary,'brain','--workspace',scope['workspace_id'],'--route',scope['route_id']]
                 tid = task['id']
-                users = [m['User']['text'] for m in task['messages'] if 'User' in m]
+                users = [m['user'] for m in task['messages'] if 'user' in m]
                 last = users[-1] if users else ''
                 if 'PROPOSAL-LAYOUT' in last and not task['proposals']:
                     run(sid, base + ['task','propose',tid,'Claude','--title','归档不显示这条提示','--prompt','保持卡片完整可读。说明文字与建议卡分开排列，不修改归档提示逻辑。','--why','仅修复布局重叠，保留标题、理由、指令和交给谁。'])
@@ -105,12 +131,15 @@ enum StaffAdapter {
                     hold('release-final')
                 elif 'STREAM-BETA' in last:
                     reply = 'BETA RESULT: separate project conversation.'
-                elif os.environ.get('NORMA_E2E_STAFF_QUESTIONS') == '1' and not any('Question' in item for item in task['messages']):
+                elif os.environ.get('NORMA_E2E_STAFF_QUESTIONS') == '1' and not task['questions']:
                     ask_cards(sid)
                     reply = 'STAFF QUESTIONS: answers will be read in the next turn.'
                 elif os.environ.get('NORMA_E2E_STAFF_ARCHIVE') == '1' and not task['proposals']:
                     run(sid, base + ['task','propose',tid,'Claude','--title','下一步','--prompt','继续 ARCHIVE-KEEP','--why','请确认'])
                     reply = 'STAFF PLAN：已提出下一步。'
+                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and 'NAMED-RISK' in last:
+                    run(sid, base + ['task','assign',tid,'Grace','--title','点名发布','--prompt','git push origin main','--why','用户点名 Grace'])
+                    reply = 'STAFF NAMED：已直接派给 Grace。'
                 elif not task['proposals']:
                     roster = run(sid, base + ['agents'])
                     # Production CLI wraps Brain output in the response envelope.

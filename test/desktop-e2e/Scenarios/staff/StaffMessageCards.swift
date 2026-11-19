@@ -49,7 +49,8 @@ enum StaffMessageCards {
         try await waitFor("恢复落盘") { try proposal(root)["ignored"] as? Bool == false }
         try session.save(try await session.visualCheck([VisualCriterion(id: "restored", text: "提议恢复完整卡片，采用并派发/Adopt and dispatch按钮重新可用。")]), "cards-02-restored.png")
         try await session.scroll(xFraction: 0.48,yFraction: 0.55,deltaY: -3000)
-        _ = try await session.visualCheck([VisualCriterion(id: "activity", text: "工具活动摘要显示已处理/Processed、步数和用时，没有仍在转的等待动画；report越权调用以橙色的已拒绝/Denied状态区分。")])
+        try await session.visualClick("点击回复上方「已处理 N 步」过程区标题，展开步骤")
+        _ = try await session.visualCheck([VisualCriterion(id: "activity", text: "过程区标题显示已处理/Processed、步数和用时，没有仍在转的等待动画；展开后 report 越权调用的步骤以橙色的已拒绝/Denied状态区分，步骤标题没有路径。")])
         try await session.visualClick("点击已拒绝/Denied的report工具调用行，展开输出")
         try await session.scroll(xFraction: 0.48,yFraction: 0.55,deltaY: -3000)
         try session.save(try await session.visualCheck([VisualCriterion(id: "output", text: "拒绝的工具行展开后可读调用入参及拒绝输出；长入参被截断，布局不横向溢出。")]), "cards-03-tools.png")
@@ -76,7 +77,7 @@ enum StaffMessageCards {
 
     private static func questions(_ root: URL) throws -> [[String: Any]] {
         let tasks = try StaffFixture.tasks(root)
-        return tasks.flatMap { ($0["messages"] as? [[String: Any]] ?? []).compactMap { ($0["Question"] as? [String: Any])?["question"] as? [String: Any] } }
+        return tasks.flatMap { $0["questions"] as? [[String: Any]] ?? [] }
     }
     private static func proposal(_ root: URL) throws -> [String: Any] { (try StaffFixture.tasks(root).first?["proposals"] as? [[String: Any]])?.first ?? [:] }
     private static func waitFor(_ description: String, _ check: () throws -> Bool) async throws {

@@ -76,7 +76,7 @@ fn claude_gateway_credentials_survive_settings_isolation() {
         env["UNRELATED_SECRET"].is_null(),
         "不得将无关密钥带进幕僚进程"
     );
-    let meta = crate::backend::session_meta(crate::BackendKind::ClaudeCode, None)
+    let meta = crate::backend::session_meta(crate::BackendKind::ClaudeCode, None, false)
         .expect("Claude 会话应有权限配置");
     let options = &meta["claudeCode"]["options"];
     assert_eq!(

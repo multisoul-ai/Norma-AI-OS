@@ -1,7 +1,7 @@
 //! Mirror the native question owner. Never independently claim or send a Worker answer.
 use super::*;
 use norma::protocol::{
-    QuestionAnswer, QuestionRef, QuestionState, StaffQuestion, StaffQuestionState, TaskMessage,
+    QuestionAnswer, QuestionRef, QuestionState, StaffQuestion, StaffQuestionState,
 };
 
 impl MultisoulApp {
@@ -39,17 +39,29 @@ impl MultisoulApp {
             for snapshot in &snapshots {
                 let target = &snapshot.question.target;
                 if task.phase != norma::protocol::TaskPhase::Done
-                    && snapshot.state.blocks_input() && self.runtime.question_is_current(target)
-                    && task.workers.iter().any(|worker| worker.card_id == Some(target.node_id) && self.runtime.staff_dispatch_id(target.node_id) == Some(worker.dispatch_id.as_str()))
-                    && !task.messages.iter().any(|message| matches!(message, TaskMessage::Question {question} if question.worker.as_ref() == Some(target))) {
-                    changes.push(MirrorChange::Open(task.id.clone(), StaffQuestion::new(
-                        uuid::Uuid::new_v4().to_string(), snapshot.question.items.clone(), Some(target.clone()))));
+                    && snapshot.state.blocks_input()
+                    && self.runtime.question_is_current(target)
+                    && task.workers.iter().any(|worker| {
+                        worker.card_id == Some(target.node_id)
+                            && self.runtime.staff_dispatch_id(target.node_id)
+                                == Some(worker.dispatch_id.as_str())
+                    })
+                    && !task
+                        .questions
+                        .iter()
+                        .any(|question| question.worker.as_ref() == Some(target))
+                {
+                    changes.push(MirrorChange::Open(
+                        task.id.clone(),
+                        StaffQuestion::new(
+                            uuid::Uuid::new_v4().to_string(),
+                            snapshot.question.items.clone(),
+                            Some(target.clone()),
+                        ),
+                    ));
                 }
             }
-            for message in &task.messages {
-                let TaskMessage::Question { question } = message else {
-                    continue;
-                };
+            for question in &task.questions {
                 let Some(target) = question.worker.as_ref() else {
                     continue;
                 };

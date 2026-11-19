@@ -1,6 +1,7 @@
 //! 把 `brain` 接到项目窗口：事件进、状态出、审批和播报的落地。
 
 mod activity_feed;
+pub(crate) use activity_feed::{civil_month_day, local_offset_secs};
 mod activity_sink;
 mod activity_view;
 pub(crate) use activity_view::{recent_activity_lines, ActivityLine};
@@ -62,6 +63,10 @@ mod brain_data_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/brain_dispatch_tests.rs"]
 mod brain_dispatch_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/staff_engine_resolve_tests.rs"]
+mod staff_engine_resolve_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/brain_decision_copy_tests.rs"]
@@ -211,6 +216,11 @@ impl BrainHostState {
 
     pub(crate) fn token_matches(&self, token: &str) -> bool {
         self.role(token).is_some()
+    }
+
+    /// 幕僚 token 属于哪个任务（每个幕僚会话只服务一个任务）。
+    pub(crate) fn staff_task(&self, token: &str) -> Option<String> {
+        self.tokens()?.staff_task(token)
     }
 
     /// 主大脑与幕僚各有独立 token；陌生 token 没有角色。

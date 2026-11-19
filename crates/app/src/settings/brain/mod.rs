@@ -242,14 +242,14 @@ fn next_rows(theme: Theme, s: &BrainSettings, cx: &mut Context<MultisoulApp>) ->
                     seg(
                         "settings-brain-followups-ask",
                         t("settings.brain_followups_ask"),
-                        !a.assign_followups,
-                        |s| s.autonomy.assign_followups = false,
+                        !a.staff_auto_dispatch,
+                        |s| s.autonomy.staff_auto_dispatch = false,
                     ),
                     seg(
                         "settings-brain-followups-auto",
                         t("settings.brain_followups_auto"),
-                        a.assign_followups,
-                        |s| s.autonomy.assign_followups = true,
+                        a.staff_auto_dispatch,
+                        |s| s.autonomy.staff_auto_dispatch = true,
                     ),
                 ],
                 cx,

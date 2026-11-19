@@ -1,9 +1,6 @@
 use super::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div};
-use ui::component::{
-    button::{Button, ButtonCustomVariant, ButtonVariants},
-    Disableable, Selectable,
-};
+use gpui::rgba;
+use ui::component::button::ButtonCustomVariant;
 
 impl MultisoulApp {
     /// Material tonal surfaces keep controls and content on the same neutral palette.
@@ -115,42 +112,5 @@ impl MultisoulApp {
 
     pub(crate) fn staff_panel_top(&self) -> f32 {
         crate::app::chrome::TOP_BAR_HEIGHT
-    }
-}
-
-impl MultisoulApp {
-    pub(crate) fn desktop_mode_switch(&self, cx: &mut Context<Self>) -> Div {
-        let theme = self.staff_theme();
-        let mut row = div()
-            .flex()
-            .items_center()
-            .gap(px(2.))
-            .p(px(3.))
-            .rounded_full()
-            .border_1()
-            .border_color(rgba(ui::icons::with_alpha(theme.text_primary, 22)))
-            .bg(rgba(ui::icons::with_alpha(theme.panel_high, 230)));
-        for (enabled, id, label) in [
-            (false, "desktop-canvas-mode", "staff.canvas"),
-            (true, "desktop-staff-toggle", "staff.mode"),
-        ] {
-            let selected = self.staff.enabled == enabled;
-            row = row.child(
-                Button::new(id)
-                    .debug_selector(move || id.into())
-                    .label(ui::i18n::text(label))
-                    .h(px(30.))
-                    .px(px(16.))
-                    .text_size(px(13.))
-                    .rounded_full()
-                    .custom(self.staff_button_style(selected, cx))
-                    .selected(selected)
-                    .disabled(enabled && self.desktop_workspace.active_id.is_none())
-                    .on_click(cx.listener(move |app, _, window, cx| {
-                        app.set_staff_mode(enabled, window, cx)
-                    })),
-            );
-        }
-        row
     }
 }

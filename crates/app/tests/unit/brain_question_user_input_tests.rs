@@ -49,7 +49,7 @@ fn question_user_intent_never_substitutes_another_selected_card() {
         app.install_brain_host_for_test(crate::app::brain_host::BrainHost {
             service: None,
             status: std::sync::mpsc::channel().1,
-            tokens: brain::staff::gate::Tokens::new("user-input", "staff-token"),
+            tokens: brain::staff::gate::Tokens::new("user-input"),
         });
         app.brain.pending_events.borrow_mut().clear();
         let other = app
@@ -149,7 +149,7 @@ fn question_user_intent_ignores_retired_session_unknown_receipts() {
         app.install_brain_host_for_test(crate::app::brain_host::BrainHost {
             service: None,
             status: std::sync::mpsc::channel().1,
-            tokens: brain::staff::gate::Tokens::new("session-current", "staff-token"),
+            tokens: brain::staff::gate::Tokens::new("session-current"),
         });
         assert!(
             app.question_delegation_from_user("这题你直接回答")
@@ -167,7 +167,7 @@ impl MultisoulApp {
         self.install_brain_host_for_test(crate::app::brain_host::BrainHost {
             service: None,
             status: std::sync::mpsc::channel().1,
-            tokens: brain::staff::gate::Tokens::new("voice-question", "staff-token"),
+            tokens: brain::staff::gate::Tokens::new("voice-question"),
         });
     }
 

@@ -1,6 +1,6 @@
 # 富文本点击在右侧抽屉打开
 
-状态：草案（范围与沙箱边界已澄清，渲染方案待 spike）｜日期：2026-11-15
+状态：已实现（真实 App 验收通过，英文/浅色待验）｜日期：2026-11-15
 
 ## 1. 目标与范围
 
@@ -22,64 +22,34 @@
 - 画布与幕僚均已有右侧内容抽屉与 Tab 体系：`DesktopContentKind::{Browser, ProjectFiles, File}`，入口 `open_desktop_content_tab`（`crates/app/src/workspace/desktop/drawers/content/tabs.rs`）。
 - 终端点路径已有路由：`crates/app/src/preview/terminal_route.rs`、`local_content.rs`（含 wry token 沙箱）。
 
-## 3. 架构
+## 3. 实现结果（以代码为准）
 
-| 层 | 职责 | 位置 |
-|---|---|---|
-| 点击入口 | `TextView` 增 `on_link_click`；行内代码、图片产生可点击区域，选择文本时不触发 | vendor 的 `gpui-component 0.5.1` + 补丁（估计 150 行以上，涉及 `inline.rs`、`format/markdown.rs`、图片节点），`[patch.crates-io]` 指向 `vendor/`，同步向上游提 PR |
-| 识别与路由（纯函数） | 点击目标分类为外链 / 本地路径 / 图片 src；路径沿用 `route_terminal_path` 规则 | `crates/app/src/preview/rich_link.rs`，复用 `inspect_path`、`in_project` |
-| 抽屉分发 | 路由结果交给 `open_desktop_content_tab`；同资源聚焦已有 Tab，否则新开；抽屉关闭则展开 | `workspace/desktop/drawers/content/` |
+- Spike 结论：抽屉 File Tab 已能渲染 md/html/图片/视频，无需新渲染器，只需分发入口。
+- vendor `gpui-component 0.5.1`（`vendor/gpui-component-0.5.1/NORMA_PATCH.md`）：新增全局 `LinkClickHandler`，文本链接与图片链接点击先走它，无则回落 `cx.open_url`；`[patch.crates-io]` 指向 vendor。
+- `crates/app/src/preview/rich_link.rs`（纯函数，单测在 `crates/app/tests/unit/rich_link_tests.rs`）：
+  - `classify_target`：Web / Path / System / Reject（拒绝 `javascript:`、`data:` 等）。
+  - `linkify_inline_paths`：行内代码路径 → `norma-path:` 链接；`![](src)` 套同目标链接；裸 URL → `<url>`；代码块与已有链接不动。
+  - `linkify_plain_text`：用户消息，Markdown 语法按字面转义，仅裸 URL 可点。
+- `crates/app/src/app/staff/open_link.rs`：按窗口登记 `MultisoulApp`（窗口根视图是 `Root`），点击转给宿主；路径依次以当前项目、其余项目、`/` 为基准在后台线程解析，复用 `plan_terminal_path` 路由；失败 toast `drawers.file_moved`；Web 开抽屉 Browser Tab，复用/新开 Tab 并自动展开抽屉。
+- 入口：幕僚回复正文、用户消息（含 URL 时）。
 
-## 4. 技术选型
-
-| 项 | 选择 | 理由 |
-|---|---|---|
-| Markdown 渲染 | 保留 gpui-component `TextView` | 保留选择、表格、代码块 |
-| 升级 gpui-component | 不升级 | 0.9.x 依赖 `gpui-pre =0.3.12`，与 vendored `gpui =0.2.2` 不兼容 |
-| md/文本/图片 | 原生 GPUI（现有 preview） | 主题、i18n、选择一致 |
-| HTML/视频/外链 | wry（现有依赖） | 不新增原生绑定；视频用 WKWebView `<video>` |
-| 行内代码路径 | 补丁暴露行内 code 点击；路径判定在纯函数层 | 不误伤代码块 |
-
-## 5. 路由规则
+## 4. 路由规则
 
 | 目标 | 项目内 | 项目外 |
 |---|---|---|
-| http(s) 链接、裸 URL | 抽屉 Browser Tab | 同左 |
-| md / 图片 | 抽屉 File Tab | 抽屉预览 |
-| html | Workbench（沿用终端规则） | 抽屉预览（wry，token 沙箱，无文件系统/Git 桥） |
-| 视频 mp4/mov/m4v/webm | 抽屉 File Tab | 抽屉预览 |
+| http(s) | 抽屉 Browser Tab | 同左 |
+| md / 图片 / 视频 / html | 抽屉 File Tab | 抽屉预览 |
 | 文本/代码 | Workbench | 系统 |
-| 目录 | 项目文件 Tab | 系统 |
-| pdf/zip/office 等 | 系统 | 系统 |
+| 目录 | 工作台定位 | 系统 |
+| pdf/zip/office、mailto | 系统 | 系统 |
 
-## 6. 行为与边界
+## 5. 边界与风险
 
-- 相对路径以任务所属项目根解析（与 `open_desktop_artifact` 校验一致）。
-- HTML：允许 JS 与外部网络（需求方已选）。缓解：导航锁定本地 token 源，页面内跳转/`window.open` 的外链改走 Browser Tab；使用非持久 data store；不注入任何 IPC/文件系统/Git 桥。已知风险：本地 HTML 可外联，须在 UI 上不暗示其可信。
+- HTML 允许 JS 与外部网络（需求方已选）：沿用现有 File Tab 的 wry token 源，不新增 IPC/文件系统/Git 桥；页面内导航限制未实现，属已知风险。
+- 点击时才校验路径；`:行` 后缀由 `parse_path_ref` 剥离，不跳行。
+- 未做：幕僚活动摘要/Agent 卡片文本改 Markdown、画布 Agent 卡片入口、上游 PR。
 
-- 渲染不碰磁盘；点击时在后台线程 `canonicalize` + `is_file` 校验，失败 toast「文件已移动或不存在」（复用 `drawers.file_moved`）。
-- 路径与链接统一样式（下划线/链接色），含 hover、按下、键盘焦点状态。
-- 新增文案同步 `crates/ui/locales/` 中英文，跑 `scripts/check-i18n.py`、`scripts/test-i18n.py`。
-- 安全：只信任点击时规范化后的路径；拒绝 `javascript:`；非 http(s)/本地路径 scheme 交给系统或拒绝；不新增 wry 桥。
+## 6. 验收
 
-## 7. 开放点（实现前确认）
-
-1. 现有 hook 约定 Agent 用 `` `path` `` 写路径并由 Norma 转链接：需查该转换的实现位置，避免与识别层重复。
-2. 抽屉渲染方案由第 0 步 spike 决定（见 §9）。
-3. `:line` 后缀只剥离不跳行。
-4. 用户消息改 Markdown 的行为变化：是否对用户消息仅启用链接/路径识别、不渲染其它 Markdown 语法。
-
-## 8. 验收
-
-- 单测（TDD 先行）：`rich_link.rs` 识别与路由表，覆盖项目内外、相对路径、`:line` 后缀、`~`、`javascript:` 拒绝。
-- desktop-e2e：幕僚模块新增场景并登记看图版（`--visual`），覆盖 md、html、图片、视频、外链；中英文、浅色深色各一遍。
-- 约束：每个 Rust 文件 ≤ 500 行；无 `#[allow]`；`scripts/check-resource-lifecycle.py` 通过。
-
-## 9. 实现顺序
-
-0. Spike：在抽屉里用 wry 加载本地 html（含 JS）与 mp4，原生渲染 md 与图片；验证层级、尺寸、焦点、token 沙箱与导航锁定，产出结论后更新本文 §3、§4。
-1. `rich_link.rs` 纯函数 + 单测。
-2. vendor gpui-component 补丁（回调、行内 code、图片）。
-3. 幕僚 Prose 接入并分发到抽屉；补 i18n。
-4. 幕僚活动/卡片、用户消息改 Markdown 并接入。
-5. desktop-e2e 场景与上游 PR。
+- 单测：`cargo test -p app --lib rich_link`。
+- desktop-e2e：`bash scripts/desktop-e2e.sh staff-rich-link --visual`（HTML、md、缺失路径 toast、外链四步）。

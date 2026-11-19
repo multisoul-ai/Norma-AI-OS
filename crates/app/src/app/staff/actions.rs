@@ -3,6 +3,19 @@ use gpui::{ClickEvent, Focusable, KeyDownEvent, Window};
 use norma::protocol::StaffOp;
 
 impl MultisoulApp {
+    /// 底栏头像入口：项目实体把请求转交宿主，宿主在已有工作空间时进入幕僚。
+    pub(crate) fn enter_staff_mode(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            window.defer(cx, move |window, cx| {
+                host.update(cx, |host, cx| host.enter_staff_mode(window, cx));
+            });
+            return;
+        }
+        if self.desktop_workspace.active_id.is_some() {
+            self.set_staff_mode(true, window, cx);
+        }
+    }
+
     pub(crate) fn set_staff_mode(
         &mut self,
         enabled: bool,
@@ -90,10 +103,12 @@ impl MultisoulApp {
             input.update(cx, |input, cx| input.set_value(draft, window, cx));
             input.focus_handle(cx).focus(window);
         }
-        if let Some(task) = id.as_ref().and_then(|id| self.staff.tasks.get(id)) {
-            self.staff
-                .scroll
-                .scroll_to_item(task.messages.len().saturating_sub(1));
+        if id
+            .as_ref()
+            .is_some_and(|id| self.staff.tasks.contains_key(id))
+        {
+            self.staff.pinned = true;
+            self.staff.scroll.scroll_to_bottom();
         }
         self.staff.selected = id;
         self.staff.error = None;
@@ -209,6 +224,27 @@ impl MultisoulApp {
             });
         })
         .detach();
+        self.notify_staff(cx);
+    }
+
+    /// 重新生成：用同一条用户输入追加一轮新回复；旧回复保留，已派发的 Worker 不回滚。
+    pub(super) fn regenerate_staff_reply(&mut self, task_id: &str, cx: &mut Context<Self>) {
+        let waiting = self
+            .staff
+            .activity
+            .get(task_id)
+            .is_some_and(|a| a.queued > 0);
+        let running = self
+            .staff
+            .tasks
+            .get(task_id)
+            .is_some_and(|task| task.has_running_reply());
+        if self.staff.busy || waiting || running {
+            return;
+        }
+        self.push_brain(brain::BrainEventKind::TaskRequest {
+            task_id: task_id.to_owned(),
+        });
         self.notify_staff(cx);
     }
 

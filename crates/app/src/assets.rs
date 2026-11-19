@@ -46,6 +46,8 @@ pub const SETTINGS_NAV_HOOKS_ASSET: &str = "icons/settings-nav-hooks.svg";
 pub const SETTINGS_CHECK_UPDATES_ASSET: &str = "icons/settings-check-updates.svg";
 const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/icons/app-icon.png");
 pub const NORMA_CALM_ASSET: &str = "icons/norma-calm.png";
+/// 画布底栏「进入幕僚」入口：用户提供头像原图的裁切（保留圆环与右下绿点）。
+pub const STAFF_AVATAR_ASSET: &str = "icons/staff-avatar.png";
 
 const APP_LOGO_BYTES: &[u8] = include_bytes!("../assets/icons/logo.png");
 const HOME_BACKGROUND_BYTES: &[u8] = include_bytes!("../assets/home/earth-horizon.png");
@@ -158,6 +160,9 @@ impl AssetSource for EmbeddedAssets {
             "icons/minimize.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/minimize.svg"
             )))),
+            "icons/arrow-left.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/arrow-left.svg"
+            )))),
             "icons/chevron-right.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/chevron-right.svg"
             )))),
@@ -197,6 +202,9 @@ impl AssetSource for EmbeddedAssets {
             "icons/settings-2.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/settings-2.svg"
             )))),
+            "icons/message-square.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/message-square.svg"
+            )))),
             "icons/copy.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/copy.svg"
             )))),
@@ -215,6 +223,9 @@ impl AssetSource for EmbeddedAssets {
             APP_ICON_ASSET => Ok(Some(Cow::Borrowed(APP_ICON_BYTES))),
             NORMA_CALM_ASSET => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/norma-calm.png"
+            )))),
+            STAFF_AVATAR_ASSET => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/staff-avatar.png"
             )))),
             APP_LOGO_ASSET => Ok(Some(Cow::Borrowed(APP_LOGO_BYTES))),
             HOME_BACKGROUND_ASSET => Ok(Some(Cow::Borrowed(HOME_BACKGROUND_BYTES))),
@@ -272,6 +283,7 @@ impl AssetSource for EmbeddedAssets {
                     SharedString::from("maximize.svg"),
                     SharedString::from("menu.svg"),
                     SharedString::from("minimize.svg"),
+                    SharedString::from("arrow-left.svg"),
                     SharedString::from("chevron-right.svg"),
                     SharedString::from("archive.svg"),
                     SharedString::from("unarchive.svg"),
@@ -293,6 +305,7 @@ impl AssetSource for EmbeddedAssets {
                     SharedString::from("app-icon.png"),
                     SharedString::from("logo.png"),
                     SharedString::from("norma-calm.png"),
+                    SharedString::from("staff-avatar.png"),
                     SharedString::from("toolbar-scroll.svg"),
                     SharedString::from("toolbar-layout.svg"),
                     SharedString::from("toolbar-plus.svg"),

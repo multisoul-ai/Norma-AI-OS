@@ -106,8 +106,9 @@ pub fn models_for(kind: BackendKind, strategy: Strategy) -> Models {
     }
 }
 
-/// `session/new` 的 `_meta`：隔离用户设置，工具集和权限请求均不设限（权限请求一律放行）。
-pub fn session_meta(kind: BackendKind, model: Option<&str>) -> Option<Value> {
+/// `session/new` 的 `_meta`。主会话和审批会话不限制工具。
+/// 幕僚会话只留 Bash 与 Read，并要求每次 Bash 都进权限回调。
+pub fn session_meta(kind: BackendKind, model: Option<&str>, staff: bool) -> Option<Value> {
     if kind != BackendKind::ClaudeCode {
         return None;
     }
@@ -120,6 +121,15 @@ pub fn session_meta(kind: BackendKind, model: Option<&str>) -> Option<Value> {
     });
     if let Some(model) = model {
         options["model"] = json!(model);
+    }
+    if staff {
+        options["tools"] = json!(["Bash", "Read"]);
+        options["settings"] = json!({
+            "permissions": {
+                "ask": ["Bash"],
+                "blockReadsOutsideWorkingDirectories": true
+            }
+        });
     }
     Some(json!({"claudeCode": {"options": options}}))
 }

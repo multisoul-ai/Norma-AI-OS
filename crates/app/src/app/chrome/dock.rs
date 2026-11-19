@@ -5,7 +5,7 @@ use super::super::{AppScreen, MultisoulApp};
 use super::bottom_voice_bar_visible;
 use crate::effects::dispatch_receipt::{COMMAND_DOCK_BOTTOM_PX, COMMAND_DOCK_HEIGHT_PX};
 use gpui::{
-    div, point, prelude::*, px, rgba, AnyElement, AnyView, App, BoxShadow, Context, Div,
+    div, img, point, prelude::*, px, rgba, AnyElement, AnyView, App, BoxShadow, Context, Div,
     MouseButton, Stateful, Window,
 };
 use ui::icons::{with_alpha, ToolbarIcon};
@@ -55,6 +55,12 @@ impl MultisoulApp {
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .child(self.voice_glow_dock_probe())
                     .children(suggestions)
+                    .child(
+                        staff_entry_button(theme).on_click(cx.listener(|app, _, window, cx| {
+                            app.hide_command_suggestions();
+                            app.enter_staff_mode(window, cx);
+                        })),
+                    )
                     .child(
                         chrome_icon_button(
                             theme,
@@ -143,6 +149,12 @@ impl MultisoulApp {
                     .bg(rgba(command_dock_surface(theme)))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .children(suggestions)
+                    .child(
+                        staff_entry_button(theme).on_click(cx.listener(|app, _, window, cx| {
+                            app.hide_command_suggestions();
+                            app.enter_staff_mode(window, cx);
+                        })),
+                    )
                     .child(
                         chrome_icon_button(
                             theme,
@@ -258,6 +270,38 @@ fn chrome_icon_button(
         )
         .hover(move |style| style.bg(rgba(hover_fill)))
         .active(move |style| style.bg(rgba(pressed_fill)))
+        .tooltip(move |_, cx| tooltip_view(theme, tooltip, cx))
+}
+
+/// 幕僚入口：用户提供的头像原图（圆环 + 右下绿点），放在底栏最左。
+fn staff_entry_button(theme: Theme) -> Stateful<Div> {
+    let ink = if theme.is_light() {
+        theme.text_primary
+    } else {
+        0xffffffff
+    };
+    let tooltip = ui::i18n::text("staff.enter");
+    div()
+        .id("toolbar-staff")
+        .debug_selector(|| "toolbar-staff".to_string())
+        .w(px(38.0))
+        .h(px(38.0))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(px(12.0))
+        .flex_none()
+        .tab_index(0)
+        .cursor_pointer()
+        .focus(move |style| style.bg(rgba(with_alpha(ink, 0x24))))
+        .hover(move |style| style.bg(rgba(with_alpha(ink, 0x24))))
+        .active(move |style| style.bg(rgba(with_alpha(ink, 0x33))))
+        .child(
+            img(crate::assets::STAFF_AVATAR_ASSET)
+                .w(px(30.0))
+                .h(px(29.0))
+                .rounded(px(8.0)),
+        )
         .tooltip(move |_, cx| tooltip_view(theme, tooltip, cx))
 }
 
