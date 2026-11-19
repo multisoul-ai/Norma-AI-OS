@@ -19,9 +19,10 @@ pub(super) fn render(
         .and_then(|dispatch| ctx.task.worker_for_dispatch(dispatch));
     let engine = worker.map_or("", |w| w.engine.as_str());
     let mood = worker.map_or(runtime::island::bloub::Mood::Idle, |w| {
-        crate::app::staff::detail::worker_mood(w.chip(), w.outcome)
+        crate::app::staff::detail::worker_mood(w.chip(), w.outcome())
     });
-    let running = proposal.auto && worker.is_some_and(|w| w.outcome.is_none());
+    let node = worker.and_then(|w| w.card_id);
+    let withdrawable = worker.is_some_and(|w| brain::staff::worker_life::before_running(w.phase));
     let (task_id, proposal_id) = (ctx.task.id.clone(), proposal.id);
     let dispatched = t(if proposal.auto {
         "staff.dispatched_by_staff"
@@ -69,16 +70,23 @@ pub(super) fn render(
                 .text_color(rgba(theme.success))
                 .child(status_text),
         )
-        .when(running, |row| {
+        .when(withdrawable, |row| {
             row.child(
                 shell::action_button(ctx, ("staff-cancel-dispatch", id), false, cx)
                     .debug_selector(move || format!("staff-cancel-dispatch-{id}"))
                     .label(t("staff.cancel_dispatch"))
                     .disabled(ctx.app.staff.busy)
                     .on_click(cx.listener(move |app, _, window, cx| {
+                        cx.stop_propagation();
                         app.cancel_staff_worker(&task_id, proposal_id, window, cx)
                     })),
             )
         })
+        .id(("staff-open-dispatch", id))
+        .on_click(cx.listener(move |app, _, window, cx| {
+            if let Some(node) = node {
+                app.locate_staff_worker(node, window, cx);
+            }
+        }))
         .into_any_element()
 }

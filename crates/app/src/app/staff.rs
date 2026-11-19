@@ -1,21 +1,16 @@
 //! Staff UI state is a cache; TaskStore is the authoritative writer.
 use super::MultisoulApp;
 use gpui::{Context, Entity};
-use norma::protocol::Task;
+use norma::protocol::{Task, WorkerPhase};
 use std::collections::BTreeMap;
+use std::time::Instant;
 use ui::component::input::InputState;
 mod actions;
 mod archive;
 mod delivery;
-pub(crate) use delivery::{
-    delivery_action, delivery_confirmed, output_is_quiet, quiet_allows_typing, DeliveryAction,
-    DeliveryStage,
-};
 #[cfg(test)]
-pub(crate) use delivery::{
-    emits_ready_signal, AGENT_ENTER_DELAY, AGENT_OUTPUT_QUIET, AGENT_STARTUP_GRACE,
-    WORKER_DELIVERY_CONFIRM, WORKER_ENTER_RETRY,
-};
+pub(crate) use delivery::{emits_ready_signal, AGENT_OUTPUT_QUIET, AGENT_STARTUP_GRACE};
+pub(crate) use delivery::{output_is_quiet, quiet_allows_typing, startup_can_type};
 mod activity;
 mod appearance;
 mod composer;
@@ -89,9 +84,8 @@ pub(crate) struct StaffState {
     /// 贴底跟随中：内容之后变高（表格换行、流式文字转 Markdown）时补滚到底；用户上翻即退出。
     pub pinned: bool,
     pub error: Option<ui::i18n::LocalizedText>,
-    pub pending: BTreeMap<u64, PendingWorker>,
-    /// 已判「任务还没送达」的 (节点 → dispatch)：确认晚到时据此收回，重新投递或换派发即清除。
-    pub unconfirmed: BTreeMap<u64, String>,
+    /// 正在往卡片里投 prompt 的计时。阶段以 `phase` 为准，任务快照回来时盖回去。
+    pub clocks: BTreeMap<u64, DeliveryClock>,
     pub events: std::cell::RefCell<std::collections::VecDeque<brain::BrainEvent>>,
     pub saving_event: bool,
     pub recorded: std::cell::RefCell<
@@ -116,10 +110,13 @@ pub(crate) struct WorkerRemoveAsk {
     pub agent: String,
 }
 
-pub(crate) struct PendingWorker {
+#[derive(Clone)]
+pub(crate) struct DeliveryClock {
     pub dispatch: String,
     pub prompt: String,
-    pub stage: DeliveryStage,
+    pub since: Instant,
+    pub grace_spent: bool,
+    pub phase: WorkerPhase,
 }
 
 impl MultisoulApp {
@@ -158,6 +155,7 @@ impl MultisoulApp {
                 self.staff.tasks.insert(task.id.clone(), task);
             }
         }
+        self.overlay_delivery_clocks();
         self.staff.loaded = true;
         self.notify_staff(cx);
     }

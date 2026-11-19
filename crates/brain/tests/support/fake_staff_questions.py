@@ -35,6 +35,16 @@ while True:
         result = {'sessionId': 'staff-session'}
     elif method == 'session/prompt':
         text = ''.join(part.get('text', '') for part in message['params']['prompt'])
+        # 同一会话的后续轮只有「新增消息 / 状态变化」，不再带完整任务快照。
+        if '\n任务快照：' not in text:
+            answer = 'NEXT TURN: ' + ('Dark' if 'Dark' in text else 'missing')
+            send({'jsonrpc': '2.0', 'method': 'session/update', 'params': {
+                'sessionId': 'staff-session', 'update': {'sessionUpdate': 'agent_message_chunk',
+                'content': {'type': 'text', 'text': answer}}}})
+            result = {'stopReason': 'end_turn'}
+            if mid is not None:
+                send({'jsonrpc': '2.0', 'id': mid, 'result': result})
+            continue
         task = json.loads(text.split('\n任务快照：', 1)[1])
         if not task['questions']:
             fixtures = pathlib.Path(os.environ['FAKE_QUESTION_FIXTURES'])

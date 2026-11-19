@@ -52,6 +52,15 @@ pub enum BrainEventKind {
     TaskRequest {
         task_id: String,
     },
+    /// 加载时发现 Worker 还没结束。只唤醒幕僚说明一次，不改派发次数。
+    WorkerRestarted {
+        task_id: String,
+    },
+    /// 用户在任务跑起来之前撤回。记下中断，不唤醒幕僚。
+    WorkerWithdrawn {
+        node_id: u64,
+        dispatch_id: String,
+    },
     WorkerAttention {
         node_id: u64,
         dispatch_id: String,
@@ -219,6 +228,10 @@ impl Trigger {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TaskUpdate {
     Queued,
+    /// 4 个 Claude 会话都在忙，这一轮在等空位。面板显示「排队中」。
+    SessionWait,
     Started,
-    Finished { failed: bool },
+    Finished {
+        failed: bool,
+    },
 }

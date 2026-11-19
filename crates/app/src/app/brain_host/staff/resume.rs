@@ -1,7 +1,6 @@
 //! 续派：把已批准的提议交给它指向的已有 Worker，在同一张卡片里继续，不新建卡片。
 use super::*;
 use crate::app::shared_context::SharedContext;
-use crate::app::staff::{DeliveryStage, PendingWorker};
 use agent::context::ContextOperation;
 use norma::protocol::{BrainScope, StaffProposal, Task};
 
@@ -50,18 +49,8 @@ pub(super) async fn resume_staff_worker(
             app.check_staff_source(&token, &scope)?;
             app.receive_staff_tasks(vec![rebound], cx);
             app.brain.own_prompts.remember(&prompt);
-            app.staff.pending.insert(
-                node,
-                PendingWorker {
-                    dispatch: target.clone(),
-                    prompt,
-                    // 进程早已在运行，但要等它空闲（ready 或输出安静）再输入，免得打进正在执行的 Agent。
-                    stage: DeliveryStage::Starting {
-                        since: Instant::now(),
-                        grace_spent: false,
-                    },
-                },
-            );
+            // 进程早已在运行，但要等它空闲（ready 或输出安静）再输入，免得打进正在执行的 Agent。
+            app.arm_staff_delivery(node, target.clone(), prompt, false);
             app.tick_staff_workers(Instant::now(), cx);
             app.mark_session_dirty();
             app.notify_staff(cx);

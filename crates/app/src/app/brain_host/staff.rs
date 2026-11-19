@@ -148,6 +148,7 @@ impl MultisoulApp {
         let wake = matches!(op, StaffOp::Message { .. })
             .then(|| op.task_id().unwrap_or_default().to_owned());
         let workspace = scope.workspace_id.clone();
+        let wakes = store.clone();
         let work = cx.background_executor().spawn(async move {
             if manual {
                 if let StaffOp::Phase { task_id, phase } = op {
@@ -171,6 +172,13 @@ impl MultisoulApp {
                 app.receive_staff_tasks(tasks, cx);
                 if let Some(task_id) = wake {
                     app.push_brain(BrainEventKind::TaskRequest { task_id });
+                }
+                if let Some(scope) = app.brain_scope() {
+                    for (workspace, task_id) in wakes.take_restart_wakes() {
+                        if workspace == scope.workspace_id {
+                            app.push_brain(BrainEventKind::WorkerRestarted { task_id });
+                        }
+                    }
                 }
             })
             .map_err(|_| "staff.invalid_source".to_owned())?;

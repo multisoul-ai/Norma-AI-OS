@@ -1,11 +1,11 @@
 //! 一条 lane 的工作线程：串行处理 prompt，会话失败时退避重建。
 
 use super::prompt::{primer, primer_with_skill, Role};
-pub use super::session::Idle;
 use super::session::SessionToken;
-use crate::acp::client::{AcpError, AcpSession, SessionOptions};
-use crate::acp::trace::{AcpTrace, TraceItem, TraceKind};
-use crate::backend::{self, Backend};
+pub use super::session::{Idle, Tick};
+use crate::acp::client::{AcpError, AcpSession};
+use crate::acp::trace::{TraceItem, TraceKind};
+use crate::backend::Backend;
 use crate::event::{BrainStatus, BrainStatusKind, TaskUpdate, Trigger, TriggerKind};
 use crate::goal::GoalStore;
 use norma::protocol::{BrainScope, ReplyStatus, ReplyTrigger};
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 // 与 App 进程的 launch_id 配合：重启服务和并行审批不能复用轮次号。
 static NEXT_TURN: AtomicU64 = AtomicU64::new(1);
@@ -31,6 +31,9 @@ pub struct Job {
     pub approval_id: Option<String>,
     pub trigger: Trigger,
 }
+
+#[path = "worker_env.rs"]
+mod env;
 
 pub struct LaneEnv {
     pub role: Role,
@@ -51,115 +54,10 @@ pub struct LaneEnv {
     pub retry_backoff: Duration,
     /// 超过这个轮数就重建会话，避免上下文无限增长。
     pub max_turns: u32,
-}
-
-impl LaneEnv {
-    fn session_options(&self, staff_token: Option<&str>, staff: bool) -> SessionOptions {
-        let env = if staff {
-            crate::staff::gate::staff_env(&self.env, staff_token)
-        } else {
-            self.env.clone()
-        };
-        SessionOptions {
-            kind: self.backend.kind,
-            program: self.backend.program.clone(),
-            args: self.backend.args.clone(),
-            cwd: self.project_root.clone(),
-            env,
-            meta: backend::session_meta(self.backend.kind, self.model.as_deref(), staff),
-            staff_shell: staff.then(|| self.norma_bin.clone()),
-            mode: backend::session_mode(self.backend.kind).map(str::to_string),
-            model: self.model.clone(),
-            effort: self.effort.clone(),
-            handshake_timeout: Duration::from_secs(60),
-        }
-    }
-
-    fn is_open(&self, scope: &BrainScope, id: &str) -> bool {
-        self.open
-            .lock()
-            .expect("open lock")
-            .contains(&(scope.clone(), id.to_owned()))
-    }
-
-    fn sleep(&self, total: Duration, cancelled: &AtomicBool) {
-        let end = Instant::now() + total;
-        while Instant::now() < end
-            && !self.stop.load(Ordering::Relaxed)
-            && !cancelled.load(Ordering::Relaxed)
-        {
-            std::thread::sleep(Duration::from_millis(25));
-        }
-    }
-
-    fn send(&self, scope: &BrainScope, kind: BrainStatusKind) {
-        let _ = self.status.send(BrainStatus {
-            scope: scope.clone(),
-            kind,
-        });
-    }
-
-    fn trace(&self, scope: &BrainScope, turn: u64, trigger: &Trigger, item: TraceItem) {
-        self.send(
-            scope,
-            BrainStatusKind::Trace(AcpTrace {
-                at: SystemTime::now(),
-                lane: format!("{:?}", self.role),
-                turn,
-                trigger: trigger.clone(),
-                item,
-            }),
-        );
-    }
-
-    fn task_update(&self, job: &Job, turn: u64, update: TaskUpdate) {
-        if let Some(task_id) = &job.task_id {
-            self.send(
-                &job.scope,
-                BrainStatusKind::TaskActivity {
-                    task_id: task_id.clone(),
-                    turn,
-                    update,
-                },
-            );
-        }
-    }
-
-    /// 把这条任务里仍在运行的幕僚回复收尾并落盘；已经收尾过的什么也不写。
-    fn settle(&self, job: &Job, status: ReplyStatus, started: Instant, session_id: Option<&str>) {
-        let Some(task_id) = &job.task_id else {
-            return;
-        };
-        match self.tasks.settle_reply(
-            &job.scope.workspace_id,
-            task_id,
-            status,
-            started.elapsed().as_millis() as u64,
-            session_id,
-        ) {
-            Ok(Some(task)) => self.send(&job.scope, BrainStatusKind::TaskChanged(task)),
-            Ok(None) => {}
-            Err(error) => self.send(
-                &job.scope,
-                BrainStatusKind::TaskError {
-                    reason: error.to_string(),
-                },
-            ),
-        }
-    }
-
-    fn finish(&self, job: &Job, turn: u64, status: ReplyStatus, started: Instant) {
-        // 成功路径已经记为 Done。提前退出在这里收口；用户取消必须传 Stopped。
-        self.settle(job, status, started, None);
-        let failed = status != ReplyStatus::Done;
-        self.task_update(job, turn, TaskUpdate::Finished { failed });
-        if let Some(id) = &job.approval_id {
-            self.send(
-                &job.scope,
-                BrainStatusKind::ApprovalTurnEnded { id: id.clone() },
-            );
-        }
-    }
+    /// Claude / Codex 幕僚共用的连接。OpenCode 和自检失败时为空。
+    pub hub: Option<std::sync::Arc<crate::acp::hub::SharedHub>>,
+    /// 只有 Claude 有。满 4 个会话时新任务在这里排队。
+    pub(crate) pool: Option<std::sync::Arc<Mutex<super::staff_pool::StaffPool>>>,
 }
 
 /// 多个 worker 共用一个队列：谁空闲谁取下一条，所以并行度就是 worker 个数。
@@ -171,11 +69,14 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
         token: None,
     };
     let mut session: Option<AcpSession> = None;
+    let mut staff_cursor: Option<super::staff_prompt::PromptCursor> = None;
     let mut turns = 0u32;
     let mut session_staff = false;
     let mut primed = false;
     let mut failures = 0u32;
     let mut retrying: Option<(Job, u32)> = None;
+    let mut resident: Option<(BrainScope, String)> = None;
+    let mut closed_check = Instant::now();
     'lane: while !env.stop.load(Ordering::Relaxed) {
         // 回到这里就是上一条处理完了；空闲时长从此刻算起。
         let idle_since = Instant::now();
@@ -192,12 +93,27 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                 match received {
                     Ok(job) => break (job, 0),
                     Err(RecvTimeoutError::Timeout) => {
-                        let Some(idle) = idle
-                            .as_ref()
-                            .filter(|idle| idle_since.elapsed() >= idle.after)
-                        else {
+                        let Some(idle) = idle.as_ref() else {
                             continue;
                         };
+                        if let Some(poll) = &idle.poll {
+                            let closed = if closed_check.elapsed() >= Duration::from_secs(1) {
+                                closed_check = Instant::now();
+                                resident
+                                    .as_ref()
+                                    .is_some_and(|(scope, id)| env.task_closed(scope, id))
+                            } else {
+                                false
+                            };
+                            match poll(closed) {
+                                super::session::Tick::Job(job) => break (job, 0),
+                                super::session::Tick::Exit => break 'lane,
+                                super::session::Tick::Stay => {}
+                            }
+                        }
+                        if idle_since.elapsed() < idle.after {
+                            continue;
+                        }
                         match (idle.retire)() {
                             Some(job) => break (job, 0),
                             None => break 'lane,
@@ -207,6 +123,14 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                 }
             },
         };
+        if let Some(task_id) = &job.task_id {
+            resident = Some((job.scope.clone(), task_id.clone()));
+            if let Some(pool) = &env.pool {
+                pool.lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .mark_busy(task_id);
+            }
+        }
         let cancelled = job.cancelled.clone();
         if cancelled.load(Ordering::Relaxed) {
             continue;
@@ -246,6 +170,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
         }
         if session.is_none() || turns >= env.max_turns || session_staff != job.task_id.is_some() {
             session = None;
+            staff_cursor = None;
             let connecting = Instant::now();
             // 每个幕僚会话为自己的任务铸一把 token；换会话时上一把随之撤销。
             let minted = job
@@ -253,11 +178,23 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                 .as_deref()
                 .and_then(|task| env.staff_tokens.as_ref().map(|tokens| tokens.mint(task)));
             session_token.replace(minted.clone());
+            if let (Some(pool), Some(token), Some(task_id)) = (&env.pool, &minted, &job.task_id) {
+                pool.lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .note(task_id, token);
+            }
             let started = if job.task_id.is_some() {
-                AcpSession::start_staff_cancellable(
-                    &env.session_options(minted.as_deref(), true),
-                    &cancelled,
-                )
+                let options = env.session_options(minted.as_deref(), true);
+                match env.hub.as_ref() {
+                    Some(hub) => match hub.open_staff(&options, &cancelled) {
+                        Ok(session) => Ok(session),
+                        // 用户取消不能再起一个独占进程。
+                        Err(AcpError::Cancelled) => Err(AcpError::Cancelled),
+                        // 自检失败或连接建不起来：退回每个任务一个进程。
+                        Err(_) => AcpSession::start_staff_cancellable(&options, &cancelled),
+                    },
+                    None => AcpSession::start_staff_cancellable(&options, &cancelled),
+                }
             } else {
                 AcpSession::start_cancellable(&env.session_options(None, false), &cancelled)
             };
@@ -309,11 +246,19 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
         }
         if cancelled.load(Ordering::Relaxed) {
             session = None;
+            staff_cursor = None;
             env.finish(&job, turn_no, ReplyStatus::Stopped, turn_started);
             continue;
         }
+        let mut next_cursor = None;
         let mut text = if let Some(task) = &task {
-            super::staff::prompt_with(task, &job.scope, &env.norma_bin)
+            let (piece, next) = super::staff_prompt::incremental(task, staff_cursor.as_ref());
+            next_cursor = Some(next);
+            if staff_cursor.is_none() {
+                super::staff::prompt_with(task, &job.scope, &env.norma_bin)
+            } else {
+                piece
+            }
         } else if primed {
             job.text.clone()
         } else {
@@ -398,6 +343,9 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
         );
         match result {
             Ok(reply) => {
+                if let Some(next) = next_cursor.take() {
+                    staff_cursor = Some(next);
+                }
                 if task.is_some() {
                     // Keep the already-computed reply until it is durable; never rerun model effects.
                     let saved = loop {
@@ -446,8 +394,14 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                 );
             }
             Err(error) => {
-                session = None;
-                failures += 1;
+                // 共用连接上取消只停这一轮，进程留给其他会话。独占进程取消后已经杀掉，下次重建。
+                let keep_staff = session.as_ref().is_some_and(|session| session.is_shared())
+                    && session_staff
+                    && matches!(error, AcpError::Cancelled);
+                if !keep_staff {
+                    session = None;
+                    staff_cursor = None;
+                }
                 env.trace(
                     &job.scope,
                     turn_no,
@@ -461,6 +415,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                     env.finish(&job, turn_no, ReplyStatus::Stopped, turn_started);
                     continue;
                 }
+                failures += 1;
                 if matches!(error, AcpError::Transient(_)) && attempts < MAX_TRANSIENT_RETRIES {
                     // 限流等临时故障：退避后用新会话重发同一条任务，不能把它丢掉。
                     // 还没写出任何内容的回复直接撤掉，重发会开一条新的，不留一条空的“失败”。

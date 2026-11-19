@@ -112,7 +112,7 @@ impl MultisoulApp {
         else {
             return;
         };
-        let running = worker.outcome.is_none();
+        let running = worker.outcome().is_none();
         if running && !request.confirmed {
             let ask = WorkerRemoveAsk {
                 task_id: request.task_id,
@@ -135,7 +135,7 @@ impl MultisoulApp {
             move |app, window, cx| {
                 // 先写盘再关卡片：关卡片带来的收尾事件已找不到这个 Worker，会被忽略。
                 if let Some(node) = worker.card_id.filter(|_| close) {
-                    app.staff.pending.remove(&node);
+                    app.staff.clocks.remove(&node);
                     if app.runtime.document.node(node).is_some() {
                         app.remove_node_and_reflow(node, window);
                         app.mark_session_dirty();

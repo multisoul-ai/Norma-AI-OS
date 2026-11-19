@@ -107,6 +107,19 @@ impl BrainService {
         let mut models = backend::models_for(config.backend.kind, config.strategy);
         models.main = config.main_model.clone().or(models.main);
         models.approval = config.approval_model.clone().or(models.approval);
+        let hub = crate::acp::hub::SharedHub::prepare(
+            config.backend.kind,
+            config.backend.program.clone(),
+            config.backend.args.clone(),
+            config.project_root.clone(),
+            config.env.clone(),
+        );
+        let pool = (config.backend.kind == crate::backend::BackendKind::ClaudeCode).then(|| {
+            Arc::new(Mutex::new(crate::lane::staff_pool::StaffPool::new(
+                crate::lane::staff_pool::CLAUDE_SESSION_LIMIT,
+                config.staff_tokens.clone(),
+            )))
+        });
         let shared = LaneShared {
             config: config.clone(),
             goal: goal.clone(),
@@ -114,6 +127,8 @@ impl BrainService {
             status: status_tx.clone(),
             open: open.clone(),
             stop: stop.clone(),
+            hub,
+            pool: pool.clone(),
         };
         let lane = |role: Role, model: Option<String>| shared.env(role, model);
         // 幕僚任务各有自己的会话线程，用主模型。
@@ -122,6 +137,7 @@ impl BrainService {
             TaskRunners::new(
                 Arc::new(move || shared.env(Role::Main, model.clone())),
                 config.task_idle,
+                pool,
             )
         };
         let (main_tx, main_rx) = mpsc::channel();
@@ -372,6 +388,8 @@ struct LaneShared {
     status: Sender<BrainStatus>,
     open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
     stop: Arc<AtomicBool>,
+    hub: Option<Arc<crate::acp::hub::SharedHub>>,
+    pool: Option<Arc<Mutex<crate::lane::staff_pool::StaffPool>>>,
 }
 
 impl LaneShared {
@@ -396,6 +414,8 @@ impl LaneShared {
             prompt_timeout: config.prompt_timeout,
             retry_backoff: config.retry_backoff,
             max_turns: config.max_turns,
+            hub: self.hub.clone(),
+            pool: self.pool.clone(),
         }
     }
 }

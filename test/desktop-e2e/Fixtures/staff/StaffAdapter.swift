@@ -61,6 +61,27 @@ enum StaffAdapter {
             if answer.get('id') in [900,901]: replies.append(answer)
         record('question-replies.jsonl', {'replies':replies})
         assert all(item.get('result') == {'action':'decline'} for item in replies), replies
+    memory = {}
+    def load_task(text):
+        # 同一会话的后续轮只带新增消息和状态变化，作用域与任务编号留在首轮。
+        full = re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})', text)
+        if full:
+            scope, task = json.loads(full[1]), json.loads(full[2])
+            binary = shlex.split(re.search(r'命令速查（都以 (.*?) brain 开头）', text)[1])[0]
+            memory.update(scope=scope, task=task, binary=binary)
+            return scope, task, binary
+        if '新增消息：' not in text or 'task' not in memory:
+            return None
+        fresh = json.loads(text.split('新增消息：', 1)[1].split('\n状态变化：', 1)[0])
+        task = memory['task']
+        task.setdefault('messages', [])
+        for item in fresh:
+            task['messages'].append(json.loads(item) if isinstance(item, str) else item)
+        if '\n状态变化：' in text:
+            state = json.loads(text.split('\n状态变化：', 1)[1])
+            for key in ('revision', 'phase', 'proposals', 'workers', 'questions'):
+                if key in state: task[key] = state[key]
+        return memory['scope'], task, memory['binary']
 
     while True:
         message = read(); method, mid = message.get('method'), message.get('id')
@@ -98,10 +119,9 @@ enum StaffAdapter {
                     update(sid, dict(sessionUpdate='tool_call_update', toolCallId=call_id, status='completed', rawOutput='ok'))
                 reply = 'TOOL-STEPS 验收：三步已完成。'
                 update(sid, {'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':reply}})
-            match = None if reply else re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})', text)
-            if match:
-                scope, task = json.loads(match[1]), json.loads(match[2])
-                binary = shlex.split(re.search(r'命令速查（都以 (.*?) brain 开头）', text)[1])[0]
+            loaded = None if reply else load_task(text)
+            if loaded:
+                scope, task, binary = loaded
                 base = [binary,'brain','--workspace',scope['workspace_id'],'--route',scope['route_id']]
                 tid = task['id']
                 users = [m['user'] for m in task['messages'] if 'user' in m]
@@ -137,6 +157,15 @@ enum StaffAdapter {
                 elif os.environ.get('NORMA_E2E_STAFF_ARCHIVE') == '1' and not task['proposals']:
                     run(sid, base + ['task','propose',tid,'Claude','--title','下一步','--prompt','继续 ARCHIVE-KEEP','--why','请确认'])
                     reply = 'STAFF PLAN：已提出下一步。'
+                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and 'WITHDRAW-NEW' in last and not task['proposals']:
+                    run(sid, base + ['task','assign',tid,'Grace','--title','新开撤回','--prompt','echo withdraw-new','--why','验证新开的卡可以撤回'])
+                    reply = 'STAFF WITHDRAW：已派一张新卡。'
+                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and 'WITHDRAW-OPEN' in last and not task['proposals']:
+                    run(sid, base + ['task','assign',tid,'Grace','--title','先开一张','--prompt','echo withdraw-open','--why','先有一张可复用的卡'])
+                    reply = 'STAFF WITHDRAW：先开了 Grace 的卡。'
+                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and 'WITHDRAW-AGAIN' in last:
+                    run(sid, base + ['task','assign',tid,'Grace','--title','再派一次','--prompt','echo withdraw-again','--why','复用刚才那张卡'])
+                    reply = 'STAFF WITHDRAW：再派给 Grace。'
                 elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and 'NAMED-RISK' in last:
                     run(sid, base + ['task','assign',tid,'Grace','--title','点名发布','--prompt','git push origin main','--why','用户点名 Grace'])
                     reply = 'STAFF NAMED：已直接派给 Grace。'
@@ -154,7 +183,7 @@ enum StaffAdapter {
                 elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and 'ASSIGN-RISK' in last:
                     run(sid, base + ['task','assign',tid,task['workers'][0]['agent'],'--title','推送并发布','--prompt','git push origin main 然后发布','--why','收尾发布'])
                     reply = 'STAFF RISK：这条涉及推送，已交给你决定。'
-                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and len(task['proposals']) == 1 and task['workers'] and task['workers'][0].get('outcome') == 'Succeeded':
+                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and 'WITHDRAW' not in task.get('title', '') and len(task['proposals']) == 1 and task['workers'] and (task['workers'][0].get('phase') or {}).get('Finished') == 'Succeeded':
                     run(sid, base + ['task','assign',tid,task['workers'][0]['agent'],'--title','补一条测试','--prompt','STAFF-HOLD 为验收文件补一条测试','--why','结果缺少测试'])
                     reply = 'STAFF ASSIGN：已把后续任务派给同一个 Agent。'
                 elif 'CONFIRM' in last:
@@ -165,7 +194,7 @@ enum StaffAdapter {
                     reply = 'STAFF MANUAL：保留你设置的阶段。'
                 elif 'REOPEN' in last:
                     reply = 'STAFF REOPEN：继续处理新消息。'
-                elif task['workers'] and task['workers'][0].get('outcome') == 'Succeeded':
+                elif task['workers'] and (task['workers'][0].get('phase') or {}).get('Finished') == 'Succeeded':
                     run(sid, base + ['task','phase',tid,'merging'])
                     reply = 'STAFF REVIEW：结果已保存，请验收 STAFF-RESULT.md。'
                 if reply:

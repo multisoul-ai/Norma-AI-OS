@@ -62,8 +62,12 @@ impl TaskStore {
                         found || same
                     });
                     let awaiting = task.workers.iter().any(|worker| {
-                        worker.state == norma::protocol::WorkerState::NeedsAttention
-                            && worker.agent == agent
+                        matches!(
+                            worker.phase,
+                            norma::protocol::WorkerPhase::Failed(
+                                norma::protocol::WorkerFailure::Unconfirmed
+                            )
+                        ) && worker.agent == agent
                             && task.proposals.iter().any(|proposal| {
                                 proposal.agent == agent
                                     && proposal.prompt == prompt
@@ -175,7 +179,9 @@ impl TaskStore {
         self.transact(workspace, true, |tasks| {
             if tasks.iter().any(|task| {
                 task.workers.iter().any(|old| {
-                    old.card_id == worker.card_id || old.dispatch_id == worker.dispatch_id
+                    old.dispatch_id == worker.dispatch_id
+                        || (old.card_id == worker.card_id
+                            && super::worker_life::unfinished(old.phase))
                 })
             }) {
                 return Err(io::Error::new(
@@ -255,7 +261,7 @@ impl TaskStore {
             let worker = task
                 .workers
                 .iter_mut()
-                .find(|w| w.dispatch_id == target && w.outcome.is_some())
+                .find(|w| w.dispatch_id == target && w.outcome().is_some())
                 .ok_or_else(missing)?;
             if !worker.is_agent(&proposal.agent) {
                 return Err(io::Error::new(
@@ -263,10 +269,7 @@ impl TaskStore {
                     "staff.worker_agent_mismatch",
                 ));
             }
-            worker.outcome = None;
-            worker.needs_input = false;
-            worker.state = norma::protocol::WorkerState::Active;
-            worker.prompt_delivered = false;
+            worker.phase = norma::protocol::WorkerPhase::Submitted { retried: false };
             worker.launch_prompt = launch_prompt.into();
             proposal.dispatch_id = Some(target);
             task.set_phase(TaskPhase::Active, false);
@@ -277,8 +280,12 @@ impl TaskStore {
     pub fn summary_for(&self, workspace: &str) -> io::Result<Option<String>> {
         let tasks = self.list(workspace)?;
         Ok((!tasks.is_empty()).then(|| tasks.iter().map(|task| {
-            let attention: Vec<_> = task.workers.iter().filter(|w| w.needs_input || w.state != norma::protocol::WorkerState::Active
-                || w.outcome == Some(norma::protocol::WorkerOutcome::Unavailable)).map(|w| &w.agent).collect();
+            let attention: Vec<_> = task
+                .workers
+                .iter()
+                .filter(|worker| worker.needs_attention())
+                .map(|worker| &worker.agent)
+                .collect();
             serde_json::json!({"task":task.id,"title":task.title,"phase":task.phase,"status":task.display_status(),"needs_you":attention}).to_string()
         }).collect::<Vec<_>>().join("\n")))
     }
@@ -305,35 +312,38 @@ impl TaskStore {
     ) -> io::Result<super::TaskEventResult> {
         use super::TaskEventResult;
         let tasks = self.list(workspace)?;
-        let Some(task) = tasks.iter().find(|task| {
+        let task_id = match super::locate_worker(&tasks, node, Some(dispatch)) {
+            super::WorkerLocate::Found(id) => id,
+            super::WorkerLocate::Unowned => return Ok(TaskEventResult::Unowned),
+            super::WorkerLocate::Ignored => return Ok(TaskEventResult::Ignored),
+        };
+        let Some(worker) = tasks.iter().find_map(|task| {
             task.workers
                 .iter()
-                .any(|worker| worker.card_id == Some(node))
+                .find(|worker| worker.card_id == Some(node) && worker.dispatch_id == dispatch)
         }) else {
             return Ok(TaskEventResult::Unowned);
         };
-        let Some(worker) = task
-            .workers
-            .iter()
-            .find(|worker| worker.card_id == Some(node) && worker.dispatch_id == dispatch)
-        else {
-            return Ok(TaskEventResult::Ignored);
-        };
-        if worker.outcome.is_some() || worker.needs_input == waiting {
+        let is_waiting = matches!(worker.phase, norma::protocol::WorkerPhase::Waiting);
+        if worker.outcome().is_some() || is_waiting == waiting {
             return Ok(TaskEventResult::Ignored);
         }
-        self.update(workspace, &task.id, |task| {
+        self.update(workspace, &task_id, |task| {
             if let Some(worker) = task.workers.iter_mut().find(|worker| {
                 worker.card_id == Some(node)
                     && worker.dispatch_id == dispatch
-                    && worker.outcome.is_none()
+                    && worker.outcome().is_none()
             }) {
-                worker.needs_input = waiting;
+                worker.phase = if waiting {
+                    norma::protocol::WorkerPhase::Waiting
+                } else {
+                    norma::protocol::WorkerPhase::Running
+                };
             }
             Ok(())
         })?;
         Ok(TaskEventResult::Recorded {
-            task_id: task.id.clone(),
+            task_id,
             wake: false,
         })
     }

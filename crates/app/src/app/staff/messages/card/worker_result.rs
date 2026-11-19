@@ -22,15 +22,20 @@ impl MessageBlock for WorkerResult<'_> {
         let mut row = div().w_full().flex().flex_col().gap(px(tokens::SPACE_8));
         if let TaskMessage::WorkerFinished {
             node_id,
+            dispatch_id,
             outcome,
             text,
-            ..
         } = message
         {
             let worker = task
                 .workers
                 .iter()
-                .find(|worker| worker.card_id == Some(*node_id));
+                .find(|worker| worker.dispatch_id == *dispatch_id)
+                .or_else(|| {
+                    task.workers
+                        .iter()
+                        .find(|worker| worker.card_id == Some(*node_id))
+                });
             let name = worker.map_or("Agent", |worker| worker.agent.as_str());
             let engine = worker.map_or("", |worker| worker.engine.as_str());
             row = shell::card(ctx, false)
@@ -60,7 +65,15 @@ impl MessageBlock for WorkerResult<'_> {
                         ),
                 )
                 .when(*outcome != WorkerOutcome::Unavailable, |row| {
-                    let body = if matches!(
+                    let body = if text == "staff.worker_withdrawn" {
+                        ui::i18n::format(
+                            "staff.worker_withdrawn",
+                            &[
+                                ("name", worker.map(|w| w.agent.clone()).unwrap_or_default()),
+                                ("title", worker.map(|w| w.role.clone()).unwrap_or_default()),
+                            ],
+                        )
+                    } else if matches!(
                         text.as_str(),
                         "staff.worker_failed"
                             | "staff.worker_cancelled"

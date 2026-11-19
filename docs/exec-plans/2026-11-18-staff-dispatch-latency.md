@@ -179,26 +179,36 @@
 
 **行为**
 
-- [ ] 点名派活不出提议，高风险的活也一样。在真实 App 里用「让 <名字> …」验证。
-- [ ] 幕僚的轮次在 `brain_trace_items` 里只出现 `norma brain` 命令和项目内 Read 两种工具调用。
-- [ ] 用 `brain_turns` 列出改动前后幕僚每轮耗时的 p50/p90。
-- [ ] Worker 的投递状态只存在 `Task.workers` 里，`app.staff.pending/unconfirmed` 和 `prompt_delivered` 已删除。
-- [ ] 撤回后幕僚不会自动重派同一件事。
+- [x] 点名派活不出提议，高风险的活也一样。PR-1 的 desktop-e2e（`artifacts/desktop-workspace-e2e/2026-11-18T08-54-33Z`）和 `staff_naming` / 派活策略测试覆盖规则；假适配器不走真实模型。
+- [ ] 幕僚的轮次在 `brain_trace_items` 里只出现 `norma brain` 命令和项目内 Read 两种工具调用。只强制 Claude。工具白名单和 Bash 判定已在代码里，真实模型查资料这一条还没跑。
+- [ ] 用 `brain_turns` 列出改动前后幕僚每轮耗时的 p50/p90。改动前见第 1 节；改动后要新版本真实用满 20 轮才有数据，见第 12 节。
+- [x] Worker 的投递状态只存在 `Task.workers` 里。`app.staff.pending` / `unconfirmed` / `prompt_delivered` 已删。证据：`staff_worker_life`、`staff_snapshot_v3`。
+- [ ] 撤回后幕僚不会自动重派同一件事。单元测试 `withdraw_before_running_does_not_wake`（`wake: false`）已覆盖；真实 App 的 `staff-withdraw-new` / `staff-withdraw-reuse` 还没跑，跑过再勾。
 
 **单元测试**
 
-- [ ] 第 4 节表格的每一格，包括开关关闭的情况。
-- [ ] 点名的负例：英文短名嵌在单词里、引擎名、图片路径、`Answered` 选项文本。
-- [ ] 状态机的每个转换，包括撤回与确认竞态、重启转 `Failed(Restarted)`。
-- [ ] Bash 判定：复合命令、`$(...)`、Codex 对象格式、`zsh -lc` 外壳。
-- [ ] 共用连接：取消一个会话不影响其他会话；权限请求按 `sessionId` 路由；驱逐后旧 token 失效。
-- [ ] 增量提示：删消息后游标正确，结构化状态变化能发出，新会话重置。
-- [ ] `(card_id, dispatch_id)` 定位，以及复用卡片改绑后 hook 被接受。
+- [x] 第 4 节表格的每一格，包括开关关闭。证据：幕僚派活策略测试（PR-1）。
+- [x] 点名的负例：英文短名嵌在单词里、引擎名、图片路径、`Answered` 选项文本。证据：`crates/brain/tests/staff_naming.rs`。
+- [x] 状态机的每个转换，包括撤回与确认竞态、重启转 `Failed(Restarted)`。证据：`staff_worker_life`。
+- [x] Bash 判定：复合命令、`$(...)`、Codex 对象格式、`zsh -lc` 外壳。证据：`staff_shell_tests`。
+- [x] 共用连接：取消一个会话不影响其他会话；权限请求按 `sessionId` 路由；驱逐后旧 token 失效。证据：`cancel_a_leaves_b_and_the_connection`、`permission_for_b_does_not_enter_a`、`fifth_task_evicts_the_oldest_idle_session`、`fifth_task_waits_until_a_session_is_idle`。
+- [x] 增量提示：删消息后游标正确，结构化状态变化能发出，新会话重置。证据：`discard_does_not_repeat_or_drop_messages`、`proposal_status_change_is_included`、`new_session_sends_the_full_snapshot`。
+- [x] `(card_id, dispatch_id)` 定位，以及复用卡片改绑后 hook 被接受。证据：`events_follow_card_and_dispatch_together`、`rebound_card_accepts_the_spawn_dispatch_and_routes_current`。
 
 **需要同步修改的现有测试与资源**
 
-- [ ] `brain/tests/staff_policy.rs` 里 `NotFollowUp` 的断言。
-- [ ] desktop-e2e：`StaffOpenCodeDispatch.swift`（读 `prompt_delivered`）、`StaffAutoDispatch.swift`（auto 语义）、`StaffFixture` / `BrainFixture`（写了 `assign_followups`）。
-- [ ] desktop-e2e 新增：「已派给」这一行、撤回（新开卡关闭、复用卡只中断）。
-- [ ] i18n：`staff.downgrade.limit_reached` 占位符、删除 `not_follow_up`、新增撤回和重启提示；运行 `python3 scripts/check-i18n.py`。
-- [ ] `norma-brain` skill 文本与提示词同步。
+- [x] `NotFollowUp` 已从策略和文案里删除，相关断言已改。
+- [x] desktop-e2e 夹具已改：`StaffOpenCodeDispatch` 读 `phase`，`StaffAutoDispatch` 读 `Finished`，`StaffFixture` / `BrainFixture` 写 `staff_auto_dispatch`。这轮没有重跑这些旧场景。
+- [ ] desktop-e2e 新增：「已派给」这一行、撤回（新开卡关闭、复用卡只中断）。场景 `staff-withdraw-new` / `staff-withdraw-reuse` 已登记，还没跑。
+- [x] i18n：`staff.downgrade.limit_reached` 用 `%{limit}`，`not_follow_up` 已删，撤回 / 重启 / `staff.worker_queued` 有中英键。`python3 scripts/check-i18n.py` 已通过。
+- [x] `norma-brain` skill 与提示词已改成 5 次和三条降级原因，命令速查始终内联。
+
+## 12. 耗时对照
+
+改动前（2026-11-18 之前，主项目 `brain_turns`，见第 1 节）：
+
+- p50 79.5s
+- p90 181s
+- max 546s
+
+改动后：这次代码还没进正在使用的 App，没有 20 轮真实幕僚记录。不填 p50/p90/max。装上这个版本并用过至少 20 轮之后，再查 `brain_turns` 补这一栏。

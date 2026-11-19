@@ -37,7 +37,7 @@ fn failed_atomic_save_does_not_publish_or_consume_result() {
         "failed result must not appear in published snapshot"
     );
     assert!(
-        unchanged.workers[0].outcome.is_none(),
+        unchanged.workers[0].outcome().is_none(),
         "worker must remain unsettled for retry"
     );
     std::fs::remove_dir(&path).expect("remove fixture obstacle");
@@ -182,7 +182,7 @@ fn service_generations_share_the_atomic_writer() {
 ///
 /// 数据构造：手写 version=1 的 tasks.json，里面是已不存在的 Norma 消息变体。
 /// 执行过程：用新 Store 列出任务 → 创建一个新任务 → 再用另一个 Store 重新加载。
-/// 预期结果：首次 list 为空；原件字节原样保存在 tasks.v1.bak.json；新任务写入 v2 快照后可重新加载。
+/// 预期结果：首次 list 为空；原件字节原样保存在 tasks.v1.bak.json；新任务写入当前版本快照后可重新加载。
 #[test]
 fn v1_snapshot_is_backed_up_and_store_starts_empty() {
     let dir = tempfile::tempdir().expect("root");
@@ -211,7 +211,7 @@ fn v1_snapshot_is_backed_up_and_store_starts_empty() {
     assert_eq!(
         reloaded.list("ws").expect("reload").len(),
         1,
-        "新任务写入 v2 快照后可以重新加载"
+        "新任务写入当前版本快照后可以重新加载"
     );
 }
 

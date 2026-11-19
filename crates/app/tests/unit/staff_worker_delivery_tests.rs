@@ -1,25 +1,17 @@
 use super::{
-    delivery_action, delivery_confirmed, emits_ready_signal, output_is_quiet, quiet_allows_typing,
-    DeliveryAction, DeliveryStage, AGENT_ENTER_DELAY, AGENT_OUTPUT_QUIET, AGENT_STARTUP_GRACE,
-    WORKER_DELIVERY_CONFIRM, WORKER_ENTER_RETRY,
+    emits_ready_signal, output_is_quiet, quiet_allows_typing, startup_can_type, AGENT_OUTPUT_QUIET,
+    AGENT_STARTUP_GRACE,
 };
 use canvas::AgentProfile;
 use std::time::{Duration, Instant};
 
-fn starting(since: Instant, grace_spent: bool) -> DeliveryStage {
-    DeliveryStage::Starting { since, grace_spent }
-}
-
 /// 无 Ready 的 Agent 等到共享 30 秒宽限才打字；Ready 或输出静默可以提前。
 ///
-/// 数据构造：起点 now，宽限 30 秒（与 AGENT_STARTUP_GRACE 同一常量，不另写数值）。
-/// 静默阈值 1500 毫秒：短于 30 秒宽限，长于约 12 毫秒一帧。
+/// 数据构造：宽限 30 秒（与 AGENT_STARTUP_GRACE 同一常量）。静默阈值 1500 毫秒。
 /// 执行过程：29 秒、30 秒、Ready、静默、宽限已标记、卡片拒收输入、dispatch 不匹配各判一次。
-/// 预期结果：只有宽限到达、Ready、静默或重新投递，且卡片能接收输入时才是 Type；不匹配或拒收保持 Wait。
+/// 预期结果：只有宽限到达、Ready、静默或重新投递，且卡片能接收输入、dispatch 匹配时才可打字。
 #[test]
 fn startup_types_on_grace_ready_or_quiet_output() {
-    let now = Instant::now();
-    let stage = starting(now, false);
     assert_eq!(
         AGENT_STARTUP_GRACE,
         Duration::from_secs(30),
@@ -30,181 +22,33 @@ fn startup_types_on_grace_ready_or_quiet_output() {
         Duration::from_millis(1500),
         "quiet window is 1.5 seconds after the first PTY output"
     );
-    assert_eq!(
-        delivery_action(
-            stage,
-            now + Duration::from_secs(29),
-            false,
-            false,
-            true,
-            true
-        ),
-        DeliveryAction::Wait,
+    assert!(
+        !startup_can_type(Duration::from_secs(29), false, false, false, true, true),
         "29 seconds is still inside the 30 second grace"
     );
-    assert_eq!(
-        delivery_action(
-            stage,
-            now + Duration::from_secs(30),
-            false,
-            false,
-            true,
-            true
-        ),
-        DeliveryAction::Type,
+    assert!(
+        startup_can_type(Duration::from_secs(30), false, false, false, true, true),
         "OpenCode, ZCode and Kimi type once the 30 second grace elapses"
     );
-    assert_eq!(
-        delivery_action(stage, now, true, false, true, true),
-        DeliveryAction::Type,
+    assert!(
+        startup_can_type(Duration::ZERO, false, true, false, true, true),
         "a Ready hook types immediately"
     );
-    assert_eq!(
-        delivery_action(stage, now, false, true, true, true),
-        DeliveryAction::Type,
+    assert!(
+        startup_can_type(Duration::ZERO, false, false, true, true, true),
         "quiet PTY output types immediately"
     );
-    assert_eq!(
-        delivery_action(starting(now, true), now, false, false, true, true),
-        DeliveryAction::Type,
+    assert!(
+        startup_can_type(Duration::ZERO, true, false, false, true, true),
         "redelivery spends the grace and types on the next tick"
     );
-    assert_eq!(
-        delivery_action(
-            stage,
-            now + Duration::from_secs(30),
-            true,
-            true,
-            true,
-            false
-        ),
-        DeliveryAction::Wait,
+    assert!(
+        !startup_can_type(Duration::from_secs(30), false, true, true, false, true),
         "a card that still holds input waits instead of failing the worker"
     );
-    assert_eq!(
-        delivery_action(
-            stage,
-            now + Duration::from_secs(30),
-            true,
-            true,
-            false,
-            true
-        ),
-        DeliveryAction::Wait,
+    assert!(
+        !startup_can_type(Duration::from_secs(30), false, true, true, true, false),
         "a different dispatch must not receive this prompt"
-    );
-    assert_ne!(
-        delivery_action(
-            stage,
-            now + Duration::from_secs(29),
-            false,
-            false,
-            true,
-            true
-        ),
-        DeliveryAction::Type,
-        "grace must not fire one second early"
-    );
-}
-
-/// Enter 后只等本轮送达；已补过回车后 15 秒没有 UserPromptSubmit 就转为需要你。
-///
-/// 数据构造：Typed 与 Submitted 的起点都是 now。Enter 延迟 100 毫秒，确认窗口 15 秒。
-/// 执行过程：Typed 未满 100 毫秒、满 100 毫秒、满 100 毫秒但拒收输入、Submitted 14 秒、15 秒且拒收输入，以及各阶段的送达判断。
-/// 预期结果：未满延迟或卡片拒收继续等，到点且能接收输入才按 Enter；14 秒仍等（已补过回车），15 秒 NeedsYou 且不再重试；只有 Submitted 且 dispatch 匹配才算出送达。
-#[test]
-fn enter_then_delivery_timeout_needs_the_user() {
-    let now = Instant::now();
-    let typed = DeliveryStage::Typed { at: now };
-    let submitted = DeliveryStage::Submitted {
-        at: now,
-        retried: true,
-    };
-    assert_eq!(
-        AGENT_ENTER_DELAY,
-        Duration::from_millis(100),
-        "Enter delay must stay the shared 100 millisecond rule"
-    );
-    assert_eq!(
-        WORKER_DELIVERY_CONFIRM,
-        Duration::from_secs(15),
-        "delivery confirmation stays 15 seconds"
-    );
-    assert_eq!(
-        delivery_action(
-            typed,
-            now + Duration::from_millis(99),
-            false,
-            false,
-            true,
-            true
-        ),
-        DeliveryAction::Wait,
-        "paste needs 100 milliseconds before Enter"
-    );
-    assert_eq!(
-        delivery_action(
-            typed,
-            now + Duration::from_millis(100),
-            false,
-            false,
-            true,
-            true
-        ),
-        DeliveryAction::Enter,
-        "Enter is sent once the shared delay elapses"
-    );
-    assert_eq!(
-        delivery_action(
-            typed,
-            now + Duration::from_millis(100),
-            false,
-            false,
-            true,
-            false
-        ),
-        DeliveryAction::Wait,
-        "Enter waits while the card is not accepting input"
-    );
-    assert_eq!(
-        delivery_action(
-            submitted,
-            now + Duration::from_secs(14),
-            false,
-            false,
-            true,
-            true
-        ),
-        DeliveryAction::Wait,
-        "14 seconds is still inside the 15 second confirmation window"
-    );
-    assert_eq!(
-        delivery_action(
-            submitted,
-            now + Duration::from_secs(15),
-            true,
-            true,
-            true,
-            false
-        ),
-        DeliveryAction::NeedsYou,
-        "15 seconds without UserPromptSubmit asks the user and does not retry"
-    );
-    assert!(
-        delivery_confirmed(submitted, true),
-        "UserPromptSubmit confirms only the submitted round"
-    );
-    assert!(
-        !delivery_confirmed(submitted, false),
-        "another node's submit does not confirm this worker"
-    );
-    assert!(
-        !delivery_confirmed(typed, true),
-        "a submit that arrives before Enter is not this round"
-    );
-    assert!(
-        !delivery_confirmed(starting(now, false), true),
-        "startup output is not delivery"
     );
 }
 
@@ -227,69 +71,6 @@ fn quiet_requires_output_then_one_and_a_half_seconds() {
     assert!(
         output_is_quiet(Some(now - Duration::from_millis(1500)), now),
         "1500 milliseconds after the last PTY output is quiet enough to type"
-    );
-}
-
-/// 回车后 5 秒仍无确认，补一次回车；只补一次，之后等满 15 秒才判未送达。
-///
-/// 数据构造：第一次回车时间 now；重试窗口 5 秒、确认窗口 15 秒；retried 分别为 false 与 true。
-/// 执行过程：未重试时判 4 秒、5 秒、5 秒但卡片拒收输入、15 秒；已重试时判 5 秒、14 秒。
-/// 预期结果：未重试 4 秒等待，5 秒 Enter，拒收输入时等待，15 秒 NeedsYou；已重试 5 秒与 14 秒都等待，不再按第二次。
-#[test]
-fn enter_is_retried_once_before_needs_you() {
-    let now = Instant::now();
-    let fresh = DeliveryStage::Submitted {
-        at: now,
-        retried: false,
-    };
-    let retried = DeliveryStage::Submitted {
-        at: now,
-        retried: true,
-    };
-    assert_eq!(
-        WORKER_ENTER_RETRY,
-        Duration::from_secs(5),
-        "retry window stays 5 seconds"
-    );
-    let act = |stage, secs, accepts| {
-        delivery_action(
-            stage,
-            now + Duration::from_secs(secs),
-            false,
-            false,
-            true,
-            accepts,
-        )
-    };
-    assert_eq!(
-        act(fresh, 4, true),
-        DeliveryAction::Wait,
-        "4 seconds is too early to retry"
-    );
-    assert_eq!(
-        act(fresh, 5, true),
-        DeliveryAction::Enter,
-        "unconfirmed after 5 seconds retries Enter"
-    );
-    assert_eq!(
-        act(fresh, 5, false),
-        DeliveryAction::Wait,
-        "a card holding input is not poked"
-    );
-    assert_eq!(
-        act(fresh, 15, true),
-        DeliveryAction::NeedsYou,
-        "the 15 second deadline still wins"
-    );
-    assert_eq!(
-        act(retried, 5, true),
-        DeliveryAction::Wait,
-        "Enter is retried at most once"
-    );
-    assert_eq!(
-        act(retried, 14, true),
-        DeliveryAction::Wait,
-        "retried round waits out the window"
     );
 }
 

@@ -1,5 +1,5 @@
 //! Native ACP questions are durable cards; the original tool receives no user answers.
-use super::{client::AcpError, wire::Connection};
+use super::{client::AcpError, wire::Rpc};
 use crate::{
     event::{BrainStatus, BrainStatusKind},
     staff::TaskStore,
@@ -73,7 +73,7 @@ impl QuestionHost {
         !self.pending.is_empty()
     }
 
-    pub(super) fn poll(&mut self, conn: &mut Connection, expire: bool) -> Result<(), AcpError> {
+    pub(super) fn poll(&mut self, conn: &mut impl Rpc, expire: bool) -> Result<(), AcpError> {
         if self.pending.is_empty() {
             return Ok(());
         }

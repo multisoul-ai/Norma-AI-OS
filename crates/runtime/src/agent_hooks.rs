@@ -120,7 +120,7 @@ impl Runtime {
     ) -> Option<AgentHookEnv> {
         self.agent_hook_config.as_ref().map(|config| AgentHookEnv {
             control_run_id: self.native_question_process_id(node_id).map(str::to_owned),
-            dispatch_id: self.staff_dispatch_id(node_id).map(str::to_owned),
+            dispatch_id: self.staff_spawn_id(node_id).map(str::to_owned),
             node_id,
             profile,
             endpoint: config.endpoint.clone(),

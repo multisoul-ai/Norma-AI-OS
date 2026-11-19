@@ -44,11 +44,13 @@ public enum StaffProtocolFixture {
         assert result.returncode == 0, result.stderr
         update(dict(sessionUpdate='tool_call_update',toolCallId=str(counter),status='completed',rawOutput=result.stdout))
         return json.loads(result.stdout)
+    remembered = {}
     while True:
         message = read(); method, mid = message.get('method'), message.get('id')
         if method == 'initialize': send(dict(jsonrpc='2.0',id=mid,result=dict(protocolVersion=1,agentCapabilities={})))
         elif method == 'session/new':
-            assert 'AskUserQuestion' in message['params']['_meta']['claudeCode']['options']['tools']
+            tools = message['params']['_meta']['claudeCode']['options']['tools']
+            assert tools == ['Bash', 'Read'], tools
             send(dict(jsonrpc='2.0',id=mid,result=dict(sessionId='protocol')))
         elif method == 'session/prompt':
             text = ''.join(p.get('text','') for p in message['params']['prompt'])
@@ -64,9 +66,24 @@ public enum StaffProtocolFixture {
                     time.sleep(.05)
                 update(dict(sessionUpdate='agent_message_chunk',content=dict(type='text',text='Dark selected. Review proposal ready.')))
             else:
-                match = re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})',text)
-                assert match, text
-                scope, task = json.loads(match[1]), json.loads(match[2])
+                full = re.search(r'作用域：(\{.*\})\n任务快照：(\{.*\})',text)
+                if full:
+                    scope, task = json.loads(full[1]), json.loads(full[2])
+                    remembered.update(scope=scope, task=task, binary=shlex.split(re.search(r'命令速查（都以 (.*?) brain 开头）', text)[1])[0])
+                elif '新增消息：' in text and 'task' in remembered:
+                    fresh = json.loads(text.split('新增消息：', 1)[1].split('\n状态变化：', 1)[0])
+                    task = remembered['task']
+                    task.setdefault('messages', [])
+                    for item in fresh:
+                        task['messages'].append(json.loads(item) if isinstance(item, str) else item)
+                    if '\n状态变化：' in text:
+                        state = json.loads(text.split('\n状态变化：', 1)[1])
+                        for key in ('revision', 'phase', 'proposals', 'workers', 'questions'):
+                            if key in state: task[key] = state[key]
+                    scope = remembered['scope']
+                else:
+                    raise AssertionError(text)
+                scope, task = remembered['scope'], remembered['task']
                 if not task['questions']:
                     send(dict(jsonrpc='2.0',id=42,method='elicitation/create',params=dict(mode='form',sessionId='protocol',toolCallId='native-question',message='Questions',requestedSchema={
                         'type':'object','properties':{
@@ -77,7 +94,7 @@ public enum StaffProtocolFixture {
                     record('question-replies.jsonl',answer)
                 else:
                     assert any('Dark' in row.get('answer','') for row in task['messages']), task
-                    binary = shlex.split(re.search(r'命令速查（都以 (.*?) brain 开头）', text)[1])[0]
+                    binary = remembered['binary']
                     base = [binary,'brain','--workspace',scope['workspace_id'],'--route',scope['route_id']]
                     roster = command(shlex.join(base+['agents']),'Read agents')
                     agents = json.loads(roster['result']['Brain']['output'])['agents']

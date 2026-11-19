@@ -2,11 +2,20 @@
 use super::worker::Job;
 use std::time::Duration;
 
-/// 任务会话的空闲回收：空闲满 `after` 后调 `retire`；它返回 `Some(job)` 说明
-/// 这时又来了新任务，继续处理；返回 `None` 表示已从调度表里注销，线程可以退出。
+/// 空闲轮询的结果。`Job` 表示自己的队列里又有活，继续处理。
+pub enum Tick {
+    Stay,
+    Exit,
+    Job(Job),
+}
+
+/// 任务会话的空闲回收：每轮空等都会调 `poll`（有人排队就驱逐）。
+/// 空闲满 `after` 后调 `retire`；它返回 `Some(job)` 说明这时又来了新任务，
+/// 返回 `None` 表示已从调度表里注销，线程可以退出。
 pub struct Idle {
     pub after: Duration,
     pub retire: Box<dyn Fn() -> Option<Job> + Send>,
+    pub poll: Option<Box<dyn Fn(bool) -> Tick + Send>>,
 }
 
 /// 会话的任务 token 随会话一起失效：被替换或线程退出时撤销。
