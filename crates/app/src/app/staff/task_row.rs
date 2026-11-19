@@ -156,7 +156,53 @@ impl MultisoulApp {
                 .into(),
             )
             .active(rgba(selected_tint(light)).into());
-        let (task_id, title) = (id.clone(), task.title.clone());
+        let show_archive = !self.staff.archive_view;
+        let normal_title = div()
+            .row_start(1)
+            .col_start(1)
+            .min_w_0()
+            .flex()
+            .items_baseline()
+            .gap(px(SPACE_2))
+            .child(
+                text(BODY)
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .child(task.title.clone()),
+            )
+            .child(
+                text(BODY)
+                    .flex_none()
+                    .text_color(rgba(theme.text_tertiary))
+                    .child(task_time_now(task.updated_at)),
+            );
+        // 两种标题共用同一格。悬停只切换透明度，让两个文本都完成预绘制。
+        let title_line = div()
+            .w_full()
+            .min_w_0()
+            .grid()
+            .grid_cols(1)
+            .child(normal_title.when(show_archive, |line| {
+                line.group_hover(group.clone(), |style| style.opacity(0.))
+            }))
+            .when(show_archive, |line| {
+                line.child(
+                    text(BODY)
+                        .row_start(1)
+                        .col_start(1)
+                        .min_w_0()
+                        .truncate()
+                        .text_color(rgba(theme.text_secondary))
+                        .opacity(0.)
+                        .group_hover(group.clone(), |style| style.opacity(1.))
+                        .child(ui::i18n::format(
+                            "staff.archive_named",
+                            &[("title", task.title.clone())],
+                        )),
+                )
+            });
+        let task_id = id.clone();
         let mut row = Button::new(gpui::SharedString::from(format!("staff-task-{id}")))
             .debug_selector({
                 let id = id.clone();
@@ -186,49 +232,7 @@ impl MultisoulApp {
                     .flex_col()
                     .items_start()
                     .gap(px(SPACE_1))
-                    .child(
-                        div()
-                            .w_full()
-                            .min_w_0()
-                            .flex()
-                            .items_baseline()
-                            .gap(px(SPACE_2))
-                            .child(
-                                text(BODY)
-                                    .flex_1()
-                                    .min_w_0()
-                                    .truncate()
-                                    .child(task.title.clone()),
-                            )
-                            .child({
-                                let time = text(BODY)
-                                    .flex_none()
-                                    .text_color(rgba(theme.text_tertiary))
-                                    .child(task_time_now(task.updated_at));
-                                if self.staff.archive_view {
-                                    time
-                                } else {
-                                    time.group_hover(group.clone(), |style| style.hidden())
-                                }
-                            })
-                            .when(!self.staff.archive_view, |line| {
-                                // 悬停时替掉时间，留在标题行里，不盖住下一行，也不伸出侧栏。
-                                line.child(
-                                    text(BODY)
-                                        .hidden()
-                                        .min_w_0()
-                                        .truncate()
-                                        .text_color(rgba(theme.text_secondary))
-                                        .group_hover(group.clone(), |style| {
-                                            style.flex().flex_1().min_w_0()
-                                        })
-                                        .child(ui::i18n::format(
-                                            "staff.archive_named",
-                                            &[("title", title.clone())],
-                                        )),
-                                )
-                            }),
-                    )
+                    .child(title_line)
                     .child(
                         div()
                             .w_full()
@@ -251,7 +255,7 @@ impl MultisoulApp {
                             ),
                     ),
             );
-        if !self.staff.archive_view {
+        if show_archive {
             let archive_id = id.clone();
             let selector_id = id.clone();
             row = row.child(
@@ -289,7 +293,74 @@ impl MultisoulApp {
 
 #[cfg(test)]
 mod tests {
-    use super::task_text_width;
+    use super::*;
+    use gpui::{point, AppContext, Entity, Modifiers, TestAppContext, Window};
+
+    /// 场景：鼠标经过幕僚任务行时，归档提示应正常绘制。
+    /// 数据构造：一条未归档任务，侧栏宽 280px，标题列按常规归档侧栏计算。
+    /// 执行过程：绘制任务行 → 将鼠标移到行中心再重绘 → 移到行下方 1px（行外）再重绘。
+    /// 预期结果：悬停和离开均可完成绘制，任务行和归档按钮的边界保持稳定。
+    #[test]
+    fn staff_task_row_paints_when_hovered() {
+        struct TaskRowHost(Entity<MultisoulApp>, Task);
+
+        impl Render for TaskRowHost {
+            fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+                div()
+                    .pt(px(SPACE_3))
+                    .w(px(280.))
+                    .child(self.0.update(cx, |app, cx| {
+                        app.staff_task_row(&self.1, "Project", task_text_width(280., true), cx)
+                    }))
+            }
+        }
+
+        let dir = tempfile::tempdir().expect("isolated project");
+        let paths = storage::DatabasePaths::isolated_test(dir.path());
+        let mut test = TestAppContext::single();
+        let (_, cx) = test.add_window_view(|_, cx| {
+            let app = cx.new(|cx| {
+                MultisoulApp::new_with_pty_factory_and_database_paths(
+                    cx,
+                    Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+                    paths,
+                )
+            });
+            TaskRowHost(app, Task::new("hover", "w", "p", "Archive hover"))
+        });
+        cx.update(|window, cx| window.draw(cx).clear());
+        let row = cx
+            .debug_bounds("staff-task-hover")
+            .expect("initial task row");
+        let archive = cx
+            .debug_bounds("staff-archive-row-hover")
+            .expect("initial archive hit target");
+
+        cx.simulate_mouse_move(row.center(), None, Modifiers::default());
+        cx.update(|window, cx| window.draw(cx).clear());
+        assert_eq!(
+            cx.debug_bounds("staff-task-hover"),
+            Some(row),
+            "hovering should paint the task row at its original position"
+        );
+        assert_eq!(
+            cx.debug_bounds("staff-archive-row-hover"),
+            Some(archive),
+            "hovering should paint the archive button at its original hit target"
+        );
+
+        cx.simulate_mouse_move(
+            point(row.center().x, row.bottom() + px(1.)),
+            None,
+            Modifiers::default(),
+        );
+        cx.update(|window, cx| window.draw(cx).clear());
+        assert_eq!(
+            cx.debug_bounds("staff-task-hover"),
+            Some(row),
+            "leaving should restore the regular row without shifting it"
+        );
+    }
 
     /// 归档命中列从标题列里扣掉，文字在按钮左边结束。
     ///
