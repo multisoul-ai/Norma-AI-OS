@@ -2,7 +2,7 @@ use super::{DialogueTtsClient, FakeTtsClient, SherpaTtsClient};
 use audio::PcmAudioChunk;
 use std::sync::Arc;
 
-pub(super) struct LocalStreamState {
+pub(crate) struct LocalStreamState {
     sink: Arc<dyn tts::TtsChunkSink>,
     chunk_count: u64,
     byte_count: u64,
@@ -41,6 +41,34 @@ impl tts::TtsClient for SherpaTtsClient {
             Err(error) => return fail_local_stream(&mut self.stream, error),
         };
         deliver_local_chunk(&mut self.stream, chunk)
+    }
+
+    fn finish_stream(&mut self) -> Result<(), tts::TtsError> {
+        finish_local_stream(&mut self.stream)
+    }
+
+    fn cancel_stream(&mut self) {
+        cancel_local_stream(&mut self.stream);
+    }
+}
+
+impl tts::TtsClient for crate::Qwen3TtsClient {
+    fn start_stream(&mut self, sink: Arc<dyn tts::TtsChunkSink>) -> Result<(), tts::TtsError> {
+        start_local_stream(&mut self.stream, sink)
+    }
+
+    fn push_text(&mut self, text: &str) -> Result<(), tts::TtsError> {
+        let mut stream = self.stream.take();
+        let mut delivered = Ok(());
+        let result = self.synthesize(text, |chunk| {
+            delivered = deliver_local_chunk(&mut stream, chunk);
+            delivered.is_ok()
+        });
+        self.stream = stream;
+        match result {
+            Err(error) => fail_local_stream(&mut self.stream, error),
+            Ok(()) => delivered,
+        }
     }
 
     fn finish_stream(&mut self) -> Result<(), tts::TtsError> {

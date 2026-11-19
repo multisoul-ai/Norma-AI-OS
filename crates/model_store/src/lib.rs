@@ -3,7 +3,8 @@
 mod installation;
 mod verified_files;
 pub use verified_files::{
-    install_verified_files, validate_file_contents, validate_verified_files, VerifiedFile,
+    install_verified_files, validate_file_contents, validate_verified_files,
+    verified_files_artifact, VerifiedFile,
 };
 
 #[cfg(test)]

@@ -11,7 +11,7 @@ use voice_input::pcm16_bytes_from_f32_samples;
 
 #[path = "tts/stream.rs"]
 mod stream;
-use stream::LocalStreamState;
+pub(crate) use stream::LocalStreamState;
 
 /// Energy-free silent PCM for unit tests.
 pub struct FakeTtsClient {
@@ -101,6 +101,9 @@ impl SherpaTtsClient {
                 })?;
                 Self::from_zipvoice_model_dir(model.root(), reference)
             }
+            tts::TtsBackend::Qwen3 => Err(SpeechError::ModelNotFound(
+                "Qwen3-TTS runs on the A1 engine, not Sherpa".to_string(),
+            )),
         }
     }
 

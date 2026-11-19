@@ -6,6 +6,7 @@ mod model_id;
 mod profile;
 mod provider;
 pub mod providers;
+mod qwen3_files;
 mod stream;
 mod voice_catalog;
 mod voice_reference;
@@ -14,7 +15,7 @@ pub use catalog::{
     builtin_model_catalog, TtsBackend, TtsCapabilities, TtsModelCatalog, TtsModelDescriptor,
     TtsModelPackage, TtsModelRecommendation, TtsReleaseGate, TtsSupportArtifact,
     TtsVoiceDescriptor, KOKORO_MULTI_LANG_MODEL_ID, MATCHA_ZH_EN_MODEL_ID, MATCHA_ZH_MODEL_ID,
-    ZIPVOICE_DISTILL_INT8_MODEL_ID,
+    QWEN3_TTS_MODEL_ID, ZIPVOICE_DISTILL_INT8_MODEL_ID,
 };
 pub use installation::{
     default_model_installation_root, install_downloaded_package, model_installation_root,

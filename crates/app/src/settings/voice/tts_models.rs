@@ -238,6 +238,40 @@ pub(crate) fn download_tts_package(
     Ok(DownloadedTtsPackage { archive, support })
 }
 
+/// Resumable per-file install for packages without an archive (Qwen3-TTS on HuggingFace).
+/// The stage survives failure and cancellation so a retry continues where it stopped.
+pub(crate) fn install_verified_tts_files(
+    descriptor: &TtsModelDescriptor,
+    root: &Path,
+    cancelled: &AtomicBool,
+    mut progress: impl FnMut(u64, u64),
+) -> Result<(), String> {
+    let package = descriptor.package();
+    let staged = root.join(".downloads").join(descriptor.id().as_str());
+    let total = package.download_bytes();
+    let mut completed = 0;
+    for file in package.verified_files() {
+        super::a1_install::download_verified_file(
+            &package.file_url(file),
+            file,
+            &staged,
+            cancelled,
+            |done, _| progress(completed + done, total),
+        )
+        .map_err(|error| format!("could not download {}: {error:?}", file.path))?;
+        completed += file.bytes;
+    }
+    model_store::install_verified_files(
+        descriptor.id().as_str(),
+        package.verified_files(),
+        &staged,
+        root,
+    )
+    .map_err(|error| error.to_string())?;
+    let _ = fs::remove_dir_all(&staged);
+    Ok(())
+}
+
 #[cfg(test)]
 #[path = "../../../tests/unit/tts_model_manager_tests.rs"]
 mod tts_model_manager_tests;
