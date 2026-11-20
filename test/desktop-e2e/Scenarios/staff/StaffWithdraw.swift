@@ -164,7 +164,8 @@ public enum StaffWithdrawReuse {
                 throw E2EError.product("复用的卡 \(node) 被关掉了")
             }
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "withdraw-note", text: "对话里有一张 Grace 已中断的卡，写明用户撤回了派给 Grace 的再派一次。撤回按钮已消失，没有错误提示。")
+                VisualCriterion(id: "withdraw-note", text: "对话里有一张 Grace 已中断的卡，写明用户撤回了派给 Grace 的再派一次。撤回按钮已消失，没有错误提示。"),
+                VisualCriterion(id: "single-worker", text: "任务页顶部标题下方的 Worker 栏只有一张 Grace 卡，状态显示「已中断」，对应刚撤回的这次派发。")
             ]), "01-withdraw-note.png")
             try await session.visualClick("点击右上角的「返回画布」按钮回到画布")
             try session.save(try await session.visualCheck([
