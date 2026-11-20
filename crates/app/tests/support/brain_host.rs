@@ -72,6 +72,35 @@ impl BrainHostState {
 }
 
 impl MultisoulApp {
+    pub(in crate::app) fn install_staff_store_for_test(
+        &mut self,
+        directory: &std::path::Path,
+    ) -> std::sync::Arc<brain::staff::TaskStore> {
+        let mut config = brain::BrainConfig::new(
+            brain::Backend {
+                kind: brain::BackendKind::ClaudeCode,
+                program: "/must-not-launch".into(),
+                args: Vec::new(),
+            },
+            "/fixture/norma".into(),
+            directory.join("global"),
+            directory.join("staff"),
+        );
+        config.router.summary_every = None;
+        let (service, status) = brain::BrainService::start(config);
+        let store = service.tasks();
+        self.install_brain_host_for_test(BrainHost {
+            service: Some(service),
+            status,
+            tokens: brain::staff::gate::Tokens::new("staff-removal-test"),
+        });
+        self.brain.settings = Some(config::BrainSettings {
+            enabled: true,
+            ..Default::default()
+        });
+        store
+    }
+
     pub(in crate::app::brain_host) fn install_brain_host_for_test(&mut self, host: BrainHost) {
         if self.brain.client.is_none() {
             let owner = SharedBrain::default();

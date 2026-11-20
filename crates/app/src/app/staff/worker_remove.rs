@@ -9,6 +9,10 @@ use ui::component::{
 };
 use ui::i18n::text as t;
 
+#[cfg(test)]
+#[path = "../../../tests/unit/staff_worker_remove_tests.rs"]
+mod tests;
+
 #[derive(Clone)]
 pub(super) struct RemoveRequest {
     pub task_id: String,
@@ -186,7 +190,10 @@ impl MultisoulApp {
     /// 确认框和提示条一样放在桌面宿主里渲染。
     pub(super) fn set_remove_ask(&mut self, ask: Option<WorkerRemoveAsk>, cx: &mut Context<Self>) {
         if let Some(host) = self.desktop_host.clone() {
-            let _ = host.update(cx, |host, cx| host.set_remove_ask(ask, cx));
+            // 宿主可能正在把这次菜单操作转交给项目，等它结束更新后再回写。
+            cx.defer(move |cx| {
+                let _ = host.update(cx, |host, cx| host.set_remove_ask(ask, cx));
+            });
             return;
         }
         self.staff.remove_ask = ask;
