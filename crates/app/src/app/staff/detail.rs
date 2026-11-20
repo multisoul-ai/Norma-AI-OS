@@ -4,8 +4,9 @@ use super::{
     *,
 };
 use gpui::{div, prelude::*, px, rgba, Div, Stateful};
-use norma::protocol::{TaskDisplayStatus, WorkerChip, WorkerOutcome};
+use norma::protocol::{TaskDisplayStatus, Worker, WorkerChip, WorkerOutcome};
 use runtime::island::bloub::Mood;
+use std::collections::HashMap;
 use ui::component::{
     button::{Button, ButtonVariants},
     menu::{DropdownMenu, PopupMenu, PopupMenuItem},
@@ -69,7 +70,7 @@ impl MultisoulApp {
                     .child(t("staff.no_workers")),
             );
         }
-        for (index, worker) in task.workers.iter().enumerate() {
+        for (index, worker) in workers_for_strip(&task.workers).into_iter().enumerate() {
             let chip = worker.chip();
             let color = match chip {
                 WorkerChip::NeedsYou => theme.accent_warm,
@@ -157,6 +158,23 @@ impl MultisoulApp {
         }
         strip
     }
+}
+
+fn workers_for_strip(workers: &[Worker]) -> Vec<&Worker> {
+    let mut visible = Vec::new();
+    let mut card_positions = HashMap::new();
+    for worker in workers {
+        if let Some(card_id) = worker.card_id {
+            // 派发按顺序追加，复用时让最新派发更新原卡的位置。
+            let position = *card_positions.entry(card_id).or_insert(visible.len());
+            if position < visible.len() {
+                visible[position] = worker;
+                continue;
+            }
+        }
+        visible.push(worker);
+    }
+    visible
 }
 
 /// Pet mood for a worker chip; a finished-but-unsuccessful outcome looks failed, not happy.
@@ -267,6 +285,41 @@ fn worker_menu(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use norma::protocol::WorkerPhase;
+
+    /// 场景：同一张卡收到第二次派发后，顶部继续显示一张卡并更新状态。
+    /// 数据构造：卡 7 有一轮成功分析和一轮运行中的修复，中间加入同名的卡 8。
+    /// 执行过程：顶部读取最新任务快照，生成用于渲染的 Worker 列表。
+    /// 预期结果：卡 7 原位展示修复轮，分析轮从顶部消失，同名的卡 8 仍单独出现。
+    #[test]
+    fn staff_worker_strip_shows_latest_dispatch_once_per_card() {
+        let mut analysis = Worker::new("Bruno", "Claude", "分析", 7, "analysis");
+        analysis.phase = WorkerPhase::Finished(WorkerOutcome::Succeeded);
+        let other = Worker::new("Bruno", "Claude", "其他工作", 8, "other");
+        let mut repair = Worker::new("Bruno", "Claude", "修复", 7, "repair");
+        repair.reused = true;
+        repair.phase = WorkerPhase::Running;
+        let workers = [analysis, other, repair];
+
+        let visible = workers_for_strip(&workers);
+        assert_eq!(visible.len(), 2, "顶部应只显示两张不同的卡");
+        assert_eq!(
+            visible[0].dispatch_id, "repair",
+            "卡 7 应在原位置使用最新派发"
+        );
+        assert_eq!(
+            visible[0].chip(),
+            WorkerChip::Running,
+            "卡 7 应显示最新派发的执行状态"
+        );
+        assert!(
+            visible
+                .iter()
+                .all(|worker| worker.dispatch_id != "analysis"),
+            "已完成的分析轮不应再占一张顶部卡片"
+        );
+        assert_eq!(visible[1].dispatch_id, "other", "同名的卡 8 应继续单独显示");
+    }
 
     #[test]
     fn worker_mood_follows_chip_and_outcome() {
