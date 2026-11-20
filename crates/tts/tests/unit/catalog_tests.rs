@@ -3,7 +3,7 @@ use crate::{builtin_model_catalog, TtsBackend, TtsReleaseGate};
 /// TTS-CATALOG-1：内置轻量模型必须声明 Matcha 中英双语包的完整安装契约。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   catalog models   = 3（Matcha zh-en + Kokoro multi-language + ZipVoice experimental）
+///   catalog models   = 4（Matcha zh-en + Kokoro multi-language + ZipVoice experimental + Qwen3-TTS）
 ///   archive bytes    = 79,033,838（已下载发布包的 Content-Length）
 ///   vocoder bytes    = 53,882,848（已下载 16 kHz Vocos 的 Content-Length）
 ///   download total   = 79,033,838 + 53,882,848 = 132,916,686 bytes
@@ -32,8 +32,8 @@ fn test_builtin_catalog_declares_matcha_zh_en_installation_contract() {
 
     assert_eq!(
         catalog.entries().len(),
-        3,
-        "产品目录应包含 Matcha、Kokoro 与实验性 ZipVoice，共 3 项"
+        4,
+        "产品目录应包含 Matcha、Kokoro、实验性 ZipVoice 与 Qwen3-TTS，共 4 项"
     );
     assert_eq!(
         matcha.display_name(),
@@ -383,10 +383,11 @@ fn test_model_switch_falls_back_to_recommended_voice() {
 /// TTS-CATALOG-4：语音设置只能展示已核对的本机模型与音色。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   catalog models = 3
+///   catalog models = 4
 ///   Matcha zh-en voices = 1（default / Default Bilingual Voice）
 ///   Kokoro voices = 2（af_heart / Heart，af_bella / Bella）
 ///   ZipVoice voices = 1（cloned_reference / Cloned Reference Voice）
+///   Qwen3-TTS voices = 9（CustomVoice 预置说话人）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取内置目录的模型 ID 与每个模型的 Voice ID、显示名；
@@ -410,8 +411,9 @@ fn test_settings_surface_uses_only_verified_local_voices() {
             "matcha-icefall-zh-en",
             "kokoro-int8-multi-lang-v1_1",
             "zipvoice-distill-int8-zh-en-emilia",
+            "qwen3-tts-0.6b-customvoice-8bit",
         ],
-        "设置页本机模型必须按目录顺序只含已核对的三项"
+        "设置页本机模型必须按目录顺序只含已核对的四项"
     );
 
     let voices = |id: &str| -> Vec<(&str, &str)> {
@@ -447,5 +449,50 @@ fn test_settings_surface_uses_only_verified_local_voices() {
             .iter()
             .any(|(id, _)| *id == "default"),
         "Kokoro 没有 default 音色，不能照原型补一个"
+    );
+}
+
+/// TTS-CATALOG-QWEN3：Qwen3-TTS 以固定 HuggingFace revision 的逐文件清单安装，复用 A1 引擎推理。
+///
+/// 数据构造：
+///   files          = 12（主模型、speech_tokenizer 及配置，来自 revision 049ef77f 的实际快照）
+///   download total = 1,973,572,801 bytes（12 个文件 Content-Length 之和）
+///   sample rate    = 24,000 Hz（mlx-audio Qwen3-TTS 实测输出）
+///
+/// 执行过程：查找目录项，读取后端、采样率、音色、逐文件清单与下载地址。
+///
+/// 预期结果：
+///   - 正断言：后端为 Qwen3，9 个预置音色，推荐 vivian，下载总量等于逐文件之和；
+///   - 负断言：下载地址不得使用可变的 main 分支，归档清单不得为空。
+#[test]
+fn test_builtin_catalog_declares_qwen3_tts_verified_files_contract() {
+    let catalog = builtin_model_catalog();
+    let qwen = catalog
+        .find_by_str(crate::QWEN3_TTS_MODEL_ID)
+        .expect("内置目录应包含 Qwen3-TTS");
+    let files = qwen.package().verified_files();
+    assert_eq!(qwen.backend(), TtsBackend::Qwen3, "必须路由到 Qwen3 后端");
+    assert_eq!(qwen.capabilities().sample_rate_hz(), 24_000, "输出 24 kHz");
+    assert_eq!(qwen.voices().len(), 9, "CustomVoice 提供 9 个预置音色");
+    assert_eq!(
+        qwen.resolve_voice_id(None).as_str(),
+        "vivian",
+        "默认音色应为中文女声 vivian"
+    );
+    assert_eq!(files.len(), 12, "逐文件清单必须完整");
+    assert_eq!(
+        qwen.package().download_bytes(),
+        1_973_572_801,
+        "下载总量必须等于逐文件大小之和"
+    );
+    let url = qwen.package().file_url(&files[0]);
+    assert!(
+        url.contains("/resolve/049ef77fe8816b536193c0c25f9a214d17921282/"),
+        "下载地址必须固定 revision: {url}"
+    );
+    assert!(!url.contains("/resolve/main/"), "不得使用可变 main 分支");
+    assert!(
+        qwen.package().support_artifacts().is_empty(),
+        "逐文件包不应再声明辅助下载"
     );
 }

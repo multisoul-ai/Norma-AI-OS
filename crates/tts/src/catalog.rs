@@ -1,16 +1,20 @@
 use crate::{TtsModelId, TtsVoiceId};
-use model_store::ModelArtifact;
+use model_store::{ModelArtifact, VerifiedFile};
 
 pub const MATCHA_ZH_MODEL_ID: &str = "matcha-icefall-zh-baker";
 pub const MATCHA_ZH_EN_MODEL_ID: &str = "matcha-icefall-zh-en";
 pub const KOKORO_MULTI_LANG_MODEL_ID: &str = "kokoro-int8-multi-lang-v1_1";
 pub const ZIPVOICE_DISTILL_INT8_MODEL_ID: &str = "zipvoice-distill-int8-zh-en-emilia";
+pub const QWEN3_TTS_MODEL_ID: &str = "qwen3-tts-0.6b-customvoice-8bit";
+const QWEN3_TTS_BASE_URL: &str = "https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit/resolve/049ef77fe8816b536193c0c25f9a214d17921282";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TtsBackend {
     Matcha,
     Kokoro,
     ZipVoice,
+    /// MLX model run by the managed A1 Python engine, not by Sherpa.
+    Qwen3,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -96,6 +100,8 @@ impl TtsSupportArtifact {
 pub struct TtsModelPackage {
     archive: ModelArtifact,
     support_artifacts: Vec<TtsSupportArtifact>,
+    base_url: String,
+    verified_files: Vec<VerifiedFile>,
 }
 
 impl TtsModelPackage {
@@ -103,7 +109,29 @@ impl TtsModelPackage {
         Self {
             archive,
             support_artifacts,
+            base_url: String::new(),
+            verified_files: Vec::new(),
         }
+    }
+
+    /// Individually downloaded files; `archive` is the manifest `install_verified_files` writes.
+    pub fn from_verified_files(base_url: &str, files: Vec<VerifiedFile>) -> Self {
+        Self {
+            archive: model_store::verified_files_artifact(&files)
+                .expect("built-in verified TTS file list must be valid"),
+            support_artifacts: Vec::new(),
+            base_url: base_url.to_string(),
+            verified_files: files,
+        }
+    }
+
+    /// Empty for archive packages.
+    pub fn verified_files(&self) -> &[VerifiedFile] {
+        &self.verified_files
+    }
+
+    pub fn file_url(&self, file: &VerifiedFile) -> String {
+        format!("{}/{}", self.base_url, file.path)
     }
 
     pub fn archive(&self) -> &ModelArtifact {
@@ -281,6 +309,21 @@ pub fn builtin_model_catalog() -> TtsModelCatalog {
     let heart = voice("af_heart", "Heart", 0);
     let bella = voice("af_bella", "Bella", 1);
     let cloned = voice("cloned_reference", "Cloned Reference Voice", 0);
+    let qwen3_voices: Vec<_> = [
+        ("vivian", "Vivian"),
+        ("serena", "Serena"),
+        ("uncle_fu", "Uncle Fu"),
+        ("dylan", "Dylan"),
+        ("eric", "Eric"),
+        ("ryan", "Ryan"),
+        ("aiden", "Aiden"),
+        ("ono_anna", "Ono Anna"),
+        ("sohee", "Sohee"),
+    ]
+    .into_iter()
+    .zip(0..)
+    .map(|((id, name), index)| voice(id, name, index))
+    .collect();
     TtsModelCatalog {
         entries: vec![
             descriptor(
@@ -368,6 +411,15 @@ pub fn builtin_model_catalog() -> TtsModelCatalog {
                 TtsReleaseGate::M4PerformancePending,
                 TtsReleaseGate::EmiliaDistributionAuditPending,
             ]),
+            descriptor(
+                QWEN3_TTS_MODEL_ID,
+                "Qwen3-TTS 0.6B",
+                TtsBackend::Qwen3,
+                TtsCapabilities::new(vec!["zh", "en"], 24_000),
+                TtsModelPackage::from_verified_files(QWEN3_TTS_BASE_URL, crate::qwen3_files::qwen3_tts_files()),
+                qwen3_voices.clone(),
+                TtsModelRecommendation::new(qwen3_voices[0].id().clone(), false),
+            ),
         ],
     }
 }

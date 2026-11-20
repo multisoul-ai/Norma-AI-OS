@@ -7,7 +7,7 @@ use std::io;
 use std::path::{Component, Path, PathBuf};
 
 /// Release-pinned file metadata. Network access belongs to the caller.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct VerifiedFile {
     pub path: String,
     pub bytes: u64,
@@ -31,7 +31,8 @@ fn io_error(path: &Path, error: io::Error) -> InstallationError {
     }
 }
 
-fn artifact(files: &[VerifiedFile]) -> Result<ModelArtifact, InstallationError> {
+/// Installation manifest artifact for a verified file list, as written by `install_verified_files`.
+pub fn verified_files_artifact(files: &[VerifiedFile]) -> Result<ModelArtifact, InstallationError> {
     let mut names = std::collections::BTreeSet::new();
     if files.is_empty()
         || files.iter().any(|f| {
@@ -100,7 +101,7 @@ pub fn validate_file_contents(
     files: &[VerifiedFile],
     root: &Path,
 ) -> Result<(), InstallationError> {
-    artifact(files)?;
+    verified_files_artifact(files)?;
     for file in files {
         validate_file(root, file)?;
     }
@@ -112,7 +113,7 @@ pub fn validate_verified_files(
     files: &[VerifiedFile],
     root: &Path,
 ) -> Result<AvailableModel, InstallationError> {
-    let artifact = artifact(files)?;
+    let artifact = verified_files_artifact(files)?;
     let installed = validate_installation(model_id, &artifact, root)?;
     validate_file_contents(files, root)?;
     Ok(installed)
@@ -127,7 +128,7 @@ pub fn install_verified_files(
     model_root: &Path,
 ) -> Result<AvailableModel, InstallationError> {
     validate_model_id(model_id)?;
-    let artifact = artifact(files)?;
+    let artifact = verified_files_artifact(files)?;
     fs::create_dir_all(model_root).map_err(|e| io_error(model_root, e))?;
     let final_root = model_root.join(model_id);
     if final_root.exists() {

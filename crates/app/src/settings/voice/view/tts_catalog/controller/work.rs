@@ -122,6 +122,15 @@ pub(super) async fn install_tts_package(
         progress(1, 1);
         return TtsInstallOutcome::Ready;
     }
+    if !descriptor.package().verified_files().is_empty() {
+        return match crate::settings::voice::tts_models::install_verified_tts_files(
+            descriptor, root, cancelled, progress,
+        ) {
+            Ok(()) => TtsInstallOutcome::Ready,
+            Err(_) if cancelled.load(Ordering::Acquire) => TtsInstallOutcome::Cancelled,
+            Err(error) => TtsInstallOutcome::Failed(error),
+        };
+    }
     let files = match crate::settings::voice::tts_models::download_tts_package(
         descriptor,
         &root.join(".downloads"),

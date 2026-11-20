@@ -72,6 +72,7 @@ impl MultisoulApp {
             let release = asr::begin_shared_a1_shutdown();
             let cleanup = cx.background_executor().spawn(async move {
                 release.wait();
+                voice_sherpa::shutdown_qwen3_tts();
             });
             cleanup
         })

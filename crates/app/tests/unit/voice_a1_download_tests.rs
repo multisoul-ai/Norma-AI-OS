@@ -253,3 +253,82 @@ fn voice_a1_package_ownership_cleans_failed_candidate_only() {
         "已经提交的包不能被失败清理误删"
     );
 }
+
+/// Serves one scripted raw response per connection and returns each request's text.
+fn scripted_server(responses: Vec<Vec<u8>>) -> (String, std::thread::JoinHandle<Vec<String>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("本机HTTP夹具");
+    let url = format!("http://{}/weights", listener.local_addr().expect("地址"));
+    let thread = std::thread::spawn(move || {
+        responses
+            .into_iter()
+            .map(|response| {
+                let (mut stream, _) = listener.accept().expect("HTTP连接");
+                let mut request = [0u8; 4096];
+                let count = stream.read(&mut request).expect("读取请求");
+                stream.write_all(&response).expect("响应");
+                String::from_utf8_lossy(&request[..count]).to_lowercase()
+            })
+            .collect()
+    });
+    (url, thread)
+}
+
+/// 场景：大文件下载中途断线，应自动重试并从断点续传，而不是整包重下。
+/// 构造：第一次连接声明3字节但只发出"a"后断开；第二次连接按Range返回206和"bc"。
+/// 执行：一次调用下载接口，结束后检查文件内容与第二次请求头。
+/// 预期：调用成功得到abc；第二次请求携带 Range: bytes=1-，不残留 .partial 文件。
+#[test]
+fn voice_a1_download_resumes_after_connection_drop() {
+    let temp = tempfile::tempdir().expect("下载目录");
+    let file = model_store::VerifiedFile::new(
+        "weights",
+        3,
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    );
+    let (url, thread) = scripted_server(vec![
+        b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\na".to_vec(),
+        b"HTTP/1.1 206 Partial Content\r\nContent-Length: 2\r\nContent-Range: bytes 1-2/3\r\nConnection: close\r\n\r\nbc".to_vec(),
+    ]);
+    let path = download_verified_file(&url, &file, temp.path(), &AtomicBool::new(false), |_, _| {})
+        .expect("断线后须自动续传成功");
+    let requests = thread.join().expect("HTTP完成");
+    assert_eq!(
+        std::fs::read(path).expect("下载内容"),
+        b"abc",
+        "续传结果须完整"
+    );
+    assert!(
+        requests[1].contains("range: bytes=1-"),
+        "重试必须从已下载字节处续传"
+    );
+    assert!(
+        !temp.path().join(".weights.partial").exists(),
+        "成功后不能残留断点文件"
+    );
+}
+
+/// 场景：服务器忽略Range、返回完整200时，必须丢弃旧断点从头写入，不能拼接出错内容。
+/// 构造：预置内容为"x"的断点文件；服务器对Range请求返回200和完整abc。
+/// 执行：调用下载接口。
+/// 预期：得到abc且通过校验。
+#[test]
+fn voice_a1_download_restarts_when_range_ignored() {
+    let temp = tempfile::tempdir().expect("下载目录");
+    std::fs::write(temp.path().join(".weights.partial"), b"x").expect("旧断点");
+    let file = model_store::VerifiedFile::new(
+        "weights",
+        3,
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    );
+    let (url, thread) = scripted_server(vec![
+        b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc".to_vec(),
+    ]);
+    let path = download_verified_file(&url, &file, temp.path(), &AtomicBool::new(false), |_, _| {})
+        .expect("忽略Range时须从头下载");
+    thread.join().expect("HTTP完成");
+    assert_eq!(
+        std::fs::read(path).expect("下载内容"),
+        b"abc",
+        "不能拼接旧断点"
+    );
+}

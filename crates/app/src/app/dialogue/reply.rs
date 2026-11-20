@@ -129,6 +129,23 @@ pub(crate) fn create_tts_client_for_selected(
     let available =
         tts::validate_installation(&selected.root.join(selected.model_id.as_str()), descriptor)
             .map_err(|error| SpeechError::ModelNotFound(error.to_string()))?;
+    if descriptor.backend() == tts::TtsBackend::Qwen3 {
+        // Qwen3-TTS reuses the managed Python engine installed for Local A1 recognition.
+        let python = asr::default_model_installation_root()
+            .ok()
+            .and_then(|root| asr::A1Config::from_model_root(&root).ok())
+            .map(|config| config.python)
+            .ok_or_else(|| {
+                SpeechError::ModelNotFound(
+                    "Qwen3-TTS requires the Local A1 voice engine; install A1 first".to_string(),
+                )
+            })?;
+        return Ok(Box::new(voice_sherpa::Qwen3TtsClient::new(
+            python,
+            &available,
+            &selected.voice_id,
+        )));
+    }
     let reference = descriptor
         .capabilities()
         .requires_voice_reference()

@@ -3,6 +3,7 @@ pub mod session_state;
 mod asr_stream;
 mod finalizer;
 mod listening_pipeline;
+mod qwen3_tts;
 mod recognizer_config;
 mod session;
 mod tts;
@@ -26,6 +27,7 @@ pub use listening_pipeline::{
     spawn_recognizer_listening_pipeline_loop, ListeningPipelineEvent, ListeningPipelineWorker,
     SherpaListeningPipeline,
 };
+pub use qwen3_tts::{shutdown_qwen3_tts, Qwen3TtsClient};
 pub use recognizer_config::{
     build_online_recognizer_config, build_online_recognizer_config_with_hotwords, AsrHotwordConfig,
 };
