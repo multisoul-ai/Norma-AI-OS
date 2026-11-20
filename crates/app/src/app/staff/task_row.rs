@@ -157,9 +157,9 @@ impl MultisoulApp {
             )
             .active(rgba(selected_tint(light)).into());
         let show_archive = !self.staff.archive_view;
-        let normal_title = div()
-            .row_start(1)
-            .col_start(1)
+        // 悬停只显示右侧归档图标，标题与时间保持原样，行内布局不跳动。
+        let title_line = div()
+            .w_full()
             .min_w_0()
             .flex()
             .items_baseline()
@@ -177,31 +177,6 @@ impl MultisoulApp {
                     .text_color(rgba(theme.text_tertiary))
                     .child(task_time_now(task.updated_at)),
             );
-        // 两种标题共用同一格。悬停只切换透明度，让两个文本都完成预绘制。
-        let title_line = div()
-            .w_full()
-            .min_w_0()
-            .grid()
-            .grid_cols(1)
-            .child(normal_title.when(show_archive, |line| {
-                line.group_hover(group.clone(), |style| style.opacity(0.))
-            }))
-            .when(show_archive, |line| {
-                line.child(
-                    text(BODY)
-                        .row_start(1)
-                        .col_start(1)
-                        .min_w_0()
-                        .truncate()
-                        .text_color(rgba(theme.text_secondary))
-                        .opacity(0.)
-                        .group_hover(group.clone(), |style| style.opacity(1.))
-                        .child(ui::i18n::format(
-                            "staff.archive_named",
-                            &[("title", task.title.clone())],
-                        )),
-                )
-            });
         let task_id = id.clone();
         let mut row = Button::new(gpui::SharedString::from(format!("staff-task-{id}")))
             .debug_selector({

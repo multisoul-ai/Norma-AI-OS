@@ -96,8 +96,8 @@ def check_task_row(path: str, source: str) -> list[str]:
         errors.append(
             f"{path}: staff_task_row uses a cursor tooltip, which escapes the sidebar"
         )
-    if "staff.archive_named" not in body:
-        errors.append(f"{path}: staff_task_row no longer keeps the archive label in the row")
+    if "staff.archive_named" in body:
+        errors.append(f"{path}: staff_task_row must not swap the title for an archive label on hover")
     return errors
 
 
@@ -156,7 +156,6 @@ pub(super) const SPACE_3: f32 = 12.;
 fn avatar() { div().absolute() }
 fn staff_task_row() {
     text(BODY)
-    \"staff.archive_named\"
 }
 """
     assert check_task_row(TASK_ROW, row) == []
