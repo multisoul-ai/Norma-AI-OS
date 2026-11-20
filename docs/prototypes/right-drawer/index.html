@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Norma OS · 右抽屉评审原型</title>
+<style>
+  :root{color-scheme:dark;--graphite:#0c0c0e;--panel:#17171a;--high:#1a1a1d;--text:#e9e9ec;--secondary:#c2c2c9;--muted:#9999a4;--blue:#c4ccd9;--cyan:#87c2cf;--red:#ed9595;--edge:#ffffff1c;font:12px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",system-ui,sans-serif;color:var(--text);background:var(--graphite)}
+  *{box-sizing:border-box}body{margin:0;min-width:0;height:100dvh;display:flex;flex-direction:column;overflow:hidden}[hidden]{display:none!important}
+  button,input{font:inherit;color:inherit}button{background:none;border:1px solid transparent;cursor:pointer;padding:0}button:disabled{cursor:default;opacity:.42}button:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}button:active:not(:disabled){filter:brightness(1.28)}
+  .icon{width:15px;height:15px;display:inline-block;flex:none;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.web-icon{color:var(--cyan)}.file-icon{color:var(--blue)}
+  .workspace{position:relative;display:grid;grid-template-columns:minmax(0,1fr) clamp(380px,43%,540px);flex:1;min-height:0;background:linear-gradient(155deg,var(--graphite),var(--high));overflow:hidden;isolation:isolate}
+  .wallpaper{position:absolute;pointer-events:none;z-index:-1;inset:0;background:radial-gradient(ellipse at 36% 110%,#33414c 0,#19242e 31%,#64717d 37%,#252e38 38%,transparent 44%),radial-gradient(ellipse at 26% 60%,#171f28,transparent 68%);opacity:.57}
+  .canvas{position:relative;min-width:0;overflow:hidden}.canvas::before{content:"";position:absolute;inset:52px 0 0;background:radial-gradient(circle,#b9c4d029 1px,transparent 1.2px) 2px 2px/24px 24px;mask-image:linear-gradient(#000,transparent 87%);pointer-events:none}
+  .workspace-bar{position:relative;display:flex;gap:12px;align-items:center;height:52px;padding:0 16px;border-bottom:1px solid var(--edge);background:#101013d9;white-space:nowrap;overflow:hidden}
+  .lights{display:flex;gap:7px;padding-right:6px}.lights i{width:10px;height:10px;border-radius:50%;background:#a36060}.lights i:nth-child(2){background:#a28b5b}.lights i:nth-child(3){background:#5e9272}
+  .workspace-path{display:flex;gap:9px;align-items:center;overflow:hidden;text-overflow:ellipsis;color:var(--secondary);font-size:11px}.workspace-path b{color:var(--text);font-weight:620}.workspace-path .slash{color:var(--muted)}
+  .project-icon{width:21px;height:21px;border-radius:6px;display:grid;place-items:center;color:var(--cyan);background:#87c2cf19;border:1px solid #87c2cf38;flex:none}.project-icon .icon{width:13px;height:13px}
+  .terminal{position:absolute;top:clamp(85px,16vh,165px);left:8%;width:min(84%,500px);height:min(53%,398px);min-height:210px;overflow:hidden;border:1px solid #818e9f62;border-radius:13px;background:#101316e8;box-shadow:0 16px 45px #0008,inset 0 0 0 2px #c4ccd90c}
+  .terminal-head{height:34px;display:flex;align-items:center;gap:8px;padding:0 11px;border-bottom:1px solid #ffffff19;background:#c4ccd90d;font-size:11px;color:var(--secondary)}.terminal-head .terminal-state{margin-left:auto;color:var(--muted);display:flex;align-items:center;gap:6px}.terminal-state::before{content:"";width:6px;height:6px;border-radius:50%;background:#8eb7a0}
+  .terminal pre{margin:0;overflow:hidden;padding:15px 13px;font:11px/1.75 ui-monospace,SFMono-Regular,Menlo,monospace;color:#bfc2ca}.terminal strong{color:#a5c5ce;font-weight:500}.terminal .comment{color:#a1a4af}.cursor{display:inline-block;width:6px;height:11px;vertical-align:-2px;background:#a6bfc4}
+  .drawer{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;background:linear-gradient(150deg,#17171af7,#1a1a1dee);backdrop-filter:blur(24px);border-left:1px solid #c4ccd935;box-shadow:-12px 0 32px #05050836}
+  .tabbar,.context{position:relative;display:flex;align-items:center;gap:6px;flex:none;padding:0 12px;border-bottom:1px solid var(--edge);background:#12121585}.tabbar{height:52px}.context{height:40px;gap:8px;font-size:11px;color:var(--secondary)}
+  .control{display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:9px;background:#87c2cf18;color:var(--cyan)}.control:hover:not(:disabled),.control[aria-expanded=true]{background:#87c2cf35;color:#d4f4f8}.control:active:not(:disabled){background:#87c2cf49}.control[aria-busy=true]{background:#87c2cf38}
+  .strip-wrap{flex:1;min-width:0;position:relative}.strip{height:34px;display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-inline:contain}.strip::-webkit-scrollbar{display:none}
+  .strip-wrap::after,.strip-wrap::before{content:"";width:16px;position:absolute;inset-block:0;z-index:1;pointer-events:none;opacity:0}.strip-wrap::after{right:0;background:linear-gradient(90deg,transparent,#151518)}.strip-wrap::before{left:0;background:linear-gradient(270deg,transparent,#151518)}.strip-wrap[data-more=true]::after,.strip-wrap[data-before=true]::before{opacity:1}
+  .tab-item{height:32px;display:flex;align-items:center;flex:none;min-width:0;max-width:143px;border:1px solid #c4ccd938;border-radius:9px;background:#c4ccd918;color:var(--secondary);font-size:11px;padding-right:4px}.tab-item:hover,.tab-item:focus-within{background:#c4ccd92b}.tab-item[data-selected=true]{border-color:#c4ccd9d0;background:#c4ccd955;color:var(--text)}.tab-item[data-menu=true]{box-shadow:inset 0 0 0 1px var(--blue)}
+  .tab{display:flex;align-items:center;gap:6px;min-width:0;height:100%;padding:0 3px 0 8px;text-align:left;border-radius:8px}.tab .icon,.context .icon{width:13px;height:13px}.ellipsis{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.close{width:19px;height:21px;flex:none;display:grid;place-items:center;border-radius:5px;opacity:0;color:var(--text)}.close .icon{width:11px;height:11px}.tab-item:hover .close,.tab-item:focus-within .close{opacity:1}.close:hover{background:#ffffff24}.close:active{background:#ffffff36}
+  .kind{border:1px solid #ffffff25;border-radius:4px;padding:0 5px;font-size:10px;white-space:nowrap}.context-path{flex:1}.status{margin-left:auto;display:flex;align-items:center;gap:5px;white-space:nowrap;color:var(--cyan)}.status:empty{display:none}
+  .tab-actions {
+    display:flex;align-items:center;gap:5px;flex:none;height:26px;margin-left:auto;
+    padding:0 7px;border-radius:7px;border-color:var(--edge);color:var(--text);white-space:nowrap;
+  }
+  .tab-actions:hover:not(:disabled),.tab-actions[aria-expanded=true]{background:#c4ccd92c;border-color:#c4ccd95a}
+  .context[data-loading=true]::after{content:"";position:absolute;inset:auto auto -1px 0;width:58%;height:2px;background:var(--cyan)}
+  .spinner{display:block;width:13px;height:13px;border:1.5px solid #87c2cf55;border-top-color:var(--cyan);border-right-color:var(--cyan);border-radius:50%;animation:spin .75s linear infinite}
+  @keyframes spin{to{transform:rotate(1turn)}}
+  @media(prefers-reduced-motion:reduce){.spinner{animation:none}}
+  .reader{flex:1;min-height:0;overflow:auto;background:#17171aba}.body{padding:14px;color:var(--secondary);font-size:12px;line-height:1.7}.body h1,.body h2{margin:0;color:var(--text);line-height:1.25}.body h1{font-size:23px;letter-spacing:-.025em;margin-bottom:8px}.body h2{font-size:14px;margin:21px 0 7px}.body p{margin:8px 0}.body ul,.body ol{padding-left:24px}.document-meta{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;margin-bottom:16px}.document-meta .revision{color:var(--secondary);font-variant-numeric:tabular-nums}.body table{width:100%;border-collapse:collapse;text-align:left;font-size:11px}.body th,.body td{padding:7px 9px;border:1px solid var(--edge)}.body th{color:var(--text);background:#ffffff08}.body code{color:var(--blue);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.body .doc-note{margin-top:20px;border-top:1px solid var(--edge);padding-top:12px;color:var(--muted);font-size:11px}
+  .website{min-height:100%;background:linear-gradient(145deg,#1d2024,#18191c 57%)}.site-header{padding:13px 16px;border-bottom:1px solid var(--edge);font-weight:620;display:flex;align-items:center;gap:8px}.site-heading{padding:18px 16px}.site-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:16px}.site-card{background:#ffffff06;border:1px solid var(--edge);border-radius:8px;padding:11px}.site-card b{display:block;font-size:15px;color:var(--text)}.empty-reader{height:100%;display:grid;place-content:center;justify-items:center;color:var(--muted);gap:9px}.empty-reader .icon{width:26px;height:26px}
+  .review{background:#101013;border-top:1px solid #ffffff23;display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:8px 12px;z-index:3;flex:none}.review-label{color:var(--muted);font-size:10px;margin-right:4px}.review button{height:25px;padding:0 8px;border-radius:6px;font-size:11px;color:var(--secondary);border-color:#ffffff17;white-space:nowrap}.review button:hover,.review button[aria-pressed=true]{background:#c4ccd922;color:var(--text);border-color:#c4ccd947}.review #reset{margin-left:auto}
+  .popover{position:absolute;z-index:4;background:#222226;border:1px solid #ffffff28;border-radius:11px;box-shadow:0 10px 28px #0009;color:var(--text)}
+  .picker{top:47px;right:50px;width:min(350px,calc(100% - 62px));display:flex;flex-direction:column;overflow:hidden}
+  .search-field{display:flex;align-items:center;gap:8px;margin:8px;padding:0 8px;height:34px;flex:none;background:#131316;border:1px solid #ffffff28;border-radius:7px;color:var(--muted)}.search-field:focus-within{border-color:#c4ccd9b0}.search-field input{flex:1;min-width:0;background:none;border:0;outline:0;font-size:12px}.search-field input::placeholder{color:var(--muted)}
+  .results{height:288px;max-height:calc(100dvh - 180px);min-height:48px;overflow:auto;padding:0 4px;scrollbar-width:thin}.result{height:48px;padding:0 10px;display:flex;align-items:center;gap:10px;border-radius:7px;cursor:pointer;user-select:none}.result .result-text{display:grid;min-width:0;flex:1;line-height:1.4}.result .result-path{font-size:10px;color:var(--muted)}.result[aria-selected=true]{background:#c4ccd911}.result:hover,.result[data-cursor=true]{background:#c4ccd92c}.result:active{background:#c4ccd946}.result .check-icon{color:var(--cyan)}
+  .picker-foot{min-height:31px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:4px 10px;border-top:1px solid var(--edge);font-size:10px;color:var(--muted)}.empty-results{padding:17px 10px;color:var(--muted);text-align:center}
+  .tab-menu{width:min(210px,calc(100% - 12px));max-height:calc(100% - 12px);overflow:auto;padding:4px;font-size:12px}.menu-target{display:flex;align-items:center;gap:7px;padding:4px 8px 6px;color:var(--muted);font-size:11px}.menu-rule{height:1px;background:var(--edge);margin:4px}
+  .menu-action{display:flex;align-items:center;gap:8px;text-align:left;padding:0 7px;width:100%;min-height:30px;border-radius:6px}.menu-action:hover:not(:disabled),.menu-action:focus-visible{background:#c4ccd92c}.menu-action:active:not(:disabled){background:#c4ccd946}.menu-action[data-action=all]{color:var(--red)}
+  .workspace[data-collapsed=true]{grid-template-columns:minmax(0,1fr) 56px}.workspace[data-collapsed=true] .drawer :is(.strip-wrap,#find,#reload,.context,.reader){display:none}.workspace[data-collapsed=true] #collapse .icon{transform:scaleX(-1)}
+  @media(max-width:720px){.workspace{grid-template-columns:minmax(0,1fr)}.canvas{display:none}.workspace[data-collapsed=true]{grid-template-columns:minmax(0,1fr) 56px}.workspace[data-collapsed=true] .canvas{display:block}.drawer{border-left:0}.review{padding:7px 8px}}
+  @media(hover:none){.close{opacity:1}}
+  @media(prefers-reduced-transparency:reduce){.drawer{background:var(--panel);backdrop-filter:none}}
+</style>
+</head>
+<body>
+<main class="workspace" id="workspace">
+  <div class="wallpaper" aria-hidden="true"></div>
+  <aside class="canvas" aria-label="Norma 工作区">
+    <div class="workspace-bar"><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="project-icon" id="project-icon"></span><span class="workspace-path"><b>Northwind Shop</b><span class="slash">/</span> storefront-web</span></div>
+    <div class="terminal">
+      <div class="terminal-head"><span id="terminal-icon"></span>终端 <span class="terminal-state">运行中</span></div>
+      <pre><span class="comment">~/Northwind/storefront-web</span>
+<strong>❯</strong> pnpm dev
+
+  <strong>VITE</strong> ready in 284 ms
+
+  <strong>➜</strong>  Local:   http://localhost:5173/
+  <strong>➜</strong>  press h + enter to show help
+
+<span class="comment">[watch] docs/architecture.md</span>
+<span class="comment">[watch] src/cart/checkout.ts</span>
+<span class="cursor"></span></pre>
+    </div>
+  </aside>
+  <section class="drawer" id="drawer" aria-label="右抽屉">
+    <header class="tabbar">
+      <button class="control" id="collapse" aria-label="收起抽屉" title="收起抽屉"></button>
+      <div class="strip-wrap"><div class="strip" id="strip" role="tablist" aria-label="打开的标签"></div></div>
+      <button class="control" id="find" aria-label="搜索标签" aria-expanded="false" aria-controls="picker" title="搜索标签"></button>
+      <button class="control" id="reload" aria-label="刷新当前标签" title="刷新当前标签"></button>
+    </header>
+    <div class="context" id="context">
+      <span id="source-icon"></span><span class="context-path ellipsis" id="source"></span><span class="kind" id="kind"></span><span class="status" id="status" role="status"></span>
+      <button class="tab-actions" id="tab-actions" aria-haspopup="menu" aria-expanded="false" aria-controls="tab-menu"><span id="tab-actions-icon"></span>标签操作</button>
+    </div>
+    <div class="reader" id="reader" role="tabpanel" tabindex="0"></div>
+    <div class="popover picker" id="picker" hidden>
+      <label class="search-field"><span id="search-icon"></span><input id="query" role="combobox" aria-label="搜索标签名称、路径或域名" aria-controls="results" aria-expanded="false" aria-autocomplete="list" placeholder="搜索名称、路径或域名" autocomplete="off" spellcheck="false"></label>
+      <div class="results" id="results" role="listbox" aria-label="标签搜索结果"></div>
+      <div class="empty-results" id="empty-results" hidden>未找到匹配的标签</div>
+      <div class="picker-foot"><span id="result-count" role="status"></span><span>↑ ↓ 浏览 · ↵ 打开 · Esc 关闭</span></div>
+    </div>
+    <div class="popover tab-menu" id="tab-menu" role="menu" aria-label="标签操作" hidden></div>
+  </section>
+</main>
+<footer class="review" aria-label="原型评审控件">
+  <span class="review-label">原型评审</span>
+  <button data-scene="few">3 个标签</button><button data-scene="many">24 个标签</button><button data-scene="search">标签搜索</button><button data-scene="menu">关闭标签菜单</button><button data-scene="loading">刷新中</button><button id="reset">重置</button>
+</footer>
+<script>
+const $ = id => document.getElementById(id);
+const icons = {
+  file:'<path d="M4 2.5h6l4 4v9H4zM10 2.5v4h4M6.5 9.5h5m-5 2.5h5"/>',
+  web:'<circle cx="9" cy="9" r="6.5"/><ellipse cx="9" cy="9" rx="2.8" ry="6.5"/><path d="M2.5 9h13"/>',
+  panel:'<rect x="2.5" y="3.5" width="13" height="11" rx="2"/><path d="M10.5 3.5v11m2.2-6.8 1.2 1.3-1.2 1.3"/>',
+  list:'<rect x="2.5" y="4" width="13" height="10" rx="2"/><path d="m7 8 2 2 2-2"/>',
+  reload:'<path d="M14.8 7A6 6 0 1 0 15 10.5M15 3v4.5h-4.5"/>',
+  search:'<circle cx="7.5" cy="7.5" r="4"/><path d="m10.5 10.5 4 4"/>',
+  more:'<circle cx="4" cy="9" r=".7"/><circle cx="9" cy="9" r=".7"/><circle cx="14" cy="9" r=".7"/>',
+  close:'<path d="m5 5 8 8m0-8-8 8"/>', check:'<path d="m4 9 3 3 7-7"/>',
+  terminal:'<rect x="2.5" y="3" width="13" height="12" rx="2"/><path d="m5.5 6.5 2.5 2-2.5 2m4 0h3"/>',
+  project:'<path d="m9 2 6.5 3.5v7L9 16l-6.5-3.5v-7zM2.5 5.5 9 9l6.5-3.5M9 9v7"/>'
+};
+const icon = (name, extra = '') => `<svg class="icon ${name}-icon ${extra}" viewBox="0 0 18 18" aria-hidden="true">${icons[name]}</svg>`;
+const samples = [
+  ['file','README.md','README.md','项目概览'], ['file','architecture.md','docs/architecture.md','系统架构'], ['web','商店预览','preview.northwind.test/store','Northwind Store'],
+  ['file','checkout.md','docs/checkout.md','结账流程'], ['web','订单监控','ops.northwind.test/orders','订单监控'], ['file','checkout.ts','src/cart/checkout.ts','结账模块'],
+  ['file','tokens.json','design/tokens.json','设计变量'], ['web','组件库','storybook.northwind.test/components','组件库'], ['file','cart.test.ts','tests/cart.test.ts','购物车测试'],
+  ['web','接口文档','api.northwind.test/reference','接口文档'], ['file','routes.md','docs/routes.md','路由约定'], ['file','cart.ts','src/cart/cart.ts','购物车模块'],
+  ['web','结账预览','preview.northwind.test/checkout','结账预览'], ['file','products.json','fixtures/products.json','产品样例'], ['file','README.md','packages/ui/README.md','组件使用指南'],
+  ['web','构建状态','ci.northwind.test/builds','构建状态'], ['file','accessibility.md','docs/accessibility.md','无障碍规范'], ['web','设计规范','design.northwind.test/foundations','设计规范'],
+  ['file','payment.ts','src/cart/payment.ts','支付模块'], ['file','release-notes.md','docs/release-notes.md','发布记录'], ['web','性能报告','ops.northwind.test/performance','性能报告'],
+  ['file','roadmap.md','docs/roadmap.md','项目路线图'], ['web','产品目录','preview.northwind.test/catalog','产品目录'], ['file','changelog.md','packages/ui/changelog.md','组件变更记录']
+];
+let tabs = [], activeId = null;
+const current = () => tabs.find(tab => tab.id === activeId);
+const sceneButtons = [...document.querySelectorAll('[data-scene]')];
+const contextParts = ['source-icon','source','kind'].map($);
+for (const [id, glyph] of Object.entries({collapse:'panel',find:'list',reload:'reload','terminal-icon':'terminal','project-icon':'project','search-icon':'search','tab-actions-icon':'more'})) $(id).innerHTML = icon(glyph);
+
+function tabMarkup(tab) {
+  const selected = tab.id === activeId;
+  return `<div class="tab-item" role="presentation" data-id="${tab.id}" data-selected="${selected}"><button class="tab" id="tab-${tab.id}" role="tab" aria-selected="${selected}" aria-controls="reader" tabindex="${selected ? 0 : -1}" title="${tab.path}">${icon(tab.type)}<span class="ellipsis">${tab.name}</span></button><button class="close" aria-label="关闭 ${tab.name}" title="关闭 ${tab.name}" tabindex="${selected ? 0 : -1}">${icon('close')}</button></div>`;
+}
+
+function contentMarkup(tab) {
+  const meta = `<div class="document-meta"><span>${tab.type === 'web' ? '离线网页示例' : '离线文件示例'}</span><span aria-hidden="true">·</span><span class="revision">修订 ${tab.revision}</span></div>`;
+  if (tab.type === 'web') {
+    const store = [2,12,22].includes(tab.id);
+    return `<div class="website"><div class="site-header">${icon('project')} Northwind ${store ? 'Shop' : 'Workspace'}</div><article class="body site-heading"><h1>${tab.title}</h1>${meta}<p>${store ? '查看商品、购物车与结账服务的当前状态。' : '查看工作区服务状态和最近一次检查结果。'}</p><div class="site-cards"><div class="site-card"><span>${store ? '在售商品' : '通过的检查'}</span><b>${store ? '128' : '12 / 12'}</b></div><div class="site-card"><span>${store ? '结账服务' : '服务状态'}</span><b>${tab.revision > 3 ? '运行正常 · 已同步' : '运行正常'}</b></div></div></article></div>`;
+  }
+  const sections = tab.id === 1
+    ? `<p>店面通过 Storefront API 与目录、购物车和订单服务通信。</p><h2>请求流程</h2><ol><li>店面读取 <code>/products</code> 并渲染商品列表。</li><li>购物车服务校验商品库存和当前价格。</li><li>确认结账后，订单服务生成订单编号。</li></ol><h2>模块与负责人</h2><table><thead><tr><th scope="col">模块</th><th scope="col">负责人</th><th scope="col">状态</th></tr></thead><tbody><tr><td>商品目录</td><td>Maya</td><td>已接入</td></tr><tr><td>购物车</td><td>Alan</td><td>${tab.revision > 3 ? '已校验' : '联调中'}</td></tr><tr><td>结账</td><td>Bella</td><td>待验收</td></tr></tbody></table>`
+    : `<p>${tab.id === 0 ? 'Northwind Shop 的店面和结账工作区。' : `${tab.title}维护在工作区的 <code>${tab.path}</code>。`}</p><h2>${tab.id === 0 ? '本地开发' : '当前状态'}</h2><p>${tab.id === 0 ? '使用 <code>pnpm dev</code> 启动店面，在抽屉中打开商店预览。' : '当前样例包含目录、购物车和订单服务的集成记录。'}</p>`;
+  return `<article class="body"><h1>${tab.title}</h1>${meta}${sections}<p class="doc-note">${tab.revision > 3 ? '本次刷新已载入最新样例。' : '来自工作区的样例快照。'}</p></article>`;
+}
+
+function renderContent() {
+  const tab = current();
+  for (const element of contextParts) element.hidden = !tab;
+  $('reload').disabled = !tab;
+  $('find').disabled = !tabs.length;
+  $('tab-actions').disabled = !tab;
+  renderRefresh();
+  if (!tab) {
+    $('reader').removeAttribute('aria-labelledby');
+    $('reader').innerHTML = `<div class="empty-reader">${icon('panel')}<span>没有打开的标签</span></div>`;
+    return;
+  }
+  $('source-icon').innerHTML = icon(tab.type);
+  $('source').textContent = tab.path;
+  $('source').title = tab.path;
+  $('kind').textContent = tab.type === 'web' ? '网页' : '文件';
+  $('reader').setAttribute('aria-labelledby', `tab-${tab.id}`);
+  $('reader').innerHTML = contentMarkup(tab);
+  $('reader').scrollTop = 0;
+}
+
+function renderRefresh() {
+  const tab = current();
+  const loading = !!tab?.loading;
+  const reload = $('reload');
+  reload.setAttribute('aria-busy', loading);
+  reload.setAttribute('aria-disabled', loading || !tab);
+  reload.innerHTML = loading ? '<span class="spinner" aria-hidden="true"></span>' : icon('reload');
+  $('context').dataset.loading = loading;
+  $('reader').setAttribute('aria-busy', loading);
+  const status = loading ? '正在刷新…' : tab?.updated ? '已刷新' : '';
+  if ($('status').textContent !== status) $('status').textContent = status;
+}
+
+function refreshTab(tab, hold = false) {
+  if (!tab || tab.loading) return;
+  tab.loading = true;
+  tab.updated = false;
+  if (current() === tab) renderRefresh();
+  if (hold) return;
+  // 稍留时间呈现进行中反馈，并供评审切换标签。
+  tab.timer = setTimeout(() => {
+    if (!tabs.includes(tab)) return;
+    tab.loading = false;
+    tab.revision += 1;
+    tab.updated = true;
+    if (current() === tab) {
+      const scrollTop = $('reader').scrollTop;
+      renderContent();
+      $('reader').scrollTop = scrollTop;
+    }
+  }, 1000);
+}
+
+function renderTabs() {
+  $('strip').innerHTML = tabs.map(tabMarkup).join('');
+  updateOverflow();
+}
+
+function updateOverflow() {
+  const strip = $('strip');
+  strip.parentElement.dataset.more = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1;
+  strip.parentElement.dataset.before = strip.scrollLeft > 1;
+}
+
+function showTab(id, focus = false) {
+  const button = $(`tab-${id}`);
+  if (!button) return;
+  const strip = $('strip');
+  const row = button.parentElement;
+  const visible = strip.getBoundingClientRect();
+  const target = row.getBoundingClientRect();
+  if (target.left < visible.left) strip.scrollLeft += target.left - visible.left - 8;
+  if (target.right > visible.right) strip.scrollLeft += target.right - visible.right + 8;
+  if (focus) button.focus({preventScroll:true});
+  updateOverflow();
+}
+
+function selectTab(id, focus = false) {
+  if (!tabs.some(tab => tab.id === id)) return;
+  if (activeId !== id) {
+    activeId = id;
+    for (const row of $('strip').children) {
+      const selected = Number(row.dataset.id) === id;
+      row.dataset.selected = selected;
+      row.firstElementChild.setAttribute('aria-selected', selected);
+      for (const button of row.children) button.tabIndex = selected ? 0 : -1;
+    }
+    renderContent();
+  }
+  showTab(id, focus);
+}
+
+function closeTabs(ids, focus = false) {
+  const formerIndex = tabs.findIndex(tab => tab.id === activeId);
+  for (const tab of tabs) if (ids.includes(tab.id)) clearTimeout(tab.timer);
+  tabs = tabs.filter(tab => !ids.includes(tab.id));
+  if (ids.includes(activeId)) activeId = tabs[Math.min(formerIndex, tabs.length - 1)]?.id ?? null;
+  renderTabs();
+  renderContent();
+  showTab(activeId, focus);
+  if (focus && !tabs.length) $('reader').focus({preventScroll:true});
+}
+
+function toggleDrawer(collapsed) {
+  if (collapsed) {
+    closePicker();
+    closeMenu();
+  }
+  $('workspace').dataset.collapsed = collapsed;
+  const label = collapsed ? '展开抽屉' : '收起抽屉';
+  $('collapse').setAttribute('aria-label', label);
+  $('collapse').title = label;
+  $('collapse').setAttribute('aria-expanded', !collapsed);
+  if (!collapsed) showTab(activeId);
+}
+
+let matches = [], cursor = -1;
+
+function showCursor(index, scroll = true) {
+  cursor = index;
+  const options = [...$('results').children];
+  for (const [i, option] of options.entries()) option.dataset.cursor = i === cursor;
+  if (!options[cursor]) {
+    $('query').removeAttribute('aria-activedescendant');
+    return;
+  }
+  $('query').setAttribute('aria-activedescendant', options[cursor].id);
+  if (scroll) options[cursor].scrollIntoView({block:'nearest'});
+}
+
+function filterTabs(preferCurrent = false) {
+  const query = $('query').value.trim().toLowerCase();
+  matches = tabs.filter(tab => `${tab.name} ${tab.path}`.toLowerCase().includes(query));
+  $('results').innerHTML = matches.map(tab => `<div class="result" role="option" id="result-${tab.id}" data-id="${tab.id}" aria-selected="${tab.id === activeId}">${icon(tab.type)}<span class="result-text"><span class="ellipsis">${tab.name}</span><span class="result-path ellipsis" title="${tab.path}">${tab.path}</span></span>${tab.id === activeId ? icon('check') : ''}</div>`).join('');
+  $('results').hidden = !matches.length;
+  $('empty-results').hidden = !!matches.length;
+  $('result-count').textContent = query ? `${matches.length} / ${tabs.length} 个标签` : `${tabs.length} 个标签`;
+  $('results').scrollTop = 0;
+  const selected = preferCurrent ? matches.findIndex(tab => tab.id === activeId) : -1;
+  showCursor(matches.length ? Math.max(0, selected) : -1);
+}
+
+function openPicker(shouldFocus = true) {
+  if (!tabs.length) return;
+  closeMenu();
+  $('picker').hidden = false;
+  $('find').setAttribute('aria-expanded', 'true');
+  $('query').setAttribute('aria-expanded', 'true');
+  $('query').value = '';
+  filterTabs(true);
+  if (shouldFocus) $('query').focus({preventScroll:true});
+}
+
+function closePicker(restoreFocus = false) {
+  if ($('picker').hidden) return;
+  $('picker').hidden = true;
+  $('find').setAttribute('aria-expanded', 'false');
+  $('query').setAttribute('aria-expanded', 'false');
+  $('query').removeAttribute('aria-activedescendant');
+  if (restoreFocus) $('find').focus({preventScroll:true});
+}
+
+function pickTab(id) {
+  selectTab(id);
+  closePicker(true);
+}
+
+$('find').addEventListener('click', () => $('picker').hidden ? openPicker() : closePicker(true));
+$('find').addEventListener('keydown', event => {
+  if (event.key !== 'ArrowDown') return;
+  event.preventDefault();
+  openPicker();
+});
+$('query').addEventListener('input', () => filterTabs());
+$('query').addEventListener('keydown', event => {
+  if (event.isComposing) return;
+  if (event.key === 'Escape' || event.key === 'Tab') {
+    if (event.key === 'Escape') event.preventDefault();
+    closePicker(true);
+  } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (matches.length) showCursor((cursor + (event.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length);
+  } else if (event.key === 'Enter' && matches[cursor]) {
+    event.preventDefault();
+    pickTab(matches[cursor].id);
+  }
+});
+$('results').addEventListener('click', event => {
+  const result = event.target.closest('.result');
+  if (result) pickTab(Number(result.dataset.id));
+});
+document.addEventListener('pointerdown', event => {
+  if (!event.target.closest('#picker, #find')) closePicker();
+  if (!event.target.closest('#tab-menu, #tab-actions')) closeMenu();
+});
+
+let menuId = null;
+let menuTrigger = null;
+const menuItems = [
+  ['current', '关闭'], ['others', '关闭其他标签页'],
+  ['right', '关闭右侧标签页'], ['all', '关闭所有标签页'],
+  ['refresh', '重新加载']
+];
+
+function openMenu(id, point, trigger = null) {
+  const index = tabs.findIndex(tab => tab.id === id);
+  const anchor = $(`tab-${id}`);
+  if (index < 0 || !anchor) return;
+  closePicker();
+  closeMenu();
+  menuId = id;
+  menuTrigger = trigger;
+  menuTrigger?.setAttribute('aria-expanded', 'true');
+  anchor.parentElement.dataset.menu = 'true';
+  const menu = $('tab-menu');
+  const tab = tabs[index];
+  const unavailable = {refresh:tab.loading, others:tabs.length < 2, right:index === tabs.length - 1};
+  menu.innerHTML = `<div class="menu-target" role="presentation">${icon(tab.type)}<span class="ellipsis">${tab.name}</span></div>`
+    + menuItems.map(([key, label]) => {
+      const separator = ['current', 'refresh'].includes(key) ? '<div class="menu-rule" role="separator"></div>' : '';
+      const glyph = key === 'refresh' ? 'reload' : 'close';
+      const disabled = unavailable[key] ? 'disabled aria-disabled="true"' : '';
+      return `${separator}<button class="menu-action" type="button" role="menuitem" tabindex="-1" data-action="${key}" ${disabled}>${icon(glyph)}${label}</button>`;
+    }).join('');
+  menu.hidden = false;
+  const root = $('drawer').getBoundingClientRect();
+  const bounds = (trigger ?? anchor).getBoundingClientRect();
+  const x = point?.x ?? (trigger ? bounds.right - menu.offsetWidth : bounds.left);
+  const y = point?.y ?? bounds.bottom + 5;
+  menu.style.left = `${Math.max(6, Math.min(x - root.left, root.width - menu.offsetWidth - 6))}px`;
+  menu.style.top = `${Math.max(6, Math.min(y - root.top, root.height - menu.offsetHeight - 6))}px`;
+  if (point) {
+    menu.tabIndex = -1;
+    menu.focus({preventScroll:true});
+  } else {
+    menu.querySelector('button:enabled').focus({preventScroll:true});
+  }
+}
+
+function closeMenu(restoreFocus = false) {
+  if (menuId === null) return;
+  const anchor = $(`tab-${menuId}`);
+  if (anchor) delete anchor.parentElement.dataset.menu;
+  const focusTarget = menuTrigger ?? anchor;
+  menuTrigger?.setAttribute('aria-expanded', 'false');
+  menuTrigger = null;
+  $('tab-menu').hidden = true;
+  menuId = null;
+  if (restoreFocus) focusTarget?.focus({preventScroll:true});
+}
+
+$('tab-actions').addEventListener('click', event => {
+  const trigger = event.currentTarget;
+  if (menuTrigger === trigger) closeMenu(true);
+  else openMenu(activeId, null, trigger);
+});
+$('tab-actions').addEventListener('keydown', event => {
+  if (event.key !== 'ArrowDown') return;
+  event.preventDefault();
+  openMenu(activeId, null, event.currentTarget);
+});
+$('strip').addEventListener('contextmenu', event => {
+  const row = event.target.closest('.tab-item');
+  if (!row) return;
+  event.preventDefault();
+  openMenu(Number(row.dataset.id), {x:event.clientX, y:event.clientY});
+});
+$('tab-menu').addEventListener('keydown', event => {
+  if (event.key === 'Escape' || event.key === 'Tab') {
+    if (event.key === 'Escape') event.preventDefault();
+    closeMenu(true);
+    return;
+  }
+  if (!['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
+  event.preventDefault();
+  const items = [...$('tab-menu').querySelectorAll('button:enabled')];
+  const index = items.indexOf(document.activeElement);
+  const next = {ArrowDown:(index + 1) % items.length, ArrowUp:(index < 0 ? items.length - 1 : (index - 1 + items.length) % items.length), Home:0, End:items.length - 1}[event.key];
+  items[next]?.focus();
+});
+$('tab-menu').addEventListener('click', event => {
+  const action = event.target.closest('button:enabled')?.dataset.action;
+  const id = menuId;
+  if (!action || id === null) return;
+  const index = tabs.findIndex(tab => tab.id === id);
+  closeMenu(action === 'refresh');
+  if (action === 'refresh') {
+    refreshTab(tabs[index]);
+    return;
+  }
+  const targets = {current:[id], others:tabs.filter(tab => tab.id !== id).map(tab => tab.id), right:tabs.slice(index + 1).map(tab => tab.id), all:tabs.map(tab => tab.id)};
+  closeTabs(targets[action], true);
+});
+window.addEventListener('resize', () => closeMenu());
+
+function setScene(scene) {
+  if (!sceneButtons.some(button => button.dataset.scene === scene)) scene = 'few';
+  closePicker();
+  closeMenu();
+  for (const tab of tabs) clearTimeout(tab.timer);
+  tabs = samples.slice(0, ['few','loading'].includes(scene) ? 3 : 24).map(([type,name,path,title], id) => ({id,type,name,path,title,revision:3}));
+  activeId = scene === 'loading' ? 2 : 1;
+  toggleDrawer(false);
+  for (const button of sceneButtons) button.setAttribute('aria-pressed', button.dataset.scene === scene);
+  renderTabs();
+  renderContent();
+  $('strip').scrollLeft = 0;
+  showTab(activeId);
+  if (scene === 'search') openPicker();
+  if (scene === 'menu') openMenu(activeId, null, $('tab-actions'));
+  if (scene === 'loading') refreshTab(current(), true);
+}
+
+setScene(new URLSearchParams(location.search).get('scene'));
+for (const button of sceneButtons) button.addEventListener('click', () => setScene(button.dataset.scene));
+$('reset').addEventListener('click', () => setScene('few'));
+$('reload').addEventListener('click', () => refreshTab(current()));
+$('collapse').addEventListener('click', () => toggleDrawer($('workspace').dataset.collapsed !== 'true'));
+$('strip').addEventListener('scroll', updateOverflow, {passive:true});
+new ResizeObserver(updateOverflow).observe($('strip'));
+$('strip').addEventListener('wheel', event => {
+  const strip = $('strip');
+  if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY) || strip.scrollWidth <= strip.clientWidth) return;
+  event.preventDefault();
+  strip.scrollLeft += event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? strip.clientWidth : 1);
+}, {passive:false});
+$('strip').addEventListener('click', event => {
+  const row = event.target.closest('.tab-item');
+  if (!row) return;
+  const id = Number(row.dataset.id);
+  if (event.target.closest('.close')) closeTabs([id], true);
+  else if (event.target.closest('.tab')) selectTab(id, true);
+});
+$('strip').addEventListener('auxclick', event => {
+  const row = event.target.closest('.tab-item');
+  if (event.button !== 1 || !row) return;
+  event.preventDefault();
+  closeTabs([Number(row.dataset.id)], $('strip').contains(document.activeElement));
+});
+$('strip').addEventListener('keydown', event => {
+  const row = event.target.closest('.tab-item');
+  if (row && (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))) {
+    event.preventDefault();
+    openMenu(Number(row.dataset.id));
+    return;
+  }
+  if (!event.target.matches('.tab')) return;
+  const index = tabs.findIndex(tab => tab.id === Number(row.dataset.id));
+  const nextIndex = {ArrowLeft:(index + tabs.length - 1) % tabs.length, ArrowRight:(index + 1) % tabs.length, Home:0, End:tabs.length - 1}[event.key];
+  if (nextIndex === undefined) return;
+  event.preventDefault();
+  selectTab(tabs[nextIndex].id, true);
+});
+</script>
+</body>
+</html>
