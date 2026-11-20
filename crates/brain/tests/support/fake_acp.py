@@ -5,6 +5,7 @@
   FAKE_RUN: <命令>   发起一次 session/request_permission，并把结果写进 $FAKE_LOG
   FAKE_SLEEP         处理这条 prompt 前先睡 0.6 秒
   FAKE_CRASH         立刻退出进程
+  FAKE_REJECT_SET_MODE  环境变量：session/set_mode 一律回 -32602（模拟新版适配器不认旧模式 id）
   FAKE_429_ONCE      第一次回 429 + threadStatus=systemError（仍以 end_turn 结束），之后正常
 每条 prompt 的原文也写进 $FAKE_LOG（行首 prompt:）。
 """
@@ -73,7 +74,10 @@ def main():
             send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": session_id}})
         elif method == "session/set_mode":
             log("set_mode " + msg["params"]["modeId"])
-            send({"jsonrpc": "2.0", "id": mid, "result": {}})
+            if os.environ.get("FAKE_REJECT_SET_MODE"):
+                send({"jsonrpc": "2.0", "id": mid, "error": {"code": -32602, "message": "Invalid params"}})
+            else:
+                send({"jsonrpc": "2.0", "id": mid, "result": {}})
         elif method == "session/set_config_option":
             log("set_config " + msg["params"]["configId"] + "=" + msg["params"]["value"])
             send({"jsonrpc": "2.0", "id": mid, "result": {"configOptions": []}})

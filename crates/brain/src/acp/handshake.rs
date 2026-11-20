@@ -43,13 +43,20 @@ pub(crate) fn handshake(
         .ok_or_else(|| AcpError::Remote("session/new 没有返回 sessionId".into()))?
         .to_string();
     if let Some(mode) = &options.mode {
-        call(
+        // 模式 id 由适配器版本决定，升级后可能不再认旧值（Codex ACP 2.2.2 拒绝 `auto`）。
+        // 失败时沿用适配器默认模式继续，权限请求本来就一律放行，不值得让整个会话起不来。
+        if let Err(error) = call(
             conn,
             "session/set_mode",
             json!({"sessionId": session_id, "modeId": mode}),
             deadline,
             cancel,
-        )?;
+        ) {
+            if matches!(error, AcpError::Cancelled) {
+                return Err(error);
+            }
+            tracing::warn!(%error, mode, "大脑会话模式设置失败");
+        }
     }
     let collaboration =
         (staff && options.kind == crate::backend::BackendKind::Codex).then(|| "plan".to_owned());
