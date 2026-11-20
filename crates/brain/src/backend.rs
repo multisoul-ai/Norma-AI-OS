@@ -154,11 +154,11 @@ pub fn shared_staff_meta(kind: BackendKind, model: Option<&str>, token: &str) ->
     }
 }
 
-/// Claude 使用 default；Codex 使用 auto（可写工作区）。权限请求都会被放行。
+/// Claude 使用 default；Codex 使用适配器支持的 workspace-write（可写工作区）。
 pub fn session_mode(kind: BackendKind) -> Option<&'static str> {
     match kind {
         BackendKind::ClaudeCode => Some("default"),
-        BackendKind::Codex => Some("auto"),
+        BackendKind::Codex => Some("workspace-write"),
         BackendKind::OpenCode => None,
     }
 }

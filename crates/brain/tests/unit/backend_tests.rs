@@ -146,9 +146,11 @@ fn strategies_map_to_models() {
 
 /// Claude Code 会话必须忽略用户自己的设置。
 ///
+/// 数据构造：Claude Code 主会话指定 haiku，另准备 Codex 幕僚与 OpenCode 后端。
+/// 执行过程：读取会话创建的 meta 和各后端的模式配置。
 /// 预期结果：
 ///   - 正断言：meta 里 settingSources 为空数组，带上模型；会话模式为 default
-///   - 负断言：其他后端没有 meta 与模式
+///   - 负断言：Claude 不持久化会话，Codex 不使用 Claude 的 meta，OpenCode 不指定模式
 #[test]
 fn claude_sessions_ignore_user_settings() {
     let meta =
@@ -159,16 +161,38 @@ fn claude_sessions_ignore_user_settings() {
         serde_json::json!([]),
         "不能加载用户的权限设置"
     );
-    assert_eq!(options["model"], "haiku");
+    assert_eq!(options["model"], "haiku", "必须采用指定的 Claude 模型");
     assert_eq!(
         options["persistSession"], false,
         "大脑会话不能出现在用户的 Claude /resume 列表"
     );
-    assert_eq!(session_mode(BackendKind::ClaudeCode), Some("default"));
-    assert_eq!(session_mode(BackendKind::Codex), Some("auto"));
+    assert_eq!(
+        session_mode(BackendKind::ClaudeCode),
+        Some("default"),
+        "Claude 会话必须使用 default 模式"
+    );
     assert!(
-        session_meta(BackendKind::Codex, None, true).is_none()
-            && session_mode(BackendKind::OpenCode).is_none()
+        session_meta(BackendKind::Codex, None, true).is_none(),
+        "Codex 不应收到 Claude 专用的会话设置"
+    );
+    assert!(
+        session_mode(BackendKind::OpenCode).is_none(),
+        "OpenCode 应沿用适配器自己的模式"
+    );
+}
+
+/// 场景：Codex 会话请求已验证的 ACP 模式，允许写入工作区。
+/// 数据构造：使用 codex-acp 2.2.2 公布的模式 workspace-write 和已实测被拒绝的 auto。
+/// 执行过程：查询新建 Codex 会话时要传给 session/set_mode 的模式。
+/// 预期结果：选择 workspace-write，且不发送导致 Invalid params 的 auto。
+#[test]
+fn codex_session_uses_supported_workspace_mode() {
+    let mode = session_mode(BackendKind::Codex);
+    assert_ne!(mode, Some("auto"), "codex-acp 2.2.2 拒绝 auto 模式");
+    assert_eq!(
+        mode,
+        Some("workspace-write"),
+        "Codex 会话应使用适配器支持的工作区写入模式"
     );
 }
 
