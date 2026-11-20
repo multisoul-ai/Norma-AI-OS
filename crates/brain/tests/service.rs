@@ -18,6 +18,9 @@ mod lifecycle;
 #[path = "unit/service_quota_tests.rs"]
 mod quota;
 
+#[path = "unit/service_set_mode_tests.rs"]
+mod set_mode;
+
 struct Harness {
     service: BrainService,
     status: Receiver<brain::BrainStatus>,
@@ -26,6 +29,10 @@ struct Harness {
 }
 
 fn start() -> Harness {
+    start_with_env(vec![])
+}
+
+fn start_with_env(extra_env: Vec<(String, String)>) -> Harness {
     let dir = tempfile::tempdir().unwrap();
     let log = dir.path().join("fake.log");
     let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/fake_acp.py");
@@ -44,6 +51,7 @@ fn start() -> Harness {
         ("FAKE_LOG".into(), log.display().to_string()),
         ("CLAUDE_CONFIG_DIR".into(), dir.path().display().to_string()),
     ];
+    config.env.extend(extra_env);
     config.retry_backoff = Duration::from_millis(50);
     config.router = RouterConfig {
         debounce: Duration::from_millis(50),
