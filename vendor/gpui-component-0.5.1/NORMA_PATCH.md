@@ -11,3 +11,9 @@ Long paths in a Markdown table stay readable instead of being clipped at the rig
 Non-scrolling `TextView` (`src/text/text_view.rs`) sizes to its content (`w_full` + `h_auto`) instead of
 `size_full()`. A percentage height inside an auto-height parent does not contribute to that parent, so
 the next sibling overlapped the painted markdown. `scrollable(true)` still fills its parent.
+
+Selectable TextView can render literal, wrapping text without Markdown parsing. Selection uses the
+two original drag endpoints and GPUI's nearest byte index for each text block. The selectable
+surface takes focus on mouse-down and removes the synthetic final block separator when copying.
+
+Markdown updates coalesce within a fixed interval and preserve selection coordinates during streaming.

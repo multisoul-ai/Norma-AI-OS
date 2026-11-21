@@ -60,6 +60,15 @@ impl Render for MultisoulApp {
                     .on_action(cx.listener(Self::on_browser_command))
                     .on_action(cx.listener(Self::on_ego_card_command))
             })
+            .when(
+                self.staff.enabled && matches!(self.screen, AppScreen::DesktopWorkspace),
+                |root| {
+                    // The AppKit Edit menu dispatches the application Copy action.
+                    root.on_action(|_: &crate::app::CopyCardContent, window, cx| {
+                        window.dispatch_action(Box::new(ui::component::input::Copy), cx);
+                    })
+                },
+            )
             .on_action(cx.listener(Self::on_send_tab_to_focused_pty))
             .on_key_down(cx.listener(Self::on_key_down))
             .on_key_up(cx.listener(Self::on_key_up))

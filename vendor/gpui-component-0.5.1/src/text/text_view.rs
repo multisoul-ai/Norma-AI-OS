@@ -7,9 +7,10 @@ use std::time::Duration;
 use gpui::prelude::FluentBuilder;
 use gpui::{
     AnyElement, App, AppContext, Bounds, ClipboardItem, Context, Element, ElementId, Entity,
-    EntityId, FocusHandle, GlobalElementId, InspectorElementId, InteractiveElement, IntoElement,
-    KeyBinding, LayoutId, ListState, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement,
-    Pixels, Point, RenderOnce, SharedString, Size, StyleRefinement, Styled, Timer, Window, div, px,
+    EntityId, FocusHandle, GlobalElementId, Hitbox, HitboxBehavior, InspectorElementId,
+    InteractiveElement, IntoElement, KeyBinding, LayoutId, ListState, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, ParentElement, Pixels, Point, RenderOnce, SharedString,
+    StyleRefinement, Styled, Timer, Window, div, px,
 };
 use smol::stream::StreamExt;
 
@@ -54,22 +55,21 @@ impl RenderOnce for TextViewElement {
             } else {
                 v_flex().w_full().h_auto().flex_none()
             };
-            column
-                .map(|this| match &mut state.parsed_result {
-                    Some(Ok(content)) => this.child(content.root_node.render_root(
-                        self.list_state.clone(),
-                        &content.node_cx,
-                        window,
-                        cx,
-                    )),
-                    Some(Err(err)) => this.child(
-                        v_flex()
-                            .gap_1()
-                            .child("Failed to parse content")
-                            .child(err.to_string()),
-                    ),
-                    None => this,
-                })
+            column.map(|this| match &mut state.parsed_result {
+                Some(Ok(content)) => this.child(content.root_node.render_root(
+                    self.list_state.clone(),
+                    &content.node_cx,
+                    window,
+                    cx,
+                )),
+                Some(Err(err)) => this.child(
+                    v_flex()
+                        .gap_1()
+                        .child("Failed to parse content")
+                        .child(err.to_string()),
+                ),
+                None => this,
+            })
         })
     }
 }
@@ -138,6 +138,7 @@ struct UpdateFuture {
     current_style: TextViewStyle,
     current_text: SharedString,
     timer: Timer,
+    parse_pending: bool,
     rx: Pin<Box<smol::channel::Receiver<Update>>>,
     tx_result: smol::channel::Sender<Result<ParsedContent, SharedString>>,
     delay: Duration,
@@ -162,6 +163,7 @@ impl UpdateFuture {
             current_style: style,
             current_text: text,
             timer: Timer::never(),
+            parse_pending: false,
             rx: Box::pin(rx),
             tx_result,
             delay,
@@ -188,7 +190,9 @@ impl Future for UpdateFuture {
                         }
                         _ => false,
                     };
-                    if changed {
+                    // Coalesce a burst without postponing rendering indefinitely during streaming.
+                    if changed && !self.parse_pending {
+                        self.parse_pending = true;
                         let delay = self.delay;
                         self.timer.set_after(delay);
                     }
@@ -200,6 +204,7 @@ impl Future for UpdateFuture {
 
             match self.timer.poll_next(cx) {
                 Poll::Ready(Some(_)) => {
+                    self.parse_pending = false;
                     let res = parse_content(
                         self.type_,
                         &self.current_text,
@@ -233,6 +238,7 @@ pub(crate) struct TextViewState {
     parent_entity: Option<EntityId>,
     tx: Option<smol::channel::Sender<Update>>,
     parsed_result: Option<Result<ParsedContent, SharedString>>,
+    plain_text: Option<SharedString>,
     focus_handle: Option<FocusHandle>,
     /// The bounds of the text view
     bounds: Bounds<Pixels>,
@@ -251,6 +257,7 @@ impl TextViewState {
             parent_entity: None,
             tx: None,
             parsed_result: None,
+            plain_text: None,
             focus_handle: Some(focus_handle),
             bounds: Bounds::default(),
             selection_positions: (None, None),
@@ -262,9 +269,9 @@ impl TextViewState {
 }
 
 impl TextViewState {
-    /// Save bounds and unselect if bounds changed.
+    /// A width change reflows existing text. A streaming append can just increase its height.
     fn update_bounds(&mut self, bounds: Bounds<Pixels>) {
-        if self.bounds.size != bounds.size {
+        if self.bounds.size.width != bounds.size.width {
             self.clear_selection();
         }
         self.bounds = bounds;
@@ -304,13 +311,10 @@ impl TextViewState {
         self.is_selectable
     }
 
-    /// Return the bounds of the selection in window coordinates.
-    pub(crate) fn selection_bounds(&self) -> Bounds<Pixels> {
-        selection_bounds(
-            self.selection_positions.0,
-            self.selection_positions.1,
-            self.bounds,
-        )
+    /// Preserve each endpoint's x/y pairing so a drag back to the left on another line works.
+    pub(crate) fn selection_points(&self) -> Option<(Point<Pixels>, Point<Pixels>)> {
+        let (start, end) = self.selection_positions;
+        Some((start? + self.bounds.origin, end? + self.bounds.origin))
     }
 
     fn selection_text(&self) -> Option<String> {
@@ -408,6 +412,40 @@ impl TextView {
                 style: Default::default(),
                 highlight_theme: highlight_theme.clone(),
             }
+        }
+    }
+
+    /// Render literal, selectable text, including its original line breaks.
+    pub fn plain(
+        id: impl Into<ElementId>,
+        text: impl Into<SharedString>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Self {
+        let id = id.into();
+        let text = text.into();
+        let state =
+            window.use_keyed_state(SharedString::from(format!("{id}/state")), cx, |_, cx| {
+                TextViewState::new(cx)
+            });
+        state.update(cx, |state, _| {
+            if state.plain_text.as_ref() != Some(&text) {
+                state.parsed_result = Some(Ok(ParsedContent {
+                    root_node: node::Node::Paragraph(node::Paragraph::new(text.clone())),
+                    node_cx: NodeContext::default(),
+                }));
+                state.plain_text = Some(text.clone());
+            }
+        });
+        Self {
+            id,
+            init_state: None,
+            raw: text,
+            style: StyleRefinement::default(),
+            state,
+            selectable: true,
+            scrollable: false,
+            code_block_actions: None,
         }
     }
 
@@ -534,7 +572,11 @@ impl TextView {
             return;
         };
 
-        cx.write_to_clipboard(ClipboardItem::new_string(selected_text.trim().to_string()));
+        // Rich blocks add a separator after their selected text. Keep whitespace inside the range.
+        let text = selected_text.strip_suffix('\n').unwrap_or(&selected_text);
+        if !text.is_empty() {
+            cx.write_to_clipboard(ClipboardItem::new_string(text.to_owned()));
+        }
     }
 
     /// Set custom block actions for code blocks.
@@ -563,7 +605,7 @@ impl IntoElement for TextView {
 
 impl Element for TextView {
     type RequestLayoutState = AnyElement;
-    type PrepaintState = ();
+    type PrepaintState = Option<Hitbox>;
 
     fn id(&self) -> Option<ElementId> {
         Some(self.id.clone())
@@ -620,7 +662,6 @@ impl Element for TextView {
                                     let app = &mut **cx;
                                     app.notify(parent_entity);
                                 }
-                                state.clear_selection();
                             });
                         } else {
                             // state released, stopping processing
@@ -693,12 +734,16 @@ impl Element for TextView {
         &mut self,
         _: Option<&GlobalElementId>,
         _: Option<&InspectorElementId>,
-        _: Bounds<Pixels>,
+        bounds: Bounds<Pixels>,
         request_layout: &mut Self::RequestLayoutState,
         window: &mut Window,
         cx: &mut App,
     ) -> Self::PrepaintState {
+        let hitbox = self
+            .selectable
+            .then(|| window.insert_hitbox(bounds, HitboxBehavior::Normal));
         request_layout.prepaint(window, cx);
+        hitbox
     }
 
     fn paint(
@@ -707,7 +752,7 @@ impl Element for TextView {
         _: Option<&InspectorElementId>,
         bounds: Bounds<Pixels>,
         request_layout: &mut Self::RequestLayoutState,
-        _: &mut Self::PrepaintState,
+        hitbox: &mut Self::PrepaintState,
         window: &mut Window,
         cx: &mut App,
     ) {
@@ -726,18 +771,26 @@ impl Element for TextView {
         request_layout.paint(window, cx);
         GlobalState::global_mut(cx).text_view_state_stack.pop();
 
-        if self.selectable {
+        if let Some(hitbox) = hitbox {
+            let hitbox = hitbox.clone();
             let is_selecting = self.state.read(cx).is_selecting;
             let has_selection = self.state.read(cx).has_selection();
 
             window.on_mouse_event({
                 let state = self.state.clone();
-                move |event: &MouseDownEvent, phase, _, cx| {
-                    if !bounds.contains(&event.position) || !phase.bubble() {
+                move |event: &MouseDownEvent, phase, window, cx| {
+                    if !phase.bubble()
+                        || event.button != MouseButton::Left
+                        || !hitbox.is_hovered(window)
+                    {
                         return;
                     }
 
                     state.update(cx, |state, _| {
+                        if let Some(focus_handle) = &state.focus_handle {
+                            window.focus(focus_handle);
+                            window.prevent_default();
+                        }
                         state.start_selection(event.position);
                     });
                     cx.notify(entity_id);
@@ -763,12 +816,13 @@ impl Element for TextView {
                 // up to end selection
                 window.on_mouse_event({
                     let state = self.state.clone();
-                    move |_: &MouseUpEvent, phase, _, cx| {
-                        if !phase.bubble() {
+                    move |event: &MouseUpEvent, phase, _, cx| {
+                        if !phase.bubble() || event.button != MouseButton::Left {
                             return;
                         }
 
                         state.update(cx, |state, _| {
+                            state.update_selection(event.position);
                             state.end_selection();
                         });
                         cx.notify(entity_id);
@@ -816,115 +870,4 @@ fn parse_content(
         TextViewType::Html => super::format::html::parse(text, &mut node_cx),
     };
     res.map(move |root_node| ParsedContent { root_node, node_cx })
-}
-
-fn selection_bounds(
-    start: Option<Point<Pixels>>,
-    end: Option<Point<Pixels>>,
-    bounds: Bounds<Pixels>,
-) -> Bounds<Pixels> {
-    if let (Some(start), Some(end)) = (start, end) {
-        let start = start + bounds.origin;
-        let end = end + bounds.origin;
-
-        let origin = Point {
-            x: start.x.min(end.x),
-            y: start.y.min(end.y),
-        };
-        let size = Size {
-            width: (start.x - end.x).abs(),
-            height: (start.y - end.y).abs(),
-        };
-
-        return Bounds { origin, size };
-    }
-
-    Bounds::default()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use gpui::{Bounds, point, px, size};
-
-    #[test]
-    fn test_text_view_state_selection_bounds() {
-        assert_eq!(
-            selection_bounds(None, None, Default::default()),
-            Bounds::default()
-        );
-        assert_eq!(
-            selection_bounds(None, Some(point(px(10.), px(20.))), Default::default()),
-            Bounds::default()
-        );
-        assert_eq!(
-            selection_bounds(Some(point(px(10.), px(20.))), None, Default::default()),
-            Bounds::default()
-        );
-
-        // 10,10 start
-        //   |------|
-        //   |      |
-        //   |------|
-        //         50,50
-        assert_eq!(
-            selection_bounds(
-                Some(point(px(10.), px(10.))),
-                Some(point(px(50.), px(50.))),
-                Default::default()
-            ),
-            Bounds {
-                origin: point(px(10.), px(10.)),
-                size: size(px(40.), px(40.))
-            }
-        );
-        // 10,10
-        //   |------|
-        //   |      |
-        //   |------|
-        //         50,50 start
-        assert_eq!(
-            selection_bounds(
-                Some(point(px(50.), px(50.))),
-                Some(point(px(10.), px(10.))),
-                Default::default()
-            ),
-            Bounds {
-                origin: point(px(10.), px(10.)),
-                size: size(px(40.), px(40.))
-            }
-        );
-        //        50,10 start
-        //   |------|
-        //   |      |
-        //   |------|
-        // 10,50
-        assert_eq!(
-            selection_bounds(
-                Some(point(px(50.), px(10.))),
-                Some(point(px(10.), px(50.))),
-                Default::default()
-            ),
-            Bounds {
-                origin: point(px(10.), px(10.)),
-                size: size(px(40.), px(40.))
-            }
-        );
-        //        50,10
-        //   |------|
-        //   |      |
-        //   |------|
-        // 10,50 start
-        assert_eq!(
-            selection_bounds(
-                Some(point(px(10.), px(50.))),
-                Some(point(px(50.), px(10.))),
-                Default::default()
-            ),
-            Bounds {
-                origin: point(px(10.), px(10.)),
-                size: size(px(40.), px(40.))
-            }
-        );
-    }
 }

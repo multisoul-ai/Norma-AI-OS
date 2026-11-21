@@ -43,6 +43,33 @@ impl MultisoulApp {
     pub(super) fn staff_composer(&self, window: &Window, cx: &mut Context<Self>) -> Div {
         let input = self.staff.input.as_ref().expect("staff input initialized");
         let theme = self.staff_theme();
+        let running_task = self
+            .staff
+            .selected
+            .as_ref()
+            .and_then(|id| self.staff.tasks.get(id))
+            .filter(|task| task.has_running_reply());
+        let stop = running_task.map(|task| {
+            let input_focus = input.focus_handle(cx);
+            let (id, round) = (task.id.clone(), task.round);
+            Button::new("staff-stop")
+                .debug_selector(|| "staff-stop".into())
+                .custom(self.staff_neutral_style(cx))
+                .with_size(px(34.))
+                .size(px(34.))
+                .rounded_full()
+                .child(
+                    div()
+                        .size(px(11.))
+                        .rounded(px(2.))
+                        .bg(rgba(theme.text_primary)),
+                )
+                .tooltip(t("staff.stop_generation"))
+                .on_click(cx.listener(move |app, _, window, _| {
+                    app.stop_staff_turn(&id, round);
+                    input_focus.focus(window);
+                }))
+        });
         // 底部留白：原来提示行占的位置，输入框不贴着面板底边。
         div().px(px(20.)).pt(px(8.)).pb(px(24.)).flex_none().child(
             div().max_w(px(760.)).mx_auto().flex().flex_col().child(
@@ -119,20 +146,29 @@ impl MultisoulApp {
                                             })),
                                     )
                                     .child(
-                                        Button::new("staff-send")
-                                            .debug_selector(|| "staff-send".into())
-                                            .custom(self.staff_primary_style(cx))
-                                            .with_size(px(34.))
-                                            .rounded_full()
-                                            .icon(IconName::ArrowUp)
-                                            .tooltip(t("staff.send"))
-                                            .disabled(!staff_can_send(
-                                                self.staff.busy,
-                                                self.staff.image_uploads > 0,
-                                                &input.read(cx).value(),
-                                                self.staff.images.len(),
-                                            ))
-                                            .on_click(cx.listener(Self::send_staff_message_click)),
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .gap(px(8.))
+                                            .children(stop)
+                                            .child(
+                                                Button::new("staff-send")
+                                                    .debug_selector(|| "staff-send".into())
+                                                    .custom(self.staff_primary_style(cx))
+                                                    .with_size(px(34.))
+                                                    .rounded_full()
+                                                    .icon(IconName::ArrowUp)
+                                                    .tooltip(t("staff.send"))
+                                                    .disabled(!staff_can_send(
+                                                        self.staff.busy,
+                                                        self.staff.image_uploads > 0,
+                                                        &input.read(cx).value(),
+                                                        self.staff.images.len(),
+                                                    ))
+                                                    .on_click(
+                                                        cx.listener(Self::send_staff_message_click),
+                                                    ),
+                                            ),
                                     ),
                             ),
                     ),

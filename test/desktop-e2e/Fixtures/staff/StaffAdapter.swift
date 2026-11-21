@@ -129,6 +129,23 @@ enum StaffAdapter {
                 if 'PROPOSAL-LAYOUT' in last and not task['proposals']:
                     run(sid, base + ['task','propose',tid,'Claude','--title','归档不显示这条提示','--prompt','保持卡片完整可读。说明文字与建议卡分开排列，不修改归档提示逻辑。','--why','仅修复布局重叠，保留标题、理由、指令和交给谁。'])
                     reply = '归档成功那条提示不该再出现。我先看现在有哪些 Agent 能接着改 pr-235。截图里那条「已归档…仍在进行，可在已归档中查看」会整条去掉，撤销一起不显示。归档本身还在。交给 Ethan 在 pr-235 上改。已提议交给 Ethan，在 `/Users/openclawd/Documents/code/norma-os/pr-235` 里改：归档后不再弹出截图里那条「已归档…仍在进行，可在已归档中查看」，右边的撤销也一起去掉。\n\n归档本身还在，任务照样进已归档。你点采用就派给他。若只想删括号里那句、撤销还要留，跟我说一声再改。 LAYOUT END'
+                elif last.startswith('CHAT-STOP '):
+                    hold('chat-start')
+                    update(sid, {'sessionUpdate':'tool_call','toolCallId':'chat-read','title':'Read conversation','status':'in_progress'})
+                    update(sid, {'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':
+                        'Skip this. Reply begins with **formatted words** that wrap naturally as the assistant explains this long piece of sample text with more detail than fits on a single line.\n\nReply ends here.'}})
+                    record('stream-events.jsonl', dict(stage='chat-partial', pid=os.getpid()))
+                    while True:
+                        cancel = read()
+                        if cancel.get('method') == 'session/cancel' and cancel['params']['sessionId'] == sid:
+                            record('stream-events.jsonl', dict(stage='chat-cancelled'))
+                            # Simulate a notification already queued by the adapter at cancellation.
+                            update(sid, {'sessionUpdate':'agent_message_chunk','content':{'type':'text','text':'LATE OUTPUT'}})
+                            send({'jsonrpc':'2.0','id':mid,'result':{'stopReason':'cancelled'}})
+                            break
+                    continue
+                elif last.startswith('Reply begins with formatted words'):
+                    reply = 'SECOND TURN READY'
                 elif 'STREAM-FAIL' in last:
                     send({'jsonrpc':'2.0','id':mid,'error':{'code':-32602,'message':'Fixture permanent failure'}})
                     continue

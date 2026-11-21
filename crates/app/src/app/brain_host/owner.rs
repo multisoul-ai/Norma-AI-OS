@@ -310,6 +310,15 @@ impl BrainClient {
         Some(event)
     }
 
+    pub(super) fn stop_staff_turn(&self, task_id: &str, round: u64) {
+        let owner = self.owner.0.borrow();
+        if self.live(&owner) {
+            if let Some(service) = owner.host.as_ref().and_then(|host| host.service.as_ref()) {
+                service.stop_staff_turn(&self.scope, task_id, round);
+            }
+        }
+    }
+
     pub(super) fn push_recorded(
         &self,
         event: BrainEvent,

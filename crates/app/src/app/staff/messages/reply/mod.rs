@@ -64,37 +64,35 @@ impl MessageBlock for Reply<'_> {
         crate::app::staff::register_link_target(window, cx);
         for (position, part) in reply.parts.iter().enumerate() {
             body = match part {
-                StaffPart::Text(text) if running && last_text == Some(position) => body.child(
-                    // 流式中的末段先用纯文本，完成后才解析 Markdown，避免每个增量重解析整段。
-                    div()
-                        .id(("staff-streaming-reply", position))
-                        .debug_selector(|| "staff-streaming-reply".into())
-                        .line_height(relative(tokens::BODY_LEADING))
-                        .child(text.clone()),
-                ),
-                StaffPart::Text(text) => body.child(
-                    div()
-                        .debug_selector(move || format!("staff-reply-text-{index}-{position}"))
-                        .w_full()
-                        .block()
-                        .flex_none()
-                        .child(
-                            ui::component::text::TextView::markdown(
-                                gpui::SharedString::from(format!(
-                                    "staff-markdown-{}-{index}-{position}",
-                                    task.id
-                                )),
-                                crate::preview::rich_link::linkify_inline_paths(text),
-                                window,
-                                cx,
-                            )
-                            .selectable(true)
-                            // TextView defaults to `size_full()`; a percentage height inside the auto-height
-                            // message stack must not decide how much room the wrapped text gets.
-                            .h_auto()
-                            .flex_none(),
-                        ),
-                ),
+                StaffPart::Text(text) => {
+                    let streaming = running && last_text == Some(position);
+                    let markdown = if streaming {
+                        text.clone()
+                    } else {
+                        crate::preview::rich_link::linkify_inline_paths(text)
+                    };
+                    body.child(
+                        div()
+                            .debug_selector(move || format!("staff-reply-text-{index}-{position}"))
+                            .w_full()
+                            .block()
+                            .flex_none()
+                            .child(
+                                ui::component::text::TextView::markdown(
+                                    gpui::SharedString::from(format!(
+                                        "staff-markdown-{}-{index}-{position}",
+                                        task.id
+                                    )),
+                                    markdown,
+                                    window,
+                                    cx,
+                                )
+                                .selectable(true)
+                                .h_auto()
+                                .flex_none(),
+                            ),
+                    )
+                }
                 StaffPart::Proposal(id) => {
                     body.child(card::proposal::Proposal(*id).render(ctx, window, cx))
                 }

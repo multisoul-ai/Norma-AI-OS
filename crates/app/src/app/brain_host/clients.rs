@@ -19,6 +19,12 @@ impl BrainHostState {
 }
 
 impl MultisoulApp {
+    pub(in crate::app) fn stop_staff_turn(&self, task_id: &str, round: u64) {
+        if let Some(client) = &self.brain.client {
+            client.stop_staff_turn(task_id, round);
+        }
+    }
+
     pub(crate) fn ensure_brain_client(&mut self, cx: &mut Context<Self>) {
         let Some((scope, root)) = self.brain_scope().zip(self.runtime.workspace_root()) else {
             self.release_brain_client();

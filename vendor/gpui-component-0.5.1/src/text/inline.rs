@@ -5,13 +5,13 @@ use std::{
 };
 
 use gpui::{
-    point, px, quad, App, BorderStyle, Bounds, CursorStyle, Edges, Element, ElementId,
-    GlobalElementId, Half, HighlightStyle, Hitbox, HitboxBehavior, InspectorElementId, IntoElement,
-    LayoutId, MouseMoveEvent, MouseUpEvent, Pixels, Point, SharedString, StyledText, TextLayout,
-    Window,
+    App, BorderStyle, Bounds, CursorStyle, Edges, Element, ElementId, GlobalElementId,
+    HighlightStyle, Hitbox, HitboxBehavior, InspectorElementId, IntoElement, LayoutId,
+    MouseMoveEvent, MouseUpEvent, Pixels, Point, SharedString, StyledText, TextLayout, Window,
+    point, px, quad,
 };
 
-use crate::{global_state::GlobalState, input::Selection, text::node::LinkMark, ActiveTheme};
+use crate::{ActiveTheme, global_state::GlobalState, input::Selection, text::node::LinkMark};
 
 /// A inline element used to render a inline text and support selectable.
 ///
@@ -76,69 +76,25 @@ impl Inline {
         None
     }
 
-    /// Paint selected bounds for debug.
-    #[allow(unused)]
-    fn paint_selected_bounds(&self, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
-        window.paint_quad(gpui::PaintQuad {
-            bounds,
-            background: cx.theme().blue.alpha(0.01).into(),
-            corner_radii: gpui::Corners::default(),
-            border_color: gpui::transparent_black(),
-            border_style: BorderStyle::default(),
-            border_widths: gpui::Edges::all(px(0.)),
-        });
-    }
-
     fn layout_selections(
         &self,
         text_layout: &TextLayout,
-        window: &mut Window,
-        cx: &mut App,
+        cx: &App,
     ) -> (bool, bool, Option<Selection>) {
-        let Some(text_view_state) = GlobalState::global(cx).text_view_state() else {
+        let Some(state) = GlobalState::global(cx).text_view_state() else {
             return (false, false, None);
         };
-
-        let text_view_state = text_view_state.read(cx);
-        let is_selectable = text_view_state.is_selectable();
-        if !text_view_state.has_selection() {
+        let state = state.read(cx);
+        let is_selectable = state.is_selectable();
+        let Some((start, end)) = state.selection_points() else {
+            return (is_selectable, false, None);
+        };
+        if !is_selectable || start == end {
             return (is_selectable, false, None);
         }
-
-        let line_height = window.line_height();
-        let selection_bounds = text_view_state.selection_bounds();
-
-        // Use for debug selection bounds
-        // self.paint_selected_bounds(selection_bounds, window, cx);
-
-        let mut selection: Option<Selection> = None;
-        let mut offset = 0;
-        let mut chars = self.text.chars().peekable();
-        while let Some(c) = chars.next() {
-            let Some(pos) = text_layout.position_for_index(offset) else {
-                offset += c.len_utf8();
-                continue;
-            };
-
-            let mut char_width = line_height.half();
-            if let Some(next_pos) = text_layout.position_for_index(offset + 1) {
-                if next_pos.y == pos.y {
-                    char_width = next_pos.x - pos.x;
-                }
-            }
-
-            if point_in_text_selection(pos, char_width, &selection_bounds, line_height) {
-                if selection.is_none() {
-                    selection = Some((offset..offset).into());
-                }
-
-                let next_offset = offset + c.len_utf8();
-                selection.as_mut().unwrap().end = next_offset;
-            }
-
-            offset += c.len_utf8();
-        }
-
+        let start = text_layout.closest_index_for_position(start);
+        let end = text_layout.closest_index_for_position(end);
+        let selection = (start != end).then(|| (start.min(end)..start.max(end)).into());
         (true, true, selection)
     }
 
@@ -302,8 +258,7 @@ impl Element for Inline {
             .paint(global_id, None, bounds, &mut (), &mut (), window, cx);
 
         // layout selections
-        let (is_selectable, is_selection, selection) =
-            self.layout_selections(&text_layout, window, cx);
+        let (is_selectable, is_selection, selection) = self.layout_selections(&text_layout, cx);
 
         state.selection = selection;
 
@@ -369,184 +324,5 @@ impl Element for Inline {
                 }
             });
         }
-    }
-}
-
-/// Check if a `pos` is within a `bounds`, considering multi-line selections.
-fn point_in_text_selection(
-    pos: Point<Pixels>,
-    char_width: Pixels,
-    bounds: &Bounds<Pixels>,
-    line_height: Pixels,
-) -> bool {
-    let top = bounds.top();
-    let bottom = bounds.bottom();
-    let left = bounds.left();
-    let right = bounds.right();
-
-    // Out of the vertical bounds
-    if pos.y + line_height < top || pos.y >= bottom {
-        return false;
-    }
-
-    let single_line = (bottom - top) <= line_height;
-    if single_line {
-        // If it's a single line selection, just check horizontal bounds
-        return pos.x + char_width.half() >= left && pos.x + char_width.half() <= right;
-    }
-
-    let is_above = pos.y <= top;
-    let is_below = pos.y + line_height >= bottom;
-
-    if is_above {
-        return pos.x + char_width.half() >= left;
-    } else if is_below {
-        return pos.x + char_width.half() <= right;
-    } else {
-        return true;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::point_in_text_selection;
-    use gpui::{point, px, size, Bounds};
-
-    #[test]
-    fn test_point_in_text_selection() {
-        let line_height = px(20.);
-        let char_width = px(10.);
-        let bounds = Bounds {
-            origin: point(px(50.), px(50.)),
-            size: size(px(100.), px(100.)),
-        };
-
-        // First line but haft line height, true
-        // | p --------|
-        // | selection |
-        // |-----------|
-        assert!(point_in_text_selection(
-            point(px(50.), px(40.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
-
-        // First line in selection, true
-        // | p --------|
-        // | selection |
-        // |-----------|
-        assert!(point_in_text_selection(
-            point(px(50.), px(50.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
-        // First line, but left out of selection, false
-        // p |-----------|
-        //   | selection |
-        //   |-----------|
-        assert!(!point_in_text_selection(
-            point(px(40.), px(50.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
-        // First line but right out of selection, true
-        // |-----------| p
-        // | selection |
-        // |-----------|
-        assert!(point_in_text_selection(
-            point(px(160.), px(50.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
-
-        // Middle line in selection, true
-        // |-----------|
-        // |     p     |
-        // |-----------|
-        assert!(point_in_text_selection(
-            point(px(100.), px(70.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
-        // Middle line, but left out of selection, true
-        //   |-----------|
-        // p | selection |
-        //   |-----------|
-        assert!(point_in_text_selection(
-            point(px(40.), px(70.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
-        // Middle line, but right out of selection, true
-        // |-----------|
-        // | selection | p
-        // |-----------|
-        assert!(point_in_text_selection(
-            point(px(160.), px(70.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
-
-        // Last line in selection, true
-        // |-----------|
-        // | selection |
-        // |------- p -|
-        assert!(point_in_text_selection(
-            point(px(100.), px(140.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
-        // Last line, but left out of selection, true
-        //
-        //   |-----------|
-        //   | selection |
-        // p |-----------|
-        assert!(point_in_text_selection(
-            point(px(40.), px(140.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
-        // Last line, but right out of selection, false
-        // |-----------|
-        // | selection |
-        // |-----------| p
-        assert!(!point_in_text_selection(
-            point(px(160.), px(140.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
-
-        // Out of vertical bounds (top), false
-        //       p
-        // |-----------|
-        // | selection |
-        // |-----------|
-        assert!(!point_in_text_selection(
-            point(px(100.), px(20.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
-        // Out of vertical bounds (bottom), false
-        // |-----------|
-        // | selection |
-        // |-----------|
-        //       p
-        assert!(!point_in_text_selection(
-            point(px(100.), px(160.)),
-            char_width,
-            &bounds,
-            line_height
-        ));
     }
 }
