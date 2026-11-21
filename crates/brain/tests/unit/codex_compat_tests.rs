@@ -104,6 +104,71 @@ fn loader_preserves_authoritative_command_and_module_location() {
     assert!(Adapter::prepare(&entry, &[]).is_err(), "未知版本应失败关闭");
 }
 
+/// 场景：幕僚应使用兼容的较新本机 Codex，以读取随包版本不认识的模型元数据。
+/// 数据构造：钉死的 ACP 壳，以及 PATH 中返回新版本或旧版本的 Codex 夹具。
+/// 执行过程：通过生产 loader 启动 ACP 壳，读取适配器实际消费的 CODEX_PATH。
+/// 预期结果：只自动选较新版本，旧版本保留随包默认，显式路径优先。
+#[cfg(unix)]
+#[test]
+fn loader_prefers_newer_codex_and_respects_explicit_path() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dist = dir.path().join("dist");
+    std::fs::create_dir(&dist).unwrap();
+    std::fs::write(
+        dir.path().join("package.json"),
+        r#"{"name":"@agentclientprotocol/codex-acp","version":"2.2.2","type":"module"}"#,
+    )
+    .unwrap();
+    let entry = dist.join("index.js");
+    std::fs::write(
+        &entry,
+        "// command: stripShellPrefix(params.command)\n// method: \"thread/start\", params }\nconst _shared = `const response = await this.codexClient.threadStart({\n      config: sessionConfig.config,`;\nconsole.log(JSON.stringify(process.env.CODEX_PATH ?? null));",
+    )
+    .unwrap();
+
+    let codex = dir.path().join("codex");
+    let inherited_path = std::env::var_os("PATH").unwrap_or_default();
+    let path = std::env::join_paths(
+        std::iter::once(dir.path().to_path_buf()).chain(std::env::split_paths(&inherited_path)),
+    )
+    .unwrap();
+    let adapter = Adapter::prepare(&entry, &[]).unwrap();
+    for (version, explicit, expected) in [
+        ("0.171.0", None, Some("codex")),
+        ("0.160.1", None, None),
+        ("0.159.9", None, None),
+        ("0.171.0", Some("/explicit/codex"), Some("/explicit/codex")),
+    ] {
+        std::fs::write(
+            &codex,
+            format!("#!/bin/sh\nprintf '%s\\n' 'codex-cli {version}'\n"),
+        )
+        .unwrap();
+        std::fs::set_permissions(&codex, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut command = Command::new(&adapter.program);
+        command
+            .args(&adapter.args)
+            .env("PATH", &path)
+            .env_remove("CODEX_PATH");
+        if let Some(explicit) = explicit {
+            command.env("CODEX_PATH", explicit);
+        }
+        let output = command.output().unwrap();
+        assert!(
+            output.status.success(),
+            "版本 {version} 的适配器启动必须成功"
+        );
+        let chosen: Option<String> = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(
+            chosen.as_deref(),
+            expected,
+            "版本 {version}、显式路径 {explicit:?} 应使用预期的 Codex"
+        );
+    }
+}
+
 /// 场景：真实钉死 bundle 的 reporter→renderer→loader→Gate 不应损失命令或工具名。
 /// 数据构造：从 NORMA_CODEX_ACP_BUNDLE 读取安装包，仅将启动模型替换为确定性权限回放。
 /// 执行过程：使用真实 CommandReporter 与 AcpToolCallRenderer，覆盖启动前后两种工具名。

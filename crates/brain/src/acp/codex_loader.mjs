@@ -1,4 +1,5 @@
 // 保留原模块 URL，因此 import.meta.url、包资源和动态依赖解析都沿用原安装目录。
+import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 
@@ -36,6 +37,22 @@ registerHooks({
   },
 });
 process.argv = [process.argv[0], entry, ...process.argv.slice(3)];
+// ACP 2.2.2 随包的 Codex 0.160.1 缺少较新模型的元数据。显式路径优先。
+if (process.env.CODEX_PATH === undefined) {
+  const probe = spawnSync("codex", ["--version"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+    timeout: 2000,
+    killSignal: "SIGKILL",
+  });
+  const version = /^codex-cli 0\.(\d+)\.(\d+)\s*$/.exec(probe.stdout ?? "");
+  if (probe.status === 0 && version) {
+    const [, minor, patch] = version.map(Number);
+    if (minor > 160 || (minor === 160 && patch > 1)) {
+      process.env.CODEX_PATH = "codex";
+    }
+  }
+}
 await import(target);
 
 } catch (error) {
