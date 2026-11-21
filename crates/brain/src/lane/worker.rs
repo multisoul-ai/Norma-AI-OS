@@ -47,6 +47,7 @@ pub struct LaneEnv {
     pub status: Sender<BrainStatus>,
     pub open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
     pub stop: Arc<AtomicBool>,
+    pub(crate) scopes: crate::service::scopes::Scopes,
     pub env: Vec<(String, String)>,
     pub staff_tokens: Option<crate::staff::gate::StaffTokens>,
     pub skill_ready: bool,
@@ -131,8 +132,8 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                     .mark_busy(task_id);
             }
         }
-        let cancelled = job.cancelled.clone();
-        if cancelled.load(Ordering::Relaxed) {
+        let route_cancelled = job.cancelled.clone();
+        if route_cancelled.load(Ordering::Relaxed) {
             continue;
         }
         if job
@@ -164,6 +165,13 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                 continue;
             }
         };
+        let staff_turn = task.as_ref().map(|task| {
+            env.scopes
+                .staff_turn(&job.scope, &task.id, task.round, &route_cancelled)
+        });
+        let cancelled = staff_turn
+            .as_ref()
+            .map_or(&route_cancelled, |turn| &turn.cancelled);
         env.task_update(&job, turn_no, TaskUpdate::Started);
         if let Some(task) = &task {
             env.send(&job.scope, BrainStatusKind::TaskChanged(task.clone()));
@@ -186,17 +194,17 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
             let started = if job.task_id.is_some() {
                 let options = env.session_options(minted.as_deref(), true);
                 match env.hub.as_ref() {
-                    Some(hub) => match hub.open_staff(&options, &cancelled) {
+                    Some(hub) => match hub.open_staff(&options, cancelled) {
                         Ok(session) => Ok(session),
                         // 用户取消不能再起一个独占进程。
                         Err(AcpError::Cancelled) => Err(AcpError::Cancelled),
                         // 自检失败或连接建不起来：退回每个任务一个进程。
-                        Err(_) => AcpSession::start_staff_cancellable(&options, &cancelled),
+                        Err(_) => AcpSession::start_staff_cancellable(&options, cancelled),
                     },
-                    None => AcpSession::start_staff_cancellable(&options, &cancelled),
+                    None => AcpSession::start_staff_cancellable(&options, cancelled),
                 }
             } else {
-                AcpSession::start_cancellable(&env.session_options(None, false), &cancelled)
+                AcpSession::start_cancellable(&env.session_options(None, false), cancelled)
             };
             match started {
                 Ok(started) => {
@@ -238,7 +246,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                     env.finish(&job, turn_no, status, turn_started);
                     env.sleep(
                         (env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF),
-                        &cancelled,
+                        cancelled,
                     );
                     continue;
                 }
@@ -332,7 +340,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
         let result = active.prompt_observed(
             &text,
             &images,
-            &cancelled,
+            cancelled,
             env.prompt_timeout,
             &mut |item| env.trace(&job.scope, this_turn, &job.trigger, item),
             &mut |item| {
@@ -342,6 +350,11 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
             },
         );
         match result {
+            Ok(_) if cancelled.load(Ordering::Relaxed) => {
+                staff_cursor = None;
+                env.finish(&job, turn_no, ReplyStatus::Stopped, turn_started);
+                continue;
+            }
             Ok(reply) => {
                 if let Some(next) = next_cursor.take() {
                     staff_cursor = Some(next);
@@ -373,7 +386,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                         if env.stop.load(Ordering::Relaxed) || cancelled.load(Ordering::Relaxed) {
                             break false;
                         }
-                        env.sleep(env.retry_backoff, &cancelled);
+                        env.sleep(env.retry_backoff, cancelled);
                     };
                     if !saved {
                         let status = if cancelled.load(Ordering::Relaxed) {
@@ -435,7 +448,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs, idle: Option<Idle>) {
                 }
                 env.sleep(
                     (env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF),
-                    &cancelled,
+                    cancelled,
                 );
                 continue;
             }

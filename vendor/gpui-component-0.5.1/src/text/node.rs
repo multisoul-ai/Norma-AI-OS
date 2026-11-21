@@ -178,10 +178,10 @@ impl PartialEq for Paragraph {
 }
 
 impl Paragraph {
-    pub(crate) fn new(text: String) -> Self {
+    pub(crate) fn new(text: impl Into<SharedString>) -> Self {
         Self {
             span: None,
-            children: vec![InlineNode::new(&text)],
+            children: vec![InlineNode::new(text)],
             link_refs: HashMap::new(),
             state: Arc::new(Mutex::new(InlineState::default())),
         }
@@ -488,13 +488,8 @@ impl Node {
         let mut text = String::new();
         match self {
             Node::Root { children } => {
-                let mut block_text = String::new();
-                for c in children.iter() {
-                    block_text.push_str(&c.selected_text());
-                }
-                if !block_text.is_empty() {
-                    text.push_str(&block_text);
-                    text.push('\n');
+                for child in children {
+                    text.push_str(&child.selected_text());
                 }
             }
             Node::Paragraph(paragraph) => {
@@ -524,14 +519,8 @@ impl Node {
                 }
             }
             Node::Blockquote { children } => {
-                let mut block_text = String::new();
-                for c in children.iter() {
-                    block_text.push_str(&c.selected_text());
-                }
-
-                if !block_text.is_empty() {
-                    text.push_str(&block_text);
-                    text.push('\n');
+                for child in children {
+                    text.push_str(&child.selected_text());
                 }
             }
             Node::Table(table) => {
@@ -1098,9 +1087,11 @@ impl Node {
                                                                     align == ColumnumnAlign::Right,
                                                                     |this| this.text_right(),
                                                                 )
-                                                                .child(cell.children.render(
-                                                                    node_cx, window, cx,
-                                                                )),
+                                                                .child(
+                                                                    cell.children.render(
+                                                                        node_cx, window, cx,
+                                                                    ),
+                                                                ),
                                                         ),
                                                 )
                                             }

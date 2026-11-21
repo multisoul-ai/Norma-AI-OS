@@ -143,6 +143,7 @@
   "staff.step.task_assign": "Dispatching work",
   "staff.step.task_phase": "Updating task phase",
   "staff.step.task_archive": "Archiving the task",
+  "staff.stop_generation": "Stop generating",
   "staff.reply_stopped": "Generation stopped.",
   "staff.copy": "Copy",
   "staff.copied": "Copied",

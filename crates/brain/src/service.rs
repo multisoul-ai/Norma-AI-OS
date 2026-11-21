@@ -76,7 +76,7 @@ impl BrainConfig {
 }
 
 mod runners;
-mod scopes;
+pub(crate) mod scopes;
 mod staff;
 use runners::TaskRunners;
 use scopes::Scopes;
@@ -129,6 +129,7 @@ impl BrainService {
             stop: stop.clone(),
             hub,
             pool: pool.clone(),
+            scopes: scopes.clone(),
         };
         let lane = |role: Role, model: Option<String>| shared.env(role, model);
         // 幕僚任务各有自己的会话线程，用主模型。
@@ -205,6 +206,11 @@ impl BrainService {
     /// 只获取句柄；磁盘操作须由后台调用，不能从 GPUI render 读取。
     pub fn tasks(&self) -> Arc<TaskStore> {
         self.tasks.clone()
+    }
+
+    /// Cancel only the staff reply the caller saw, scoped to its owning project.
+    pub fn stop_staff_turn(&self, scope: &BrainScope, task_id: &str, round: u64) -> bool {
+        self.scopes.stop_staff_turn(scope, task_id, round)
     }
 
     /// Cancel queued and in-flight work for this exact route without stopping other projects.
@@ -389,6 +395,7 @@ struct LaneShared {
     open: Arc<Mutex<HashSet<(BrainScope, String)>>>,
     stop: Arc<AtomicBool>,
     hub: Option<Arc<crate::acp::hub::SharedHub>>,
+    scopes: Scopes,
     pool: Option<Arc<Mutex<crate::lane::staff_pool::StaffPool>>>,
 }
 
@@ -415,6 +422,7 @@ impl LaneShared {
             retry_backoff: config.retry_backoff,
             max_turns: config.max_turns,
             hub: self.hub.clone(),
+            scopes: self.scopes.clone(),
             pool: self.pool.clone(),
         }
     }

@@ -11,7 +11,7 @@ impl MessageBlock for User<'_> {
         window: &mut Window,
         cx: &mut Context<MultisoulApp>,
     ) -> AnyElement {
-        let index = ctx.index;
+        let (task, index) = (ctx.task, ctx.index);
         let theme = ctx.app.staff_theme();
         let message = self.0;
         // 块级行先拿到列宽，再让横向 flex 在这个确定宽度里把气泡收到 78% 并靠右。
@@ -36,25 +36,24 @@ impl MessageBlock for User<'_> {
                 .rounded_br(px(tokens::SPACE_4))
                 .bg(rgba(theme.panel_high));
             if !visible.is_empty() {
+                let id = gpui::SharedString::from(format!("staff-user-text-{}-{index}", task.id));
+                let text = if markdown {
+                    crate::app::staff::register_link_target(window, cx);
+                    ui::component::text::TextView::markdown(
+                        id,
+                        crate::preview::rich_link::linkify_plain_text(&visible),
+                        window,
+                        cx,
+                    )
+                    .selectable(true)
+                } else {
+                    ui::component::text::TextView::plain(id, visible, window, cx)
+                };
                 bubble = bubble.child(
                     div()
                         .debug_selector(move || format!("staff-user-text-{index}"))
                         .when(!paths.is_empty(), |text| text.mb(px(tokens::SPACE_8)))
-                        .child(if markdown {
-                            crate::app::staff::register_link_target(window, cx);
-                            ui::component::text::TextView::markdown(
-                                gpui::SharedString::from(format!("staff-user-md-{index}")),
-                                crate::preview::rich_link::linkify_plain_text(&visible),
-                                window,
-                                cx,
-                            )
-                            .selectable(true)
-                            .h_auto()
-                            .flex_none()
-                            .into_any_element()
-                        } else {
-                            visible.into_any_element()
-                        }),
+                        .child(text.h_auto().flex_none()),
                 );
             }
             let image_count = paths.len();

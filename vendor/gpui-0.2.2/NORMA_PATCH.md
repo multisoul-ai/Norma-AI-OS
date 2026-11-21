@@ -158,3 +158,8 @@ activation observers on the first change) and refreshes, so the desktop E2E
 control channel can simulate the user leaving and coming back without touching
 the OS foreground. Only the debug-build control channel
 (`crates/app/src/e2e_control/`) calls it.
+
+## Closest byte index in multiline text
+
+`TextLayout::closest_index_for_position` reuses `WrappedLineLayout` hit testing to map selection
+endpoints to character boundaries across hard breaks and automatic wrapping.

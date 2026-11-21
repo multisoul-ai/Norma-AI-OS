@@ -16,6 +16,8 @@
 
 ## staff
 
+`staff-chat-stop-copy` / `staff-chat-stop-copy-en` 用 `--visual` 验收空态、等待首字、流式回复、停止前后的过程展开/折叠，以及用户消息和幕僚正文跨行拖选后使用 Cmd+C/Cmd+V 与系统剪贴板。夹具尝试发迟到分片，并核对停止后落盘的正文及下一轮结果。现有主题以墨黑中文和蓝宝石之夜英文覆盖。
+
 `staff-task-list-layout` / `staff-task-list-layout-en` 使用 `--visual` 验收幕僚任务侧栏的默认、选中、悬停、长标题、空筛选和窄窗折叠及展开，分别使用中文墨黑和英文蓝宝石之夜。
 
 `staff-composer-images` / `staff-composer-images-en` 使用 `--visual` 定向验收输入框左侧加号、真实剪贴板图片缩略图及移除后的图标，保留发送箭头和快捷键提示；分别使用中文墨黑与英文蓝宝石之夜。
