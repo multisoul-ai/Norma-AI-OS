@@ -153,6 +153,76 @@ fn wait_for_prompt(pipe: &Pipe, count: usize) -> u64 {
     }
 }
 
+/// 场景：Codex 幕僚只获得单次命令授权，其他后端仍按既有选项处理。
+/// 数据构造：幕僚收到合法 Norma 命令的两次权限请求，分别提供和缺少单次授权。
+/// 执行过程：经共享会话发送 prompt，投递权限请求并读取 ACP 回执。
+/// 预期结果：两种后端都优先选单次授权，只有 Codex 幕僚拒绝仅有的持久授权。
+#[test]
+fn codex_staff_never_grants_persistent_command_permission() {
+    for (kind, fallback) in [
+        (BackendKind::Codex, "reject"),
+        (BackendKind::ClaudeCode, "always"),
+    ] {
+        let pipe = Pipe::new();
+        let mut session = AcpSession::from_shared(
+            pipe.attach("staff"),
+            "staff".into(),
+            json!({}),
+            PathBuf::from("/"),
+            Some(PathBuf::from("/bin/norma")),
+            kind,
+        );
+        std::thread::scope(|scope| {
+            let handle = scope.spawn(|| {
+                session.prompt(
+                    "dispatch",
+                    &AtomicBool::new(false),
+                    Duration::from_secs(10),
+                    &mut |_| {},
+                )
+            });
+            let prompt = wait_for_prompt(&pipe, 1);
+            for (id, once) in [(80, true), (81, false)] {
+                let mut options = vec![
+                    json!({"optionId": "always", "kind": "allow_always"}),
+                    json!({"optionId": "reject", "kind": "reject_once"}),
+                ];
+                if once {
+                    options.push(json!({"optionId": "once", "kind": "allow_once"}));
+                }
+                assert!(pipe.deliver(Incoming::Request {
+                    id: json!(id),
+                    method: "session/request_permission".into(),
+                    params: json!({"sessionId": "staff", "options": options,
+                        "toolCall": {"name": "Bash", "rawInput": {"command": "/bin/norma brain agents"}}}),
+                }), "共享连接必须把授权请求投递给幕僚会话");
+            }
+            assert!(
+                pipe.deliver(Incoming::Response {
+                    id: prompt,
+                    result: Ok(json!({"stopReason": "end_turn"})),
+                }),
+                "应收到本轮完成响应"
+            );
+            handle
+                .join()
+                .expect("prompt thread")
+                .expect("prompt should complete");
+        });
+        let responses = pipe.sent();
+        for (id, expected) in [(80, "once"), (81, fallback)] {
+            let result = &responses
+                .iter()
+                .find(|value| value["id"] == id)
+                .expect("permission reply")["result"]["outcome"];
+            assert_eq!(
+                result["optionId"], expected,
+                "{kind:?} 幕僚权限请求 {id} 必须选择预期范围"
+            );
+        }
+    }
+}
+
 /// 场景：共用连接上取消一轮后，旧一轮的尾巴不能串进下一轮的回复。
 /// 数据构造：sess-a 在共用连接上发出第 1 条 prompt 后被取消；取消之后适配器又送来旧轮的
 ///   一段文字 "OLD"、一条旧轮的权限请求、以及旧 prompt 的 stopReason=cancelled 响应。
@@ -169,8 +239,14 @@ fn wait_for_prompt(pipe: &Pipe, count: usize) -> u64 {
 fn cancelled_turn_tail_does_not_leak_into_the_next_turn() {
     let pipe = Pipe::new();
     let port = pipe.attach("sess-a");
-    let mut session =
-        AcpSession::from_shared(port, "sess-a".into(), json!({}), PathBuf::from("/"), None);
+    let mut session = AcpSession::from_shared(
+        port,
+        "sess-a".into(),
+        json!({}),
+        PathBuf::from("/"),
+        None,
+        BackendKind::Codex,
+    );
     let cancel = Arc::new(AtomicBool::new(false));
     let first = {
         let cancel = cancel.clone();

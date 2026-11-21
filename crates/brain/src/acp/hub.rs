@@ -234,6 +234,7 @@ impl SharedHub {
             created,
             options.cwd.clone(),
             options.staff_shell.clone(),
+            options.kind,
         ))
     }
 

@@ -93,6 +93,12 @@ pub(crate) fn handshake(
             deadline,
             cancel,
         ) {
+            if codex_staff
+                && (config_id == "collaboration_mode" || matches!(error, AcpError::Cancelled))
+            {
+                let _ = conn.send_request("session/close", json!({"sessionId": session_id}));
+                return Err(error);
+            }
             if matches!(error, AcpError::Cancelled) {
                 return Err(error);
             }

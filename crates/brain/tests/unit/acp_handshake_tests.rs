@@ -9,8 +9,8 @@ use std::time::Duration;
 
 struct CodexRpc {
     sandbox: Value,
-    collaboration: Value,
-    reject_sandbox: bool,
+    requested_collaboration: Option<Value>,
+    reject: Option<&'static str>,
     session_params: Value,
     closed: bool,
     next: Option<Incoming>,
@@ -20,8 +20,8 @@ impl CodexRpc {
     fn new() -> Self {
         Self {
             sandbox: json!("agent"),
-            collaboration: json!("default"),
-            reject_sandbox: false,
+            requested_collaboration: None,
+            reject: None,
             session_params: Value::Null,
             closed: false,
             next: None,
@@ -41,13 +41,13 @@ impl Rpc for CodexRpc {
                 self.closed = params["sessionId"] == "staff-session";
                 Ok(json!({}))
             }
-            "session/set_mode" if self.reject_sandbox => Err(json!({"code": -32602})),
+            method if self.reject == Some(method) => Err(json!({"code": -32602})),
             "session/set_mode" => {
                 self.sandbox = params["modeId"].clone();
                 Ok(json!({}))
             }
             "session/set_config_option" if params["configId"] == "collaboration_mode" => {
-                self.collaboration = params["value"].clone();
+                self.requested_collaboration = Some(params["value"].clone());
                 Ok(json!({}))
             }
             _ => panic!("unexpected handshake request {method}"),
@@ -76,7 +76,9 @@ fn options() -> SessionOptions {
         args: vec![],
         cwd: "/tmp".into(),
         env: vec![],
-        meta: None,
+        meta: Some(
+            json!({"norma": {"config": {"shell_environment_policy": {"set": {"NORMA_BRAIN_TOKEN": "staff-token"}}}}}),
+        ),
         mode: session_mode(BackendKind::Codex).map(str::to_owned),
         model: None,
         effort: None,
@@ -97,7 +99,17 @@ fn codex_staff_uses_default_collaboration_with_read_only_sandbox() {
     handshake(&mut staff, &options(), &cancel, true, true, &mut || {}).expect("staff handshake");
     handshake(&mut other, &options(), &cancel, false, true, &mut || {})
         .expect("non-staff handshake");
-    assert_eq!(staff.collaboration, "default", "幕僚派发不能受计划模式阻断");
+    assert_eq!(
+        staff.requested_collaboration,
+        Some(json!("default")),
+        "幕僚必须显式请求默认协作模式"
+    );
+    assert_eq!(
+        staff.session_params["_meta"]["norma"]["config"]["shell_environment_policy"]["set"]
+            ["NORMA_BRAIN_TOKEN"],
+        "staff-token",
+        "提问 feature 不能覆盖共享会话 token"
+    );
     assert_eq!(staff.sandbox, "read-only", "幕僚不能直接写项目文件");
     let question_feature = |rpc: &CodexRpc| {
         rpc.session_params["_meta"]["norma"]["config"]["features"]
@@ -106,23 +118,25 @@ fn codex_staff_uses_default_collaboration_with_read_only_sandbox() {
     };
     assert_eq!(question_feature(&staff), Some(true), "幕僚保留原生提问工具");
     assert_eq!(question_feature(&other), None, "非幕僚不覆盖提问配置");
-    assert_eq!(other.collaboration, "default", "非幕僚的协作模式维持不变");
+    assert_eq!(other.requested_collaboration, None, "非幕僚不切换协作模式");
     assert_eq!(other.sandbox, "workspace-write", "非幕僚仍使用既有沙箱");
 }
 
-/// 场景：适配器拒绝设置幕僚的只读沙箱。
-/// 数据构造：模拟 `session/set_mode` 返回 Invalid params。
+/// 场景：适配器拒绝设置幕僚的只读沙箱或默认协作模式。
+/// 数据构造：分别模拟 `session/set_mode` 和 `session/set_config_option` 返回 Invalid params。
 /// 执行过程：尝试为 Codex 幕僚建会话。
-/// 预期结果：握手失败，原先可写的会话不能接到任务。
+/// 预期结果：两个必需配置有一个失败即关闭会话并返回原错误。
 #[test]
-fn codex_staff_does_not_continue_without_read_only_sandbox() {
-    let mut staff = CodexRpc::new();
-    staff.reject_sandbox = true;
-    let cancel = AtomicBool::new(false);
-    let result = handshake(&mut staff, &options(), &cancel, true, true, &mut || {});
-    assert!(
-        result.is_err(),
-        "只读沙箱未生效，不能继续向 Codex 幕僚发任务"
-    );
-    assert!(staff.closed, "应关闭已创建的会话，避免在共用连接上残留");
+fn codex_staff_closes_session_when_required_mode_is_rejected() {
+    for method in ["session/set_mode", "session/set_config_option"] {
+        let mut staff = CodexRpc::new();
+        staff.reject = Some(method);
+        let cancel = AtomicBool::new(false);
+        let result = handshake(&mut staff, &options(), &cancel, true, true, &mut || {});
+        assert!(
+            matches!(result, Err(crate::acp::client::AcpError::Remote(_))),
+            "{method} 被拒绝后须报告握手失败"
+        );
+        assert!(staff.closed, "应关闭已创建的会话，避免在共用连接上残留");
+    }
 }
