@@ -7,7 +7,6 @@ use serde_json::json;
 
 pub(super) struct OwnedHost {
     host: OpenCodeQuestionHost,
-    blocked: bool,
     unavailable: bool,
 }
 
@@ -77,10 +76,10 @@ impl Runtime {
             node,
             OwnedHost {
                 host,
-                blocked: false,
                 unavailable: false,
             },
         );
+        self.refresh_question_projection(node);
         Ok(())
     }
 
@@ -107,13 +106,8 @@ impl Runtime {
                 owned.unavailable = true;
                 events.push((*node, process, OpenCodeNativeEvent::Unavailable));
             }
-            let blocked = owned.host.input_pending();
-            if owned.blocked != blocked {
-                owned.blocked = blocked;
-                projections.push(*node);
-            }
         }
-        let mut changed = !projections.is_empty();
+        let mut changed = false;
         for (node, process, event) in events {
             if self.native_question_process_id(node) != Some(process.as_str()) {
                 continue;
