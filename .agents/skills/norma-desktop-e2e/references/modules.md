@@ -27,3 +27,7 @@
 `staff-protocol-recovery` / `staff-protocol-recovery-en` 定向验证 OpenCode 原生 q0 问答、命令组合拒绝后的同会话纠正、双语格式错误反馈与提议唯一性，并连续录像。
 
 `staff-proposal-layout` / `staff-proposal-layout-en` 用长中英混排说明与待采用建议，验收1280px、900px及恢复宽窗后的24px间距，以及标题、理由、指令、目标与按钮完整性；不执行归档或派发。
+
+## agent
+
+`agent-opencode-idle-status` 用 `--visual` 从工作空间进入画布，验证真实 OpenCode 1.19.3 原生 Build 的待开始、首次生成、工具等待回答、作答后生成与完成。模型响应来自本机夹具。

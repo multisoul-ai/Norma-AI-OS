@@ -170,7 +170,7 @@ impl Runtime {
         if !self.live.contains_key(&node) || self.document.node(node).is_none() {
             return;
         }
-        let state = if self.has_pending_question(node) {
+        let state = if self.has_question_for_status(node) {
             crate::AgentTaskState::WaitingQuestion
         } else {
             self.questions

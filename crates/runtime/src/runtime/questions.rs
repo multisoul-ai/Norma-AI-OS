@@ -348,8 +348,12 @@ impl Runtime {
     }
 
     pub fn has_pending_question(&self, node: NodeId) -> bool {
+        self.opencode_input_pending(node) || self.has_question_for_status(node)
+    }
+
+    fn has_question_for_status(&self, node: NodeId) -> bool {
+        // OpenCode also holds input during an ordinary pending-question poll.
         self.native_input_pending(node)
-            || self.opencode_input_pending(node)
             || self.questions.fallback.blocks(node)
             || self.questions.entries.iter().any(|entry| {
                 entry.snapshot.question.target.node_id == node
@@ -401,7 +405,7 @@ impl Runtime {
         if to != crate::AgentTaskState::WaitingQuestion {
             self.questions.provider_states.insert(node, to.clone());
         }
-        if self.has_pending_question(node) {
+        if self.has_question_for_status(node) {
             crate::AgentTaskState::WaitingQuestion
         } else {
             to

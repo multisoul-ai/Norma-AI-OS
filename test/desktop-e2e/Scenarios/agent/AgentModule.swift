@@ -12,7 +12,9 @@ public enum AgentModule {
             AgentAskReady.name,
             AgentVoiceResume.name,
             AgentCodexWaitCompletion.name,
+            AgentOpenCodeIdleStatus.name,
         ],
+        visualScenarioNames: [AgentOpenCodeIdleStatus.name],
         run: { scenario, session in
             switch scenario {
             case AgentStartupWatchdog.name:
@@ -35,6 +37,9 @@ public enum AgentModule {
                 return true
             case AgentCodexWaitCompletion.name:
                 try await AgentCodexWaitCompletion.run(session)
+                return true
+            case AgentOpenCodeIdleStatus.name:
+                try await AgentOpenCodeIdleStatus.run(session)
                 return true
             default:
                 return false

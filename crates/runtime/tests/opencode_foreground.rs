@@ -1,6 +1,6 @@
 use norma::opencode::{client::OpenCodeQuestionClient, native_questions::OpenCodeQuestionHost};
 use norma::protocol::{QuestionAnswer, QuestionState};
-use runtime::{AgentHookRuntimeConfig, Runtime};
+use runtime::{AgentHookRuntimeConfig, AgentTaskState, Runtime};
 use std::{
     sync::atomic::Ordering,
     time::{Duration, Instant},
@@ -21,13 +21,14 @@ fn wait(runtime: &mut Runtime, predicate: impl Fn(&Runtime) -> bool) {
         std::thread::sleep(Duration::from_millis(5));
     }
 }
-/// 场景：原 A 的答案回包丢失后，原 TUI 切 B；A 后来消费不能丢回执或影响 B 的待答状态。
+/// 场景：OpenCode 刚打开时没有任务；随后 A 出题，答复回包丢失后原 TUI 切到 B。
 /// 构造：原 Runtime 卡片、鉴权实例两个同题会话、精确 route 证据与 echo PTY。
-/// 执行：默认宿主接入 A、发送一次、切 B、观察 A 的迟到原工具消费。
-/// 预期：A 记 ConsumedUnattributed 且无 delivery 归属；B 仍是当前 Pending 并阻断普通任务；仅一个 POST。
+/// 执行：接入无题的 A 并挂起下一次查询，再让 A 出题、发送一次、切 B，观察 A 的迟到消费。
+/// 预期：无题时保持 Ready 且查询期间拦截普通任务；A 消费不影响 B 待答，仅一个 POST。
 #[test]
 fn runtime_tracks_foreground_and_settles_retired_original_receipt() {
     let server = Server::new(true);
+    server.consumed.store(true, Ordering::Release);
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().join("route.json");
     route(&path, 1, Some("ses_a"));
@@ -63,11 +64,38 @@ fn runtime_tracks_foreground_and_settles_retired_original_receipt() {
         OpenCodeQuestionHost::start_following(client, node, process, path.clone(), "owned".into())
             .unwrap();
     runtime.adopt_opencode_question_host(host, "p").unwrap();
+    wait(&mut runtime, |r| !r.agent_task_input_held(node));
+    let queries = server.queries.load(Ordering::Acquire);
+    server.pause_queries.store(true, Ordering::Release);
+    wait(&mut runtime, |r| {
+        server.queries.load(Ordering::Acquire) > queries && r.agent_task_input_held(node)
+    });
+    runtime.drain_native_question_hosts("p");
+    assert!(runtime.questions().is_empty(), "空闲 A 没有真实问题");
+    assert_eq!(
+        runtime.agent_task_state(node),
+        Some(AgentTaskState::Ready),
+        "空闲会话的查询锁不能显示为等待回答"
+    );
+    assert!(
+        runtime
+            .send_agent_task_text(node, "must wait for query")
+            .is_err(),
+        "查询期间仍应保护普通任务输入"
+    );
+    server.consumed.store(false, Ordering::Release);
+    server.pause_queries.store(false, Ordering::Release);
+
     wait(&mut runtime, |r| {
         r.questions()
             .iter()
             .any(|q| q.question.target.session_id == "ses_a" && q.state == QuestionState::Pending)
     });
+    assert_eq!(
+        runtime.agent_task_state(node),
+        Some(AgentTaskState::WaitingQuestion),
+        "真实问题登记后卡片才显示等待回答"
+    );
     let target = runtime.questions()[0].question.target.clone();
     assert!(runtime.question_is_current(&target), "A 是当前原问题");
     let answers = vec![
