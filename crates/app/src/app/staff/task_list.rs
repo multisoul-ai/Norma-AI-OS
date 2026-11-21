@@ -22,7 +22,7 @@ impl MultisoulApp {
             .search
             .as_ref()
             .expect("staff search initialized");
-        let list_w = super::sidebar_width(window).max(280.);
+        let list_width = super::sidebar_width(window).max(280.);
         let owned: Vec<_> = self.staff.tasks.values().cloned().collect();
         let project_filter = self.staff.project_filter.clone();
         let task_projects = self.staff.task_projects.clone();
@@ -149,7 +149,7 @@ impl MultisoulApp {
                 groups = groups.child(self.staff_task_row(
                     task,
                     project_name,
-                    super::task_row::task_text_width(list_w, !self.staff.archive_view),
+                    list_width - 2. * SPACE_2,
                     cx,
                 ));
             }
@@ -181,7 +181,7 @@ impl MultisoulApp {
         div()
             .id("staff-task-list")
             .debug_selector(|| "staff-task-list".into())
-            .w(px(super::sidebar_width(window).max(280.)))
+            .w(px(list_width))
             .flex_none()
             .h_full()
             .flex()
