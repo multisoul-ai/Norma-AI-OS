@@ -15,7 +15,11 @@ mod home;
 mod home_tools;
 mod open;
 mod preview_load;
+pub(crate) mod refresh;
 mod render;
+pub(crate) mod tab_controls;
+mod tab_search;
+mod tab_strip;
 mod tabs;
 pub(crate) mod workbench;
 
@@ -42,6 +46,16 @@ impl MultisoulApp {
             .iter()
             .find(|tab| tab.selected && !new_tab_page)
             .cloned();
+        let confirm_batch = matches!(
+            self.desktop_workspace.workbench.pending_close,
+            Some(workbench::PendingWorkbenchAction::CloseTabs { .. })
+        );
+        let closing_selected = selected.as_ref().is_some_and(|tab| {
+            self.content_tab_controls.closing.contains(&tab.id)
+                && tab.kind == storage::DesktopContentKind::ProjectFiles
+        });
+        let menu = self.render_content_tab_menu();
+        let search = self.render_content_tab_search(width, edge_inset, window, cx);
         div()
             .id("desktop-assistant-right")
             .debug_selector(|| "desktop-assistant-right".to_string())
@@ -69,27 +83,40 @@ impl MultisoulApp {
             .text_color(rgba(theme.text_primary))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .when_some(frost, |drawer, frost| drawer.child(frost))
-            .child(self.render_reader_chrome(cx))
-            .when(
-                selected
-                    .as_ref()
-                    .is_some_and(|tab| tab.kind != storage::DesktopContentKind::ProjectFiles),
-                |drawer| drawer.child(self.render_reader_toolbar(cx)),
-            )
+            .child(self.render_reader_chrome(width, window, cx))
+            .when_some(selected.as_ref(), |drawer, tab| {
+                drawer.child(self.render_reader_toolbar(tab, width, edge_inset, window, cx))
+            })
             .child(
                 div()
                     .id("desktop-content-body")
                     .debug_selector(|| "desktop-content-body".to_string())
                     .flex_1()
                     .min_h(px(0.0))
-                    .when_some(selected, |body, tab| {
-                        body.child(self.render_content_tab_body(&tab, width, window, cx))
+                    .when(confirm_batch, |body| {
+                        body.child(self.render_workbench_unsaved(cx))
                     })
+                    .when(closing_selected, |body| {
+                        body.child(
+                            div()
+                                .p(px(14.0))
+                                .child(ui::i18n::text("drawers.closing_tabs")),
+                        )
+                    })
+                    .when_some(
+                        selected.filter(|_| !confirm_batch && !closing_selected),
+                        |body, tab| {
+                            body.child(self.render_content_tab_body(&tab, width, window, cx))
+                        },
+                    )
                     .when(
-                        new_tab_page || self.desktop_workspace.content_tabs.is_empty(),
+                        !confirm_batch
+                            && (new_tab_page || self.desktop_workspace.content_tabs.is_empty()),
                         |body| body.child(self.render_content_home(width, window, cx)),
                     ),
             )
+            .children(menu)
+            .children(search)
     }
 }
 

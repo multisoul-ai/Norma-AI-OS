@@ -1,5 +1,110 @@
-use super::load_timeline::{BrowserLoadPhase, LoadTimeline};
+use super::load_timeline::{BrowserLoadPhase, BrowserRefreshStatus, LoadTimeline};
 use std::time::{Duration, Instant};
+
+/// 无 Client 回调的浏览器先返回空闲、再进入加载、再退出加载。
+/// 轮询只有观测到真实加载后才可标记刷新完成；提交后重复加载状态不重复发事件。
+#[test]
+fn polling_backend_requires_real_loading_before_reporting_finish() {
+    let now = Instant::now();
+    let mut timeline = LoadTimeline::default();
+    timeline.begin_refresh(now);
+    assert_eq!(timeline.polled_phase(false), None, "未开始的加载不可算成功");
+    assert_eq!(
+        timeline.polled_phase(true),
+        Some(BrowserLoadPhase::Started),
+        "原生浏览器开始加载"
+    );
+    timeline.record(BrowserLoadPhase::Started, now);
+    assert_eq!(
+        timeline.polled_phase(true),
+        None,
+        "连续的加载采样只提交一次"
+    );
+    assert_eq!(
+        timeline.polled_phase(false),
+        Some(BrowserLoadPhase::Finished),
+        "已开始的加载退出时才完成"
+    );
+}
+
+/// 恢复的后台标签还没有原生视图，刷新请求应由第一次创建消费。
+/// 先请求刷新，再创建并模拟 WebKit 提交和完成，验证未收到完成前保持 Loading。
+#[test]
+fn requested_refresh_waits_for_native_creation_and_real_finish() {
+    let t0 = Instant::now();
+    let mut timeline = LoadTimeline::default();
+    timeline.request_refresh();
+    assert_eq!(
+        timeline.refresh_status(),
+        Some(BrowserRefreshStatus::Loading),
+        "后台恢复标签应保留待执行的刷新"
+    );
+    assert!(!timeline.is_loading(t0), "创建前没有实际浏览器请求");
+
+    timeline.begin(t0, Some(Duration::ZERO));
+    timeline.record(BrowserLoadPhase::Started, t0);
+    assert_eq!(
+        timeline.refresh_status(),
+        Some(BrowserRefreshStatus::Loading),
+        "真实提交时尚未完成"
+    );
+    timeline.record(BrowserLoadPhase::Finished, t0);
+    assert_eq!(
+        timeline.refresh_status(),
+        Some(BrowserRefreshStatus::Updated),
+        "只在真实完成后成功"
+    );
+}
+
+/// 第一次刷新超时（30 秒），重试时陆续收到上一轮排队的完成、未提交的迟到完成和本轮完成。
+/// 只有本轮提交之后、限时内的完成能够把当前请求标记为成功。
+#[test]
+fn refresh_times_out_and_retry_ignores_stale_finishes() {
+    let t0 = Instant::now();
+    let retry = t0 + Duration::from_secs(31);
+    let mut timeline = LoadTimeline::default();
+    timeline.begin_refresh(t0);
+    timeline.record(BrowserLoadPhase::Started, t0);
+    assert!(timeline.expire(retry), "到达超时应触发一次状态变化");
+    assert_eq!(
+        timeline.refresh_status(),
+        Some(BrowserRefreshStatus::Failed),
+        "超时应显示失败并允许重试"
+    );
+    assert!(
+        timeline.record(BrowserLoadPhase::Finished, retry).is_none(),
+        "迟到的完成不能把超时改成成功"
+    );
+    assert!(!timeline.expire(retry), "同一失败不应重复通知");
+
+    timeline.begin_refresh(retry);
+    let prior_finish = retry - Duration::from_millis(1);
+    assert!(
+        timeline
+            .record(BrowserLoadPhase::Finished, prior_finish)
+            .is_none(),
+        "排队的旧回调不能完成新请求"
+    );
+    assert!(
+        timeline.record(BrowserLoadPhase::Finished, retry).is_none(),
+        "重试尚未提交时不能接受新到的完成"
+    );
+    assert_eq!(
+        timeline.refresh_status(),
+        Some(BrowserRefreshStatus::Loading),
+        "旧完成不能提前清除重试进度"
+    );
+    timeline.record(BrowserLoadPhase::Started, retry);
+    assert!(
+        timeline.record(BrowserLoadPhase::Finished, retry).is_some(),
+        "本轮提交和完成应保留现有耗时报告"
+    );
+    assert_eq!(
+        timeline.refresh_status(),
+        Some(BrowserRefreshStatus::Updated),
+        "重试成功应覆盖超时失败"
+    );
+}
 
 /// L-1: 一次完整导航必须产出「创建 / 提交 / 完成」三段耗时，且只报告一次。
 ///

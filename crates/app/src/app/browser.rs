@@ -33,6 +33,7 @@ pub(crate) use address_input::BrowserAddressInput;
 use address_input::BrowserAddressInputEvent;
 pub(crate) use chrome_auth::BrowserAuthUiState;
 pub(crate) use engine::BrowserEngineKind;
+pub(crate) use load_timeline::BrowserRefreshStatus;
 pub(crate) use location::canonical_browser_location;
 pub(crate) use native::{browser_native_view_bounds, BrowserViewBounds, NativeBrowserView};
 pub(crate) use safari_identity::initialize_safari_browser_identity;
@@ -87,7 +88,10 @@ pub(crate) enum BrowserEvent {
         node_id: NodeId,
         phase: load_timeline::BrowserLoadPhase,
         at: Instant,
+        view_created_at: Instant,
+        url: String,
     },
+    RefreshStatusChanged,
     NavigateCurrentCard {
         node_id: NodeId,
         url: String,
@@ -279,7 +283,9 @@ impl MultisoulApp {
                         changed = true;
                     }
                 }
-                BrowserEvent::PageLoad { .. } => changed = true,
+                BrowserEvent::PageLoad { .. } | BrowserEvent::RefreshStatusChanged => {
+                    changed = true
+                }
                 BrowserEvent::NavigateCurrentCard { node_id, url } => {
                     if self.update_desktop_browser_tab_location(node_id, url.clone(), cx)
                         || self.set_browser_url(node_id, url.clone())

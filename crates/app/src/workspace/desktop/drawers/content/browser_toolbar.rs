@@ -141,6 +141,8 @@ impl MultisoulApp {
         let empty = input.read(cx).value().trim().is_empty();
         let compact = width < 360.0;
         let id = content_node_id(&tab.id);
+        let tab_id = tab.id.clone();
+        let can_reload = self.content_tab_can_reload(&tab_id);
         let controls = div()
             .id("desktop-content-browser-actions")
             .debug_selector(|| "desktop-content-browser-actions".into())
@@ -176,10 +178,10 @@ impl MultisoulApp {
                     .label("↻")
                     .tooltip(ui::i18n::text("drawers.refresh"))
                     .small()
+                    .disabled(!can_reload)
                     .when(compact, |button| button.w(px(24.0)).p(px(0.0)))
-                    .on_click(cx.listener(move |app, _, _, cx| {
-                        app.browsers.reload(id);
-                        cx.notify();
+                    .on_click(cx.listener(move |app, _, window, cx| {
+                        app.refresh_desktop_content_tab(&tab_id, window, cx);
                     })),
             );
         let address = div()

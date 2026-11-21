@@ -51,6 +51,39 @@ pub fn route_drawer(
     state
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ContentTabCloseScope {
+    Current,
+    Others,
+    Right,
+    All,
+}
+
+impl ContentTabCloseScope {
+    pub fn targets<'a>(self, ordered: &[&'a str], target: &str) -> Vec<&'a str> {
+        let Some(index) = ordered.iter().position(|id| *id == target) else {
+            return Vec::new();
+        };
+        match self {
+            Self::Current => vec![ordered[index]],
+            Self::Others => ordered[..index]
+                .iter()
+                .chain(&ordered[index + 1..])
+                .copied()
+                .collect(),
+            Self::Right => ordered[index + 1..].to_vec(),
+            Self::All => ordered.to_vec(),
+        }
+    }
+}
+
+pub fn content_tab_matches(query: &str, title: &str, resource: &str) -> bool {
+    let query = query.trim().to_lowercase();
+    query.is_empty()
+        || title.to_lowercase().contains(&query)
+        || resource.to_lowercase().contains(&query)
+}
+
 #[cfg(test)]
 #[path = "../tests/unit/desktop_drawers.rs"]
 mod tests;

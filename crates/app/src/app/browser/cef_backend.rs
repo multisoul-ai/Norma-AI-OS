@@ -73,6 +73,10 @@ impl CefBrowserView {
         }
     }
 
+    pub(crate) fn is_loading(&self) -> bool {
+        self.browser.is_loading() != 0
+    }
+
     pub(crate) fn current_url(&self) -> Option<String> {
         let frame = self.browser.main_frame()?;
         let url = frame.url();

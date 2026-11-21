@@ -286,6 +286,7 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
         }
         Command::Mouse {
             phase,
+            button,
             x,
             y,
             click_count,
@@ -293,7 +294,7 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
             modifiers,
         } => {
             window.dispatch_event(
-                mouse_input(phase, x, y, click_count, pressed, &modifiers),
+                mouse_input(phase, button, x, y, click_count, pressed, &modifiers),
                 cx,
             );
             done(Response::ok())

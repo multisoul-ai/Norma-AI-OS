@@ -69,6 +69,59 @@ fn content_tab_operations_preserve_request_order() {
     });
 }
 
+/// 打开新标签、关闭旧标签和收起抽屉交错时，重新展开必须显示已落库的幸存标签。
+///
+/// 数据构造：隔离工作空间已打开 A，打开 B 的通知还未返回。
+/// 执行过程：在 B 插入界面前对可见列表关全，紧接着收起右栏。
+/// 预期结果：等待队列后，界面与存储都只保留选中的 B。
+#[test]
+fn closing_visible_tabs_keeps_newly_committed_survivor_after_collapse() {
+    use runtime::desktop_drawers::{ContentTabCloseScope, DesktopDrawerEvent};
+
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
+    let workspace = DesktopWorkspaceStore::new(paths.app_db_path().to_owned())
+        .create("空间")
+        .expect("应创建工作空间");
+    let mut test = TestAppContext::single();
+    let (app, cx) = test
+        .add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths.clone(), store));
+    let open = |app: &mut MultisoulApp, title: &str, cx: &mut gpui::Context<MultisoulApp>| {
+        app.open_desktop_content_tab(
+            DesktopContentKind::Browser,
+            format!("https://{}.example.test/", title.to_ascii_lowercase()),
+            title.into(),
+            None,
+            cx,
+        );
+    };
+    app.update(cx, |app, cx| {
+        app.desktop_workspace.active_id = Some(workspace.id.clone());
+        open(app, "A", cx);
+    });
+    cx.run_until_parked();
+    app.update(cx, |app, cx| {
+        let a_id = app.desktop_workspace.content_tabs[0].id.clone();
+        open(app, "B", cx);
+        app.close_desktop_content_tab_scope(&a_id, ContentTabCloseScope::All, cx);
+        app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleRight, cx);
+    });
+    cx.run_until_parked();
+    let saved = DesktopContentTabStore::new(paths.app_db_path().to_owned())
+        .list(&workspace.id)
+        .expect("应读取最终标签");
+    assert_eq!(saved.len(), 1, "仅可见的 A 应被关闭");
+    assert_eq!(saved[0].title, "B", "B 应保留");
+    assert!(saved[0].selected, "B 应选中");
+    app.read_with(cx, |app, _| {
+        assert_eq!(
+            app.desktop_workspace.content_tabs, saved,
+            "不能遗失幸存标签"
+        );
+    });
+}
+
 /// 右栏浏览器收到页面导航后，绘制所用地址必须先更新，再异步保存到空间标签。
 ///
 /// 数据构造：隔离空间内一个已选中的 Browser 标签，原地址为 A。

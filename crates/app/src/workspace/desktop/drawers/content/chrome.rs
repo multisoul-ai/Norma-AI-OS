@@ -9,36 +9,67 @@ pub(super) use super::chrome_format::{
 };
 
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, svg, Context, Div, ElementId, KeyDownEvent, Stateful};
+use gpui::{div, prelude::*, px, rgba, svg, Context, Div, KeyDownEvent, Stateful, Window};
 use storage::{DesktopContentKind, DesktopContentTab};
 use ui::component::button::{Button, ButtonVariants};
 use ui::icons::with_alpha;
 
-fn activates(event: &KeyDownEvent) -> bool {
+pub(super) fn activates(event: &KeyDownEvent) -> bool {
     matches!(event.keystroke.key.as_str(), "enter" | "space")
 }
 
+pub(super) fn compact_tab_controls(width: f32) -> bool {
+    width < 280.0
+}
+
+pub(super) const COMPACT_TOOLS_HEIGHT: f32 = 38.0;
+
 impl MultisoulApp {
-    pub(super) fn render_reader_chrome(&self, cx: &mut Context<Self>) -> Stateful<Div> {
+    pub(super) fn render_reader_chrome(
+        &self,
+        width: f32,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
         let theme = self.desktop_theme();
         let colors = reader_chrome_colors(theme);
-        div()
-            .id("desktop-content-chrome")
-            .debug_selector(|| "desktop-content-chrome".to_string())
+        let tabs = &self.desktop_workspace.content_tabs;
+        let selected = tabs
+            .iter()
+            .find(|tab| tab.selected && !self.desktop_workspace.content_browser.new_tab_page);
+        let compact = compact_tab_controls(width);
+        let mut row = div()
             .h(px(READER_CHROME_HEIGHT))
             .flex()
             .items_center()
-            .gap(px(8.0))
-            .px(px(12.0))
+            .gap(px(6.0))
+            .px(px(10.0))
+            .child(self.render_reader_collapse(colors, cx));
+        let mut tools = div().flex().items_center().gap(px(6.0));
+        if !tabs.is_empty() {
+            row = row
+                .child(self.render_reader_tabs(colors, width, window, cx))
+                .child(self.render_new_browser_tab(colors, cx));
+            tools = tools.child(self.render_content_tab_search_button(window, cx));
+            if let Some(tab) = selected {
+                tools = tools.child(self.render_content_refresh_button(&tab.id, cx));
+            }
+        }
+        let chrome = div()
+            .id("desktop-content-chrome")
+            .debug_selector(|| "desktop-content-chrome".to_string())
+            .flex()
+            .flex_col()
+            .flex_none()
             .border_b_1()
-            .border_color(rgba(with_alpha(theme.edge_highlight, 0x2e)))
-            .child(self.render_reader_collapse(colors, cx))
-            .when(!self.desktop_workspace.content_tabs.is_empty(), |row| {
-                row.child(self.render_reader_tabs(colors, cx))
-            })
-            .when(!self.desktop_workspace.content_tabs.is_empty(), |row| {
-                row.child(self.render_new_browser_tab(colors, cx))
-            })
+            .border_color(rgba(with_alpha(theme.edge_highlight, 0x2e)));
+        if compact && !tabs.is_empty() {
+            chrome
+                .child(row)
+                .child(tools.justify_end().px(px(10.0)).pb(px(6.0)))
+        } else {
+            chrome.child(row.child(tools))
+        }
     }
 
     /// No page carries a tool row, so new-web-page access lives at the strip's end.
@@ -67,17 +98,18 @@ impl MultisoulApp {
             }))
     }
 
-    pub(super) fn render_reader_toolbar(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
+    pub(super) fn render_reader_toolbar(
+        &self,
+        tab: &DesktopContentTab,
+        width: f32,
+        right: f32,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
         let theme = self.desktop_theme();
-        let tab = self
-            .desktop_workspace
-            .content_tabs
-            .iter()
-            .find(|tab| tab.selected)
-            .cloned()
-            .expect("toolbar requires a selected tab");
-        let title = content_context_title(&tab);
-        let open_external = is_http_resource(&tab.resource);
+        let title = content_context_title(tab);
+        let refresh_status = self.render_content_refresh_status(&tab.id, cx);
+        let open_external = width >= 380.0 && is_http_resource(&tab.resource);
         div()
             .id("desktop-content-context")
             .debug_selector(|| "desktop-content-context".to_string())
@@ -94,11 +126,27 @@ impl MultisoulApp {
                     .path(content_icon(tab.kind))
                     .w(px(13.0))
                     .h(px(13.0))
+                    .flex_none()
                     .text_color(rgba(theme.text_secondary)),
             )
             .child(self.render_context_title(&title))
-            .child(self.render_kind_badge(tab.kind, theme))
-            .child(div().flex_1())
+            .when(width >= 300.0, |row| {
+                row.child(self.render_kind_badge(tab.kind, theme))
+            })
+            .children(refresh_status)
+            .when(is_http_resource(&tab.resource) && !open_external, |row| {
+                row.child(
+                    self.tab_control_button(
+                        "desktop-content-open-original",
+                        ui::component::IconName::ExternalLink,
+                        "drawers.open_original",
+                        cx,
+                    )
+                    .on_click(
+                        cx.listener(|app, _, _, cx| app.activate_reader_context_action(true, cx)),
+                    ),
+                )
+            })
             .when(open_external, |row| {
                 row.child(self.render_context_action(
                     ui::i18n::text("drawers.open_original"),
@@ -107,6 +155,7 @@ impl MultisoulApp {
                     cx,
                 ))
             })
+            .child(self.render_content_tab_actions(tab, width, right, window, cx))
     }
 
     fn render_reader_collapse(&self, colors: ReaderChromeColors, cx: &mut Context<Self>) -> Button {
@@ -135,175 +184,12 @@ impl MultisoulApp {
             }))
     }
 
-    fn render_reader_tabs(
-        &self,
-        colors: ReaderChromeColors,
-        cx: &mut Context<Self>,
-    ) -> Stateful<Div> {
-        div()
-            .id("desktop-content-tabs")
-            .flex_1()
-            .min_w(px(0.0))
-            .h(px(32.0))
-            .flex()
-            .items_center()
-            .gap(px(6.0))
-            .overflow_x_scroll()
-            .children(
-                self.desktop_workspace
-                    .content_tabs
-                    .iter()
-                    .map(|tab| self.render_reader_tab(tab, colors, cx)),
-            )
-    }
-
-    fn render_reader_tab(
-        &self,
-        tab: &DesktopContentTab,
-        colors: ReaderChromeColors,
-        cx: &mut Context<Self>,
-    ) -> Stateful<Div> {
-        let theme = self.desktop_theme();
-        let selected = tab.selected;
-        let select_id = tab.id.clone();
-        let key_select_id = select_id.clone();
-        let close_id = tab.id.clone();
-        let fill = if selected {
-            colors.tab_selected
-        } else {
-            colors.tab_rest
-        };
-        let hover = if selected {
-            colors.tab_selected_hover
-        } else {
-            colors.tab_hover
-        };
-        let pressed = if selected {
-            colors.tab_selected_pressed
-        } else {
-            colors.tab_pressed
-        };
-        let border = if selected {
-            colors.tab_selected_border
-        } else {
-            colors.tab_rest_border
-        };
-        div()
-            .id(ElementId::Name(
-                format!("desktop-content-tab-{}", tab.id).into(),
-            ))
-            .debug_selector({
-                let id = tab.id.clone();
-                move || format!("desktop-content-tab-{id}")
-            })
-            .h(px(32.0))
-            .max_w(px(185.0))
-            .flex()
-            .flex_none()
-            .items_center()
-            .gap(px(6.0))
-            .pl(px(8.0))
-            .pr(px(4.0))
-            .rounded(px(9.0))
-            .border_1()
-            .border_color(rgba(border))
-            .bg(rgba(fill))
-            .cursor_pointer()
-            .tab_index(0)
-            .hover(move |style| style.bg(rgba(hover)))
-            .active(move |style| style.bg(rgba(pressed)))
-            .focus(move |style| style.border_color(rgba(theme.focused_stroke)))
-            .on_click(cx.listener(move |app, _, _, cx| {
-                app.select_desktop_content_tab(&select_id, cx);
-            }))
-            .on_key_down(cx.listener(move |app, event: &KeyDownEvent, _, cx| {
-                if activates(event) {
-                    app.select_desktop_content_tab(&key_select_id, cx);
-                    cx.stop_propagation();
-                }
-            }))
-            .child(
-                svg()
-                    .path(content_icon(tab.kind))
-                    .w(px(13.0))
-                    .h(px(13.0))
-                    .flex_none()
-                    .text_color(rgba(if selected {
-                        theme.text_primary
-                    } else {
-                        theme.text_secondary
-                    })),
-            )
-            .child(
-                div()
-                    .min_w(px(0.0))
-                    .max_w(px(112.0))
-                    .overflow_hidden()
-                    .text_ellipsis()
-                    .whitespace_nowrap()
-                    .text_size(px(11.0))
-                    .text_color(rgba(if selected {
-                        theme.text_primary
-                    } else {
-                        theme.text_secondary
-                    }))
-                    .child(super::chrome_format::content_tab_title(tab)),
-            )
-            .child(self.render_tab_close(&close_id, theme, cx))
-    }
-
-    fn render_tab_close(
-        &self,
-        tab_id: &str,
-        theme: ui::Theme,
-        cx: &mut Context<Self>,
-    ) -> Stateful<Div> {
-        let close_id = tab_id.to_string();
-        let key_id = tab_id.to_string();
-        div()
-            .id(ElementId::Name(
-                format!("desktop-content-close-{tab_id}").into(),
-            ))
-            .w(px(22.0))
-            .h(px(22.0))
-            .flex_none()
-            .flex()
-            .items_center()
-            .justify_center()
-            .rounded(px(6.0))
-            .cursor_pointer()
-            .tab_index(0)
-            .border_1()
-            .border_color(rgba(0x00000000))
-            .hover(move |style| style.bg(rgba(with_alpha(theme.edge_highlight, 0x28))))
-            .active(move |style| style.bg(rgba(with_alpha(theme.edge_highlight, 0x48))))
-            .focus(move |style| style.border_color(rgba(theme.focused_stroke)))
-            .on_click(cx.listener(move |app, _, _, cx| {
-                cx.stop_propagation();
-                app.close_desktop_content_tab(&close_id, cx);
-            }))
-            .on_key_down(cx.listener(move |app, event: &KeyDownEvent, _, cx| {
-                if activates(event) {
-                    cx.stop_propagation();
-                    app.close_desktop_content_tab(&key_id, cx);
-                }
-            }))
-            .child(
-                svg()
-                    .path("icons/close.svg")
-                    .w(px(11.0))
-                    .h(px(11.0))
-                    .text_color(rgba(theme.text_secondary)),
-            )
-    }
-
     fn render_context_title(&self, title: &str) -> gpui::AnyElement {
         let theme = self.desktop_theme();
         div()
             .id("desktop-content-context-title")
             .debug_selector(|| "desktop-content-context-title".to_string())
-            .flex_none()
-            .max_w(px(240.0))
+            .flex_1()
             .min_w(px(0.0))
             .overflow_hidden()
             .text_ellipsis()

@@ -63,7 +63,7 @@ impl MultisoulApp {
                                 .text_color(rgba(theme.text_secondary))
                                 .children(status),
                         )
-                        .when(!blank, |body| {
+                        .when(!blank && !self.content_tab_overlay_open(), |body| {
                             body.child(self.browser_scene_element_filling(
                                 content_node_id(&tab.id),
                                 url,

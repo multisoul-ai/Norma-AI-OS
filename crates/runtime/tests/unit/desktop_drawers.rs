@@ -1,5 +1,70 @@
 use super::*;
 
+/// 标签操作相对于菜单目标计算，失效的目标不能关闭其他标签。
+///
+/// 数据构造：A、B、C 按显示顺序排列，菜单指向 B。
+/// 执行过程：分别计算当前、其他、右侧、全部及目标消失后的范围。
+/// 预期结果：得到四个精确集合；无邻居和失效目标均返回空集合。
+#[test]
+fn tab_close_scopes_follow_menu_target() {
+    let ordered = ["a", "b", "c"];
+    use ContentTabCloseScope::*;
+    for (scope, expected) in [
+        (Current, &["b"][..]),
+        (Others, &["a", "c"]),
+        (Right, &["c"]),
+        (All, &["a", "b", "c"]),
+    ] {
+        assert_eq!(
+            scope.targets(&ordered, "b"),
+            expected,
+            "应按目标 B 计算 {scope:?}"
+        );
+        assert!(
+            scope.targets(&ordered, "gone").is_empty(),
+            "目标失效后不能执行 {scope:?}"
+        );
+    }
+    assert!(Right.targets(&ordered, "c").is_empty(), "末位无右侧标签");
+    assert!(
+        Others.targets(&["a"], "a").is_empty(),
+        "仅有一个标签时没有其他标签"
+    );
+}
+
+/// 搜索应允许用来源区分同名标签，并匹配网页域名。
+///
+/// 数据构造：两个同名文件、一个网页，来源分别不同。
+/// 执行过程：按大小写不同的名称、路径、域名和无关词搜索。
+/// 预期结果：匹配名称、指定路径和域名；另一同名文件及无关查询不匹配。
+#[test]
+fn tab_search_matches_name_and_source() {
+    assert!(
+        content_tab_matches(" README ", "readme.md", "docs/a/readme.md"),
+        "忽略首尾空格及大小写"
+    );
+    assert!(
+        content_tab_matches("docs/a", "readme.md", "docs/a/readme.md"),
+        "应匹配文件路径"
+    );
+    assert!(
+        !content_tab_matches("docs/a", "readme.md", "docs/b/readme.md"),
+        "同名文件也必须按来源区分"
+    );
+    assert!(
+        content_tab_matches("site.test", "网页", "https://site.test/docs"),
+        "应匹配域名"
+    );
+    assert!(
+        !content_tab_matches("任意项", "网页", "https://site.test/docs"),
+        "无关搜索无结果"
+    );
+    assert!(
+        content_tab_matches("", "网页", "https://site.test/docs"),
+        "空查询列出全部标签"
+    );
+}
+
 /// 新开工作空间时先呈现完整画布，右侧内容由用户按需展开。
 ///
 /// 数据构造：使用未经过任何用户操作的抽屉默认状态。

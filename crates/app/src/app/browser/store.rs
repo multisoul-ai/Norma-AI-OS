@@ -4,7 +4,7 @@ use super::chrome_auth::{BrowserAuthUiState, CookieImportBatch};
 #[cfg(feature = "e2e-test-support")]
 use super::chrome_auth::{BrowserCookie, SameSitePolicy};
 use super::chrome_auth_broker::request_chrome_cookies;
-use super::load_timeline::{BrowserLoadPhase, LoadTimeline};
+use super::load_timeline::{BrowserLoadPhase, BrowserRefreshStatus, LoadTimeline};
 use super::native::CookieImportStatus;
 use super::wry_backend::WarmWebView;
 use super::{
@@ -35,6 +35,7 @@ struct BrowserView {
     /// Native views stay hidden (showing the GPUI loading page) until the first commit.
     committed: bool,
     native_view: Option<NativeBrowserView>,
+    native_created_at: Option<Instant>,
     load_timeline: LoadTimeline,
     presentation: Option<(gpui::ScenePresentation, bool, gpui::AnyWindowHandle)>,
 }
@@ -87,27 +88,57 @@ impl BrowserStore {
 
     pub(crate) fn drain_events(&mut self) -> Vec<BrowserEvent> {
         let mut events = self.receiver.try_iter().collect::<Vec<_>>();
-        events.extend(self.views.iter().filter_map(|(node_id, view)| {
-            view.current_url_for_polling()
-                .map(|url| BrowserEvent::LocationChanged {
-                    node_id: *node_id,
-                    url,
+        let now = Instant::now();
+        events.extend(self.views.iter().filter_map(|(&node_id, view)| {
+            let url = view.current_url_for_polling();
+            // CEF exposes a state getter and deliberately uses no Client callback wrapper.
+            if let Some((phase, view_created_at)) = view.polled_load() {
+                Some(BrowserEvent::PageLoad {
+                    node_id,
+                    phase,
+                    at: now,
+                    view_created_at,
+                    url: url.unwrap_or_else(|| view.url.clone()),
                 })
+            } else {
+                url.map(|url| BrowserEvent::LocationChanged { node_id, url })
+            }
         }));
-        events
-            .into_iter()
-            .filter_map(|event| match event {
+        let mut accepted = Vec::with_capacity(events.len());
+        for event in events {
+            match event {
                 BrowserEvent::LocationChanged { node_id, url } => {
-                    self.accept_location_change(node_id, url)
+                    accepted.extend(self.accept_location_change(node_id, url));
                 }
-                BrowserEvent::PageLoad { node_id, phase, at } => {
-                    // The first commit reveals the hidden native view, which needs a repaint.
-                    self.record_page_load(node_id, phase, at)
-                        .then_some(BrowserEvent::PageLoad { node_id, phase, at })
+                BrowserEvent::PageLoad {
+                    node_id,
+                    phase,
+                    at,
+                    view_created_at,
+                    ref url,
+                } if self.views.get(&node_id).is_some_and(|view| {
+                    view.native_created_at
+                        .is_some_and(|created| created <= view_created_at)
+                        && view.load_timeline.accepts_event_at(at)
+                }) =>
+                {
+                    let location = self.accept_location_change(node_id, url.clone());
+                    if self.record_page_load(node_id, phase, at) {
+                        accepted.push(event);
+                    }
+                    accepted.extend(location);
                 }
-                event => Some(event),
-            })
-            .collect()
+                BrowserEvent::PageLoad { .. } => {}
+                event => accepted.push(event),
+            }
+        }
+        let now = Instant::now();
+        for view in self.views.values_mut() {
+            if view.load_timeline.expire(now) {
+                accepted.push(BrowserEvent::RefreshStatusChanged);
+            }
+        }
+        accepted
     }
 
     pub(crate) fn warm_up(&mut self, window: &mut Window) {
@@ -149,8 +180,11 @@ impl BrowserStore {
             return false;
         };
         let first_commit = !std::mem::replace(&mut view.committed, true);
-        let Some(report) = view.load_timeline.record(phase, at) else {
-            return first_commit;
+        let previous_status = view.load_timeline.refresh_status();
+        let report = view.load_timeline.record(phase, at);
+        let changed = first_commit || previous_status != view.load_timeline.refresh_status();
+        let Some(report) = report else {
+            return changed;
         };
         let url = view.url.clone();
         view.report_resource_timing(node_id);
@@ -164,7 +198,41 @@ impl BrowserStore {
             resizes_during_load = report.resizes,
             "browser_load_timing"
         );
-        first_commit
+        true
+    }
+
+    pub(crate) fn content_refresh_status(&self, node_id: NodeId) -> Option<BrowserRefreshStatus> {
+        self.views.get(&node_id)?.load_timeline.refresh_status()
+    }
+
+    pub(crate) fn clear_content_refresh(&mut self, node_id: NodeId) {
+        if let Some(view) = self.views.get_mut(&node_id) {
+            view.load_timeline.clear_refresh();
+        }
+    }
+
+    /// A drawer reload never invokes the canvas button's stop-loading behavior.
+    pub(crate) fn reload_content(&mut self, node_id: NodeId, url: &str) {
+        let view = self.views.entry(node_id).or_insert_with(|| {
+            BrowserView::new(
+                url,
+                BrowserViewBounds {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 0.0,
+                    height: 0.0,
+                    bottom_corner_radius_px: 0.0,
+                },
+            )
+        });
+        let now = Instant::now();
+        view.load_timeline.expire(now);
+        if view.load_timeline.is_loading(now)
+            || view.load_timeline.refresh_status() == Some(BrowserRefreshStatus::Loading)
+        {
+            return;
+        }
+        view.reload_content(now);
     }
 
     pub(crate) fn sync_view(
@@ -180,15 +248,10 @@ impl BrowserStore {
         }
 
         let event_sender = self.sender.clone();
-        let view = self.views.entry(node_id).or_insert_with(|| BrowserView {
-            url: url.to_string(),
-            bounds,
-            visible: false,
-            committed: false,
-            native_view: None,
-            load_timeline: LoadTimeline::default(),
-            presentation: None,
-        });
+        let view = self
+            .views
+            .entry(node_id)
+            .or_insert_with(|| BrowserView::new(url, bounds));
         if self.native_views_enabled {
             view.sync(node_id, url, bounds, window, event_sender);
         }

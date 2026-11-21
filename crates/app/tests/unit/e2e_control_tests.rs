@@ -1,6 +1,6 @@
 use super::protocol::{
-    control_config, mouse_input, parse_request, scroll_input, text_keystrokes, Command, MousePhase,
-    Response, WindowInfo,
+    control_config, mouse_input, parse_request, scroll_input, text_keystrokes, Command,
+    MouseButtonKind, MousePhase, Response, WindowInfo,
 };
 use gpui::{px, MouseButton, PlatformInput, ScrollDelta};
 
@@ -125,7 +125,8 @@ fn channel_requires_socket_and_long_token() {
 #[test]
 fn mouse_commands_map_to_window_events() {
     let modifiers = vec!["cmd".to_string()];
-    let down = mouse_input(MousePhase::Down, 300.0, 200.0, 2, false, &modifiers);
+    let left = MouseButtonKind::Left;
+    let down = mouse_input(MousePhase::Down, left, 300.0, 200.0, 2, false, &modifiers);
     let PlatformInput::MouseDown(down) = down else {
         panic!("down 应生成 MouseDown，实际 {down:?}");
     };
@@ -136,7 +137,7 @@ fn mouse_commands_map_to_window_events() {
     assert!(down.modifiers.platform, "cmd 应映射为 platform 修饰");
     assert!(!down.first_mouse, "注入点击不是激活窗口的首次点击");
 
-    let dragged = mouse_input(MousePhase::Move, 310.0, 205.0, 1, true, &[]);
+    let dragged = mouse_input(MousePhase::Move, left, 310.0, 205.0, 1, true, &[]);
     let PlatformInput::MouseMove(dragged) = dragged else {
         panic!("move 应生成 MouseMove，实际 {dragged:?}");
     };
@@ -145,16 +146,58 @@ fn mouse_commands_map_to_window_events() {
         Some(MouseButton::Left),
         "按住拖动时应带左键"
     );
-    let hover = mouse_input(MousePhase::Move, 310.0, 205.0, 1, false, &[]);
+    let hover = mouse_input(MousePhase::Move, left, 310.0, 205.0, 1, false, &[]);
     assert!(
         matches!(hover, PlatformInput::MouseMove(ref event) if event.pressed_button.is_none()),
         "悬停移动不应带按键，实际 {hover:?}"
     );
 
-    let up = mouse_input(MousePhase::Up, 310.0, 205.0, 1, false, &[]);
+    let up = mouse_input(MousePhase::Up, left, 310.0, 205.0, 1, false, &[]);
     assert!(
         matches!(up, PlatformInput::MouseUp(ref event) if event.button == MouseButton::Left && event.click_count == 1),
         "up 应生成单击计数的左键 MouseUp，实际 {up:?}"
+    );
+}
+
+/// 场景：独立窗口的标签交互需要真实右键和中键事件。
+/// 数据：右键、中键、兼容的省略按钮字段，以及未支持的按钮名称。
+/// 执行：解析认证请求，并对每种有效按钮构造按下、按住移动、抬起事件。
+/// 预期：事件保留准确按钮；旧请求默认左键，未知名称拒绝，不误发左键。
+#[test]
+fn mouse_button_is_preserved_by_the_control_protocol() {
+    for (field, expected) in [
+        ("", MouseButton::Left),
+        (r#", "button":"right""#, MouseButton::Right),
+        (r#", "button":"middle""#, MouseButton::Middle),
+    ] {
+        let line =
+            format!(r#"{{"token":"{TOKEN}","op":"mouse","phase":"down","x":4,"y":5{field}}}"#);
+        let command = parse_request(&line, TOKEN).expect("支持的按钮应被解析");
+        let Command::Mouse { button, .. } = command else {
+            panic!("应解析为 Mouse 命令，实际 {command:?}");
+        };
+        let down = mouse_input(MousePhase::Down, button, 4.0, 5.0, 1, false, &[]);
+        assert!(
+            matches!(down, PlatformInput::MouseDown(ref event) if event.button == expected),
+            "按下应保留 {expected:?}，实际 {down:?}"
+        );
+        let moved = mouse_input(MousePhase::Move, button, 6.0, 5.0, 1, true, &[]);
+        assert!(
+            matches!(moved, PlatformInput::MouseMove(ref event) if event.pressed_button == Some(expected)),
+            "按住移动应保留 {expected:?}，实际 {moved:?}"
+        );
+        let up = mouse_input(MousePhase::Up, button, 6.0, 5.0, 1, false, &[]);
+        assert!(
+            matches!(up, PlatformInput::MouseUp(ref event) if event.button == expected),
+            "抬起应保留 {expected:?}，实际 {up:?}"
+        );
+    }
+    let invalid = format!(
+        r#"{{"token":"{TOKEN}","op":"mouse","phase":"down","x":4,"y":5,"button":"unknown"}}"#
+    );
+    assert!(
+        parse_request(&invalid, TOKEN).is_err(),
+        "未知按钮不得退化成左键"
     );
 }
 

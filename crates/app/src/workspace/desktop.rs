@@ -40,6 +40,7 @@ mod dispatch;
 mod test_embedded_project;
 pub(crate) use dispatch::{AgentLocation, ArtifactLocation};
 mod drawers;
+pub(crate) use drawers::content::tab_controls::ContentTabControls;
 pub(crate) use drawers::overview_questions::QuestionEditor;
 mod home;
 mod home_card;
@@ -105,6 +106,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) content_tabs: Vec<storage::DesktopContentTab>,
     pub(crate) workbench: drawers::content::workbench::WorkbenchState,
     pub(crate) content_browser: drawers::content::browser_toolbar::ContentBrowserState,
+    pub(crate) content_refresh: drawers::content::refresh::ContentRefreshState,
     pub(crate) content_tab_task: Option<gpui::Task<()>>,
     pub(crate) content_tab_generation: u64,
     pub(crate) content_workspace_epoch: u64,
@@ -212,6 +214,7 @@ impl DesktopWorkspaceUiState {
             content_tabs: Vec::new(),
             workbench: Default::default(),
             content_browser: Default::default(),
+            content_refresh: Default::default(),
             content_tab_task: None,
             content_tab_generation: 0,
             content_workspace_epoch: 0,
