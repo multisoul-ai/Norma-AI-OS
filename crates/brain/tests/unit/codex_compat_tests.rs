@@ -50,9 +50,9 @@ fn loader_failure_is_visible_on_the_acp_channel() {
 }
 
 /// 场景：加载兼容适配器时必须保留原始 shell 请求及原模块 URL，不修改安装文件。
-/// 数据构造：最小 ESM 适配器，具有钉死包名、版本和真实权限转换语句。
-/// 执行过程：通过加载器运行 Node，检查 stdout，再改变版本验证失败关闭。
-/// 预期结果：原始命令不损失引号，模块定位不变，未知版本拒绝准备。
+/// 数据构造：钉死版本的 ESM 适配器，包含原始权限转换和带默认 feature 的线程配置。
+/// 执行过程：加载适配器并打开带独立 token 和提问开关的幕僚会话，再改变包版本。
+/// 预期结果：权限边界和模块定位不变，线程保留双方的 feature 与 token，未知版本拒绝准备。
 #[test]
 fn loader_preserves_authoritative_command_and_module_location() {
     let dir = tempfile::tempdir().expect("创建适配器夹具");
@@ -64,7 +64,22 @@ fn loader_preserves_authoritative_command_and_module_location() {
     )
     .expect("写包身份");
     let entry = dir.path().join("dist/index.js");
-    let source = "const params = {command: process.argv[2]};\nfunction stripShellPrefix() { return \"lossy\"; }\nfunction threadStart(params) { return { method: \"thread/start\", params }; }\nconst _shared = `const response = await this.codexClient.threadStart({\n      config: sessionConfig.config,`;\nconsole.log(JSON.stringify({command: stripShellPrefix(params.command), thread: threadStart({cwd: \"/p\"}), url: import.meta.url}));";
+    let source = r#"
+const params = {command: process.argv[2]};
+function stripShellPrefix() { return "lossy"; }
+function threadStart(params) { return { method: "thread/start", params }; }
+async function open(request) {
+    const sessionConfig = {config: {features: {cwd_relative_turn_diffs: false, hooks: false}}};
+    const response = await this.codexClient.threadStart({
+      config: sessionConfig.config,
+    });
+    return response.config;
+}
+const config = await open.call({codexClient: {threadStart: params => params}}, {
+    _meta: {norma: {config: {features: {default_mode_request_user_input: true}, shell_environment_policy: {set: {NORMA_BRAIN_TOKEN: "staff-token"}}}}},
+});
+console.log(JSON.stringify({config, command: stripShellPrefix(params.command), thread: threadStart({cwd: "/p"}), url: import.meta.url}));
+"#;
     std::fs::write(&entry, source).expect("写适配器");
     let command = r#"/bin/zsh -lc "/opt/norma/bin/norma brain report --text '完成'""#;
     let adapter = Adapter::prepare(&entry, &[command.into()]).expect("准备兼容加载器");
@@ -78,6 +93,14 @@ fn loader_preserves_authoritative_command_and_module_location() {
         String::from_utf8_lossy(&output.stderr)
     );
     let result: serde_json::Value = serde_json::from_slice(&output.stdout).expect("读取输出");
+    assert_eq!(
+        result["config"],
+        serde_json::json!({
+            "features": {"cwd_relative_turn_diffs": false, "hooks": false, "default_mode_request_user_input": true},
+            "shell_environment_policy": {"set": {"NORMA_BRAIN_TOKEN": "staff-token"}}
+        }),
+        "线程应同时保留适配器 feature、幕僚提问开关与会话 token"
+    );
     assert_eq!(
         result["command"]["normaShellCommand"], command,
         "原始权限命令须逐字保留"

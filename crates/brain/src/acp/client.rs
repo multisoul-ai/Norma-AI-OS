@@ -90,6 +90,7 @@ pub struct AcpSession {
     questions: Option<super::questions::QuestionHost>,
     cwd: PathBuf,
     staff_shell: Option<PathBuf>,
+    kind: crate::backend::BackendKind,
     /// 共用连接上被取消或超时的上一轮 prompt：它的响应和尾部通知还没排干。
     stale_prompt: Option<u64>,
 }
@@ -137,6 +138,7 @@ impl AcpSession {
             questions: None,
             cwd: options.cwd.clone(),
             staff_shell: options.staff_shell.clone(),
+            kind: options.kind,
             stale_prompt: None,
         })
     }
@@ -147,6 +149,7 @@ impl AcpSession {
         created: Value,
         cwd: PathBuf,
         staff_shell: Option<PathBuf>,
+        kind: crate::backend::BackendKind,
     ) -> Self {
         Self {
             conn: SessionLink::Shared(port),
@@ -155,6 +158,7 @@ impl AcpSession {
             questions: None,
             cwd,
             staff_shell,
+            kind,
             stale_prompt: None,
         }
     }
@@ -316,6 +320,7 @@ impl AcpSession {
                             staff_gate
                                 .as_ref()
                                 .map(|(bin, cwd)| (bin.as_path(), cwd.as_path())),
+                            self.kind,
                             &mut |item| {
                                 progress(&item);
                                 sink(item);

@@ -9,10 +9,16 @@ const target = pathToFileURL(entry).href;
 const patches = [
   ["command: stripShellPrefix(params.command)", "command: {normaShellCommand: params.command}"],
   ['method: "thread/start", params }', 'method: "thread/start", params: { ...params, ephemeral: true } }'],
-  // 共用进程时，每个会话的 token 从 _meta.norma.config 浅合并进 thread/start，不进进程环境。
+  // 会话 token 只进 thread/start；幕僚提问开关与适配器已有的 feature 逐键合并。
   [
     "const response = await this.codexClient.threadStart({\n      config: sessionConfig.config,",
-    "const response = await this.codexClient.threadStart({\n      config: { ...sessionConfig.config, ...(((request._meta || {}).norma || {}).config || {}) },",
+    `const normaConfig = request._meta?.norma?.config ?? {};
+    const config = { ...sessionConfig.config, ...normaConfig };
+    if (normaConfig.features) {
+      config.features = { ...sessionConfig.config?.features, ...normaConfig.features };
+    }
+    const response = await this.codexClient.threadStart({
+      config,`,
   ],
 ];
 try {

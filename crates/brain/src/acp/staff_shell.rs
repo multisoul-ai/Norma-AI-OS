@@ -4,7 +4,9 @@ use std::path::{Component, Path, PathBuf};
 
 /// 拆开 `rawInput` 后，命令必须是 `norma_bin brain ...`，且不能带 shell 复合语法。
 pub fn staff_command_allowed(raw_input: &Value, norma_bin: &Path) -> bool {
-    command_text(raw_input).is_some_and(|command| command_allowed(&command, norma_bin))
+    raw_input["additionalPermissions"].is_null()
+        && raw_input["url"].is_null()
+        && command_text(raw_input).is_some_and(|command| command_allowed(&command, norma_bin))
 }
 
 pub(super) fn command_text(raw_input: &Value) -> Option<String> {
@@ -102,6 +104,9 @@ fn split_argv(input: &str) -> Option<Vec<String>> {
             quote = Some(ch);
             in_arg = true;
             continue;
+        }
+        if matches!(ch, '\n' | '\r') {
+            return None;
         }
         if ch.is_whitespace() {
             if in_arg {

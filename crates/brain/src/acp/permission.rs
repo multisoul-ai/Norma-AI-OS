@@ -5,6 +5,7 @@ use super::{
     trace::{ToolTrace, TraceItem, TraceKind},
     wire::Rpc,
 };
+use crate::backend::BackendKind;
 use serde_json::{json, Value};
 use std::path::Path;
 
@@ -14,6 +15,7 @@ pub(super) fn answer(
     method: &str,
     params: &Value,
     staff: Option<(&Path, &Path)>,
+    backend: BackendKind,
     sink: &mut dyn FnMut(TraceItem),
 ) -> Result<(), AcpError> {
     if method != "session/request_permission" {
@@ -32,7 +34,15 @@ pub(super) fn answer(
         .as_str()
         .or(call["kind"].as_str())
         .unwrap_or("tool");
+    let codex_staff = staff.is_some() && backend == BackendKind::Codex;
     let allowed = staff.is_none_or(|(norma_bin, cwd)| staff_allows(tool, raw, norma_bin, cwd));
+    let allow_kinds: &[&str] = if codex_staff {
+        &["allow_once"]
+    } else {
+        &["allow_once", "allow_always"]
+    };
+    let approval = allowed.then(|| pick_kind(params, allow_kinds)).flatten();
+    let allowed = allowed && (!codex_staff || approval.is_some());
     let mut item = TraceItem::new(
         TraceKind::Permission,
         if allowed {
@@ -58,7 +68,7 @@ pub(super) fn answer(
     });
     sink(item);
     let outcome = if allowed {
-        match pick_kind(params, &["allow_once", "allow_always"]) {
+        match approval {
             Some(option_id) => json!({"outcome":"selected", "optionId":option_id}),
             None => json!({"outcome":"cancelled"}),
         }
