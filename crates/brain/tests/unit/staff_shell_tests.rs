@@ -37,6 +37,25 @@ fn staff_shell_accepts_only_absolute_norma_brain() {
         "命令替换必须拒绝"
     );
     assert!(
+        !command_allowed("/bin/norma brain agents\ntrue", bin()),
+        "未引用的换行会开始第二条命令"
+    );
+    assert!(
+        command_allowed(
+            "/bin/norma brain task assign --prompt 'first\nsecond'",
+            bin()
+        ),
+        "引用内换行仍属于同一条派发指令"
+    );
+    assert!(
+        !staff_command_allowed(
+            &json!({"command": {"normaShellCommand": "/bin/norma brain agents"},
+                    "additionalPermissions": {"network": {"enabled": true}}}),
+            bin()
+        ),
+        "放行单条本地命令不等于授予附带权限"
+    );
+    assert!(
         !command_allowed("'/bin/norma' brain agents | sh", bin()),
         "管道必须拒绝"
     );

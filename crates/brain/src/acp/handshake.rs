@@ -5,6 +5,10 @@ use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
+#[cfg(test)]
+#[path = "../../tests/unit/acp_handshake_tests.rs"]
+mod tests;
+
 pub(crate) fn handshake(
     conn: &mut dyn Rpc,
     options: &SessionOptions,
@@ -33,18 +37,28 @@ pub(crate) fn handshake(
         // 连接只能初始化一次；之后 session/new 失败也不能再来一遍。
         on_initialized();
     }
+    let codex_staff = staff && options.kind == crate::backend::BackendKind::Codex;
     let mut params = json!({"cwd": options.cwd, "mcpServers": []});
     if let Some(meta) = &options.meta {
         params["_meta"] = meta.clone();
+    }
+    if codex_staff {
+        // Default 协作模式也要能通过原生问题卡请用户补充信息。
+        params["_meta"]["norma"]["config"]["features"]["default_mode_request_user_input"] =
+            json!(true);
     }
     let created = call(conn, "session/new", params, deadline, cancel)?;
     let session_id = created["sessionId"]
         .as_str()
         .ok_or_else(|| AcpError::Remote("session/new 没有返回 sessionId".into()))?
         .to_string();
-    if let Some(mode) = &options.mode {
-        // 模式 id 由适配器版本决定，升级后可能不再认旧值（Codex ACP 2.2.2 拒绝 `auto`）。
-        // 失败时沿用适配器默认模式继续，权限请求本来就一律放行，不值得让整个会话起不来。
+    // Codex 的协作模式和沙箱是独立设置。幕僚需要执行 Norma 派发命令，文件写入交给 Worker。
+    let mode = if codex_staff {
+        Some("read-only")
+    } else {
+        options.mode.as_deref()
+    };
+    if let Some(mode) = mode {
         if let Err(error) = call(
             conn,
             "session/set_mode",
@@ -52,14 +66,19 @@ pub(crate) fn handshake(
             deadline,
             cancel,
         ) {
+            // 幕僚必须确认只读沙箱已设置；其他会话允许沿用适配器的默认模式。
+            if codex_staff {
+                // 共用连接会继续运行，不能留下已创建但不可用的会话。
+                let _ = conn.send_request("session/close", json!({"sessionId": session_id}));
+                return Err(error);
+            }
             if matches!(error, AcpError::Cancelled) {
                 return Err(error);
             }
             tracing::warn!(%error, mode, "大脑会话模式设置失败");
         }
     }
-    let collaboration =
-        (staff && options.kind == crate::backend::BackendKind::Codex).then(|| "plan".to_owned());
+    let collaboration = codex_staff.then(|| "default".to_owned());
     let configs = [
         ("collaboration_mode", &collaboration),
         ("model", &options.model),
