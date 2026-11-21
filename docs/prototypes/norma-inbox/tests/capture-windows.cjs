@@ -1,0 +1,7 @@
+const {chromium}=require('playwright');const {expect}=require('playwright/test');const path=require('node:path');
+(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});const canvas=await browser.newPage({viewport:{width:1500,height:980}});
+ await canvas.goto('http://127.0.0.1:8745/docs/prototypes/norma-inbox/?window=canvas&demo=capture-'+Date.now());
+ await canvas.locator('video').evaluate(async v=>{v.pause();if(v.readyState<2)await new Promise(r=>v.addEventListener('loadeddata',r,{once:true}));await new Promise(r=>{v.addEventListener('seeked',r,{once:true});v.currentTime=3;});});
+ const popup=canvas.waitForEvent('popup');await canvas.locator('[data-action="open-inbox"]').click();const tasks=await popup;await tasks.setViewportSize({width:1380,height:940});await tasks.locator('[data-work="login"]').click();await tasks.locator('[data-action="locate"]').click();await tasks.getByTestId('thread-input').fill('保留当前配置，先采样 30 秒。');await expect(canvas.getByTestId('canvas-input')).toHaveValue('保留当前配置，先采样 30 秒。');
+ await tasks.mouse.move(700,10);await tasks.screenshot({animations:'disabled',path:path.resolve(__dirname,'../assets/standalone-tasks.png')});await canvas.mouse.move(700,10);await canvas.screenshot({animations:'disabled',path:path.resolve(__dirname,'../assets/standalone-canvas.png')});
+ await tasks.locator('[data-action="close-thread"]').click();await tasks.screenshot({animations:'disabled',path:path.resolve(__dirname,'../assets/standalone-home.png')});await browser.close();})();

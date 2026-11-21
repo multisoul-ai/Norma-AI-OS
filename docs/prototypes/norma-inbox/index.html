@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Norma · 任务收件箱</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="canvas.css"><link rel="stylesheet" href="windows.css"></head>
+<body>
+<video id="wallpaper" autoplay muted loop playsinline aria-hidden="true" data-src="../../../crates/app/assets/wallpapers/norma-awake.mp4"></video><script>if(new URLSearchParams(location.search).get("window")!=="tasks"){const video=document.getElementById("wallpaper");video.src=video.dataset.src;}</script><div class="wall-shade"></div>
+<main id="canvas"></main>
+<dialog id="inbox" aria-label="Norma 任务收件箱"><header id="inbox-header"></header><div id="workspace"></div><footer id="inbox-footer"></footer><div id="chooser" popover="auto" role="dialog" aria-labelledby="chooser-title"></div></dialog>
+<div id="toast" popover="manual" role="status" aria-live="polite"></div>
+<script src="../norma-bottom-drawer/data.js"></script><script src="model.js"></script><script src="ui.js"></script><script src="canvas.js"></script><script src="windows.js"></script><script src="actions.js"></script>
+</body></html>

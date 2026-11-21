@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Norma · 工作抽屉</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="material.css"></head>
+<body>
+<video id="wallpaper" autoplay loop muted playsinline preload="auto" aria-hidden="true" src="../../../crates/app/assets/wallpapers/norma-awake.mp4"></video><div class="wallpaper-tint"></div>
+<header id="topbar" class="topbar"></header>
+<main id="canvas" class="canvas"><div id="world"></div></main>
+<div id="return-bar"></div><div id="base-dock"></div>
+<dialog id="work-drawer" aria-labelledby="drawer-title">
+ <section class="sheet">
+  <button class="handle" data-action="close" aria-label="收起抽屉"><span></span></button>
+  <header id="sheet-header" class="sheet-header"></header>
+  <div class="sheet-body"><section id="work-list" class="work-list"></section><section id="thread" class="thread"></section></div>
+  <footer id="sheet-footer" class="sheet-footer"></footer>
+ </section><div id="drawer-dock"></div>
+ <div id="scope-popover" class="scope-popover" popover></div>
+</dialog>
+<dialog id="target-dialog" class="target-dialog" aria-labelledby="target-title"></dialog>
+<div id="notice" role="status" aria-live="polite"></div>
+<script src="data.js"></script><script src="interactions.js"></script><script src="app.js"></script>
+</body></html>

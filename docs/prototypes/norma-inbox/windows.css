@@ -1,0 +1,9 @@
+body[data-window=tasks]{background:#181818}
+body[data-window=tasks] #canvas,body[data-window=tasks] #wallpaper,body[data-window=tasks] .wall-shade{display:none}
+body[data-window=tasks] #inbox{inset:0;width:100vw;height:100dvh;border:0;border-radius:0;box-shadow:none;animation:none}
+.window-switch{display:flex;gap:6px;align-items:center;height:31px;padding:0 9px;margin-right:9px;border-radius:6px;color:#92999f;font-size:11px}
+.window-switch svg{width:14px;height:14px}
+.canvas-card>header>.card-status{font-size:8px;margin-left:auto;color:#9cabc0}
+.canvas-card>header>button{margin-left:0}
+.canvas-dock>button>svg{width:13px;height:13px;color:#9cafc4}
+@media(max-width:760px){.window-switch{font-size:0;gap:0;margin-right:2px;padding-inline:7px}.window-switch svg{width:15px;height:15px}}
