@@ -2,6 +2,10 @@ import AppKit
 import CoreGraphics
 import Foundation
 
+public enum E2EMouseButton: String {
+    case left, right, middle
+}
+
 /// 点击、拖拽、滚动和按键都通过 App 控制通道派发到隔离窗口内，坐标为窗口内坐标。
 /// 事件只进入本次启动的 Norma，不会落到用户的其他窗口，也不占用系统键鼠。
 extension Session {
@@ -35,8 +39,8 @@ extension Session {
         }
     }
 
-    public func click(local: CGPoint, on frame: Frame) async throws {
-        try await sendClick { try await clickPoint(local: local, on: frame, requery: nil, pick: nil) }
+    public func click(local: CGPoint, on frame: Frame, button: E2EMouseButton = .left) async throws {
+        try await sendClick(button: button) { try await clickPoint(local: local, on: frame, requery: nil, pick: nil) }
     }
 
     /// 把指针移到窗口内某点并停留，供悬浮提示验收；不按下按键。
@@ -70,25 +74,27 @@ extension Session {
     }
 
     /// 在本次隔离窗口里连续拖动，供抽屉、卡片等真实指针交互验收。
-    public func drag(local start: CGPoint, to end: CGPoint, on frame: Frame) async throws {
-        try await activate()
-        let window = try await currentWindow()
-        guard window.id == frame.windowID else {
-            throw E2EError.product("拖拽前窗口已切换，请重新截图定位。")
-        }
-        try await mouse("move", start)
+    public func drag(local start: CGPoint, to end: CGPoint, on frame: Frame, button: E2EMouseButton = .left) async throws {
+        _ = try await clickPoint(local: start, on: frame, requery: nil, pick: nil)
+        try await mouse("move", start, button: button)
         try await Task.sleep(nanoseconds: 100_000_000)
-        try await mouse("down", start)
-        for step in 1...12 {
-            let progress = CGFloat(step) / 12
-            let point = CGPoint(
-                x: start.x + (end.x - start.x) * progress,
-                y: start.y + (end.y - start.y) * progress
-            )
-            try await mouse("move", point, pressed: true)
-            try await Task.sleep(nanoseconds: 25_000_000)
+        try await mouse("down", start, button: button)
+        var point = start
+        do {
+            for step in 1...12 {
+                let progress = CGFloat(step) / 12
+                point = CGPoint(
+                    x: start.x + (end.x - start.x) * progress,
+                    y: start.y + (end.y - start.y) * progress
+                )
+                try await mouse("move", point, pressed: true, button: button)
+                try await Task.sleep(nanoseconds: 25_000_000)
+            }
+        } catch {
+            try? await mouse("up", point, button: button)
+            throw error
         }
-        try await mouse("up", end)
+        try await mouse("up", end, button: button)
     }
 
     /// Send a pixel wheel event to the captured isolated App window.
@@ -149,12 +155,12 @@ extension Session {
         try await click(local: local, on: frame)
     }
 
-    private func sendClick(resolve: () async throws -> CGPoint) async throws {
+    private func sendClick(button: E2EMouseButton = .left, resolve: () async throws -> CGPoint) async throws {
         let clickID = UUID().uuidString
         try await deliverClick(resolve: resolve, send: { phase, point in
-            try await mouse(phase, point)
+            try await mouse(phase, point, button: button)
         }, record: { stage, detail in
-            recordDriverEvent("click", stage, "id=\(clickID) \(detail)")
+            recordDriverEvent("click", stage, "id=\(clickID) button=\(button.rawValue) \(detail)")
         })
     }
 
@@ -178,10 +184,12 @@ extension Session {
     /// Spike: NORMA_E2E_INPUT=ns routes mouse/text through AppKit NSWindow.sendEvent.
     private var appKitInput: Bool { appKitInputOverride || ProcessInfo.processInfo.environment["NORMA_E2E_INPUT"] == "ns" }
 
-    private func mouse(_ phase: String, _ point: CGPoint, pressed: Bool = false) async throws {
+    private func mouse(_ phase: String, _ point: CGPoint, pressed: Bool = false,
+                       button: E2EMouseButton = .left) async throws {
+        // The AppKit bridge still handles left clicks in native WebViews. Side buttons use GPUI.
         try await control([
-            "op": appKitInput ? "ns_mouse" : "mouse", "phase": phase,
-            "x": Double(point.x), "y": Double(point.y), "pressed": pressed,
+            "op": appKitInput && button == .left ? "ns_mouse" : "mouse", "phase": phase,
+            "x": Double(point.x), "y": Double(point.y), "pressed": pressed, "button": button.rawValue,
         ])
     }
 
@@ -230,7 +238,7 @@ func keystroke(key: CGKeyCode, modifiers: [CGKeyCode]) throws -> String {
     let names: [CGKeyCode: String] = [
         21: "4", 23: "5",
         0: "a", 1: "s", 2: "d", 8: "c", 9: "v", 11: "b", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 37: "l", 38: "j", 40: "k", 45: "n", 46: "m", 36: "enter", 43: ",", 48: "tab", 49: "space",
-        51: "backspace", 53: "escape", 123: "left", 124: "right", 125: "down", 126: "up",
+        51: "backspace", 53: "escape", 109: "f10", 123: "left", 124: "right", 125: "down", 126: "up",
     ]
     let modifierNames: [CGKeyCode: String] = [0x37: "cmd", 0x38: "shift", 0x3A: "alt", 0x3B: "ctrl"]
     guard let name = names[key] else {
@@ -255,7 +263,7 @@ func keyCharacters(_ key: CGKeyCode) throws -> String {
     let table: [CGKeyCode: String] = [
         21: "4", 23: "5",
         0: "a", 1: "s", 2: "d", 8: "c", 9: "v", 11: "b", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 37: "l", 38: "j", 40: "k", 45: "n", 46: "m", 36: "\r", 43: ",", 48: "\t", 49: " ", 51: "\u{7f}", 53: "\u{1b}",
-        123: "\u{F702}", 124: "\u{F703}", 125: "\u{F701}", 126: "\u{F700}",
+        109: "\u{F70D}", 123: "\u{F702}", 124: "\u{F703}", 125: "\u{F701}", 126: "\u{F700}",
     ]
     guard let value = table[key] else {
         throw E2EError.env("控制通道还不支持虚拟键码 \(key)，请在 keyCharacters 中补充映射。")

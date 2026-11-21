@@ -37,6 +37,41 @@ impl MultisoulApp {
         self.wake_animation_frame_loop();
     }
 
+    pub(super) fn cancel_workbench_leaving(&mut self, cx: &mut Context<Self>) {
+        if let Some(PendingWorkbenchAction::CloseTabs {
+            previous_selection,
+            was_new_tab_page,
+            ..
+        }) = self.desktop_workspace.workbench.pending_close.take()
+        {
+            if let Some(id) = previous_selection {
+                if !self
+                    .desktop_workspace
+                    .content_tabs
+                    .iter()
+                    .any(|tab| tab.selected && tab.id == id)
+                {
+                    self.select_desktop_content_tab(&id, cx);
+                }
+            }
+            self.desktop_workspace.content_browser.new_tab_page = was_new_tab_page;
+        }
+        cx.notify();
+    }
+
+    pub(super) fn discard_workbench_before_leaving(&mut self, cx: &mut Context<Self>) {
+        if let Some(PendingWorkbenchAction::CloseTabs { ids, .. }) =
+            &self.desktop_workspace.workbench.pending_close
+        {
+            let ids = ids.clone();
+            self.desktop_workspace.workbench.pending_close = None;
+            self.commit_close_desktop_content_tabs(ids, cx);
+        } else {
+            self.desktop_workspace.workbench.drafts.clear();
+            self.finish_workbench_leaving(cx);
+        }
+    }
+
     pub(crate) fn finish_workbench_leaving(&mut self, cx: &mut Context<Self>) {
         if self.desktop_workspace.workbench.has_edits() {
             return;
@@ -44,8 +79,8 @@ impl MultisoulApp {
         let Some(action) = self.desktop_workspace.workbench.pending_close.take() else {
             return;
         };
-        if let PendingWorkbenchAction::CloseTab(id) = action {
-            self.close_desktop_content_tab(&id, cx);
+        if let PendingWorkbenchAction::CloseTabs { ids, .. } = action {
+            self.commit_close_desktop_content_tabs(ids, cx);
             return;
         }
         cx.spawn(async move |this, cx| match action {
@@ -60,7 +95,7 @@ impl MultisoulApp {
                     this.update(cx, |app, cx| app.open_desktop_workspace(id, window, cx))
                 });
             }
-            PendingWorkbenchAction::CloseTab(_) => {}
+            PendingWorkbenchAction::CloseTabs { .. } => {}
         })
         .detach();
     }

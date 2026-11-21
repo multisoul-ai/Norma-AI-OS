@@ -114,6 +114,24 @@ impl NativeBrowserView {
         }
     }
 
+    pub(super) fn is_loading(&self) -> bool {
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::Wry(view) => view.is_loading(),
+            #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
+            Self::Cef(view) => view.is_loading(),
+        }
+    }
+
+    pub(super) fn loading_for_polling(&self) -> Option<bool> {
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::Wry(_) => None,
+            #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
+            Self::Cef(view) => Some(view.is_loading()),
+        }
+    }
+
     pub(crate) fn current_url_for_polling(&self) -> Option<String> {
         match self {
             #[cfg(target_os = "macos")]

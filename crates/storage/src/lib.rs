@@ -119,7 +119,8 @@ pub use desktop_area_status_store::{
     DesktopAgentStatus, DesktopAreaStatus, DesktopAreaStatusStore,
 };
 pub use desktop_content_tab_store::{
-    DesktopContentKind, DesktopContentTab, DesktopContentTabStore, NewDesktopContentTab,
+    DesktopContentKind, DesktopContentTab, DesktopContentTabClose, DesktopContentTabStore,
+    NewDesktopContentTab,
 };
 pub use desktop_workspace_store::{
     DesktopAreaPreview, DesktopProjectArea, DesktopWorkspace, DesktopWorkspaceStore,

@@ -158,6 +158,7 @@ impl MultisoulApp {
     ) {
         let before = self.desktop_workspace.drawers;
         if before.right_open && !next.right_open {
+            self.dismiss_content_tab_controls();
             self.begin_desktop_content_navigation();
         }
         self.desktop_workspace.drawers = next;

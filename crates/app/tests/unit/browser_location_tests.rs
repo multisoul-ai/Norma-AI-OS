@@ -9,7 +9,7 @@ use super::*;
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 Browser 事件、Wry、CEF、NativeBrowserView 与 Store 源码。
-///   2. 检查 Wry page-load handler 把主页面 URL 发为 LocationChanged。
+///   2. 检查 Wry page-load handler 提供主页面 URL，由 Store 核对回调归属后发为 LocationChanged。
 ///   3. 检查 CEF 从 main_frame 读取 current_url，且不重新引入 Client wrapper。
 ///   4. 检查 Store 接受地址变化并更新缓存 URL，供 Canvas 节点持久化。
 ///
@@ -30,8 +30,10 @@ fn test_browser_backends_report_current_main_frame_location_without_cef_client()
         "BrowserEvent 必须包含持久化真实当前地址的 LocationChanged 事件"
     );
     assert!(
-        wry.contains("with_on_page_load_handler") && wry.contains("BrowserEvent::LocationChanged"),
-        "Wry 主页面加载必须把当前 URL 上报为 LocationChanged"
+        wry.contains("with_on_page_load_handler")
+            && wry.contains("BrowserEvent::PageLoad")
+            && store.contains("self.accept_location_change(node_id, url.clone())"),
+        "Wry 回调必须向 Store 提供主页面地址，再由 Store 接收和发布地址变化"
     );
     assert!(
         cef.contains("fn current_url") && cef.contains("frame.url()"),

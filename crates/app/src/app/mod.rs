@@ -26,7 +26,7 @@ use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::settings::ThemeSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::clone_project::CloneProjectUiState;
-use crate::workspace::desktop::DesktopWorkspaceUiState;
+use crate::workspace::desktop::{ContentTabControls, DesktopWorkspaceUiState};
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 #[cfg(test)]
@@ -218,6 +218,7 @@ pub struct MultisoulApp {
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
     pub(crate) desktop_workspace: DesktopWorkspaceUiState,
+    pub(crate) content_tab_controls: ContentTabControls,
     /// Rc 句柄不是 Send，不能放进会跨线程搬运的 WorkbenchState。
     pub(crate) workbench_text_scroll: gpui::UniformListScrollHandle,
     pub(crate) clone_project: CloneProjectUiState,

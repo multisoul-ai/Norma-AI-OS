@@ -193,7 +193,11 @@ impl Default for WorkbenchEpoch {
 
 #[derive(Clone)]
 pub(crate) enum PendingWorkbenchAction {
-    CloseTab(String),
+    CloseTabs {
+        ids: Vec<String>,
+        previous_selection: Option<String>,
+        was_new_tab_page: bool,
+    },
     CloseWindow(gpui::AnyWindowHandle),
     SwitchWorkspace(String, gpui::AnyWindowHandle),
     Quit,

@@ -1,5 +1,112 @@
 use super::*;
 
+/// 已打开的 Markdown 被临时删除后，刷新失败应保留旧正文与资源授权。
+/// 用重新创建的同名文件重试，验证新内容替换旧内容，并撤销旧预览的资源授权。
+#[test]
+fn failed_file_refresh_keeps_rich_content_until_retry_succeeds() {
+    let fixture = tempfile::tempdir().expect("刷新夹具");
+    let path = fixture.path().join("report.md");
+    let mut state = crate::workspace::desktop::DesktopWorkspaceUiState::empty(
+        storage::DesktopWorkspaceStore::new(fixture.path().join("app.db")),
+    );
+    let read = || load_local_file(None, path.clone(), "report.md");
+    std::fs::write(&path, "# OLD DOCUMENT").expect("旧内容");
+    assert!(install_file_load(&mut state, "tab", read()), "首次读取成功");
+    let old_url = state.content_resources["tab"].url.clone();
+
+    std::fs::remove_file(&path).expect("模拟暂时无法读取");
+    assert!(
+        !install_file_load(&mut state, "tab", read()),
+        "刷新失败应被报告"
+    );
+    assert_eq!(
+        state.content_previews["tab"].as_deref().ok(),
+        Some("# OLD DOCUMENT"),
+        "旧正文仍可用"
+    );
+    assert_eq!(
+        state.content_resources["tab"].url, old_url,
+        "失败时保留旧预览授权"
+    );
+
+    std::fs::write(&path, "# NEW DOCUMENT").expect("恢复文件");
+    assert!(
+        install_file_load(&mut state, "tab", read()),
+        "重试应重新读取文件"
+    );
+    assert_eq!(
+        state.content_previews["tab"].as_deref().ok(),
+        Some("# NEW DOCUMENT"),
+        "替换已成功读到的正文"
+    );
+    let removed = crate::preview::local_content::respond(
+        wry::http::Request::builder()
+            .uri(old_url)
+            .body(vec![])
+            .expect("旧预览请求"),
+    );
+    assert_eq!(removed.status(), 404, "成功替换后撤销旧预览授权");
+}
+
+/// 文件读取期间切换标签并不使结果失效，替换版本、复用 ID、关闭或切换工作区会使结果失效。
+/// 构造同路径版本化标签，固定工作区代次和读取序号，逐一模拟选中项及身份变更。
+#[test]
+fn file_load_completion_is_scoped_to_request_and_frozen_tab_identity() {
+    let fixture = tempfile::tempdir().expect("刷新夹具");
+    let mut state = DesktopWorkspaceUiState::empty(storage::DesktopWorkspaceStore::new(
+        fixture.path().join("app.db"),
+    ));
+    let expected = DesktopContentTab {
+        id: "report".into(),
+        instance_id: "original".into(),
+        workspace_id: "workspace".into(),
+        source_area_id: Some("project".into()),
+        source_project_name: "Project".into(),
+        kind: DesktopContentKind::File,
+        resource: "report.md".into(),
+        preview_type: None,
+        version: Some("archived-1".into()),
+        title: "Report".into(),
+        position: 0,
+        selected: true,
+        source_removed: false,
+    };
+    state.active_id = Some(expected.workspace_id.clone());
+    state.content_tabs.push(expected.clone());
+    state.content_tabs[0].selected = false;
+    state.content_workspace_epoch = 7;
+    state.content_load_versions.insert(expected.id.clone(), 9);
+
+    assert!(
+        file_load_is_current(&state, &expected, 7, 9),
+        "切到其他标签允许后台提交"
+    );
+    assert!(
+        !file_load_is_current(&state, &expected, 7, 8),
+        "旧序号不得提交"
+    );
+    assert!(
+        !file_load_is_current(&state, &expected, 6, 9),
+        "退出并回到同一工作区后也拒绝旧读取"
+    );
+    state.content_tabs[0].version = Some("archived-2".into());
+    assert!(
+        !file_load_is_current(&state, &expected, 7, 9),
+        "同路径的新归档版本不能采用旧内容"
+    );
+    state.content_tabs[0] = expected.clone();
+    state.content_tabs[0].instance_id = "reopened".into();
+    assert!(
+        !file_load_is_current(&state, &expected, 7, 9),
+        "复用逻辑 ID 后也不应使用旧实例的结果"
+    );
+    state.content_tabs.clear();
+    assert!(
+        !file_load_is_current(&state, &expected, 7, 9),
+        "关闭后禁止迟到结果重新安装资源"
+    );
+}
+
 /// 场景：普通文件标签打开项目外文本，不依赖 Present 的显式类型。
 /// 数据构造：互不包含的项目目录和外部目录，文件名含中文与空格。
 /// 执行过程：调用普通标签的生产加载函数。

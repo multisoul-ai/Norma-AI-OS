@@ -5,6 +5,19 @@ use super::*;
 const FIRST_COMMIT_REVEAL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 
 impl BrowserView {
+    pub(super) fn new(url: &str, bounds: BrowserViewBounds) -> Self {
+        Self {
+            url: url.to_string(),
+            bounds,
+            visible: false,
+            committed: false,
+            native_view: None,
+            native_created_at: None,
+            load_timeline: LoadTimeline::default(),
+            presentation: None,
+        }
+    }
+
     pub(super) fn sync(
         &mut self,
         node_id: NodeId,
@@ -14,6 +27,10 @@ impl BrowserView {
         event_sender: Sender<BrowserEvent>,
     ) {
         if self.native_view.is_none() {
+            if self.load_timeline.refresh_status() == Some(BrowserRefreshStatus::Failed) {
+                return;
+            }
+            self.url = url.to_string();
             let configured = std::env::var("MULTISOUL_BROWSER_ENGINE").ok();
             let engine = if url.starts_with("norma-content://") {
                 BrowserEngineKind::Wry
@@ -21,9 +38,17 @@ impl BrowserView {
                 BrowserEngineKind::from_env_value(configured.as_deref())
             };
             let create_started = Instant::now();
-            match NativeBrowserView::create(engine, node_id, url, bounds, window, event_sender) {
+            match NativeBrowserView::create(
+                engine,
+                node_id,
+                url,
+                bounds,
+                window,
+                event_sender.clone(),
+            ) {
                 Ok(native_view) => {
                     self.native_view = Some(native_view);
+                    self.native_created_at = Some(create_started);
                     tracing::info!(
                         node_id,
                         create_ms = create_started.elapsed().as_secs_f64() * 1000.0,
@@ -32,12 +57,12 @@ impl BrowserView {
                     self.load_timeline
                         .begin(create_started, Some(create_started.elapsed()));
                 }
-                Err(error) => tracing::warn!(
-                    node_id,
-                    engine = ?engine,
-                    error = %error,
-                    "failed to create native Browser view"
-                ),
+                Err(error) => {
+                    tracing::warn!(node_id, ?engine, %error, "failed to create native Browser view");
+                    if self.load_timeline.fail_refresh() {
+                        let _ = event_sender.send(BrowserEvent::RefreshStatusChanged);
+                    }
+                }
             }
         }
 
@@ -62,6 +87,7 @@ impl BrowserView {
     }
 
     pub(super) fn load_url(&mut self, url: &str) {
+        self.load_timeline.clear_refresh();
         if let Some(native_view) = &mut self.native_view {
             self.load_timeline.begin(Instant::now(), None);
             native_view.load_url(url);
@@ -74,6 +100,12 @@ impl BrowserView {
         }
     }
 
+    pub(super) fn polled_load(&self) -> Option<(BrowserLoadPhase, Instant)> {
+        let loading = self.native_view.as_ref()?.loading_for_polling()?;
+        let phase = self.load_timeline.polled_phase(loading)?;
+        Some((phase, self.native_created_at?))
+    }
+
     pub(super) fn current_url_for_polling(&self) -> Option<String> {
         self.native_view
             .as_ref()
@@ -81,14 +113,33 @@ impl BrowserView {
     }
 
     pub(super) fn go_back(&mut self) {
+        self.load_timeline.clear_refresh();
         if let Some(native_view) = &mut self.native_view {
             native_view.go_back();
         }
     }
 
     pub(super) fn go_forward(&mut self) {
+        self.load_timeline.clear_refresh();
         if let Some(native_view) = &mut self.native_view {
             native_view.go_forward();
+        }
+    }
+
+    pub(super) fn reload_content(&mut self, now: Instant) {
+        let Some(native_view) = &mut self.native_view else {
+            self.load_timeline.request_refresh();
+            return;
+        };
+        if !self.load_timeline.can_reload(now, native_view.is_loading()) {
+            return;
+        }
+        self.load_timeline.begin_refresh(now);
+        if self.committed {
+            native_view.reload();
+        } else {
+            // An initial navigation that never committed may have no page to reload.
+            native_view.load_url(&self.url);
         }
     }
 

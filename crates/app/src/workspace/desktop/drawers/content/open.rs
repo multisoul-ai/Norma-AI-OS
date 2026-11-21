@@ -24,6 +24,7 @@ impl MultisoulApp {
             .desktop_workspace
             .content_tab_generation
             .wrapping_add(1);
+        self.clear_desktop_browser_refreshes();
         self.desktop_workspace.content_tabs.clear();
         self.desktop_workspace.content_browser.new_tab_page = false;
         self.desktop_workspace.content_previews.clear();
@@ -31,6 +32,8 @@ impl MultisoulApp {
         self.desktop_workspace.content_resources.clear();
         self.desktop_workspace.content_loading.clear();
         self.desktop_workspace.content_load_versions.clear();
+        self.desktop_workspace.content_refresh = Default::default();
+        self.content_tab_controls = Default::default();
     }
 
     /// User navigation supersedes late opens and any unacknowledged workbench review.
@@ -101,6 +104,19 @@ impl MultisoulApp {
             let result = this
                 .update(cx, |app, cx| {
                     app.validate_content_open(&workspace_id, epoch, receipt.as_ref(), cx)?;
+                    // A reused file's identity can change on disk even when another
+                    // navigation supersedes this operation's selection.
+                    if let Ok((tab, false, _)) = &opened {
+                        if tab.kind == DesktopContentKind::File {
+                            app.browsers.remove(content_node_id(&tab.id));
+                            app.desktop_workspace.content_previews.remove(&tab.id);
+                            app.desktop_workspace.content_resources.remove(&tab.id);
+                            app.desktop_workspace.content_snapshots.remove(&tab.id);
+                            app.desktop_workspace.content_loading.remove(&tab.id);
+                            app.desktop_workspace.content_load_versions.remove(&tab.id);
+                            app.desktop_workspace.content_refresh.remove(&tab.id);
+                        }
+                    }
                     // A later Present waits for this entire task, including its receipt. Ordinary
                     // navigation retains the existing supersession behavior without silent success.
                     if receipt.is_none()
@@ -118,15 +134,6 @@ impl MultisoulApp {
                         cx.notify();
                     })?;
                     app.hide_desktop_content_browsers();
-                    // Reused files must refresh both content and type. Invalidate in-flight reads too.
-                    if tab.kind == DesktopContentKind::File {
-                        app.browsers.remove(content_node_id(&tab.id));
-                        app.desktop_workspace.content_previews.remove(&tab.id);
-                        app.desktop_workspace.content_resources.remove(&tab.id);
-                        app.desktop_workspace.content_snapshots.remove(&tab.id);
-                        app.desktop_workspace.content_loading.remove(&tab.id);
-                        app.desktop_workspace.content_load_versions.remove(&tab.id);
-                    }
                     app.desktop_workspace.content_tabs = tabs;
                     app.desktop_workspace.content_browser.new_tab_page = false;
                     app.desktop_workspace.drawers = route_drawer(

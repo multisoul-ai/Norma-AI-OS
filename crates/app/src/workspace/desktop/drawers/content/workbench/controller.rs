@@ -1,3 +1,4 @@
+use super::super::preview_load::{is_workbench_text, read_workbench_document};
 use super::*;
 use crate::app::MultisoulApp;
 use gpui::{AppContext, Context, Window};
@@ -92,6 +93,7 @@ impl MultisoulApp {
                         if visible
                             && !app.desktop_workspace.workbench.busy
                             && !app.desktop_workspace.workbench.refreshing
+                            && !app.desktop_workspace.workbench.loading
                         {
                             app.refresh_file_workbench(cx);
                         }
@@ -120,6 +122,7 @@ impl MultisoulApp {
         else {
             s.project = None;
             s.error = Some(ui::i18n::LocalizedText::new("drawers.select_project_first"));
+            self.finish_desktop_workbench_refresh(false);
             return;
         };
         s.generation = s.generation.wrapping_add(1);
@@ -179,12 +182,20 @@ impl MultisoulApp {
                     }
                     let disk_version = selected
                         .as_ref()
-                        .and_then(|p| project.read_text(Path::new(p)).ok())
-                        .map(|f| f.version);
-                    Ok::<_, ui::i18n::LocalizedText>((project, rows, git, git_error, disk_version))
+                        .filter(|path| is_workbench_text(path))
+                        .map(|path| project.read_text(Path::new(path)).map(|file| file.version));
+                    Ok::<_, ui::i18n::LocalizedText>((
+                        project,
+                        rows,
+                        git,
+                        git_error,
+                        selected,
+                        disk_version,
+                    ))
                 })
                 .await;
             let _ = this.update(cx, |app, cx| {
+                let explicit = app.desktop_workbench_is_refreshing();
                 let s = &mut app.desktop_workspace.workbench;
                 if s.epoch != epoch {
                     return;
@@ -195,8 +206,10 @@ impl MultisoulApp {
                     app.refresh_file_workbench(cx);
                     return;
                 }
+                let refreshed = result.is_ok();
+                let mut reload_document = None;
                 match result {
-                    Ok((project, rows, git, git_error, disk_version)) => {
+                    Ok((project, rows, git, git_error, scanned_path, disk_version)) => {
                         let changed_project =
                             s.project.as_ref().map(Project::root) != Some(project.root());
                         s.project = Some(project);
@@ -231,9 +244,12 @@ impl MultisoulApp {
                             .as_ref()
                             .and_then(|k| s.drafts.get(k))
                             .is_some_and(|d| d.dirty || d.saving);
-                        let external_change = s.file.as_ref().is_some_and(|f| {
-                            disk_version.as_ref().is_some_and(|v| v != &f.version)
-                        });
+                        let external_change = scanned_path == s.saved.selected
+                            && s.file.as_ref().is_some_and(|file| {
+                                disk_version
+                                    .as_ref()
+                                    .is_some_and(|version| version.as_ref() != Ok(&file.version))
+                            });
                         if external_change && dirty {
                             s.notice = Some(ui::i18n::LocalizedText::new("drawers.file_changed"));
                         }
@@ -250,24 +266,25 @@ impl MultisoulApp {
                                     super::tree::row_is_staged(change.staged, change.unstaged)
                                 });
                             app.select_workbench_path(path, true, staged, cx);
-                        } else if reload_diff {
-                            let staged = s.diff_staged;
-                            app.load_workbench_file(true, staged, cx);
-                        } else if (changed_project || (external_change && !dirty))
+                        } else if (reload_diff || (explicit && s.show_diff))
                             && s.saved.selected.is_some()
                         {
-                            if !dirty {
-                                if let Some(key) = s.draft_key() {
-                                    s.drafts.remove(&key);
-                                }
-                            }
-                            app.load_workbench_file(false, false, cx);
+                            reload_document = Some((true, s.diff_staged));
+                        } else if (changed_project || (!dirty && (external_change || explicit)))
+                            && s.saved.selected.is_some()
+                        {
+                            reload_document = Some((false, false));
                         }
                     }
                     Err(error) => {
                         s.error = Some(error);
                         s.pending_open = None;
                     }
+                }
+                if let Some((diff, staged)) = reload_document {
+                    app.load_workbench_document(diff, staged, true, cx);
+                } else if explicit {
+                    app.finish_desktop_workbench_refresh(refreshed);
                 }
                 app.apply_pending_workbench_open(cx);
                 app.acknowledge_workbench_review(cx);
@@ -304,6 +321,21 @@ impl MultisoulApp {
     }
 
     pub(crate) fn load_workbench_file(&mut self, diff: bool, staged: bool, cx: &mut Context<Self>) {
+        let s = &self.desktop_workspace.workbench;
+        if s.loading && !s.refreshing && self.desktop_workbench_is_refreshing() {
+            self.cancel_desktop_workbench_refresh();
+        }
+        self.load_workbench_document(diff, staged, false, cx);
+    }
+
+    fn load_workbench_document(
+        &mut self,
+        diff: bool,
+        staged: bool,
+        refresh: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let explicit = refresh && self.desktop_workbench_is_refreshing();
         let s = &mut self.desktop_workspace.workbench;
         let (Some(project), Some(path)) = (s.project.clone(), s.saved.selected.clone()) else {
             return;
@@ -314,10 +346,12 @@ impl MultisoulApp {
         let epoch = s.epoch;
         let selected = s.saved.selected.clone();
         let project_root = project.root().to_path_buf();
-        s.file = None;
-        s.preview = None;
-        s.diff = None;
-        s.error = None;
+        if !refresh {
+            s.file = None;
+            s.preview = None;
+            s.diff = None;
+            s.error = None;
+        }
         s.loading = true;
         s.diff_staged = staged;
         s.show_diff = diff;
@@ -326,33 +360,7 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = cx
                 .background_spawn(async move {
-                    if diff {
-                        return project
-                            .git_diff(&comparison, &path, staged)
-                            .map_err(content_error)
-                            .map(|d| (Some(d), None, None));
-                    }
-                    let kind = local_preview::kind(&path);
-                    let text = if matches!(
-                        kind,
-                        local_preview::Kind::Text
-                            | local_preview::Kind::Markdown
-                            | local_preview::Kind::Html
-                    ) {
-                        Some(project.read_text(Path::new(&path)).map_err(content_error)?)
-                    } else {
-                        None
-                    };
-                    let preview = if kind != local_preview::Kind::Text {
-                        Some(local_preview::LocalPreview::new(
-                            project.root(),
-                            &path,
-                            text.as_ref().map(|t| t.text.as_str()),
-                        )?)
-                    } else {
-                        None
-                    };
-                    Ok::<_, ui::i18n::LocalizedText>((None, text, preview))
+                    read_workbench_document(&project, &comparison, &path, diff, staged)
                 })
                 .await;
             let _ = this.update(cx, |app, cx| {
@@ -365,16 +373,35 @@ impl MultisoulApp {
                     return;
                 }
                 s.loading = false;
+                let refreshed = result.is_ok();
                 match result {
                     Ok((diff, text, preview)) => {
+                        if let (Some(file), Some(key)) = (text.as_ref(), s.draft_key()) {
+                            if let Some(draft) = s
+                                .drafts
+                                .get(&key)
+                                .filter(|d| d.original.version != file.version)
+                            {
+                                if draft.dirty || draft.saving {
+                                    s.notice =
+                                        Some(ui::i18n::LocalizedText::new("drawers.file_changed"));
+                                } else {
+                                    s.drafts.remove(&key);
+                                }
+                            }
+                        }
                         s.diff_parsed = diff
                             .as_deref()
                             .map(|p| std::sync::Arc::new(super::diff::parse_diff_for_display(p)));
                         s.diff = diff;
                         s.file = text;
                         s.preview = preview;
+                        s.error = None;
                     }
                     Err(e) => s.error = Some(e),
+                }
+                if explicit {
+                    app.finish_desktop_workbench_refresh(refreshed);
                 }
                 app.consume_workbench_scroll();
                 app.acknowledge_workbench_review(cx);

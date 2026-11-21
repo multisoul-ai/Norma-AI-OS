@@ -4,6 +4,7 @@ use super::super::content_node_id;
 use crate::app::{AppScreen, MultisoulApp};
 use agent::AdapterError;
 use gpui::Context;
+use runtime::desktop_drawers::ContentTabCloseScope;
 use storage::{DesktopContentKind, NewDesktopContentTab};
 
 #[cfg(test)]
@@ -158,7 +159,7 @@ impl MultisoulApp {
         }) else {
             return false;
         };
-        if tab.resource == resource {
+        if tab.resource == resource || self.content_tab_controls.closing.contains(&tab.id) {
             return false;
         }
         let title = url::Url::parse(&resource)
@@ -199,6 +200,7 @@ impl MultisoulApp {
                     Ok((update, tabs)) => {
                         if let Some(removed_id) = update.removed_tab_id {
                             app.browsers.remove(content_node_id(&removed_id));
+                            app.desktop_workspace.content_refresh.remove(&removed_id);
                         }
                         if app.desktop_workspace.content_tab_generation == generation {
                             app.desktop_workspace.content_tabs = tabs;
@@ -219,6 +221,14 @@ impl MultisoulApp {
     }
 
     pub(super) fn select_desktop_content_tab(&mut self, tab_id: &str, cx: &mut Context<Self>) {
+        if self
+            .content_tab_controls
+            .closing
+            .iter()
+            .any(|id| id == tab_id)
+        {
+            return;
+        }
         let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
             return;
         };
@@ -269,6 +279,7 @@ impl MultisoulApp {
                 }
                 if let Ok(tabs) = result {
                     app.desktop_workspace.content_tabs = tabs;
+                    app.reveal_committed_content_tab(cx);
                     app.load_selected_desktop_content(cx);
                     cx.notify();
                 }
@@ -277,51 +288,74 @@ impl MultisoulApp {
     }
 
     pub(super) fn close_desktop_content_tab(&mut self, tab_id: &str, cx: &mut Context<Self>) {
-        if self
-            .desktop_workspace
+        self.close_desktop_content_tab_scope(tab_id, ContentTabCloseScope::Current, cx);
+    }
+
+    pub(super) fn close_desktop_content_tab_scope(
+        &mut self,
+        target: &str,
+        scope: ContentTabCloseScope,
+        cx: &mut Context<Self>,
+    ) {
+        let state = &self.desktop_workspace;
+        if state.workbench.pending_close.is_some() || !self.content_tab_controls.closing.is_empty()
+        {
+            return;
+        }
+        let ordered = state
             .content_tabs
             .iter()
-            .any(|t| t.id == tab_id && t.kind == DesktopContentKind::ProjectFiles)
-            && self.desktop_workspace.workbench.has_edits()
-        {
-            self.desktop_workspace.workbench.pending_close = Some(
-                super::workbench::PendingWorkbenchAction::CloseTab(tab_id.to_string()),
-            );
+            .map(|tab| tab.id.as_str())
+            .collect::<Vec<_>>();
+        let ids = scope.targets(&ordered, target);
+        if ids.is_empty() {
+            return;
+        }
+        let closes_workbench = state.content_tabs.iter().any(|tab| {
+            tab.kind == DesktopContentKind::ProjectFiles && ids.contains(&tab.id.as_str())
+        });
+        let ids: Vec<_> = ids.into_iter().map(str::to_owned).collect();
+        if closes_workbench && state.workbench.has_edits() {
+            self.desktop_workspace.workbench.pending_close =
+                Some(super::workbench::PendingWorkbenchAction::CloseTabs {
+                    ids,
+                    previous_selection: state
+                        .content_tabs
+                        .iter()
+                        .find(|tab| tab.selected)
+                        .map(|tab| tab.id.clone()),
+                    was_new_tab_page: state.content_browser.new_tab_page,
+                });
             self.hide_desktop_content_browsers();
             cx.notify();
             return;
         }
-        if self
-            .desktop_workspace
-            .content_tabs
-            .iter()
-            .any(|t| t.id == tab_id && t.kind == DesktopContentKind::ProjectFiles)
-        {
-            let saved = std::mem::take(&mut self.desktop_workspace.workbench.saved);
-            let persistence = self.desktop_workspace.workbench.persistence.take();
-            self.desktop_workspace.workbench = Default::default();
-            self.desktop_workspace.workbench.saved = saved;
-            self.desktop_workspace.workbench.persistence = persistence;
-        }
+        self.commit_close_desktop_content_tabs(ids, cx);
+    }
+
+    pub(super) fn commit_close_desktop_content_tabs(
+        &mut self,
+        ids: Vec<String>,
+        cx: &mut Context<Self>,
+    ) {
         let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
             return;
         };
         let store =
             storage::DesktopContentTabStore::new(self.database_paths.app_db_path().to_owned());
-        let tab_id = tab_id.to_owned();
         let expected_workspace_id = workspace_id.clone();
-        self.browsers.remove(content_node_id(&tab_id));
-        self.desktop_workspace.content_browser.new_tab_page = false;
-        self.desktop_workspace.content_previews.remove(&tab_id);
-        self.desktop_workspace.content_snapshots.remove(&tab_id);
-        self.desktop_workspace.content_resources.remove(&tab_id);
-        self.desktop_workspace.content_loading.remove(&tab_id);
-        self.desktop_workspace.content_load_versions.remove(&tab_id);
-        self.desktop_workspace.content_tab_generation = self
+        let generation = self.begin_desktop_content_navigation();
+        let epoch = self.desktop_workspace.content_workspace_epoch;
+        let browser_locations: std::collections::HashMap<_, _> = self
             .desktop_workspace
-            .content_tab_generation
-            .wrapping_add(1);
-        let generation = self.desktop_workspace.content_tab_generation;
+            .content_tabs
+            .iter()
+            .filter(|tab| tab.kind == DesktopContentKind::Browser)
+            .map(|tab| (tab.id.clone(), tab.resource.clone()))
+            .collect();
+        self.content_tab_controls.closing.clone_from(&ids);
+        self.dismiss_content_tab_controls();
+        cx.notify();
         let previous = self.desktop_workspace.content_tab_task.take();
         self.desktop_workspace.content_tab_task = Some(cx.spawn(async move |this, cx| {
             if let Some(previous) = previous {
@@ -329,23 +363,74 @@ impl MultisoulApp {
             }
             let result = cx
                 .background_executor()
-                .spawn(async move {
-                    store.close(&workspace_id, &tab_id)?;
-                    store.list(&workspace_id)
-                })
+                .spawn(async move { store.close_batch(&workspace_id, &ids) })
                 .await;
             let _ = this.update(cx, |app, cx| {
-                if app.desktop_workspace.active_id.as_deref()
-                    != Some(expected_workspace_id.as_str())
-                    || app.desktop_workspace.content_tab_generation != generation
-                {
-                    return;
+                if app.desktop_workspace.content_workspace_epoch == epoch {
+                    app.content_tab_controls.closing.clear();
                 }
-                if let Ok(tabs) = result {
-                    app.desktop_workspace.content_tabs = tabs;
-                    app.load_selected_desktop_content(cx);
-                    cx.notify();
+                match result {
+                    Ok(mut closed) => {
+                        for id in &closed.closed_ids {
+                            app.browsers.remove(content_node_id(id));
+                        }
+                        if app.desktop_workspace.active_id.as_deref()
+                            != Some(&expected_workspace_id)
+                        {
+                            return;
+                        }
+                        let state = &mut app.desktop_workspace;
+                        if state.content_tabs.iter().any(|tab| {
+                            tab.kind == DesktopContentKind::ProjectFiles
+                                && closed.closed_ids.contains(&tab.id)
+                        }) {
+                            let saved = std::mem::take(&mut state.workbench.saved);
+                            let persistence = state.workbench.persistence.take();
+                            state.workbench = Default::default();
+                            state.workbench.saved = saved;
+                            state.workbench.persistence = persistence;
+                        }
+                        for id in &closed.closed_ids {
+                            state.content_previews.remove(id);
+                            state.content_snapshots.remove(id);
+                            state.content_resources.remove(id);
+                            state.content_loading.remove(id);
+                            state.content_load_versions.remove(id);
+                            state.content_refresh.remove(id);
+                        }
+                        if state.content_tab_generation == generation {
+                            state.content_browser.new_tab_page = false;
+                        } else {
+                            // Keep the committed membership and selection, but don't roll back
+                            // an optimistic URL change queued after this close request.
+                            for tab in &mut closed.tabs {
+                                let newer = state.content_tabs.iter().find(|current| {
+                                    current.id == tab.id
+                                        && browser_locations
+                                            .get(&current.id)
+                                            .is_some_and(|url| *url != current.resource)
+                                });
+                                if let Some(newer) = newer {
+                                    tab.resource.clone_from(&newer.resource);
+                                    tab.title.clone_from(&newer.title);
+                                }
+                            }
+                        }
+                        state.content_tabs = closed.tabs;
+                        app.load_selected_desktop_content(cx);
+                    }
+                    Err(error) => {
+                        if app.desktop_workspace.active_id.as_deref()
+                            == Some(&expected_workspace_id)
+                        {
+                            app.desktop_workspace.error = Some(ui::i18n::message(
+                                "drawers.close_tabs_failed",
+                                &[("error", error.to_string())],
+                            ));
+                        }
+                    }
                 }
+                cx.notify();
             });
         }));
     }

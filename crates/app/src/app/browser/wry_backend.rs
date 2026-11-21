@@ -119,8 +119,9 @@ impl WryBrowserView {
                     node_id,
                     phase,
                     at: Instant::now(),
+                    view_created_at: create_started,
+                    url,
                 });
-                let _ = location_sender.send(BrowserEvent::LocationChanged { node_id, url });
             })
             .with_new_window_req_handler(move |url, _features| {
                 forward_new_window_to_current_card(&new_window_sender, node_id, url)
@@ -162,6 +163,11 @@ impl WryBrowserView {
 
     pub(crate) fn reload(&mut self) {
         let _ = self.webview.reload();
+    }
+
+    pub(crate) fn is_loading(&self) -> bool {
+        // SAFETY: the live WKWebView is owned and queried on the foreground thread.
+        unsafe { self.webview.webview().isLoading() }
     }
 
     pub(crate) fn stop_loading(&self) {

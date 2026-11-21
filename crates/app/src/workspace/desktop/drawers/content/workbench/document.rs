@@ -269,11 +269,13 @@ impl MultisoulApp {
                 .relative()
                 .flex_1()
                 .min_h(px(0.0))
-                .child(self.browser_scene_element_filling(
-                    super::super::super::content_node_id(&tab.id),
-                    preview.url.clone(),
-                    cx,
-                ))
+                .when(!self.content_tab_overlay_open(), |body| {
+                    body.child(self.browser_scene_element_filling(
+                        super::super::super::content_node_id(&tab.id),
+                        preview.url.clone(),
+                        cx,
+                    ))
+                })
                 .into_any_element();
         }
         if let Some((_, input)) = &s.read_input {

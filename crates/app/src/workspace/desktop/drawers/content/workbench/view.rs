@@ -128,13 +128,26 @@ impl MultisoulApp {
         )
     }
 
-    fn render_workbench_unsaved(&self, cx: &mut Context<Self>) -> Div {
+    pub(in crate::workspace::desktop::drawers::content) fn render_workbench_unsaved(
+        &self,
+        cx: &mut Context<Self>,
+    ) -> Div {
         div()
             .p(px(12.0))
             .flex()
             .flex_col()
             .gap(px(6.0))
             .child(ui::i18n::text("drawers.unsaved_changes"))
+            .when_some(
+                self.desktop_workspace.workbench.error.as_ref(),
+                |prompt, error| {
+                    prompt.child(
+                        div()
+                            .text_color(rgba(self.desktop_theme().destructive))
+                            .child(error.to_string()),
+                    )
+                },
+            )
             .child(
                 Button::new("files-close-save")
                     .label(ui::i18n::text("drawers.save_all"))
@@ -152,17 +165,15 @@ impl MultisoulApp {
                             .any(|d| d.saving)
                             || self.desktop_workspace.workbench.busy,
                     )
-                    .on_click(cx.listener(|app, _, _, cx| {
-                        app.desktop_workspace.workbench.drafts.clear();
-                        app.finish_workbench_leaving(cx);
-                    })),
+                    .on_click(
+                        cx.listener(|app, _, _, cx| app.discard_workbench_before_leaving(cx)),
+                    ),
             )
             .child(
                 Button::new("files-close-cancel")
                     .label(ui::i18n::text("drawers.cancel"))
                     .on_click(cx.listener(|app, _, _, cx| {
-                        app.desktop_workspace.workbench.pending_close = None;
-                        cx.notify();
+                        app.cancel_workbench_leaving(cx);
                     })),
             )
     }

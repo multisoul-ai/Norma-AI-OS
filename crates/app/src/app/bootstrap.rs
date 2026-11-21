@@ -213,6 +213,7 @@ impl MultisoulApp {
             screen: AppScreen::Launchpad,
             workspace_state,
             desktop_workspace,
+            content_tab_controls: Default::default(),
             workbench_text_scroll: gpui::UniformListScrollHandle::new(),
             clone_project: crate::workspace::clone_project::CloneProjectUiState::default(),
             recent_project_context_path: None,

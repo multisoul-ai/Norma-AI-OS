@@ -33,6 +33,15 @@ pub(super) enum MousePhase {
     Up,
 }
 
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum MouseButtonKind {
+    #[default]
+    Left,
+    Right,
+    Middle,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub(super) enum Command {
@@ -46,6 +55,8 @@ pub(super) enum Command {
     Deactivate,
     Mouse {
         phase: MousePhase,
+        #[serde(default)]
+        button: MouseButtonKind,
         x: f32,
         y: f32,
         #[serde(default = "single_click")]
@@ -222,6 +233,7 @@ pub(super) fn modifiers_input(names: &[String]) -> PlatformInput {
 
 pub(super) fn mouse_input(
     phase: MousePhase,
+    button: MouseButtonKind,
     x: f32,
     y: f32,
     click_count: usize,
@@ -230,21 +242,26 @@ pub(super) fn mouse_input(
 ) -> PlatformInput {
     let position = point(px(x), px(y));
     let modifiers = modifiers(modifier_names);
+    let button = match button {
+        MouseButtonKind::Left => MouseButton::Left,
+        MouseButtonKind::Right => MouseButton::Right,
+        MouseButtonKind::Middle => MouseButton::Middle,
+    };
     match phase {
         MousePhase::Move => PlatformInput::MouseMove(MouseMoveEvent {
             position,
-            pressed_button: pressed.then_some(MouseButton::Left),
+            pressed_button: pressed.then_some(button),
             modifiers,
         }),
         MousePhase::Down => PlatformInput::MouseDown(MouseDownEvent {
-            button: MouseButton::Left,
+            button,
             position,
             modifiers,
             click_count,
             first_mouse: false,
         }),
         MousePhase::Up => PlatformInput::MouseUp(MouseUpEvent {
-            button: MouseButton::Left,
+            button,
             position,
             modifiers,
             click_count,

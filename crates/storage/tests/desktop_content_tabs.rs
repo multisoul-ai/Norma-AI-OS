@@ -53,6 +53,78 @@ fn browser_tab_is_reused_and_restored_with_workspace_scope() {
     assert!(beta_tabs.is_empty(), "乙不得看到甲的网页标签");
 }
 
+/// 批量关闭只删除请求时确定的标签，并向右选中最近的原邻居。
+///
+/// 数据构造：打开 A 到 E，选中 B；另一工作空间也有一个标签。
+/// 执行过程：先模拟删除 D 时写入失败，然后移除故障并重试相同批次，再重建 Store。
+/// 预期结果：失败时所有标签及选中项不变；重试后仅 B、D 被删除，且仅 C 选中。
+#[test]
+fn close_batch_preserves_order_and_selects_nearest_right_survivor() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let db = temp.path().join("app.sqlite");
+    let workspaces = DesktopWorkspaceStore::new(db.clone());
+    let workspace = workspaces.create("标签空间").expect("应创建标签空间");
+    let other = workspaces.create("另一空间").expect("应创建另一空间");
+    let store = DesktopContentTabStore::new(db.clone());
+    let open = |workspace_id: &str, title: &str| {
+        store
+            .open_or_select(NewDesktopContentTab {
+                workspace_id: workspace_id.into(),
+                source_area_id: None,
+                source_project_name: "标签空间".into(),
+                kind: DesktopContentKind::Browser,
+                resource: format!("https://example.test/{title}"),
+                version: None,
+                title: title.into(),
+            })
+            .expect("应打开标签")
+    };
+    let [a, b, c, d, e] = ["A", "B", "C", "D", "E"].map(|title| open(&workspace.id, title));
+    let outside = open(&other.id, "外部");
+    store.select(&workspace.id, &b.id).expect("应选中 B");
+    let ids = [b.id.clone(), d.id.clone(), outside.id.clone()];
+    let before = store.list(&workspace.id).expect("应读取关闭前的顺序与选中");
+    let connection = rusqlite::Connection::open(&db).expect("应打开故障注入连接");
+    connection
+        .execute_batch(
+            "CREATE TRIGGER reject_d BEFORE DELETE ON desktop_content_tabs
+             WHEN old.title='D' BEGIN SELECT RAISE(ABORT, 'fixture failure'); END;",
+        )
+        .expect("应能在第二次删除时注入故障");
+    assert!(
+        store.close_batch(&workspace.id, &ids).is_err(),
+        "部分删除必须失败"
+    );
+    assert_eq!(
+        store.list(&workspace.id).expect("应能恢复标签"),
+        before,
+        "删除和选中必须整批回滚"
+    );
+    connection
+        .execute_batch("DROP TRIGGER reject_d")
+        .expect("应移除注入故障");
+    let result = store
+        .close_batch(&workspace.id, &ids)
+        .expect("重试应整批关闭");
+    assert_eq!(result.closed_ids, [b.id, d.id], "只应关闭本空间 B 和 D");
+    let reopened = DesktopContentTabStore::new(db);
+    let saved = reopened.list(&workspace.id).expect("应恢复标签");
+    assert_eq!(saved, result.tabs, "返回列表应与提交后的持久状态一致");
+    assert_eq!(
+        saved
+            .iter()
+            .map(|tab| (&tab.id, tab.selected))
+            .collect::<Vec<_>>(),
+        [(&a.id, false), (&c.id, true), (&e.id, false)],
+        "保留原有顺序，且只有 B 的最近右邻 C 选中"
+    );
+    assert_eq!(
+        reopened.list(&other.id).expect("应读取另一空间"),
+        [outside],
+        "另一空间不得被修改"
+    );
+}
+
 /// 网页标签内部跳转后，应保存新地址；导航到已有标签地址时保留当前标签身份。
 ///
 /// 数据构造：同一空间内打开 A、B 两个网页标签，B 是当前标签。

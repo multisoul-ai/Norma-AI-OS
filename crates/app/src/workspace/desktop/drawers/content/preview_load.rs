@@ -1,11 +1,12 @@
 use crate::app::MultisoulApp;
 use crate::preview::content_copy::content_error;
 use crate::preview::local_content::{kind, Kind, LocalPreview};
-use crate::workspace::desktop::DesktopArtifactVersion;
+use crate::workspace::desktop::{DesktopArtifactVersion, DesktopWorkspaceUiState};
 use gpui::Context;
-use std::io::Write;
-use storage::{DesktopContentKind, MobileTaskDeliveryStore};
-use workspace::content::Project;
+use std::{io::Write, path::Path};
+use storage::{DesktopContentKind, DesktopContentTab, MobileTaskDeliveryStore};
+use ui::i18n::LocalizedText;
+use workspace::content::{Comparison, Project, TextFile};
 use workspace::review::ContentKind;
 
 enum LoadedContent {
@@ -57,32 +58,35 @@ impl MultisoulApp {
         {
             return;
         }
+        self.load_desktop_file_tab(tab, false, cx);
+    }
+
+    pub(super) fn load_desktop_file_tab(
+        &mut self,
+        tab: DesktopContentTab,
+        refresh: bool,
+        cx: &mut Context<Self>,
+    ) {
         let id = tab.id.clone();
-        let workspace_id = tab.workspace_id.clone();
+        let epoch = self.desktop_workspace.content_workspace_epoch;
         let navigation_generation = self.desktop_workspace.content_tab_generation;
-        let tab_resource = tab.resource.clone();
         let expected_tab = tab.clone();
         let load_id = self.desktop_workspace.content_load_sequence.wrapping_add(1);
         self.desktop_workspace.content_load_sequence = load_id;
         self.desktop_workspace
             .content_load_versions
             .insert(id.clone(), load_id);
-        let work = if let Some(encoded) = tab.version.as_deref() {
-            let (Some(area_id), Ok(version)) = (
-                tab.source_area_id.as_deref(),
-                serde_json::from_str::<DesktopArtifactVersion>(encoded),
-            ) else {
-                self.desktop_workspace.content_previews.insert(
-                    id,
-                    Err(ui::i18n::LocalizedText::new("drawers.legacy_artifact")),
-                );
-                cx.notify();
-                return;
-            };
-            let scope = format!("desktop:{}:{area_id}", tab.workspace_id);
+        let work = if let Some(encoded) = tab.version {
             let store = MobileTaskDeliveryStore::new(self.database_paths.app_db_path().to_owned());
-            let resource = tab.resource.clone();
             cx.background_executor().spawn(async move {
+                let (Some(area_id), Ok(version)) = (
+                    tab.source_area_id.as_deref(),
+                    serde_json::from_str::<DesktopArtifactVersion>(&encoded),
+                ) else {
+                    return Err(LocalizedText::new("drawers.legacy_artifact"));
+                };
+                let scope = format!("desktop:{}:{area_id}", tab.workspace_id);
+                let resource = tab.resource;
                 let frozen = store
                     .frozen_file_version(
                         &scope,
@@ -134,7 +138,6 @@ impl MultisoulApp {
             cx.background_executor()
                 .spawn(async move { load_presented_file(path, preview_type) })
         } else {
-            let resource = tab.resource;
             let root = tab
                 .source_area_id
                 .as_ref()
@@ -145,7 +148,8 @@ impl MultisoulApp {
                         .find(|area| &area.id == area_id)
                 })
                 .map(|area| area.root.clone());
-            let path = std::path::PathBuf::from(resource);
+            let tab_resource = tab.resource;
+            let path = std::path::PathBuf::from(&tab_resource);
             let path = if path.is_absolute() {
                 path
             } else {
@@ -160,57 +164,112 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
-                if app.desktop_workspace.content_load_versions.get(&id) != Some(&load_id) {
+                let state = &mut app.desktop_workspace;
+                if !file_load_is_current(state, &expected_tab, epoch, load_id) {
                     return;
                 }
-                app.desktop_workspace.content_loading.remove(&id);
-                if app.desktop_workspace.active_id.as_deref() != Some(workspace_id.as_str())
-                    || !app.desktop_workspace.content_tabs.iter().any(|tab| {
-                        tab.id == id
-                            && tab.resource == expected_tab.resource
-                            && tab.preview_type == expected_tab.preview_type
-                            && tab.version == expected_tab.version
-                    })
-                {
-                    return;
+                state.content_loading.remove(&id);
+                let installed = install_file_load(state, &id, result);
+                if refresh {
+                    state.content_refresh.finish(&id, installed);
                 }
-                if result.is_ok()
-                    && app.desktop_workspace.content_tab_generation == navigation_generation
-                {
+                if installed && state.content_tab_generation == navigation_generation {
                     app.mark_visible_desktop_artifact_viewed(&expected_tab, cx);
-                }
-                match result {
-                    Ok(LoadedContent::Text(text)) => {
-                        app.desktop_workspace.content_previews.insert(id, Ok(text));
-                    }
-                    Ok(LoadedContent::Rich {
-                        text,
-                        preview,
-                        snapshot,
-                    }) => {
-                        if let Some(text) = text {
-                            app.desktop_workspace
-                                .content_previews
-                                .insert(id.clone(), Ok(text));
-                        }
-                        if let Some(path) = snapshot {
-                            app.desktop_workspace
-                                .content_snapshots
-                                .insert(id.clone(), path);
-                        }
-                        app.desktop_workspace.content_resources.insert(id, preview);
-                    }
-                    Err(error) => {
-                        app.desktop_workspace
-                            .content_previews
-                            .insert(id, Err(error));
-                    }
                 }
                 cx.notify();
             });
         })
         .detach();
     }
+}
+
+fn file_load_is_current(
+    state: &DesktopWorkspaceUiState,
+    expected: &DesktopContentTab,
+    epoch: u64,
+    load_id: u64,
+) -> bool {
+    state.content_workspace_epoch == epoch
+        && state.active_id.as_ref() == Some(&expected.workspace_id)
+        && state.content_load_versions.get(&expected.id) == Some(&load_id)
+        && state.content_tabs.iter().any(|tab| {
+            tab.id == expected.id
+                && tab.instance_id == expected.instance_id
+                && tab.workspace_id == expected.workspace_id
+                && tab.kind == DesktopContentKind::File
+                && tab.resource == expected.resource
+                && tab.source_area_id == expected.source_area_id
+                && tab.preview_type == expected.preview_type
+                && tab.version == expected.version
+        })
+}
+
+fn install_file_load(
+    state: &mut DesktopWorkspaceUiState,
+    id: &str,
+    result: Result<LoadedContent, LocalizedText>,
+) -> bool {
+    let loaded = match result {
+        Ok(loaded) => loaded,
+        Err(error) => {
+            if !state.content_resources.contains_key(id)
+                && !state.content_previews.get(id).is_some_and(Result::is_ok)
+            {
+                state.content_previews.insert(id.to_owned(), Err(error));
+            }
+            return false;
+        }
+    };
+    state.content_resources.remove(id);
+    state.content_snapshots.remove(id);
+    state.content_previews.remove(id);
+    match loaded {
+        LoadedContent::Text(text) => {
+            state.content_previews.insert(id.to_owned(), Ok(text));
+        }
+        LoadedContent::Rich {
+            text,
+            preview,
+            snapshot,
+        } => {
+            if let Some(text) = text {
+                state.content_previews.insert(id.to_owned(), Ok(text));
+            }
+            if let Some(path) = snapshot {
+                state.content_snapshots.insert(id.to_owned(), path);
+            }
+            state.content_resources.insert(id.to_owned(), preview);
+        }
+    }
+    true
+}
+
+pub(super) fn is_workbench_text(path: &str) -> bool {
+    matches!(kind(path), Kind::Text | Kind::Markdown | Kind::Html)
+}
+
+type WorkbenchDocument = (Option<String>, Option<TextFile>, Option<LocalPreview>);
+
+pub(super) fn read_workbench_document(
+    project: &Project,
+    comparison: &Comparison,
+    path: &str,
+    diff: bool,
+    staged: bool,
+) -> Result<WorkbenchDocument, LocalizedText> {
+    if diff {
+        let diff = project
+            .git_diff(comparison, path, staged)
+            .map_err(content_error)?;
+        return Ok((Some(diff), None, None));
+    }
+    let text = is_workbench_text(path)
+        .then(|| project.read_text(Path::new(path)).map_err(content_error))
+        .transpose()?;
+    let preview = (kind(path) != Kind::Text)
+        .then(|| LocalPreview::new(project.root(), path, text.as_ref().map(|t| t.text.as_str())))
+        .transpose()?;
+    Ok((None, text, preview))
 }
 
 fn load_local_file(

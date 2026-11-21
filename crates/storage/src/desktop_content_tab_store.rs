@@ -55,6 +55,12 @@ pub struct DesktopBrowserLocationUpdate {
     pub removed_tab_id: Option<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DesktopContentTabClose {
+    pub closed_ids: Vec<String>,
+    pub tabs: Vec<DesktopContentTab>,
+}
+
 #[derive(Clone, Debug)]
 pub struct DesktopContentTabStore {
     path: PathBuf,
@@ -91,14 +97,7 @@ impl DesktopContentTabStore {
     }
 
     pub fn list(&self, workspace_id: &str) -> StorageResult<Vec<DesktopContentTab>> {
-        let connection = open_app_connection(&self.path)?;
-        let mut statement = connection.prepare(&format!(
-            "{SELECT_TAB} WHERE t.workspace_id=?1 ORDER BY t.position,t.id"
-        ))?;
-        let tabs = statement
-            .query_map([workspace_id], read_tab)?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(tabs)
+        list_tabs(&open_app_connection(&self.path)?, workspace_id)
     }
 
     pub fn open_or_select(
@@ -294,31 +293,59 @@ impl DesktopContentTabStore {
     }
 
     pub fn close(&self, workspace_id: &str, tab_id: &str) -> StorageResult<bool> {
+        let result = self.close_batch(workspace_id, &[tab_id.to_owned()])?;
+        Ok(!result.closed_ids.is_empty())
+    }
+
+    pub fn close_batch(
+        &self,
+        workspace_id: &str,
+        ids: &[String],
+    ) -> StorageResult<DesktopContentTabClose> {
         let mut connection = open_app_connection(&self.path)?;
-        let transaction = connection.transaction()?;
-        let selected: Option<bool> = transaction
-            .query_row(
-                "SELECT selected FROM desktop_content_tabs WHERE workspace_id=?1 AND id=?2",
-                params![workspace_id, tab_id],
-                |row| row.get(0),
-            )
-            .optional()?;
-        let Some(selected) = selected else {
-            return Ok(false);
-        };
-        transaction.execute(
-            "DELETE FROM desktop_content_tabs WHERE workspace_id=?1 AND id=?2",
-            params![workspace_id, tab_id],
-        )?;
-        if selected {
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let original = list_tabs(&transaction, workspace_id)?;
+        let targets: std::collections::HashSet<_> = ids.iter().map(String::as_str).collect();
+        let mut closed_ids = Vec::new();
+        let is_closed = |tab: &DesktopContentTab| targets.contains(tab.id.as_str());
+        for tab in original.iter().filter(|tab| is_closed(tab)) {
             transaction.execute(
-                "UPDATE desktop_content_tabs SET selected=1 WHERE id=(SELECT id FROM desktop_content_tabs WHERE workspace_id=?1 ORDER BY position DESC,id DESC LIMIT 1)",
-                [workspace_id],
+                "DELETE FROM desktop_content_tabs WHERE workspace_id=?1 AND id=?2",
+                params![workspace_id, tab.id],
+            )?;
+            closed_ids.push(tab.id.clone());
+        }
+        let lost_selection = original
+            .iter()
+            .position(|tab| tab.selected && is_closed(tab));
+        let next = lost_selection.and_then(|index| {
+            original[index + 1..]
+                .iter()
+                .chain(original[..index].iter().rev())
+                .find(|tab| !is_closed(tab))
+                .map(|tab| tab.id.as_str())
+        });
+        if let Some(id) = next {
+            transaction.execute(
+                "UPDATE desktop_content_tabs SET selected=1 WHERE workspace_id=?1 AND id=?2",
+                params![workspace_id, id],
             )?;
         }
+        let tabs = list_tabs(&transaction, workspace_id)?;
         transaction.commit()?;
-        Ok(true)
+        Ok(DesktopContentTabClose { closed_ids, tabs })
     }
+}
+
+fn list_tabs(connection: &Connection, workspace_id: &str) -> StorageResult<Vec<DesktopContentTab>> {
+    let mut statement = connection.prepare(&format!(
+        "{SELECT_TAB} WHERE t.workspace_id=?1 ORDER BY t.position,t.id"
+    ))?;
+    let tabs = statement
+        .query_map([workspace_id], read_tab)?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(tabs)
 }
 
 fn load_tab(
