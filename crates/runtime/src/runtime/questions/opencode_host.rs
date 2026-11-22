@@ -83,6 +83,23 @@ impl Runtime {
         Ok(())
     }
 
+    /// OpenCode 2 的 form 没有独立问答宿主。打开后按住卡片，直到回答、取消或回合结束。
+    pub(super) fn note_opencode_form(&mut self, update: &crate::AgentTaskUpdate) {
+        if update.profile != canvas::AgentProfile::OpenCode {
+            return;
+        }
+        match update.provider_event.as_str() {
+            "QuestionRequest" => {
+                self.questions.open_forms.insert(update.node_id);
+            }
+            "QuestionSettled" | "Stop" | "StopFailure" | "SessionEnd" | "SessionStart"
+            | "ManualInterrupt" => {
+                self.questions.open_forms.remove(&update.node_id);
+            }
+            _ => {}
+        }
+    }
+
     pub(super) fn opencode_input_pending(&self, node: NodeId) -> bool {
         self.questions
             .opencode_hosts

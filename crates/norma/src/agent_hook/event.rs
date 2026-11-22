@@ -63,6 +63,10 @@ pub fn task_state_for_provider_event(event: &AgentHookEvent) -> Option<AgentHook
     match event.provider_event.as_str() {
         "SessionStart" => Some(AgentHookTaskState::Ready),
         "UserPromptSubmit" => Some(AgentHookTaskState::Thinking),
+        // OpenCode 2 表单只改变投影；真正的等待回答由 runtime 在表单关闭前按住。
+        "QuestionRequest" | "QuestionSettled" if event.profile == AgentProfile::OpenCode => {
+            Some(AgentHookTaskState::Thinking)
+        }
         "PreToolUse" => Some(AgentHookTaskState::RunningTool {
             tool_name: event.tool_name.clone(),
         }),

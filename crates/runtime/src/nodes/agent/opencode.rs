@@ -9,6 +9,20 @@ use terminal::PtyEvent;
 
 const EXEC: &str = "exec \"${OPENCODE_BIN:-opencode}\"";
 
+/// OpenCode 2 的插件跑在服务进程里。共享服务只保留第一次启动时的 NORMA_NODE_ID，
+/// 所以 2.x 必须用本卡片的环境起私有服务。1.19.3 仍走后面的 serve/attach。
+fn v2_standalone_command(original: &str) -> String {
+    let resume_prefix = format!("{EXEC} resume '");
+    if let Some(id) = original
+        .strip_prefix(&resume_prefix)
+        .and_then(|rest| rest.strip_suffix('\''))
+    {
+        format!("{EXEC} --standalone --session '{id}'")
+    } else {
+        format!("{EXEC} --standalone")
+    }
+}
+
 pub(super) fn owned_identity(command: &PtyCommand) -> Option<(u64, String, Option<String>)> {
     let env = |key: &str| {
         command
@@ -148,18 +162,27 @@ fn launch(
     // never start a server or create a replacement session, including the resume path.
     native.args[1] = format!(
         r#"
-norma_opencode_version=$("${{OPENCODE_BIN:-opencode}}" --version 2>/dev/null)
-if [[ "$norma_opencode_version" != '1.19.3' || -n "${{OPENCODE_TUI_CONFIG:-}}" || -n "${{OPENCODE_PURE:-}}" ]]; then
+norma_opencode_raw=$("${{OPENCODE_BIN:-opencode}}" --version 2>/dev/null | tr -d '\r')
+norma_opencode_version=$(printf '%s' "$norma_opencode_raw" | awk '{{print $NF}}' | sed 's/^v//')
+if [[ -n "${{OPENCODE_TUI_CONFIG:-}}" || -n "${{OPENCODE_PURE:-}}" ]]; then
+    printf 'unsupported' > {binding}
+    {original}
+elif [[ "$norma_opencode_version" == 1.19.3 ]]; then
+    printf 'supported' > {binding}
+    while [[ ! -f {attach} ]]; do sleep 0.02; done
+    source {attach}
+elif [[ "$norma_opencode_version" == 2.* ]]; then
+    printf 'v2-standalone' > {binding}
+    {standalone}
+else
     printf 'unsupported' > {binding}
     {original}
 fi
-printf 'supported' > {binding}
-while [[ ! -f {attach} ]]; do sleep 0.02; done
-source {attach}
 "#,
         binding = quote(&binding.to_string_lossy()),
         attach = quote(&attach.to_string_lossy()),
         original = command.args[1],
+        standalone = v2_standalone_command(&command.args[1]),
     );
     let (sender, receiver) = crossbeam_channel::bounded(64);
     let (cols, rows) = slot.dimensions();
@@ -182,7 +205,8 @@ source {attach}
         deferred::check_launch(control)?;
         match std::fs::read(&binding).as_deref() {
             Ok(b"supported") => break,
-            Ok(b"unsupported") => return Ok(None),
+            // 2.x 已在登录 shell 里换成带本卡片环境的 --standalone，不再附到共享服务。
+            Ok(b"unsupported") | Ok(b"v2-standalone") => return Ok(None),
             _ if Instant::now() >= deadline => {
                 return Err(PtyError::Spawn(
                     "OpenCode version detection timed out".into(),

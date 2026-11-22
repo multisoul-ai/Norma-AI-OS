@@ -446,13 +446,13 @@ impl Runtime {
                 if cancel_permissions {
                     self.cancel_mobile_approvals(update.node_id);
                 }
-                if let Some(title) = update.task_title {
+                if let Some(ref title) = update.task_title {
                     let latest = &mut self.events.agent_latest_prompts;
                     latest.insert(update.node_id, title.clone());
                     self.events
-                        .set_agent_task_title_if_absent(update.node_id, title);
+                        .set_agent_task_title_if_absent(update.node_id, title.clone());
                 }
-                let to = self.project_question_task_state(update.node_id, update.to);
+                let to = self.project_question_task_state(&update);
                 let task_state_changed =
                     self.events
                         .update_agent_task_state(update.node_id, to, update.provider_event);

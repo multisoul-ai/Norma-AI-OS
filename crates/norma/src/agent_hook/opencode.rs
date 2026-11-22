@@ -50,7 +50,7 @@ function toolName(value) {
 
 // 子 Agent（task 工具）建的子会话：它的开始/空闲/结束不是这张卡片的回合。
 const childSessions = new Set();
-const LIFECYCLE_EVENTS = new Set(["SessionStart", "SessionEnd", "UserPromptSubmit", "Stop", "StopFailure"]);
+const LIFECYCLE_EVENTS = new Set(["SessionStart", "SessionEnd", "UserPromptSubmit", "Stop", "StopFailure", "QuestionRequest", "QuestionSettled"]);
 
 async function postHook(providerEvent, sessionID, extra = {}) {
   if (LIFECYCLE_EVENTS.has(providerEvent) && childSessions.has(sessionID)) return;
@@ -146,6 +146,18 @@ export default {
       const sessionID = sessionIdOf(data);
       const parentID = parentIdOf(data);
       if (sessionID && parentID) childSessions.add(sessionID);
+
+      // OpenCode 2 的原生问题是 form，不是 1.19.3 的 GET /question。
+      if (type === "form.created") {
+        const formSession = stringValue(data.form?.sessionID);
+        if (!formSession) return;
+        await postHook("QuestionRequest", formSession);
+        return;
+      }
+      if ((type === "form.replied" || type === "form.cancelled") && sessionID) {
+        await postHook("QuestionSettled", sessionID);
+        return;
+      }
 
       if (type === "session.created" || type === "session.forked") {
         if (!sessionID) return;
