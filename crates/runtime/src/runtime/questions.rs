@@ -37,6 +37,8 @@ pub(super) struct Questions {
     entries: Vec<Entry>,
     history: history::QuestionHistory,
     provider_states: HashMap<NodeId, crate::AgentTaskState>,
+    /// OpenCode 2 的 form 没有 1.19.3 问答宿主。打开期间压住后续工具事件。
+    open_forms: std::collections::HashSet<NodeId>,
     native_task_updates: Vec<(
         norma::agent_hook::AgentHookEvent,
         crate::AgentTaskUpdateOutcome,
@@ -355,6 +357,7 @@ impl Runtime {
         // OpenCode also holds input during an ordinary pending-question poll.
         self.native_input_pending(node)
             || self.questions.fallback.blocks(node)
+            || self.questions.open_forms.contains(&node)
             || self.questions.entries.iter().any(|entry| {
                 entry.snapshot.question.target.node_id == node
                     && entry.snapshot.state.blocks_input()
@@ -391,6 +394,7 @@ impl Runtime {
             .retain(|(_, event)| event.node_id != node);
         self.questions.connections.remove(&node);
         self.questions.provider_states.remove(&node);
+        self.questions.open_forms.remove(&node);
         self.questions.history.remove_node(node);
         self.questions
             .entries
@@ -399,9 +403,11 @@ impl Runtime {
 
     pub(crate) fn project_question_task_state(
         &mut self,
-        node: NodeId,
-        to: crate::AgentTaskState,
+        update: &crate::AgentTaskUpdate,
     ) -> crate::AgentTaskState {
+        self.note_opencode_form(update);
+        let node = update.node_id;
+        let to = update.to.clone();
         if to != crate::AgentTaskState::WaitingQuestion {
             self.questions.provider_states.insert(node, to.clone());
         }

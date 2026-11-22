@@ -24,7 +24,7 @@ public final class OpenCodeStatusFixture {
         let candidates = (environment["PATH"] ?? "").split(separator: ":").map { "\($0)/opencode" }
         guard let binary = environment["OPENCODE_BIN"] ?? candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }),
               binary.hasPrefix("/"), FileManager.default.isExecutableFile(atPath: binary) else {
-            throw E2EError.env("需要安装 OpenCode 1.19.3，将其加入 PATH 或用 OPENCODE_BIN 指定绝对路径")
+            throw E2EError.env("需要安装 OpenCode 1.19.3 或 2.x，将其加入 PATH 或用 OPENCODE_BIN 指定绝对路径")
         }
 
         var repository = URL(fileURLWithPath: #filePath)
@@ -65,11 +65,16 @@ public final class OpenCodeStatusFixture {
         }
 
         let version = try run(binary, ["--version"]).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard version == "1.19.3" else { throw E2EError.env("需要 OpenCode 1.19.3，实际是 \(version)") }
+        let core = version.split(separator: " ").last.map(String.init) ?? version
+        let normalized = core.hasPrefix("v") ? String(core.dropFirst()) : core
+        guard normalized == "1.19.3" || normalized.hasPrefix("2.") else {
+            throw E2EError.env("需要 OpenCode 1.19.3 或 2.x，实际是 \(version)")
+        }
         let hook = URL(fileURLWithPath: appPath).deletingLastPathComponent().appendingPathComponent("norma-hook").path
         _ = try run(hook, ["install", "--target", "opencode"])
         // Fill OpenCode's cold plugin cache before the card's bounded session-create request.
-        _ = try run("/bin/zsh", ["-c", #"exec "$OPENCODE_BIN" debug config"#])
+        // 2.x 的 debug 会去连共享服务；用私有服务，避免占用用户已经打开的 49374。
+        _ = try run("/bin/zsh", ["-c", #"exec "$OPENCODE_BIN" --standalone debug config"#])
         try Data("\(binary) \(version)\n".utf8).write(to: root.appendingPathComponent("opencode-version.txt"))
     }
 

@@ -134,6 +134,115 @@ fn opencode_child_session_lifecycle_does_not_reach_parent_card() {
     );
 }
 
+const FORM_DRIVER: &str = r#"
+import http from "node:http";
+const posted = [];
+const server = http.createServer((req, res) => {
+  let body = "";
+  req.on("data", (chunk) => (body += chunk));
+  req.on("end", () => {
+    posted.push(JSON.parse(body).provider_event + ":" + JSON.parse(body).session_id);
+    res.end("ok");
+  });
+});
+await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+process.env.NORMA_NODE_ID = "5";
+process.env.NORMA_HOOK_TOKEN = "t";
+process.env.NORMA_HOOK_ENDPOINT = `http://127.0.0.1:${server.address().port}/hook`;
+const plugin = (await import(process.argv[2])).default;
+const queue = [];
+let notify = () => {};
+const controller = new AbortController();
+const iterable = {
+  async *[Symbol.asyncIterator]() {
+    while (!controller.signal.aborted) {
+      if (queue.length === 0) {
+        await new Promise((resolve) => {
+          notify = resolve;
+          if (controller.signal.aborted) resolve();
+        });
+        continue;
+      }
+      yield queue.shift();
+    }
+  },
+};
+await plugin.setup({ event: { subscribe() { return iterable; } }, session: { async hook() {} } });
+const push = (event) => {
+  queue.push(event);
+  const wake = notify;
+  notify = () => {};
+  wake();
+};
+push({ type: "session.created", data: { sessionID: "child", parentID: "root" } });
+push({ type: "form.created", data: { form: { id: "frm_root", sessionID: "root", title: "Color" } } });
+push({ type: "form.created", data: { form: { id: "frm_child", sessionID: "child", title: "Child" } } });
+push({ type: "form.replied", data: { id: "frm_root", sessionID: "root", answer: { color: "Green" } } });
+push({ type: "form.cancelled", data: { id: "frm_child", sessionID: "child" } });
+const deadline = Date.now() + 2000;
+while (posted.length < 2 && Date.now() < deadline) {
+  await new Promise((resolve) => setTimeout(resolve, 20));
+}
+controller.abort();
+notify();
+server.close();
+console.log(JSON.stringify(posted));
+"#;
+
+/// 场景：OpenCode 2 用 form 事件表示原生问题，而不是 1.19.3 的 HTTP question。
+/// 构造：root 创建表单后回复；child 已登记为子会话，也创建并取消一张表单。
+/// 执行：安装当前插件，把这 5 个事件推进订阅流，读取 POST 出的 provider_event。
+/// 预期：root 依次是 QuestionRequest 与 QuestionSettled。
+///   负断言：子会话的 form.created / form.cancelled 不发到父卡片。
+#[test]
+fn opencode_v2_form_events_mark_question_on_parent_only() {
+    if Command::new("node").arg("--version").output().is_err() {
+        eprintln!("shortcut: 本机没有 node，跳过 OpenCode 插件行为测试");
+        return;
+    }
+    let temp = tempfile::tempdir().expect("应能创建临时目录");
+    let plugin_path = temp.path().join("norma-hook.js");
+    let paths = HookInstallPaths {
+        claude_settings: temp.path().join("claude-settings.json"),
+        codex_hooks: temp.path().join("codex-hooks.json"),
+        cursor_hooks: temp.path().join("cursor-hooks.json"),
+        grok_hooks: temp.path().join("grok-hooks.json"),
+        pi_extension: temp.path().join("norma-agent-hook.ts"),
+        opencode_plugin: plugin_path.clone(),
+        infcode_settings: temp.path().join("infcode-settings.json"),
+        kimi_config: temp.path().join("kimi-config.toml"),
+        hermes_plugin_dir: PathBuf::from("/nonexistent-hermes-plugin-dir"),
+        zcode_config: temp.path().join("zcode-config.json"),
+    };
+    install_hook_config(
+        HookTarget::OpenCode,
+        &temp.path().join("norma-hook"),
+        &paths,
+    )
+    .expect("OpenCode 插件应能安装");
+    let module = temp.path().join("plugin.mjs");
+    std::fs::copy(&plugin_path, &module).expect("应能复制插件");
+    let driver = temp.path().join("form-driver.mjs");
+    std::fs::write(&driver, FORM_DRIVER).expect("应能写入驱动脚本");
+    let output = Command::new("node")
+        .arg(&driver)
+        .arg(format!("file://{}", module.display()))
+        .output()
+        .expect("node 应能运行");
+    assert!(
+        output.status.success(),
+        "驱动脚本失败：{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let posted: Vec<String> =
+        serde_json::from_slice(&output.stdout).expect("驱动脚本应输出 JSON 数组");
+    assert_eq!(
+        posted,
+        vec!["QuestionRequest:root", "QuestionSettled:root"],
+        "父会话的 form 必须变成等待回答，子会话表单不得改父卡片"
+    );
+}
+
 /// 旧版 Norma 插件（有 marker、内容过期）不算已安装，重新安装会换成当前版本。
 ///
 /// 数据构造：插件文件只含 OPENCODE_PLUGIN_MARKER 和一行旧代码。

@@ -90,6 +90,88 @@ while IFS= read -r line; do printf '%s\r\n' "$line"; done
     }
 }
 
+/// 场景：OpenCode 2 不能再附到共享后台服务，否则插件读到的是别的卡片的 NORMA_NODE_ID。
+/// 构造：隔离 CLI 报 2.3.2 与 `opencode v2.3.2`；新建与 resume 各跑一次，并记录进程里的节点号。
+/// 执行：生产 prepare 启动原 PTY，等假 CLI 打印就绪后关掉自有进程。
+/// 预期：第二次调用带 `--standalone`，resume 还带 `--session`；节点号是这张卡片的 7。
+///   负断言：没有 `serve`、`attach`，也不交付 1.19.3 问答宿主。
+#[test]
+fn native_opencode_v2_launches_standalone_with_card_env() {
+    for (resume, reported, expected) in [
+        (None, "2.3.2", "--standalone"),
+        (
+            Some("ses_original"),
+            "opencode v2.3.2",
+            "--standalone --session ses_original",
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let binary = dir.path().join("opencode.sh");
+        let log = dir.path().join("calls.txt");
+        std::fs::write(
+            &binary,
+            r#"#!/bin/sh
+printf '%s\n' "$*" >> "$NORMA_OPENCODE_TEST_LOG"
+printf 'node=%s\n' "$NORMA_NODE_ID" >> "$NORMA_OPENCODE_TEST_LOG"
+if [ "$1" = '--version' ]; then printf '%s\n' "$NORMA_OPENCODE_TEST_VERSION"; exit 0; fi
+printf 'ORIGINAL_OPENCODE_READY\r\n'
+while IFS= read -r line; do printf '%s\r\n' "$line"; done
+"#,
+        )
+        .unwrap();
+        std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let mut command = agent_command(AgentProfile::OpenCode, None)
+            .cwd(dir.path())
+            .env("NORMA_AGENT_PROFILE", "opencode")
+            .env("NORMA_NODE_ID", "7")
+            .env(norma::agent_hook::ENV_CONTROL_RUN_ID, "v2-owned")
+            .env("OPENCODE_BIN", binary.to_string_lossy())
+            .env("NORMA_OPENCODE_TEST_VERSION", reported)
+            .env("NORMA_OPENCODE_TEST_LOG", log.to_string_lossy());
+        if let Some(session) = resume {
+            command.args[1] = format!("exec \"${{OPENCODE_BIN:-opencode}}\" resume '{session}'");
+        }
+        let control = Arc::new(LaunchControl::default());
+        let mut live = prepare_agent_command(1, command, 100, 24, control.clone())
+            .unwrap()
+            .into_live()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(4);
+        let mut screen = String::new();
+        let mut host = None;
+        while Instant::now() < deadline {
+            live.drain();
+            if host.is_none() {
+                host = live.take_native_question_host();
+            }
+            if let Some(crate::NodeView::Term { snapshot, .. }) = live.view() {
+                screen = snapshot.rows.iter().flatten().map(|cell| cell.c).collect();
+            }
+            if screen.contains("ORIGINAL_OPENCODE_READY") && !live.native_question_host_pending() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        live.kill();
+        control.cancel();
+        let calls = std::fs::read_to_string(log).unwrap();
+        assert_eq!(
+            calls.lines().collect::<Vec<_>>(),
+            vec!["--version", "node=7", expected, "node=7"],
+            "OpenCode 2 必须用本卡片环境启动私有服务，上报版本是 {reported}"
+        );
+        assert!(host.is_none(), "2.x 不走 1.19.3 问答宿主");
+        assert!(
+            screen.contains("ORIGINAL_OPENCODE_READY"),
+            "私有 TUI 仍须可用:{screen}"
+        );
+        assert!(
+            !calls.contains("serve") && !calls.contains("attach"),
+            "2.x 不得再拉起 1.19.3 的 serve/attach：{calls}"
+        );
+    }
+}
+
 /// 场景：生产默认准备入口为 OpenCode 原 TUI 创建同实例问答宿主，退出回收服务与 TUI。
 /// 构造：真实已安装 CLI、隔离数据库与临时 cwd，不发送模型任务，不改变用户配置。
 /// 执行：通过 prepare_agent_command 启动并等宿主交付；记录两个实际 PID 后显式关闭。
