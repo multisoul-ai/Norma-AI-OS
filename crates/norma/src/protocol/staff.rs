@@ -1,6 +1,7 @@
 //! 幕僚任务协议。任务与现有 AgentTaskReceipt（单次派发回执）分别建模。
 use super::StaffQuestion;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum StaffOp {
@@ -41,6 +42,9 @@ pub enum StaffOp {
         title: String,
         prompt: String,
         why: String,
+        /// 已送达的同任务提议标题，用来核对原负责人。
+        #[serde(default)]
+        owner_of: Option<String>,
         /// 续派给该 dispatch_id 的已有 Worker（同一张卡片），不新建。
         #[serde(default)]
         worker: Option<String>,
@@ -162,6 +166,8 @@ pub enum TaskDisplayStatus {
 pub struct Worker {
     pub agent: String,
     pub engine: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub roster_id: Option<i64>,
     pub role: String,
     pub card_id: Option<u64>,
     pub dispatch_id: String,
@@ -216,6 +222,7 @@ impl Worker {
         Self {
             agent: agent.into(),
             engine: engine.into(),
+            roster_id: None,
             role: role.into(),
             card_id: Some(node_id),
             dispatch_id: dispatch_id.into(),
@@ -290,6 +297,9 @@ pub struct Task {
     pub messages: Vec<TaskMessage>,
     pub workers: Vec<Worker>,
     pub proposals: Vec<StaffProposal>,
+    /// 已确认送达的提议编号。同卡续派后，原提议的收件记录仍然有效。
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub received_proposals: BTreeSet<u64>,
     /// 幕僚、ACP 原生提问与 Worker 提问的本体；消息里只放引用。
     #[serde(default)]
     pub questions: Vec<StaffQuestion>,
@@ -327,6 +337,7 @@ impl Task {
             messages: Vec::new(),
             workers: Vec::new(),
             proposals: Vec::new(),
+            received_proposals: BTreeSet::new(),
             questions: Vec::new(),
             archived: false,
             round: 0,
@@ -421,6 +432,20 @@ impl Task {
         self.workers.iter().find(|w| w.dispatch_id == dispatch_id)
     }
 
+    pub fn latest_proposal_for_dispatch(&self, dispatch_id: &str) -> Option<u64> {
+        self.proposals
+            .iter()
+            .rev()
+            .find(|p| p.dispatch_id.as_deref() == Some(dispatch_id))
+            .map(|p| p.id)
+    }
+
+    pub fn record_worker_receipt(&mut self, dispatch_id: &str) {
+        if let Some(proposal) = self.latest_proposal_for_dispatch(dispatch_id) {
+            self.received_proposals.insert(proposal);
+        }
+    }
+
     pub fn finish_worker(
         &mut self,
         node_id: u64,
@@ -436,6 +461,9 @@ impl Task {
             return false;
         };
         worker.phase = WorkerPhase::Finished(outcome);
+        if outcome == WorkerOutcome::Succeeded {
+            self.record_worker_receipt(dispatch_id);
+        }
         self.messages.push(TaskMessage::WorkerFinished {
             node_id,
             dispatch_id: dispatch_id.into(),

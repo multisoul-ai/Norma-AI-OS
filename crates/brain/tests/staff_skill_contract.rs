@@ -60,6 +60,7 @@ fn staff_section_lists_exactly_the_commands_staff_may_run() {
                     prompt: "p".into(),
                     why: "w".into(),
                     model: None,
+                    owner_of: None,
                     worker: None,
                 },
             },

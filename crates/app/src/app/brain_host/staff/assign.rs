@@ -20,26 +20,33 @@ impl MultisoulApp {
             StaffOp::Assign { agent, .. } => agent.clone(),
             _ => String::new(),
         };
-        let named_person = self
-            .roster_entry_if_named_target(&agent)
-            .map(|entry| (entry.name, entry.speech_alias));
+        let named_person = self.roster_entry_if_named_target(&agent);
         let workspace = scope.workspace_id.clone();
         let words_task = task_id.clone();
         let work = cx.background_executor().spawn(async move {
             let named = named_person
                 .as_ref()
-                .and_then(|(name, alias)| {
+                .and_then(|entry| {
                     let words = store.get(&workspace, &words_task).ok()?.user_words;
                     Some(brain::staff::naming::named_in(
                         &words,
                         brain::staff::naming::NameRef {
-                            name,
-                            speech_alias: alias.as_deref(),
+                            name: &entry.name,
+                            speech_alias: entry.speech_alias.as_deref(),
                         },
                     ))
                 })
                 .unwrap_or(false);
-            store.assign(&workspace, op, auto, named)
+            let identity = named_person
+                .as_ref()
+                .map(|entry| (entry.definition_id, format!("{:?}", entry.profile)));
+            store.assign_for_recipient(
+                &workspace,
+                op,
+                auto,
+                named,
+                identity.as_ref().map(|(id, engine)| (*id, engine.as_str())),
+            )
         });
         Ok(cx.spawn(async move |app, cx| {
             let (task, outcome) = work.await.map_err(|error| error.to_string())?;

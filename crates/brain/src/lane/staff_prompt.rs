@@ -51,7 +51,9 @@ fn state_json(task: &Task) -> String {
     json!({
         "phase": task.phase,
         "proposals": task.proposals,
+        "received_proposals": task.received_proposals,
         "workers": task.workers,
+        "removed_workers": task.removed_workers,
         "questions": task.questions,
     })
     .to_string()

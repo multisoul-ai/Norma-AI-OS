@@ -148,12 +148,12 @@ pub fn risk_categories(text: &str) -> Vec<RiskCategory> {
 /// 事件触发的自动派发上限。用户任何一次发话清零，不在采用提议时清零。
 pub const AUTO_DISPATCH_LIMIT: u32 = 5;
 
-/// 这一轮该直接派还是降级。`named` 只在用户轮有意义。
+/// 这一轮该直接派还是降级。`named` 表示用户点名或原负责人已核实，只用于用户轮。
 #[derive(Clone, Copy, Debug)]
 pub struct DispatchContext<'a> {
     pub user_turn: bool,
     pub named: bool,
-    /// `autonomy.staff_auto_dispatch`。点名时不看这个开关。
+    /// `autonomy.staff_auto_dispatch`。用户轮的接收人已确定时，不看这个开关。
     pub auto_dispatch: bool,
     pub auto_dispatches: u32,
     pub text: &'a str,
@@ -190,7 +190,7 @@ pub enum AssignDecision {
     Propose(ProposeReason),
 }
 
-/// 按 SPEC 第 4 节派活。点名的用户轮不看风险和开关；次数上限只约束事件轮。
+/// 用户轮的接收人已确定时直接派发；次数上限只约束事件轮。
 pub fn decide_dispatch(context: &DispatchContext) -> AssignDecision {
     if context.user_turn && context.named {
         return AssignDecision::Dispatch;

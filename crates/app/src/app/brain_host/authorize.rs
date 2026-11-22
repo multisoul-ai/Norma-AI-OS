@@ -41,11 +41,15 @@ impl MultisoulApp {
     /// 并行时每个会话只能操作自己的任务；没有进行中的轮次（空闲会话）一律当作没有。
     fn token_active_task(&self, token: &str) -> Option<String> {
         let id = self.brain.staff_task(token)?;
-        self.staff
-            .tasks
-            .get(&id)
-            .is_some_and(|task| task.has_running_reply())
-            .then_some(id)
+        let active = self.brain.client.as_ref()?.staff_turn_active(&id);
+        #[cfg(test)]
+        let active = active.or_else(|| {
+            self.staff
+                .tasks
+                .get(&id)
+                .map(|task| task.has_running_reply())
+        });
+        active.filter(|active| *active).map(|_| id)
     }
 
     /// 白名单之外的幕僚限制：history 只读本任务派出过的 Agent，主动 report 有频率上限。

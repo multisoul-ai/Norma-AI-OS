@@ -23,15 +23,12 @@ pub(super) fn command_text(raw_input: &Value) -> Option<String> {
 }
 
 pub(super) fn command_allowed(command: &str, norma_bin: &Path) -> bool {
-    if !norma_bin.is_absolute() || has_metachar(command) {
+    if !norma_bin.is_absolute() || command.contains('\0') {
         return false;
     }
     let Some(body) = peel_shell(command) else {
         return false;
     };
-    if has_metachar(&body) {
-        return false;
-    }
     let Some(argv) = split_argv(&body) else {
         return false;
     };
@@ -63,16 +60,10 @@ fn peel_shell(command: &str) -> Option<String> {
 }
 
 fn is_zsh(bin: &str) -> bool {
-    Path::new(bin).file_name().and_then(|name| name.to_str()) == Some("zsh")
+    matches!(bin, "zsh" | "/bin/zsh")
 }
 
-fn has_metachar(text: &str) -> bool {
-    text.contains("$(")
-        || text
-            .chars()
-            .any(|c| matches!(c, ';' | '&' | '|' | '`' | '>' | '<'))
-}
-
+/// 只接受字面量参数。单双引号的展开规则不同；外层 zsh 和命令正文各解析一次。
 fn split_argv(input: &str) -> Option<Vec<String>> {
     let mut args = Vec::new();
     let mut current = String::new();
@@ -85,18 +76,31 @@ fn split_argv(input: &str) -> Option<Vec<String>> {
             in_arg = true;
             continue;
         }
-        if quote == Some('"') && ch == '\\' {
-            current.push(chars.next()?);
-            in_arg = true;
+        if quote == Some('\'') {
+            current.push(ch);
             continue;
         }
-        if quote.is_some() {
-            current.push(ch);
-            in_arg = true;
+        if quote == Some('"') {
+            match ch {
+                '$' | '`' | '!' => return None,
+                '\\' => match chars.next()? {
+                    '\n' | '\r' => return None,
+                    next @ ('$' | '`' | '"' | '\\') => current.push(next),
+                    next => {
+                        current.push('\\');
+                        current.push(next);
+                    }
+                },
+                _ => current.push(ch),
+            }
             continue;
         }
         if ch == '\\' {
-            current.push(chars.next()?);
+            let escaped = chars.next()?;
+            if matches!(escaped, '\n' | '\r') {
+                return None;
+            }
+            current.push(escaped);
             in_arg = true;
             continue;
         }
@@ -105,15 +109,27 @@ fn split_argv(input: &str) -> Option<Vec<String>> {
             in_arg = true;
             continue;
         }
-        if matches!(ch, '\n' | '\r') {
-            return None;
-        }
-        if ch.is_whitespace() {
+        if matches!(ch, ' ' | '\t') {
             if in_arg {
                 args.push(std::mem::take(&mut current));
                 in_arg = false;
             }
             continue;
+        }
+        // Only a long option can use an unquoted `=`; it cannot start a shell assignment.
+        let option_value = ch == '='
+            && current.strip_prefix("--").is_some_and(|option| {
+                !option.is_empty()
+                    && option
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            });
+        if ch.is_ascii()
+            && !ch.is_ascii_alphanumeric()
+            && !"-_:./@%+,".contains(ch)
+            && !option_value
+        {
+            return None;
         }
         current.push(ch);
         in_arg = true;
