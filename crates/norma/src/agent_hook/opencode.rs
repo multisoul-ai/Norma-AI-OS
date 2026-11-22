@@ -48,31 +48,9 @@ function toolName(value) {
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-function textFromParts(parts) {
-  if (!Array.isArray(parts)) return undefined;
-  for (const part of parts) {
-    const text = stringValue(part?.text) || stringValue(part?.content);
-    if (text) return text;
-  }
-  return undefined;
-}
-
-function textFromOutput(output) {
-  return (
-    textFromParts(output?.parts) ||
-    stringValue(output?.message?.text) ||
-    stringValue(output?.message?.content) ||
-    stringValue(output?.message)
-  );
-}
-
 // 子 Agent（task 工具）建的子会话：它的开始/空闲/结束不是这张卡片的回合。
 const childSessions = new Set();
 const LIFECYCLE_EVENTS = new Set(["SessionStart", "SessionEnd", "UserPromptSubmit", "Stop", "StopFailure"]);
-
-function rememberSession(info) {
-  if (info?.id && info?.parentID) childSessions.add(info.id);
-}
 
 async function postHook(providerEvent, sessionID, extra = {}) {
   if (LIFECYCLE_EVENTS.has(providerEvent) && childSessions.has(sessionID)) return;
@@ -119,127 +97,181 @@ async function postHook(providerEvent, sessionID, extra = {}) {
 
 const PATH_CONVENTION = __NORMA_PATH_CONVENTION__;
 
-export default async () => {
-  const msgRoles = new Map();
-  const sentPrompts = new Set();
+function payload(event) {
+  if (event?.data && typeof event.data === "object") return event.data;
+  if (event?.properties && typeof event.properties === "object") return event.properties;
+  return {};
+}
 
-  async function sendPrompt(sessionID, prompt, key) {
-    if (!prompt) return;
-    const dedupeKey = key || `${sessionID}:${prompt}`;
-    if (sentPrompts.has(dedupeKey)) return;
-    sentPrompts.add(dedupeKey);
-    if (sentPrompts.size > 200) sentPrompts.delete(sentPrompts.keys().next().value);
-    await postHook("UserPromptSubmit", sessionID, {
-      prompt,
-      raw_json: { prompt },
-    });
-  }
+function sessionIdOf(data) {
+  return stringValue(data.sessionID) || stringValue(data.info?.id) || stringValue(data.part?.sessionID);
+}
 
-  function rememberMessage(info) {
-    if (!info?.id || !info?.sessionID) return;
-    msgRoles.set(info.id, { role: info.role, sessionID: info.sessionID });
-    if (msgRoles.size > 200) msgRoles.delete(msgRoles.keys().next().value);
-  }
+function parentIdOf(data) {
+  return stringValue(data.parentID) || stringValue(data.info?.parentID);
+}
 
-  return {
-    // Norma 托管会话：在 system prompt 末尾追加文件路径输出约定（真机探针已验证模型可见）。
-    "experimental.chat.system.transform": async (_input, output) => {
-      if (!/^\d+$/.test(process.env.NORMA_NODE_ID || "")) return;
-      if (process.env.NORMA_PATH_CONVENTION === "0") return;
-      if (Array.isArray(output?.system) && !output.system.includes(PATH_CONVENTION)) {
-        output.system.push(PATH_CONVENTION);
-      }
-    },
+function errorText(error) {
+  return stringValue(error?.message) || stringValue(error) || "OpenCode session error";
+}
 
-    "chat.message": async (input, output) => {
-      await sendPrompt(input.sessionID, textFromOutput(output), input.messageID);
-    },
+export default {
+  id: "norma-hook",
+  async setup(ctx) {
+    const msgRoles = new Map();
+    const sentPrompts = new Set();
+    const toolNames = new Map();
 
-    "tool.execute.before": async (input, output) => {
-      const name = toolName(input.tool);
-      await postHook("PreToolUse", input.sessionID, {
-        tool_name: name,
-        raw_json: { tool_name: name, tool_input: output?.args },
+    async function sendPrompt(sessionID, prompt, key) {
+      if (!prompt) return;
+      const dedupeKey = key || `${sessionID}:${prompt}`;
+      if (sentPrompts.has(dedupeKey)) return;
+      sentPrompts.add(dedupeKey);
+      if (sentPrompts.size > 200) sentPrompts.delete(sentPrompts.keys().next().value);
+      await postHook("UserPromptSubmit", sessionID, {
+        prompt,
+        raw_json: { prompt },
       });
-    },
+    }
 
-    "tool.execute.after": async (input) => {
-      const name = toolName(input.tool);
-      await postHook("PostToolUse", input.sessionID, {
-        tool_name: name,
-        raw_json: { tool_name: name },
-      });
-    },
+    function rememberMessage(info) {
+      if (!info?.id || !info?.sessionID) return;
+      msgRoles.set(info.id, { role: info.role, sessionID: info.sessionID });
+      if (msgRoles.size > 200) msgRoles.delete(msgRoles.keys().next().value);
+    }
 
-    event: async ({ event }) => {
+    async function onEvent(event) {
       const type = event?.type;
-      const properties = event?.properties || {};
+      const data = payload(event);
+      const sessionID = sessionIdOf(data);
+      const parentID = parentIdOf(data);
+      if (sessionID && parentID) childSessions.add(sessionID);
 
-      if (type === "session.created" || type === "session.updated") rememberSession(properties.info);
-
-      if (type === "session.created" && properties.info?.id) {
-        await postHook("SessionStart", properties.info.id, {
-          raw_json: { cwd: properties.info.directory },
+      if (type === "session.created" || type === "session.forked") {
+        if (!sessionID) return;
+        await postHook("SessionStart", sessionID, {
+          raw_json: { cwd: data.location?.directory || data.info?.directory },
         });
         return;
       }
 
-      if (type === "session.deleted" && properties.info?.id) {
-        await postHook("SessionEnd", properties.info.id);
+      if (type === "session.deleted" || type === "session.archived") {
+        if (!sessionID) return;
+        await postHook("SessionEnd", sessionID);
         return;
       }
 
-      if (type === "session.updated" && properties.info?.id && properties.info?.time?.archived) {
-        await postHook("SessionEnd", properties.info.id);
+      if (type === "session.updated" && data.info?.id && data.info?.time?.archived) {
+        await postHook("SessionEnd", data.info.id);
         return;
       }
 
-      if (type === "session.status" && properties.sessionID && properties.status?.type === "idle") {
-        await postHook("Stop", properties.sessionID);
+      if ((type === "session.status" && data.status?.type === "idle") || type === "session.idle") {
+        if (!sessionID) return;
+        await postHook("Stop", sessionID);
         return;
       }
 
-      if (type === "session.error" && properties.sessionID) {
-        await postHook("StopFailure", properties.sessionID, {
-          message: stringValue(properties.error?.message) || "OpenCode session error",
+      if (type === "session.execution.started" || type === "session.step.started") {
+        if (!sessionID) return;
+        await postHook("UserPromptSubmit", sessionID, {});
+        return;
+      }
+
+      if (type === "session.execution.succeeded" || type === "session.execution.interrupted") {
+        if (!sessionID) return;
+        await postHook("Stop", sessionID);
+        return;
+      }
+
+      if (type === "session.execution.failed" || type === "session.error") {
+        if (!sessionID) return;
+        await postHook("StopFailure", sessionID, { message: errorText(data.error) });
+        return;
+      }
+
+      if (type === "session.tool.input.started" && sessionID) {
+        const name = toolName(data.name);
+        if (data.id) toolNames.set(data.id, name);
+        await postHook("PreToolUse", sessionID, {
+          tool_name: name,
+          raw_json: { tool_name: name },
+        });
+        return;
+      }
+
+      if (type === "session.tool.success" && sessionID) {
+        await postHook("PostToolUse", sessionID, {
+          tool_name: toolNames.get(data.id),
+        });
+        return;
+      }
+
+      if (type === "session.tool.failed" && sessionID) {
+        await postHook("PostToolUseFailure", sessionID, {
+          tool_name: toolNames.get(data.id),
+          message: errorText(data.error),
         });
         return;
       }
 
       if (type === "message.updated") {
-        rememberMessage(properties.info);
+        rememberMessage(data.info);
         return;
       }
 
-      if (type === "message.part.updated" && properties.part?.messageID) {
-        const meta = msgRoles.get(properties.part.messageID);
+      if (type === "message.part.updated" && data.part?.messageID) {
+        const meta = msgRoles.get(data.part.messageID);
         if (!meta) return;
-        if (meta.role === "user" && properties.part.type === "text") {
-          await sendPrompt(meta.sessionID, stringValue(properties.part.text), properties.part.messageID);
+        if (meta.role === "user" && data.part.type === "text") {
+          await sendPrompt(meta.sessionID, stringValue(data.part.text), data.part.messageID);
         }
         return;
       }
 
-      if (type === "message.part.updated" && properties.part?.type === "tool" && properties.part?.sessionID) {
-        const status = properties.part.state?.status;
-        const name = toolName(properties.part.tool);
+      if (type === "message.part.updated" && data.part?.type === "tool" && data.part?.sessionID) {
+        const status = data.part.state?.status;
+        const name = toolName(data.part.tool);
         if (status === "running" || status === "pending") {
-          await postHook("PreToolUse", properties.part.sessionID, {
+          await postHook("PreToolUse", data.part.sessionID, {
             tool_name: name,
-            raw_json: { tool_name: name, tool_input: properties.part.state?.input },
+            raw_json: { tool_name: name, tool_input: data.part.state?.input },
           });
         } else if (status === "completed") {
-          await postHook("PostToolUse", properties.part.sessionID, {
-            tool_name: name,
-          });
+          await postHook("PostToolUse", data.part.sessionID, { tool_name: name });
         } else if (status === "error") {
-          await postHook("PostToolUseFailure", properties.part.sessionID, {
+          await postHook("PostToolUseFailure", data.part.sessionID, {
             tool_name: name,
             message: "OpenCode tool failed",
           });
         }
       }
-    },
-  };
+    }
+
+    if (ctx?.session && typeof ctx.session.hook === "function") {
+      await ctx.session.hook("context", (event) => {
+        if (!/^\d+$/.test(process.env.NORMA_NODE_ID || "")) return;
+        if (process.env.NORMA_PATH_CONVENTION === "0") return;
+        if (!Array.isArray(event?.system)) return;
+        const already = event.system.some((part) => {
+          const text = typeof part === "string" ? part : part?.text;
+          return typeof text === "string" && text.includes(PATH_CONVENTION);
+        });
+        if (!already) event.system.push({ type: "text", text: PATH_CONVENTION });
+      });
+    }
+
+    const controller = new AbortController();
+    if (ctx?.event && typeof ctx.event.subscribe === "function") {
+      const subscription = (async () => {
+        for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+          await onEvent(event);
+        }
+      })();
+      subscription.catch(() => {});
+    }
+
+    return () => controller.abort();
+  },
 };
 "#;

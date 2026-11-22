@@ -118,6 +118,18 @@ fn test_opencode_install_writes_and_removes_plugin_file() {
         "OpenCode plugin 应读取 Norma endpoint env 并转发事件"
     );
     assert!(
+        plugin.contains("id: \"norma-hook\""),
+        "OpenCode 2 只加载带 id 的对象导出，缺少 id 时插件不会注册"
+    );
+    assert!(
+        plugin.contains("async setup(ctx)"),
+        "OpenCode 2 要求 setup(ctx)，旧的函数导出无法订阅会话事件"
+    );
+    assert!(
+        !plugin.contains("export default async"),
+        "不得再导出 async 函数：OpenCode 2.3.2 会因 default 不是对象而拒绝加载，卡片收不到运行状态"
+    );
+    assert!(
         !plugin.contains("codex-hooks.json"),
         "OpenCode plugin 不应写入或依赖 Codex hooks.json"
     );
