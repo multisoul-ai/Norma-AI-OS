@@ -9,6 +9,7 @@ fn continue_op(agent: &str, worker: &str, prompt: &str) -> StaffOp {
         title: "Keep going".into(),
         prompt: prompt.into(),
         why: "Unfinished".into(),
+        owner_of: None,
         model: None,
         worker: Some(worker.into()),
     }

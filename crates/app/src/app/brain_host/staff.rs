@@ -25,7 +25,7 @@ impl MultisoulApp {
     pub(crate) fn start_staff_command(
         &mut self,
         token: &str,
-        op: StaffOp,
+        mut op: StaffOp,
         cx: &mut Context<Self>,
     ) -> Result<gpui::Task<Result<String, String>>, String> {
         if !self.brain.token_matches(token) {
@@ -38,8 +38,21 @@ impl MultisoulApp {
         {
             return self.dispatch_staff_worker(task_id, proposal_id, token.to_owned(), cx);
         }
-        if let StaffOp::Propose { agent, .. } | StaffOp::Assign { agent, .. } = &op {
-            self.resolve_staff_entry(agent)?;
+        match &mut op {
+            StaffOp::Assign {
+                agent,
+                owner_of: Some(_),
+                ..
+            } => {
+                *agent = self
+                    .roster_entry_if_named_target(agent)
+                    .ok_or_else(|| "staff.owner_unresolved".to_owned())?
+                    .name;
+            }
+            StaffOp::Propose { agent, .. } | StaffOp::Assign { agent, .. } => {
+                self.resolve_staff_entry(agent)?;
+            }
+            _ => {}
         }
         if matches!(op, StaffOp::Assign { .. }) {
             return self.assign_staff_worker(op, token.to_owned(), cx);
@@ -85,16 +98,21 @@ impl MultisoulApp {
 
     fn roster_entry_by_name(&self, id: &str) -> Option<agent::AgentRosterEntry> {
         let registered = self.registered_staff_engines();
-        self.agent_roster_for_provider().into_iter().find(|entry| {
-            entry.enabled
-                && registered
-                    .iter()
-                    .any(|provider| provider.profile() == entry.profile)
-                && (entry.name.eq_ignore_ascii_case(id)
-                    || entry.speech_alias.as_deref().is_some_and(|alias| {
-                        alias.chars().count() >= 2 && alias.eq_ignore_ascii_case(id)
-                    }))
-        })
+        let mut matches = self
+            .agent_roster_for_provider()
+            .into_iter()
+            .filter(|entry| {
+                entry.enabled
+                    && registered
+                        .iter()
+                        .any(|provider| provider.profile() == entry.profile)
+                    && (entry.name.eq_ignore_ascii_case(id)
+                        || entry.speech_alias.as_deref().is_some_and(|alias| {
+                            alias.chars().count() >= 2 && alias.eq_ignore_ascii_case(id)
+                        }))
+            });
+        let entry = matches.next()?;
+        matches.next().is_none().then_some(entry)
     }
 
     fn staff_engine_binding(

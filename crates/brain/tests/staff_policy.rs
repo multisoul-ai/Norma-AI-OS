@@ -236,6 +236,7 @@ fn staff_may_only_run_whitelisted_commands() {
             prompt: "p".into(),
             why: "w".into(),
             model: None,
+            owner_of: None,
             worker: None,
         }),
     ];

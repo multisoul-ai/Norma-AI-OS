@@ -240,6 +240,8 @@ pub(crate) fn error_message(reason: String) -> ui::i18n::LocalizedText {
         "staff.denied.history_scope" => "staff.denied.history_scope",
         "staff.denied.report_rate" => "staff.denied.report_rate",
         "staff.agent_unavailable" => "staff.agent_unavailable",
+        "staff.owner_unresolved" => "staff.owner_unresolved",
+        "staff.owner_assignment_not_requested" => "staff.owner_assignment_not_requested",
         "staff.worker_card_gone" => "staff.worker_card_gone",
         "staff.proposal_unavailable" => "staff.proposal_unavailable",
         "staff.approval_required" => "staff.approval_required",

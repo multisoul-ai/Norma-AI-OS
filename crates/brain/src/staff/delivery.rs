@@ -49,7 +49,10 @@ impl TaskStore {
                 return Ok(());
             };
             match phase {
-                DeliveryPhase::Accepted => worker.phase = WorkerPhase::Running,
+                DeliveryPhase::Accepted => {
+                    worker.phase = WorkerPhase::Running;
+                    task.record_worker_receipt(dispatch);
+                }
                 DeliveryPhase::NeedsAttention => {
                     worker.phase = WorkerPhase::Failed(WorkerFailure::Unconfirmed);
                     let recorded = task.messages.iter().any(|message| {

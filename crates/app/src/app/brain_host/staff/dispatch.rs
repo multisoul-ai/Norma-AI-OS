@@ -196,6 +196,7 @@ impl MultisoulApp {
             &dispatch,
         );
         worker.launch_prompt = prompt.clone();
+        worker.roster_id = (entry.definition_id != 0).then_some(entry.definition_id);
         worker.reused = reused.card.is_some();
         if let Some(model) = proposal.model.clone() {
             self.runtime.set_staff_model(node, model);

@@ -41,6 +41,8 @@
   "staff.retry": "Reload",
   "staff.invalid_source": "The task source expired. Reopen the project.",
   "staff.agent_unavailable": "This agent type is missing or disabled.",
+  "staff.owner_unresolved": "The previous owner could not be verified. Ask the user who should take this item.",
+  "staff.owner_assignment_not_requested": "The current message does not explicitly request a dispatch to the previous owner.",
   "staff.agent_unavailable_choices": "This agent type is missing or disabled. Available: %{engines}",
   "staff.denied.remove_worker": "Staff cannot remove workers; the user does that from the task.",
   "staff.worker_card_gone": "This worker's card was closed, so it cannot continue. Start a new worker instead.",

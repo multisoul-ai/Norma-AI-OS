@@ -6,6 +6,42 @@ fn bin() -> &'static Path {
     Path::new("/bin/norma")
 }
 
+/// 场景：派发正文包含邮箱、Markdown 和换行，外层仍须是一条受限命令。
+/// 数据构造：同一正文分别放进直接调用和 Codex 的 zsh 外壳，再构造真实重定向和外壳展开。
+/// 执行过程：将四条 ACP 命令分别交给幕僚工具检查。
+/// 预期结果：正文按字面传递，两种实际 shell 操作仍被拒绝。
+#[test]
+fn staff_shell_keeps_literal_assignment_text_in_one_argument() {
+    let command = "/bin/norma brain task assign t Iris --prompt '保留 `CI`\nCo-Authored-By: Example <noreply@example.com>'";
+    assert!(
+        staff_command_allowed(&json!({"command": command}), bin()),
+        "直接调用允许引号内的 Markdown 和署名正文"
+    );
+    let wrapped = format!("/bin/zsh -lc \"{}\"", command.replace('`', "\\`"));
+    assert!(
+        staff_command_allowed(&json!({"normaShellCommand": wrapped}), bin()),
+        "Codex 外壳解包后仍是一条有效派发命令"
+    );
+    assert!(
+        staff_command_allowed(
+            &json!({"command": "/bin/norma brain task assign t Iris --prompt='- 等 CI 通过'"}),
+            bin()
+        ),
+        "the equals form preserves a Markdown list as literal option data"
+    );
+    assert!(
+        !staff_command_allowed(&json!({"command": format!("{command} > output")}), bin()),
+        "引号外的重定向仍须拒绝"
+    );
+    assert!(
+        !staff_command_allowed(
+            &json!({"normaShellCommand": "zsh -lc \"/bin/norma brain agents $(whoami)\""}),
+            bin()
+        ),
+        "外壳的双引号允许真实展开，门禁必须在解包前拒绝"
+    );
+}
+
 /// 场景：幕僚只能执行自己的 `norma brain` 命令，复合 shell 和其他程序都拒绝。
 ///
 /// 数据构造：norma 的绝对路径是 `/bin/norma`。合法命令是这个路径加 `brain`。

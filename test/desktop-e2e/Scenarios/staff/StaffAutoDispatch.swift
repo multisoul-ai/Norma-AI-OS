@@ -7,11 +7,12 @@ import Foundation
 public enum StaffAutoDispatch {
     public nonisolated static let name = "staff-auto-dispatch"
     public nonisolated static let englishName = "staff-auto-dispatch-en"
+    public nonisolated static let ownerName = "staff-owner-dispatch"
 
-    public static func run(_ session: Session, english: Bool = false) async throws {
+    public static func run(_ session: Session, english: Bool = false, ownerRouting: Bool = false) async throws {
         let root = try StaffFixture.install()
         var project: URL?
-        let keys = ["ZDOTDIR", "NORMA_BRAIN_DIR", "CLAUDE_CONFIG_DIR", "NORMA_E2E_STAFF_QUESTIONS", "NORMA_E2E_STAFF_ASSIGN"]
+        let keys = ["ZDOTDIR", "NORMA_BRAIN_DIR", "CLAUDE_CONFIG_DIR", "NORMA_E2E_STAFF_QUESTIONS", "NORMA_E2E_STAFF_ASSIGN", "NORMA_E2E_STAFF_OWNER"]
         let previous = Dictionary(uniqueKeysWithValues: keys.map { ($0, ProcessInfo.processInfo.environment[$0]) })
         defer {
             session.stop()
@@ -28,6 +29,7 @@ public enum StaffAutoDispatch {
         setenv("CLAUDE_CONFIG_DIR", root.appendingPathComponent("claude-config").path, 1)
         unsetenv("NORMA_E2E_STAFF_QUESTIONS")
         setenv("NORMA_E2E_STAFF_ASSIGN", "1", 1)
+        if ownerRouting { setenv("NORMA_E2E_STAFF_OWNER", "1", 1) }
         let language = english ? "en" : "zh-Hans"
         try session.launch(language: language)
         _ = try await session.capturePixels()
@@ -69,6 +71,18 @@ public enum StaffAutoDispatch {
             return "第一条由用户采用并派发"
         }
 
+        if ownerRouting {
+            try await waitFor("首位 Worker 完成并记录收件") {
+                let current = try task(root) ?? [:]
+                let proposals = current["proposals"] as? [[String: Any]] ?? []
+                let workers = current["workers"] as? [[String: Any]] ?? []
+                let phase = workers.first?["phase"] as? [String: String]
+                return proposals.count == 1 && phase?["Finished"] == "Succeeded"
+            }
+            try await verifyOwnerRouting(session, root: root)
+            return
+        }
+
         try await session.step("第一位 Worker 完成后，幕僚自动给同一 Agent 派后续") {
             try await waitFor("幕僚自动派发第二条") {
                 let proposals = try task(root)?["proposals"] as? [[String: Any]] ?? []
@@ -81,21 +95,24 @@ public enum StaffAutoDispatch {
                   proposals[1]["approved"] as? Bool == true, current["auto_dispatches"] as? Int == 1 else {
                 throw E2EError.product("自动派发的 Worker、批准状态或计数不符：\(workers), \(proposals)")
             }
-            try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -3000)
-            try session.save(try await session.visualCheck([
-                VisualCriterion(id: "auto-card", text: "第二条「补一条测试」折叠成一行已派发卡，状态文字是「✓ 幕僚已派发」/Dispatched by Staff，卡片右侧有\(withdraw)按钮。第一条 Worker 显示「已返回结果」/Result received，不是幕僚已派发。")
-            ]), "01-auto-card.png")
-            return "第二条为幕僚自动派发，卡片有标记和撤回按钮"
+            return "幕僚给同一 Agent 自动派发了第二条"
         }
 
         try await session.step("撤回：Worker 记为被中断，卡片关闭") {
-            try await session.visualClick("点击「幕僚已派发」卡片右侧的\(withdraw)按钮")
+            // 未确认投递的窗口很短，定位后立即点击，再复核点击前的截图。
+            try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -3000)
+            let (beforeWithdraw, point) = try await session.visualLocate("定位「补一条测试」幕僚已派发卡右侧的\(withdraw)按钮")
+            try await session.click(local: point, on: beforeWithdraw)
             try await waitFor("Worker 被记为中断") {
                 let workers = try task(root)?["workers"] as? [[String: Any]] ?? []
+                guard workers.count == 2 else { return false }
                 let phase = workers[1]["phase"] as? [String: String]
-                return workers.count == 2 && phase?["Finished"] == "Interrupted"
+                return phase?["Finished"] == "Interrupted"
             }
             try Data().write(to: root.appendingPathComponent("release-worker"))
+            try session.save(try await session.visualSnapshotCheck(beforeWithdraw, [
+                VisualCriterion(id: "auto-card", text: "第二条「补一条测试」折叠成一行已派发卡，状态文字是「✓ 幕僚已派发」/Dispatched by Staff，卡片右侧有\(withdraw)按钮。第一条 Worker 显示「已返回结果」/Result received，不是幕僚已派发。")
+            ]), "01-auto-card.png")
             try session.save(try await session.visualCheck([
                 VisualCriterion(id: "withdrawn", text: "第二条已派发卡不再有\(withdraw)按钮；对话里出现一条被中断的结果，写明用户撤回了派给某人的这项任务；不是错误提示。")
             ]), "02-withdrawn.png")
@@ -137,9 +154,60 @@ public enum StaffAutoDispatch {
                 }
             }
             try session.save(try await session.visualCheck([
-                VisualCriterion(id: "named-dispatch", text: "最新一条是已派发给 Grace 的「点名发布」，状态是「✓ 幕僚已派发」/Dispatched by Staff，有\(withdraw)按钮；不是需要你决定的建议卡，没有\(adopt)按钮。")
+                VisualCriterion(id: "named-dispatch", text: "「点名发布」已派发给 Grace，状态是「✓ 幕僚已派发」/Dispatched by Staff，没有\(adopt)按钮。")
             ]), "04-named-dispatch.png")
             return "点名的高风险活直接派给 Grace"
+        }
+    }
+
+    private static func verifyOwnerRouting(_ session: Session, root: URL) async throws {
+        try await session.step("一项找到原负责人直接派发，另一项等用户选人") {
+            try await session.visualClick("点击中央底部消息输入框")
+            let originalPrompt = "- OWNER-WORK: 等 CI 通过再合并。\nCo-Authored-By: Example <noreply@example.com>"
+            try await session.type("让验收文件和右侧栏的原负责人分别通过 PR 合并")
+            for line in originalPrompt.split(separator: "\n") {
+                try await session.shortcut(key: 36, modifiers: [0x38])
+                try await session.type(String(line))
+            }
+            try await session.shortcut(key: 36, modifiers: [])
+            try await waitFor("原负责人收到完整任务，右侧栏选人问题已入对话") {
+                let current = try task(root) ?? [:]
+                let messages = try JSONSerialization.data(withJSONObject: current["messages"] ?? [], options: [.fragmentsAllowed, .withoutEscapingSlashes])
+                let received = try StaffFixture.records(root, "received.jsonl")
+                return String(decoding: messages, as: UTF8.self).contains("右侧栏没有负责人记录") && received.contains { ($0["task"] as? String ?? "").contains("OWNER-WORK:") }
+            }
+            let current = try task(root) ?? [:]
+            let proposals = current["proposals"] as? [[String: Any]] ?? []
+            let workers = current["workers"] as? [[String: Any]] ?? []
+            let originalOwner = workers.first?["agent"] as? String
+            let followup = proposals.first { $0["title"] as? String == "合并验收文件" }
+            let received = try StaffFixture.records(root, "received.jsonl").filter { ($0["task"] as? String ?? "").contains("OWNER-WORK:") }
+            let prompt = received.first?["task"] as? String ?? ""
+            guard originalOwner != nil, followup?["agent"] as? String == originalOwner,
+                  followup?["approved"] as? Bool == true, received.count == 1,
+                  let dispatchID = followup?["dispatch_id"] as? String,
+                  let worker = workers.first(where: { $0["dispatch_id"] as? String == dispatchID }),
+                  let card = worker["card_id"] as? Int, received.first?["node"] as? Int == card,
+                  followup?["prompt"] as? String == originalPrompt, prompt.hasPrefix(originalPrompt),
+                  !proposals.contains(where: { $0["title"] as? String == "合并右侧栏" }) else {
+                throw E2EError.product("原负责人、Worker 收件内容或待选人的任务状态不符")
+            }
+            try await session.scroll(xFraction: 0.48, yFraction: 0.55, deltaY: -3000)
+            try session.save(try await session.visualCheck([
+                VisualCriterion(id: "owner-clarification", text: "最新 Norma 回复说明验收文件已派给原负责人，只就右侧栏问要派给谁。右侧栏没有采用并派发按钮，消息清晰完整。")
+            ]), "05-owner-clarification.png")
+            try await session.visualClick("点击中央底部消息输入框")
+            try await session.type("右侧栏交给 Grace")
+            try await session.shortcut(key: 36, modifiers: [])
+            try await waitFor("用户所选 Worker 收到右侧栏任务") {
+                let rows = try StaffFixture.records(root, "received.jsonl")
+                return rows.contains { ($0["task"] as? String ?? "").contains("OWNER-CHOSEN:") }
+            }
+            let selected = (try task(root)?["proposals"] as? [[String: Any]] ?? []).filter { $0["title"] as? String == "合并右侧栏" }
+            guard selected.count == 1, selected[0]["agent"] as? String == "Grace", selected[0]["approved"] as? Bool == true else {
+                throw E2EError.product("用户选人后应只派发一次给 Grace")
+            }
+            return "唯一原负责人收到了含尖括号的原文，待选事项在用户回复后完成派发"
         }
     }
 

@@ -21,7 +21,7 @@ enum StaffAdapter {
             if time.monotonic() > deadline: raise RuntimeError('Fixture release timed out: ' + stage)
             time.sleep(.05)
     counter = 100
-    def run(session, argv):
+    def run(session, argv, *, expected_error=None):
         global counter
         counter += 1
         update(session, {'sessionUpdate':'tool_call','toolCallId':str(counter),'title':' '.join(argv[6:8]),'status':'in_progress','rawInput':{'command':shlex.join(argv)}})
@@ -35,11 +35,16 @@ enum StaffAdapter {
         record('commands.jsonl', dict(argv=argv, allowed=allowed))
         if not allowed:
             update(session, {'sessionUpdate':'tool_call_update','toolCallId':str(counter),'status':'failed','rawOutput':'Permission gate declined this command.'})
+            if expected_error: raise RuntimeError('Expected a host error after permission was granted')
             return None
         result = subprocess.run(argv, capture_output=True, text=True, timeout=40)
         record('results.jsonl', dict(argv=argv, code=result.returncode, output=result.stdout, error=result.stderr))
         update(session, {'sessionUpdate':'tool_call_update','toolCallId':str(counter),'status':'completed' if result.returncode == 0 else 'failed','rawOutput':result.stdout or result.stderr})
-        if result.returncode: raise RuntimeError(result.stderr)
+        if expected_error:
+            assert result.returncode != 0 and any(message in result.stdout + result.stderr for message in expected_error), result
+            return None
+        if result.returncode:
+            raise RuntimeError(result.stderr)
         return json.loads(result.stdout)
     def ask_cards(sid):
         forms = [
@@ -200,7 +205,18 @@ enum StaffAdapter {
                 elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and 'ASSIGN-RISK' in last:
                     run(sid, base + ['task','assign',tid,task['workers'][0]['agent'],'--title','推送并发布','--prompt','git push origin main 然后发布','--why','收尾发布'])
                     reply = 'STAFF RISK：这条涉及推送，已交给你决定。'
-                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and 'WITHDRAW' not in task.get('title', '') and len(task['proposals']) == 1 and task['workers'] and (task['workers'][0].get('phase') or {}).get('Finished') == 'Succeeded':
+                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and last.startswith('让验收文件和右侧栏的原负责人'):
+                    if not any(p['title'] == '合并验收文件' for p in task['proposals']):
+                        owner = task['workers'][0]['agent']
+                        run(sid, base + ['task','assign',tid,owner,'--owner-of','右侧栏增强','--title','合并右侧栏','--prompt','合并右侧栏改动','--why','寻找原负责人'], expected_error=('无法核实原负责人', 'The previous owner could not be verified'))
+                        prompt = last.split('\n', 1)[1]
+                        run(sid, base + ['task','assign',tid,owner,'--owner-of','实现验收文件','--title','合并验收文件','--prompt=' + prompt,'--why','由原负责人继续'])
+                        reply = f'验收文件已派给 {owner}。右侧栏没有负责人记录，请回复要派给谁。'
+                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and last == '右侧栏交给 Grace':
+                    if not any(p['title'] == '合并右侧栏' for p in task['proposals']):
+                        run(sid, base + ['task','assign',tid,'Grace','--title','合并右侧栏','--prompt','OWNER-CHOSEN: 等 CI 通过再合并右侧栏。','--why','用户选了 Grace'])
+                        reply = '右侧栏已派给 Grace。'
+                elif os.environ.get('NORMA_E2E_STAFF_ASSIGN') == '1' and os.environ.get('NORMA_E2E_STAFF_OWNER') != '1' and 'WITHDRAW' not in task.get('title', '') and len(task['proposals']) == 1 and task['workers'] and (task['workers'][0].get('phase') or {}).get('Finished') == 'Succeeded':
                     run(sid, base + ['task','assign',tid,task['workers'][0]['agent'],'--title','补一条测试','--prompt','STAFF-HOLD 为验收文件补一条测试','--why','结果缺少测试'])
                     reply = 'STAFF ASSIGN：已把后续任务派给同一个 Agent。'
                 elif 'CONFIRM' in last:

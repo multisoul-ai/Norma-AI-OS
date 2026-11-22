@@ -9,6 +9,7 @@ fn assign_op(agent: &str, prompt: &str) -> StaffOp {
         title: "Next".into(),
         prompt: prompt.into(),
         why: "Follow up".into(),
+        owner_of: None,
         model: None,
         worker: None,
     }
@@ -51,6 +52,9 @@ fn store_with_finished_worker(agent: &str) -> (tempfile::TempDir, TaskStore) {
         .expect("finish");
     (dir, store)
 }
+
+#[path = "unit/staff_assign_owner_tests.rs"]
+mod owner_tests;
 
 /// 场景：幕僚给刚完成任务的同一个 Agent 派后续活，自主权为「自动」，内容无风险。
 /// 数据构造：Simon 已完成第 1 条提议；assign 给 Simon 一条普通后续。
@@ -326,6 +330,7 @@ fn follow_up_by_engine_id_dispatches_and_keeps_the_model() {
             title,
             prompt,
             why,
+            owner_of,
             worker,
             ..
         } => StaffOp::Assign {
@@ -334,6 +339,7 @@ fn follow_up_by_engine_id_dispatches_and_keeps_the_model() {
             title,
             prompt,
             why,
+            owner_of,
             worker,
             model: Some("gpt-5".into()),
         },

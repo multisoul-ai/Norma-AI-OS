@@ -319,6 +319,19 @@ impl BrainClient {
         }
     }
 
+    pub(super) fn staff_turn_active(&self, task_id: &str) -> Option<bool> {
+        let owner = self.owner.0.borrow();
+        if !self.live(&owner) {
+            return Some(false);
+        }
+        owner
+            .host
+            .as_ref()?
+            .service
+            .as_ref()
+            .map(|service| service.staff_turn_active(&self.scope, task_id))
+    }
+
     pub(super) fn push_recorded(
         &self,
         event: BrainEvent,

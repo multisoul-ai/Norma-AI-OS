@@ -46,6 +46,9 @@ enum StaffCommand {
         prompt: String,
         #[arg(long, value_parser = non_blank_task)]
         why: String,
+        /// 通过同任务中已送达的提议标题核对原负责人。
+        #[arg(long, value_parser = non_blank_task)]
+        owner_of: Option<String>,
         /// 续派给这个 dispatch_id 的已有 Worker（同一张卡片），不新建。
         #[arg(long)]
         worker: Option<String>,
@@ -92,6 +95,7 @@ impl StaffArgs {
                 title,
                 prompt,
                 why,
+                owner_of,
                 worker,
                 model,
             } => StaffOp::Assign {
@@ -100,6 +104,7 @@ impl StaffArgs {
                 title,
                 prompt,
                 why,
+                owner_of,
                 worker,
                 model,
             },

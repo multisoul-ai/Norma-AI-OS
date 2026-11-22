@@ -243,7 +243,7 @@ impl TaskStore {
         self.update(workspace, id, |task| {
             let proposal = task
                 .proposals
-                .iter_mut()
+                .iter()
                 .find(|p| p.id == proposal_id)
                 .ok_or_else(missing)?;
             let Some(target) = proposal.target_worker.clone() else {
@@ -269,9 +269,18 @@ impl TaskStore {
                     "staff.worker_agent_mismatch",
                 ));
             }
+            let completed_previous =
+                worker.outcome() == Some(norma::protocol::WorkerOutcome::Succeeded);
             worker.phase = norma::protocol::WorkerPhase::Submitted { retried: false };
             worker.launch_prompt = launch_prompt.into();
-            proposal.dispatch_id = Some(target);
+            if completed_previous {
+                task.record_worker_receipt(&target);
+            }
+            task.proposals
+                .iter_mut()
+                .find(|p| p.id == proposal_id)
+                .ok_or_else(missing)?
+                .dispatch_id = Some(target);
             task.set_phase(TaskPhase::Active, false);
             Ok(())
         })

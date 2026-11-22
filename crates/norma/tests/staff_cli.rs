@@ -134,6 +134,60 @@ fn task_assign_carries_the_target_worker() {
     );
 }
 
+/// 场景：派发由原负责人继续的任务，正文中有多行验收要求和署名。
+/// 数据构造：给 `task assign` 传原提议标题和正文，另构造空白标题。
+/// 执行过程：通过正常 CLI 解析 StaffOp。
+/// 预期结果：原提议标题与正文一字不改，空白标题报错。
+#[test]
+fn task_assign_carries_the_owner_reference_and_literal_prompt() {
+    let prompt = "Wait for CI\nCo-Authored-By: Example <noreply@example.com>";
+    let args = |prior_title| {
+        [
+            "norma",
+            "brain",
+            "task",
+            "assign",
+            "task-a",
+            "Simon",
+            "--title",
+            "Merge",
+            "--prompt",
+            prompt,
+            "--why",
+            "Continue",
+            "--owner-of",
+            prior_title,
+        ]
+    };
+    let command =
+        parse_command_from(args("Build the fix")).expect("task assign with owner reference");
+    assert!(
+        matches!(command.brain_op(), Some(BrainOp::Task { op: StaffOp::Assign { owner_of: Some(title), prompt: text, .. } }) if title == "Build the fix" && text == prompt),
+        "CLI must preserve the evidence reference and the complete prompt"
+    );
+    assert!(
+        parse_command_from(args(" ")).is_err(),
+        "blank references must be rejected"
+    );
+    let list = parse_command_from([
+        "norma",
+        "brain",
+        "task",
+        "assign",
+        "task-a",
+        "Simon",
+        "--title=T",
+        "--prompt=- Wait for CI",
+        "--why=W",
+        "--owner-of=Build the fix",
+    ])
+    .expect("Markdown list via equals option");
+    assert!(
+        matches!(list.brain_op(), Some(BrainOp::Task { op: StaffOp::Assign { prompt, .. } }) if prompt == "- Wait for CI"),
+        "a leading dash must remain in the prompt"
+    );
+}
+
 /// 幕僚可以归档任务，但只能归档，不能取消归档。
 ///
 /// 数据构造：`norma brain task archive task-a`。

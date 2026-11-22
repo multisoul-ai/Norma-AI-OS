@@ -213,6 +213,10 @@ impl BrainService {
         self.scopes.stop_staff_turn(scope, task_id, round)
     }
 
+    pub fn staff_turn_active(&self, scope: &BrainScope, task_id: &str) -> bool {
+        self.scopes.staff_turn_active(scope, task_id)
+    }
+
     /// Cancel queued and in-flight work for this exact route without stopping other projects.
     pub fn release_scope(&self, scope: &BrainScope) {
         self.scopes.release(scope);
