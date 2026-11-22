@@ -56,7 +56,16 @@ fn brain_report_context_internal_reminder_is_saved_without_speech() {
 /// 预期：返回 saved=true、稳定引用和 queued=false；报告正文及来源存在，状态为 Skipped。
 #[test]
 fn brain_report_context_persists_sources_before_disabled_delivery() {
-    report_fixture(false, None);
+    report_fixture(false, false, None);
+}
+
+/// 场景：自动语音汇报关闭时，用户仍可点「语音汇报进度」。
+/// 构造：关闭自动汇报和卡片播报，接通可观测的假语音通道，创建一个手动请求。
+/// 执行：从生产 endpoint 发送带匹配请求 ID 的回复。
+/// 预期：正文先保存，回执 queued=true，语音通道只收到这条明确请求的正文。
+#[test]
+fn brain_report_context_explicit_request_speaks_while_automatic_reports_muted() {
+    report_fixture(false, true, None);
 }
 
 /// 场景：已保存并排队的幕僚报告在开播前取消。
@@ -65,7 +74,7 @@ fn brain_report_context_persists_sources_before_disabled_delivery() {
 /// 预期：Queued 变为 Skipped，不能永久占用活动报告名额，也不能误报已播放。
 #[test]
 fn brain_report_context_cancelled_queue_records_skipped() {
-    report_fixture(true, None);
+    report_fixture(true, false, None);
 }
 
 /// 场景：报告来源越界、版本错误、来源不存在或持久化失败。
@@ -80,11 +89,11 @@ fn brain_report_context_rejects_bad_sources_and_failed_save_before_delivery() {
         "unavailable",
         "test_report_write_failure",
     ] {
-        report_fixture(true, Some(fault));
+        report_fixture(true, false, Some(fault));
     }
 }
 
-fn report_fixture(speak: bool, fault: Option<&str>) {
+fn report_fixture(speak: bool, requested: bool, fault: Option<&str>) {
     let dir = tempfile::tempdir().unwrap();
     let paths = storage::DatabasePaths::isolated_test(&dir.path().join("data"));
     let database = paths.app_db_path().to_path_buf();
@@ -107,7 +116,7 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
             speak,
             ..Default::default()
         };
-        if speak {
+        if speak || requested {
             use crate::settings::voice::{
                 DesktopVoiceMode, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsState,
             };
@@ -115,6 +124,7 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
                 SavedVoiceSettings {
                     desktop_mode: Some(DesktopVoiceMode::Doubao),
                     doubao_credential_ref: Some("not-a-real-account".into()),
+                    agent_task_announcements_enabled: Some(!requested),
                     ..Default::default()
                 },
                 EnvVoiceSettings::default(),
@@ -135,6 +145,18 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
         .unwrap()
         .reference;
     let (report_sender, delivered) = async_channel::bounded(4);
+    let reply_to = requested.then(|| {
+        cx.update(|_, cx| {
+            crate::island::staff::state(cx).update(cx, |staff, _| {
+                staff.begin_report().expect("手动汇报请求应成功创建")
+            })
+        })
+    });
+    if requested {
+        entity.update(cx, |app, _| {
+            app.doubao.reports = Some(report_sender.clone())
+        });
+    }
     if let Some(fault) = fault {
         entity.update(cx, |app, _| app.doubao.reports = Some(report_sender));
         match fault {
@@ -165,8 +187,12 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
             op: Box::new(BrainOp::Report {
                 text: "因为当前任务尚未获得批准".into(),
                 priority: ReportPriority::Normal,
-                kind: norma::protocol::ReportKind::Status,
-                reply_to: None,
+                kind: if requested {
+                    norma::protocol::ReportKind::Reply
+                } else {
+                    norma::protocol::ReportKind::Status
+                },
+                reply_to,
                 sources: vec![source.clone()],
             }),
         },
@@ -214,7 +240,11 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
         output["saved"], true,
         "成功回执必须以 durable commit 为前提"
     );
-    assert_eq!(output["queued"], speak, "回执必须对应实际入队结果");
+    assert_eq!(
+        output["queued"],
+        speak || requested,
+        "回执必须对应实际入队结果"
+    );
     let reference: agent::context::ContextRef =
         serde_json::from_value(output["reference"].clone()).unwrap();
     let (record, snapshot) = crate::app::shared_tokio_runtime()
@@ -233,13 +263,23 @@ fn report_fixture(speak: bool, fault: Option<&str>) {
     );
     assert_eq!(
         snapshot.state.reports[&record.reference.event_id].delivery,
-        if speak {
+        if requested {
+            ReportDelivery::Sent
+        } else if speak {
             ReportDelivery::Queued
         } else {
             ReportDelivery::Skipped
         },
         "入队与关闭播报必须区分，不能写成 Completed"
     );
+    if requested {
+        let report = delivered.try_recv().expect("手动汇报应送达语音通道");
+        assert_eq!(
+            report.text, "因为当前任务尚未获得批准",
+            "只朗读手动请求的回复"
+        );
+        assert!(delivered.try_recv().is_err(), "同一回复不得重复投递");
+    }
     if speak {
         entity.update(cx, |app, _| app.cancel_agent_announcements());
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);

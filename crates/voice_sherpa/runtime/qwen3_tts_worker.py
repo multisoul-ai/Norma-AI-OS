@@ -1,6 +1,6 @@
 """Qwen3-TTS worker on the managed A1 engine.
 
-stdin: JSON lines {"id", "text", "voice"} or {"cancel": id}.
+stdin: JSON lines {"id", "text", "voice", "language", "short_english"} or {"cancel": id}.
 stdout: u32 little-endian length + PCM16 mono 24 kHz; 0 ends a request, 0xFFFFFFFF fails it.
 The first 0 frame signals the model is loaded. Rust owns the process lifetime.
 """
@@ -14,6 +14,8 @@ import time
 
 END = 0
 ERROR = 0xFFFFFFFF
+# Each codec token renders 80 ms. Hold short clips until we know they ended before 4.8 s.
+SHORT_ENGLISH_TOKEN_LIMIT = 60
 
 
 def guard_parent(parent):
@@ -62,8 +64,18 @@ def main():
             request = requests.pop(0)
         status = END
         try:
-            for result in model.generate(text=request["text"], voice=request["voice"],
-                                         stream=True, streaming_interval=0.32):
+            options = dict(text=request["text"], voice=request["voice"],
+                           lang_code=request["language"])
+            if request["short_english"]:
+                options.update(stream=False, max_tokens=SHORT_ENGLISH_TOKEN_LIMIT)
+                results = list(model.generate(**options))
+                if not results or results[0].token_count >= SHORT_ENGLISH_TOKEN_LIMIT:
+                    results = list(model.generate(**options))
+                    if not results or results[0].token_count >= SHORT_ENGLISH_TOKEN_LIMIT:
+                        raise ValueError("short English synthesis reached its token limit")
+            else:
+                results = model.generate(**options, stream=True, streaming_interval=0.32)
+            for result in results:
                 if request["id"] in cancelled:
                     break
                 audio = np.clip(np.asarray(result.audio, dtype=np.float32), -1, 1)

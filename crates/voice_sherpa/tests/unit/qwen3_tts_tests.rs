@@ -9,7 +9,7 @@ for line in sys.stdin.buffer:
     message = json.loads(line)
     if "cancel" in message:
         continue
-    if message["text"] == "fail":
+    if message["text"] == "fail.":
         out.write(struct.pack("<I", 0xFFFFFFFF)); out.flush(); continue
     for index in range(3):
         out.write(struct.pack("<I", 4) + bytes([index, 0, index, 0])); out.flush()
@@ -110,4 +110,33 @@ fn qwen3_real_worker_streams_chinese_speech() {
     );
     assert!((1.0..10.0).contains(&seconds), "时长异常: {seconds}s");
     assert!(chunks.iter().flatten().any(|&b| b != 0), "不能是全静音");
+}
+
+/// 场景：Ryan 朗读卡片的英文结果词时会生成异常长的音频。
+/// 构造：本机 Qwen3-TTS、默认采样与固定 MLX 随机种子 0。
+/// 执行：从真实 Rust worker 协议发送未带标点的 `Done`，收集 PCM16 mono。
+/// 预期：结果词有声且小于 5 秒（240,000 bytes），拒绝旧版的 7.2 秒输出。
+#[test]
+#[ignore = "requires the managed A1 engine and downloaded Qwen3-TTS weights"]
+fn qwen3_real_worker_keeps_ryan_done_short() {
+    static SEEDED_SOURCE: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+        WORKER_SOURCE.replace(
+            "    model = load_model(args.model)",
+            "    model = load_model(args.model)\n    import mlx.core as mx\n    mx.random.seed(0)",
+        )
+    });
+    let _serial = lock_tests();
+    let python = PathBuf::from(std::env::var_os("NORMA_A1_PYTHON").expect("引擎解释器"));
+    let model = PathBuf::from(std::env::var_os("NORMA_QWEN3_TTS_MODEL").expect("模型目录"));
+    let mut bytes = 0;
+    let mut audible = false;
+    let result = synthesize_with(&SEEDED_SOURCE, &python, &model, "ryan", "Done", |chunk| {
+        bytes += chunk.bytes.len();
+        audible |= chunk.bytes.iter().any(|&byte| byte != 0);
+        true
+    });
+    shutdown_qwen3_tts();
+    result.expect("Ryan 应能正常合成 Done");
+    assert!(audible, "Done 不得为空或全静音");
+    assert!(bytes < 240_000, "Done 不应超过 5 秒，实际 {bytes} bytes");
 }

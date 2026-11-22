@@ -4,13 +4,14 @@ import E2EKit
 public enum IslandModule {
     public static let manifest = DesktopModule(
         name: "island",
-        scenarioNames: [IslandWindow.name, IslandApprovals.name, IslandApprovals.rememberedName, IslandApprovals.fallbackName, IslandQuestions.name, IslandHookQuestions.name, IslandHookProviders.name, IslandArtifacts.name, IslandNavigation.name, IslandMigration.name, IslandSettings.name, IslandStaff.name, IslandStaff.realName, IslandHotkey.name, IslandRedesign.name, IslandProposals.name],
-        visualScenarioNames: [IslandWindow.name, IslandApprovals.name, IslandApprovals.rememberedName, IslandApprovals.fallbackName, IslandQuestions.name, IslandHookQuestions.name, IslandHookProviders.name, IslandArtifacts.name, IslandNavigation.name, IslandMigration.name, IslandSettings.name, IslandStaff.name, IslandStaff.realName, IslandHotkey.name, IslandRedesign.name, IslandProposals.name],
+        scenarioNames: [IslandWindow.name, IslandApprovals.name, IslandApprovals.rememberedName, IslandApprovals.fallbackName, IslandQuestions.name, IslandHookQuestions.name, IslandHookProviders.name, IslandArtifacts.name, IslandNavigation.name, IslandMigration.name, IslandSettings.name, IslandStaff.name, IslandStaff.realName, IslandStaff.voiceName, IslandHotkey.name, IslandRedesign.name, IslandProposals.name],
+        visualScenarioNames: [IslandWindow.name, IslandApprovals.name, IslandApprovals.rememberedName, IslandApprovals.fallbackName, IslandQuestions.name, IslandHookQuestions.name, IslandHookProviders.name, IslandArtifacts.name, IslandNavigation.name, IslandMigration.name, IslandSettings.name, IslandStaff.name, IslandStaff.realName, IslandStaff.voiceName, IslandHotkey.name, IslandRedesign.name, IslandProposals.name],
         run: { scenario, session in
             switch scenario {
             case IslandHotkey.name: try await IslandHotkey.run(session); return true
             case IslandStaff.name: try await IslandStaff.run(session, real: false); return true
             case IslandStaff.realName: try await IslandStaff.run(session, real: true); return true
+            case IslandStaff.voiceName: try await IslandStaff.run(session, real: false, speech: true); return true
             case IslandSettings.name: try await IslandSettings.run(session); return true
             case IslandMigration.name: try await IslandMigration.run(session); return true
             case IslandWindow.name: try await IslandWindow.run(session); return true

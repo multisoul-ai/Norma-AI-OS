@@ -19,15 +19,16 @@ impl MultisoulApp {
         {
             return;
         }
-        // 关闭“智能体任务播报”只停固定词播报；大脑的汇报由标题栏的“语音汇报”开关管。
+        // Settings may change while waiting for a channel. Discard old task announcements
+        // without touching manual reports or invalidating their delivery tickets.
         if !self
             .voice_settings
             .values()
             .agent_task_announcements_enabled()
-            && !self.brain_speaking()
         {
-            self.cancel_agent_announcements();
-            return;
+            self.agent_announcements
+                .pending
+                .retain(|item| item.announcement.report);
         }
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
@@ -51,11 +52,6 @@ impl MultisoulApp {
         let Some(announcement) = self.agent_announcements.take_next_ready() else {
             return;
         };
-        tracing::info!(
-            node_id = announcement.node_id,
-            outcome = %announcement.outcome_word,
-            "agent announcement dispatch started"
-        );
         #[cfg(feature = "e2e-test-support")]
         if self.agent_announcement_playback.e2e_enabled {
             self.start_agent_announcement_for_e2e(announcement);
@@ -82,6 +78,18 @@ impl MultisoulApp {
             .unwrap_or_default();
         let tts_runtime = self.dialogue.shared_tts_runtime.clone();
         let selected = self.dialogue.selected_tts_model.clone();
+        tracing::info!(
+            node_id = announcement.node_id,
+            outcome = %outcome_word,
+            model = selected.as_ref().map(|s| s.model_id.as_str()),
+            voice = selected.as_ref().map(|s| s.voice_id.as_str()),
+            name_chars = if announcement_is_report { 0 } else { agent_name.chars().count() },
+            outcome_chars = if announcement_is_report { 0 } else { outcome_word.chars().count() },
+            report_chars = if announcement_is_report { report_text.chars().count() } else { 0 },
+            name_cached = !announcement_is_report && cached_segments.name.is_some(),
+            outcome_cached = !announcement_is_report && cached_segments.outcome.is_some(),
+            "agent announcement dispatch started"
+        );
         let selected_for_create = selected.clone();
         self.agent_announcement_playback.phase =
             AgentAnnouncementPlaybackPhase::Synthesizing(announcement);

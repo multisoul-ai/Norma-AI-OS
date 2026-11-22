@@ -8,7 +8,7 @@ public enum IslandProposals {
     public nonisolated static let name = "island-proposals"
 
     public static func run(_ session: Session) async throws {
-        let brain = try IslandStaffFixture.install(real: false)
+        let brain = try IslandStaffFixture.install(real: false, appPath: session.appPath)
         let shell = try IslandProposalsFixture.installShell()
         let keys = ["ZDOTDIR", "NORMA_BRAIN_DIR"]
         let previous = Dictionary(uniqueKeysWithValues: keys.map { ($0, ProcessInfo.processInfo.environment[$0]) })
