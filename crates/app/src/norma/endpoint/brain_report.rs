@@ -97,7 +97,8 @@ pub(super) fn dispatch(
                 }
                 app.deliver_dock_brain_reply(&text, cx);
                 // A saved report whose delivery qualification lapsed is Skipped, not an error.
-                if !app.brain_report_ticket_valid(ticket) {
+                if !app.brain_report_ticket_valid(ticket, forced) {
+                    tracing::info!(forced, "brain report skipped before speech queue");
                     tracker.cancel();
                     return Some(false);
                 }

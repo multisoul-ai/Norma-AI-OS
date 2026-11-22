@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
     sync::Mutex,
+    time::Instant,
 };
 
 const WORKER_SOURCE: &str = include_str!("../runtime/qwen3_tts_worker.py");
@@ -167,16 +168,62 @@ impl Worker {
     ) -> Result<(), tts::TtsError> {
         self.next_id += 1;
         let id = self.next_id;
-        self.send(serde_json::json!({ "id": id, "text": text, "voice": voice }))?;
+        let text = text.trim();
+        let input_chars = text.chars().count();
+        let short_english =
+            input_chars <= 24 && text.is_ascii() && text.bytes().any(|b| b.is_ascii_alphabetic());
+        let language = if short_english { "english" } else { "auto" };
+        let input_has_kana = text.chars().any(|c| matches!(c, '\u{3041}'..='\u{3096}' | '\u{30a1}'..='\u{30fa}' | '\u{ff66}'..='\u{ff9d}'));
+        let punctuated;
+        let text = if short_english && !text.ends_with(['.', '!', '?']) {
+            punctuated = format!("{text}.");
+            &punctuated
+        } else {
+            text
+        };
+        tracing::info!(
+            request_id = id,
+            voice,
+            language,
+            input_chars,
+            input_has_kana,
+            synthesis_chars = text.chars().count(),
+            "Qwen3-TTS request sent"
+        );
+        self.send(serde_json::json!({
+            "id": id, "text": text, "voice": voice,
+            "language": language, "short_english": short_english,
+        }))?;
+        let started = Instant::now();
+        let mut pcm_bytes = 0u64;
         let mut wanted = true;
         loop {
             let length = match self.read_frame_length()? {
-                END => return Ok(()),
+                END => {
+                    tracing::info!(
+                        request_id = id,
+                        voice,
+                        language,
+                        input_chars,
+                        audio_ms = pcm_bytes * 500 / u64::from(SAMPLE_RATE_HZ),
+                        elapsed_ms = started.elapsed().as_millis(),
+                        cancelled = !wanted,
+                        "Qwen3-TTS request finished"
+                    );
+                    return Ok(());
+                }
                 ERROR => {
+                    tracing::warn!(
+                        request_id = id,
+                        voice,
+                        language,
+                        input_chars,
+                        "Qwen3-TTS request failed"
+                    );
                     return Err(error(
                         tts::TtsErrorKind::Protocol,
                         "Qwen3-TTS synthesis failed",
-                    ))
+                    ));
                 }
                 length if length > MAX_FRAME || length % 2 == 1 => {
                     return Err(error(
@@ -186,6 +233,7 @@ impl Worker {
                 }
                 length => length,
             };
+            pcm_bytes += u64::from(length);
             let mut bytes = vec![0u8; length as usize];
             self.stdout
                 .read_exact(&mut bytes)

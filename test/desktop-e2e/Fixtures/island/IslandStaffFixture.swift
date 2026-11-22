@@ -3,7 +3,7 @@ import Foundation
 /// 岛内幕僚验收夹具：脚本化 ACP 适配器把每个提示原样记进 prompts.log，
 /// 并经权限闸门执行 `norma brain report --kind reply` 回复；真实后端模式只链接已安装的适配器。
 public enum IslandStaffFixture {
-    public static func install(real: Bool) throws -> URL {
+    public static func install(real: Bool, appPath: String) throws -> URL {
         let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
             .appendingPathComponent("norma-island-staff-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -17,6 +17,8 @@ public enum IslandStaffFixture {
                 withDestinationURL: home.appendingPathComponent(".norma/brain/adapters"))
             return root
         }
+        let cli = URL(fileURLWithPath: appPath).deletingLastPathComponent().appendingPathComponent("norma")
+        try Data(cli.path.utf8).write(to: root.appendingPathComponent("cli-path"))
         let bin = root.appendingPathComponent("adapters/node_modules/.bin", isDirectory: true)
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
         let script = bin.appendingPathComponent("claude-agent-acp")
@@ -31,14 +33,15 @@ public enum IslandStaffFixture {
 
     private static let adapter = """
     #!/usr/bin/env python3
-    import json, os, re, subprocess, sys
+    import json, os, re, shlex, subprocess, sys
     def send(o): sys.stdout.write(json.dumps(o) + "\\n"); sys.stdout.flush()
     def read():
         line = sys.stdin.readline()
         if not line: sys.exit(0)
         return json.loads(line)
     directory = os.environ.get("NORMA_BRAIN_DIR", "/tmp")
-    exe = [None]
+    with open(os.path.join(directory, "cli-path")) as f:
+        exe = f.read()
     nid = [100]
     def permission(session, command):
         nid[0] += 1; rid = nid[0]
@@ -58,8 +61,6 @@ public enum IslandStaffFixture {
             text = "".join(p.get("text", "") for p in m["params"]["prompt"])
             with open(os.path.join(directory, "prompts.log"), "a") as f:
                 f.write(text.replace("\\n", " ⏎ ") + "\\n")
-            found = re.search(r"`([^`\\s]+) brain agents`", text)
-            if found: exe[0] = found.group(1)
             reply = None
             reply_to = None
             ident = re.search(r"【事件来源】(\\{.*?\\})", text)
@@ -70,9 +71,9 @@ public enum IslandStaffFixture {
                 reply = "目前有一个智能体在运行。没有失败，也没有需要你处理的事。"
                 found_id = re.search(r"--reply-to (\\d+)", text)
                 reply_to = found_id.group(1) if found_id else None
-            if reply and exe[0]:
-                argv = [exe[0], "brain", "--workspace", scope.get("workspace_id", ""), "--route", scope.get("route_id", ""), "report", "--kind", "reply"] + (["--reply-to", reply_to] if reply_to else []) + ["--text", reply, "--priority", "now"]
-                if permission("island-staff", " ".join(argv)):
+            if reply:
+                argv = [exe, "brain", "--workspace", scope.get("workspace_id", ""), "--route", scope.get("route_id", ""), "report", "--kind", "reply"] + (["--reply-to", reply_to] if reply_to else []) + ["--text", reply, "--priority", "now"]
+                if permission("island-staff", shlex.join(argv)):
                     subprocess.run(argv, env=os.environ, timeout=30)
             send({"jsonrpc": "2.0", "id": mid, "result": {"stopReason": "end_turn"}})
         elif mid is not None: send({"jsonrpc": "2.0", "id": mid, "error": {"code": -32601, "message": "unsupported"}})

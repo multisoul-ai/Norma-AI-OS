@@ -9,6 +9,11 @@ use gpui::Context;
 use norma::protocol::ReportPriority;
 use sha2::{Digest, Sha256};
 
+pub(crate) struct BrainReportTicket {
+    epoch: u64,
+    automatic_speech: bool,
+}
+
 struct ConfirmationSource {
     operation_id: String,
     reason: String,
@@ -82,18 +87,22 @@ impl MultisoulApp {
         );
     }
 
-    /// Delivery eligibility at arrival: `None` when reports are muted, so a report
-    /// received while muted can never be replayed after the user re-enables speech.
-    pub(crate) fn brain_report_ticket(&self) -> Option<u64> {
-        self.brain_speaking()
-            .then_some(self.agent_announcement_playback.delivery_epoch)
+    /// Capture both the cancellation epoch and whether automatic speech was allowed on arrival.
+    pub(crate) fn brain_report_ticket(&self) -> BrainReportTicket {
+        BrainReportTicket {
+            epoch: self.agent_announcement_playback.delivery_epoch,
+            automatic_speech: self.brain_speaking(),
+        }
     }
 
-    /// A stop, mute or mode switch after the ticket was taken invalidates it.
-    pub(crate) fn brain_report_ticket_valid(&self, ticket: Option<u64>) -> bool {
-        ticket.is_some_and(|epoch| {
-            epoch == self.agent_announcement_playback.delivery_epoch && self.brain_speaking()
-        })
+    /// A stop, mute or mode switch invalidates even a reply to a manual report request.
+    pub(crate) fn brain_report_ticket_valid(
+        &self,
+        ticket: BrainReportTicket,
+        requested: bool,
+    ) -> bool {
+        ticket.epoch == self.agent_announcement_playback.delivery_epoch
+            && (requested || (ticket.automatic_speech && self.brain_speaking()))
     }
 
     fn save_and_speak_brain_report(
@@ -171,7 +180,7 @@ impl MultisoulApp {
                     if !app
                         .shared_context_service()
                         .is_ok_and(|current| current.scope() == service.scope())
-                        || !app.brain_report_ticket_valid(ticket)
+                        || !app.brain_report_ticket_valid(ticket, false)
                     {
                         return false;
                     }
@@ -206,10 +215,14 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> bool {
         let text = text.trim().to_string();
-        let preview: String = text.chars().take(80).collect();
+        let input_chars = text.chars().count();
         // `forced`: the user pressed the island's report button, which is explicit consent to speak.
         if text.is_empty() || !(forced || self.brain_speaking()) {
-            tracing::info!(%preview, "大脑播报被跳过：文字为空或语音汇报未开启");
+            tracing::info!(
+                input_chars,
+                forced,
+                "大脑播报被跳过：文字为空或语音汇报未开启"
+            );
             if let Some(delivery) = &delivery {
                 delivery.cancel();
             }
@@ -223,7 +236,7 @@ impl MultisoulApp {
         }
         let availability = self.agent_announcement_tts_availability();
         if availability == AgentAnnouncementTtsAvailability::Unavailable {
-            tracing::info!(%preview, "大脑播报被跳过：TTS 不可用");
+            tracing::info!(input_chars, forced, "大脑播报被跳过：TTS 不可用");
             if let Some(delivery) = &delivery {
                 delivery.cancel();
             }
@@ -248,7 +261,13 @@ impl MultisoulApp {
             ReportPriority::Now => queue.push_front(pending),
             ReportPriority::Normal => queue.push_back(pending),
         }
-        tracing::info!(%preview, ?priority, pending_count = queue.len(), "大脑播报已入队");
+        tracing::info!(
+            input_chars,
+            forced,
+            ?priority,
+            pending_count = queue.len(),
+            "大脑播报已入队"
+        );
         self.start_next_agent_announcement(cx);
         true
     }
