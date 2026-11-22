@@ -14,61 +14,6 @@ pub(crate) struct Scopes {
     turns: Arc<LiveTurns>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// 场景：连续轮次的权限判断不能等界面收到快照。
-    /// 数据构造：同任务有两轮，并准备另一个路由。
-    /// 执行过程：启动第一轮，取消并释放，再启动第二轮。
-    /// 预期结果：仅同一路由的当前活跃轮有权限，取消或释放立即失效。
-    #[test]
-    fn active_turn_is_available_before_ui_update_and_revoked_on_stop() {
-        let scopes = Scopes::new(Arc::new(AtomicBool::default()));
-        let scope = BrainScope {
-            workspace_id: "w".into(),
-            route_id: "route".into(),
-        };
-        let other = BrainScope {
-            route_id: "other".into(),
-            ..scope.clone()
-        };
-        let cancelled = AtomicBool::default();
-        assert!(
-            !scopes.staff_turn_active(&scope, "a"),
-            "a bound but idle task cannot act"
-        );
-        let first = scopes.staff_turn(&scope, "a", 1, &cancelled);
-        assert!(
-            scopes.staff_turn_active(&scope, "a"),
-            "the running lane is authoritative before its first UI update"
-        );
-        assert!(
-            !scopes.staff_turn_active(&other, "a"),
-            "other routes cannot use the task turn"
-        );
-        assert!(
-            scopes.stop_staff_turn(&scope, "a", 1),
-            "the first round was active"
-        );
-        assert!(
-            !scopes.staff_turn_active(&scope, "a"),
-            "cancelled turns cannot authorize calls"
-        );
-        drop(first);
-        let second = scopes.staff_turn(&scope, "a", 2, &cancelled);
-        assert!(
-            scopes.staff_turn_active(&scope, "a"),
-            "a later turn can act as soon as it starts"
-        );
-        drop(second);
-        assert!(
-            !scopes.staff_turn_active(&scope, "a"),
-            "a finished turn cannot act"
-        );
-    }
-}
-
 pub(crate) struct StaffTurn<'a> {
     scopes: &'a Scopes,
     key: TurnKey,
@@ -161,5 +106,60 @@ impl Scopes {
         for (_, cancelled) in self.turns.lock().expect("staff turn lock").values() {
             cancelled.store(true, Ordering::Relaxed);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 场景：连续轮次的权限判断不能等界面收到快照。
+    /// 数据构造：同任务有两轮，并准备另一个路由。
+    /// 执行过程：启动第一轮，取消并释放，再启动第二轮。
+    /// 预期结果：仅同一路由的当前活跃轮有权限，取消或释放立即失效。
+    #[test]
+    fn active_turn_is_available_before_ui_update_and_revoked_on_stop() {
+        let scopes = Scopes::new(Arc::new(AtomicBool::default()));
+        let scope = BrainScope {
+            workspace_id: "w".into(),
+            route_id: "route".into(),
+        };
+        let other = BrainScope {
+            route_id: "other".into(),
+            ..scope.clone()
+        };
+        let cancelled = AtomicBool::default();
+        assert!(
+            !scopes.staff_turn_active(&scope, "a"),
+            "a bound but idle task cannot act"
+        );
+        let first = scopes.staff_turn(&scope, "a", 1, &cancelled);
+        assert!(
+            scopes.staff_turn_active(&scope, "a"),
+            "the running lane is authoritative before its first UI update"
+        );
+        assert!(
+            !scopes.staff_turn_active(&other, "a"),
+            "other routes cannot use the task turn"
+        );
+        assert!(
+            scopes.stop_staff_turn(&scope, "a", 1),
+            "the first round was active"
+        );
+        assert!(
+            !scopes.staff_turn_active(&scope, "a"),
+            "cancelled turns cannot authorize calls"
+        );
+        drop(first);
+        let second = scopes.staff_turn(&scope, "a", 2, &cancelled);
+        assert!(
+            scopes.staff_turn_active(&scope, "a"),
+            "a later turn can act as soon as it starts"
+        );
+        drop(second);
+        assert!(
+            !scopes.staff_turn_active(&scope, "a"),
+            "a finished turn cannot act"
+        );
     }
 }
