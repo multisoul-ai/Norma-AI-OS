@@ -19,27 +19,66 @@ await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 process.env.NORMA_NODE_ID = "5";
 process.env.NORMA_HOOK_TOKEN = "t";
 process.env.NORMA_HOOK_ENDPOINT = `http://127.0.0.1:${server.address().port}/hook`;
-const plugin = await (await import(process.argv[2])).default();
-const fire = (type, properties) => plugin.event({ event: { type, properties } });
-await fire("session.created", { info: { id: "root", directory: "/w" } });
-await fire("session.created", { info: { id: "child", parentID: "root", directory: "/w" } });
-await plugin["tool.execute.before"]({ tool: "read", sessionID: "child" }, { args: {} });
-await fire("session.status", { sessionID: "child", status: { type: "idle" } });
-await fire("session.deleted", { info: { id: "child", parentID: "root" } });
-await fire("session.status", { sessionID: "root", status: { type: "idle" } });
+const plugin = (await import(process.argv[2])).default;
+if (typeof plugin === "function" || typeof plugin?.setup !== "function" || typeof plugin?.id !== "string") {
+  console.error("OpenCode 2 plugin export must be { id, setup }");
+  process.exit(2);
+}
+const queue = [];
+let notify = () => {};
+const controller = new AbortController();
+const iterable = {
+  async *[Symbol.asyncIterator]() {
+    while (!controller.signal.aborted) {
+      if (queue.length === 0) {
+        await new Promise((resolve) => {
+          notify = resolve;
+          if (controller.signal.aborted) resolve();
+        });
+        continue;
+      }
+      yield queue.shift();
+    }
+  },
+};
+await plugin.setup({
+  event: { subscribe() { return iterable; } },
+  session: { async hook() {} },
+});
+const push = (event) => {
+  queue.push(event);
+  const wake = notify;
+  notify = () => {};
+  wake();
+};
+push({ type: "session.created", data: { sessionID: "root", location: { directory: "/w" } } });
+push({ type: "session.created", data: { sessionID: "child", parentID: "root" } });
+push({ type: "session.execution.started", data: { sessionID: "root" } });
+push({ type: "session.tool.input.started", data: { sessionID: "child", name: "read", id: "call-1" } });
+push({ type: "session.status", data: { sessionID: "child", status: { type: "idle" } } });
+push({ type: "session.deleted", data: { sessionID: "child" } });
+push({ type: "session.status", data: { sessionID: "root", status: { type: "idle" } } });
+const deadline = Date.now() + 2000;
+while (posted.length < 4 && Date.now() < deadline) {
+  await new Promise((resolve) => setTimeout(resolve, 20));
+}
+controller.abort();
+notify();
 server.close();
 console.log(JSON.stringify(posted));
 "#;
 
 /// OpenCode 子 Agent 的子会话不得把父卡片打成 Ready / Done / Ended。
 ///
-/// 数据构造：root 会话；child 会话 parentID=root。child 里跑一个工具，然后 idle、删除；最后 root idle。
+/// 数据构造：OpenCode 2 事件包在 data 里，不再用 properties。
+///   root 无 parentID；child.parentID=root。root 先 execution.started，child 再 tool.input.started。
+///   child idle 与 deleted 之后，root 才 idle。
 ///
-/// 执行过程：安装真实插件 → 复制成 .mjs → node 驱动事件 → 读取 POST 序列。
+/// 执行过程：安装真实插件 → 以 { id, setup } 调用 setup → 订阅流推入上述 7 个事件 → 读取 POST 序列。
 ///
 /// 预期结果：
-///   - 正断言：序列恰为 SessionStart:root、PreToolUse:child、Stop:root。
-///   - 负断言：没有 SessionStart:child、Stop:child、SessionEnd:child。
+///   - 正断言：序列恰为 SessionStart:root、UserPromptSubmit:root、PreToolUse:child、Stop:root。
+///   - 负断言：没有 SessionStart:child、UserPromptSubmit:child、Stop:child、SessionEnd:child。
 #[test]
 fn opencode_child_session_lifecycle_does_not_reach_parent_card() {
     if Command::new("node").arg("--version").output().is_err() {
@@ -85,8 +124,13 @@ fn opencode_child_session_lifecycle_does_not_reach_parent_card() {
         serde_json::from_slice(&output.stdout).expect("驱动脚本应输出 JSON 数组");
     assert_eq!(
         posted,
-        vec!["SessionStart:root", "PreToolUse:child", "Stop:root"],
-        "子会话只应透出工具活动，生命周期事件不得到达父卡片"
+        vec![
+            "SessionStart:root",
+            "UserPromptSubmit:root",
+            "PreToolUse:child",
+            "Stop:root"
+        ],
+        "父会话应进入运行中，子会话只透出工具活动，其开始/空闲/结束不得改父卡片"
     );
 }
 
