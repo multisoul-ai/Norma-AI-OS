@@ -289,14 +289,16 @@ fn start_playback_worker(
                             }
                         };
                         if let Err(error) = accept_chunk(
-                            sink.as_mut(),
-                            &mut pending,
-                            &mut playback_tail,
-                            &events,
+                            &mut ChunkTarget {
+                                sink: sink.as_mut(),
+                                pending: &mut pending,
+                                playback_tail: &mut playback_tail,
+                                events: &events,
+                                completion_grace,
+                            },
                             generation,
                             pcm,
                             reservation,
-                            completion_grace,
                         ) {
                             failed = true;
                             let _ = error_tx.try_send(
@@ -315,14 +317,16 @@ fn start_playback_worker(
                 recv(next_audio) -> command => match command {
                     Ok(BudgetedAudio { generation, pcm, reservation }) if generation == epoch_worker.load(Ordering::Acquire) => {
                         if let Err(error) = accept_chunk(
-                            sink.as_mut(),
-                            &mut pending,
-                            &mut playback_tail,
-                            &events,
+                            &mut ChunkTarget {
+                                sink: sink.as_mut(),
+                                pending: &mut pending,
+                                playback_tail: &mut playback_tail,
+                                events: &events,
+                                completion_grace,
+                            },
                             generation,
                             pcm,
                             reservation,
-                            completion_grace,
                         ) {
                             failed = true;
                             let _ = error_tx.try_send(LocalizedText::new("doubao.playback_failed").with_arg("reason", error));
@@ -438,35 +442,43 @@ fn start_playback_worker(
     }
 }
 
+struct ChunkTarget<'a> {
+    sink: &'a mut dyn crate::app::voice::playback::AssistantAudioSink,
+    pending: &'a mut Vec<PendingCompletion>,
+    playback_tail: &'a mut Instant,
+    events: &'a VoiceWindowInsetEventSink,
+    completion_grace: Duration,
+}
+
 fn accept_chunk(
-    sink: &mut dyn crate::app::voice::playback::AssistantAudioSink,
-    pending: &mut Vec<PendingCompletion>,
-    playback_tail: &mut Instant,
-    events: &VoiceWindowInsetEventSink,
+    target: &mut ChunkTarget<'_>,
     generation: u64,
     pcm: PcmAudioChunk,
     reservation: Option<budget::Reservation>,
-    completion_grace: Duration,
 ) -> Result<(), String> {
     let (playback_started, started_rx) = async_channel::bounded(1);
     let (completed, completion_rx) = async_channel::bounded(1);
-    let queued_at = (*playback_tail).max(Instant::now());
-    pending.push(PendingCompletion {
+    let queued_at = (*target.playback_tail).max(Instant::now());
+    target.pending.push(PendingCompletion {
         generation,
         started: started_rx,
         _reservation: reservation,
         receiver: completion_rx,
         deadline: queued_at
             + crate::app::voice::playback::pcm_chunk_duration(&pcm)
-            + completion_grace,
+            + target.completion_grace,
     });
-    let duration = sink.write_chunk_with_completion(&pcm, playback_started, completed)?;
-    *playback_tail = queued_at.max(Instant::now()) + duration;
-    events.push(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
-        &pcm,
-    )));
-    if let Some(item) = pending.last_mut() {
-        item.deadline = *playback_tail + completion_grace;
+    let duration = target
+        .sink
+        .write_chunk_with_completion(&pcm, playback_started, completed)?;
+    *target.playback_tail = queued_at.max(Instant::now()) + duration;
+    target
+        .events
+        .push(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
+            &pcm,
+        )));
+    if let Some(item) = target.pending.last_mut() {
+        item.deadline = *target.playback_tail + target.completion_grace;
     }
     Ok(())
 }
