@@ -1,5 +1,6 @@
 mod audio_capture;
 mod devices;
+mod duplex_playback;
 #[cfg(debug_assertions)]
 mod fixture;
 mod permissions;
@@ -15,6 +16,7 @@ pub use audio_capture::{
 pub use devices::{
     list_audio_input_devices, resolve_audio_input_device_selection, AudioInputDevice,
 };
+pub use duplex_playback::DuplexPlayback;
 pub use permissions::{
     ensure_microphone_authorized, microphone_authorization_status, MicrophoneAuthorization,
 };

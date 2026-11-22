@@ -42,6 +42,7 @@ fn test_drop_pcm_stream_session_stops_capture_and_closes_stream() {
         stop_tx: Some(stop_tx),
         capture_thread: Some(capture_thread),
         forward_thread: Some(forward_thread),
+        playback: None,
         #[cfg(feature = "test-support")]
         test_hold_tx: None,
         #[cfg(feature = "test-support")]
@@ -96,6 +97,7 @@ fn test_cancel_consumes_session_and_stops_capture_once() {
         stop_tx: Some(stop_tx),
         capture_thread: Some(capture_thread),
         forward_thread: None,
+        playback: None,
         #[cfg(feature = "test-support")]
         test_hold_tx: None,
         #[cfg(feature = "test-support")]
@@ -334,6 +336,7 @@ fn test_voice_processing_capture_restarts_without_raw_fallback() {
         let owner = super::spawn_capture_thread(
             pcm_tx,
             stop_rx,
+            None,
             started_tx,
             None,
             true,

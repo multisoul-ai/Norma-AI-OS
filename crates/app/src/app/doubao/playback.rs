@@ -22,6 +22,8 @@ struct BudgetedAudio {
 }
 
 mod budget;
+mod observe;
+use observe::observe_start;
 
 struct PendingCompletion {
     generation: u64,
@@ -37,6 +39,11 @@ enum PlaybackControl {
         delivery: ReportDeliveryHandle,
     },
     Interrupt,
+    /// Drop scheduled audio, then play this chunk. Used when Live exceeds its budget.
+    Replace {
+        generation: u64,
+        pcm: PcmAudioChunk,
+    },
     End,
     Finish {
         generation: u64,
@@ -106,6 +113,24 @@ impl PlaybackQueue {
             .map_err(|_| LocalizedText::new("doubao.playback_overflow"))
     }
 
+    /// Live 积压超限时丢掉未播完的声音，通话继续。设备错误仍走 `errors`。
+    pub(in crate::app) fn enqueue_live(&self, pcm: PcmAudioChunk) -> Result<(), LocalizedText> {
+        let overflow = LocalizedText::new("doubao.playback_overflow");
+        match self.enqueue_for(self.generation(), pcm.clone()) {
+            Ok(()) => Ok(()),
+            Err(error) if error == overflow => {
+                self.epoch.fetch_add(1, Ordering::AcqRel);
+                let generation = self.generation();
+                self.control
+                    .send(PlaybackControl::Replace { generation, pcm })
+                    .map_err(|_| LocalizedText::new("doubao.playback_ended"))?;
+                tracing::warn!(target: "norma_voice", "GPT-Live dropped stale playback instead of ending the call");
+                Ok(())
+            }
+            Err(error) => Err(error),
+        }
+    }
+
     pub(in crate::app) fn finish_for(
         &self,
         generation: u64,
@@ -142,13 +167,6 @@ pub(in crate::app) fn start_playback_with(
     events: VoiceWindowInsetEventSink,
 ) -> PlaybackQueue {
     start_playback_worker(make_sink, events, None, COMPLETION_GRACE)
-}
-
-pub(in crate::app) fn start_live_playback(events: VoiceWindowInsetEventSink) -> PlaybackQueue {
-    start_live_playback_with(
-        crate::app::voice::playback::default_assistant_audio_sink,
-        events,
-    )
 }
 
 pub(in crate::app) fn start_live_playback_with(
@@ -189,6 +207,7 @@ fn start_playback_worker(
     let (stopped_tx, stopped) = async_channel::bounded::<()>(1);
     let epoch = Arc::new(AtomicU64::new(0));
     let epoch_worker = Arc::clone(&epoch);
+    let replace_budget = budget.clone();
     std::thread::spawn(move || {
         let mut sink = make_sink();
         let tick = crossbeam_channel::tick(Duration::from_millis(12));
@@ -234,6 +253,58 @@ fn start_playback_worker(
                             started = false;
                         }
                     }
+                    Ok(PlaybackControl::Replace { generation, pcm }) => {
+                        if generation != epoch_worker.load(Ordering::Acquire) {
+                            continue;
+                        }
+                        if let Err(error) = sink.stop_and_confirm() {
+                            failed = true;
+                            let _ = error_tx.try_send(
+                                LocalizedText::new("doubao.playback_failed").with_arg("reason", error),
+                            );
+                            break;
+                        }
+                        if let Some((_, old)) = delivery.take() {
+                            old.cancel();
+                        }
+                        pending.clear();
+                        while audio_rx.try_recv().is_ok() {}
+                        playback_tail = Instant::now();
+                        if started {
+                            events.push(TtsPlaybackEvent::Interrupted);
+                            started = false;
+                        }
+                        let reservation = match replace_budget
+                            .as_ref()
+                            .map(|budget| budget.reserve(&pcm))
+                            .transpose()
+                        {
+                            Ok(reservation) => reservation,
+                            Err(_) => {
+                                tracing::warn!(
+                                    target: "norma_voice",
+                                    "GPT-Live dropped a playback chunk that still did not fit"
+                                );
+                                continue;
+                            }
+                        };
+                        if let Err(error) = accept_chunk(
+                            sink.as_mut(),
+                            &mut pending,
+                            &mut playback_tail,
+                            &events,
+                            generation,
+                            pcm,
+                            reservation,
+                            completion_grace,
+                        ) {
+                            failed = true;
+                            let _ = error_tx.try_send(
+                                LocalizedText::new("doubao.playback_failed").with_arg("reason", error),
+                            );
+                            break;
+                        }
+                    }
                     Ok(PlaybackControl::End) | Err(_) => break,
                     Ok(PlaybackControl::Finish { generation, done }) => {
                         if generation == epoch_worker.load(Ordering::Acquire) {
@@ -243,31 +314,19 @@ fn start_playback_worker(
                 },
                 recv(next_audio) -> command => match command {
                     Ok(BudgetedAudio { generation, pcm, reservation }) if generation == epoch_worker.load(Ordering::Acquire) => {
-                        let (playback_started, started_rx) = async_channel::bounded(1);
-                        let (completed, completion_rx) = async_channel::bounded(1);
-                        pending.push(PendingCompletion {
+                        if let Err(error) = accept_chunk(
+                            sink.as_mut(),
+                            &mut pending,
+                            &mut playback_tail,
+                            &events,
                             generation,
-                            started: started_rx,
-                            _reservation: reservation,
-                            receiver: completion_rx,
-                            deadline: playback_tail.max(Instant::now()) + crate::app::voice::playback::pcm_chunk_duration(&pcm) + completion_grace,
-                        });
-                        let duration = match sink.write_chunk_with_completion(
-                            &pcm,
-                            playback_started,
-                            completed,
+                            pcm,
+                            reservation,
+                            completion_grace,
                         ) {
-                            Ok(duration) => duration,
-                            Err(error) => {
-                                failed = true;
-                                let _ = error_tx.try_send(LocalizedText::new("doubao.playback_failed").with_arg("reason", error));
-                                break;
-                            }
-                        };
-                        playback_tail = playback_tail.max(Instant::now()) + duration;
-                        events.push(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(&pcm)));
-                        if let Some(pending) = pending.last_mut() {
-                            pending.deadline = playback_tail + completion_grace;
+                            failed = true;
+                            let _ = error_tx.try_send(LocalizedText::new("doubao.playback_failed").with_arg("reason", error));
+                            break;
                         }
                     }
                     Ok(_) => {},
@@ -379,24 +438,37 @@ fn start_playback_worker(
     }
 }
 
-fn observe_start(
-    pending: &[PendingCompletion],
-    started: &mut bool,
+fn accept_chunk(
+    sink: &mut dyn crate::app::voice::playback::AssistantAudioSink,
+    pending: &mut Vec<PendingCompletion>,
+    playback_tail: &mut Instant,
     events: &VoiceWindowInsetEventSink,
-    delivery: &Option<(u64, ReportDeliveryHandle)>,
     generation: u64,
-) {
-    if !*started
-        && pending
-            .iter()
-            .any(|item| item.generation == generation && item.started.try_recv().is_ok())
-    {
-        *started = true;
-        if let Some((_, delivery)) = delivery.as_ref().filter(|(bound, _)| *bound == generation) {
-            delivery.set(ReportDelivery::Playing);
-        }
-        events.push(TtsPlaybackEvent::Started);
+    pcm: PcmAudioChunk,
+    reservation: Option<budget::Reservation>,
+    completion_grace: Duration,
+) -> Result<(), String> {
+    let (playback_started, started_rx) = async_channel::bounded(1);
+    let (completed, completion_rx) = async_channel::bounded(1);
+    let queued_at = (*playback_tail).max(Instant::now());
+    pending.push(PendingCompletion {
+        generation,
+        started: started_rx,
+        _reservation: reservation,
+        receiver: completion_rx,
+        deadline: queued_at
+            + crate::app::voice::playback::pcm_chunk_duration(&pcm)
+            + completion_grace,
+    });
+    let duration = sink.write_chunk_with_completion(&pcm, playback_started, completed)?;
+    *playback_tail = queued_at.max(Instant::now()) + duration;
+    events.push(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
+        &pcm,
+    )));
+    if let Some(item) = pending.last_mut() {
+        item.deadline = *playback_tail + completion_grace;
     }
+    Ok(())
 }
 
 #[cfg(test)]

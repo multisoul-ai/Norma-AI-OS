@@ -71,6 +71,19 @@ impl AudioCapture {
         #[cfg(target_os = "macos")]
         self.inner.stop();
     }
+
+    pub(crate) fn pump_playback(
+        &mut self,
+        stop_rx: std::sync::mpsc::Receiver<()>,
+        play_rx: std::sync::mpsc::Receiver<crate::duplex_playback::DuplexCommand>,
+    ) {
+        #[cfg(target_os = "macos")]
+        self.inner.pump_playback(stop_rx, play_rx);
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (stop_rx, play_rx);
+        }
+    }
 }
 
 pub fn pcm16_bytes_from_f32_samples(samples: &[f32]) -> Vec<u8> {
@@ -115,7 +128,8 @@ mod macos {
     use block2::RcBlock;
     use objc2::{rc::Retained, AllocAnyThread};
     use objc2_avf_audio::{
-        AVAudioEngine, AVAudioFormat, AVAudioInputNode, AVAudioPCMBuffer, AVAudioTime,
+        AVAudioCommonFormat, AVAudioEngine, AVAudioFormat, AVAudioInputNode, AVAudioMixerNode,
+        AVAudioPCMBuffer, AVAudioPlayerNode, AVAudioPlayerNodeCompletionCallbackType, AVAudioTime,
     };
     use std::cell::RefCell;
     use std::ptr::NonNull;
@@ -125,6 +139,7 @@ mod macos {
     pub(super) struct MacosAudioCapture {
         engine: Retained<AVAudioEngine>,
         input_node: Retained<AVAudioInputNode>,
+        player: Option<Retained<AVAudioPlayerNode>>,
         _tap_block: TapBlock,
         tap_installed: bool,
     }
@@ -152,9 +167,10 @@ mod macos {
             // must equal the hardware output format, otherwise it throws
             // "Input HW format and tap format not matching". Tap at the native
             // rate and resample to the target mono rate in the callback instead.
+            let mut player = None;
             let hw_format = if voice_processing {
-                // 统一 VPIO 两侧为 48 kHz 单声道，避免继承
-                // 包含系统参考通道的硬件格式。静音 mixer 驱动双工图但不回放麦克风。
+                // 统一 VPIO 两侧为 48 kHz 单声道。麦克风经静音 mixer 进入同一条输出，
+                // 播放节点走可听的主 mixer。回声消除因此听到正在播放的声音。
                 let format = unsafe {
                     AVAudioFormat::initStandardFormatWithSampleRate_channels(
                         AVAudioFormat::alloc(),
@@ -163,14 +179,22 @@ mod macos {
                     )
                 }
                 .ok_or_else(|| VoiceInputError::Audio("invalid voice processing format".into()))?;
+                let playback = unsafe { AVAudioPlayerNode::new() };
                 unsafe {
                     // 先实例化输出节点，再连接 mixer；反序会导致重开后没有 PCM。
                     let output = engine.outputNode();
-                    let mixer = engine.mainMixerNode();
-                    mixer.setOutputVolume(0.0);
-                    engine.connect_to_format(&input_node, &mixer, Some(&format));
-                    engine.connect_to_format(&mixer, &output, Some(&format));
+                    let main = engine.mainMixerNode();
+                    main.setOutputVolume(1.0);
+                    let mic_mixer = AVAudioMixerNode::new();
+                    engine.attachNode(&mic_mixer);
+                    engine.attachNode(&playback);
+                    mic_mixer.setOutputVolume(0.0);
+                    engine.connect_to_format(&input_node, &mic_mixer, Some(&format));
+                    engine.connect_to_format(&mic_mixer, &main, Some(&format));
+                    engine.connect_to_format(&playback, &main, Some(&format));
+                    engine.connect_to_format(&main, &output, Some(&format));
                 }
+                player = Some(playback);
                 format
             } else {
                 unsafe { input_node.outputFormatForBus(INPUT_BUS) }
@@ -234,9 +258,47 @@ mod macos {
             Ok(Self {
                 engine,
                 input_node,
+                player,
                 _tap_block: tap_block,
                 tap_installed: true,
             })
+        }
+
+        pub(super) fn pump_playback(
+            &mut self,
+            stop_rx: std::sync::mpsc::Receiver<()>,
+            play_rx: std::sync::mpsc::Receiver<crate::duplex_playback::DuplexCommand>,
+        ) {
+            let Some(player) = self.player.clone() else {
+                let _ = stop_rx.recv();
+                return;
+            };
+            loop {
+                match stop_rx.try_recv() {
+                    Ok(()) | Err(std::sync::mpsc::TryRecvError::Disconnected) => break,
+                    Err(std::sync::mpsc::TryRecvError::Empty) => {}
+                }
+                match play_rx.recv_timeout(std::time::Duration::from_millis(20)) {
+                    Ok(crate::duplex_playback::DuplexCommand::Play {
+                        pcm,
+                        started,
+                        done,
+                        result,
+                    }) => {
+                        let scheduled = schedule_player(&self.engine, &player, &pcm, started, done);
+                        let _ = result.send(scheduled);
+                    }
+                    Ok(crate::duplex_playback::DuplexCommand::StopPlayer(done)) => {
+                        unsafe { player.stop() };
+                        let _ = done.send(Ok(()));
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                        let _ = stop_rx.recv();
+                        break;
+                    }
+                }
+            }
         }
 
         pub(super) fn stop(mut self) {
@@ -259,6 +321,87 @@ mod macos {
                 }
             }
         }
+    }
+
+    fn schedule_player(
+        engine: &AVAudioEngine,
+        player: &AVAudioPlayerNode,
+        pcm: &audio::PcmAudioChunk,
+        started: async_channel::Sender<()>,
+        done: async_channel::Sender<()>,
+    ) -> Result<(), String> {
+        let samples = mono_f32_at_output_rate(pcm)?;
+        let frame_count = u32::try_from(samples.len())
+            .map_err(|_| "assistant PCM chunk is too large".to_string())?;
+        let format = unsafe {
+            AVAudioFormat::initWithCommonFormat_sampleRate_channels_interleaved(
+                AVAudioFormat::alloc(),
+                AVAudioCommonFormat::PCMFormatFloat32,
+                f64::from(crate::duplex_playback::DUPLEX_OUTPUT_RATE_HZ),
+                1,
+                false,
+            )
+        }
+        .ok_or_else(|| "could not create duplex playback format".to_string())?;
+        let buffer = unsafe {
+            AVAudioPCMBuffer::initWithPCMFormat_frameCapacity(
+                AVAudioPCMBuffer::alloc(),
+                &format,
+                frame_count,
+            )
+        }
+        .ok_or_else(|| "could not allocate duplex playback buffer".to_string())?;
+        let channel_data = unsafe { buffer.floatChannelData() };
+        if channel_data.is_null() {
+            return Err("duplex playback buffer has no float channel data".to_string());
+        }
+        let destination =
+            unsafe { std::slice::from_raw_parts_mut((*channel_data).as_ptr(), samples.len()) };
+        destination.copy_from_slice(&samples);
+        unsafe { buffer.setFrameLength(frame_count) };
+        unsafe {
+            if !engine.isRunning() {
+                engine.prepare();
+                engine
+                    .startAndReturnError()
+                    .map_err(|error| error.localizedDescription().to_string())?;
+            }
+            let completion = RcBlock::new(
+                move |callback_type: AVAudioPlayerNodeCompletionCallbackType| {
+                    if callback_type == AVAudioPlayerNodeCompletionCallbackType::DataPlayedBack {
+                        let _ = done.try_send(());
+                    }
+                },
+            );
+            player.scheduleBuffer_completionCallbackType_completionHandler(
+                &buffer,
+                AVAudioPlayerNodeCompletionCallbackType::DataPlayedBack,
+                RcBlock::as_ptr(&completion).cast(),
+            );
+            if !player.isPlaying() {
+                player.play();
+            }
+            let _ = started.try_send(());
+        }
+        Ok(())
+    }
+
+    fn mono_f32_at_output_rate(pcm: &audio::PcmAudioChunk) -> Result<Vec<f32>, String> {
+        if pcm.channels != 1 || !pcm.bytes.len().is_multiple_of(2) || pcm.sample_rate_hz == 0 {
+            return Err("duplex playback expects mono PCM16".to_string());
+        }
+        let mut input = Vec::with_capacity(pcm.bytes.len() / 2);
+        for sample in pcm.bytes.chunks_exact(2) {
+            input.push(f32::from(i16::from_le_bytes([sample[0], sample[1]])) / 32_768.0);
+        }
+        if pcm.sample_rate_hz == crate::duplex_playback::DUPLEX_OUTPUT_RATE_HZ {
+            return Ok(input);
+        }
+        Ok(crate::resample::LinearResampler::new(
+            f64::from(pcm.sample_rate_hz),
+            f64::from(crate::duplex_playback::DUPLEX_OUTPUT_RATE_HZ),
+        )
+        .process(&input))
     }
 
     impl Drop for MacosAudioCapture {

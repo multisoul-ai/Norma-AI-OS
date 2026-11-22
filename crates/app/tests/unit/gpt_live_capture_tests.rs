@@ -25,7 +25,8 @@ async fn live_capture_restarts_stream_on_unmute_and_closes_on_cancel() {
         });
         let (events, captured) = async_channel::bounded(8);
         let cancellation = CancellationToken::new();
-        let worker = tokio::spawn(run_capture(None, mode, events, cancellation.clone()));
+        let (route, _route_rx) = tokio::sync::watch::channel(None);
+        let worker = tokio::spawn(run_capture(None, mode, events, cancellation.clone(), route));
         assert!(
             matches!(
                 captured.recv().await.expect("初始就绪"),
@@ -115,7 +116,8 @@ async fn live_capture_cancel_releases_stream_with_full_event_queue() {
             .await
             .expect("填满队列");
         let cancellation = CancellationToken::new();
-        let worker = tokio::spawn(run_capture(None, mode, events, cancellation.clone()));
+        let (route, _route_rx) = tokio::sync::watch::channel(None);
+        let worker = tokio::spawn(run_capture(None, mode, events, cancellation.clone(), route));
         lifecycle.recv().await.expect("采集已启动");
         assert!(captured.is_full(), "UI尚未消费任何事件");
         cancellation.cancel();

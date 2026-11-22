@@ -5,6 +5,7 @@ mod capture;
 mod context;
 mod dispatch;
 mod durable;
+mod engine_sink;
 mod input;
 mod native_report;
 mod output;

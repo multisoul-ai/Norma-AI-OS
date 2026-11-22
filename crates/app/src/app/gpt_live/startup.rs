@@ -107,13 +107,18 @@ pub(super) async fn run_call(
     });
     let (captured, input) = async_channel::bounded(8);
     let capture_cancellation = cancellation.child_token();
+    let (route_tx, route_rx) = tokio::sync::watch::channel(None);
     let capture_task = tokio::spawn(run_capture(
         config.input_device,
         mode,
         captured,
         capture_cancellation.clone(),
+        route_tx,
     ));
-    let playback = crate::app::doubao::playback::start_live_playback(config.playback);
+    let playback = crate::app::doubao::playback::start_live_playback_with(
+        move || Box::new(super::engine_sink::LiveEngineSink::new(route_rx)),
+        config.playback,
+    );
     let result = run_audio_loop(
         connection,
         CaptureInput {

@@ -188,3 +188,73 @@ async fn live_playback_lost_callback_holds_budget_until_confirmed_stop() {
     );
     assert!(scheduled_rx.try_recv().is_err(), "异常后不schedule新音频");
 }
+
+/// Live 播放积压超过 5 秒时丢掉旧声音，不把整通通话判失败。
+///
+/// 数据构造：5 个 1 秒包占满预算（5 × 16000 × 2 = 160000 字节）。
+/// 再来 600ms（16000 × 0.6 × 2 = 19200 字节）会超过 5 秒。
+/// sink 的 stop 会挡住，直到测试放行。
+///
+/// 执行过程：先用 enqueue_for 排满 5 秒，确认再入队会被拒绝。
+/// 然后用 enqueue_live 送入 600ms。放行 stop 后等待新包被 schedule。
+///
+/// 预期结果：
+///   - enqueue_live 返回成功，错误通道没有播放失败。
+///   - 新的 600ms 被 schedule，预算只剩这 600ms。
+///   - 直接 enqueue_for 在占满时仍然失败，豆包路径不放宽。
+#[tokio::test]
+async fn live_playback_overflow_drops_stale_audio_and_keeps_the_queue() {
+    let (scheduled, scheduled_rx) = crossbeam_channel::unbounded();
+    let (stopping, stopping_rx) = crossbeam_channel::unbounded();
+    let (stopped_tx, stopped) = crossbeam_channel::unbounded();
+    let (bus, _wake) = VoiceWindowInsetEventBus::new();
+    let playback = start_live_playback_with(
+        move || {
+            Box::new(HeldSink {
+                scheduled,
+                stopping,
+                stopped,
+            })
+        },
+        bus.sink(TtsPlaybackSource::GptLive),
+    );
+    for _ in 0..5 {
+        playback.enqueue_for(0, pcm_1s()).expect("5秒预算内");
+        scheduled_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("1秒包已schedule");
+    }
+    assert!(
+        playback.enqueue_for(0, pcm_600ms()).is_err(),
+        "直接入队在5秒占满时仍然失败"
+    );
+    playback
+        .enqueue_live(pcm_600ms())
+        .expect("积压超限只丢旧声音，不失败");
+    stopping_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("丢旧声音前要先停掉硬件");
+    stopped_tx.send(()).expect("允许硬件停止");
+    scheduled_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("新的600ms必须schedule");
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while playback.buffered_duration() != Duration::from_millis(600) && Instant::now() < deadline {
+        tokio::task::yield_now().await;
+    }
+    assert_eq!(
+        playback.buffered_duration(),
+        Duration::from_millis(600),
+        "旧的5秒已丢，只保留新的600ms"
+    );
+    assert!(
+        playback.errors.try_recv().is_err(),
+        "丢旧声音不能报播放失败"
+    );
+    playback.end();
+    stopped_tx.send(()).expect("结束通话时的stop返回");
+    stopped_tx.send(()).expect("播放线程退出时的stop返回");
+    tokio::time::timeout(Duration::from_secs(2), playback.wait_stopped())
+        .await
+        .expect("队列退出有界");
+}
