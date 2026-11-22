@@ -293,7 +293,11 @@ pub(super) async fn run_audio_loop(
                 error = playback.errors.recv() => return Err(error.map(|error| error.to_string()).unwrap_or_else(|_| "Live playback ended".into()).into()),
                 event = connection.next_event() => match event {
                     Some(live_voice::LiveEvent::OutputAudio(pcm)) => {
-                        if !output_blocked { playback.enqueue_for(playback.generation(), pcm).map_err(|error| error.to_string())?; }
+                        if !output_blocked {
+                            playback
+                                .enqueue_live(pcm)
+                                .map_err(|error| error.to_string())?;
+                        }
                         tracing::trace!(buffered_ms=playback.buffered_duration().as_millis(), "Live playback backlog");
                         let dropped = control.dropped_output_audio_bytes();
                         if dropped != dropped_output_bytes {

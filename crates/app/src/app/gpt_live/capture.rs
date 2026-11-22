@@ -6,6 +6,7 @@ pub(super) async fn run_capture(
     mut desired: tokio::sync::watch::Receiver<CaptureMode>,
     events: async_channel::Sender<CaptureEvent>,
     cancellation: CancellationToken,
+    route: tokio::sync::watch::Sender<Option<voice_input::DuplexPlayback>>,
 ) {
     loop {
         let mode = *desired.borrow_and_update();
@@ -47,8 +48,11 @@ pub(super) async fn run_capture(
                 }
             }
         };
+        if let Some(player) = capture.playback() {
+            let _ = route.send(Some(player));
+        }
         if cancellation.is_cancelled() || *desired.borrow() != mode {
-            stop_capture(capture).await;
+            release_capture(capture, &route).await;
             if !cancellation.is_cancelled() {
                 forward_tail(&incoming, mode.generation, &events, &cancellation).await;
             }
@@ -61,7 +65,7 @@ pub(super) async fn run_capture(
             sent = events.send(CaptureEvent::Ready { generation:mode.generation }) => sent.is_ok(),
         };
         if !announced {
-            stop_capture(capture).await;
+            release_capture(capture, &route).await;
             if !cancellation.is_cancelled() {
                 forward_tail(&incoming, mode.generation, &events, &cancellation).await;
             }
@@ -86,7 +90,7 @@ pub(super) async fn run_capture(
             }
         };
         // The old stream owns its generation. Join it before opening another microphone stream.
-        stop_capture(capture).await;
+        release_capture(capture, &route).await;
         if !cancellation.is_cancelled() {
             forward_tail(&incoming, mode.generation, &events, &cancellation).await;
         }
@@ -125,6 +129,14 @@ async fn forward_tail(
 
 async fn stop_capture(capture: voice_input::PcmStreamSession) {
     let _ = tokio::task::spawn_blocking(move || capture.cancel()).await;
+}
+
+async fn release_capture(
+    capture: voice_input::PcmStreamSession,
+    route: &tokio::sync::watch::Sender<Option<voice_input::DuplexPlayback>>,
+) {
+    stop_capture(capture).await;
+    let _ = route.send(None);
 }
 
 #[cfg(all(test, feature = "e2e-test-support"))]

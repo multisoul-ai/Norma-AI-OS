@@ -1,6 +1,7 @@
 use crate::audio_capture::{
     pcm_stream_chunk_from_samples, AudioCapture, PCM_STREAM_SAMPLE_RATE_HZ,
 };
+use crate::duplex_playback::{DuplexCommand, DuplexPlayback};
 use crate::permissions::ensure_microphone_authorized;
 use crate::VoiceInputError;
 use crate::{AudioQueueStats, PcmEvent, PCM_QUEUE_CHUNKS};
@@ -23,6 +24,7 @@ pub struct PcmStreamSession {
     stop_tx: Option<mpsc::Sender<()>>,
     capture_thread: Option<JoinHandle<()>>,
     forward_thread: Option<JoinHandle<()>>,
+    playback: Option<DuplexPlayback>,
     #[cfg(feature = "test-support")]
     test_hold_tx: Option<async_channel::Sender<PcmAudioChunk>>,
     #[cfg(feature = "test-support")]
@@ -37,6 +39,7 @@ impl PcmStreamSession {
             stop_tx: Some(stop_tx),
             capture_thread: Some(thread),
             forward_thread: None,
+            playback: None,
             #[cfg(feature = "test-support")]
             test_hold_tx: None,
             #[cfg(feature = "test-support")]
@@ -46,6 +49,11 @@ impl PcmStreamSession {
 
     pub fn cancel(mut self) {
         self.stop_and_join();
+    }
+
+    /// Player on this capture's voice-processing engine. `None` for raw capture and test fixtures.
+    pub fn playback(&self) -> Option<DuplexPlayback> {
+        self.playback.clone()
     }
 
     fn stop_and_join(&mut self) {
@@ -119,6 +127,7 @@ fn take_test_pcm_stream() -> Option<(PcmStreamSession, async_channel::Receiver<P
             stop_tx: None,
             capture_thread: None,
             forward_thread: None,
+            playback: None,
             test_hold_tx,
             test_lifecycle_tx: lifecycle,
         },
@@ -170,9 +179,16 @@ fn start_pcm_stream_with_voice_processing(
     let (started_tx, started_rx) = mpsc::channel::<Result<(), VoiceInputError>>();
 
     let stats = Arc::new(AudioQueueStats::default());
+    let (playback, play_rx) = if voice_processing {
+        let (tx, rx) = mpsc::channel();
+        (Some(DuplexPlayback::from_sender(tx)), Some(rx))
+    } else {
+        (None, None)
+    };
     let capture_thread = spawn_capture_thread(
         pcm_tx,
         stop_rx,
+        play_rx,
         started_tx,
         input_device_id,
         voice_processing,
@@ -213,6 +229,7 @@ fn start_pcm_stream_with_voice_processing(
         stop_tx: Some(stop_tx),
         capture_thread: Some(capture_thread),
         forward_thread: Some(forward_thread),
+        playback,
         #[cfg(feature = "test-support")]
         test_hold_tx: None,
         #[cfg(feature = "test-support")]
@@ -246,6 +263,7 @@ fn wait_for_voice_processing_ready(
 fn spawn_capture_thread(
     pcm_tx: crossbeam_channel::Sender<PcmEvent>,
     stop_rx: mpsc::Receiver<()>,
+    play_rx: Option<mpsc::Receiver<DuplexCommand>>,
     started_tx: mpsc::Sender<Result<(), VoiceInputError>>,
     input_device_id: Option<String>,
     voice_processing: bool,
@@ -263,13 +281,17 @@ fn spawn_capture_thread(
                     voice_processing,
                 );
                 match capture {
-                    Ok(capture) => {
+                    Ok(mut capture) => {
                         tracing::info!(
                             target: "norma_voice",
                             "AVAudioEngine microphone capture started"
                         );
                         let _ = started_tx.send(Ok(()));
-                        let _ = stop_rx.recv();
+                        if let Some(play_rx) = play_rx {
+                            capture.pump_playback(stop_rx, play_rx);
+                        } else {
+                            let _ = stop_rx.recv();
+                        }
                         capture.stop();
                         tracing::info!(
                             target: "norma_voice",

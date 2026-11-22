@@ -219,6 +219,37 @@ fn test_macos_audio_capture_avoids_unstable_voice_processing_path() {
     );
 }
 
+/// AUDIO-8：回声消除和播放必须在同一条 AVAudioEngine 上。
+///
+/// 数据构造：读取生产 `audio_capture.rs`。主输出音量为 1，麦克风 mixer 为 0。
+///
+/// 执行过程：确认图里有播放节点，并且不再把主 mixer 静音。
+///
+/// 预期结果：
+///   - 正断言：存在 AVAudioPlayerNode，麦克风 mixer 音量为 0，主输出音量为 1。
+///   - 负断言：不再把唯一的 mixer 设为 0，否则播放和回声消除会分成两条线。
+#[cfg(target_os = "macos")]
+#[test]
+fn test_voice_processing_playback_shares_the_capture_engine() {
+    let source = include_str!("../../src/audio_capture.rs");
+    assert!(
+        source.contains("AVAudioPlayerNode::new()"),
+        "回声消除引擎必须挂上播放节点"
+    );
+    assert!(
+        source.contains("mic_mixer.setOutputVolume(0.0)"),
+        "麦克风支路必须静音，避免把采集声放出来"
+    );
+    assert!(
+        source.contains("main.setOutputVolume(1.0)"),
+        "播放必须走可听的主输出"
+    );
+    assert!(
+        !source.contains("main.setOutputVolume(0.0)"),
+        "不能再把主输出静音，否则播放只能另开一条引擎"
+    );
+}
+
 /// AUDIO-1: AudioCapture::start 启动后应向 PCM 队列发送录音样本。
 ///
 /// 数据构造（含关键数值的推导过程）：
